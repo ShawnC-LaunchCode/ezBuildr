@@ -1,4 +1,4 @@
-# Poll-Vault Build Progress Report
+# Vault-Logic Build Progress Report
 
 **Date:** 2025-10-12
 **Status:** Phase 1 Complete - Question & Page Reordering (Backend + Frontend)

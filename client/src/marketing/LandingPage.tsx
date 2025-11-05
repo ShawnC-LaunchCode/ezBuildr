@@ -1,6 +1,6 @@
-import Hero from "./components/Hero";
+﻿import Hero from "./components/Hero";
 import HowItWorks from "./components/HowItWorks";
-import WhyPollVault from "./components/WhyPollVault";
+import WhyVaultLogic from "./components/WhyVaultLogic";
 import AIAnalytics from "./components/AIAnalytics";
 import FeatureGrid from "./components/FeatureGrid";
 import Testimonials from "./components/Testimonials";
@@ -21,10 +21,10 @@ export default function LandingPage() {
             <div className="flex items-center space-x-3">
               <img
                 src={logo}
-                alt="Poll Vault Logo"
+                alt="Vault-Logic Logo"
                 className="w-8 h-8 rounded-lg object-cover"
               />
-              <span className="text-xl font-bold text-white">Poll Vault</span>
+              <span className="text-xl font-bold text-white">Vault-Logic</span>
             </div>
             {googleClientId ? (
               <div className="bg-white rounded-xl">
@@ -46,7 +46,7 @@ export default function LandingPage() {
       {/* Marketing Sections */}
       <Hero />
       <HowItWorks />
-      <WhyPollVault />
+      <WhyVaultLogic />
       <AIAnalytics />
       <FeatureGrid />
       <Testimonials />
@@ -56,7 +56,7 @@ export default function LandingPage() {
       <footer className="border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} Poll Vault. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Vault-Logic. All rights reserved.</p>
           </div>
         </div>
       </footer>

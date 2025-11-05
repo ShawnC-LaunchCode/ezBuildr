@@ -98,7 +98,7 @@ export function TopNavBar({
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <span className="font-semibold text-gray-600">Poll-Vault</span>
+        <span className="font-semibold text-gray-600">Vault-Logic</span>
         <span className="text-gray-400">/</span>
         <InlineEditableTitle
           value={surveyTitle}

@@ -3,6 +3,11 @@
 **Workflow Builder and Automation Logic Engine**
 
 > Vault-Logic lets you design and execute intelligent workflows with dynamic page and question logic — built for creators, consultants, and automation developers.
+﻿# Vault-Logic
+
+[![CI](https://github.com/ShawnC-LaunchCode/Vault-Logic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/Vault-Logic/actions/workflows/ci.yml)
+
+**Vault-Logic** is a comprehensive workflow builder and survey platform built with modern web technologies. Create, distribute, and analyze surveys and workflows with advanced features like conditional logic, multi-page workflows, and detailed analytics.
 
 [![CI](https://github.com/ShawnC-LaunchCode/VaultLogic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/VaultLogic/actions/workflows/ci.yml)
 
@@ -51,6 +56,7 @@ VITE_BASE_URL=http://localhost:5000
 # Database (Neon PostgreSQL)
 DATABASE_URL=postgresql://user:password@host.neon.tech/vault_logic
 
+
 # Google OAuth2 (required for authentication)
 GOOGLE_CLIENT_ID=your-server-client-id.apps.googleusercontent.com
 VITE_GOOGLE_CLIENT_ID=your-client-web-client-id.apps.googleusercontent.com
@@ -70,6 +76,40 @@ UPLOAD_DIR=./uploads
 ```
 
 ---
+### Step 3: Set Up PostgreSQL Database
+
+**Option A: Neon (Recommended - Free & Easy)**
+
+1. Go to [Neon](https://neon.tech/) and sign up
+2. Create a new project
+3. Copy the connection string (looks like `postgresql://user:pass@ep-xyz.region.aws.neon.tech/dbname`)
+4. Paste into `DATABASE_URL` in your `.env` file
+
+**Option B: Local PostgreSQL Installation**
+
+```bash
+# Create a database named 'vault_logic'
+# Using psql command line:
+psql -U postgres
+CREATE DATABASE vault_logic;
+\q
+
+# Update DATABASE_URL in .env:
+# DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/vault_logic
+```
+
+### Step 4: Set Up Google OAuth2 (REQUIRED for login)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to **APIs & Services > Credentials**
+4. Click **"Create Credentials"** > **"OAuth 2.0 Client IDs"**
+5. Choose **"Web application"**
+6. Configure **Authorized JavaScript origins**:
+   - Add: `http://localhost:5000`
+7. Leave "Authorized redirect URIs" empty
+8. Click **Create** and copy the **Client ID**
+9. Paste the Client ID into **both** `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in your `.env` file
 
 ## 🧱 Architecture Overview
 

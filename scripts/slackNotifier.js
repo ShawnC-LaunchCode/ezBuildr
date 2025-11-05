@@ -1,4 +1,4 @@
-import { WebClient } from "@slack/web-api";
+﻿import { WebClient } from "@slack/web-api";
 import fs from "fs";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -135,7 +135,7 @@ export async function postSlackSummary() {
 
   const commit = process.env.GITHUB_SHA?.slice(0, 7) || "local";
   const actor = process.env.GITHUB_ACTOR || "local";
-  const repo = process.env.GITHUB_REPOSITORY || "Poll-Vault";
+  const repo = process.env.GITHUB_REPOSITORY || "Vault-Logic";
   const runId = process.env.GITHUB_RUN_ID || "test";
   const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
   const buildUrl = `${serverUrl}/${repo}/actions/runs/${runId}`;

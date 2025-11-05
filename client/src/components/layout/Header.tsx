@@ -70,10 +70,10 @@ export default function Header({ title, description, actions }: HeaderProps) {
                 <div className="flex items-center space-x-3">
                   <img
                     src={logo}
-                    alt="Poll Vault Logo"
+                    alt="Vault-Logic Logo"
                     className="w-8 h-8 rounded-lg object-cover"
                   />
-                  <SheetTitle className="text-xl font-bold">Poll Vault</SheetTitle>
+                  <SheetTitle className="text-xl font-bold">Vault-Logic</SheetTitle>
                 </div>
               </SheetHeader>
 

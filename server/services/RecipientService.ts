@@ -109,7 +109,7 @@ export class RecipientService {
     // Get creator info
     const user = await storage.getUser(userId);
     const creatorName = user ? `${user.firstName} ${user.lastName}`.trim() : undefined;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@pollvault.com';
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultlogic.com';
 
     // Send invitations
     const results = [];
@@ -347,7 +347,7 @@ export class RecipientService {
     // Get creator info
     const user = await storage.getUser(userId);
     const creatorName = user ? `${user.firstName} ${user.lastName}`.trim() : undefined;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@pollvault.com';
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultlogic.com';
 
     // Send reminder
     const surveyUrl = `${process.env.CLIENT_URL || 'http://localhost:5000'}/survey/${recipient.token}`;
@@ -427,7 +427,7 @@ export class RecipientService {
     // Get creator info
     const user = await storage.getUser(userId);
     const creatorName = user ? `${user.firstName} ${user.lastName}`.trim() : undefined;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@pollvault.com';
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultlogic.com';
 
     // Send reminders
     const results = [];

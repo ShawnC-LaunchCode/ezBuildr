@@ -1,8 +1,8 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 import { brand } from "../lib/brand";
 
 const quotes = [
-  { quote: "Poll-Vault helps us build better surveys in minutes, not hours.", name: "Ops Lead, SaaS" },
+  { quote: "Vault-Logic helps us build better surveys in minutes, not hours.", name: "Ops Lead, SaaS" },
   { quote: "Our analytics used to take days — now it's instant.", name: "Research Manager" }
 ];
 

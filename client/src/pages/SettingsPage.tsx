@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+﻿import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
@@ -93,7 +93,7 @@ export default function SettingsPage() {
                   User Preferences
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Customize your Poll-Vault experience
+                  Customize your Vault-Logic experience
                 </p>
               </div>
               <Button

@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { Wand2, Play } from "lucide-react";
 import { brand } from "../lib/brand";
@@ -16,7 +16,7 @@ export default function Hero() {
             Surveys That <span className="inline-block">Build Themselves.</span>
           </h1>
           <p className="mt-4 text-white/90 text-base sm:text-lg max-w-2xl">
-            Tell Poll-Vault what you want to learn — our AI designs, organizes, and personalizes your survey in seconds.
+            Tell Vault-Logic what you want to learn — our AI designs, organizes, and personalizes your survey in seconds.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <Link

@@ -1,8 +1,8 @@
-# Authentication Testing Guide
+﻿# Authentication Testing Guide
 
 ## Overview
 
-This document provides comprehensive documentation for the authentication test suite in Poll-Vault. The tests are designed to help diagnose OAuth issues by covering all aspects of the Google OAuth2 authentication flow, session management, and security features.
+This document provides comprehensive documentation for the authentication test suite in Vault-Logic. The tests are designed to help diagnose OAuth issues by covering all aspects of the Google OAuth2 authentication flow, session management, and security features.
 
 ## Test Structure
 

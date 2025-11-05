@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 import { brand } from "../lib/brand";
 
 export default function AIAnalytics() {
@@ -13,7 +13,7 @@ export default function AIAnalytics() {
         >
           <h2 className="text-2xl sm:text-3xl font-semibold mb-3">Understand your results — instantly.</h2>
           <p className="text-gray-600">
-            Poll-Vault's AI reads every response and highlights key insights, sentiment, and trends — so you can act faster.
+            Vault-Logic's AI reads every response and highlights key insights, sentiment, and trends — so you can act faster.
           </p>
           <ul className="mt-4 text-sm text-gray-700 list-disc pl-5 space-y-1">
             <li>AI summaries across questions</li>

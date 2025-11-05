@@ -92,7 +92,7 @@ export function registerRecipientRoutes(app: Express): void {
 
       const user = await storage.getUser(userId);
       const creatorName = user ? `${user.firstName} ${user.lastName}`.trim() : undefined;
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@pollvault.com';
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultlogic.com';
 
       const results = [];
       let successCount = 0;

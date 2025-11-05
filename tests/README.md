@@ -1,8 +1,8 @@
-# Poll-Vault Analytics Testing Framework
+﻿# Vault-Logic Analytics Testing Framework
 
 ## Overview
 
-This testing framework validates the integrity of Poll-Vault's analytics system from data submission through storage to aggregation. It ensures that all submitted answers are correctly persisted and that aggregated analytics accurately reflect the underlying responses.
+This testing framework validates the integrity of Vault-Logic's analytics system from data submission through storage to aggregation. It ensures that all submitted answers are correctly persisted and that aggregated analytics accurately reflect the underlying responses.
 
 ## Architecture
 
@@ -219,5 +219,5 @@ When adding new tests:
 - [Vitest Documentation](https://vitest.dev/)
 - [Better-SQLite3](https://github.com/WiseLibs/better-sqlite3)
 - [Drizzle ORM](https://orm.drizzle.team/)
-- Poll-Vault Analytics Service: `server/services/AnalyticsService.ts`
-- Poll-Vault Analytics Repository: `server/repositories/AnalyticsRepository.ts`
+- Vault-Logic Analytics Service: `server/services/AnalyticsService.ts`
+- Vault-Logic Analytics Repository: `server/repositories/AnalyticsRepository.ts`

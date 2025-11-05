@@ -1,7 +1,7 @@
-# Poll-Vault: Developer Reference Guide
+# Vault-Logic: Developer Reference Guide
 
 **Last Updated:** 2025-11-05
-**Project Type:** Survey/Polling Platform
+**Project Type:** Workflow Builder & Survey Platform
 **Tech Stack:** Node.js/Express, React, PostgreSQL (Neon), Drizzle ORM
 
 ---
@@ -429,4 +429,4 @@ npm run test:e2e         # Run end-to-end tests
 
 **Version:** 4.1 | **Last Updated:** 2025-11-05
 
-This condensed reference guide provides essential technical documentation for Poll-Vault. For detailed commit history, see git log.
+This condensed reference guide provides essential technical documentation for Vault-Logic. For detailed commit history, see git log.

@@ -3,7 +3,7 @@ import { brand } from "../lib/brand";
 import { Sparkles, GitBranch, ShieldCheck, BarChart3, Download, PlugZap } from "lucide-react";
 
 const items = [
-  { icon: Sparkles, title: "AI Survey Creation", body: "Save hours — generate complete surveys instantly." },
+  { icon: Sparkles, title: "AI Workflow & Survey Creation", body: "Save hours — generate complete workflows and surveys instantly." },
   { icon: GitBranch, title: "Advanced Logic", body: "Dynamic branching and nested loops, no code." },
   { icon: ShieldCheck, title: "Anonymous Access", body: "Secure, flexible participation modes." },
   { icon: BarChart3, title: "Powerful Analytics", body: "Completion rates, drop-offs, trends." },
@@ -11,11 +11,11 @@ const items = [
   { icon: PlugZap, title: "Integrations", body: "SendGrid, Google, and more." }
 ];
 
-export default function WhyPollVault() {
+export default function WhyVaultLogic() {
   return (
     <section className={`${brand.sectionPad} py-12 sm:py-16 bg-slate-50`}>
       <div className={`${brand.maxw}`}>
-        <h2 className="text-2xl sm:text-3xl font-semibold mb-6">Why Poll-Vault</h2>
+        <h2 className="text-2xl sm:text-3xl font-semibold mb-6">Why Vault-Logic</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(({ icon: Icon, title, body }, i) => (
             <motion.div

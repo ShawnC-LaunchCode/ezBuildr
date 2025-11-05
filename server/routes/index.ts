@@ -1,4 +1,4 @@
-import type { Express } from "express";
+﻿import type { Express } from "express";
 import { registerAuthRoutes } from "./auth.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerSurveyRoutes } from "./surveys.routes";
@@ -17,6 +17,11 @@ import { registerAiRoutes } from "./ai.routes";
 import { registerGroupAnalyticsRoutes } from "./groupAnalytics.routes";
 import { registerTemplateRoutes } from "./templates.routes";
 import { registerTemplateSharingRoutes } from "./templateSharing.routes";
+import { registerWorkflowRoutes } from "./workflows.routes";
+import { registerSectionRoutes } from "./sections.routes";
+import { registerStepRoutes } from "./steps.routes";
+import { registerRunRoutes } from "./runs.routes";
+import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 
 /**
  * Register all modular routes
@@ -76,4 +81,23 @@ export function registerAllRoutes(app: Express): void {
 
   // Admin routes (must be after auth routes)
   registerAdminRoutes(app);
+
+  // ========================================================================
+  // Vault-Logic Workflow Routes
+  // ========================================================================
+
+  // Workflow management routes
+  registerWorkflowRoutes(app);
+
+  // Section management routes
+  registerSectionRoutes(app);
+
+  // Step management routes
+  registerStepRoutes(app);
+
+  // Workflow run and execution routes
+  registerRunRoutes(app);
+
+  // Workflow export routes (JSON and CSV)
+  registerWorkflowExportRoutes(app);
 }

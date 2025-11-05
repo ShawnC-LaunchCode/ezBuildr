@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 /**
@@ -83,7 +83,7 @@ async function testGeminiApiDirect() {
     console.log("🎉 ALL TESTS PASSED!");
     console.log("\n✅ Gemini API is working correctly");
     console.log(`✅ Active model: ${generateModel.name.replace('models/', '')}`);
-    console.log("\n💡 Ready to integrate AI features into Poll-Vault!");
+    console.log("\n💡 Ready to integrate AI features into Vault-Logic!");
 
   } catch (error) {
     console.error("\n❌ TEST FAILED!");

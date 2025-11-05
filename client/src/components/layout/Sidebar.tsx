@@ -68,10 +68,10 @@ export default function Sidebar() {
         <div className="flex items-center space-x-3">
           <img
             src={logo}
-            alt="Poll Vault Logo"
+            alt="Vault-Logic Logo"
             className="w-8 h-8 rounded-lg object-cover"
           />
-          <span className="text-lg sm:text-xl font-bold text-foreground">Poll Vault</span>
+          <span className="text-lg sm:text-xl font-bold text-foreground">Vault-Logic</span>
         </div>
       </div>
 

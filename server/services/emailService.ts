@@ -22,7 +22,7 @@ You have received a new response for your survey "${surveyTitle}" from ${respond
 View the response: ${responseViewUrl}
 
 Best regards,
-Poll Vault Team
+Vault-Logic Team
 ==========================
     `);
     
@@ -46,7 +46,7 @@ Poll Vault Team
         <p>You have received a new response for your survey "<strong>${surveyTitle}</strong>" from <strong>${respondentName}</strong>.</p>
         <p><a href="${responseViewUrl}">View the response</a></p>
         <br>
-        <p>Best regards,<br>Poll Vault Team</p>
+        <p>Best regards,<br>Vault-Logic Team</p>
       `
     });
     */
@@ -78,7 +78,7 @@ Click here to start the survey: ${surveyUrl}
 Thank you for your time!
 
 Best regards,
-Poll Vault Team
+Vault-Logic Team
 =========================
     `);
     
