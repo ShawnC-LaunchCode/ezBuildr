@@ -60,6 +60,27 @@ export function registerPageRoutes(app: Express): void {
   });
 
   /**
+   * PUT /api/surveys/:surveyId/pages/:pageId
+   * Update a single page
+   */
+  app.put('/api/surveys/:surveyId/pages/:pageId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(req.params.surveyId, userId);
+
+      const updatedPage = await storage.updateSurveyPage(req.params.pageId, req.body);
+      res.json(updatedPage);
+    } catch (error) {
+      console.error("Error updating page:", error);
+      if (error instanceof Error && error.message.includes("Access denied")) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to update page" });
+    }
+  });
+
+  /**
    * PUT /api/surveys/:surveyId/pages/reorder
    * Bulk reorder pages within a survey
    */

@@ -28,6 +28,11 @@
 
 ## Recent Updates
 
+### 2025-11-05: Bug Fixes & Developer Experience
+- Fixed missing PUT /api/surveys/:surveyId/pages/:pageId endpoint causing 404 errors when updating page titles
+- Made Gemini API key optional - app now starts without AI features if key not configured
+- Improved development setup documentation
+
 ### 2025-10-22: Historical Statistics & Admin Enhancements
 - Added `systemStats` table tracking lifetime totals (surveys/responses created/deleted)
 - Added survey deletion buttons to admin pages with confirmation dialogs
@@ -300,4 +305,4 @@ Railway auto-detects the build and start commands. View deployment logs in the R
 
 ---
 
-**Last Updated:** 2025-10-29
+**Last Updated:** 2025-11-05

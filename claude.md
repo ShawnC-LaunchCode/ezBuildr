@@ -1,12 +1,17 @@
 # Poll-Vault: Developer Reference Guide
 
-**Last Updated:** 2025-11-03
+**Last Updated:** 2025-11-05
 **Project Type:** Survey/Polling Platform
 **Tech Stack:** Node.js/Express, React, PostgreSQL (Neon), Drizzle ORM
 
 ---
 
 ## Recent Updates
+
+### 2025-11-05: Bug Fixes & Developer Experience
+- Fixed missing PUT /api/surveys/:surveyId/pages/:pageId endpoint causing 404 errors when updating page titles
+- Made Gemini API key optional - app now starts without AI features if key not configured (warning instead of error)
+- Improved development setup with better error handling
 
 ### 2025-11-03: Group Performance Dashboard & Analytics (Phase 4)
 - Added GroupAnalyticsService for recipient group performance metrics
@@ -422,6 +427,6 @@ npm run test:e2e         # Run end-to-end tests
 
 ---
 
-**Version:** 4.0 | **Last Updated:** 2025-10-29
+**Version:** 4.1 | **Last Updated:** 2025-11-05
 
 This condensed reference guide provides essential technical documentation for Poll-Vault. For detailed commit history, see git log.

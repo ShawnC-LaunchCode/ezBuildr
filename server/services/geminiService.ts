@@ -15,11 +15,9 @@ export class GeminiService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // In test environment, allow instantiation without API key
+      // Allow instantiation without API key in all environments
       // Methods will throw errors if called without proper configuration
-      if (process.env.NODE_ENV !== 'test') {
-        throw new Error("GEMINI_API_KEY not configured in environment variables");
-      }
+      console.log("GEMINI_API_KEY not configured - AI features will be unavailable");
       return;
     }
 
