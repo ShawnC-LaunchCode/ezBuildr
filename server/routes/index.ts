@@ -22,6 +22,7 @@ import { registerSectionRoutes } from "./sections.routes";
 import { registerStepRoutes } from "./steps.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
+import { registerBlockRoutes } from "./blocks.routes";
 
 /**
  * Register all modular routes
@@ -94,6 +95,9 @@ export function registerAllRoutes(app: Express): void {
 
   // Step management routes
   registerStepRoutes(app);
+
+  // Block management routes (prefill, validate, branch)
+  registerBlockRoutes(app);
 
   // Workflow run and execution routes
   registerRunRoutes(app);

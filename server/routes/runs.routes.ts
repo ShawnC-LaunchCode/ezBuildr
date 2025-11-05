@@ -111,6 +111,67 @@ export function registerRunRoutes(app: Express): void {
   });
 
   /**
+   * POST /api/runs/:runId/sections/:sectionId/submit
+   * Submit section values with validation
+   */
+  app.post('/api/runs/:runId/sections/:sectionId/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
+      }
+
+      const { runId, sectionId } = req.params;
+      const { values } = req.body;
+
+      if (!Array.isArray(values)) {
+        return res.status(400).json({ success: false, errors: ["values must be an array"] });
+      }
+
+      const result = await runService.submitSectionValues(runId, userId, sectionId, values);
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error submitting section values:", error);
+      const message = error instanceof Error ? error.message : "Failed to submit section values";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, errors: [message] });
+    }
+  });
+
+  /**
+   * POST /api/runs/:runId/next
+   * Navigate to next section (executes branch blocks)
+   */
+  app.post('/api/runs/:runId/next', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
+      }
+
+      const { runId } = req.params;
+      const { currentSectionId } = req.body;
+
+      if (!currentSectionId) {
+        return res.status(400).json({ success: false, errors: ["currentSectionId is required"] });
+      }
+
+      const result = await runService.navigateNext(runId, userId, currentSectionId);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error navigating to next section:", error);
+      const message = error instanceof Error ? error.message : "Failed to navigate to next section";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, errors: [message] });
+    }
+  });
+
+  /**
    * POST /api/runs/:runId/values/bulk
    * Bulk upsert step values
    */

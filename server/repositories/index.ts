@@ -29,6 +29,7 @@ export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepos
 export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
 export { ParticipantRepository, participantRepository } from "./ParticipantRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
+export { BlockRepository, blockRepository } from "./BlockRepository";
 
 // Export type for Insert operations
 export type { InsertAnalyticsEvent } from "./AnalyticsRepository";

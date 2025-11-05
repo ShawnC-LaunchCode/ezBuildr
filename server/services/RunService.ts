@@ -9,6 +9,8 @@ import {
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
 import { workflowService } from "./WorkflowService";
 import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from "@shared/workflowLogic";
+import { blockRunner } from "./BlockRunner";
+import type { BlockContext } from "@shared/types/blocks";
 
 /**
  * Service layer for workflow run-related business logic
@@ -42,19 +44,45 @@ export class RunService {
 
   /**
    * Create a new workflow run
+   * Executes onRunStart blocks to prefill initial data
    */
   async createRun(
     workflowId: string,
     userId: string,
-    data: Omit<InsertWorkflowRun, 'workflowId'>
+    data: Omit<InsertWorkflowRun, 'workflowId'>,
+    queryParams?: Record<string, any>
   ): Promise<WorkflowRun> {
     await this.workflowSvc.verifyOwnership(workflowId, userId);
 
-    return await this.runRepo.create({
+    const run = await this.runRepo.create({
       ...data,
       workflowId,
       completed: false,
     });
+
+    // Execute onRunStart blocks to prefill data
+    const context: BlockContext = {
+      workflowId,
+      runId: run.id,
+      phase: "onRunStart",
+      data: {},
+      queryParams,
+    };
+
+    const result = await blockRunner.runPhase(context);
+
+    // Persist any prefilled data to step_values
+    if (result.data && Object.keys(result.data).length > 0) {
+      for (const [stepId, value] of Object.entries(result.data)) {
+        await this.valueRepo.upsert({
+          runId: run.id,
+          stepId,
+          value,
+        });
+      }
+    }
+
+    return run;
   }
 
   /**
@@ -126,6 +154,97 @@ export class RunService {
         value,
       });
     }
+  }
+
+  /**
+   * Submit section values with validation
+   * Executes onSectionSubmit blocks to validate data
+   */
+  async submitSectionValues(
+    runId: string,
+    userId: string,
+    sectionId: string,
+    values: Array<{ stepId: string; value: any }>
+  ): Promise<{ success: boolean; errors?: string[] }> {
+    const run = await this.getRun(runId, userId);
+
+    // Verify section belongs to workflow
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section || section.workflowId !== run.workflowId) {
+      throw new Error("Section does not belong to this workflow");
+    }
+
+    // Get current data
+    const currentValues = await this.valueRepo.findByRunId(runId);
+    const data: Record<string, any> = {};
+    currentValues.forEach((v) => {
+      data[v.stepId] = v.value;
+    });
+
+    // Merge in new values (staging)
+    const stagedData = { ...data };
+    values.forEach(({ stepId, value }) => {
+      stagedData[stepId] = value;
+    });
+
+    // Execute onSectionSubmit validation blocks
+    const context: BlockContext = {
+      workflowId: run.workflowId,
+      runId,
+      phase: "onSectionSubmit",
+      sectionId,
+      data: stagedData,
+    };
+
+    const result = await blockRunner.runPhase(context);
+
+    // If validation failed, return errors
+    if (!result.success && result.errors) {
+      return { success: false, errors: result.errors };
+    }
+
+    // Validation passed, persist the values
+    for (const { stepId, value } of values) {
+      await this.upsertStepValue(runId, userId, {
+        runId,
+        stepId,
+        value,
+      });
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Navigate to next section
+   * Executes onNext blocks to determine branching
+   */
+  async navigateNext(
+    runId: string,
+    userId: string,
+    currentSectionId: string
+  ): Promise<{ nextSectionId?: string }> {
+    const run = await this.getRun(runId, userId);
+
+    // Get current data
+    const currentValues = await this.valueRepo.findByRunId(runId);
+    const data: Record<string, any> = {};
+    currentValues.forEach((v) => {
+      data[v.stepId] = v.value;
+    });
+
+    // Execute onNext blocks to determine next section
+    const context: BlockContext = {
+      workflowId: run.workflowId,
+      runId,
+      phase: "onNext",
+      sectionId: currentSectionId,
+      data,
+    };
+
+    const result = await blockRunner.runPhase(context);
+
+    return { nextSectionId: result.nextSectionId };
   }
 
   /**

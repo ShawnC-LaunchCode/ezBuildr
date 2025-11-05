@@ -933,6 +933,35 @@ export const stepValues = pgTable("step_values", {
   index("step_values_step_idx").on(table.stepId),
 ]);
 
+// Block type enum
+export const blockTypeEnum = pgEnum('block_type', ['prefill', 'validate', 'branch']);
+
+// Block phase enum
+export const blockPhaseEnum = pgEnum('block_phase', [
+  'onRunStart',
+  'onSectionEnter',
+  'onSectionSubmit',
+  'onNext',
+  'onRunComplete'
+]);
+
+// Blocks table (generic block framework for workflow runtime)
+export const blocks = pgTable("blocks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }), // nullable - can be workflow-scoped
+  type: blockTypeEnum("type").notNull(),
+  phase: blockPhaseEnum("phase").notNull(),
+  config: jsonb("config").notNull(), // type-specific configuration
+  enabled: boolean("enabled").default(true).notNull(),
+  order: integer("order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("blocks_workflow_phase_order_idx").on(table.workflowId, table.phase, table.order),
+  index("blocks_section_idx").on(table.sectionId),
+]);
+
 // Vault-Logic Relations
 export const workflowsRelations = relations(workflows, ({ one, many }) => ({
   creator: one(users, {
@@ -942,6 +971,7 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
   sections: many(sections),
   logicRules: many(logicRules),
   runs: many(workflowRuns),
+  blocks: many(blocks),
 }));
 
 export const sectionsRelations = relations(sections, ({ one, many }) => ({
@@ -950,6 +980,7 @@ export const sectionsRelations = relations(sections, ({ one, many }) => ({
     references: [workflows.id],
   }),
   steps: many(steps),
+  blocks: many(blocks),
 }));
 
 export const stepsRelations = relations(steps, ({ one, many }) => ({
@@ -1010,6 +1041,17 @@ export const logicRulesRelations = relations(logicRules, ({ one }) => ({
   }),
 }));
 
+export const blocksRelations = relations(blocks, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [blocks.workflowId],
+    references: [workflows.id],
+  }),
+  section: one(sections, {
+    fields: [blocks.sectionId],
+    references: [sections.id],
+  }),
+}));
+
 // Vault-Logic Insert Schemas
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
@@ -1018,6 +1060,7 @@ export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: t
 export const insertParticipantSchema = createInsertSchema(participants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Vault-Logic Types
 export type Workflow = typeof workflows.$inferSelect;
@@ -1034,3 +1077,5 @@ export type WorkflowRun = typeof workflowRuns.$inferSelect;
 export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;
 export type StepValue = typeof stepValues.$inferSelect;
 export type InsertStepValue = typeof insertStepValueSchema._type;
+export type Block = typeof blocks.$inferSelect;
+export type InsertBlock = typeof insertBlockSchema._type;
