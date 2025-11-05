@@ -1,115 +1,81 @@
+# Vault-Logic 🧠
+
+**Workflow Builder and Automation Logic Engine**
+
+> Vault-Logic lets you design and execute intelligent workflows with dynamic page and question logic — built for creators, consultants, and automation developers.
 ﻿# Vault-Logic
 
 [![CI](https://github.com/ShawnC-LaunchCode/Vault-Logic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/Vault-Logic/actions/workflows/ci.yml)
 
 **Vault-Logic** is a comprehensive workflow builder and survey platform built with modern web technologies. Create, distribute, and analyze surveys and workflows with advanced features like conditional logic, multi-page workflows, and detailed analytics.
 
-## Tech Stack
+[![CI](https://github.com/ShawnC-LaunchCode/VaultLogic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/VaultLogic/actions/workflows/ci.yml)
 
-- **Frontend:** React, Vite, TanStack Query, Radix UI, Tailwind CSS
-- **Backend:** Node.js, Express, Drizzle ORM
-- **Database:** PostgreSQL (Neon serverless compatible)
-- **Authentication:** Google OAuth2
-- **Services:** SendGrid (email), Multer (file upload)
-
-## Features
-
-- 🔐 **Secure Authentication** - Google OAuth2 integration
-- 📋 **Survey Builder** - Multi-page surveys with drag-and-drop interface
-- 🎯 **Question Types** - Short text, long text, multiple choice, radio, yes/no, date/time, file upload, loop groups
-- 🔀 **Conditional Logic** - Show/hide questions based on answers
-- 📧 **Email Distribution** - Send personalized survey invitations via SendGrid
-- 👤 **Anonymous Responses** - Support for anonymous survey submissions with rate limiting
-- 📊 **Analytics** - Completion rates, response times, drop-off analysis, and engagement metrics
-- 📤 **Export** - Export responses to CSV or PDF formats
-- 🎨 **Modern UI** - Built with Radix UI components and Tailwind CSS
+Originally inspired by Poll-Vault, rebuilt for next-generation workflow automation.
 
 ---
 
-## Recent Updates
+## 🚀 Quick Start
 
-### 2025-11-05: Bug Fixes & Developer Experience
-- Fixed missing PUT /api/surveys/:surveyId/pages/:pageId endpoint causing 404 errors when updating page titles
-- Made Gemini API key optional - app now starts without AI features if key not configured
-- Improved development setup documentation
-
-### 2025-10-22: Historical Statistics & Admin Enhancements
-- Added `systemStats` table tracking lifetime totals (surveys/responses created/deleted)
-- Added survey deletion buttons to admin pages with confirmation dialogs
-- Implemented status-based navigation (drafts → builder, active → results)
-- Fixed anonymous response creation by auto-generating `publicLink`
-
-### 2025-10-20: Railway Migration & Cleanup
-- Removed legacy Replit and Docker configurations
-- Simplified CORS to use `ALLOWED_ORIGIN` only
-- Verified production-ready architecture (monolithic full-stack deployment)
-
-### 2025-10-15: 3-Tier Architecture Refactoring
-- Implemented Repository layer for data access abstraction
-- Implemented Service layer for business logic orchestration
-- Refactored storage.ts (reduced from 2,500 to 1,480 lines)
-- Pattern: Routes → Services → Repositories → Database
-
----
-
-## Local Development Setup
-
-### Prerequisites
-
-Before you begin, make sure you have:
-- **Node.js** (v18 or higher) - [Download here](https://nodejs.org/)
-- **PostgreSQL** database - Use [Neon](https://neon.tech/) (recommended) or local PostgreSQL
-- **Git** (for cloning if needed)
-
-### Step 1: Install Dependencies
+**Prerequisites:** Node.js 18+, PostgreSQL (Neon recommended)
 
 ```bash
+# Clone the repository
+git clone https://github.com/ShawnC-LaunchCode/VaultLogic.git
+cd VaultLogic
+
+# Install dependencies
 npm install
-```
 
-*This installs all required packages from package.json*
-
-### Step 2: Set Up Environment Variables
-
-Create your `.env` file from the example:
-
-```bash
-# Windows
-copy .env.example .env
-
-# macOS/Linux
+# Set up environment variables
 cp .env.example .env
+# Edit .env with your database URL and Google OAuth credentials
+
+# Initialize database
+npm run db:push
+
+# Start development server
+npm run dev
 ```
 
-Now edit `.env` with your text editor and configure these **CRITICAL** variables:
+**Access the app:** http://localhost:5000
 
-**Minimum Required Configuration:**
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file with the following variables:
 
 ```env
-# Core Settings
+# Core Configuration
 NODE_ENV=development
 PORT=5000
 BASE_URL=http://localhost:5000
 VITE_BASE_URL=http://localhost:5000
 
-# Database (update with your PostgreSQL credentials)
-DATABASE_URL=postgresql://username:password@localhost:5432/vault_logic
+# Database (Neon PostgreSQL)
+DATABASE_URL=postgresql://user:password@host.neon.tech/vault_logic
 
-# Session Security (generate a random string)
-SESSION_SECRET=your-super-secret-session-key-change-this
 
-# CORS Settings
+# Google OAuth2 (required for authentication)
+GOOGLE_CLIENT_ID=your-server-client-id.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_ID=your-client-web-client-id.apps.googleusercontent.com
+
+# Session Security
+SESSION_SECRET=your-super-secret-32-character-minimum-session-key
+
+# CORS (hostnames only, no protocols)
 ALLOWED_ORIGIN=localhost,127.0.0.1
 
-# Google OAuth2 (you'll set this up in Step 4)
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-
-# Optional - Email (leave as-is for now)
-SENDGRID_API_KEY=SG.optional
+# Optional Services
+SENDGRID_API_KEY=your-sendgrid-api-key-here
 SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+GEMINI_API_KEY=your-google-gemini-api-key-here
+MAX_FILE_SIZE=10485760
+UPLOAD_DIR=./uploads
 ```
 
+---
 ### Step 3: Set Up PostgreSQL Database
 
 **Option A: Neon (Recommended - Free & Easy)**
@@ -145,163 +111,254 @@ CREATE DATABASE vault_logic;
 8. Click **Create** and copy the **Client ID**
 9. Paste the Client ID into **both** `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in your `.env` file
 
-### Step 5: Initialize Database Schema
+## 🧱 Architecture Overview
 
-```bash
-npm run db:push
+**Full-Stack Workflow Automation Platform**
+
+- **Frontend:** React (Vite, Tailwind CSS, TanStack Query, Radix UI)
+- **Backend:** Node.js (Express + Drizzle ORM)
+- **Database:** Neon PostgreSQL (serverless compatible)
+- **Auth:** Google OAuth2
+- **Storage:** Multer (local/S3 compatible)
+- **AI:** Google Gemini (optional)
+
+### Core Concept Flow
+
+```mermaid
+graph TD
+A[Creator Builds Workflow] --> B[Sections Pages]
+B --> C[Steps Questions]
+C --> D[Conditional Logic Engine]
+D --> E[Workflow Run Execution]
+E --> F[Data Export JSON/CSV]
 ```
 
-*This creates all necessary tables in your PostgreSQL database*
-
-### Step 6: Start the Development Server
-
-```bash
-npm run dev
-```
-
-You should see output like:
+**3-Tier Service Architecture:**
 
 ```
-Server running on port 5000
-Database connected successfully
+Routes → Services → Repositories → Database
 ```
 
-### Step 7: Open in Browser
-
-Visit: **http://localhost:5000**
-
-You should see the Vault-Logic login page!
+- **Routes:** Handle HTTP requests and responses
+- **Services:** Business logic and orchestration (20+ service classes)
+- **Repositories:** Data access abstraction (15+ repository classes)
+- **Database:** Drizzle ORM with strongly-typed PostgreSQL schema
 
 ---
 
-## Troubleshooting Common Issues
+## ⚙️ Key Features
 
-### Database Connection Failed
-
-- Verify PostgreSQL is running: `psql -U postgres -c "SELECT 1"`
-- Check DATABASE_URL format is correct
-- Ensure database exists: `psql -U postgres -l`
-
-### "GOOGLE_CLIENT_ID not provided"
-
-- Make sure you've set up Google OAuth2 (Step 4)
-- Check both `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` are set in `.env`
-- Restart the dev server after changing `.env`
-
-### Port 5000 already in use
-
-- Change `PORT=5001` in `.env`
-- Update Google OAuth origins to `http://localhost:5001`
-
-### Module not found errors
-
-- Delete `node_modules` folder
-- Run `npm install` again
+- 🔀 **Workflow Builder** — Visually create logic-driven workflows with drag-and-drop interface
+- 📄 **Sections & Steps** — Structure user journeys as pages and questions
+- ⚡ **Conditional Logic** — Show/hide fields and pages dynamically based on user input
+- 🧮 **Workflow Runs** — Capture user data and track execution progress
+- 🧰 **Data Export** — JSON/CSV outputs for reporting or integration
+- 🧱 **Drizzle ORM Schema** — Strongly typed PostgreSQL models with migrations
+- 🧑‍💻 **Developer Friendly** — TypeScript end-to-end, modular services, comprehensive tests
+- 📊 **Advanced Analytics** — Completion rates, drop-off analysis, engagement metrics, time tracking
+- 📧 **Email Distribution** — SendGrid integration for invitations and notifications
+- 🤖 **AI-Powered** — Google Gemini integration for workflow generation and analysis
+- 🔐 **Secure Auth** — Google OAuth2 with session management
+- 📤 **File Uploads** — Support for file upload questions with Multer
 
 ---
 
-## Optional: Set Up SendGrid for Email
+## 🧪 API Endpoints
 
-For now, you can test without email functionality. When ready:
+### Workflow Management
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/surveys` | Create workflow |
+| `GET` | `/api/surveys` | List all workflows |
+| `GET` | `/api/surveys/:id` | Fetch workflow with sections & steps |
+| `PUT` | `/api/surveys/:id` | Update workflow |
+| `DELETE` | `/api/surveys/:id` | Delete workflow |
+| `PATCH` | `/api/surveys/:id/status` | Update workflow status |
 
-1. Sign up at [SendGrid](https://sendgrid.com/)
-2. Create an API key
-3. Verify a sender email address
-4. Update `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL` in `.env`
+### Sections (Pages)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/surveys/:id/pages` | Create section |
+| `GET` | `/api/surveys/:id/pages` | List sections |
+| `PUT` | `/api/surveys/:id/pages/:pageId` | Update section |
+| `DELETE` | `/api/surveys/:id/pages/:pageId` | Delete section |
+
+### Steps (Questions)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/surveys/:id/questions` | Create step |
+| `PUT` | `/api/surveys/:id/questions/:qid` | Update step |
+| `DELETE` | `/api/surveys/:id/questions/:qid` | Delete step |
+
+### Workflow Runs
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/surveys/:id/responses` | Start workflow run |
+| `GET` | `/api/surveys/:id/responses` | List all runs |
+| `GET` | `/api/surveys/:id/responses/:runId` | Get specific run |
+| `POST` | `/api/surveys/:id/responses/:runId/answers` | Save step data |
+
+### Data Export
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/surveys/:id/export/json` | Export all run data (JSON) |
+| `GET` | `/api/surveys/:id/export/csv` | Export all run data (CSV) |
+| `GET` | `/api/surveys/:id/export/pdf` | Export responses (PDF) |
+
+### Analytics
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/surveys/:id/analytics` | Get workflow analytics |
+| `GET` | `/api/surveys/:id/analytics/funnel` | Get completion funnel |
+| `GET` | `/api/surveys/:id/analytics/trends` | Get response trends |
 
 ---
 
-## Available Commands
+## 🧩 Developer Notes
+
+### Technology Stack Details
+
+**Frontend Dependencies:**
+- React 18.3.1 with React Hook Form & Zod validation
+- TanStack Query 5.60.5 for data fetching/caching
+- Radix UI + Tailwind CSS for component library
+- Wouter 3.3.5 for routing
+- Framer Motion 11.13.1 for animations
+- Recharts 2.15.2 for data visualization
+
+**Backend Dependencies:**
+- Express 4.21.2 with Passport.js authentication
+- Drizzle ORM 0.39.1 for type-safe database access
+- Pino 10.0.0 for structured logging
+- Multer 2.0.2 for file uploads
+- SendGrid 8.1.6 for email services
+- Google Generative AI 0.24.1 (Gemini)
+
+### Database Schema
+
+The database uses **Drizzle ORM** with 17 main tables:
+
+- `users`, `sessions`, `user_preferences` — Authentication & user data
+- `surveys`, `survey_pages`, `questions` — Workflow structure
+- `conditional_rules`, `loop_group_subquestions` — Logic engine
+- `responses`, `answers`, `analytics_events` — Run execution data
+- `recipients`, `global_recipients`, `recipient_groups` — Distribution
+- `files`, `survey_templates`, `system_stats` — Supporting features
+
+**Supported Question Types:**
+- `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`
+- `date_time`, `file_upload`, `loop_group` (repeating sections)
+
+### Key Implementation Details
+
+- **Environment Isolation:** Poll-Vault and Vault-Logic use separate Neon databases
+- **Schema Management:** Run `npm run db:push` to sync schema changes
+- **File Uploads:** Handled via Multer with metadata stored in `files` table
+- **Logic Engine:** Located in `shared/conditionalLogic.ts`
+- **Service Layer:** 20+ service classes in `server/services/`
+- **Repository Layer:** 15+ repository classes in `server/repositories/`
+
+---
+
+## 🛠️ Available Commands
 
 ```bash
-npm run dev              # Start development server (Vite + Express)
+# Development
+npm run dev              # Start development server
+npm run dev:test         # Start test environment server
+
+# Building & Production
 npm run build            # Build for production
 npm start                # Start production server
 npm run check            # TypeScript type checking
+
+# Database
 npm run db:push          # Push schema changes to database
-npm run db:studio        # Open Drizzle Studio (database GUI)
-npm run test             # Run test suite
+
+# Testing
+npm test                 # Run all tests with coverage
+npm run test:unit        # Run unit tests only
+npm run test:integration # Run integration tests
+npm run test:e2e         # Run end-to-end tests with Playwright
 npm run test:watch       # Run tests in watch mode
 npm run test:ui          # Run tests with interactive UI
-npm run test:coverage    # Run tests with coverage report
+npm run test:coverage    # Generate coverage report
+
+# Utilities
+npm run set-admin        # Set a user as admin
+npm run generate-fake-data # Generate test data
+npm run test-gemini      # Test Gemini API connection
 ```
 
 ---
 
-## Project Structure
+## 🛣️ Roadmap
 
-```
-Vault-Logic/
-├── client/               # React frontend
-│   ├── src/
-│   │   ├── components/   # UI components (Radix UI)
-│   │   ├── pages/        # Page components
-│   │   ├── hooks/        # Custom React hooks
-│   │   └── lib/          # Utilities & helpers
-├── server/               # Express backend
-│   ├── index.ts          # Entry point & CORS config
-│   ├── routes/           # Modular route handlers
-│   │   ├── auth.routes.ts       # Authentication endpoints
-│   │   ├── surveys.routes.ts    # Survey CRUD operations
-│   │   ├── pages.routes.ts      # Survey page management
-│   │   ├── questions.routes.ts  # Question & conditional logic
-│   │   ├── recipients.routes.ts # Recipient management
-│   │   ├── responses.routes.ts  # Response collection
-│   │   ├── analytics.routes.ts  # Analytics & reporting
-│   │   └── files.routes.ts      # File upload & management
-│   ├── services/         # Business logic layer (3-tier architecture)
-│   ├── repositories/     # Data access layer (3-tier architecture)
-│   ├── storage.ts        # Legacy interface (delegates to repositories)
-│   └── types/            # TypeScript declarations
-├── shared/               # Shared types & Drizzle schema
-└── docs/                 # Project documentation
-```
+| Phase | Feature | Status |
+|-------|---------|--------|
+| ✅ | Workflow Builder + Section Logic | Complete |
+| ✅ | Multi-page Workflows with Conditional Logic | Complete |
+| ✅ | Response Collection & Analytics | Complete |
+| 🔄 | Advanced Conditional Logic Engine | In Progress |
+| 🔜 | Document Automation (PDF/DOCX) | Planned |
+| 🔜 | Logic Blocks (JavaScript/Python) | Planned |
+| 🔜 | Integrations (DocuSign, Zapier) | Planned |
+| 🔜 | Workflow Versioning | Planned |
+| 🔜 | Team Collaboration | Planned |
 
 ---
 
-## Documentation
+## 🤝 Contributing
 
-For detailed developer documentation, see [CLAUDE.md](./CLAUDE.md) which includes:
-- Complete API reference
-- Database schema details
-- Implementation strategy
-- Deployment instructions
-- Security best practices
+We welcome contributions! To get started:
+
+1. Fork the repository and create a feature branch
+2. Make your changes following TypeScript and Prettier conventions
+3. Run `npm run lint && npm run test` before submitting
+4. Submit a pull request with clear commit messages
+
+**Development Best Practices:**
+- Use the 3-tier architecture (Routes → Services → Repositories)
+- Write tests for new features
+- Follow existing code patterns and naming conventions
+- Update documentation as needed
 
 ---
 
-## License
-
-MIT
-
----
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Deployment
+## 🚀 Deployment
 
 ### Railway (Recommended)
 
-**Prerequisites:** GitHub repo, Railway account, Google OAuth credentials, Neon PostgreSQL database
-
-**Quick Deploy:**
-
-1. **Deploy:** Go to [Railway](https://railway.app/) → "Deploy from GitHub repo" → Select this repository
-2. **Environment Variables:** Add these in Railway → Variables:
-   ```bash
+1. Connect your GitHub repository to [Railway](https://railway.app/)
+2. Add environment variables in Railway dashboard:
+   ```
    NODE_ENV=production
    DATABASE_URL=<neon-postgres-url>
-   GOOGLE_CLIENT_ID=<server-oauth-id>
-   VITE_GOOGLE_CLIENT_ID=<client-oauth-id>
-   SESSION_SECRET=<32-char-random>
-   ALLOWED_ORIGIN=your-app.up.railway.app  # no https://
+   GOOGLE_CLIENT_ID=<server-oauth-client-id>
+   VITE_GOOGLE_CLIENT_ID=<client-web-oauth-client-id>
+   SESSION_SECRET=<32-char-random-secret>
+   ALLOWED_ORIGIN=your-app.up.railway.app
    ```
-3. **Configure Google OAuth:** Add Railway URL to authorized origins in Google Cloud Console
-4. **Verify:** Visit `https://your-app.up.railway.app`
+3. Configure Google OAuth authorized origins to include your Railway domain
+4. Deploy! Railway auto-detects build and start commands
 
-Railway auto-detects the build and start commands. View deployment logs in the Railway dashboard.
+**Compatible with:** Railway, Neon Database, Docker, standard Node.js hosting
+
+---
+
+## 📄 License
+
+MIT © 2025 Vault-Logic Contributors
+
+Originally inspired by Poll-Vault, rebuilt for next-generation workflow automation.
+
+---
+
+## 📚 Additional Resources
+
+- [API Documentation](./docs/) - Detailed API reference
+- [Architecture Guide](./CLAUDE.md) - Implementation strategy and design patterns
+- [Testing Guide](./tests/README.md) - Testing approach and conventions
 
 ---
 
