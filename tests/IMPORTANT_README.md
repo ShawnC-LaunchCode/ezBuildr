@@ -1,4 +1,4 @@
-# ⚠️ IMPORTANT: Test Framework Status
+﻿# ⚠️ IMPORTANT: Test Framework Status
 
 ## Current State
 
@@ -91,7 +91,7 @@ Configure a real test PostgreSQL database:
 
 ```bash
 # .env
-TEST_DATABASE_URL=postgresql://testuser:testpass@localhost:5432/poll_vault_test
+TEST_DATABASE_URL=postgresql://testuser:testpass@localhost:5432/vault_logic_test
 ```
 
 Then run migrations:

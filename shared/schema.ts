@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+﻿import { sql } from 'drizzle-orm';
 import {
   index,
   jsonb,
@@ -808,3 +808,229 @@ export interface AnonymousResponseMetadata {
     entryTime: number;
   };
 }
+
+// =====================================================================
+// VAULT-LOGIC SCHEMA (Workflow Builder)
+// =====================================================================
+
+// Workflow status enum
+export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'active', 'archived']);
+
+// Step (question) type enum - reuse question types
+export const stepTypeEnum = pgEnum('step_type', [
+  'short_text',
+  'long_text',
+  'multiple_choice',
+  'radio',
+  'yes_no',
+  'date_time',
+  'file_upload'
+]);
+
+// Logic rule target type enum
+export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);
+
+// Workflows table (equivalent to surveys)
+export const workflows = pgTable("workflows", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  status: workflowStatusEnum("status").default('draft').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflows_creator_idx").on(table.creatorId),
+  index("workflows_status_idx").on(table.status),
+]);
+
+// Sections table (equivalent to survey pages)
+export const sections = pgTable("sections", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  order: integer("order").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("sections_workflow_idx").on(table.workflowId),
+]);
+
+// Steps table (equivalent to questions)
+export const steps = pgTable("steps", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }).notNull(),
+  type: stepTypeEnum("type").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  required: boolean("required").default(false),
+  options: jsonb("options"), // For multiple choice, radio options
+  order: integer("order").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("steps_section_idx").on(table.sectionId),
+]);
+
+// Logic rules table (conditional logic for workflows)
+export const logicRules = pgTable("logic_rules", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  conditionStepId: uuid("condition_step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
+  operator: conditionOperatorEnum("operator").notNull(),
+  conditionValue: jsonb("condition_value").notNull(),
+  targetType: logicRuleTargetTypeEnum("target_type").notNull(), // 'section' or 'step'
+  targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
+  targetSectionId: uuid("target_section_id").references(() => sections.id, { onDelete: 'cascade' }),
+  action: conditionalActionEnum("action").notNull(),
+  logicalOperator: varchar("logical_operator").default("AND"),
+  order: integer("order").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("logic_rules_workflow_idx").on(table.workflowId),
+  index("logic_rules_condition_step_idx").on(table.conditionStepId),
+]);
+
+// Participants table (equivalent to global recipients)
+export const participants = pgTable("participants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  name: varchar("name").notNull(),
+  email: varchar("email").notNull(),
+  metadata: jsonb("metadata"), // Additional participant info
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("participants_creator_idx").on(table.creatorId),
+  index("participants_email_idx").on(table.email),
+]);
+
+// Workflow runs table (execution instances)
+export const workflowRuns = pgTable("workflow_runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  participantId: uuid("participant_id").references(() => participants.id),
+  completed: boolean("completed").default(false),
+  completedAt: timestamp("completed_at"),
+  metadata: jsonb("metadata"), // Run-specific metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_runs_workflow_idx").on(table.workflowId),
+  index("workflow_runs_participant_idx").on(table.participantId),
+  index("workflow_runs_completed_idx").on(table.completed),
+]);
+
+// Step values table (captured values per step in a run)
+export const stepValues = pgTable("step_values", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+  stepId: uuid("step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
+  value: jsonb("value").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("step_values_run_idx").on(table.runId),
+  index("step_values_step_idx").on(table.stepId),
+]);
+
+// Vault-Logic Relations
+export const workflowsRelations = relations(workflows, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [workflows.creatorId],
+    references: [users.id],
+  }),
+  sections: many(sections),
+  logicRules: many(logicRules),
+  runs: many(workflowRuns),
+}));
+
+export const sectionsRelations = relations(sections, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [sections.workflowId],
+    references: [workflows.id],
+  }),
+  steps: many(steps),
+}));
+
+export const stepsRelations = relations(steps, ({ one, many }) => ({
+  section: one(sections, {
+    fields: [steps.sectionId],
+    references: [sections.id],
+  }),
+  values: many(stepValues),
+}));
+
+export const participantsRelations = relations(participants, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [participants.creatorId],
+    references: [users.id],
+  }),
+  runs: many(workflowRuns),
+}));
+
+export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [workflowRuns.workflowId],
+    references: [workflows.id],
+  }),
+  participant: one(participants, {
+    fields: [workflowRuns.participantId],
+    references: [participants.id],
+  }),
+  stepValues: many(stepValues),
+}));
+
+export const stepValuesRelations = relations(stepValues, ({ one }) => ({
+  run: one(workflowRuns, {
+    fields: [stepValues.runId],
+    references: [workflowRuns.id],
+  }),
+  step: one(steps, {
+    fields: [stepValues.stepId],
+    references: [steps.id],
+  }),
+}));
+
+export const logicRulesRelations = relations(logicRules, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [logicRules.workflowId],
+    references: [workflows.id],
+  }),
+  conditionStep: one(steps, {
+    fields: [logicRules.conditionStepId],
+    references: [steps.id],
+  }),
+  targetStep: one(steps, {
+    fields: [logicRules.targetStepId],
+    references: [steps.id],
+  }),
+  targetSection: one(sections, {
+    fields: [logicRules.targetSectionId],
+    references: [sections.id],
+  }),
+}));
+
+// Vault-Logic Insert Schemas
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
+export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
+export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
+export const insertParticipantSchema = createInsertSchema(participants).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Vault-Logic Types
+export type Workflow = typeof workflows.$inferSelect;
+export type InsertWorkflow = typeof insertWorkflowSchema._type;
+export type Section = typeof sections.$inferSelect;
+export type InsertSection = typeof insertSectionSchema._type;
+export type Step = typeof steps.$inferSelect;
+export type InsertStep = typeof insertStepSchema._type;
+export type LogicRule = typeof logicRules.$inferSelect;
+export type InsertLogicRule = typeof insertLogicRuleSchema._type;
+export type Participant = typeof participants.$inferSelect;
+export type InsertParticipant = typeof insertParticipantSchema._type;
+export type WorkflowRun = typeof workflowRuns.$inferSelect;
+export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;
+export type StepValue = typeof stepValues.$inferSelect;
+export type InsertStepValue = typeof insertStepValueSchema._type;

@@ -1,8 +1,8 @@
-# Troubleshooting Guide
+﻿# Troubleshooting Guide
 
 **Last Updated:** 2025-10-14
 
-This guide covers common issues and solutions for Poll-Vault development and deployment.
+This guide covers common issues and solutions for Vault-Logic development and deployment.
 
 ---
 
@@ -84,18 +84,18 @@ docker-compose up -d postgres
 
 # Check DATABASE_URL format:
 # postgresql://username:password@host:port/database
-# Example: postgresql://postgres:mypassword@localhost:5432/poll_vault
+# Example: postgresql://postgres:mypassword@localhost:5432/vault_logic
 ```
 
 ### Database Does Not Exist
 
-**Problem:** `database "poll_vault" does not exist`
+**Problem:** `database "vault_logic" does not exist`
 
 **Solution:**
 ```bash
 # Create the database
 psql -U postgres
-CREATE DATABASE poll_vault;
+CREATE DATABASE vault_logic;
 \q
 
 # Or using docker-compose:
@@ -233,7 +233,7 @@ NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 ### Problem Summary
 
-When running Poll-Vault outside of Replit (e.g., local development or external hosting), you may encounter module not found errors for Replit-specific packages:
+When running Vault-Logic outside of Replit (e.g., local development or external hosting), you may encounter module not found errors for Replit-specific packages:
 
 ```
 Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@replit/vite-plugin-runtime-error-modal'

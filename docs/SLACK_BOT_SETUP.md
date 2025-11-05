@@ -1,6 +1,6 @@
-# Slack Bot Token Setup for CI/CD Notifications
+﻿# Slack Bot Token Setup for CI/CD Notifications
 
-This guide explains how to set up Slack bot token authentication for Poll-Vault's GitHub Actions CI/CD notifications.
+This guide explains how to set up Slack bot token authentication for Vault-Logic's GitHub Actions CI/CD notifications.
 
 ## Why Bot Token Instead of Webhook?
 
@@ -23,7 +23,7 @@ Bot tokens provide more capabilities than webhooks:
 1. Go to https://api.slack.com/apps
 2. Click **"Create New App"**
 3. Select **"From scratch"**
-4. Name your app: **"Poll-Vault CI/CD"**
+4. Name your app: **"Vault-Logic CI/CD"**
 5. Select your workspace
 6. Click **"Create App"**
 
@@ -87,7 +87,7 @@ Bot tokens provide more capabilities than webhooks:
 If your notification channel is private:
 
 1. Go to the Slack channel
-2. Type `/invite @Poll-Vault CI/CD`
+2. Type `/invite @Vault-Logic CI/CD`
 3. Or click channel name → **Integrations** → **Add apps**
 
 For public channels, this is not required (thanks to `chat:write.public` scope).
@@ -109,7 +109,7 @@ curl -X POST https://slack.com/api/chat.postMessage \
   -H "Content-Type: application/json" \
   -d '{
     "channel": "YOUR_CHANNEL_ID",
-    "text": "🧪 Test notification from Poll-Vault bot token setup"
+    "text": "🧪 Test notification from Vault-Logic bot token setup"
   }'
 ```
 
@@ -232,4 +232,4 @@ Expected response:
 
 **Version:** 1.0
 **Last Updated:** 2025-11-02
-**Maintained by:** Poll-Vault DevOps Team
+**Maintained by:** Vault-Logic DevOps Team

@@ -1,4 +1,4 @@
-// SendGrid email service - Referenced from javascript_sendgrid integration
+﻿// SendGrid email service - Referenced from javascript_sendgrid integration
 import { MailService } from '@sendgrid/mail';
 
 const mailService = new MailService();
@@ -84,7 +84,7 @@ This is a personalized link for you. Please do not share it with others.
 Thank you for your participation!
 
 ---
-Sent from Poll Vault
+Sent from Vault-Logic
   `.trim();
 
   const htmlContent = `
@@ -123,7 +123,7 @@ Sent from Poll Vault
         </div>
         
         <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 40px;">
-            <p style="margin: 0;">Sent from <strong>Poll Vault</strong></p>
+            <p style="margin: 0;">Sent from <strong>Vault-Logic</strong></p>
             <p style="margin: 5px 0 0 0;">Professional survey and polling platform</p>
         </div>
     </body>
@@ -174,7 +174,7 @@ This is a personalized link for you. Please do not share it with others.
 Thank you for your time!
 
 ---
-Sent from Poll Vault
+Sent from Vault-Logic
   `.trim();
 
   const htmlContent = `
@@ -213,7 +213,7 @@ Sent from Poll Vault
         </div>
 
         <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 40px;">
-            <p style="margin: 0;">Sent from <strong>Poll Vault</strong></p>
+            <p style="margin: 0;">Sent from <strong>Vault-Logic</strong></p>
             <p style="margin: 5px 0 0 0;">Professional survey and polling platform</p>
         </div>
     </body>
@@ -244,7 +244,7 @@ export interface TemplateInvitationParams {
 export async function sendTemplateInvitation(params: TemplateInvitationParams, fromEmail?: string): Promise<{ success: boolean; error?: string }> {
   const { recipientEmail, templateName, access } = params;
 
-  const subject = `You've been invited to ${access === "edit" ? "collaborate on" : "use"} a Poll Vault template`;
+  const subject = `You've been invited to ${access === "edit" ? "collaborate on" : "use"} a Vault-Logic template`;
 
   const accessDescription = access === "edit"
     ? "edit and use this template in your surveys"
@@ -258,13 +258,13 @@ You've been invited to ${accessDescription}.
 Template: "${templateName}"
 Access level: ${access === "edit" ? "Edit (can modify template)" : "Use (can insert into surveys)"}
 
-Sign in to Poll Vault to get started:
-${process.env.PUBLIC_APP_URL || 'https://poll-vault.com'}
+Sign in to Vault-Logic to get started:
+${process.env.PUBLIC_APP_URL || 'https://vault-logic.com'}
 
 If you don't have an account yet, sign in with Google using this email address to accept the invitation.
 
 ---
-Sent from Poll Vault
+Sent from Vault-Logic
   `.trim();
 
   const htmlContent = `
@@ -309,7 +309,7 @@ Sent from Poll Vault
             `}
 
             <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.PUBLIC_APP_URL || 'https://poll-vault.com'}"
+                <a href="${process.env.PUBLIC_APP_URL || 'https://vault-logic.com'}"
                    style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
                     Sign In to Get Started
                 </a>
@@ -317,13 +317,13 @@ Sent from Poll Vault
 
             <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 15px; margin: 20px 0;">
                 <p style="margin: 0; color: #92400e; font-size: 14px;">
-                    <strong>New to Poll Vault?</strong> Sign in with Google using this email address to automatically accept the invitation.
+                    <strong>New to Vault-Logic?</strong> Sign in with Google using this email address to automatically accept the invitation.
                 </p>
             </div>
         </div>
 
         <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 40px;">
-            <p style="margin: 0;">Sent from <strong>Poll Vault</strong></p>
+            <p style="margin: 0;">Sent from <strong>Vault-Logic</strong></p>
             <p style="margin: 5px 0 0 0;">Professional survey and polling platform</p>
         </div>
     </body>

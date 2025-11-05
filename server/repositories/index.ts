@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Repository Index
  * Central export point for all repository classes
  *
@@ -20,6 +20,15 @@ export { ResponseRepository, responseRepository } from "./ResponseRepository";
 export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
 export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
+
+// Vault-Logic Workflow repositories
+export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
+export { SectionRepository, sectionRepository } from "./SectionRepository";
+export { StepRepository, stepRepository } from "./StepRepository";
+export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
+export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
+export { ParticipantRepository, participantRepository } from "./ParticipantRepository";
+export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 
 // Export type for Insert operations
 export type { InsertAnalyticsEvent } from "./AnalyticsRepository";

@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -115,7 +115,7 @@ async function testGeminiApi() {
     console.log("\n✅ Gemini API is configured correctly and working");
     console.log("✅ Ready to build AI-powered features");
     console.log(`\n📋 Active model: ${modelName}`);
-    console.log("\n💡 Suggested features for Poll-Vault:");
+    console.log("\n💡 Suggested features for Vault-Logic:");
     console.log("   - Automatic survey question generation");
     console.log("   - Response sentiment analysis");
     console.log("   - Text response summarization");

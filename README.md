@@ -1,8 +1,8 @@
-# Poll-Vault
+﻿# Vault-Logic
 
-[![CI](https://github.com/ShawnC-LaunchCode/Poll-Vault/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/Poll-Vault/actions/workflows/ci.yml)
+[![CI](https://github.com/ShawnC-LaunchCode/Vault-Logic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/Vault-Logic/actions/workflows/ci.yml)
 
-**Poll-Vault** is a comprehensive survey and polling platform built with modern web technologies. Create, distribute, and analyze surveys with advanced features like conditional logic, multi-page surveys, and detailed analytics.
+**Vault-Logic** is a comprehensive workflow builder and survey platform built with modern web technologies. Create, distribute, and analyze surveys and workflows with advanced features like conditional logic, multi-page workflows, and detailed analytics.
 
 ## Tech Stack
 
@@ -93,7 +93,7 @@ BASE_URL=http://localhost:5000
 VITE_BASE_URL=http://localhost:5000
 
 # Database (update with your PostgreSQL credentials)
-DATABASE_URL=postgresql://username:password@localhost:5432/poll_vault
+DATABASE_URL=postgresql://username:password@localhost:5432/vault_logic
 
 # Session Security (generate a random string)
 SESSION_SECRET=your-super-secret-session-key-change-this
@@ -122,14 +122,14 @@ SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 **Option B: Local PostgreSQL Installation**
 
 ```bash
-# Create a database named 'poll_vault'
+# Create a database named 'vault_logic'
 # Using psql command line:
 psql -U postgres
-CREATE DATABASE poll_vault;
+CREATE DATABASE vault_logic;
 \q
 
 # Update DATABASE_URL in .env:
-# DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/poll_vault
+# DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/vault_logic
 ```
 
 ### Step 4: Set Up Google OAuth2 (REQUIRED for login)
@@ -170,7 +170,7 @@ Database connected successfully
 
 Visit: **http://localhost:5000**
 
-You should see the Poll-Vault login page!
+You should see the Vault-Logic login page!
 
 ---
 
@@ -231,7 +231,7 @@ npm run test:coverage    # Run tests with coverage report
 ## Project Structure
 
 ```
-Poll-Vault/
+Vault-Logic/
 ├── client/               # React frontend
 │   ├── src/
 │   │   ├── components/   # UI components (Radix UI)

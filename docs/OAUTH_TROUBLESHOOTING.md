@@ -1,7 +1,7 @@
-# OAuth 2.0 Login 401 Error Troubleshooting Guide
+﻿# OAuth 2.0 Login 401 Error Troubleshooting Guide
 
 ## Overview
-This guide helps diagnose and fix 401 Unauthorized errors when using Google OAuth2 login in Poll-Vault.
+This guide helps diagnose and fix 401 Unauthorized errors when using Google OAuth2 login in Vault-Logic.
 
 ## Recent Changes (2025-10-13)
 - Enhanced error logging in backend (`server/googleAuth.ts`)
@@ -232,4 +232,4 @@ If you have separate client IDs for development and production:
 - [Google OAuth 2.0 Documentation](https://developers.google.com/identity/protocols/oauth2)
 - [Google Identity Setup Guide](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid)
 - [CORS Configuration Guide](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
-- [Poll-Vault Documentation](../CLAUDE.md)
+- [Vault-Logic Documentation](../CLAUDE.md)

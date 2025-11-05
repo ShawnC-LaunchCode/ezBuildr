@@ -1,6 +1,6 @@
-# CI/CD Setup Guide for Poll-Vault
+﻿# CI/CD Setup Guide for Vault-Logic
 
-This guide explains how to configure automated testing and deployment for Poll-Vault using GitHub Actions and Railway.
+This guide explains how to configure automated testing and deployment for Vault-Logic using GitHub Actions and Railway.
 
 ## 🎯 Overview
 
@@ -14,8 +14,8 @@ The CI/CD pipeline automatically:
 
 ## 📋 Prerequisites
 
-- GitHub repository with Poll-Vault code
-- Railway account with deployed Poll-Vault service
+- GitHub repository with Vault-Logic code
+- Railway account with deployed Vault-Logic service
 - Neon PostgreSQL database (can be same as production or separate test database)
 
 ## 🔧 GitHub Secrets Configuration
@@ -71,7 +71,7 @@ To get your Railway token:
 4. Copy the token value
 
 #### 6. `RAILWAY_SERVICE_ID`
-Your Poll-Vault service ID in Railway.
+Your Vault-Logic service ID in Railway.
 
 To find your service ID:
 ```bash

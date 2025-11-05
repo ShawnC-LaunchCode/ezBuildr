@@ -1,5 +1,5 @@
-export const DEFAULT_SURVEY_GEN_PROMPT = `
-You are an expert survey designer for Poll-Vault.
+﻿export const DEFAULT_SURVEY_GEN_PROMPT = `
+You are an expert survey designer for Vault-Logic.
 
 Goal:
 Given a topic, generate a JSON survey with:

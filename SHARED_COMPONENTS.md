@@ -1,8 +1,8 @@
-# Shared Components Library
+﻿# Shared Components Library
 
 **Last Updated:** 2025-10-14
 
-This document provides a reference for all shared components in Poll-Vault. These components promote consistency, reduce code duplication, and follow the DRY (Don't Repeat Yourself) principle.
+This document provides a reference for all shared components in Vault-Logic. These components promote consistency, reduce code duplication, and follow the DRY (Don't Repeat Yourself) principle.
 
 ---
 

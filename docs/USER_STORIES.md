@@ -1,9 +1,9 @@
-# Poll-Vault: User Stories
+﻿# Vault-Logic: User Stories
 
 **Version:** 1.1
 **Last Updated:** 2025-10-28
 
-This document contains all user stories for the Poll-Vault platform, organized by user type.
+This document contains all user stories for the Vault-Logic platform, organized by user type.
 
 ---
 

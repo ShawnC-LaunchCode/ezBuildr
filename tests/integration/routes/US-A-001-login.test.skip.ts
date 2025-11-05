@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+﻿import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
 import app from "../../../server/index";
 import { createTestUser } from "../../factories/userFactory";
@@ -8,7 +8,7 @@ import { createTestUser } from "../../factories/userFactory";
  *
  * As a user,
  * I want to log in using my Google account,
- * So that I can access the Poll-Vault platform securely.
+ * So that I can access the Vault-Logic platform securely.
  */
 describe("US-A-001: User Login", () => {
   beforeAll(() => {

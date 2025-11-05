@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -49,7 +49,7 @@ export default function FeedbackWidget() {
               src={
                 import.meta.env.DEV
                   ? "http://localhost:5000/survey/b121d194-29b2-48d2-a2b0-7f50504bc3d8"
-                  : "https://poll-vault-production.up.railway.app/survey/b121d194-29b2-48d2-a2b0-7f50504bc3d8"
+                  : "https://vault-logic-production.up.railway.app/survey/b121d194-29b2-48d2-a2b0-7f50504bc3d8"
               }
               className="w-full h-full"
               title="Feedback Survey"
