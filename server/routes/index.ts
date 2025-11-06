@@ -4,9 +4,6 @@ import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerSurveyRoutes } from "./surveys.routes";
 import { registerPageRoutes } from "./pages.routes";
 import { registerQuestionRoutes } from "./questions.routes";
-import { registerRecipientRoutes } from "./recipients.routes";
-import { registerRecipientGroupRoutes } from "./recipientGroups.routes";
-import { registerRecipientImportRoutes } from "./recipients.import.routes";
 import { registerResponseRoutes } from "./responses.routes";
 import { registerAnalyticsRoutes } from "./analytics.routes";
 import { registerFileRoutes } from "./files.routes";
@@ -14,7 +11,6 @@ import { registerDashboardRoutes } from "./dashboard.routes";
 import { registerAdminRoutes } from "./admin.routes";
 import { registerExportRoutes } from "./export.routes";
 import { registerAiRoutes } from "./ai.routes";
-import { registerGroupAnalyticsRoutes } from "./groupAnalytics.routes";
 import { registerTemplateRoutes } from "./templates.routes";
 import { registerTemplateSharingRoutes } from "./templateSharing.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
@@ -53,23 +49,11 @@ export function registerAllRoutes(app: Express): void {
   // Question and conditional logic routes
   registerQuestionRoutes(app);
 
-  // Recipient management routes
-  registerRecipientRoutes(app);
-
-  // Recipient group management routes
-  registerRecipientGroupRoutes(app);
-
-  // Recipient CSV import/export routes
-  registerRecipientImportRoutes(app);
-
   // Response collection routes
   registerResponseRoutes(app);
 
   // Analytics and reporting routes
   registerAnalyticsRoutes(app);
-
-  // Group analytics routes
-  registerGroupAnalyticsRoutes(app);
 
   // File upload and management routes
   registerFileRoutes(app);

@@ -115,8 +115,7 @@ export default function Responses() {
     retry: false,
   });
 
-  // Separate anonymous and token-based responses
-  const tokenResponses = responses?.filter(r => !r.isAnonymous) || [];
+  // All responses are now anonymous
   const anonymousResponses = responses?.filter(r => r.isAnonymous) || [];
   const [showAnonymous, setShowAnonymous] = useState(false);
 
@@ -191,22 +190,6 @@ export default function Responses() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Token-based</p>
-                      <p className="text-3xl font-bold text-foreground" data-testid="text-token-responses">
-                        {tokenResponses.length}
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                      <UserCheck className="text-blue-600 dark:text-blue-400 w-6 h-6" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
                       <p className="text-sm font-medium text-muted-foreground">Anonymous</p>
                       <p className="text-3xl font-bold text-foreground" data-testid="text-anonymous-responses">
                         {anonymousResponses.length}
@@ -246,12 +229,9 @@ export default function Responses() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="all" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="all" data-testid="tab-all-responses">
                     All ({responses ? responses.length : 0})
-                  </TabsTrigger>
-                  <TabsTrigger value="token" data-testid="tab-token-responses">
-                    Token-based ({tokenResponses.length})
                   </TabsTrigger>
                   <TabsTrigger value="anonymous" data-testid="tab-anonymous-responses">
                     Anonymous ({anonymousResponses.length})
@@ -286,25 +266,7 @@ export default function Responses() {
                     </div>
                   )}
                 </TabsContent>
-                
-                <TabsContent value="token">
-                  {tokenResponses.length > 0 ? (
-                    <div className="space-y-4">
-                      {tokenResponses.map((response) => (
-                        <ResponseItem key={response.id} response={response} onView={handleViewResponse} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <UserCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No token-based responses yet</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Token-based responses come from invited recipients with unique survey links.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
-                
+
                 <TabsContent value="anonymous">
                   {anonymousResponses.length > 0 ? (
                     <div className="space-y-4">

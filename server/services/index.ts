@@ -9,7 +9,6 @@
 // Export services
 export { SurveyService, surveyService } from "./SurveyService";
 export { ResponseService, responseService } from "./ResponseService";
-export { RecipientService, recipientService } from "./RecipientService";
 export { AnalyticsService, analyticsService } from "./AnalyticsService";
 
 // Export existing utility services

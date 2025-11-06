@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
-import type { Survey, Response, Answer, Recipient, Question } from "@shared/schema";
+import type { Survey, Response, Answer, Question } from "@shared/schema";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,6 @@ import { ArrowLeft, User, Calendar, CheckCircle, Clock, Globe } from "lucide-rea
 interface ResponseDetailsData {
   response: Response;
   answers: (Answer & { question: Question })[];
-  recipient: Recipient | null;
 }
 
 export default function ResponseDetails() {
@@ -145,26 +144,13 @@ export default function ResponseDetails() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">Respondent</p>
-                      {responseData.recipient ? (
-                        <>
-                          <p className="text-foreground font-medium" data-testid="text-respondent-name">
-                            {responseData.recipient.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground" data-testid="text-respondent-email">
-                            {responseData.recipient.email}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-foreground font-medium" data-testid="text-respondent-name">
-                            Anonymous Respondent
-                          </p>
-                          {responseData.response.ipAddress && (
-                            <p className="text-sm text-muted-foreground" data-testid="text-respondent-ip">
-                              IP: {responseData.response.ipAddress.replace(/\d+$/, 'xxx')}
-                            </p>
-                          )}
-                        </>
+                      <p className="text-foreground font-medium" data-testid="text-respondent-name">
+                        Anonymous Respondent
+                      </p>
+                      {responseData.response.ipAddress && (
+                        <p className="text-sm text-muted-foreground" data-testid="text-respondent-ip">
+                          IP: {responseData.response.ipAddress.replace(/\d+$/, 'xxx')}
+                        </p>
                       )}
                     </div>
                     
