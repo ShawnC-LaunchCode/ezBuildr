@@ -57,7 +57,7 @@ export class WorkflowExportService {
 
       const runData: any = {
         runId: run.id,
-        participantId: run.participantId,
+        createdBy: run.createdBy,
         completed: run.completed,
         completedAt: run.completedAt,
         createdAt: run.createdAt,
@@ -107,7 +107,7 @@ export class WorkflowExportService {
     // Build CSV headers
     const headers = [
       'Run ID',
-      'Participant ID',
+      'Created By',
       'Completed',
       'Completed At',
       'Created At',
@@ -130,7 +130,7 @@ export class WorkflowExportService {
 
       const row = [
         run.id,
-        run.participantId || '',
+        run.createdBy || 'anon',
         run.completed.toString(),
         run.completedAt?.toISOString() || '',
         run.createdAt?.toISOString() || '',

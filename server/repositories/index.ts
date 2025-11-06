@@ -26,7 +26,6 @@ export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
 export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
-export { ParticipantRepository, participantRepository } from "./ParticipantRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
 

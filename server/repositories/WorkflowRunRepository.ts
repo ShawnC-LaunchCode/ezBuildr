@@ -28,18 +28,6 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
-   * Find runs by participant ID
-   */
-  async findByParticipantId(participantId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {
-    const database = this.getDb(tx);
-    return await database
-      .select()
-      .from(workflowRuns)
-      .where(eq(workflowRuns.participantId, participantId))
-      .orderBy(desc(workflowRuns.createdAt));
-  }
-
-  /**
    * Find completed runs by workflow ID
    */
   async findCompletedByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {

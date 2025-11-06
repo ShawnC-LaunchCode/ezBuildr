@@ -731,11 +731,13 @@ export const workflows = pgTable("workflows", {
   description: text("description"),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
   status: workflowStatusEnum("status").default('draft').notNull(),
+  publicLink: text("public_link").unique(), // UUID/slug for anonymous run access
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflows_creator_idx").on(table.creatorId),
   index("workflows_status_idx").on(table.status),
+  index("workflows_public_link_idx").on(table.publicLink),
 ]);
 
 // Sections table (equivalent to survey pages)
@@ -784,25 +786,15 @@ export const logicRules = pgTable("logic_rules", {
   index("logic_rules_condition_step_idx").on(table.conditionStepId),
 ]);
 
-// Participants table (equivalent to global recipients)
-export const participants = pgTable("participants", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  creatorId: varchar("creator_id").references(() => users.id).notNull(),
-  name: varchar("name").notNull(),
-  email: varchar("email").notNull(),
-  metadata: jsonb("metadata"), // Additional participant info
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("participants_creator_idx").on(table.creatorId),
-  index("participants_email_idx").on(table.email),
-]);
-
 // Workflow runs table (execution instances)
+// Runs are now independent of participants - they can be creator-started or anonymous
 export const workflowRuns = pgTable("workflow_runs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-  participantId: uuid("participant_id").references(() => participants.id),
+  runToken: text("run_token").notNull().unique(), // UUID token for run-specific auth
+  createdBy: text("created_by"), // "creator:<userId>" or "anon"
+  currentSectionId: uuid("current_section_id").references(() => sections.id),
+  progress: integer("progress").default(0), // percentage 0-100
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),
   metadata: jsonb("metadata"), // Run-specific metadata
@@ -810,8 +802,8 @@ export const workflowRuns = pgTable("workflow_runs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflow_runs_workflow_idx").on(table.workflowId),
-  index("workflow_runs_participant_idx").on(table.participantId),
   index("workflow_runs_completed_idx").on(table.completed),
+  index("workflow_runs_run_token_idx").on(table.runToken),
 ]);
 
 // Step values table (captured values per step in a run)
@@ -885,22 +877,14 @@ export const stepsRelations = relations(steps, ({ one, many }) => ({
   values: many(stepValues),
 }));
 
-export const participantsRelations = relations(participants, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [participants.creatorId],
-    references: [users.id],
-  }),
-  runs: many(workflowRuns),
-}));
-
 export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => ({
   workflow: one(workflows, {
     fields: [workflowRuns.workflowId],
     references: [workflows.id],
   }),
-  participant: one(participants, {
-    fields: [workflowRuns.participantId],
-    references: [participants.id],
+  currentSection: one(sections, {
+    fields: [workflowRuns.currentSectionId],
+    references: [sections.id],
   }),
   stepValues: many(stepValues),
   transformBlockRuns: many(transformBlockRuns),
@@ -948,12 +932,11 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
 }));
 
 // Vault-Logic Insert Schemas
-export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, publicLink: true });
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
 export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
 export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
-export const insertParticipantSchema = createInsertSchema(participants).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true, runToken: true });
 export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 
@@ -1030,8 +1013,6 @@ export type Step = typeof steps.$inferSelect;
 export type InsertStep = typeof insertStepSchema._type;
 export type LogicRule = typeof logicRules.$inferSelect;
 export type InsertLogicRule = typeof insertLogicRuleSchema._type;
-export type Participant = typeof participants.$inferSelect;
-export type InsertParticipant = typeof insertParticipantSchema._type;
 export type WorkflowRun = typeof workflowRuns.$inferSelect;
 export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;
 export type StepValue = typeof stepValues.$inferSelect;

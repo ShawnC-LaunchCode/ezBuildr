@@ -12,6 +12,7 @@ import { transformBlockService } from "./TransformBlockService";
 import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from "@shared/workflowLogic";
 import { blockRunner } from "./BlockRunner";
 import type { BlockContext } from "@shared/types/blocks";
+import { randomUUID } from "crypto";
 
 /**
  * Service layer for workflow run-related business logic
@@ -49,18 +50,48 @@ export class RunService {
   /**
    * Create a new workflow run
    * Executes onRunStart blocks to prefill initial data
+   *
+   * @param workflowId - The workflow to run
+   * @param userId - Creator user ID (optional for anonymous runs)
+   * @param data - Additional run data
+   * @param queryParams - Query parameters for prefill blocks
+   * @param isAnonymous - Whether this is an anonymous run (via publicLink)
    */
   async createRun(
     workflowId: string,
-    userId: string,
-    data: Omit<InsertWorkflowRun, 'workflowId'>,
-    queryParams?: Record<string, any>
-  ): Promise<WorkflowRun> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    userId: string | null,
+    data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken' | 'createdBy'>,
+    queryParams?: Record<string, any>,
+    isAnonymous: boolean = false
+  ): Promise<WorkflowRun & { runToken: string }> {
+    // For authenticated runs, verify ownership
+    if (userId && !isAnonymous) {
+      await this.workflowSvc.verifyOwnership(workflowId, userId);
+    }
+
+    // For anonymous runs, verify workflow is active and has publicLink
+    if (isAnonymous) {
+      const workflow = await this.workflowRepo.findById(workflowId);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+      if (workflow.status !== 'active') {
+        throw new Error("Workflow is not active");
+      }
+      if (!workflow.publicLink) {
+        throw new Error("Workflow does not allow anonymous access");
+      }
+    }
+
+    // Generate unique run token
+    const runToken = randomUUID();
+    const createdBy = isAnonymous ? "anon" : `creator:${userId}`;
 
     const run = await this.runRepo.create({
       ...data,
       workflowId,
+      runToken,
+      createdBy,
       completed: false,
     });
 
@@ -86,20 +117,47 @@ export class RunService {
       }
     }
 
-    return run;
+    // Return run with runToken for client
+    return { ...run, runToken };
+  }
+
+  /**
+   * Verify access to a run (either by creator ownership or valid runToken)
+   */
+  private async verifyRunAccess(
+    run: WorkflowRun,
+    userId: string | null,
+    runToken?: string
+  ): Promise<void> {
+    // If runToken provided and matches, grant access
+    if (runToken && run.runToken === runToken) {
+      return;
+    }
+
+    // Otherwise, verify creator ownership
+    if (!userId) {
+      throw new Error("Access denied - authentication required");
+    }
+
+    await this.workflowSvc.verifyOwnership(run.workflowId, userId);
   }
 
   /**
    * Get run by ID
+   * Access granted to creator or valid runToken holder
    */
-  async getRun(runId: string, userId: string): Promise<WorkflowRun> {
+  async getRun(
+    runId: string,
+    userId: string | null,
+    runToken?: string
+  ): Promise<WorkflowRun> {
     const run = await this.runRepo.findById(runId);
     if (!run) {
       throw new Error("Run not found");
     }
 
-    // Verify ownership of the workflow
-    await this.workflowSvc.verifyOwnership(run.workflowId, userId);
+    // Verify access
+    await this.verifyRunAccess(run, userId, runToken);
 
     return run;
   }
@@ -107,8 +165,12 @@ export class RunService {
   /**
    * Get run with all values
    */
-  async getRunWithValues(runId: string, userId: string) {
-    const run = await this.getRun(runId, userId);
+  async getRunWithValues(
+    runId: string,
+    userId: string | null,
+    runToken?: string
+  ) {
+    const run = await this.getRun(runId, userId, runToken);
     const values = await this.valueRepo.findByRunId(runId);
 
     return {
@@ -122,10 +184,11 @@ export class RunService {
    */
   async upsertStepValue(
     runId: string,
-    userId: string,
-    data: InsertStepValue
+    userId: string | null,
+    data: InsertStepValue,
+    runToken?: string
   ): Promise<void> {
-    const run = await this.getRun(runId, userId);
+    const run = await this.getRun(runId, userId, runToken);
 
     // Verify step belongs to the workflow
     const step = await this.stepRepo.findById(data.stepId);
@@ -146,17 +209,18 @@ export class RunService {
    */
   async bulkUpsertValues(
     runId: string,
-    userId: string,
-    values: Array<{ stepId: string; value: any }>
+    userId: string | null,
+    values: Array<{ stepId: string; value: any }>,
+    runToken?: string
   ): Promise<void> {
-    const run = await this.getRun(runId, userId);
+    const run = await this.getRun(runId, userId, runToken);
 
     for (const { stepId, value } of values) {
       await this.upsertStepValue(runId, userId, {
         runId,
         stepId,
         value,
-      });
+      }, runToken);
     }
   }
 
@@ -166,11 +230,12 @@ export class RunService {
    */
   async submitSectionValues(
     runId: string,
-    userId: string,
+    userId: string | null,
     sectionId: string,
-    values: Array<{ stepId: string; value: any }>
+    values: Array<{ stepId: string; value: any }>,
+    runToken?: string
   ): Promise<{ success: boolean; errors?: string[] }> {
-    const run = await this.getRun(runId, userId);
+    const run = await this.getRun(runId, userId, runToken);
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findById(sectionId);
@@ -213,7 +278,7 @@ export class RunService {
         runId,
         stepId,
         value,
-      });
+      }, runToken);
     }
 
     return { success: true };
@@ -225,10 +290,11 @@ export class RunService {
    */
   async navigateNext(
     runId: string,
-    userId: string,
-    currentSectionId: string
+    userId: string | null,
+    currentSectionId: string,
+    runToken?: string
   ): Promise<{ nextSectionId?: string }> {
-    const run = await this.getRun(runId, userId);
+    const run = await this.getRun(runId, userId, runToken);
 
     // Get current data
     const currentValues = await this.valueRepo.findByRunId(runId);
@@ -254,8 +320,12 @@ export class RunService {
   /**
    * Complete a workflow run (with validation)
    */
-  async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
-    const run = await this.getRun(runId, userId);
+  async completeRun(
+    runId: string,
+    userId: string | null,
+    runToken?: string
+  ): Promise<WorkflowRun> {
+    const run = await this.getRun(runId, userId, runToken);
 
     if (run.completed) {
       throw new Error("Run is already completed");
