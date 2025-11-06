@@ -26,6 +26,9 @@ import AISurveyCreator from "@/pages/AISurveyCreator";
 import TemplatesPage from "@/pages/TemplatesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import WorkflowDashboard from "@/pages/WorkflowDashboard";
+import WorkflowBuilder from "@/pages/WorkflowBuilder";
+import { WorkflowRunner } from "@/pages/WorkflowRunner";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -35,6 +38,11 @@ function Router() {
       <Switch>
         {/* Survey response route - available to everyone (authenticated or not) */}
         <Route path="/survey/:identifier" component={SurveyPlayer} />
+
+        {/* Workflow runner - available to everyone */}
+        <Route path="/run/:id">
+          {(params) => <WorkflowRunner runId={params.id} />}
+        </Route>
 
         {isLoading || !isAuthenticated ? (
           <>
@@ -46,6 +54,11 @@ function Router() {
           <>
             <Route path="/" component={Dashboard} />
             <Route path="/dashboard" component={Dashboard} />
+
+            {/* Workflow routes */}
+            <Route path="/workflows" component={WorkflowDashboard} />
+            <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
+
             <Route path="/surveys" component={SurveysList} />
             <Route path="/surveys/new" component={SurveyBuilder} />
             <Route path="/ai-survey" component={AISurveyCreator} />
