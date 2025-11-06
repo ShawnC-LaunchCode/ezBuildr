@@ -1,19 +1,31 @@
 ﻿import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { useAccountPreferences, useUpdateAccountPreferences } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings, Sparkles, Moon, Sun, Lightbulb, RotateCcw } from "lucide-react";
+import { Settings, Sparkles, Moon, Sun, Lightbulb, RotateCcw, Layers } from "lucide-react";
+import type { Mode } from "@/lib/mode";
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { prefs, isLoading, update, reset, isUpdating } = useUserPreferences();
+  const { data: accountPrefs, isLoading: accountPrefsLoading } = useAccountPreferences();
+  const updateAccountPrefsMutation = useUpdateAccountPreferences();
   const { toast } = useToast();
+  const [localMode, setLocalMode] = useState<Mode>('easy');
+
+  // Sync local mode state with fetched account preferences
+  useEffect(() => {
+    if (accountPrefs) {
+      setLocalMode(accountPrefs.defaultMode);
+    }
+  }, [accountPrefs]);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -47,9 +59,36 @@ export default function SettingsPage() {
 
   const handleReset = () => {
     reset();
+    // Reset mode to easy
+    updateAccountPrefsMutation.mutate({ defaultMode: 'easy' }, {
+      onSuccess: () => {
+        setLocalMode('easy');
+      },
+    });
     toast({
       title: "Preferences reset",
       description: "All preferences have been reset to defaults.",
+    });
+  };
+
+  const handleModeChange = (mode: Mode) => {
+    setLocalMode(mode);
+    updateAccountPrefsMutation.mutate({ defaultMode: mode }, {
+      onSuccess: () => {
+        toast({
+          title: "Mode updated",
+          description: `Default mode set to ${mode === 'easy' ? 'Easy' : 'Advanced'}.`,
+        });
+      },
+      onError: () => {
+        // Revert on error
+        setLocalMode(accountPrefs?.defaultMode || 'easy');
+        toast({
+          title: "Error",
+          description: "Failed to update mode. Please try again.",
+          variant: "destructive",
+        });
+      },
     });
   };
 
@@ -59,7 +98,7 @@ export default function SettingsPage() {
       .replace(/^./, (str) => str.toUpperCase());
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || isLoading || accountPrefsLoading) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
@@ -106,6 +145,53 @@ export default function SettingsPage() {
                 Reset to Defaults
               </Button>
             </div>
+
+            {/* Workflow Mode Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="w-5 h-5" />
+                  Workflow Mode
+                </CardTitle>
+                <CardDescription>
+                  Control the complexity level for workflow building
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Default Mode */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="defaultMode" className="text-base font-medium">
+                      Default Mode
+                    </Label>
+                    <p className="text-sm text-gray-500">
+                      Choose your default builder experience. Easy mode shows a curated set of features, while Advanced mode exposes all capabilities including raw JSON editing and transform blocks.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={localMode === 'easy' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleModeChange('easy')}
+                      disabled={updateAccountPrefsMutation.isPending}
+                    >
+                      Easy
+                    </Button>
+                    <Button
+                      variant={localMode === 'advanced' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleModeChange('advanced')}
+                      disabled={updateAccountPrefsMutation.isPending}
+                    >
+                      Advanced
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                  <strong>Note:</strong> You can override this setting for individual workflows in the Workflow Builder.
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Appearance Settings */}
             <Card>

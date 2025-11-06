@@ -3,6 +3,7 @@ import {
   sectionRepository,
   stepRepository,
   logicRuleRepository,
+  userRepository,
   type DbTransaction,
 } from "../repositories";
 import type { Workflow, InsertWorkflow, Section, Step, LogicRule } from "@shared/schema";
@@ -153,6 +154,56 @@ export class WorkflowService {
    */
   async listUnfiledWorkflows(creatorId: string): Promise<Workflow[]> {
     return await this.workflowRepo.findUnfiledByCreatorId(creatorId);
+  }
+
+  /**
+   * Get resolved mode for a workflow (modeOverride ?? user.defaultMode)
+   */
+  async getResolvedMode(
+    workflowId: string,
+    userId: string
+  ): Promise<{ mode: 'easy' | 'advanced', source: 'workflow' | 'user' }> {
+    const workflow = await this.verifyOwnership(workflowId, userId);
+    const user = await userRepository.findById(userId);
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // If workflow has a mode override, use it
+    if (workflow.modeOverride) {
+      return {
+        mode: workflow.modeOverride as 'easy' | 'advanced',
+        source: 'workflow',
+      };
+    }
+
+    // Otherwise, use user's default mode
+    return {
+      mode: (user.defaultMode as 'easy' | 'advanced') || 'easy',
+      source: 'user',
+    };
+  }
+
+  /**
+   * Set or clear workflow mode override
+   */
+  async setModeOverride(
+    workflowId: string,
+    userId: string,
+    modeOverride: 'easy' | 'advanced' | null
+  ): Promise<Workflow> {
+    await this.verifyOwnership(workflowId, userId);
+
+    // Validate mode value if not null
+    if (modeOverride !== null && !['easy', 'advanced'].includes(modeOverride)) {
+      throw new Error("Invalid mode value. Must be 'easy', 'advanced', or null");
+    }
+
+    return await this.workflowRepo.update(workflowId, {
+      modeOverride,
+      updatedAt: new Date(),
+    });
   }
 }
 

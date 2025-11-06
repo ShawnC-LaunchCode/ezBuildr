@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun } from "./vault-api";
+import { projectAPI, workflowAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse } from "./vault-api";
 
 // ============================================================================
 // Query Keys
@@ -24,6 +24,8 @@ export const queryKeys = {
   runs: (workflowId: string) => ["runs", workflowId] as const,
   run: (id: string) => ["runs", id] as const,
   runWithValues: (id: string) => ["runs", id, "values"] as const,
+  accountPreferences: ["account", "preferences"] as const,
+  workflowMode: (workflowId: string) => ["workflows", workflowId, "mode"] as const,
 };
 
 // ============================================================================
@@ -490,6 +492,49 @@ export function useCompleteRun() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.run(data.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.runs(data.workflowId) });
+    },
+  });
+}
+
+// ============================================================================
+// Account & Mode Preferences
+// ============================================================================
+
+export function useAccountPreferences() {
+  return useQuery({
+    queryKey: queryKeys.accountPreferences,
+    queryFn: () => accountAPI.getPreferences(),
+  });
+}
+
+export function useUpdateAccountPreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: accountAPI.updatePreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountPreferences });
+      // Invalidate all workflow modes since the default has changed
+      queryClient.invalidateQueries({ queryKey: ["workflows"] });
+    },
+  });
+}
+
+export function useWorkflowMode(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflowMode(workflowId!),
+    queryFn: () => workflowModeAPI.getMode(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useSetWorkflowMode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, modeOverride }: { workflowId: string; modeOverride: 'easy' | 'advanced' | null }) =>
+      workflowModeAPI.setMode(workflowId, modeOverride),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowMode(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
     },
   });
 }

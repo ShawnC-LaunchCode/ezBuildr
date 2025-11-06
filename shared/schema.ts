@@ -74,6 +74,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: userRoleEnum("role").default('creator').notNull(),
+  defaultMode: text("default_mode").default('easy').notNull(), // 'easy' | 'advanced'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -749,6 +750,7 @@ export const workflows = pgTable("workflows", {
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }), // Optional project assignment
   status: workflowStatusEnum("status").default('draft').notNull(),
+  modeOverride: text("mode_override"), // 'easy' | 'advanced' | null (null = use user default)
   publicLink: text("public_link").unique(), // UUID/slug for anonymous run access
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

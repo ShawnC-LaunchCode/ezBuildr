@@ -5,8 +5,8 @@
 
 import { useParams } from "wouter";
 import { useState } from "react";
-import { Settings, Play, Eye, EyeOff } from "lucide-react";
-import { useWorkflow, useSections, useCreateRun } from "@/lib/vault-hooks";
+import { Settings, Play, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { useWorkflow, useSections, useCreateRun, useWorkflowMode, useSetWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
@@ -16,22 +16,32 @@ import { CanvasEditor } from "@/components/builder/CanvasEditor";
 import { Inspector } from "@/components/builder/Inspector";
 import { RunnerPreview } from "@/components/builder/RunnerPreview";
 import { useToast } from "@/hooks/use-toast";
+import { getModeLabel, type Mode } from "@/lib/mode";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
+  const { data: workflowMode, isLoading: modeLoading } = useWorkflowMode(workflowId);
+  const setWorkflowModeMutation = useSetWorkflowMode();
   const createRunMutation = useCreateRun();
   const { toast } = useToast();
 
   const {
-    mode,
-    setMode,
     isPreviewOpen,
     previewRunId,
     startPreview,
     stopPreview,
   } = useWorkflowBuilder();
+
+  const mode = workflowMode?.mode || 'easy';
 
   const handleStartPreview = async () => {
     if (!workflowId) return;
@@ -44,7 +54,47 @@ export default function WorkflowBuilder() {
     }
   };
 
-  if (isLoading) {
+  const handleModeChange = (newMode: Mode) => {
+    if (!workflowId) return;
+
+    setWorkflowModeMutation.mutate({ workflowId, modeOverride: newMode }, {
+      onSuccess: () => {
+        toast({
+          title: "Mode updated",
+          description: `Workflow mode set to ${newMode === 'easy' ? 'Easy' : 'Advanced'}.`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to update workflow mode.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleClearOverride = () => {
+    if (!workflowId) return;
+
+    setWorkflowModeMutation.mutate({ workflowId, modeOverride: null }, {
+      onSuccess: () => {
+        toast({
+          title: "Mode reset",
+          description: "Using account default mode.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to clear mode override.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  if (isLoading || modeLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <Skeleton className="h-12 w-64" />
@@ -72,23 +122,42 @@ export default function WorkflowBuilder() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Easy/Advanced Toggle */}
-          <div className="flex items-center gap-2 mr-4">
-            <Button
-              variant={mode === "easy" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode("easy")}
-            >
-              Easy
-            </Button>
-            <Button
-              variant={mode === "advanced" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMode("advanced")}
-            >
-              Advanced
-            </Button>
-          </div>
+          {/* Mode Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="mr-2">
+                {getModeLabel(mode, workflowMode?.source || 'user')}
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => handleModeChange('easy')}>
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">Switch to Easy</span>
+                  <span className="text-xs text-muted-foreground">
+                    Curated set of features
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleModeChange('advanced')}>
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">Switch to Advanced</span>
+                  <span className="text-xs text-muted-foreground">
+                    Full logic and all blocks
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleClearOverride}>
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">Clear Override</span>
+                  <span className="text-xs text-muted-foreground">
+                    Use account default
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Preview Toggle */}
           <Toggle

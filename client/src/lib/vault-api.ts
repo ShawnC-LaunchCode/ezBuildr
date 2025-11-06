@@ -390,3 +390,43 @@ export const runAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiRun[]>(`/api/workflows/${workflowId}/runs`),
 };
+
+// ============================================================================
+// Account & Mode Preferences
+// ============================================================================
+
+export type Mode = 'easy' | 'advanced';
+export type ModeSource = 'user' | 'workflow';
+
+export interface AccountPreferences {
+  defaultMode: Mode;
+}
+
+export interface WorkflowModeResponse {
+  mode: Mode;
+  source: ModeSource;
+}
+
+export const accountAPI = {
+  getPreferences: () =>
+    fetchAPI<{ success: boolean; data: AccountPreferences }>("/api/account/preferences")
+      .then(res => res.data),
+
+  updatePreferences: (preferences: AccountPreferences) =>
+    fetchAPI<{ success: boolean; data: AccountPreferences }>("/api/account/preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
+    }).then(res => res.data),
+};
+
+export const workflowModeAPI = {
+  getMode: (workflowId: string) =>
+    fetchAPI<{ success: boolean; data: WorkflowModeResponse }>(`/api/workflows/${workflowId}/mode`)
+      .then(res => res.data),
+
+  setMode: (workflowId: string, modeOverride: Mode | null) =>
+    fetchAPI<{ success: boolean; data: ApiWorkflow }>(`/api/workflows/${workflowId}/mode`, {
+      method: "PUT",
+      body: JSON.stringify({ modeOverride }),
+    }).then(res => res.data),
+};

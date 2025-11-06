@@ -195,4 +195,63 @@ export function registerWorkflowRoutes(app: Express): void {
       res.status(500).json({ message: "Failed to fetch unfiled workflows" });
     }
   });
+
+  /**
+   * GET /api/workflows/:workflowId/mode
+   * Get resolved mode for a workflow (modeOverride ?? user.defaultMode)
+   */
+  app.get('/api/workflows/:workflowId/mode', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const result = await workflowService.getResolvedMode(workflowId, userId);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      console.error("Error fetching workflow mode:", error);
+      const message = error instanceof Error ? error.message : "Failed to fetch workflow mode";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * PUT /api/workflows/:workflowId/mode
+   * Set or clear workflow mode override
+   */
+  app.put('/api/workflows/:workflowId/mode', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const { modeOverride } = z.object({
+        modeOverride: z.enum(['easy', 'advanced']).nullable(),
+      }).parse(req.body);
+
+      const workflow = await workflowService.setModeOverride(workflowId, userId, modeOverride);
+      res.json({ success: true, data: workflow });
+    } catch (error) {
+      console.error("Error setting workflow mode:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request data",
+          details: error.errors
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to set workflow mode";
+      const status = message.includes("not found") ? 404 :
+                     message.includes("Access denied") ? 403 :
+                     message.includes("Invalid") ? 400 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
 }

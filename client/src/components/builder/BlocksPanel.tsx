@@ -3,8 +3,8 @@
  */
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-import { useBlocks, useCreateBlock, useDeleteBlock, useUpdateBlock } from "@/lib/vault-hooks";
+import { Plus, Trash2, Info } from "lucide-react";
+import { useBlocks, useCreateBlock, useDeleteBlock, useUpdateBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,13 +15,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 import type { BlockType, BlockPhase } from "@/lib/vault-api";
 
 export function BlocksPanel({ workflowId }: { workflowId: string }) {
   const { data: blocks } = useBlocks(workflowId);
+  const { data: workflowMode } = useWorkflowMode(workflowId);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<any | null>(null);
   const { toast } = useToast();
+
+  const mode = workflowMode?.mode || 'easy';
 
   return (
     <div className="p-4 space-y-4">
@@ -32,6 +36,13 @@ export function BlocksPanel({ workflowId }: { workflowId: string }) {
           Add
         </Button>
       </div>
+
+      {mode === 'easy' && (
+        <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+          <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+          <p>Easy mode: All block types (prefill, validate, branch) are available.</p>
+        </div>
+      )}
 
       {blocks && blocks.length === 0 && (
         <div className="text-center py-8 text-sm text-muted-foreground">
@@ -48,6 +59,7 @@ export function BlocksPanel({ workflowId }: { workflowId: string }) {
       <BlockEditor
         workflowId={workflowId}
         block={editingBlock}
+        mode={mode}
         isOpen={isCreateOpen || !!editingBlock}
         onClose={() => {
           setIsCreateOpen(false);
@@ -108,11 +120,13 @@ function BlockCard({ block, workflowId, onEdit }: { block: any; workflowId: stri
 function BlockEditor({
   workflowId,
   block,
+  mode,
   isOpen,
   onClose,
 }: {
   workflowId: string;
   block: any | null;
+  mode: Mode;
   isOpen: boolean;
   onClose: () => void;
 }) {
@@ -128,6 +142,8 @@ function BlockEditor({
     order: block?.order ?? 0,
     sectionId: block?.sectionId || null,
   });
+
+  const availableBlockTypes = getAvailableBlockTypes(mode);
 
   const handleSave = async () => {
     try {
@@ -193,6 +209,11 @@ function BlockEditor({
 
           <div className="space-y-2">
             <Label>Config (JSON)</Label>
+            {mode === 'easy' && (
+              <p className="text-xs text-muted-foreground mb-1">
+                Easy mode: JSON configuration is available for all block types.
+              </p>
+            )}
             <Textarea
               value={JSON.stringify(formData.config, null, 2)}
               onChange={(e) => {
