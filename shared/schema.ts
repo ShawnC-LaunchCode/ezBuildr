@@ -971,7 +971,7 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
   sections: many(sections),
   logicRules: many(logicRules),
   runs: many(workflowRuns),
-  blocks: many(blocks),
+  transformBlocks: many(transformBlocks),
 }));
 
 export const sectionsRelations = relations(sections, ({ one, many }) => ({
@@ -1009,6 +1009,7 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
     references: [participants.id],
   }),
   stepValues: many(stepValues),
+  transformBlockRuns: many(transformBlockRuns),
 }));
 
 export const stepValuesRelations = relations(stepValues, ({ one }) => ({
@@ -1062,6 +1063,70 @@ export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ i
 export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 
+// Transform block language enum
+export const transformBlockLanguageEnum = pgEnum('transform_block_language', ['javascript', 'python']);
+
+// Transform block run status enum
+export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', ['success', 'timeout', 'error']);
+
+// Transform blocks table (custom logic execution)
+export const transformBlocks = pgTable("transform_blocks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  language: transformBlockLanguageEnum("language").notNull(),
+  code: text("code").notNull(), // User-supplied function body or script
+  inputKeys: text("input_keys").array().notNull(), // Whitelisted keys read from data
+  outputKey: varchar("output_key").notNull(), // Single key to write back to data
+  enabled: boolean("enabled").default(true).notNull(),
+  order: integer("order").notNull(),
+  timeoutMs: integer("timeout_ms").default(1000), // Default 1000ms
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("transform_blocks_workflow_idx").on(table.workflowId),
+  index("transform_blocks_workflow_order_idx").on(table.workflowId, table.order),
+]);
+
+// Transform block runs table (audit log)
+export const transformBlockRuns = pgTable("transform_block_runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+  blockId: uuid("block_id").references(() => transformBlocks.id, { onDelete: 'cascade' }).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  status: transformBlockRunStatusEnum("status").notNull(),
+  errorMessage: text("error_message"),
+  outputSample: jsonb("output_sample"), // Sample of output for auditing
+}, (table) => [
+  index("transform_block_runs_run_idx").on(table.runId),
+  index("transform_block_runs_block_idx").on(table.blockId),
+]);
+
+// Transform Blocks Relations
+export const transformBlocksRelations = relations(transformBlocks, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [transformBlocks.workflowId],
+    references: [workflows.id],
+  }),
+  runs: many(transformBlockRuns),
+}));
+
+export const transformBlockRunsRelations = relations(transformBlockRuns, ({ one }) => ({
+  run: one(workflowRuns, {
+    fields: [transformBlockRuns.runId],
+    references: [workflowRuns.id],
+  }),
+  block: one(transformBlocks, {
+    fields: [transformBlockRuns.blockId],
+    references: [transformBlocks.id],
+  }),
+}));
+
+// Transform Blocks Insert Schemas
+export const insertTransformBlockSchema = createInsertSchema(transformBlocks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns).omit({ id: true, startedAt: true });
+
 // Vault-Logic Types
 export type Workflow = typeof workflows.$inferSelect;
 export type InsertWorkflow = typeof insertWorkflowSchema._type;
@@ -1077,5 +1142,7 @@ export type WorkflowRun = typeof workflowRuns.$inferSelect;
 export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;
 export type StepValue = typeof stepValues.$inferSelect;
 export type InsertStepValue = typeof insertStepValueSchema._type;
-export type Block = typeof blocks.$inferSelect;
-export type InsertBlock = typeof insertBlockSchema._type;
+export type TransformBlock = typeof transformBlocks.$inferSelect;
+export type InsertTransformBlock = typeof insertTransformBlockSchema._type;
+export type TransformBlockRun = typeof transformBlockRuns.$inferSelect;
+export type InsertTransformBlockRun = typeof insertTransformBlockRunSchema._type;

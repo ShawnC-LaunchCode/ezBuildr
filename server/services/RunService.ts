@@ -8,6 +8,7 @@ import {
 } from "../repositories";
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
 import { workflowService } from "./WorkflowService";
+import { transformBlockService } from "./TransformBlockService";
 import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from "@shared/workflowLogic";
 import { blockRunner } from "./BlockRunner";
 import type { BlockContext } from "@shared/types/blocks";
@@ -23,6 +24,7 @@ export class RunService {
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private workflowSvc: typeof workflowService;
+  private transformSvc: typeof transformBlockService;
 
   constructor(
     runRepo?: typeof workflowRunRepository,
@@ -31,7 +33,8 @@ export class RunService {
     sectionRepo?: typeof sectionRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
-    workflowSvc?: typeof workflowService
+    workflowSvc?: typeof workflowService,
+    transformSvc?: typeof transformBlockService
   ) {
     this.runRepo = runRepo || workflowRunRepository;
     this.valueRepo = valueRepo || stepValueRepository;
@@ -40,6 +43,7 @@ export class RunService {
     this.stepRepo = stepRepo || stepRepository;
     this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
     this.workflowSvc = workflowSvc || workflowService;
+    this.transformSvc = transformSvc || transformBlockService;
   }
 
   /**
@@ -275,6 +279,26 @@ export class RunService {
       data[v.stepId] = v.value;
     });
 
+    // ===================================================================
+    // Execute transform blocks BEFORE validation
+    // This allows transform blocks to compute derived values that may be
+    // required for validation or subsequent logic
+    // ===================================================================
+    const transformResult = await this.transformSvc.executeAllForWorkflow({
+      workflowId: workflow.id,
+      runId,
+      data,
+    });
+
+    // Use updated data from transform blocks (includes computed outputs)
+    const finalData = transformResult.data || data;
+
+    // If transform blocks had errors, log them but continue
+    // (transform errors don't prevent run completion unless critical)
+    if (transformResult.errors && transformResult.errors.length > 0) {
+      console.warn(`Transform block errors during run ${runId}:`, transformResult.errors);
+    }
+
     // Get initially required steps
     const initialRequiredSteps = new Set(steps.filter((s) => s.required).map((s) => s.id));
 
@@ -282,11 +306,11 @@ export class RunService {
     const effectiveRequiredSteps = getEffectiveRequiredSteps(
       initialRequiredSteps,
       logicRules,
-      data
+      finalData
     );
 
     // Validate all required steps have values
-    const validation = validateRequiredSteps(effectiveRequiredSteps, data);
+    const validation = validateRequiredSteps(effectiveRequiredSteps, finalData);
 
     if (!validation.valid) {
       throw new Error(`Missing required steps: ${validation.missingSteps.join(', ')}`);
