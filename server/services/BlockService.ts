@@ -1,5 +1,5 @@
 import {
-  blockRepository,
+  transformBlockRepository,
   workflowRepository,
   sectionRepository,
 } from "../repositories";
@@ -11,16 +11,16 @@ import type { BlockPhase } from "@shared/types/blocks";
  * Handles CRUD operations for workflow blocks with ownership verification
  */
 export class BlockService {
-  private blockRepo: typeof blockRepository;
+  private blockRepo: typeof transformBlockRepository;
   private workflowRepo: typeof workflowRepository;
   private sectionRepo: typeof sectionRepository;
 
   constructor(
-    blockRepo?: typeof blockRepository,
+    blockRepo?: typeof transformBlockRepository,
     workflowRepo?: typeof workflowRepository,
     sectionRepo?: typeof sectionRepository
   ) {
-    this.blockRepo = blockRepo || blockRepository;
+    this.blockRepo = blockRepo || transformBlockRepository;
     this.workflowRepo = workflowRepo || workflowRepository;
     this.sectionRepo = sectionRepo || sectionRepository;
   }

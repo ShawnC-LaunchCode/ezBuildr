@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { workflowAPI, sectionAPI, stepAPI, blockAPI, runAPI, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiRun } from "./vault-api";
+import { workflowAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun } from "./vault-api";
 
 // ============================================================================
 // Query Keys
@@ -15,6 +15,8 @@ export const queryKeys = {
   sections: (workflowId: string) => ["sections", workflowId] as const,
   steps: (sectionId: string) => ["steps", sectionId] as const,
   blocks: (workflowId: string, phase?: string) => ["blocks", workflowId, phase] as const,
+  transformBlocks: (workflowId: string) => ["transformBlocks", workflowId] as const,
+  transformBlock: (id: string) => ["transformBlocks", id] as const,
   runs: (workflowId: string) => ["runs", workflowId] as const,
   run: (id: string) => ["runs", id] as const,
   runWithValues: (id: string) => ["runs", id, "values"] as const,
@@ -237,6 +239,67 @@ export function useDeleteBlock() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.blocks(variables.workflowId) });
     },
+  });
+}
+
+// ============================================================================
+// Transform Blocks
+// ============================================================================
+
+export function useTransformBlocks(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.transformBlocks(workflowId!),
+    queryFn: () => transformBlockAPI.list(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useTransformBlock(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.transformBlock(id!),
+    queryFn: () => transformBlockAPI.get(id!),
+    enabled: !!id,
+  });
+}
+
+export function useCreateTransformBlock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, ...data }: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt"> & { workflowId: string }) =>
+      transformBlockAPI.create(workflowId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transformBlocks(variables.workflowId) });
+    },
+  });
+}
+
+export function useUpdateTransformBlock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, workflowId, ...data }: Partial<ApiTransformBlock> & { id: string; workflowId: string }) =>
+      transformBlockAPI.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transformBlocks(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.transformBlock(variables.id) });
+    },
+  });
+}
+
+export function useDeleteTransformBlock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
+      transformBlockAPI.delete(id),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transformBlocks(variables.workflowId) });
+    },
+  });
+}
+
+export function useTestTransformBlock() {
+  return useMutation({
+    mutationFn: ({ id, testData }: { id: string; testData: Record<string, any> }) =>
+      transformBlockAPI.test(id, testData),
   });
 }
 

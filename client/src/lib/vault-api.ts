@@ -207,6 +207,59 @@ export const blockAPI = {
 };
 
 // ============================================================================
+// Transform Blocks (JavaScript/Python code execution)
+// ============================================================================
+
+export type TransformBlockLanguage = "javascript" | "python";
+
+export interface ApiTransformBlock {
+  id: string;
+  workflowId: string;
+  name: string;
+  language: TransformBlockLanguage;
+  code: string;
+  inputKeys: string[];
+  outputKey: string;
+  enabled: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const transformBlockAPI = {
+  list: (workflowId: string) =>
+    fetchAPI<{ success: boolean; data: ApiTransformBlock[] }>(`/api/workflows/${workflowId}/transform-blocks`)
+      .then(res => res.data),
+
+  get: (id: string) =>
+    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`)
+      .then(res => res.data),
+
+  create: (workflowId: string, data: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">) =>
+    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/workflows/${workflowId}/transform-blocks`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }).then(res => res.data),
+
+  update: (id: string, data: Partial<Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">>) =>
+    fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }).then(res => res.data),
+
+  delete: (id: string) =>
+    fetchAPI<{ success: boolean }>(`/api/transform-blocks/${id}`, {
+      method: "DELETE",
+    }),
+
+  test: (id: string, testData: Record<string, any>) =>
+    fetchAPI<{ success: boolean; output: any; error?: string }>(`/api/transform-blocks/${id}/test`, {
+      method: "POST",
+      body: JSON.stringify({ testData }),
+    }),
+};
+
+// ============================================================================
 // Runs
 // ============================================================================
 
