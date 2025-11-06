@@ -13,6 +13,7 @@ import { registerExportRoutes } from "./export.routes";
 import { registerAiRoutes } from "./ai.routes";
 import { registerTemplateRoutes } from "./templates.routes";
 import { registerTemplateSharingRoutes } from "./templateSharing.routes";
+import { registerProjectRoutes } from "./projects.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerSectionRoutes } from "./sections.routes";
 import { registerStepRoutes } from "./steps.routes";
@@ -70,6 +71,9 @@ export function registerAllRoutes(app: Express): void {
   // ========================================================================
   // Vault-Logic Workflow Routes
   // ========================================================================
+
+  // Project management routes (workflow organization)
+  registerProjectRoutes(app);
 
   // Workflow management routes
   registerWorkflowRoutes(app);

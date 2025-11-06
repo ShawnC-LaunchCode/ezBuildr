@@ -1,15 +1,25 @@
 /**
  * Workflow Dashboard
- * Lists workflows, allows creation, shows recent runs
+ * Lists projects and workflows, allows creation, shows hierarchy
  */
 
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, Workflow as WorkflowIcon, Play, Archive, MoreVertical } from "lucide-react";
-import { useWorkflows, useCreateWorkflow, useDeleteWorkflow, useUpdateWorkflow } from "@/lib/vault-hooks";
+import { Plus, Workflow as WorkflowIcon, Folder } from "lucide-react";
+import {
+  useProjects,
+  useUnfiledWorkflows,
+  useCreateProject,
+  useUpdateProject,
+  useDeleteProject,
+  useArchiveProject,
+  useCreateWorkflow,
+  useUpdateWorkflow,
+  useDeleteWorkflow,
+  useMoveWorkflow,
+} from "@/lib/vault-hooks";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -20,12 +30,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,63 +50,178 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import type { ApiProject, ApiWorkflow } from "@/lib/vault-api";
 
 export default function WorkflowDashboard() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [newWorkflow, setNewWorkflow] = useState({ title: "", description: "" });
+  // Dialog states
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isCreateWorkflowOpen, setIsCreateWorkflowOpen] = useState(false);
+  const [isMoveWorkflowOpen, setIsMoveWorkflowOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<ApiProject | null>(null);
+  const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
-  const { data: workflows, isLoading } = useWorkflows();
-  const createMutation = useCreateWorkflow();
-  const deleteMutation = useDeleteWorkflow();
-  const updateMutation = useUpdateWorkflow();
+  // Form states
+  const [newProject, setNewProject] = useState({ title: "", description: "" });
+  const [newWorkflow, setNewWorkflow] = useState({ title: "", description: "" });
+  const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
+
+  // Data queries
+  const { data: projects, isLoading: projectsLoading } = useProjects(true); // active only
+  const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
+
+  // Mutations
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
+  const archiveProjectMutation = useArchiveProject();
+  const createWorkflowMutation = useCreateWorkflow();
+  const updateWorkflowMutation = useUpdateWorkflow();
+  const deleteWorkflowMutation = useDeleteWorkflow();
+  const moveWorkflowMutation = useMoveWorkflow();
+
   const { toast } = useToast();
 
-  const handleCreate = async () => {
+  // Project handlers
+  const handleCreateProject = async () => {
+    if (!newProject.title.trim()) {
+      toast({ title: "Error", description: "Project title is required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await createProjectMutation.mutateAsync(newProject);
+      toast({ title: "Success", description: "Project created successfully" });
+      setIsCreateProjectOpen(false);
+      setNewProject({ title: "", description: "" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create project", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateProject = async () => {
+    if (!editingProject || !newProject.title.trim()) {
+      toast({ title: "Error", description: "Project title is required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await updateProjectMutation.mutateAsync({
+        id: editingProject.id,
+        ...newProject,
+      });
+      toast({ title: "Success", description: "Project updated successfully" });
+      setEditingProject(null);
+      setNewProject({ title: "", description: "" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update project", variant: "destructive" });
+    }
+  };
+
+  const handleArchiveProject = async (id: string) => {
+    try {
+      await archiveProjectMutation.mutateAsync(id);
+      toast({ title: "Success", description: "Project archived" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to archive project", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!deleteProjectId) return;
+
+    try {
+      await deleteProjectMutation.mutateAsync(deleteProjectId);
+      toast({ title: "Success", description: "Project deleted" });
+      setDeleteProjectId(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+    }
+  };
+
+  // Workflow handlers
+  const handleCreateWorkflow = async () => {
     if (!newWorkflow.title.trim()) {
       toast({ title: "Error", description: "Workflow title is required", variant: "destructive" });
       return;
     }
 
     try {
-      await createMutation.mutateAsync(newWorkflow);
+      await createWorkflowMutation.mutateAsync(newWorkflow);
       toast({ title: "Success", description: "Workflow created successfully" });
-      setIsCreateOpen(false);
+      setIsCreateWorkflowOpen(false);
       setNewWorkflow({ title: "", description: "" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to create workflow", variant: "destructive" });
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDeleteWorkflow = async () => {
+    if (!deleteWorkflowId) return;
 
     try {
-      await deleteMutation.mutateAsync(deleteId);
+      await deleteWorkflowMutation.mutateAsync(deleteWorkflowId);
       toast({ title: "Success", description: "Workflow deleted" });
-      setDeleteId(null);
+      setDeleteWorkflowId(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete workflow", variant: "destructive" });
     }
   };
 
-  const handleArchive = async (id: string) => {
+  const handleArchiveWorkflow = async (id: string) => {
     try {
-      await updateMutation.mutateAsync({ id, status: "archived" });
+      await updateWorkflowMutation.mutateAsync({ id, status: "archived" });
       toast({ title: "Success", description: "Workflow archived" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to archive workflow", variant: "destructive" });
     }
   };
 
-  const handleActivate = async (id: string) => {
+  const handleActivateWorkflow = async (id: string) => {
     try {
-      await updateMutation.mutateAsync({ id, status: "active" });
+      await updateWorkflowMutation.mutateAsync({ id, status: "active" });
       toast({ title: "Success", description: "Workflow activated" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to activate workflow", variant: "destructive" });
     }
   };
+
+  const handleMoveWorkflow = async () => {
+    if (!movingWorkflow) return;
+
+    try {
+      await moveWorkflowMutation.mutateAsync({
+        id: movingWorkflow.id,
+        projectId: targetProjectId,
+      });
+      toast({
+        title: "Success",
+        description: targetProjectId ? "Workflow moved to project" : "Workflow moved to unfiled",
+      });
+      setIsMoveWorkflowOpen(false);
+      setMovingWorkflow(null);
+      setTargetProjectId(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to move workflow", variant: "destructive" });
+    }
+  };
+
+  const openMoveDialog = (workflow: ApiWorkflow) => {
+    setMovingWorkflow(workflow);
+    setTargetProjectId(workflow.projectId);
+    setIsMoveWorkflowOpen(true);
+  };
+
+  const openEditProjectDialog = (project: ApiProject) => {
+    setEditingProject(project);
+    setNewProject({ title: project.title, description: project.description || "" });
+  };
+
+  const isLoading = projectsLoading || workflowsLoading;
+  const hasContent = (projects && projects.length > 0) || (unfiledWorkflows && unfiledWorkflows.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,28 +231,40 @@ export default function WorkflowDashboard() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Workflows</h1>
             <p className="text-muted-foreground mt-1">
-              Create and manage workflow automation logic
+              Organize workflows in projects and manage automation logic
             </p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Workflow
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsCreateProjectOpen(true)}>
+              <Folder className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+            <Button onClick={() => setIsCreateWorkflowOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Workflow
+            </Button>
+          </div>
         </div>
 
         {/* Empty State */}
-        {!isLoading && workflows?.length === 0 && (
+        {!isLoading && !hasContent && (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <WorkflowIcon className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No workflows yet</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Get started by creating your first workflow
+              <h3 className="text-lg font-semibold mb-2">No projects or workflows yet</h3>
+              <p className="text-muted-foreground text-sm mb-4 text-center max-w-md">
+                Get started by creating your first project to organize workflows, or create a workflow directly
               </p>
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Workflow
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsCreateProjectOpen(true)}>
+                  <Folder className="w-4 h-4 mr-2" />
+                  Create Project
+                </Button>
+                <Button onClick={() => setIsCreateWorkflowOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Workflow
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -135,112 +272,154 @@ export default function WorkflowDashboard() {
         {/* Loading */}
         {isLoading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i}>
-                <CardHeader>
+                <div className="p-6">
                   <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-full" />
-                </CardHeader>
-                <CardContent>
+                  <Skeleton className="h-4 w-full mb-4" />
                   <Skeleton className="h-4 w-1/2" />
-                </CardContent>
+                </div>
               </Card>
             ))}
           </div>
         )}
 
-        {/* Workflow Grid */}
-        {workflows && workflows.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {workflows.map((workflow) => (
-              <Card key={workflow.id} className="group hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <Link href={`/workflows/${workflow.id}/builder`}>
-                        <CardTitle className="text-xl hover:text-primary cursor-pointer">
-                          {workflow.title}
-                        </CardTitle>
-                      </Link>
-                      <CardDescription className="mt-1 line-clamp-2">
-                        {workflow.description || "No description"}
-                      </CardDescription>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/workflows/${workflow.id}/builder`}>
-                            Edit Builder
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {workflow.status === "draft" || workflow.status === "archived" ? (
-                          <DropdownMenuItem onClick={() => handleActivate(workflow.id)}>
-                            <Play className="w-4 h-4 mr-2" />
-                            Activate
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleArchive(workflow.id)}>
-                            <Archive className="w-4 h-4 mr-2" />
-                            Archive
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeleteId(workflow.id)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Badge variant={workflow.status === "active" ? "default" : workflow.status === "draft" ? "secondary" : "outline"}>
-                      {workflow.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(workflow.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        {/* Projects & Workflows Grid */}
+        {!isLoading && hasContent && (
+          <div className="space-y-8">
+            {/* Projects Section */}
+            {projects && projects.length > 0 && (
+              <section>
+                <h2 className="text-xl font-semibold mb-4">Projects</h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {projects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onEdit={openEditProjectDialog}
+                      onArchive={handleArchiveProject}
+                      onDelete={(id) => setDeleteProjectId(id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Unfiled Workflows Section */}
+            {unfiledWorkflows && unfiledWorkflows.length > 0 && (
+              <section>
+                <h2 className="text-xl font-semibold mb-4">Unfiled Workflows</h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {unfiledWorkflows.map((workflow) => (
+                    <WorkflowCard
+                      key={workflow.id}
+                      workflow={workflow}
+                      onMove={openMoveDialog}
+                      onArchive={handleArchiveWorkflow}
+                      onActivate={handleActivateWorkflow}
+                      onDelete={(id) => setDeleteWorkflowId(id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      {/* Create/Edit Project Dialog */}
+      <Dialog
+        open={isCreateProjectOpen || !!editingProject}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsCreateProjectOpen(false);
+            setEditingProject(null);
+            setNewProject({ title: "", description: "" });
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Workflow</DialogTitle>
+            <DialogTitle>{editingProject ? "Edit Project" : "Create Project"}</DialogTitle>
             <DialogDescription>
-              Give your workflow a name and optional description
+              {editingProject
+                ? "Update your project details"
+                : "Create a new project to organize your workflows"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="project-title">Title *</Label>
               <Input
-                id="title"
+                id="project-title"
                 placeholder="e.g., Customer Onboarding"
-                value={newWorkflow.title}
-                onChange={(e) => setNewWorkflow({ ...newWorkflow, title: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                value={newProject.title}
+                onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (editingProject ? handleUpdateProject() : handleCreateProject())
+                }
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="project-description">Description</Label>
               <Textarea
-                id="description"
+                id="project-description"
+                placeholder="Optional description..."
+                value={newProject.description}
+                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateProjectOpen(false);
+                setEditingProject(null);
+                setNewProject({ title: "", description: "" });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={editingProject ? handleUpdateProject : handleCreateProject}
+              disabled={createProjectMutation.isPending || updateProjectMutation.isPending}
+            >
+              {createProjectMutation.isPending || updateProjectMutation.isPending
+                ? "Saving..."
+                : editingProject
+                ? "Update"
+                : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Workflow Dialog */}
+      <Dialog open={isCreateWorkflowOpen} onOpenChange={setIsCreateWorkflowOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Workflow</DialogTitle>
+            <DialogDescription>
+              Create a new workflow. You can move it to a project later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="workflow-title">Title *</Label>
+              <Input
+                id="workflow-title"
+                placeholder="e.g., Onboarding Survey"
+                value={newWorkflow.title}
+                onChange={(e) => setNewWorkflow({ ...newWorkflow, title: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateWorkflow()}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="workflow-description">Description</Label>
+              <Textarea
+                id="workflow-description"
                 placeholder="Optional description..."
                 value={newWorkflow.description}
                 onChange={(e) => setNewWorkflow({ ...newWorkflow, description: e.target.value })}
@@ -249,18 +428,81 @@ export default function WorkflowDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setIsCreateWorkflowOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create"}
+            <Button onClick={handleCreateWorkflow} disabled={createWorkflowMutation.isPending}>
+              {createWorkflowMutation.isPending ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      {/* Move Workflow Dialog */}
+      <Dialog open={isMoveWorkflowOpen} onOpenChange={setIsMoveWorkflowOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Workflow</DialogTitle>
+            <DialogDescription>
+              Move "{movingWorkflow?.title}" to a project or unfiled
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="target-project">Target Project</Label>
+              <Select
+                value={targetProjectId || "unfiled"}
+                onValueChange={(value) => setTargetProjectId(value === "unfiled" ? null : value)}
+              >
+                <SelectTrigger id="target-project">
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unfiled">Unfiled</SelectItem>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMoveWorkflowOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleMoveWorkflow} disabled={moveWorkflowMutation.isPending}>
+              {moveWorkflowMutation.isPending ? "Moving..." : "Move"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Project Confirmation */}
+      <AlertDialog open={!!deleteProjectId} onOpenChange={() => setDeleteProjectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The project will be deleted, but workflows inside will be moved to
+              unfiled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Workflow Confirmation */}
+      <AlertDialog open={!!deleteWorkflowId} onOpenChange={() => setDeleteWorkflowId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Workflow?</AlertDialogTitle>
@@ -270,8 +512,11 @@ export default function WorkflowDashboard() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogAction
+              onClick={handleDeleteWorkflow}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleteWorkflowMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

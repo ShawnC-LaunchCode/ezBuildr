@@ -707,6 +707,9 @@ export interface AnonymousResponseMetadata {
 // VAULT-LOGIC SCHEMA (Workflow Builder)
 // =====================================================================
 
+// Project status enum
+export const projectStatusEnum = pgEnum('project_status', ['active', 'archived']);
+
 // Workflow status enum
 export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'active', 'archived']);
 
@@ -724,18 +727,34 @@ export const stepTypeEnum = pgEnum('step_type', [
 // Logic rule target type enum
 export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);
 
+// Projects table (for organizing workflows)
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  status: projectStatusEnum("status").default('active').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("projects_creator_idx").on(table.creatorId),
+  index("projects_status_idx").on(table.status),
+]);
+
 // Workflows table (equivalent to surveys)
 export const workflows = pgTable("workflows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
   description: text("description"),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }), // Optional project assignment
   status: workflowStatusEnum("status").default('draft').notNull(),
   publicLink: text("public_link").unique(), // UUID/slug for anonymous run access
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflows_creator_idx").on(table.creatorId),
+  index("workflows_project_idx").on(table.projectId),
   index("workflows_status_idx").on(table.status),
   index("workflows_public_link_idx").on(table.publicLink),
 ]);
@@ -849,10 +868,22 @@ export const blocks = pgTable("blocks", {
 ]);
 
 // Vault-Logic Relations
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [projects.creatorId],
+    references: [users.id],
+  }),
+  workflows: many(workflows),
+}));
+
 export const workflowsRelations = relations(workflows, ({ one, many }) => ({
   creator: one(users, {
     fields: [workflows.creatorId],
     references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [workflows.projectId],
+    references: [projects.id],
   }),
   sections: many(sections),
   logicRules: many(logicRules),
@@ -932,6 +963,7 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
 }));
 
 // Vault-Logic Insert Schemas
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, publicLink: true });
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
 export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
@@ -1005,6 +1037,8 @@ export const insertTransformBlockSchema = createInsertSchema(transformBlocks).om
 export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns).omit({ id: true, startedAt: true });
 
 // Vault-Logic Types
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = typeof insertProjectSchema._type;
 export type Workflow = typeof workflows.$inferSelect;
 export type InsertWorkflow = typeof insertWorkflowSchema._type;
 export type Section = typeof sections.$inferSelect;

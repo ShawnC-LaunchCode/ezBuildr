@@ -3,14 +3,18 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { workflowAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun } from "./vault-api";
+import { projectAPI, workflowAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun } from "./vault-api";
 
 // ============================================================================
 // Query Keys
 // ============================================================================
 
 export const queryKeys = {
+  projects: ["projects"] as const,
+  project: (id: string) => ["projects", id] as const,
+  projectWorkflows: (projectId: string) => ["projects", projectId, "workflows"] as const,
   workflows: ["workflows"] as const,
+  workflowsUnfiled: ["workflows", "unfiled"] as const,
   workflow: (id: string) => ["workflows", id] as const,
   sections: (workflowId: string) => ["sections", workflowId] as const,
   steps: (sectionId: string) => ["steps", sectionId] as const,
@@ -23,6 +27,88 @@ export const queryKeys = {
 };
 
 // ============================================================================
+// Projects
+// ============================================================================
+
+export function useProjects(activeOnly?: boolean) {
+  return useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: () => projectAPI.list(activeOnly),
+  });
+}
+
+export function useProject(id: string | undefined, options?: Omit<UseQueryOptions<ApiProjectWithWorkflows>, "queryKey" | "queryFn">) {
+  return useQuery({
+    queryKey: queryKeys.project(id!),
+    queryFn: () => projectAPI.get(id!),
+    enabled: !!id,
+    ...options,
+  });
+}
+
+export function useProjectWorkflows(projectId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.projectWorkflows(projectId!),
+    queryFn: () => projectAPI.getWorkflows(projectId!),
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: projectAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useUpdateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<ApiProject> & { id: string }) =>
+      projectAPI.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useArchiveProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: projectAPI.archive,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useUnarchiveProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: projectAPI.unarchive,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: projectAPI.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+// ============================================================================
 // Workflows
 // ============================================================================
 
@@ -30,6 +116,13 @@ export function useWorkflows() {
   return useQuery({
     queryKey: queryKeys.workflows,
     queryFn: workflowAPI.list,
+  });
+}
+
+export function useUnfiledWorkflows() {
+  return useQuery({
+    queryKey: queryKeys.workflowsUnfiled,
+    queryFn: workflowAPI.listUnfiled,
   });
 }
 
@@ -70,6 +163,25 @@ export function useDeleteWorkflow() {
     mutationFn: workflowAPI.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+    },
+  });
+}
+
+export function useMoveWorkflow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, projectId }: { id: string; projectId: string | null }) =>
+      workflowAPI.moveToProject(id, projectId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(data.id) });
+      if (data.projectId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.projectWorkflows(data.projectId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.project(data.projectId) });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     },
   });
 }

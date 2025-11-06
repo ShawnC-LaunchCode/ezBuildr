@@ -11,6 +11,10 @@ export { SurveyService, surveyService } from "./SurveyService";
 export { ResponseService, responseService } from "./ResponseService";
 export { AnalyticsService, analyticsService } from "./AnalyticsService";
 
+// Vault-Logic Workflow services
+export { ProjectService, projectService } from "./ProjectService";
+export { WorkflowService, workflowService } from "./WorkflowService";
+
 // Export existing utility services
 // Note: Not re-exporting emailService and sendgrid to avoid conflicts
 export * from "./exportService";

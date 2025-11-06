@@ -135,6 +135,25 @@ export class WorkflowService {
     await this.verifyOwnership(workflowId, userId);
     return await this.workflowRepo.update(workflowId, { status, updatedAt: new Date() });
   }
+
+  /**
+   * Move workflow to a project (or unfiled if projectId is null)
+   */
+  async moveToProject(
+    workflowId: string,
+    userId: string,
+    projectId: string | null
+  ): Promise<Workflow> {
+    await this.verifyOwnership(workflowId, userId);
+    return await this.workflowRepo.moveToProject(workflowId, projectId);
+  }
+
+  /**
+   * Get unfiled workflows (workflows with no project) for a user
+   */
+  async listUnfiledWorkflows(creatorId: string): Promise<Workflow[]> {
+    return await this.workflowRepo.findUnfiledByCreatorId(creatorId);
+  }
 }
 
 // Singleton instance

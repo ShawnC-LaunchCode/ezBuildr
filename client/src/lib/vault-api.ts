@@ -28,6 +28,63 @@ async function fetchAPI<T>(
 }
 
 // ============================================================================
+// Projects
+// ============================================================================
+
+export interface ApiProject {
+  id: string;
+  title: string;
+  description: string | null;
+  creatorId: string;
+  status: "active" | "archived";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiProjectWithWorkflows extends ApiProject {
+  workflows: ApiWorkflow[];
+}
+
+export const projectAPI = {
+  list: (activeOnly?: boolean) => {
+    const query = activeOnly ? '?active=true' : '';
+    return fetchAPI<ApiProject[]>(`/api/projects${query}`);
+  },
+
+  get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
+
+  create: (data: { title: string; description?: string }) =>
+    fetchAPI<ApiProject>("/api/projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Omit<ApiProject, 'id' | 'creatorId' | 'createdAt' | 'updatedAt'>>) =>
+    fetchAPI<ApiProject>(`/api/projects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  archive: (id: string) =>
+    fetchAPI<ApiProject>(`/api/projects/${id}/archive`, {
+      method: "PUT",
+    }),
+
+  unarchive: (id: string) =>
+    fetchAPI<ApiProject>(`/api/projects/${id}/unarchive`, {
+      method: "PUT",
+    }),
+
+  delete: (id: string) =>
+    fetchAPI<void>(`/api/projects/${id}`, {
+      method: "DELETE",
+    }),
+
+  getWorkflows: (projectId: string) =>
+    fetchAPI<ApiWorkflow[]>(`/api/projects/${projectId}/workflows`),
+};
+
+// ============================================================================
 // Workflows
 // ============================================================================
 
@@ -36,6 +93,7 @@ export interface ApiWorkflow {
   title: string;
   description: string | null;
   creatorId: string;
+  projectId: string | null;
   status: "draft" | "active" | "archived";
   createdAt: string;
   updatedAt: string;
@@ -44,9 +102,11 @@ export interface ApiWorkflow {
 export const workflowAPI = {
   list: () => fetchAPI<ApiWorkflow[]>("/api/workflows"),
 
+  listUnfiled: () => fetchAPI<ApiWorkflow[]>("/api/workflows/unfiled"),
+
   get: (id: string) => fetchAPI<ApiWorkflow>(`/api/workflows/${id}`),
 
-  create: (data: { title: string; description?: string }) =>
+  create: (data: { title: string; description?: string; projectId?: string | null }) =>
     fetchAPI<ApiWorkflow>("/api/workflows", {
       method: "POST",
       body: JSON.stringify(data),
@@ -56,6 +116,12 @@ export const workflowAPI = {
     fetchAPI<ApiWorkflow>(`/api/workflows/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    }),
+
+  moveToProject: (id: string, projectId: string | null) =>
+    fetchAPI<ApiWorkflow>(`/api/workflows/${id}/move`, {
+      method: "PUT",
+      body: JSON.stringify({ projectId }),
     }),
 
   delete: (id: string) =>

@@ -150,4 +150,49 @@ export function registerWorkflowRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   });
+
+  /**
+   * PUT /api/workflows/:workflowId/move
+   * Move workflow to a project (or unfiled if projectId is null)
+   */
+  app.put('/api/workflows/:workflowId/move', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const { projectId } = z.object({
+        projectId: z.string().uuid().nullable(),
+      }).parse(req.body);
+
+      const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
+      res.json(workflow);
+    } catch (error) {
+      console.error("Error moving workflow:", error);
+      const message = error instanceof Error ? error.message : "Failed to move workflow";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/workflows/unfiled
+   * Get all unfiled workflows (workflows not in any project) for the authenticated user
+   */
+  app.get('/api/workflows/unfiled', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const workflows = await workflowService.listUnfiledWorkflows(userId);
+      res.json(workflows);
+    } catch (error) {
+      console.error("Error fetching unfiled workflows:", error);
+      res.status(500).json({ message: "Failed to fetch unfiled workflows" });
+    }
+  });
 }
