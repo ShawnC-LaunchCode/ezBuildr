@@ -38,19 +38,6 @@ export class ResponseRepository extends BaseRepository<typeof responses, Respons
   }
 
   /**
-   * Find response by recipient ID
-   */
-  async findByRecipient(recipientId: string, tx?: DbTransaction): Promise<Response | undefined> {
-    const database = this.getDb(tx);
-    const [response] = await database
-      .select()
-      .from(responses)
-      .where(and(eq(responses.recipientId, recipientId), eq(responses.completed, true)))
-      .orderBy(desc(responses.submittedAt));
-    return response;
-  }
-
-  /**
    * Find anonymous responses by survey ID
    */
   async findAnonymousBySurvey(surveyId: string, tx?: DbTransaction): Promise<Response[]> {

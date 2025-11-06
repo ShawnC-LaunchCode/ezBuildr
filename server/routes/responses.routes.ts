@@ -16,59 +16,47 @@ export function registerResponseRoutes(app: Express): void {
 
   /**
    * POST /api/surveys/:identifier/responses
-   * Create a new response (auto-detects authenticated vs anonymous based on request body)
+   * Create a new anonymous response
    */
   app.post('/api/surveys/:identifier/responses', async (req, res) => {
     try {
       const { identifier } = req.params;
-      const { token, sessionId, timezone, screenResolution } = req.body;
+      const { sessionId, timezone, screenResolution } = req.body;
 
-      // If sessionId is present (or timezone/screenResolution), this is an anonymous request
-      if (sessionId || timezone || screenResolution) {
-        // Anonymous response
-        const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-                         req.socket.remoteAddress ||
-                         'unknown';
-        const userAgent = req.get('user-agent') || '';
-        const finalSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36)}`;
+      // Anonymous response
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+                       req.socket.remoteAddress ||
+                       'unknown';
+      const userAgent = req.get('user-agent') || '';
+      const finalSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36)}`;
 
-        const clientInfo = {
-          ipAddress,
+      const clientInfo = {
+        ipAddress,
+        userAgent,
+        sessionId: finalSessionId,
+        browserInfo: {
           userAgent,
-          sessionId: finalSessionId,
-          browserInfo: {
-            userAgent,
-            language: req.get('accept-language') || 'unknown',
-            timezone: timezone || 'unknown'
-          },
-          deviceInfo: {
-            isMobile: /Mobile|Android|iPhone|iPad/i.test(userAgent),
-            screenResolution: screenResolution || 'unknown'
-          },
-          accessInfo: {
-            referrer: req.get('referer'),
-            entryTime: Date.now()
-          }
-        };
+          language: req.get('accept-language') || 'unknown',
+          timezone: timezone || 'unknown'
+        },
+        deviceInfo: {
+          isMobile: /Mobile|Android|iPhone|iPad/i.test(userAgent),
+          screenResolution: screenResolution || 'unknown'
+        },
+        accessInfo: {
+          referrer: req.get('referer'),
+          entryTime: Date.now()
+        }
+      };
 
-        const result = await responseService.createAnonymousResponse(identifier, clientInfo);
+      const result = await responseService.createAnonymousResponse(identifier, clientInfo);
 
-        return res.status(201).json({
-          responseId: result.response.id,
-          surveyId: result.response.surveyId,
-          sessionId: result.sessionId,
-          message: result.message
-        });
-      } else {
-        // Authenticated response (token-based)
-        const result = await responseService.createAuthenticatedResponse(identifier, token);
-
-        return res.status(201).json({
-          responseId: result.response.id,
-          surveyId: result.response.surveyId,
-          message: result.message
-        });
-      }
+      return res.status(201).json({
+        responseId: result.response.id,
+        surveyId: result.response.surveyId,
+        sessionId: result.sessionId,
+        message: result.message
+      });
     } catch (error) {
       console.error("Error creating response:", error);
       if (error instanceof Error) {
@@ -81,21 +69,10 @@ export function registerResponseRoutes(app: Express): void {
         if (error.message.includes("not allowed")) {
           return res.status(403).json({ message: error.message });
         }
-        if (error.message.includes("Invalid token")) {
-          return res.status(403).json({ message: error.message });
-        }
         if (error.message.includes("already responded")) {
           return res.status(429).json({
             message: "Response limit reached",
             error: error.message
-          });
-        }
-        if (error.message.includes("Response already exists")) {
-          const match = error.message.match(/Response already exists: (.+)$/);
-          const responseId = match ? match[1] : undefined;
-          return res.status(400).json({
-            message: "Response already exists",
-            responseId
           });
         }
       }

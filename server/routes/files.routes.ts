@@ -77,13 +77,11 @@ export function registerFileRoutes(app: Express): void {
         return res.status(404).json({ success: false, errors: ['Survey not found'] });
       }
 
-      // Check if user is survey creator or the recipient
+      // Check if user is survey creator
       const userId = req.user.claims.sub;
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
       const isCreator = survey.creatorId === userId;
-      const isRecipient = recipient && recipient.email === req.user.claims.email;
 
-      if (!isCreator && !isRecipient) {
+      if (!isCreator) {
         return res.status(403).json({ success: false, errors: ['Access denied'] });
       }
 
@@ -197,16 +195,14 @@ export function registerFileRoutes(app: Express): void {
         return res.status(404).json({ message: 'Associated survey not found' });
       }
 
-      // Check if user is survey creator or the recipient
+      // Check if user is survey creator
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ message: 'Access denied - no user ID' });
       }
       const userId = req.user.claims.sub;
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
       const isCreator = survey.creatorId === userId;
-      const isRecipient = recipient && recipient.email === req.user.claims.email;
 
-      if (!isCreator && !isRecipient) {
+      if (!isCreator) {
         return res.status(403).json({ message: 'Access denied' });
       }
 
@@ -254,16 +250,14 @@ export function registerFileRoutes(app: Express): void {
         return res.status(404).json({ message: 'Survey not found' });
       }
 
-      // Check if user is survey creator or the recipient
+      // Check if user is survey creator
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ message: 'Access denied - no user ID' });
       }
       const userId = req.user.claims.sub;
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
       const isCreator = survey.creatorId === userId;
-      const isRecipient = recipient && recipient.email === req.user.claims.email;
 
-      if (!isCreator && !isRecipient) {
+      if (!isCreator) {
         return res.status(403).json({ message: 'Access denied' });
       }
 
@@ -304,16 +298,14 @@ export function registerFileRoutes(app: Express): void {
         return res.status(404).json({ message: 'Associated survey not found' });
       }
 
-      // Check if user is survey creator or the recipient
+      // Check if user is survey creator
       if (!req.user?.claims?.sub) {
         return res.status(401).json({ message: 'Access denied - no user ID' });
       }
       const userId = req.user.claims.sub;
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
       const isCreator = survey.creatorId === userId;
-      const isRecipient = recipient && recipient.email === req.user.claims.email;
 
-      if (!isCreator && !isRecipient) {
+      if (!isCreator) {
         return res.status(403).json({ message: 'Access denied' });
       }
 

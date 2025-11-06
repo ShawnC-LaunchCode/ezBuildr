@@ -153,63 +153,10 @@ export const conditionalRules = pgTable("conditional_rules", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Recipients table
-export const recipients = pgTable("recipients", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  surveyId: uuid("survey_id").references(() => surveys.id, { onDelete: 'cascade' }).notNull(),
-  name: varchar("name").notNull(),
-  email: varchar("email").notNull(),
-  token: varchar("token").unique().notNull(),
-  sentAt: timestamp("sent_at"),
-  reminderSentAt: timestamp("reminder_sent_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Global recipients table (creator-owned, not tied to specific surveys)
-export const globalRecipients = pgTable("global_recipients", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  creatorId: varchar("creator_id").references(() => users.id).notNull(),
-  name: varchar("name").notNull(),
-  email: varchar("email").notNull(),
-  tags: text("tags").array(), // Optional tags for categorization/grouping
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  // Indices for performance
-  index("global_recipients_creator_idx").on(table.creatorId),
-  index("global_recipients_email_idx").on(table.email),
-  index("global_recipients_creator_email_idx").on(table.creatorId, table.email),
-]);
-
-// Recipient groups table
-export const recipientGroups = pgTable("recipient_groups", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  creatorId: varchar("creator_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("recipient_groups_creator_idx").on(table.creatorId),
-  index("recipient_groups_name_idx").on(table.name),
-]);
-
-// Recipient group members table (many-to-many relationship)
-export const recipientGroupMembers = pgTable("recipient_group_members", {
-  groupId: uuid("group_id").notNull().references(() => recipientGroups.id, { onDelete: "cascade" }),
-  recipientId: uuid("recipient_id").notNull().references(() => globalRecipients.id, { onDelete: "cascade" }),
-  addedAt: timestamp("added_at").defaultNow().notNull(),
-}, (table) => [
-  primaryKey({ columns: [table.groupId, table.recipientId] }),
-  index("recipient_group_members_group_idx").on(table.groupId),
-  index("recipient_group_members_recipient_idx").on(table.recipientId),
-]);
-
 // Responses table
 export const responses = pgTable("responses", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   surveyId: uuid("survey_id").references(() => surveys.id, { onDelete: 'cascade' }).notNull(),
-  recipientId: uuid("recipient_id").references(() => recipients.id), // Made optional for anonymous responses
   completed: boolean("completed").default(false),
   submittedAt: timestamp("submitted_at"),
   // Anonymous response metadata
@@ -341,7 +288,6 @@ export const templateShares = pgTable("template_shares", {
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   surveys: many(surveys),
-  globalRecipients: many(globalRecipients),
   surveyTemplates: many(surveyTemplates),
   preferences: one(userPreferences, {
     fields: [users.id],
@@ -362,7 +308,6 @@ export const surveysRelations = relations(surveys, ({ one, many }) => ({
     references: [users.id],
   }),
   pages: many(surveyPages),
-  recipients: many(recipients),
   responses: many(responses),
   conditionalRules: many(conditionalRules),
 }));
@@ -391,49 +336,10 @@ export const loopGroupSubquestionsRelations = relations(loopGroupSubquestions, (
   }),
 }));
 
-export const recipientsRelations = relations(recipients, ({ one, many }) => ({
-  survey: one(surveys, {
-    fields: [recipients.surveyId],
-    references: [surveys.id],
-  }),
-  responses: many(responses),
-}));
-
-export const globalRecipientsRelations = relations(globalRecipients, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [globalRecipients.creatorId],
-    references: [users.id],
-  }),
-  groupMemberships: many(recipientGroupMembers),
-}));
-
-export const recipientGroupsRelations = relations(recipientGroups, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [recipientGroups.creatorId],
-    references: [users.id],
-  }),
-  members: many(recipientGroupMembers),
-}));
-
-export const recipientGroupMembersRelations = relations(recipientGroupMembers, ({ one }) => ({
-  group: one(recipientGroups, {
-    fields: [recipientGroupMembers.groupId],
-    references: [recipientGroups.id],
-  }),
-  recipient: one(globalRecipients, {
-    fields: [recipientGroupMembers.recipientId],
-    references: [globalRecipients.id],
-  }),
-}));
-
 export const responsesRelations = relations(responses, ({ one, many }) => ({
   survey: one(surveys, {
     fields: [responses.surveyId],
     references: [surveys.id],
-  }),
-  recipient: one(recipients, {
-    fields: [responses.recipientId],
-    references: [recipients.id],
   }),
   answers: many(answers),
   analyticsEvents: many(analyticsEvents),
@@ -493,10 +399,6 @@ export const insertSurveyPageSchema = createInsertSchema(surveyPages).omit({ id:
 export const insertQuestionSchema = createInsertSchema(questions).omit({ id: true, createdAt: true });
 export const insertLoopGroupSubquestionSchema = createInsertSchema(loopGroupSubquestions).omit({ id: true, createdAt: true });
 export const insertConditionalRuleSchema = createInsertSchema(conditionalRules).omit({ id: true, createdAt: true });
-export const insertRecipientSchema = createInsertSchema(recipients).omit({ id: true, createdAt: true, token: true });
-export const insertGlobalRecipientSchema = createInsertSchema(globalRecipients).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRecipientGroupSchema = createInsertSchema(recipientGroups).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRecipientGroupMemberSchema = createInsertSchema(recipientGroupMembers).omit({ addedAt: true });
 export const insertResponseSchema = createInsertSchema(responses).omit({ id: true, createdAt: true });
 export const insertAnswerSchema = createInsertSchema(answers).omit({ id: true, createdAt: true });
 export const insertAnonymousResponseTrackingSchema = createInsertSchema(anonymousResponseTracking).omit({ id: true, createdAt: true });
@@ -532,14 +434,6 @@ export type LoopGroupSubquestion = typeof loopGroupSubquestions.$inferSelect;
 export type InsertLoopGroupSubquestion = typeof insertLoopGroupSubquestionSchema._type;
 export type ConditionalRule = typeof conditionalRules.$inferSelect;
 export type InsertConditionalRule = typeof insertConditionalRuleSchema._type;
-export type Recipient = typeof recipients.$inferSelect;
-export type InsertRecipient = typeof insertRecipientSchema._type;
-export type GlobalRecipient = typeof globalRecipients.$inferSelect;
-export type InsertGlobalRecipient = typeof insertGlobalRecipientSchema._type;
-export type RecipientGroup = typeof recipientGroups.$inferSelect;
-export type InsertRecipientGroup = typeof insertRecipientGroupSchema._type;
-export type RecipientGroupMember = typeof recipientGroupMembers.$inferSelect;
-export type InsertRecipientGroupMember = typeof insertRecipientGroupMemberSchema._type;
 export type Response = typeof responses.$inferSelect;
 export type InsertResponse = typeof insertResponseSchema._type;
 export type Answer = typeof answers.$inferSelect;

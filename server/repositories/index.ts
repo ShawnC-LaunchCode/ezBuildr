@@ -15,7 +15,6 @@ export { UserPreferencesRepository, userPreferencesRepository } from "./UserPref
 export { SurveyRepository, surveyRepository } from "./SurveyRepository";
 export { PageRepository, pageRepository } from "./PageRepository";
 export { QuestionRepository, questionRepository } from "./QuestionRepository";
-export { RecipientRepository, recipientRepository } from "./RecipientRepository";
 export { ResponseRepository, responseRepository } from "./ResponseRepository";
 export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
 export { FileRepository, fileRepository } from "./FileRepository";

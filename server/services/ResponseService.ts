@@ -1,6 +1,5 @@
 import {
   surveyRepository,
-  recipientRepository,
   responseRepository,
   questionRepository,
   pageRepository,
@@ -23,7 +22,6 @@ export class ResponseService {
   private responseRepo: typeof responseRepository;
   private surveyRepo: typeof surveyRepository;
   private questionRepo: typeof questionRepository;
-  private recipientRepo: typeof recipientRepository;
   private pageRepo: typeof pageRepository;
   private systemStatsRepo: typeof systemStatsRepository;
 
@@ -31,67 +29,14 @@ export class ResponseService {
     responseRepo?: typeof responseRepository,
     surveyRepo?: typeof surveyRepository,
     questionRepo?: typeof questionRepository,
-    recipientRepo?: typeof recipientRepository,
     pageRepo?: typeof pageRepository,
     systemStatsRepo?: typeof systemStatsRepository
   ) {
     this.responseRepo = responseRepo || responseRepository;
     this.surveyRepo = surveyRepo || surveyRepository;
     this.questionRepo = questionRepo || questionRepository;
-    this.recipientRepo = recipientRepo || recipientRepository;
     this.pageRepo = pageRepo || pageRepository;
     this.systemStatsRepo = systemStatsRepo || systemStatsRepository;
-  }
-
-  /**
-   * Create authenticated response (token-based or user-based)
-   */
-  async createAuthenticatedResponse(
-    surveyId: string,
-    token?: string
-  ): Promise<{ response: Response; message: string }> {
-    const survey = await this.surveyRepo.findById(surveyId);
-    if (!survey) {
-      throw new Error("Survey not found");
-    }
-
-    if (survey.status !== 'open') {
-      throw new Error("Survey is not currently open for responses");
-    }
-
-    let recipientId: string | undefined;
-
-    // If token provided, validate it
-    if (token) {
-      const recipient = await this.recipientRepo.findByToken(token);
-      if (!recipient || recipient.surveyId !== surveyId) {
-        throw new Error("Invalid token for this survey");
-      }
-
-      // Check if recipient already responded
-      const existingResponse = await this.responseRepo.findByRecipient(recipient.id);
-      if (existingResponse) {
-        throw new Error(`Response already exists: ${existingResponse.id}`);
-      }
-
-      recipientId = recipient.id;
-    }
-
-    // Create response
-    const response = await this.responseRepo.create({
-      surveyId,
-      recipientId: recipientId || null,
-      completed: false,
-      isAnonymous: false
-    });
-
-    // Increment system stats counter
-    await this.systemStatsRepo.incrementResponsesCollected();
-
-    return {
-      response,
-      message: "Response created successfully"
-    };
   }
 
   /**
@@ -359,7 +304,6 @@ export class ResponseService {
   ): Promise<{
     response: Response;
     answers: (Answer & { question: Question })[];
-    recipient: any | null;
   }> {
     const response = await this.responseRepo.findById(responseId);
     if (!response) {
@@ -376,14 +320,10 @@ export class ResponseService {
     }
 
     const answersWithQuestions = await this.responseRepo.findAnswersWithQuestionsByResponse(responseId);
-    const recipient = response.recipientId
-      ? await this.recipientRepo.findById(response.recipientId)
-      : null;
 
     return {
       response,
-      answers: answersWithQuestions,
-      recipient
+      answers: answersWithQuestions
     };
   }
 }
