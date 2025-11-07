@@ -155,6 +155,7 @@ export function registerRunRoutes(app: Express): void {
   /**
    * POST /api/runs/:runId/sections/:sectionId/submit
    * Submit section values with validation
+   * Executes onSectionSubmit blocks (transform + validate)
    * Accepts creator session OR Bearer runToken
    */
   app.post('/api/runs/:runId/sections/:sectionId/submit', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
@@ -170,10 +171,15 @@ export function registerRunRoutes(app: Express): void {
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
-      // Use bulkUpsertValues since submitSectionValues doesn't exist
-      await runService.bulkUpsertValues(runId, userId, values);
+      // Submit section with validation
+      const result = await runService.submitSection(runId, sectionId, userId, values);
 
-      res.json({ success: true, message: "Section values saved" });
+      if (result.success) {
+        res.json({ success: true, message: "Section values saved" });
+      } else {
+        // Validation failed - return 400 with error messages
+        res.status(400).json({ success: false, errors: result.errors });
+      }
     } catch (error) {
       logger.error({ error }, "Error submitting section values");
       const message = error instanceof Error ? error.message : "Failed to submit section values";

@@ -9,6 +9,7 @@ import {
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
 import { workflowService } from "./WorkflowService";
 import { logicService, type NavigationResult } from "./LogicService";
+import { blockRunner } from "./BlockRunner";
 import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from "@shared/workflowLogic";
 
 /**
@@ -46,6 +47,7 @@ export class RunService {
 
   /**
    * Create a new workflow run
+   * Executes onRunStart blocks after creation
    */
   async createRun(
     workflowId: string,
@@ -54,11 +56,39 @@ export class RunService {
   ): Promise<WorkflowRun> {
     await this.workflowSvc.verifyOwnership(workflowId, userId);
 
-    return await this.runRepo.create({
+    // Create the run
+    const run = await this.runRepo.create({
       ...data,
       workflowId,
       completed: false,
     });
+
+    // Execute onRunStart blocks (transform + generic)
+    try {
+      // Get existing step values for this run
+      const values = await this.valueRepo.findByRunId(run.id);
+      const dataMap = values.reduce((acc, v) => {
+        acc[v.stepId] = v.value;
+        return acc;
+      }, {} as Record<string, any>);
+
+      const blockResult = await blockRunner.runPhase({
+        workflowId,
+        runId: run.id,
+        phase: "onRunStart",
+        data: dataMap,
+      });
+
+      // If blocks produced errors, log them but don't fail run creation
+      if (!blockResult.success && blockResult.errors) {
+        console.warn(`onRunStart block errors for run ${run.id}:`, blockResult.errors);
+      }
+    } catch (error) {
+      console.error(`Failed to execute onRunStart blocks for run ${run.id}:`, error);
+      // Don't fail run creation if blocks fail
+    }
+
+    return run;
   }
 
   /**
@@ -133,7 +163,55 @@ export class RunService {
   }
 
   /**
+   * Submit section values with validation
+   * Executes onSectionSubmit blocks (transform + validate)
+   */
+  async submitSection(
+    runId: string,
+    sectionId: string,
+    userId: string,
+    values: Array<{ stepId: string; value: any }>
+  ): Promise<{ success: boolean; errors?: string[] }> {
+    const run = await this.getRun(runId, userId);
+
+    if (run.completed) {
+      throw new Error("Run is already completed");
+    }
+
+    // Save all values first
+    for (const { stepId, value } of values) {
+      await this.upsertStepValue(runId, userId, {
+        runId,
+        stepId,
+        value,
+      });
+    }
+
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute onSectionSubmit blocks (transform + validate)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onSectionSubmit",
+      sectionId,
+      data: dataMap,
+    });
+
+    return {
+      success: blockResult.success,
+      errors: blockResult.errors,
+    };
+  }
+
+  /**
    * Calculate next section and update run state
+   * Executes onNext blocks (transform + branch)
    *
    * @param runId - Run ID
    * @param userId - User ID (for authorization)
@@ -146,12 +224,40 @@ export class RunService {
       throw new Error("Run is already completed");
     }
 
-    // Evaluate navigation using LogicService
-    const navigation = await this.logicSvc.evaluateNavigation(
-      run.workflowId,
-      runId,
-      run.currentSectionId ?? null
-    );
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute onNext blocks (transform + branch)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onNext",
+      sectionId: run.currentSectionId ?? undefined,
+      data: dataMap,
+    });
+
+    // If transform blocks produced a nextSectionId, use it
+    // Otherwise, evaluate navigation using LogicService
+    let navigation: NavigationResult;
+
+    if (blockResult.nextSectionId) {
+      // Branch block decided the next section
+      navigation = {
+        nextSectionId: blockResult.nextSectionId,
+        currentProgress: 0, // Will be calculated if needed
+      };
+    } else {
+      // Use logic service to determine navigation
+      navigation = await this.logicSvc.evaluateNavigation(
+        run.workflowId,
+        runId,
+        run.currentSectionId ?? null
+      );
+    }
 
     // Update run with next section and progress
     if (navigation.nextSectionId !== run.currentSectionId) {
@@ -166,6 +272,7 @@ export class RunService {
 
   /**
    * Complete a workflow run (with validation)
+   * Executes onRunComplete blocks before completion
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
@@ -178,6 +285,26 @@ export class RunService {
     const workflow = await this.workflowRepo.findById(run.workflowId);
     if (!workflow) {
       throw new Error("Workflow not found");
+    }
+
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute onRunComplete blocks (transform + validate)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onRunComplete",
+      data: dataMap,
+    });
+
+    // If blocks produced validation errors, reject completion
+    if (!blockResult.success && blockResult.errors) {
+      throw new Error(`Validation failed: ${blockResult.errors.join(', ')}`);
     }
 
     // Validate using LogicService

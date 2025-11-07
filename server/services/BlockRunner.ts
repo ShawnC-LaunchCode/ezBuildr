@@ -1,4 +1,5 @@
 import { blockService } from "./BlockService";
+import { transformBlockService } from "./TransformBlockService";
 import type {
   BlockPhase,
   BlockContext,
@@ -17,32 +18,66 @@ import { logger } from "../logger";
 /**
  * BlockRunner Service
  * Executes blocks at various workflow runtime phases
+ * Handles both generic blocks (prefill, validate, branch) and transform blocks (JS/Python)
  */
 export class BlockRunner {
   private blockSvc: typeof blockService;
+  private transformSvc: typeof transformBlockService;
 
-  constructor(blockSvc?: typeof blockService) {
+  constructor(
+    blockSvc?: typeof blockService,
+    transformSvc?: typeof transformBlockService
+  ) {
     this.blockSvc = blockSvc || blockService;
+    this.transformSvc = transformSvc || transformBlockService;
   }
 
   /**
    * Run all blocks for a given phase
+   * Executes transform blocks (JS/Python) first, then generic blocks (prefill, validate, branch)
    * Returns combined result from all blocks
    */
   async runPhase(context: BlockContext): Promise<BlockResult> {
+    let currentData = { ...context.data };
+    const allErrors: string[] = [];
+    let nextSectionId: string | undefined;
+
+    // 1. Execute transform blocks first (if runId is provided)
+    if (context.runId) {
+      try {
+        const transformResult = await this.transformSvc.executeAllForPhase({
+          workflowId: context.workflowId,
+          runId: context.runId,
+          phase: context.phase,
+          sectionId: context.sectionId,
+          data: currentData,
+        });
+
+        // Merge transform block outputs into data
+        currentData = { ...currentData, ...transformResult.data };
+
+        // Collect any transform block errors
+        if (transformResult.errors) {
+          for (const error of transformResult.errors) {
+            allErrors.push(`Transform block "${error.blockName}": ${error.error}`);
+          }
+        }
+      } catch (error) {
+        logger.error({ error }, "Error executing transform blocks in phase");
+        allErrors.push(`Transform block execution failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
+    }
+
+    // 2. Execute generic blocks (prefill, validate, branch)
     const blocks = await this.blockSvc.getBlocksForPhase(
       context.workflowId,
       context.phase,
       context.sectionId
     );
 
-    if (blocks.length === 0) {
-      return { success: true, data: context.data };
+    if (blocks.length === 0 && allErrors.length === 0) {
+      return { success: true, data: currentData };
     }
-
-    let currentData = { ...context.data };
-    const allErrors: string[] = [];
-    let nextSectionId: string | undefined;
 
     // Execute blocks in order
     for (const block of blocks) {

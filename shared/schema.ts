@@ -991,8 +991,10 @@ export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', 
 export const transformBlocks = pgTable("transform_blocks", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }), // nullable - can be workflow-scoped
   name: varchar("name").notNull(),
   language: transformBlockLanguageEnum("language").notNull(),
+  phase: blockPhaseEnum("phase").notNull().default('onSectionSubmit'), // Execution phase
   code: text("code").notNull(), // User-supplied function body or script
   inputKeys: text("input_keys").array().notNull(), // Whitelisted keys read from data
   outputKey: varchar("output_key").notNull(), // Single key to write back to data
@@ -1004,6 +1006,7 @@ export const transformBlocks = pgTable("transform_blocks", {
 }, (table) => [
   index("transform_blocks_workflow_idx").on(table.workflowId),
   index("transform_blocks_workflow_order_idx").on(table.workflowId, table.order),
+  index("transform_blocks_phase_idx").on(table.workflowId, table.phase),
 ]);
 
 // Transform block runs table (audit log)

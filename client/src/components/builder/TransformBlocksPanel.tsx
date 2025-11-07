@@ -86,6 +86,7 @@ function TransformBlockCard({ block, workflowId, onEdit }: { block: any; workflo
               </Badge>
             </div>
             <div className="text-xs text-muted-foreground space-y-0.5">
+              <div>Phase: {block.phase || "onSectionSubmit"}</div>
               <div>Inputs: {block.inputKeys.join(", ") || "none"}</div>
               <div>Output: {block.outputKey}</div>
               <div>Order: {block.order} • {block.enabled ? "Enabled" : "Disabled"}</div>
@@ -127,9 +128,11 @@ function TransformBlockEditor({
   const [formData, setFormData] = useState({
     name: block?.name || "",
     language: block?.language || ("javascript" as TransformBlockLanguage),
+    phase: block?.phase || "onSectionSubmit",
     code: block?.code || "",
     inputKeys: block?.inputKeys || [],
     outputKey: block?.outputKey || "",
+    timeoutMs: block?.timeoutMs || 1000,
     enabled: block?.enabled ?? true,
     order: block?.order ?? 0,
   });
@@ -226,6 +229,26 @@ function TransformBlockEditor({
           </div>
 
           <div className="space-y-2">
+            <Label>Execution Phase</Label>
+            <Select
+              value={formData.phase}
+              onValueChange={(v) => setFormData({ ...formData, phase: v })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="onRunStart">On Run Start</SelectItem>
+                <SelectItem value="onSectionEnter">On Section Enter</SelectItem>
+                <SelectItem value="onSectionSubmit">On Section Submit</SelectItem>
+                <SelectItem value="onNext">On Next</SelectItem>
+                <SelectItem value="onRunComplete">On Run Complete</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">When this block should execute</p>
+          </div>
+
+          <div className="space-y-2">
             <Label>Code</Label>
             <Textarea
               value={formData.code}
@@ -262,7 +285,19 @@ function TransformBlockEditor({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Timeout (ms)</Label>
+              <Input
+                type="number"
+                value={formData.timeoutMs}
+                onChange={(e) => setFormData({ ...formData, timeoutMs: parseInt(e.target.value) || 1000 })}
+                min={100}
+                max={3000}
+              />
+              <p className="text-xs text-muted-foreground">100-3000ms</p>
+            </div>
+
             <div className="space-y-2">
               <Label>Order</Label>
               <Input

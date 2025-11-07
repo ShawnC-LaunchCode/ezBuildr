@@ -1,5 +1,6 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 import { transformBlocks, transformBlockRuns, type TransformBlock, type InsertTransformBlock, type TransformBlockRun, type InsertTransformBlockRun } from "@shared/schema";
+import type { BlockPhase } from "@shared/types/blocks";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "../db";
 
@@ -32,6 +33,41 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
       .select()
       .from(transformBlocks)
       .where(and(eq(transformBlocks.workflowId, workflowId), eq(transformBlocks.enabled, true)))
+      .orderBy(asc(transformBlocks.order));
+  }
+
+  /**
+   * Find enabled transform blocks by workflow ID and phase, ordered by execution order
+   */
+  async findEnabledByPhase(
+    workflowId: string,
+    phase: BlockPhase,
+    sectionId?: string | null,
+    tx?: DbTransaction
+  ): Promise<TransformBlock[]> {
+    const database = this.getDb(tx);
+
+    // Build conditions based on whether sectionId is provided
+    const conditions = [
+      eq(transformBlocks.workflowId, workflowId),
+      eq(transformBlocks.phase, phase),
+      eq(transformBlocks.enabled, true),
+    ];
+
+    // If sectionId is provided, match section-specific blocks OR workflow-scoped blocks (null sectionId)
+    // If sectionId is not provided (null), only match workflow-scoped blocks
+    if (sectionId) {
+      // For section-specific phases, include both section-specific and workflow-scoped blocks
+      // This is handled by not filtering on sectionId, as workflow-scoped blocks apply everywhere
+    } else {
+      // For workflow-scoped phases (onRunStart, onRunComplete), only use workflow-scoped blocks
+      conditions.push(eq(transformBlocks.sectionId, null));
+    }
+
+    return await database
+      .select()
+      .from(transformBlocks)
+      .where(and(...conditions))
       .orderBy(asc(transformBlocks.order));
   }
 

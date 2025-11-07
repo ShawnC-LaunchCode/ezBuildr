@@ -5,6 +5,7 @@ import {
   stepValueRepository,
 } from "../repositories";
 import type { TransformBlock, InsertTransformBlock } from "@shared/schema";
+import type { BlockPhase } from "@shared/types/blocks";
 import { executeCode } from "../utils/sandboxExecutor";
 import { workflowService } from "./WorkflowService";
 import { logger } from "../logger";
@@ -265,6 +266,103 @@ export class TransformBlockService {
     return {
       success: true,
       data: resultData,
+    };
+  }
+
+  /**
+   * Execute all enabled transform blocks for a specific phase
+   * This method is called by BlockRunner during workflow execution
+   */
+  async executeAllForPhase(params: {
+    workflowId: string;
+    runId: string;
+    phase: BlockPhase;
+    sectionId?: string | null;
+    data: Record<string, unknown>;
+  }): Promise<{
+    success: boolean;
+    data: Record<string, unknown>;
+    errors?: Array<{ blockId: string; blockName: string; error: string }>;
+  }> {
+    const { workflowId, runId, phase, sectionId, data } = params;
+
+    // Get enabled blocks for the specific phase
+    const blocks = await this.blockRepo.findEnabledByPhase(workflowId, phase, sectionId);
+
+    if (blocks.length === 0) {
+      return { success: true, data };
+    }
+
+    const errors: Array<{ blockId: string; blockName: string; error: string }> = [];
+    const resultData = { ...data };
+
+    // Execute blocks in order
+    for (const block of blocks) {
+      const startedAt = new Date();
+
+      // Create audit log entry
+      const auditRun = await this.runRepo.createRun({
+        runId,
+        blockId: block.id,
+        status: "success", // Will be updated
+        finishedAt: null,
+        errorMessage: null,
+        outputSample: null,
+      });
+
+      // Execute block
+      const result = await this.executeBlock({ block, data: resultData });
+
+      const finishedAt = new Date();
+
+      if (result.ok) {
+        // Update data map with output
+        resultData[block.outputKey] = result.output;
+
+        // Update audit log
+        await this.runRepo.completeRun(auditRun.id, {
+          finishedAt,
+          status: "success",
+          outputSample: result.output as Record<string, unknown> | string | number | boolean | null,
+        });
+
+        // Persist output to step_values
+        try {
+          await this.valueRepo.upsert({
+            runId,
+            stepId: block.outputKey, // Use outputKey as identifier
+            value: result.output as Record<string, unknown> | string | number | boolean | null,
+          });
+        } catch (error) {
+          logger.error({ error }, `Failed to persist transform block output for ${block.name}`);
+          // Continue execution even if persistence fails
+        }
+      } else {
+        // Determine if it's a timeout or error
+        const status = result.error?.includes("TimeoutError") ? "timeout" : "error";
+
+        // Update audit log
+        await this.runRepo.completeRun(auditRun.id, {
+          finishedAt,
+          status,
+          errorMessage: result.error?.slice(0, 1000),
+        });
+
+        // Collect error
+        errors.push({
+          blockId: block.id,
+          blockName: block.name,
+          error: result.error || "Unknown error",
+        });
+
+        // Continue to next block (don't stop execution)
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      data: resultData,
+      errors: errors.length > 0 ? errors : undefined,
     };
   }
 }

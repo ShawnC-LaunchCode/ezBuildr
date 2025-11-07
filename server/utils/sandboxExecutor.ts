@@ -23,13 +23,14 @@ interface ExecutionResult {
 /**
  * Execute JavaScript code in a vm2 sandbox
  *
+ * Code is treated as a function body that returns a value.
  * Example code:
  * ```javascript
- * // input = { amount: 100, taxRate: 0.07 }
- * // emit(input.amount * (1 + input.taxRate))
+ * // input = { firstName: "Ada", lastName: "Lovelace" }
+ * // return input.firstName + " " + input.lastName;
  * ```
  *
- * @param code - User-supplied JavaScript code
+ * @param code - User-supplied JavaScript code (function body)
  * @param input - Whitelisted input data
  * @param timeoutMs - Execution timeout in milliseconds (max 3000ms)
  * @returns Execution result with output or error
@@ -71,36 +72,26 @@ export async function runJsVm2(
       return runJsNodeVm(code, input, actualTimeout);
     }
 
-    // Track output
-    let result: unknown = undefined;
-    let emitCalled = false;
-
     // Create VM2 sandbox with restricted globals
     const vm = new VM2({
       timeout: actualTimeout,
       sandbox: {
         input,
-        emit: (value: unknown) => {
-          if (emitCalled) {
-            throw new Error("emit() can only be called once");
-          }
-          emitCalled = true;
-          result = value;
-        },
       },
       eval: false,
       wasm: false,
     });
 
-    // Execute code
-    vm.run(code);
+    // Wrap code in a function and execute it
+    // This allows the code to use 'return' statements
+    const wrappedCode = `
+      (function(input) {
+        ${code}
+      })(input);
+    `;
 
-    if (!emitCalled) {
-      return {
-        ok: false,
-        error: "Code did not call emit() to produce output",
-      };
-    }
+    // Execute code and capture return value
+    const result = vm.run(wrappedCode);
 
     return {
       ok: true,
@@ -141,18 +132,8 @@ async function runJsNodeVm(
   try {
     const vm = await import("vm");
 
-    let result: unknown = undefined;
-    let emitCalled = false;
-
     const sandbox = {
       input,
-      emit: (value: unknown) => {
-        if (emitCalled) {
-          throw new Error("emit() can only be called once");
-        }
-        emitCalled = true;
-        result = value;
-      },
       console: undefined,
       require: undefined,
       process: undefined,
@@ -163,18 +144,18 @@ async function runJsNodeVm(
       setImmediate: undefined,
     };
 
+    // Wrap code in a function and execute it
+    const wrappedCode = `
+      (function(input) {
+        ${code}
+      })(input);
+    `;
+
     const context = vm.createContext(sandbox);
-    vm.runInContext(code, context, {
+    const result = vm.runInContext(wrappedCode, context, {
       timeout: timeoutMs,
       displayErrors: true,
     });
-
-    if (!emitCalled) {
-      return {
-        ok: false,
-        error: "Code did not call emit() to produce output",
-      };
-    }
 
     return {
       ok: true,
