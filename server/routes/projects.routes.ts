@@ -24,6 +24,7 @@ export function registerProjectRoutes(app: Express): void {
       const projectData = insertProjectSchema.parse({
         ...req.body,
         creatorId: userId,
+        ownerId: userId, // Creator is also the initial owner
       });
 
       const project = await projectService.createProject(projectData, userId);
