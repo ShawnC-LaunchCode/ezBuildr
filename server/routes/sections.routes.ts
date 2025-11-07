@@ -153,4 +153,55 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   });
+
+  // ===================================================================
+  // SIMPLIFIED SECTION ENDPOINTS (without workflowId in path)
+  // These endpoints look up the workflow from the section automatically
+  // ===================================================================
+
+  /**
+   * PUT /api/sections/:sectionId
+   * Update a section (workflow looked up automatically)
+   */
+  app.put('/api/sections/:sectionId', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { sectionId } = req.params;
+      const updateData = req.body;
+
+      const section = await sectionService.updateSectionById(sectionId, userId, updateData);
+      res.json(section);
+    } catch (error) {
+      logger.error({ error }, "Error updating section");
+      const message = error instanceof Error ? error.message : "Failed to update section";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * DELETE /api/sections/:sectionId
+   * Delete a section (workflow looked up automatically)
+   */
+  app.delete('/api/sections/:sectionId', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { sectionId } = req.params;
+      await sectionService.deleteSectionById(sectionId, userId);
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ error }, "Error deleting section");
+      const message = error instanceof Error ? error.message : "Failed to delete section";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
 }

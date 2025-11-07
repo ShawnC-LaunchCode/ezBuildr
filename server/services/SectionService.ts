@@ -121,6 +121,36 @@ export class SectionService {
       steps,
     };
   }
+
+  /**
+   * Update section by ID only (looks up workflow automatically)
+   */
+  async updateSectionById(
+    sectionId: string,
+    userId: string,
+    data: Partial<InsertSection>
+  ): Promise<Section> {
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+    return await this.sectionRepo.update(sectionId, data);
+  }
+
+  /**
+   * Delete section by ID only (looks up workflow automatically)
+   */
+  async deleteSectionById(sectionId: string, userId: string): Promise<void> {
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+    await this.sectionRepo.delete(sectionId);
+  }
 }
 
 // Singleton instance
