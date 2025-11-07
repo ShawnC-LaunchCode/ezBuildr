@@ -59,6 +59,26 @@ export function registerWorkflowRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/workflows/unfiled
+   * Get all unfiled workflows (workflows not in any project) for the authenticated user
+   * NOTE: This must come BEFORE /api/workflows/:workflowId to avoid treating "unfiled" as a UUID
+   */
+  app.get('/api/workflows/unfiled', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const workflows = await workflowService.listUnfiledWorkflows(userId);
+      res.json(workflows);
+    } catch (error) {
+      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching unfiled workflows");
+      res.status(500).json({ message: "Failed to fetch unfiled workflows" });
+    }
+  });
+
+  /**
    * GET /api/workflows/:workflowId
    * Get a single workflow with full details (sections, steps, rules)
    */
@@ -177,25 +197,6 @@ export function registerWorkflowRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : "Failed to move workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
-    }
-  });
-
-  /**
-   * GET /api/workflows/unfiled
-   * Get all unfiled workflows (workflows not in any project) for the authenticated user
-   */
-  app.get('/api/workflows/unfiled', isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
-      }
-
-      const workflows = await workflowService.listUnfiledWorkflows(userId);
-      res.json(workflows);
-    } catch (error) {
-      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching unfiled workflows");
-      res.status(500).json({ message: "Failed to fetch unfiled workflows" });
     }
   });
 
