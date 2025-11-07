@@ -278,4 +278,151 @@ export function registerWorkflowRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   });
+
+  // ===================================================================
+  // WORKFLOW ACCESS (ACL) ENDPOINTS
+  // ===================================================================
+
+  /**
+   * GET /api/workflows/:workflowId/access
+   * Get all ACL entries for a workflow
+   */
+  app.get('/api/workflows/:workflowId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const access = await workflowService.getWorkflowAccess(workflowId, userId);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      console.error("Error fetching workflow access:", error);
+      const message = error instanceof Error ? error.message : "Failed to fetch workflow access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * PUT /api/workflows/:workflowId/access
+   * Grant or update access to a workflow
+   * Body: { entries: [{ principalType: 'user' | 'team', principalId: string, role: 'view' | 'edit' | 'owner' }] }
+   */
+  app.put('/api/workflows/:workflowId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+          role: z.enum(['view', 'edit', 'owner']),
+        })),
+      });
+
+      const { entries } = schema.parse(req.body);
+      const access = await workflowService.grantWorkflowAccess(workflowId, userId, entries);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      console.error("Error granting workflow access:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to grant workflow access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") || message.includes("Only the") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * DELETE /api/workflows/:workflowId/access
+   * Revoke access from a workflow
+   * Body: { entries: [{ principalType: 'user' | 'team', principalId: string }] }
+   */
+  app.delete('/api/workflows/:workflowId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+        })),
+      });
+
+      const { entries } = schema.parse(req.body);
+      await workflowService.revokeWorkflowAccess(workflowId, userId, entries);
+      res.json({ success: true, message: "Access revoked successfully" });
+    } catch (error) {
+      console.error("Error revoking workflow access:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to revoke workflow access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * PUT /api/workflows/:workflowId/owner
+   * Transfer workflow ownership
+   * Body: { userId: string }
+   */
+  app.put('/api/workflows/:workflowId/owner', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentOwnerId = req.user?.claims?.sub;
+      if (!currentOwnerId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+
+      const schema = z.object({
+        userId: z.string(),
+      });
+
+      const { userId: newOwnerId } = schema.parse(req.body);
+      const workflow = await workflowService.transferWorkflowOwnership(workflowId, currentOwnerId, newOwnerId);
+      res.json({ success: true, data: workflow });
+    } catch (error) {
+      console.error("Error transferring workflow ownership:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to transfer workflow ownership";
+      const status = message.includes("not found") ? 404 : message.includes("Only the") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
 }

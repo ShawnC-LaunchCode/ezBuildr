@@ -197,4 +197,151 @@ export function registerProjectRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   });
+
+  // ===================================================================
+  // PROJECT ACCESS (ACL) ENDPOINTS
+  // ===================================================================
+
+  /**
+   * GET /api/projects/:projectId/access
+   * Get all ACL entries for a project
+   */
+  app.get('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { projectId } = req.params;
+      const access = await projectService.getProjectAccess(projectId, userId);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      console.error("Error fetching project access:", error);
+      const message = error instanceof Error ? error.message : "Failed to fetch project access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * PUT /api/projects/:projectId/access
+   * Grant or update access to a project
+   * Body: { entries: [{ principalType: 'user' | 'team', principalId: string, role: 'view' | 'edit' | 'owner' }] }
+   */
+  app.put('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { projectId } = req.params;
+
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+          role: z.enum(['view', 'edit', 'owner']),
+        })),
+      });
+
+      const { entries } = schema.parse(req.body);
+      const access = await projectService.grantProjectAccess(projectId, userId, entries);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      console.error("Error granting project access:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to grant project access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") || message.includes("Only the") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * DELETE /api/projects/:projectId/access
+   * Revoke access from a project
+   * Body: { entries: [{ principalType: 'user' | 'team', principalId: string }] }
+   */
+  app.delete('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { projectId } = req.params;
+
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+        })),
+      });
+
+      const { entries } = schema.parse(req.body);
+      await projectService.revokeProjectAccess(projectId, userId, entries);
+      res.json({ success: true, message: "Access revoked successfully" });
+    } catch (error) {
+      console.error("Error revoking project access:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to revoke project access";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * PUT /api/projects/:projectId/owner
+   * Transfer project ownership
+   * Body: { userId: string }
+   */
+  app.put('/api/projects/:projectId/owner', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentOwnerId = req.user?.claims?.sub;
+      if (!currentOwnerId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { projectId } = req.params;
+
+      const schema = z.object({
+        userId: z.string(),
+      });
+
+      const { userId: newOwnerId } = schema.parse(req.body);
+      const project = await projectService.transferProjectOwnership(projectId, currentOwnerId, newOwnerId);
+      res.json({ success: true, data: project });
+    } catch (error) {
+      console.error("Error transferring project ownership:", error);
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to transfer project ownership";
+      const status = message.includes("not found") ? 404 : message.includes("Only the") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
 }

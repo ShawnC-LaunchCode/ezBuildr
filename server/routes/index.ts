@@ -21,6 +21,7 @@ import { registerStepRoutes } from "./steps.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
+import { registerTeamRoutes } from "./teams.routes";
 
 /**
  * Register all modular routes
@@ -75,6 +76,9 @@ export function registerAllRoutes(app: Express): void {
   // ========================================================================
   // Vault-Logic Workflow Routes
   // ========================================================================
+
+  // Team management routes (collaboration)
+  registerTeamRoutes(app);
 
   // Project management routes (workflow organization)
   registerProjectRoutes(app);

@@ -4,9 +4,10 @@ import {
   stepRepository,
   logicRuleRepository,
   userRepository,
+  workflowAccessRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Workflow, InsertWorkflow, Section, Step, LogicRule } from "@shared/schema";
+import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType } from "@shared/schema";
 
 /**
  * Service layer for workflow-related business logic
@@ -16,17 +17,20 @@ export class WorkflowService {
   private sectionRepo: typeof sectionRepository;
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
+  private workflowAccessRepo: typeof workflowAccessRepository;
 
   constructor(
     workflowRepo?: typeof workflowRepository,
     sectionRepo?: typeof sectionRepository,
     stepRepo?: typeof stepRepository,
-    logicRuleRepo?: typeof logicRuleRepository
+    logicRuleRepo?: typeof logicRuleRepository,
+    workflowAccessRepo?: typeof workflowAccessRepository
   ) {
     this.workflowRepo = workflowRepo || workflowRepository;
     this.sectionRepo = sectionRepo || sectionRepository;
     this.stepRepo = stepRepo || stepRepository;
     this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
+    this.workflowAccessRepo = workflowAccessRepo || workflowAccessRepository;
   }
 
   /**
@@ -56,6 +60,7 @@ export class WorkflowService {
         {
           ...data,
           creatorId,
+          ownerId: creatorId, // Creator is also the initial owner
           status: 'draft',
         },
         tx
@@ -204,6 +209,98 @@ export class WorkflowService {
       modeOverride,
       updatedAt: new Date(),
     });
+  }
+
+  // ===================================================================
+  // ACL MANAGEMENT METHODS
+  // ===================================================================
+
+  /**
+   * Get all ACL entries for a workflow
+   */
+  async getWorkflowAccess(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowAccess[]> {
+    await this.verifyOwnership(workflowId, userId);
+    return await this.workflowAccessRepo.findByWorkflowId(workflowId, tx);
+  }
+
+  /**
+   * Grant or update access to a workflow
+   * Only owner can grant 'owner' role to others
+   */
+  async grantWorkflowAccess(
+    workflowId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
+    tx?: DbTransaction
+  ): Promise<WorkflowAccess[]> {
+    const workflow = await this.verifyOwnership(workflowId, requestorId);
+
+    const results: WorkflowAccess[] = [];
+
+    for (const entry of entries) {
+      // Only owner can grant 'owner' role
+      if (entry.role === 'owner' && workflow.ownerId !== requestorId) {
+        throw new Error("Only the workflow owner can grant owner access to others");
+      }
+
+      const acl = await this.workflowAccessRepo.upsert(
+        workflowId,
+        entry.principalType,
+        entry.principalId,
+        entry.role,
+        tx
+      );
+      results.push(acl);
+    }
+
+    return results;
+  }
+
+  /**
+   * Revoke access from a workflow
+   */
+  async revokeWorkflowAccess(
+    workflowId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx?: DbTransaction
+  ): Promise<void> {
+    await this.verifyOwnership(workflowId, requestorId);
+
+    for (const entry of entries) {
+      await this.workflowAccessRepo.deleteByPrincipal(
+        workflowId,
+        entry.principalType,
+        entry.principalId,
+        tx
+      );
+    }
+  }
+
+  /**
+   * Transfer workflow ownership to another user
+   * Only current owner can transfer ownership
+   */
+  async transferWorkflowOwnership(
+    workflowId: string,
+    currentOwnerId: string,
+    newOwnerId: string,
+    tx?: DbTransaction
+  ): Promise<Workflow> {
+    const workflow = await this.verifyOwnership(workflowId, currentOwnerId);
+
+    if (workflow.ownerId !== currentOwnerId) {
+      throw new Error("Only the current owner can transfer ownership");
+    }
+
+    return await this.workflowRepo.update(
+      workflowId,
+      {
+        ownerId: newOwnerId,
+        updatedAt: new Date(),
+      },
+      tx
+    );
   }
 }
 

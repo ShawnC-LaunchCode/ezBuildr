@@ -734,11 +734,13 @@ export const projects = pgTable("projects", {
   title: varchar("title").notNull(),
   description: text("description"),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
   status: projectStatusEnum("status").default('active').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("projects_creator_idx").on(table.creatorId),
+  index("projects_owner_idx").on(table.ownerId),
   index("projects_status_idx").on(table.status),
 ]);
 
@@ -748,6 +750,7 @@ export const workflows = pgTable("workflows", {
   title: varchar("title").notNull(),
   description: text("description"),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }), // Optional project assignment
   status: workflowStatusEnum("status").default('draft').notNull(),
   modeOverride: text("mode_override"), // 'easy' | 'advanced' | null (null = use user default)
@@ -756,6 +759,7 @@ export const workflows = pgTable("workflows", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflows_creator_idx").on(table.creatorId),
+  index("workflows_owner_idx").on(table.ownerId),
   index("workflows_project_idx").on(table.projectId),
   index("workflows_status_idx").on(table.status),
   index("workflows_public_link_idx").on(table.publicLink),
@@ -1039,6 +1043,100 @@ export const transformBlockRunsRelations = relations(transformBlockRuns, ({ one 
 export const insertTransformBlockSchema = createInsertSchema(transformBlocks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns).omit({ id: true, startedAt: true });
 
+// ===================================================================
+// TEAMS & SHARING (Epic 4)
+// ===================================================================
+
+// Teams table
+export const teams = pgTable("teams", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("teams_created_by_idx").on(table.createdBy),
+]);
+
+// Team members table
+export const teamMembers = pgTable("team_members", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: uuid("team_id").references(() => teams.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: text("role").notNull().default("member"), // 'member' | 'admin'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("team_members_team_idx").on(table.teamId),
+  index("team_members_user_idx").on(table.userId),
+  index("team_members_team_user_idx").on(table.teamId, table.userId),
+]);
+
+// Project access (ACL) table
+export const projectAccess = pgTable("project_access", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  principalType: text("principal_type").notNull(), // 'user' | 'team'
+  principalId: uuid("principal_id").notNull(), // users.id or teams.id
+  role: text("role").notNull(), // 'view' | 'edit' | 'owner'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("project_access_project_idx").on(table.projectId),
+  index("project_access_principal_idx").on(table.principalType, table.principalId),
+]);
+
+// Workflow access (ACL) table
+export const workflowAccess = pgTable("workflow_access", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  principalType: text("principal_type").notNull(), // 'user' | 'team'
+  principalId: uuid("principal_id").notNull(), // users.id or teams.id
+  role: text("role").notNull(), // 'view' | 'edit' | 'owner'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("workflow_access_workflow_idx").on(table.workflowId),
+  index("workflow_access_principal_idx").on(table.principalType, table.principalId),
+]);
+
+// Teams Relations
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [teams.createdBy],
+    references: [users.id],
+  }),
+  members: many(teamMembers),
+}));
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamMembers.teamId],
+    references: [teams.id],
+  }),
+  user: one(users, {
+    fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAccess.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const workflowAccessRelations = relations(workflowAccess, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowAccess.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+// Teams & ACL Insert Schemas
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, createdAt: true });
+export const insertProjectAccessSchema = createInsertSchema(projectAccess).omit({ id: true, createdAt: true });
+export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess).omit({ id: true, createdAt: true });
+
 // Vault-Logic Types
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = typeof insertProjectSchema._type;
@@ -1058,6 +1156,21 @@ export type TransformBlock = typeof transformBlocks.$inferSelect;
 export type InsertTransformBlock = typeof insertTransformBlockSchema._type;
 export type TransformBlockRun = typeof transformBlockRuns.$inferSelect;
 export type InsertTransformBlockRun = typeof insertTransformBlockRunSchema._type;
+
+// Teams & Sharing Types
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = typeof insertTeamSchema._type;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = typeof insertTeamMemberSchema._type;
+export type ProjectAccess = typeof projectAccess.$inferSelect;
+export type InsertProjectAccess = typeof insertProjectAccessSchema._type;
+export type WorkflowAccess = typeof workflowAccess.$inferSelect;
+export type InsertWorkflowAccess = typeof insertWorkflowAccessSchema._type;
+
+// ACL role types
+export type AccessRole = 'view' | 'edit' | 'owner' | 'none';
+export type PrincipalType = 'user' | 'team';
+export type TeamRole = 'member' | 'admin';
 
 // Workflow variable type (for step aliases and variable references)
 export interface WorkflowVariable {
