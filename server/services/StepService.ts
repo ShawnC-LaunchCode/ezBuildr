@@ -174,6 +174,104 @@ export class StepService {
 
     return await this.stepRepo.findBySectionId(sectionId);
   }
+
+  // ===================================================================
+  // SIMPLIFIED METHODS (automatically look up workflowId from section/step)
+  // ===================================================================
+
+  /**
+   * Get steps for a section (workflow looked up automatically)
+   */
+  async getStepsBySectionId(sectionId: string, userId: string): Promise<Step[]> {
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Use the existing method with the workflowId
+    return await this.getSteps(section.workflowId, sectionId, userId);
+  }
+
+  /**
+   * Create a new step (workflow looked up automatically)
+   */
+  async createStepBySectionId(
+    sectionId: string,
+    userId: string,
+    data: Omit<InsertStep, 'sectionId'>
+  ): Promise<Step> {
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Use the existing method with the workflowId
+    return await this.createStep(section.workflowId, sectionId, userId, data);
+  }
+
+  /**
+   * Reorder steps (workflow looked up automatically)
+   */
+  async reorderStepsBySectionId(
+    sectionId: string,
+    userId: string,
+    stepOrders: Array<{ id: string; order: number }>
+  ): Promise<void> {
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Use the existing method with the workflowId
+    await this.reorderSteps(section.workflowId, sectionId, userId, stepOrders);
+  }
+
+  /**
+   * Update a step (workflow looked up automatically)
+   */
+  async updateStepById(
+    stepId: string,
+    userId: string,
+    data: Partial<InsertStep>
+  ): Promise<Step> {
+    // Look up the step to get its section
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error("Step not found");
+    }
+
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Use the existing method with the workflowId
+    return await this.updateStep(stepId, section.workflowId, userId, data);
+  }
+
+  /**
+   * Delete a step (workflow looked up automatically)
+   */
+  async deleteStepById(stepId: string, userId: string): Promise<void> {
+    // Look up the step to get its section
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error("Step not found");
+    }
+
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Use the existing method with the workflowId
+    await this.deleteStep(stepId, section.workflowId, userId);
+  }
 }
 
 // Singleton instance
