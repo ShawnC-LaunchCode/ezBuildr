@@ -218,6 +218,7 @@ function BlockEditor({
               <JSBlockEditor
                 block={{ ...block, config: formData.config, type: formData.type }}
                 onChange={(updated) => setFormData({ ...formData, config: updated.config })}
+                workflowId={workflowId}
               />
             </div>
           ) : (

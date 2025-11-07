@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Workflow } from "lucide-react";
+import { UI_LABELS } from "@/lib/labels";
 
 export function CanvasEditor({ workflowId }: { workflowId: string }) {
   const { selection, mode } = useWorkflowBuilder();
@@ -62,8 +63,8 @@ function SectionCanvas({ section, workflowId }: { section: any; workflowId: stri
     <div className="p-8 max-w-4xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Section Settings</CardTitle>
-          <CardDescription>Configure this section's properties</CardDescription>
+          <CardTitle>{UI_LABELS.PAGE_SETTINGS}</CardTitle>
+          <CardDescription>Configure this page's properties</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -83,7 +84,7 @@ function SectionCanvas({ section, workflowId }: { section: any; workflowId: stri
               value={section.description || ""}
               onChange={(e) => handleUpdate("description", e.target.value)}
               rows={4}
-              placeholder="Optional description for this section..."
+              placeholder="Optional description for this page..."
             />
           </div>
         </CardContent>

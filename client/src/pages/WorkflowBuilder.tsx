@@ -16,6 +16,8 @@ import { CanvasEditor } from "@/components/builder/CanvasEditor";
 import { Inspector } from "@/components/builder/Inspector";
 import { RunnerPreview } from "@/components/builder/RunnerPreview";
 import { WorkflowSettings } from "@/components/builder/WorkflowSettings";
+import { PageCanvas } from "@/components/builder/pages/PageCanvas";
+import { UI_LABELS } from "@/lib/labels";
 import { useToast } from "@/hooks/use-toast";
 import { getModeLabel, type Mode } from "@/lib/mode";
 import {
@@ -128,7 +130,7 @@ export default function WorkflowBuilder() {
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold">{workflow.title}</h1>
           <span className="text-sm text-muted-foreground">
-            {sections?.length || 0} sections
+            {sections?.length || 0} {sections?.length === 1 ? UI_LABELS.PAGE.toLowerCase() : UI_LABELS.PAGES.toLowerCase()}
           </span>
         </div>
 
@@ -212,9 +214,9 @@ export default function WorkflowBuilder() {
           <SidebarTree workflowId={workflowId!} />
         </div>
 
-        {/* Canvas - Editor */}
-        <div className={`flex-1 overflow-y-auto ${isPreviewOpen ? 'border-r' : ''}`}>
-          <CanvasEditor workflowId={workflowId!} />
+        {/* Canvas - Page Builder */}
+        <div className={`flex-1 overflow-hidden ${isPreviewOpen ? 'border-r' : ''}`}>
+          <PageCanvas workflowId={workflowId!} />
         </div>
 
         {/* Inspector - Properties/Blocks */}

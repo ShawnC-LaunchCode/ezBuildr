@@ -27,6 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { UI_LABELS } from "@/lib/labels";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: sections } = useSections(workflowId);
@@ -37,7 +38,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
     const order = sections?.length || 0;
     await createSectionMutation.mutateAsync({
       workflowId,
-      title: `Section ${order + 1}`,
+      title: `${UI_LABELS.PAGE} ${order + 1}`,
       order,
     });
   };
@@ -59,7 +60,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       <div className="p-4 border-b">
         <Button onClick={handleCreateSection} size="sm" className="w-full">
           <Plus className="w-4 h-4 mr-2" />
-          Add Section
+          {UI_LABELS.ADD_PAGE}
         </Button>
       </div>
 
@@ -103,7 +104,7 @@ function SectionItem({
     await createStepMutation.mutateAsync({
       sectionId: section.id,
       type: "short_text",
-      title: `Step ${order + 1}`,
+      title: `${UI_LABELS.QUESTION} ${order + 1}`,
       description: null,
       required: false,
       options: null,
