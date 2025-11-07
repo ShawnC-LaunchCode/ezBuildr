@@ -37,7 +37,13 @@ export default function NewWorkflow() {
     }
 
     try {
-      const workflow = await createWorkflowMutation.mutateAsync(formData);
+      // Prepare data, converting empty description to undefined
+      const workflowData = {
+        title: formData.title.trim(),
+        ...(formData.description.trim() && { description: formData.description.trim() }),
+      };
+
+      const workflow = await createWorkflowMutation.mutateAsync(workflowData);
       toast({
         title: "Success",
         description: "Workflow created successfully",
