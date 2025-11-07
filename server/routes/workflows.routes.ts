@@ -25,6 +25,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflowData = insertWorkflowSchema.parse({
         ...req.body,
         creatorId: userId,
+        ownerId: userId, // Creator is also the initial owner
       });
 
       const workflow = await workflowService.createWorkflow(workflowData, userId);
