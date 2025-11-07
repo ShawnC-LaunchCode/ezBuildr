@@ -240,7 +240,7 @@ export const stepAPI = {
 // Blocks
 // ============================================================================
 
-export type BlockType = "prefill" | "validate" | "branch";
+export type BlockType = "prefill" | "validate" | "branch" | "js";
 export type BlockPhase = "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
 
 export interface ApiBlock {

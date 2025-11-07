@@ -25,7 +25,7 @@ export const FEATURES = {
   EASY_BLOCK_TYPES: ['prefill', 'validate', 'branch'] as const,
 
   // All block types (advanced mode)
-  ALL_BLOCK_TYPES: ['prefill', 'validate', 'branch'] as const,
+  ALL_BLOCK_TYPES: ['prefill', 'validate', 'branch', 'js'] as const,
 
   // Logic operators available in easy mode
   EASY_OPERATORS: ['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty'] as const,

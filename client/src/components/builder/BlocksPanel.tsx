@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 import type { BlockType, BlockPhase } from "@/lib/vault-api";
+import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
 
 export function BlocksPanel({ workflowId }: { workflowId: string }) {
   const { data: blocks } = useBlocks(workflowId);
@@ -37,12 +38,14 @@ export function BlocksPanel({ workflowId }: { workflowId: string }) {
         </Button>
       </div>
 
-      {mode === 'easy' && (
-        <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
-          <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-          <p>Easy mode: All block types (prefill, validate, branch) are available.</p>
-        </div>
-      )}
+      <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+        {mode === 'easy' ? (
+          <p>Easy mode: Block types available: prefill, validate, branch</p>
+        ) : (
+          <p>Advanced mode: All block types available including JS Transform</p>
+        )}
+      </div>
 
       {blocks && blocks.length === 0 && (
         <div className="text-center py-8 text-sm text-muted-foreground">
@@ -183,6 +186,9 @@ function BlockEditor({
                   <SelectItem value="prefill">Prefill</SelectItem>
                   <SelectItem value="validate">Validate</SelectItem>
                   <SelectItem value="branch">Branch</SelectItem>
+                  {availableBlockTypes.includes('js') && (
+                    <SelectItem value="js">JS Transform</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -207,29 +213,38 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Config (JSON)</Label>
-            {mode === 'easy' && (
+          {formData.type === 'js' ? (
+            <div className="space-y-2">
+              <JSBlockEditor
+                block={{ ...block, config: formData.config, type: formData.type }}
+                onChange={(updated) => setFormData({ ...formData, config: updated.config })}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Config (JSON)</Label>
+              {mode === 'easy' && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  Easy mode: JSON configuration is available for all block types.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mb-1">
-                Easy mode: JSON configuration is available for all block types.
+                Use step IDs or aliases to reference variables. Aliases make configs more readable.
               </p>
-            )}
-            <p className="text-xs text-muted-foreground mb-1">
-              Use step IDs or aliases to reference variables. Aliases make configs more readable.
-            </p>
-            <Textarea
-              value={JSON.stringify(formData.config, null, 2)}
-              onChange={(e) => {
-                try {
-                  const config = JSON.parse(e.target.value);
-                  setFormData({ ...formData, config });
-                } catch {}
-              }}
-              rows={10}
-              className="font-mono text-xs"
-              placeholder={`Example for prefill:\n{\n  "mode": "static",\n  "staticMap": { "firstName": "John" }\n}`}
-            />
-          </div>
+              <Textarea
+                value={JSON.stringify(formData.config, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const config = JSON.parse(e.target.value);
+                    setFormData({ ...formData, config });
+                  } catch {}
+                }}
+                rows={10}
+                className="font-mono text-xs"
+                placeholder={`Example for prefill:\n{\n  "mode": "static",\n  "staticMap": { "firstName": "John" }\n}`}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Order</Label>
