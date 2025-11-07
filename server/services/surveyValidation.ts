@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { surveys, surveyPages, questions, conditionalRules } from "../../shared/schema";
 import { eq, and } from "drizzle-orm";
+import { logger } from "../logger";
 
 export interface ValidationError {
   field: string;
@@ -237,7 +238,7 @@ export async function validateSurveyForPublish(
       warnings,
     };
   } catch (error) {
-    console.error("Error validating survey:", error);
+    logger.error("Error validating survey:", error);
     errors.push({
       field: "system",
       message: "An error occurred during validation",

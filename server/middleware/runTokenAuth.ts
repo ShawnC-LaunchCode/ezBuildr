@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { workflowRuns } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { logger } from "../logger";
 
 /**
  * Extended request type with run authentication info
@@ -74,7 +75,7 @@ export async function runTokenAuth(
 
     next();
   } catch (error) {
-    console.error("Error in runTokenAuth middleware:", error);
+    logger.error({ err: error }, "Error in runTokenAuth middleware");
     res.status(500).json({
       success: false,
       error: "Internal server error during authentication",
@@ -99,7 +100,7 @@ export async function creatorOrRunTokenAuth(
   next: NextFunction
 ): Promise<void> {
   // Check if user is authenticated via session
-  if (req.isAuthenticated && req.isAuthenticated()) {
+  if ((req as any).isAuthenticated && (req as any).isAuthenticated()) {
     // User is authenticated via session, continue
     return next();
   }
@@ -149,7 +150,7 @@ export async function creatorOrRunTokenAuth(
 
     next();
   } catch (error) {
-    console.error("Error in creatorOrRunTokenAuth middleware:", error);
+    logger.error({ err: error }, "Error in creatorOrRunTokenAuth middleware");
     res.status(500).json({
       success: false,
       error: "Internal server error during authentication",

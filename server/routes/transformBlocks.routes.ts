@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { insertTransformBlockSchema } from "@shared/schema";
 import { transformBlockService } from "../services/TransformBlockService";
@@ -42,7 +42,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * POST /api/workflows/:workflowId/transform-blocks
    * Create a new transform block
    */
-  app.post('/api/workflows/:workflowId/transform-blocks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/workflows/:workflowId/transform-blocks', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -57,7 +57,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.createBlock(workflowId, userId, blockData);
       res.status(201).json({ success: true, data: block });
     } catch (error) {
-      console.error("Error creating transform block:", error);
+      logger.error("Error creating transform block:", error);
       const message = error instanceof Error ? error.message : "Failed to create transform block";
 
       if (error instanceof z.ZodError) {
@@ -73,7 +73,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/transform-blocks
    * List all transform blocks for a workflow
    */
-  app.get('/api/workflows/:workflowId/transform-blocks', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/transform-blocks', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -84,7 +84,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const blocks = await transformBlockService.listBlocks(workflowId, userId);
       res.json({ success: true, data: blocks });
     } catch (error) {
-      console.error("Error listing transform blocks:", error);
+      logger.error("Error listing transform blocks:", error);
       const message = error instanceof Error ? error.message : "Failed to list transform blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -95,7 +95,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * GET /api/transform-blocks/:blockId
    * Get a single transform block
    */
-  app.get('/api/transform-blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/transform-blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -106,7 +106,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.getBlock(blockId, userId);
       res.json({ success: true, data: block });
     } catch (error) {
-      console.error("Error fetching transform block:", error);
+      logger.error("Error fetching transform block:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -117,7 +117,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * PUT /api/transform-blocks/:blockId
    * Update a transform block
    */
-  app.put('/api/transform-blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/transform-blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -130,7 +130,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.updateBlock(blockId, userId, updateData);
       res.json({ success: true, data: block });
     } catch (error) {
-      console.error("Error updating transform block:", error);
+      logger.error("Error updating transform block:", error);
       const message = error instanceof Error ? error.message : "Failed to update transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("limit") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
@@ -141,7 +141,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * DELETE /api/transform-blocks/:blockId
    * Delete a transform block
    */
-  app.delete('/api/transform-blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/transform-blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -152,7 +152,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       await transformBlockService.deleteBlock(blockId, userId);
       res.status(200).json({ success: true, message: "Transform block deleted" });
     } catch (error) {
-      console.error("Error deleting transform block:", error);
+      logger.error("Error deleting transform block:", error);
       const message = error instanceof Error ? error.message : "Failed to delete transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -163,7 +163,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    * POST /api/transform-blocks/:blockId/test
    * Test a transform block with sample data
    */
-  app.post('/api/transform-blocks/:blockId/test', isAuthenticated, async (req: any, res) => {
+  app.post('/api/transform-blocks/:blockId/test', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -197,7 +197,7 @@ export function registerTransformBlockRoutes(app: Express): void {
         res.status(400).json(result);
       }
     } catch (error) {
-      console.error("Error testing transform block:", error);
+      logger.error("Error testing transform block:", error);
       const message = error instanceof Error ? error.message : "Failed to test transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });

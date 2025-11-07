@@ -2,6 +2,8 @@
 // Note: In a production environment, you would use a service like SendGrid, Mailgun, or AWS SES
 // For this implementation, we'll create a stub that logs the email details
 
+import { logger } from "../logger";
+
 export async function sendNotificationEmail(
   recipientEmail: string,
   surveyTitle: string,
@@ -10,7 +12,7 @@ export async function sendNotificationEmail(
 ): Promise<void> {
   try {
     // Log email details (in production, replace with actual email service)
-    console.log(`
+    logger.info(`
 === EMAIL NOTIFICATION ===
 To: ${recipientEmail}
 Subject: New Survey Response Received - ${surveyTitle}
@@ -52,7 +54,7 @@ Vault-Logic Team
     */
     
   } catch (error) {
-    console.error("Error sending notification email:", error);
+    logger.error("Error sending notification email:", error);
     // Don't throw error to avoid breaking the survey submission flow
   }
 }
@@ -64,7 +66,7 @@ export async function sendSurveyInvitation(
   surveyUrl: string
 ): Promise<void> {
   try {
-    console.log(`
+    logger.info(`
 === SURVEY INVITATION ===
 To: ${recipientEmail}
 Subject: You're invited to participate in: ${surveyTitle}
@@ -85,6 +87,6 @@ Vault-Logic Team
     // In production, implement actual email sending similar to above
     
   } catch (error) {
-    console.error("Error sending survey invitation:", error);
+    logger.error("Error sending survey invitation:", error);
   }
 }

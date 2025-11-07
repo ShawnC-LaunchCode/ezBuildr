@@ -4,7 +4,7 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
 import rateLimit from "express-rate-limit";
-import { storage } from "./storage";
+import { userRepository } from "./repositories";
 import { createLogger } from "./logger";
 import { templateSharingService } from "./services/TemplateSharingService";
 
@@ -105,9 +105,10 @@ async function upsertUser(payload: TokenPayload) {
       firstName: payload.given_name || "",
       lastName: payload.family_name || "",
       profileImageUrl: payload.picture || null,
+      defaultMode: 'easy' as const,
     };
     logger.debug({ userId: userData.id, email: userData.email }, 'Upserting user');
-    await storage.upsertUser(userData);
+    await userRepository.upsert(userData);
     logger.info({ userId: userData.id }, 'User upserted successfully');
   } catch (error) {
     logger.error(
@@ -296,6 +297,7 @@ export async function setupAuth(app: Express) {
           firstName: payload.given_name || "",
           lastName: payload.family_name || "",
           profileImageUrl: payload.picture || null,
+          defaultMode: 'easy' as const,
           role: 'creator' as const, // Default role
           createdAt: new Date(),
           updatedAt: new Date(),

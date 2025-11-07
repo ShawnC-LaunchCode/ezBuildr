@@ -1,5 +1,6 @@
 ﻿// SendGrid email service - Referenced from javascript_sendgrid integration
 import { MailService } from '@sendgrid/mail';
+import { logger } from '../logger';
 
 const mailService = new MailService();
 
@@ -15,7 +16,7 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
   try {
     if (!process.env.SENDGRID_API_KEY) {
       const errorMsg = 'SENDGRID_API_KEY environment variable is not set';
-      console.error(errorMsg);
+      logger.error(errorMsg);
       return { success: false, error: errorMsg };
     }
 
@@ -37,10 +38,10 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
 
     await mailService.send(mailData);
     
-    console.log(`Email sent successfully to ${params.to}`);
+    logger.info(`Email sent successfully to ${params.to}`);
     return { success: true };
   } catch (error: any) {
-    console.error('SendGrid email error:', error);
+    logger.error('SendGrid email error:', error);
     
     // Extract meaningful error message from SendGrid response
     let errorMessage = 'Failed to send email';

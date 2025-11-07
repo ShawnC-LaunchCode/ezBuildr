@@ -1,6 +1,9 @@
-import type { Express } from "express";
-import { storage } from "../storage";
+import type { Express, Request, Response } from "express";
+import { userRepository } from "../repositories";
 import { isAuthenticated } from "../googleAuth";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: 'auth-routes' });
 
 /**
  * Register authentication-related routes
@@ -8,7 +11,7 @@ import { isAuthenticated } from "../googleAuth";
 export function registerAuthRoutes(app: Express): void {
   // Development authentication helper (for development and testing)
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-    const devLoginHandler = async (req: any, res: any) => {
+    const devLoginHandler = async (req: Request, res: Response) => {
       try {
         // Create a test user for development
         const testUser = {
@@ -20,7 +23,7 @@ export function registerAuthRoutes(app: Express): void {
         };
 
         // Upsert the test user
-        await storage.upsertUser(testUser);
+        await userRepository.upsert(testUser);
 
         // Simulate authentication by setting up the session (Google auth format)
         const mockAuthUser = {
@@ -37,15 +40,15 @@ export function registerAuthRoutes(app: Express): void {
         };
 
         // Session fixation protection: regenerate session before login (same as Google auth)
-        req.session.regenerate((err: any) => {
+        req.session.regenerate((err: unknown) => {
           if (err) {
-            console.error('Dev login session regeneration error:', err);
+            logger.error({ error: err }, 'Dev login session regeneration error');
             return res.status(500).json({ message: "Session creation failed" });
           }
 
           // Set up the session with new session ID
-          (req as any).user = mockAuthUser;
-          (req.session as any).user = mockAuthUser;
+          req.user = mockAuthUser;
+          req.session.user = mockAuthUser;
 
           // For GET requests, redirect to dashboard; for POST, return JSON
           if (req.method === 'GET') {
@@ -55,7 +58,7 @@ export function registerAuthRoutes(app: Express): void {
           }
         });
       } catch (error) {
-        console.error("Dev login error:", error);
+        logger.error({ error }, "Dev login error");
         res.status(500).json({ message: "Failed to authenticate in dev mode" });
       }
     };
@@ -66,16 +69,16 @@ export function registerAuthRoutes(app: Express): void {
   }
 
   // Get current authenticated user
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-      const user = await storage.getUser(userId);
+      const user = await userRepository.findById(userId);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      logger.error({ error }, "Error fetching user");
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });

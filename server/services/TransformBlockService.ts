@@ -7,6 +7,7 @@ import {
 import type { TransformBlock, InsertTransformBlock } from "@shared/schema";
 import { executeCode } from "../utils/sandboxExecutor";
 import { workflowService } from "./WorkflowService";
+import { logger } from "../logger";
 
 /**
  * Service layer for transform block business logic
@@ -227,7 +228,7 @@ export class TransformBlockService {
             value: result.output,
           });
         } catch (error) {
-          console.error(`Failed to persist transform block output for ${block.name}:`, error);
+          logger.error(`Failed to persist transform block output for ${block.name}:`, error);
           // Continue execution even if persistence fails
         }
       } else {

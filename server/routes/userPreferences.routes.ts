@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { userPreferencesService } from "../services/UserPreferencesService";
 
@@ -10,7 +10,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
    * GET /api/preferences
    * Get current user's preferences
    */
-  app.get('/api/preferences', isAuthenticated, async (req: any, res) => {
+  app.get('/api/preferences', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -20,7 +20,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
       const prefs = await userPreferencesService.getByUserId(userId);
       res.json(prefs);
     } catch (error) {
-      console.error("Error fetching user preferences:", error);
+      logger.error("Error fetching user preferences:", error);
       res.status(500).json({ message: "Failed to fetch preferences" });
     }
   });
@@ -29,7 +29,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
    * PUT /api/preferences
    * Update current user's preferences
    */
-  app.put('/api/preferences', isAuthenticated, async (req: any, res) => {
+  app.put('/api/preferences', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -40,7 +40,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
       const updated = await userPreferencesService.update(userId, updates);
       res.json(updated);
     } catch (error) {
-      console.error("Error updating user preferences:", error);
+      logger.error("Error updating user preferences:", error);
       res.status(500).json({ message: "Failed to update preferences" });
     }
   });
@@ -49,7 +49,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
    * POST /api/preferences/reset
    * Reset user's preferences to defaults
    */
-  app.post('/api/preferences/reset', isAuthenticated, async (req: any, res) => {
+  app.post('/api/preferences/reset', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -59,7 +59,7 @@ export function registerUserPreferencesRoutes(app: Express): void {
       const defaults = await userPreferencesService.reset(userId);
       res.json(defaults);
     } catch (error) {
-      console.error("Error resetting user preferences:", error);
+      logger.error("Error resetting user preferences:", error);
       res.status(500).json({ message: "Failed to reset preferences" });
     }
   });

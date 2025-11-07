@@ -1,7 +1,11 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { blockService } from "../services/BlockService";
 import { z } from "zod";
+import { createLogger } from "../logger";
+import type { BlockPhase } from "@shared/types/blocks";
+
+const logger = createLogger({ module: 'blocks-routes' });
 
 /**
  * Register block management routes
@@ -12,7 +16,7 @@ export function registerBlockRoutes(app: Express): void {
    * POST /api/workflows/:workflowId/blocks
    * Create a new block
    */
-  app.post('/api/workflows/:workflowId/blocks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/workflows/:workflowId/blocks', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -33,7 +37,7 @@ export function registerBlockRoutes(app: Express): void {
       const block = await blockService.createBlock(workflowId, userId, blockData);
       res.status(201).json({ success: true, data: block });
     } catch (error) {
-      console.error("Error creating block:", error);
+      logger.error({ error }, "Error creating block");
       const message = error instanceof Error ? error.message : "Failed to create block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -44,7 +48,7 @@ export function registerBlockRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/blocks
    * List all blocks for a workflow
    */
-  app.get('/api/workflows/:workflowId/blocks', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/blocks', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -52,12 +56,12 @@ export function registerBlockRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const phase = req.query.phase as string | undefined;
+      const phase = req.query.phase as BlockPhase | undefined;
 
-      const blocks = await blockService.listBlocks(workflowId, userId, phase as any);
+      const blocks = await blockService.listBlocks(workflowId, userId, phase);
       res.json({ success: true, data: blocks });
     } catch (error) {
-      console.error("Error listing blocks:", error);
+      logger.error({ error }, "Error listing blocks");
       const message = error instanceof Error ? error.message : "Failed to list blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -68,7 +72,7 @@ export function registerBlockRoutes(app: Express): void {
    * GET /api/blocks/:blockId
    * Get a single block by ID
    */
-  app.get('/api/blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -79,7 +83,7 @@ export function registerBlockRoutes(app: Express): void {
       const block = await blockService.getBlock(blockId, userId);
       res.json({ success: true, data: block });
     } catch (error) {
-      console.error("Error fetching block:", error);
+      logger.error({ error }, "Error fetching block");
       const message = error instanceof Error ? error.message : "Failed to fetch block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -90,7 +94,7 @@ export function registerBlockRoutes(app: Express): void {
    * PUT /api/blocks/:blockId
    * Update a block
    */
-  app.put('/api/blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -103,7 +107,7 @@ export function registerBlockRoutes(app: Express): void {
       const block = await blockService.updateBlock(blockId, userId, updates);
       res.json({ success: true, data: block });
     } catch (error) {
-      console.error("Error updating block:", error);
+      logger.error({ error }, "Error updating block");
       const message = error instanceof Error ? error.message : "Failed to update block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -114,7 +118,7 @@ export function registerBlockRoutes(app: Express): void {
    * DELETE /api/blocks/:blockId
    * Delete a block
    */
-  app.delete('/api/blocks/:blockId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/blocks/:blockId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -125,7 +129,7 @@ export function registerBlockRoutes(app: Express): void {
       await blockService.deleteBlock(blockId, userId);
       res.json({ success: true, data: { message: "Block deleted successfully" } });
     } catch (error) {
-      console.error("Error deleting block:", error);
+      logger.error({ error }, "Error deleting block");
       const message = error instanceof Error ? error.message : "Failed to delete block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -136,7 +140,7 @@ export function registerBlockRoutes(app: Express): void {
    * PUT /api/workflows/:workflowId/blocks/reorder
    * Bulk reorder blocks
    */
-  app.put('/api/workflows/:workflowId/blocks/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/workflows/:workflowId/blocks/reorder', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -156,7 +160,7 @@ export function registerBlockRoutes(app: Express): void {
       await blockService.reorderBlocks(workflowId, userId, blocks);
       res.json({ success: true, data: { message: "Blocks reordered successfully" } });
     } catch (error) {
-      console.error("Error reordering blocks:", error);
+      logger.error({ error }, "Error reordering blocks");
       const message = error instanceof Error ? error.message : "Failed to reorder blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });

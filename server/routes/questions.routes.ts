@@ -1,8 +1,11 @@
-import type { Express } from "express";
-import { storage } from "../storage";
+import type { Express, Request, Response } from "express";
+import { surveyRepository, pageRepository, questionRepository } from "../repositories";
+import { createLogger } from "../logger";
 import { isAuthenticated } from "../googleAuth";
 import { insertQuestionSchema, insertLoopGroupSubquestionSchema, insertConditionalRuleSchema } from "@shared/schema";
 import { surveyService } from "../services";
+
+const logger = createLogger({ module: "questions-routes" });
 
 /**
  * Register question-related routes
@@ -18,26 +21,31 @@ export function registerQuestionRoutes(app: Express): void {
    * POST /api/pages/:pageId/questions
    * Create a new question for a page
    */
-  app.post('/api/pages/:pageId/questions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/pages/:pageId/questions', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const page = await storage.getSurveyPage(req.params.pageId);
+      const page = await pageRepository.findById(req.params.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
 
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const questionData = insertQuestionSchema.parse({ ...req.body, pageId: req.params.pageId });
-      const question = await storage.createQuestion(questionData);
+      const question = await questionRepository.create(questionData);
       res.json(question);
     } catch (error) {
-      console.error("Error creating question:", error);
+      logger.error({ error }, "Error creating question");
       res.status(500).json({ message: "Failed to create question" });
     }
   });
@@ -46,25 +54,30 @@ export function registerQuestionRoutes(app: Express): void {
    * GET /api/pages/:pageId/questions
    * Get all questions for a page (includes subquestions for loop groups)
    */
-  app.get('/api/pages/:pageId/questions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/pages/:pageId/questions', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const page = await storage.getSurveyPage(req.params.pageId);
+      const page = await pageRepository.findById(req.params.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
 
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
 
-      const questions = await storage.getQuestionsWithSubquestionsByPage(req.params.pageId);
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      const questions = await questionRepository.findByPageWithSubquestions(req.params.pageId);
       res.json(questions);
     } catch (error) {
-      console.error("Error fetching questions:", error);
+      logger.error({ error }, "Error fetching questions");
       res.status(500).json({ message: "Failed to fetch questions" });
     }
   });
@@ -73,50 +86,56 @@ export function registerQuestionRoutes(app: Express): void {
    * PUT /api/questions/:id
    * Update a question
    */
-  app.put('/api/questions/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/questions/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      console.log('[Question Update] Request received for question:', req.params.id);
-      console.log('[Question Update] Request body:', JSON.stringify(req.body, null, 2));
+      logger.info({ questionId: req.params.id }, '[Question Update] Request received for question');
+      logger.info({ body: req.body }, '[Question Update] Request body');
 
-      const question = await storage.getQuestion(req.params.id);
+      const question = await questionRepository.findById(req.params.id);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      console.log('[Question Update] Current question data:', {
+      logger.info({
         id: question.id,
         title: question.title,
         description: question.description,
         type: question.type
-      });
+      }, '[Question Update] Current question data');
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const updates = insertQuestionSchema.partial().parse(req.body);
-      console.log('[Question Update] Parsed updates:', JSON.stringify(updates, null, 2));
+      logger.info({ updates }, '[Question Update] Parsed updates');
 
-      const updatedQuestion = await storage.updateQuestion(req.params.id, updates);
+      const updatedQuestion = await questionRepository.update(req.params.id, updates);
 
-      console.log('[Question Update] Updated question data:', {
+      logger.info({
         id: updatedQuestion.id,
         title: updatedQuestion.title,
         description: updatedQuestion.description,
         type: updatedQuestion.type
-      });
+      }, '[Question Update] Updated question data');
 
       res.json(updatedQuestion);
     } catch (error) {
-      console.error("Error updating question:", error);
+      logger.error({ error }, "Error updating question");
       res.status(500).json({ message: "Failed to update question" });
     }
   });
@@ -125,51 +144,57 @@ export function registerQuestionRoutes(app: Express): void {
    * DELETE /api/questions/:id
    * Delete a question
    */
-  app.delete('/api/questions/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/questions/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      console.log('[DELETE Question] Attempting to delete question:', req.params.id);
+      logger.info({ questionId: req.params.id }, '[DELETE Question] Attempting to delete question');
 
-      const question = await storage.getQuestion(req.params.id);
+      const question = await questionRepository.findById(req.params.id);
       if (!question) {
-        console.log('[DELETE Question] Question not found:', req.params.id);
+        logger.info({ questionId: req.params.id }, '[DELETE Question] Question not found');
         return res.status(404).json({ message: "Question not found" });
       }
 
-      console.log('[DELETE Question] Found question:', {
+      logger.info({
         id: question.id,
         title: question.title,
         pageId: question.pageId,
         type: question.type
-      });
+      }, '[DELETE Question] Found question');
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
-        console.log('[DELETE Question] Page not found:', question.pageId);
+        logger.info({ pageId: question.pageId }, '[DELETE Question] Page not found');
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      console.log('[DELETE Question] Authorization passed. Deleting question...');
-      await storage.deleteQuestion(req.params.id);
-      console.log('[DELETE Question] Question deleted successfully');
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      logger.info('[DELETE Question] Authorization passed. Deleting question...');
+      await questionRepository.delete(req.params.id);
+      logger.info('[DELETE Question] Question deleted successfully');
 
       res.json({ message: "Question deleted successfully" });
     } catch (error) {
-      console.error("[DELETE Question] Error deleting question:", error);
-      console.error("[DELETE Question] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
-      console.error("[DELETE Question] Error details:", {
+      logger.error({ error }, "[DELETE Question] Error deleting question");
+      logger.error({ error: { stack: error instanceof Error ? error.stack : 'No stack trace' } }, "[DELETE Question] Error stack");
+      logger.error({ error: {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : String(error),
         code: (error as any)?.code,
         detail: (error as any)?.detail,
         constraint: (error as any)?.constraint
-      });
+      } }, "[DELETE Question] Error details");
 
       res.status(500).json({
         message: "Failed to delete question",
@@ -182,14 +207,20 @@ export function registerQuestionRoutes(app: Express): void {
    * PUT /api/surveys/:surveyId/questions/reorder
    * Bulk reorder questions across pages
    */
-  app.put('/api/surveys/:surveyId/questions/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/surveys/:surveyId/questions/reorder', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const { questions } = req.body;
       if (!questions || !Array.isArray(questions)) {
@@ -203,10 +234,10 @@ export function registerQuestionRoutes(app: Express): void {
         }
       }
 
-      const reorderedQuestions = await storage.bulkReorderQuestions(req.params.surveyId, questions);
+      const reorderedQuestions = await questionRepository.bulkReorder(req.params.surveyId, questions);
       res.json(reorderedQuestions);
     } catch (error) {
-      console.error("Error reordering questions:", error);
+      logger.error({ error }, "Error reordering questions");
       res.status(500).json({ message: "Failed to reorder questions" });
     }
   });
@@ -219,24 +250,30 @@ export function registerQuestionRoutes(app: Express): void {
    * POST /api/questions/:questionId/subquestions
    * Create a new subquestion for a loop group question
    */
-  app.post('/api/questions/:questionId/subquestions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/questions/:questionId/subquestions', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const question = await storage.getQuestion(req.params.questionId);
+      const question = await questionRepository.findById(req.params.questionId);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       if (question.type !== 'loop_group') {
         return res.status(400).json({ message: "Question is not a loop group" });
@@ -246,10 +283,10 @@ export function registerQuestionRoutes(app: Express): void {
         ...req.body,
         loopQuestionId: req.params.questionId
       });
-      const subquestion = await storage.createLoopGroupSubquestion(subquestionData);
+      const subquestion = await questionRepository.createSubquestion(subquestionData);
       res.json(subquestion);
     } catch (error) {
-      console.error("Error creating subquestion:", error);
+      logger.error({ error }, "Error creating subquestion");
       res.status(500).json({ message: "Failed to create subquestion" });
     }
   });
@@ -258,29 +295,35 @@ export function registerQuestionRoutes(app: Express): void {
    * GET /api/questions/:questionId/subquestions
    * Get all subquestions for a loop group question
    */
-  app.get('/api/questions/:questionId/subquestions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/questions/:questionId/subquestions', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const question = await storage.getQuestion(req.params.questionId);
+      const question = await questionRepository.findById(req.params.questionId);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const subquestions = await storage.getLoopGroupSubquestions(req.params.questionId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      const subquestions = await questionRepository.findSubquestionsByLoopId(req.params.questionId);
       res.json(subquestions);
     } catch (error) {
-      console.error("Error fetching subquestions:", error);
+      logger.error({ error }, "Error fetching subquestions");
       res.status(500).json({ message: "Failed to fetch subquestions" });
     }
   });
@@ -289,35 +332,41 @@ export function registerQuestionRoutes(app: Express): void {
    * PUT /api/subquestions/:id
    * Update a subquestion
    */
-  app.put('/api/subquestions/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/subquestions/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const subquestion = await storage.getLoopGroupSubquestion(req.params.id);
+      const subquestion = await questionRepository.findSubquestionById(req.params.id);
       if (!subquestion) {
         return res.status(404).json({ message: "Subquestion not found" });
       }
 
-      const question = await storage.getQuestion(subquestion.loopQuestionId);
+      const question = await questionRepository.findById(subquestion.loopQuestionId);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const updates = insertLoopGroupSubquestionSchema.partial().parse(req.body);
-      const updatedSubquestion = await storage.updateLoopGroupSubquestion(req.params.id, updates);
+      const updatedSubquestion = await questionRepository.updateSubquestion(req.params.id, updates);
       res.json(updatedSubquestion);
     } catch (error) {
-      console.error("Error updating subquestion:", error);
+      logger.error({ error }, "Error updating subquestion");
       res.status(500).json({ message: "Failed to update subquestion" });
     }
   });
@@ -326,34 +375,40 @@ export function registerQuestionRoutes(app: Express): void {
    * DELETE /api/subquestions/:id
    * Delete a subquestion
    */
-  app.delete('/api/subquestions/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/subquestions/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const subquestion = await storage.getLoopGroupSubquestion(req.params.id);
+      const subquestion = await questionRepository.findSubquestionById(req.params.id);
       if (!subquestion) {
         return res.status(404).json({ message: "Subquestion not found" });
       }
 
-      const question = await storage.getQuestion(subquestion.loopQuestionId);
+      const question = await questionRepository.findById(subquestion.loopQuestionId);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      await storage.deleteLoopGroupSubquestion(req.params.id);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      await questionRepository.deleteSubquestion(req.params.id);
       res.json({ message: "Subquestion deleted successfully" });
     } catch (error) {
-      console.error("Error deleting subquestion:", error);
+      logger.error({ error }, "Error deleting subquestion");
       res.status(500).json({ message: "Failed to delete subquestion" });
     }
   });
@@ -366,20 +421,26 @@ export function registerQuestionRoutes(app: Express): void {
    * POST /api/surveys/:surveyId/conditional-rules
    * Create a new conditional rule for a survey
    */
-  app.post('/api/surveys/:surveyId/conditional-rules', isAuthenticated, async (req: any, res) => {
+  app.post('/api/surveys/:surveyId/conditional-rules', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const ruleData = insertConditionalRuleSchema.parse({ ...req.body, surveyId: req.params.surveyId });
-      const rule = await storage.createConditionalRule(ruleData);
+      const rule = await questionRepository.createConditionalRule(ruleData);
       res.json(rule);
     } catch (error) {
-      console.error("Error creating conditional rule:", error);
+      logger.error({ error }, "Error creating conditional rule");
       res.status(500).json({ message: "Failed to create conditional rule" });
     }
   });
@@ -388,19 +449,25 @@ export function registerQuestionRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/conditional-rules
    * Get all conditional rules for a survey
    */
-  app.get('/api/surveys/:surveyId/conditional-rules', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/conditional-rules', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const rules = await storage.getConditionalRulesBySurvey(req.params.surveyId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      const rules = await questionRepository.findConditionalRulesBySurvey(req.params.surveyId);
       res.json(rules);
     } catch (error) {
-      console.error("Error fetching conditional rules:", error);
+      logger.error({ error }, "Error fetching conditional rules");
       res.status(500).json({ message: "Failed to fetch conditional rules" });
     }
   });
@@ -409,29 +476,35 @@ export function registerQuestionRoutes(app: Express): void {
    * GET /api/questions/:questionId/conditional-rules
    * Get all conditional rules for a specific question
    */
-  app.get('/api/questions/:questionId/conditional-rules', isAuthenticated, async (req: any, res) => {
+  app.get('/api/questions/:questionId/conditional-rules', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const question = await storage.getQuestion(req.params.questionId);
+      const question = await questionRepository.findById(req.params.questionId);
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
 
-      const page = await storage.getSurveyPage(question.pageId);
+      const page = await pageRepository.findById(question.pageId);
       if (!page) {
         return res.status(404).json({ message: "Page not found" });
       }
 
-      const survey = await storage.getSurvey(page.surveyId);
+      const survey = await surveyRepository.findById(page.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const rules = await storage.getConditionalRulesByQuestion(req.params.questionId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      const rules = await questionRepository.findConditionalRulesByQuestion(req.params.questionId);
       res.json(rules);
     } catch (error) {
-      console.error("Error fetching conditional rules:", error);
+      logger.error({ error }, "Error fetching conditional rules");
       res.status(500).json({ message: "Failed to fetch conditional rules" });
     }
   });
@@ -440,25 +513,31 @@ export function registerQuestionRoutes(app: Express): void {
    * PUT /api/conditional-rules/:id
    * Update a conditional rule
    */
-  app.put('/api/conditional-rules/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/conditional-rules/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const rule = await storage.getConditionalRule(req.params.id);
+      const rule = await questionRepository.findConditionalRuleById(req.params.id);
       if (!rule) {
         return res.status(404).json({ message: "Conditional rule not found" });
       }
 
-      const survey = await storage.getSurvey(rule.surveyId);
+      const survey = await surveyRepository.findById(rule.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
+
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
+      await surveyService.verifyOwnership(survey.id, userId);
 
       const updates = insertConditionalRuleSchema.partial().parse(req.body);
-      const updatedRule = await storage.updateConditionalRule(req.params.id, updates);
+      const updatedRule = await questionRepository.updateConditionalRule(req.params.id, updates);
       res.json(updatedRule);
     } catch (error) {
-      console.error("Error updating conditional rule:", error);
+      logger.error({ error }, "Error updating conditional rule");
       res.status(500).json({ message: "Failed to update conditional rule" });
     }
   });
@@ -467,24 +546,30 @@ export function registerQuestionRoutes(app: Express): void {
    * DELETE /api/conditional-rules/:id
    * Delete a conditional rule
    */
-  app.delete('/api/conditional-rules/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/conditional-rules/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const rule = await storage.getConditionalRule(req.params.id);
+      const rule = await questionRepository.findConditionalRuleById(req.params.id);
       if (!rule) {
         return res.status(404).json({ message: "Conditional rule not found" });
       }
 
-      const survey = await storage.getSurvey(rule.surveyId);
+      const survey = await surveyRepository.findById(rule.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
-      // Verify ownership (allows admin access)
-      await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      await storage.deleteConditionalRule(req.params.id);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      // Verify ownership (allows admin access)
+      await surveyService.verifyOwnership(survey.id, userId);
+
+      await questionRepository.deleteConditionalRule(req.params.id);
       res.json({ message: "Conditional rule deleted successfully" });
     } catch (error) {
-      console.error("Error deleting conditional rule:", error);
+      logger.error({ error }, "Error deleting conditional rule");
       res.status(500).json({ message: "Failed to delete conditional rule" });
     }
   });

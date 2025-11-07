@@ -90,7 +90,7 @@ export class BlockRunner {
         return this.executeBranchBlock(block.config as BranchConfig, context);
 
       default:
-        console.warn(`Unknown block type: ${(block as any).type}`);
+        logger.warn(`Unknown block type: ${(block as any).type}`);
         return { success: true };
     }
   }
@@ -214,7 +214,7 @@ export class BlockRunner {
         return this.matchesRegex(actualValue, assertion.value);
 
       default:
-        console.warn(`Unknown assertion operator: ${assertion.op}`);
+        logger.warn(`Unknown assertion operator: ${assertion.op}`);
         return false;
     }
   }
@@ -250,7 +250,7 @@ export class BlockRunner {
         return !this.isEmpty(actualValue);
 
       default:
-        console.warn(`Unknown comparison operator: ${operator}`);
+        logger.warn(`Unknown comparison operator: ${operator}`);
         return false;
     }
   }
@@ -342,7 +342,7 @@ export class BlockRunner {
       const regex = new RegExp(pattern);
       return regex.test(value);
     } catch (error) {
-      console.warn(`Invalid regex pattern: ${pattern}`);
+      logger.warn(`Invalid regex pattern: ${pattern}`);
       return false;
     }
   }

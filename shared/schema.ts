@@ -1158,6 +1158,8 @@ export type TransformBlock = typeof transformBlocks.$inferSelect;
 export type InsertTransformBlock = typeof insertTransformBlockSchema._type;
 export type TransformBlockRun = typeof transformBlockRuns.$inferSelect;
 export type InsertTransformBlockRun = typeof insertTransformBlockRunSchema._type;
+export type Block = typeof blocks.$inferSelect;
+export type InsertBlock = typeof insertBlockSchema._type;
 
 // Teams & Sharing Types
 export type Team = typeof teams.$inferSelect;

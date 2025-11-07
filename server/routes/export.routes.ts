@@ -1,7 +1,10 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { exportService } from "../services/exportService";
 import type { ExportOptions } from "../services/exportService";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: 'export-routes' });
 
 /**
  * Register export-related routes
@@ -22,7 +25,7 @@ export function registerExportRoutes(app: Express): void {
    *  - dateFrom: ISO date string (optional)
    *  - dateTo: ISO date string (optional)
    */
-  app.get('/api/surveys/:surveyId/export', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/export', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { surveyId } = req.params;
       const userId = req.user?.claims?.sub;
@@ -78,7 +81,7 @@ export function registerExportRoutes(app: Express): void {
         // For PDF, use res.download which handles cleanup
         res.download(exportedFile.path, exportedFile.filename, (err) => {
           if (err && !res.headersSent) {
-            console.error('Error downloading file:', err);
+            logger.error({ error: err }, 'Error downloading file');
             res.status(500).json({
               success: false,
               message: 'Failed to download export file'
@@ -89,13 +92,13 @@ export function registerExportRoutes(app: Express): void {
           try {
             fs.unlinkSync(exportedFile.path);
           } catch (cleanupErr) {
-            console.error('Error cleaning up export file:', cleanupErr);
+            logger.error({ error: cleanupErr }, 'Error cleaning up export file');
           }
         });
       }
 
     } catch (error: any) {
-      console.error('Export error:', error);
+      logger.error({ error }, 'Export error');
 
       // Handle specific errors
       if (error.message === 'Survey not found') {
@@ -135,7 +138,7 @@ export function registerExportRoutes(app: Express): void {
         message: `Export cleanup completed. Removed files older than ${maxAgeHours} hours.`
       });
     } catch (error: any) {
-      console.error('Cleanup error:', error);
+      logger.error({ error }, 'Cleanup error');
       res.status(500).json({
         success: false,
         message: 'Failed to cleanup old exports',

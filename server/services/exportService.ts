@@ -1,13 +1,14 @@
 import { createObjectCsvWriter } from 'csv-writer';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { storage } from '../storage';
+import { surveyRepository, pageRepository, questionRepository, responseRepository } from '../repositories';
 import { analyticsService } from './AnalyticsService';
 import type { Survey, Response, Answer, Question, LoopGroupSubquestion, QuestionWithSubquestions } from '@shared/schema';
 import fs from 'fs';
 import path from 'path';
 import { format } from 'date-fns';
 import { formatAnswerValue as formatAnswerValueUtil, extractTextValue } from '../utils/answerFormatting';
+import { logger } from '../logger';
 
 export interface ExportOptions {
   format: 'csv' | 'pdf';
@@ -35,7 +36,7 @@ class ExportService {
   }
 
   async exportSurveyData(surveyId: string, userId: string, options: ExportOptions): Promise<ExportedFile> {
-    const survey = await storage.getSurvey(surveyId);
+    const survey = await surveyRepository.findById(surveyId);
     if (!survey) {
       throw new Error('Survey not found');
     }
@@ -74,7 +75,7 @@ class ExportService {
         engagement
       };
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      logger.error('Error fetching analytics:', error);
       // Return empty analytics if there's an error
       return {
         questionAnalytics: {},
@@ -86,7 +87,7 @@ class ExportService {
   }
 
   private async getFilteredResponses(surveyId: string, options: ExportOptions): Promise<Response[]> {
-    let responses = await storage.getResponsesBySurvey(surveyId);
+    let responses = await responseRepository.findBySurvey(surveyId);
 
     // Filter by completion status
     if (!options.includeIncomplete) {
@@ -106,11 +107,11 @@ class ExportService {
   }
 
   private async getAllQuestionsForSurvey(surveyId: string): Promise<QuestionWithSubquestions[]> {
-    const pages = await storage.getSurveyPages(surveyId);
+    const pages = await pageRepository.findBySurvey(surveyId);
     const allQuestions: QuestionWithSubquestions[] = [];
 
     for (const page of pages) {
-      const questions = await storage.getQuestionsWithSubquestionsByPage(page.id);
+      const questions = await questionRepository.findByPageWithSubquestions(page.id);
       allQuestions.push(...questions);
     }
 
@@ -246,13 +247,10 @@ class ExportService {
     const records = [];
 
     for (const response of responses) {
-      const answers = await storage.getAnswersWithQuestionsByResponse(response.id);
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
+      const answers = await responseRepository.findAnswersWithQuestionsByResponse(response.id);
 
       const record: Record<string, any> = {
         response_id: response.id,
-        recipient_name: recipient?.name || '',
-        recipient_email: recipient?.email || '',
         completed: response.completed ? 'Yes' : 'No',
         submitted_at: response.submittedAt ? format(new Date(response.submittedAt), 'yyyy-MM-dd HH:mm:ss') : '',
         created_at: response.createdAt ? format(new Date(response.createdAt), 'yyyy-MM-dd HH:mm:ss') : ''
@@ -404,7 +402,7 @@ class ExportService {
 
       const answers = [];
       for (const response of responses) {
-        const responseAnswers = await storage.getAnswersByResponse(response.id);
+        const responseAnswers = await responseRepository.findAnswersByResponse(response.id);
         const questionAnswer = responseAnswers.find(a => a.questionId === question.id);
         if (questionAnswer) {
           answers.push(questionAnswer);
@@ -534,17 +532,15 @@ class ExportService {
     // Response summary table
     const responseData = [];
     for (const response of responses.slice(0, 20)) { // Limit to first 20 for PDF
-      const recipient = response.recipientId ? await storage.getRecipient(response.recipientId) : null;
       responseData.push([
         response.id.slice(-8),
-        recipient?.name || 'Unknown',
         response.completed ? 'Yes' : 'No',
         response.submittedAt ? format(new Date(response.submittedAt), 'MMM d, yyyy') : 'Not submitted'
       ]);
     }
 
     autoTable(doc, {
-      head: [['Response ID', 'Recipient', 'Completed', 'Submitted']],
+      head: [['Response ID', 'Completed', 'Submitted']],
       body: responseData,
       startY: 50,
       styles: { fontSize: 9 },
@@ -607,7 +603,7 @@ class ExportService {
         }
       }
     } catch (error) {
-      console.error('Error cleaning up exports:', error);
+      logger.error('Error cleaning up exports:', error);
     }
   }
 

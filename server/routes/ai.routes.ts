@@ -1,8 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { geminiService } from "../services/geminiService";
 import { surveyService } from "../services";
 import { SurveyAIService } from "../services/SurveyAIService";
+import { logger } from "../logger";
 
 // Initialize AI service for survey generation
 const surveyAIService = new SurveyAIService();
@@ -20,7 +21,7 @@ export function registerAiRoutes(app: Express): void {
    * Body: { topic: string, prompt?: string }
    * Returns: Created survey object (status: draft)
    */
-  app.post('/api/ai/generate', isAuthenticated, async (req: any, res) => {
+  app.post('/api/ai/generate', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
 
@@ -43,7 +44,7 @@ export function registerAiRoutes(app: Express): void {
         });
       }
 
-      console.log(`[AI] Generating survey for topic: ${String(topic).substring(0, 100)}`);
+      logger.info(`[AI] Generating survey for topic: ${String(topic).substring(0, 100)}`);
 
       // Generate and create survey
       const survey = await surveyAIService.generateAndCreateSurvey(
@@ -52,12 +53,12 @@ export function registerAiRoutes(app: Express): void {
         prompt ? String(prompt) : undefined
       );
 
-      console.log(`[AI] Survey generated successfully: ${survey.id}`);
+      logger.info(`[AI] Survey generated successfully: ${survey.id}`);
 
       return res.status(201).json(survey);
 
     } catch (error) {
-      console.error("[AI] Error generating survey:", error);
+      logger.error({ error }, "[AI] Error generating survey");
 
       if (error instanceof Error) {
         // Handle specific error cases
@@ -101,7 +102,7 @@ export function registerAiRoutes(app: Express): void {
    *
    * The AI prompt can be customized in: server/config/aiPrompts.ts
    */
-  app.post('/api/ai/analyze-survey/:surveyId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/ai/analyze-survey/:surveyId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { surveyId } = req.params;
       const userId = req.user?.claims?.sub;
@@ -121,13 +122,13 @@ export function registerAiRoutes(app: Express): void {
         });
       }
 
-      console.log(`[AI] Starting analysis for survey ${surveyId}`);
+      logger.info(`[AI] Starting analysis for survey ${surveyId}`);
 
       // Generate AI insights
       const result = await geminiService.analyzeSurvey(surveyId);
 
-      console.log(`[AI] Analysis complete for survey ${surveyId}`);
-      console.log(`[AI] Tokens: ${result.metadata.promptTokens} prompt, ${result.metadata.responseTokens} response`);
+      logger.info(`[AI] Analysis complete for survey ${surveyId}`);
+      logger.info(`[AI] Tokens: ${result.metadata.promptTokens} prompt, ${result.metadata.responseTokens} response`);
 
       res.json({
         success: true,
@@ -136,7 +137,7 @@ export function registerAiRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error("[AI] Error analyzing survey:", error);
+      logger.error({ error }, "[AI] Error analyzing survey");
 
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
@@ -181,7 +182,7 @@ export function registerAiRoutes(app: Express): void {
    * GET /api/ai/status
    * Check if AI services are available
    */
-  app.get('/api/ai/status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/ai/status', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const hasApiKey = !!process.env.GEMINI_API_KEY;
 
@@ -208,7 +209,7 @@ export function registerAiRoutes(app: Express): void {
    *
    * Body: { text: string }
    */
-  app.post('/api/ai/sentiment', isAuthenticated, async (req: any, res) => {
+  app.post('/api/ai/sentiment', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
 
@@ -230,7 +231,7 @@ export function registerAiRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error("[AI] Error analyzing sentiment:", error);
+      logger.error({ error }, "[AI] Error analyzing sentiment");
       res.status(500).json({
         message: "Failed to analyze sentiment",
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined

@@ -11,6 +11,7 @@ import type {
   AnonymousSurveyConfig
 } from "@shared/schema";
 import { validateSurveyForPublish, canChangeStatus } from "./surveyValidation";
+import { logger } from "../logger";
 
 /**
  * Service layer for survey-related business logic
@@ -269,17 +270,17 @@ export class SurveyService {
     survey: Survey;
     pages: any[];
   }> {
-    console.log('[SurveyService] getSurveyByPublicLink called with:', publicLink);
+    logger.info('[SurveyService] getSurveyByPublicLink called with:', publicLink);
 
     // Look up survey by public link
     const survey = await this.surveyRepo.findByPublicLink(publicLink);
 
     if (!survey) {
-      console.log('[SurveyService] Survey not found for public link:', publicLink);
+      logger.info('[SurveyService] Survey not found for public link:', publicLink);
       throw new Error("Survey not found");
     }
 
-    console.log('[SurveyService] Survey found:', {
+    logger.info('[SurveyService] Survey found:', {
       id: survey.id,
       title: survey.title,
       status: survey.status,
@@ -289,27 +290,27 @@ export class SurveyService {
 
     // Verify survey is open and allows anonymous access
     if (survey.status !== 'open') {
-      console.log('[SurveyService] Survey not open. Status:', survey.status);
+      logger.info('[SurveyService] Survey not open. Status:', survey.status);
       throw new Error("Survey not available");
     }
 
     if (!survey.allowAnonymous) {
-      console.log('[SurveyService] Anonymous access not allowed:', survey.allowAnonymous);
+      logger.info('[SurveyService] Anonymous access not allowed:', survey.allowAnonymous);
       throw new Error("Survey not available");
     }
 
-    console.log('[SurveyService] Survey validation passed, fetching pages...');
+    logger.info('[SurveyService] Survey validation passed, fetching pages...');
 
     // Fetch pages with questions
     const pages = await this.pageRepo.findBySurvey(survey.id);
 
-    console.log('[SurveyService] Pages fetched:', pages.length);
+    logger.info('[SurveyService] Pages fetched:', pages.length);
 
     // Fetch questions for each page
     const pagesWithQuestions = await Promise.all(
       pages.map(async (page) => {
         const pageQuestions = await this.questionRepo.findByPage(page.id);
-        console.log('[SurveyService] Questions for page', page.id, ':', pageQuestions.map(q => ({
+        logger.info('[SurveyService] Questions for page', page.id, ':', pageQuestions.map(q => ({
           id: q.id,
           title: q.title,
           type: q.type,
@@ -322,8 +323,8 @@ export class SurveyService {
       })
     );
 
-    console.log('[SurveyService] Returning survey data with', pagesWithQuestions.length, 'pages');
-    console.log('[SurveyService] Total questions across all pages:', pagesWithQuestions.reduce((sum, p: any) => sum + (p.questions?.length || 0), 0));
+    logger.info('[SurveyService] Returning survey data with', pagesWithQuestions.length, 'pages');
+    logger.info('[SurveyService] Total questions across all pages:', pagesWithQuestions.reduce((sum, p: any) => sum + (p.questions?.length || 0), 0));
 
     return {
       survey,

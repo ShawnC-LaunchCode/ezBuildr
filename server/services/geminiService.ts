@@ -3,6 +3,7 @@ import type { Survey, Question, Response, Answer } from "@shared/schema";
 import { SURVEY_ANALYSIS_PROMPT, fillPromptVariables } from "../config/aiPrompts";
 import { surveyRepository, pageRepository, responseRepository } from "../repositories";
 import { extractTextValue } from "../utils/answerFormatting";
+import { logger } from "../logger";
 
 /**
  * Service for Google Gemini AI integration
@@ -17,7 +18,7 @@ export class GeminiService {
     if (!apiKey) {
       // Allow instantiation without API key in all environments
       // Methods will throw errors if called without proper configuration
-      console.log("GEMINI_API_KEY not configured - AI features will be unavailable");
+      logger.info("GEMINI_API_KEY not configured - AI features will be unavailable");
       return;
     }
 

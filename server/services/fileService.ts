@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { promisify } from 'util';
 import { randomUUID } from 'crypto';
+import { logger } from '../logger';
 
 const unlinkAsync = promisify(fs.unlink);
 const mkdirAsync = promisify(fs.mkdir);
@@ -135,7 +136,7 @@ export async function deleteFile(filename: string): Promise<void> {
   try {
     await unlinkAsync(filePath);
   } catch (error) {
-    console.error('Error deleting file:', error);
+    logger.error('Error deleting file:', error);
     // Don't throw error if file doesn't exist
   }
 }

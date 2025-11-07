@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Survey, SurveyPage, Recipient, ConditionalRule, QuestionWithSubquestions } from "@shared/schema";
+import type { Survey, SurveyPage, ConditionalRule, QuestionWithSubquestions } from "@shared/schema";
 
 interface SurveyPageWithQuestions extends SurveyPage {
   questions?: QuestionWithSubquestions[];
@@ -11,7 +11,7 @@ interface SurveyPageWithQuestions extends SurveyPage {
 interface SurveyData {
   survey: Survey;
   pages?: SurveyPageWithQuestions[];
-  recipient?: Recipient;
+  recipient?: any; // Recipient type not defined in schema
   anonymous?: boolean;
   alreadyCompleted?: boolean;
   submittedAt?: string;

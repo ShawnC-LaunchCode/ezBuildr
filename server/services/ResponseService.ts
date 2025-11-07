@@ -11,8 +11,10 @@ import type {
   InsertResponse,
   Answer,
   InsertAnswer,
-  Question
+  Question,
+  ConditionalRule
 } from "@shared/schema";
+import { evaluateConditionalLogic, type EvaluationContext } from "@shared/conditionalLogic";
 
 /**
  * Service layer for response-related business logic
@@ -243,15 +245,34 @@ export class ResponseService {
       answersMap[answer.questionId] = answer.value;
     });
 
+    // Get conditional rules for the survey
+    const conditionalRules = await this.questionRepo.findConditionalRulesBySurvey(survey.id);
+
+    // Build evaluation context for conditional logic
+    const evaluationContext: EvaluationContext = {
+      answers: new Map(Object.entries(answersMap)),
+      conditions: conditionalRules
+    };
+
     // Validate required questions are answered
-    // TODO: Add conditional logic evaluation here
     const missingRequired: string[] = [];
 
     for (const page of pages) {
       const questions = await this.questionRepo.findByPageWithSubquestions(page.id);
 
       for (const question of questions) {
-        if (question.required) {
+        // Evaluate conditional logic for this question
+        const conditionalEvaluation = evaluateConditionalLogic(question.id, evaluationContext);
+
+        // Skip validation if question is conditionally hidden
+        if (!conditionalEvaluation.visible) {
+          continue;
+        }
+
+        // Check if question is required (either by default or conditionally)
+        const isRequired = question.required || conditionalEvaluation.required;
+
+        if (isRequired) {
           const hasAnswer = answers.some(a => a.questionId === question.id);
           if (!hasAnswer) {
             missingRequired.push(question.title);

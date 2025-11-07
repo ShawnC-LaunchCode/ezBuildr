@@ -1,10 +1,13 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
-import { storage } from "../storage";
+import { surveyRepository, responseRepository, pageRepository, questionRepository, analyticsRepository } from "../repositories";
+import { analyticsService } from "../services/AnalyticsService";
 import { isAuthenticated } from "../googleAuth";
 import { insertAnalyticsEventSchema } from "@shared/schema";
-import { analyticsService } from "../services/AnalyticsService";
 import { surveyService } from "../services";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "analytics-routes" });
 
 /**
  * Rate limiting for analytics events
@@ -34,12 +37,12 @@ export function registerAnalyticsRoutes(app: Express): void {
    * POST /api/analytics/events
    * Create an analytics event with strict validation
    */
-  app.post('/api/analytics/events', analyticsRateLimit, async (req, res) => {
+  app.post('/api/analytics/events', analyticsRateLimit, async (req: Request, res: Response) => {
     try {
       const eventData = insertAnalyticsEventSchema.parse(req.body);
 
       // Verify responseId and surveyId consistency
-      const response = await storage.getResponse(eventData.responseId);
+      const response = await responseRepository.findById(eventData.responseId);
       if (!response) {
         return res.status(400).json({
           success: false,
@@ -56,7 +59,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       // Validate pageId if provided
       if (eventData.pageId) {
-        const page = await storage.getSurveyPage(eventData.pageId);
+        const page = await pageRepository.findById(eventData.pageId);
         if (!page || page.surveyId !== eventData.surveyId) {
           return res.status(400).json({
             success: false,
@@ -67,7 +70,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       // Validate questionId if provided
       if (eventData.questionId) {
-        const question = await storage.getQuestion(eventData.questionId);
+        const question = await questionRepository.findById(eventData.questionId);
         if (!question) {
           return res.status(400).json({
             success: false,
@@ -83,7 +86,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         }
 
         if (!eventData.pageId) {
-          const questionPage = await storage.getSurveyPage(question.pageId);
+          const questionPage = await pageRepository.findById(question.pageId);
           if (!questionPage || questionPage.surveyId !== eventData.surveyId) {
             return res.status(400).json({
               success: false,
@@ -93,23 +96,24 @@ export function registerAnalyticsRoutes(app: Express): void {
         }
       }
 
-      const event = await storage.createAnalyticsEvent({
+      const event = await analyticsRepository.createEvent({
         ...eventData,
         data: eventData.data || {},
-        pageId: eventData.pageId || null,
-        questionId: eventData.questionId || null,
-        duration: eventData.duration || null
+        pageId: eventData.pageId || undefined,
+        questionId: eventData.questionId || undefined,
+        duration: eventData.duration || undefined
       });
 
       res.json({ success: true, event });
     } catch (error) {
-      console.error("Error creating analytics event:", error);
+      logger.error({ error }, "Error creating analytics event");
 
       if (error instanceof Error && error.name === 'ZodError') {
+        const zodError = error as unknown as { errors: unknown[] };
         return res.status(400).json({
           success: false,
           message: "Invalid analytics event data",
-          errors: (error as any).errors
+          errors: zodError.errors
         });
       }
 
@@ -128,19 +132,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics/questions
    * Get question-level analytics
    */
-  app.get('/api/surveys/:surveyId/analytics/questions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/questions', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const analytics = await storage.getQuestionAnalytics(req.params.surveyId);
+      const analytics = await analyticsService.getQuestionAnalytics(req.params.surveyId, req.user.claims.sub);
       res.json(analytics);
     } catch (error) {
-      console.error("Error fetching question analytics:", error);
+      logger.error({ error }, "Error fetching question analytics");
       res.status(500).json({ message: "Failed to fetch question analytics" });
     }
   });
@@ -150,8 +158,12 @@ export function registerAnalyticsRoutes(app: Express): void {
    * Get aggregated question analytics for visualization
    * Returns per-question aggregates (yes/no counts, multiple choice distributions, text keywords)
    */
-  app.get('/api/surveys/:surveyId/analytics/aggregates', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/aggregates', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const { surveyId } = req.params;
       const userId = req.user.claims.sub;
 
@@ -162,7 +174,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         questions: aggregates
       });
     } catch (error) {
-      console.error("Error fetching question aggregates:", error);
+      logger.error({ error }, "Error fetching question aggregates");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -179,19 +191,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics/pages
    * Get page-level analytics
    */
-  app.get('/api/surveys/:surveyId/analytics/pages', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/pages', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const analytics = await storage.getPageAnalytics(req.params.surveyId);
+      const analytics = await analyticsService.getPageAnalytics(req.params.surveyId, req.user.claims.sub);
       res.json(analytics);
     } catch (error) {
-      console.error("Error fetching page analytics:", error);
+      logger.error({ error }, "Error fetching page analytics");
       res.status(500).json({ message: "Failed to fetch page analytics" });
     }
   });
@@ -200,19 +216,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics/funnel
    * Get completion funnel data
    */
-  app.get('/api/surveys/:surveyId/analytics/funnel', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/funnel', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const funnelData = await storage.getCompletionFunnelData(req.params.surveyId);
+      const funnelData = await analyticsService.getCompletionFunnel(req.params.surveyId, req.user.claims.sub);
       res.json(funnelData);
     } catch (error) {
-      console.error("Error fetching funnel data:", error);
+      logger.error({ error }, "Error fetching funnel data");
       res.status(500).json({ message: "Failed to fetch funnel data" });
     }
   });
@@ -221,19 +241,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics/time-spent
    * Get time spent data
    */
-  app.get('/api/surveys/:surveyId/analytics/time-spent', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/time-spent', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const timeData = await storage.getTimeSpentData(req.params.surveyId);
+      const timeData = await analyticsService.getTimeSpentData(req.params.surveyId, req.user.claims.sub);
       res.json(timeData);
     } catch (error) {
-      console.error("Error fetching time spent data:", error);
+      logger.error({ error }, "Error fetching time spent data");
       res.status(500).json({ message: "Failed to fetch time spent data" });
     }
   });
@@ -242,19 +266,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics/engagement
    * Get engagement metrics
    */
-  app.get('/api/surveys/:surveyId/analytics/engagement', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics/engagement', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const engagement = await storage.getEngagementMetrics(req.params.surveyId);
+      const engagement = await analyticsService.getEngagementMetrics(req.params.surveyId, req.user.claims.sub);
       res.json(engagement);
     } catch (error) {
-      console.error("Error fetching engagement metrics:", error);
+      logger.error({ error }, "Error fetching engagement metrics");
       res.status(500).json({ message: "Failed to fetch engagement metrics" });
     }
   });
@@ -263,19 +291,23 @@ export function registerAnalyticsRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/analytics
    * Get overall survey analytics
    */
-  app.get('/api/surveys/:surveyId/analytics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/analytics', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(survey.id, req.user.claims.sub);
 
-      const analytics = await storage.getAnalyticsBySurvey(req.params.surveyId);
+      const analytics = await analyticsRepository.findBySurvey(req.params.surveyId);
       res.json(analytics);
     } catch (error) {
-      console.error("Error fetching survey analytics:", error);
+      logger.error({ error }, "Error fetching survey analytics");
       res.status(500).json({ message: "Failed to fetch survey analytics" });
     }
   });

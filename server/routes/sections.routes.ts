@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { insertSectionSchema } from "@shared/schema";
 import { sectionService } from "../services/SectionService";
@@ -13,7 +13,7 @@ export function registerSectionRoutes(app: Express): void {
    * POST /api/workflows/:workflowId/sections
    * Create a new section
    */
-  app.post('/api/workflows/:workflowId/sections', isAuthenticated, async (req: any, res) => {
+  app.post('/api/workflows/:workflowId/sections', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -26,7 +26,7 @@ export function registerSectionRoutes(app: Express): void {
       const section = await sectionService.createSection(workflowId, userId, sectionData);
       res.status(201).json(section);
     } catch (error) {
-      console.error("Error creating section:", error);
+      logger.error("Error creating section:", error);
       const message = error instanceof Error ? error.message : "Failed to create section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -37,7 +37,7 @@ export function registerSectionRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/sections
    * Get all sections for a workflow
    */
-  app.get('/api/workflows/:workflowId/sections', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/sections', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -48,7 +48,7 @@ export function registerSectionRoutes(app: Express): void {
       const sections = await sectionService.getSections(workflowId, userId);
       res.json(sections);
     } catch (error) {
-      console.error("Error fetching sections:", error);
+      logger.error("Error fetching sections:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch sections";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -59,7 +59,7 @@ export function registerSectionRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/sections/:sectionId
    * Get a single section with steps
    */
-  app.get('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -70,7 +70,7 @@ export function registerSectionRoutes(app: Express): void {
       const section = await sectionService.getSectionWithSteps(sectionId, workflowId, userId);
       res.json(section);
     } catch (error) {
-      console.error("Error fetching section:", error);
+      logger.error("Error fetching section:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -81,7 +81,7 @@ export function registerSectionRoutes(app: Express): void {
    * PUT /api/workflows/:workflowId/sections/:sectionId
    * Update a section
    */
-  app.put('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -94,7 +94,7 @@ export function registerSectionRoutes(app: Express): void {
       const section = await sectionService.updateSection(sectionId, workflowId, userId, updateData);
       res.json(section);
     } catch (error) {
-      console.error("Error updating section:", error);
+      logger.error("Error updating section:", error);
       const message = error instanceof Error ? error.message : "Failed to update section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -105,7 +105,7 @@ export function registerSectionRoutes(app: Express): void {
    * DELETE /api/workflows/:workflowId/sections/:sectionId
    * Delete a section
    */
-  app.delete('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/workflows/:workflowId/sections/:sectionId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -116,7 +116,7 @@ export function registerSectionRoutes(app: Express): void {
       await sectionService.deleteSection(sectionId, workflowId, userId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting section:", error);
+      logger.error("Error deleting section:", error);
       const message = error instanceof Error ? error.message : "Failed to delete section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -127,7 +127,7 @@ export function registerSectionRoutes(app: Express): void {
    * PUT /api/workflows/:workflowId/sections/reorder
    * Reorder sections
    */
-  app.put('/api/workflows/:workflowId/sections/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/workflows/:workflowId/sections/reorder', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -144,7 +144,7 @@ export function registerSectionRoutes(app: Express): void {
       await sectionService.reorderSections(workflowId, userId, sections);
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {
-      console.error("Error reordering sections:", error);
+      logger.error("Error reordering sections:", error);
       const message = error instanceof Error ? error.message : "Failed to reorder sections";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

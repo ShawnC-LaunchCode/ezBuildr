@@ -1,8 +1,11 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs";
-import { storage } from "../storage";
+import { surveyRepository, responseRepository, fileRepository, questionRepository } from "../repositories";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "files-routes" });
 import { isAuthenticated } from "../googleAuth";
 import { upload, isFileTypeAccepted, deleteFile, getFilePath, fileExists } from "../services/fileService";
 
@@ -50,7 +53,7 @@ export function registerFileRoutes(app: Express): void {
    * POST /api/upload
    * Upload files with authentication and authorization
    */
-  app.post('/api/upload', uploadRateLimit, isAuthenticated, upload.array('files', 5), async (req: any, res) => {
+  app.post('/api/upload', uploadRateLimit, isAuthenticated, upload.array('files', 5), async (req: Request, res: Response) => {
     try {
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ success: false, errors: ['No files provided'] });
@@ -62,23 +65,26 @@ export function registerFileRoutes(app: Express): void {
       }
 
       // Verify ownership through answer -> response -> survey chain
-      const answer = await storage.getAnswer(answerId);
+      const answer = await responseRepository.findAnswerById(answerId);
       if (!answer) {
         return res.status(404).json({ success: false, errors: ['Answer not found'] });
       }
 
-      const response = await storage.getResponse(answer.responseId);
+      const response = await responseRepository.findById(answer.responseId);
       if (!response) {
         return res.status(404).json({ success: false, errors: ['Response not found'] });
       }
 
-      const survey = await storage.getSurvey(response.surveyId);
+      const survey = await surveyRepository.findById(response.surveyId);
       if (!survey) {
         return res.status(404).json({ success: false, errors: ['Survey not found'] });
       }
 
       // Check if user is survey creator
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ['Unauthorized - no user ID'] });
+      }
       const isCreator = survey.creatorId === userId;
 
       if (!isCreator) {
@@ -86,7 +92,7 @@ export function registerFileRoutes(app: Express): void {
       }
 
       // Get question config for server-side validation
-      const question = await storage.getQuestion(answer.questionId);
+      const question = await questionRepository.findById(answer.questionId);
       if (!question || question.type !== 'file_upload') {
         return res.status(400).json({ success: false, errors: ['Invalid question for file upload'] });
       }
@@ -101,12 +107,13 @@ export function registerFileRoutes(app: Express): void {
       }
 
       // Check existing files count to enforce maxFiles limit
-      const existingFiles = await storage.getFilesByAnswer(answerId);
-      const totalFiles = existingFiles.length + req.files.length;
+      const existingFiles = await fileRepository.findByAnswer(answerId);
+      const uploadedFilesCount = Array.isArray(req.files) ? req.files.length : 0;
+      const totalFiles = existingFiles.length + uploadedFilesCount;
       if (config.maxFiles && totalFiles > config.maxFiles) {
         return res.status(400).json({
           success: false,
-          errors: [`Cannot upload ${req.files.length} files. Maximum ${config.maxFiles} files allowed, you already have ${existingFiles.length} files.`]
+          errors: [`Cannot upload ${uploadedFilesCount} files. Maximum ${config.maxFiles} files allowed, you already have ${existingFiles.length} files.`]
         });
       }
 
@@ -139,7 +146,7 @@ export function registerFileRoutes(app: Express): void {
           }
 
           // Store file metadata in database
-          const fileMetadata = await storage.createFile({
+          const fileMetadata = await fileRepository.create({
             answerId,
             filename: file.filename,
             originalName: file.originalname,
@@ -149,7 +156,7 @@ export function registerFileRoutes(app: Express): void {
 
           uploadedFiles.push(fileMetadata);
         } catch (error) {
-          console.error('Error processing file:', error);
+          logger.error({ error }, 'Error processing file');
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           errors.push(`Error processing ${file.originalname}: ${errorMessage}`);
         }
@@ -161,7 +168,7 @@ export function registerFileRoutes(app: Express): void {
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
-      console.error("Error uploading files:", error);
+      logger.error({ error }, "Error uploading files");
       res.status(500).json({ success: false, errors: ['Failed to upload files'] });
     }
   });
@@ -173,24 +180,24 @@ export function registerFileRoutes(app: Express): void {
   app.get('/api/files/:fileId/download', isAuthenticated, async (req, res) => {
     try {
       const fileId = req.params.fileId;
-      const fileMetadata = await storage.getFile(fileId);
+      const fileMetadata = await fileRepository.findById(fileId);
 
       if (!fileMetadata) {
         return res.status(404).json({ message: 'File not found' });
       }
 
       // Verify ownership through file -> answer -> response -> survey chain
-      const answer = await storage.getAnswer(fileMetadata.answerId);
+      const answer = await responseRepository.findAnswerById(fileMetadata.answerId);
       if (!answer) {
         return res.status(404).json({ message: 'Associated answer not found' });
       }
 
-      const response = await storage.getResponse(answer.responseId);
+      const response = await responseRepository.findById(answer.responseId);
       if (!response) {
         return res.status(404).json({ message: 'Associated response not found' });
       }
 
-      const survey = await storage.getSurvey(response.surveyId);
+      const survey = await surveyRepository.findById(response.surveyId);
       if (!survey) {
         return res.status(404).json({ message: 'Associated survey not found' });
       }
@@ -221,7 +228,7 @@ export function registerFileRoutes(app: Express): void {
       const fileStream = fs.createReadStream(filePath);
       fileStream.pipe(res);
     } catch (error) {
-      console.error("Error downloading file:", error);
+      logger.error({ error }, "Error downloading file");
       res.status(500).json({ message: "Failed to download file" });
     }
   });
@@ -235,17 +242,17 @@ export function registerFileRoutes(app: Express): void {
       const answerId = req.params.answerId;
 
       // Verify ownership through answer -> response -> survey chain
-      const answer = await storage.getAnswer(answerId);
+      const answer = await responseRepository.findAnswerById(answerId);
       if (!answer) {
         return res.status(404).json({ message: 'Answer not found' });
       }
 
-      const response = await storage.getResponse(answer.responseId);
+      const response = await responseRepository.findById(answer.responseId);
       if (!response) {
         return res.status(404).json({ message: 'Response not found' });
       }
 
-      const survey = await storage.getSurvey(response.surveyId);
+      const survey = await surveyRepository.findById(response.surveyId);
       if (!survey) {
         return res.status(404).json({ message: 'Survey not found' });
       }
@@ -261,10 +268,10 @@ export function registerFileRoutes(app: Express): void {
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      const files = await storage.getFilesByAnswer(answerId);
+      const files = await fileRepository.findByAnswer(answerId);
       res.json(files);
     } catch (error) {
-      console.error("Error fetching files:", error);
+      logger.error({ error }, "Error fetching files");
       res.status(500).json({ message: "Failed to fetch files" });
     }
   });
@@ -276,24 +283,24 @@ export function registerFileRoutes(app: Express): void {
   app.delete('/api/files/:fileId', isAuthenticated, async (req, res) => {
     try {
       const fileId = req.params.fileId;
-      const fileMetadata = await storage.getFile(fileId);
+      const fileMetadata = await fileRepository.findById(fileId);
 
       if (!fileMetadata) {
         return res.status(404).json({ message: 'File not found' });
       }
 
       // Verify ownership through file -> answer -> response -> survey chain
-      const answer = await storage.getAnswer(fileMetadata.answerId);
+      const answer = await responseRepository.findAnswerById(fileMetadata.answerId);
       if (!answer) {
         return res.status(404).json({ message: 'Associated answer not found' });
       }
 
-      const response = await storage.getResponse(answer.responseId);
+      const response = await responseRepository.findById(answer.responseId);
       if (!response) {
         return res.status(404).json({ message: 'Associated response not found' });
       }
 
-      const survey = await storage.getSurvey(response.surveyId);
+      const survey = await surveyRepository.findById(response.surveyId);
       if (!survey) {
         return res.status(404).json({ message: 'Associated survey not found' });
       }
@@ -313,11 +320,11 @@ export function registerFileRoutes(app: Express): void {
       await deleteFile(fileMetadata.filename);
 
       // Delete file metadata from database
-      await storage.deleteFile(fileId);
+      await fileRepository.delete(fileId);
 
       res.json({ message: 'File deleted successfully' });
     } catch (error) {
-      console.error("Error deleting file:", error);
+      logger.error({ error }, "Error deleting file");
       res.status(500).json({ message: "Failed to delete file" });
     }
   });

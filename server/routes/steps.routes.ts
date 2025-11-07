@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { insertStepSchema } from "@shared/schema";
 import { stepService } from "../services/StepService";
@@ -13,7 +13,7 @@ export function registerStepRoutes(app: Express): void {
    * POST /api/workflows/:workflowId/sections/:sectionId/steps
    * Create a new step
    */
-  app.post('/api/workflows/:workflowId/sections/:sectionId/steps', isAuthenticated, async (req: any, res) => {
+  app.post('/api/workflows/:workflowId/sections/:sectionId/steps', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -26,7 +26,7 @@ export function registerStepRoutes(app: Express): void {
       const step = await stepService.createStep(workflowId, sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
-      console.error("Error creating step:", error);
+      logger.error("Error creating step:", error);
       const message = error instanceof Error ? error.message : "Failed to create step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -37,7 +37,7 @@ export function registerStepRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/sections/:sectionId/steps
    * Get all steps for a section
    */
-  app.get('/api/workflows/:workflowId/sections/:sectionId/steps', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/sections/:sectionId/steps', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -48,7 +48,7 @@ export function registerStepRoutes(app: Express): void {
       const steps = await stepService.getSteps(workflowId, sectionId, userId);
       res.json(steps);
     } catch (error) {
-      console.error("Error fetching steps:", error);
+      logger.error("Error fetching steps:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch steps";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -59,7 +59,7 @@ export function registerStepRoutes(app: Express): void {
    * PUT /api/steps/:stepId
    * Update a step (needs workflowId in body or query)
    */
-  app.put('/api/steps/:stepId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/steps/:stepId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -76,7 +76,7 @@ export function registerStepRoutes(app: Express): void {
       const step = await stepService.updateStep(stepId, workflowId, userId, updateData);
       res.json(step);
     } catch (error) {
-      console.error("Error updating step:", error);
+      logger.error("Error updating step:", error);
       const message = error instanceof Error ? error.message : "Failed to update step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -87,7 +87,7 @@ export function registerStepRoutes(app: Express): void {
    * DELETE /api/steps/:stepId
    * Delete a step (needs workflowId in query)
    */
-  app.delete('/api/steps/:stepId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/steps/:stepId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -104,7 +104,7 @@ export function registerStepRoutes(app: Express): void {
       await stepService.deleteStep(stepId, workflowId, userId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting step:", error);
+      logger.error("Error deleting step:", error);
       const message = error instanceof Error ? error.message : "Failed to delete step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -115,7 +115,7 @@ export function registerStepRoutes(app: Express): void {
    * PUT /api/workflows/:workflowId/sections/:sectionId/steps/reorder
    * Reorder steps within a section
    */
-  app.put('/api/workflows/:workflowId/sections/:sectionId/steps/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/workflows/:workflowId/sections/:sectionId/steps/reorder', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -132,7 +132,7 @@ export function registerStepRoutes(app: Express): void {
       await stepService.reorderSteps(workflowId, sectionId, userId, steps);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
-      console.error("Error reordering steps:", error);
+      logger.error("Error reordering steps:", error);
       const message = error instanceof Error ? error.message : "Failed to reorder steps";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

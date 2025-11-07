@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { templateService } from "../services/TemplateService";
 import { templateInsertionService } from "../services/TemplateInsertionService";
@@ -15,7 +15,7 @@ export function registerTemplateRoutes(app: Express): void {
    * GET /api/templates
    * List all templates accessible to the user (their own + system templates)
    */
-  app.get('/api/templates', isAuthenticated, async (req: any, res) => {
+  app.get('/api/templates', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -25,7 +25,7 @@ export function registerTemplateRoutes(app: Express): void {
       const templates = await templateService.listAll(userId);
       res.json(templates);
     } catch (error) {
-      console.error("Error fetching templates:", error);
+      logger.error("Error fetching templates:", error);
       res.status(500).json({ message: "Failed to fetch templates" });
     }
   });
@@ -34,7 +34,7 @@ export function registerTemplateRoutes(app: Express): void {
    * POST /api/templates/from-survey/:id
    * Create a template from an existing survey
    */
-  app.post('/api/templates/from-survey/:id', isAuthenticated, async (req: any, res) => {
+  app.post('/api/templates/from-survey/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -62,7 +62,7 @@ export function registerTemplateRoutes(app: Express): void {
 
       res.status(201).json(template);
     } catch (error) {
-      console.error("Error creating template from survey:", error);
+      logger.error("Error creating template from survey:", error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -85,7 +85,7 @@ export function registerTemplateRoutes(app: Express): void {
    * GET /api/templates/:id
    * Get a single template by ID
    */
-  app.get('/api/templates/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/templates/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const userId = user?.claims?.sub;
@@ -107,7 +107,7 @@ export function registerTemplateRoutes(app: Express): void {
 
       res.json(template);
     } catch (error) {
-      console.error("Error fetching template:", error);
+      logger.error("Error fetching template:", error);
       res.status(500).json({ message: "Failed to fetch template" });
     }
   });
@@ -116,7 +116,7 @@ export function registerTemplateRoutes(app: Express): void {
    * PUT /api/templates/:id
    * Update a template (name, description, or content)
    */
-  app.put('/api/templates/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/templates/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const userId = user?.claims?.sub;
@@ -134,7 +134,7 @@ export function registerTemplateRoutes(app: Express): void {
       const schema = z.object({
         name: z.string().min(1).optional(),
         description: z.string().optional(),
-        content: z.any().optional(),
+        content: z.unknown().optional(),
         tags: z.array(z.string()).optional(),
       });
 
@@ -152,7 +152,7 @@ export function registerTemplateRoutes(app: Express): void {
 
       res.json(template);
     } catch (error) {
-      console.error("Error updating template:", error);
+      logger.error("Error updating template:", error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -169,7 +169,7 @@ export function registerTemplateRoutes(app: Express): void {
    * DELETE /api/templates/:id
    * Delete a template
    */
-  app.delete('/api/templates/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/templates/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -184,7 +184,7 @@ export function registerTemplateRoutes(app: Express): void {
 
       res.json({ deleted: true });
     } catch (error) {
-      console.error("Error deleting template:", error);
+      logger.error("Error deleting template:", error);
       res.status(500).json({ message: "Failed to delete template" });
     }
   });
@@ -193,7 +193,7 @@ export function registerTemplateRoutes(app: Express): void {
    * POST /api/templates/:templateId/insert/:surveyId
    * Insert a template into an existing survey
    */
-  app.post('/api/templates/:templateId/insert/:surveyId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/templates/:templateId/insert/:surveyId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       const userId = user?.claims?.sub;
@@ -217,7 +217,7 @@ export function registerTemplateRoutes(app: Express): void {
 
       res.status(201).json(result);
     } catch (error) {
-      console.error("Error inserting template into survey:", error);
+      logger.error("Error inserting template into survey:", error);
 
       if (error instanceof Error) {
         if (error.message === "Template not found") {

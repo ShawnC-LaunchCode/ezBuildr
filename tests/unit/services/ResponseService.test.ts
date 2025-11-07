@@ -47,6 +47,8 @@ describe("ResponseService", () => {
       findBySurveyId: vi.fn(),
       findById: vi.fn(),
       findByPageWithSubquestions: vi.fn(), // For completeResponse validation
+      findConditionalRulesBySurvey: vi.fn().mockResolvedValue([]), // Default: no conditional rules
+      findSubquestionById: vi.fn(),
     };
 
     mockRecipientRepo = {
@@ -299,6 +301,104 @@ describe("ResponseService", () => {
 
       await expect(service.completeResponse(response.id)).rejects.toThrow(
         "Missing required questions"
+      );
+    });
+
+    it("should skip validation for conditionally hidden questions", async () => {
+      const survey = createTestSurvey();
+      const page = createTestPage(survey.id);
+      const questions = [
+        createTestQuestion(page.id, { id: "q1", required: false }),
+        createTestQuestion(page.id, { id: "q2", required: true, title: "Question 2" }),
+        createTestQuestion(page.id, { id: "q3", required: true, title: "Question 3" }),
+      ];
+      const response = createTestResponse({ surveyId: survey.id });
+      // q1 answered "no", q2 not answered (but should be hidden), q3 answered
+      const answers = [
+        createTestAnswer(response.id, "q1", { value: "no" }),
+        createTestAnswer(response.id, "q3"),
+      ];
+
+      // Conditional rule: show q2 only if q1 equals "yes"
+      const conditionalRules = [
+        {
+          id: "rule1",
+          surveyId: survey.id,
+          conditionQuestionId: "q1",
+          operator: "equals" as const,
+          conditionValue: "yes",
+          action: "show" as const,
+          targetQuestionId: "q2",
+          logicalOperator: "AND",
+          order: 1,
+          createdAt: new Date(),
+        },
+      ];
+
+      mockResponseRepo.findById.mockResolvedValue({
+        ...response,
+        survey,
+        answers,
+      });
+      mockSurveyRepo.findById.mockResolvedValue(survey);
+      mockPageRepo.findBySurvey.mockResolvedValue([page]);
+      mockQuestionRepo.findByPageWithSubquestions.mockResolvedValue(questions);
+      mockQuestionRepo.findConditionalRulesBySurvey.mockResolvedValue(conditionalRules);
+      mockResponseRepo.findAnswersByResponse.mockResolvedValue(answers);
+      mockResponseRepo.update.mockResolvedValue(
+        createTestCompletedResponse(survey.id, { id: response.id })
+      );
+
+      // Should succeed because q2 is conditionally hidden (q1 != "yes")
+      const result = await service.completeResponse(response.id);
+
+      expect(result.response.completed).toBe(true);
+      expect(mockResponseRepo.update).toHaveBeenCalled();
+    });
+
+    it("should enforce conditionally required questions", async () => {
+      const survey = createTestSurvey();
+      const page = createTestPage(survey.id);
+      const questions = [
+        createTestQuestion(page.id, { id: "q1", required: false }),
+        createTestQuestion(page.id, { id: "q2", required: false, title: "Question 2" }),
+      ];
+      const response = createTestResponse({ surveyId: survey.id });
+      // q1 answered "high", but q2 not answered (should be required conditionally)
+      const answers = [
+        createTestAnswer(response.id, "q1", { value: "high" }),
+      ];
+
+      // Conditional rule: require q2 if q1 equals "high"
+      const conditionalRules = [
+        {
+          id: "rule1",
+          surveyId: survey.id,
+          conditionQuestionId: "q1",
+          operator: "equals" as const,
+          conditionValue: "high",
+          action: "require" as const,
+          targetQuestionId: "q2",
+          logicalOperator: "AND",
+          order: 1,
+          createdAt: new Date(),
+        },
+      ];
+
+      mockResponseRepo.findById.mockResolvedValue({
+        ...response,
+        survey,
+        answers,
+      });
+      mockSurveyRepo.findById.mockResolvedValue(survey);
+      mockPageRepo.findBySurvey.mockResolvedValue([page]);
+      mockQuestionRepo.findByPageWithSubquestions.mockResolvedValue(questions);
+      mockQuestionRepo.findConditionalRulesBySurvey.mockResolvedValue(conditionalRules);
+      mockResponseRepo.findAnswersByResponse.mockResolvedValue(answers);
+
+      // Should fail because q2 is conditionally required but not answered
+      await expect(service.completeResponse(response.id)).rejects.toThrow(
+        "Missing required questions: Question 2"
       );
     });
   });

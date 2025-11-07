@@ -1,8 +1,11 @@
-import type { Express } from "express";
-import { storage } from "../storage";
+import type { Express, Request, Response } from "express";
+import { pageRepository } from "../repositories";
 import { isAuthenticated } from "../googleAuth";
 import { insertSurveyPageSchema } from "@shared/schema";
 import { surveyService } from "../services";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: 'pages-routes' });
 
 /**
  * Register survey page-related routes
@@ -14,17 +17,20 @@ export function registerPageRoutes(app: Express): void {
    * POST /api/surveys/:surveyId/pages
    * Create a new page for a survey
    */
-  app.post('/api/surveys/:surveyId/pages', isAuthenticated, async (req: any, res) => {
+  app.post('/api/surveys/:surveyId/pages', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(req.params.surveyId, userId);
 
       const pageData = insertSurveyPageSchema.parse({ ...req.body, surveyId: req.params.surveyId });
-      const page = await storage.createSurveyPage(pageData);
+      const page = await pageRepository.create(pageData);
       res.json(page);
     } catch (error) {
-      console.error("Error creating page:", error);
+      logger.error({ error }, "Error creating page");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -36,9 +42,12 @@ export function registerPageRoutes(app: Express): void {
    * GET /api/surveys/:surveyId/pages
    * Get all pages for a survey (with optional nested questions)
    */
-  app.get('/api/surveys/:surveyId/pages', isAuthenticated, async (req: any, res) => {
+  app.get('/api/surveys/:surveyId/pages', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(req.params.surveyId, userId);
 
@@ -46,12 +55,12 @@ export function registerPageRoutes(app: Express): void {
       const includeQuestions = req.query.includeQuestions === 'true';
 
       const pages = includeQuestions
-        ? await storage.getSurveyPagesWithQuestions(req.params.surveyId)
-        : await storage.getSurveyPages(req.params.surveyId);
+        ? await pageRepository.findBySurveyWithQuestions(req.params.surveyId)
+        : await pageRepository.findBySurvey(req.params.surveyId);
 
       res.json(pages);
     } catch (error) {
-      console.error("Error fetching pages:", error);
+      logger.error({ error }, "Error fetching pages");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -63,16 +72,19 @@ export function registerPageRoutes(app: Express): void {
    * PUT /api/surveys/:surveyId/pages/:pageId
    * Update a single page
    */
-  app.put('/api/surveys/:surveyId/pages/:pageId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/surveys/:surveyId/pages/:pageId', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(req.params.surveyId, userId);
 
-      const updatedPage = await storage.updateSurveyPage(req.params.pageId, req.body);
+      const updatedPage = await pageRepository.update(req.params.pageId, req.body);
       res.json(updatedPage);
     } catch (error) {
-      console.error("Error updating page:", error);
+      logger.error({ error }, "Error updating page");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -84,9 +96,12 @@ export function registerPageRoutes(app: Express): void {
    * PUT /api/surveys/:surveyId/pages/reorder
    * Bulk reorder pages within a survey
    */
-  app.put('/api/surveys/:surveyId/pages/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/surveys/:surveyId/pages/reorder', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       // Verify ownership (allows admin access)
       await surveyService.verifyOwnership(req.params.surveyId, userId);
 
@@ -102,10 +117,10 @@ export function registerPageRoutes(app: Express): void {
         }
       }
 
-      const reorderedPages = await storage.bulkReorderPages(req.params.surveyId, pages);
+      const reorderedPages = await pageRepository.bulkReorder(req.params.surveyId, pages);
       res.json(reorderedPages);
     } catch (error) {
-      console.error("Error reordering pages:", error);
+      logger.error({ error }, "Error reordering pages");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }

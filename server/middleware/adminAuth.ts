@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { storage } from "../storage";
+import { userRepository } from "../repositories";
 import { createLogger } from "../logger";
 
 const logger = createLogger({ module: 'admin-auth' });
@@ -9,7 +9,7 @@ const logger = createLogger({ module: 'admin-auth' });
  */
 export const isAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = (req.session as any)?.user || (req as any).user;
+    const user = req.session?.user || req.user;
 
     if (!user?.claims?.sub) {
       logger.warn({ ip: req.ip }, 'Admin access denied: Not authenticated');
@@ -19,7 +19,7 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
     }
 
     // Get full user details from database to check role
-    const dbUser = await storage.getUser(user.claims.sub);
+    const dbUser = await userRepository.findById(user.claims.sub);
 
     if (!dbUser) {
       logger.warn({ userId: user.claims.sub }, 'Admin access denied: User not found in database');
@@ -43,7 +43,13 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
     }
 
     // Attach full user object to request for use in route handlers
-    (req as any).adminUser = dbUser;
+    // Email, createdAt, and updatedAt should always be present for authenticated users
+    req.adminUser = {
+      ...dbUser,
+      email: dbUser.email!,
+      createdAt: dbUser.createdAt!,
+      updatedAt: dbUser.updatedAt!
+    };
 
     logger.info({ userId: dbUser.id, email: dbUser.email }, 'Admin access granted');
     next();
@@ -60,7 +66,7 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
  */
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
-    const user = await storage.getUser(userId);
+    const user = await userRepository.findById(userId);
     return user?.role === 'admin';
   } catch (error) {
     logger.error({ err: error, userId }, 'Error checking admin status');

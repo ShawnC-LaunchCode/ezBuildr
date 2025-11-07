@@ -1,8 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { insertProjectSchema } from "@shared/schema";
 import { projectService } from "../services/ProjectService";
 import { z } from "zod";
+import { logger } from "../logger";
 
 /**
  * Register project-related routes
@@ -13,7 +14,7 @@ export function registerProjectRoutes(app: Express): void {
    * POST /api/projects
    * Create a new project
    */
-  app.post('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.post('/api/projects', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -28,7 +29,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.createProject(projectData, userId);
       res.status(201).json(project);
     } catch (error) {
-      console.error("Error creating project:", error);
+      logger.error({ error }, "Error creating project");
       res.status(500).json({
         message: "Failed to create project",
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
@@ -40,7 +41,7 @@ export function registerProjectRoutes(app: Express): void {
    * GET /api/projects
    * Get all projects for the authenticated user
    */
-  app.get('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -54,7 +55,7 @@ export function registerProjectRoutes(app: Express): void {
 
       res.json(projects);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      logger.error({ error }, "Error fetching projects");
       res.status(500).json({ message: "Failed to fetch projects" });
     }
   });
@@ -63,7 +64,7 @@ export function registerProjectRoutes(app: Express): void {
    * GET /api/projects/:projectId
    * Get a single project with contained workflows
    */
-  app.get('/api/projects/:projectId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects/:projectId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -74,7 +75,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.getProjectWithWorkflows(projectId, userId);
       res.json(project);
     } catch (error) {
-      console.error("Error fetching project:", error);
+      logger.error({ error }, "Error fetching project");
       const message = error instanceof Error ? error.message : "Failed to fetch project";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -85,7 +86,7 @@ export function registerProjectRoutes(app: Express): void {
    * GET /api/projects/:projectId/workflows
    * Get all workflows in a project
    */
-  app.get('/api/projects/:projectId/workflows', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects/:projectId/workflows', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -96,7 +97,7 @@ export function registerProjectRoutes(app: Express): void {
       const workflows = await projectService.getProjectWorkflows(projectId, userId);
       res.json(workflows);
     } catch (error) {
-      console.error("Error fetching project workflows:", error);
+      logger.error({ error }, "Error fetching project workflows");
       const message = error instanceof Error ? error.message : "Failed to fetch project workflows";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -107,7 +108,7 @@ export function registerProjectRoutes(app: Express): void {
    * PUT /api/projects/:projectId
    * Update a project
    */
-  app.put('/api/projects/:projectId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/projects/:projectId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -124,7 +125,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.updateProject(projectId, userId, updateData);
       res.json(project);
     } catch (error) {
-      console.error("Error updating project:", error);
+      logger.error({ error }, "Error updating project");
       const message = error instanceof Error ? error.message : "Failed to update project";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -135,7 +136,7 @@ export function registerProjectRoutes(app: Express): void {
    * PUT /api/projects/:projectId/archive
    * Archive a project (soft delete)
    */
-  app.put('/api/projects/:projectId/archive', isAuthenticated, async (req: any, res) => {
+  app.put('/api/projects/:projectId/archive', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -146,7 +147,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.archiveProject(projectId, userId);
       res.json(project);
     } catch (error) {
-      console.error("Error archiving project:", error);
+      logger.error({ error }, "Error archiving project");
       const message = error instanceof Error ? error.message : "Failed to archive project";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -157,7 +158,7 @@ export function registerProjectRoutes(app: Express): void {
    * PUT /api/projects/:projectId/unarchive
    * Unarchive a project
    */
-  app.put('/api/projects/:projectId/unarchive', isAuthenticated, async (req: any, res) => {
+  app.put('/api/projects/:projectId/unarchive', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -168,7 +169,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.unarchiveProject(projectId, userId);
       res.json(project);
     } catch (error) {
-      console.error("Error unarchiving project:", error);
+      logger.error({ error }, "Error unarchiving project");
       const message = error instanceof Error ? error.message : "Failed to unarchive project";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -180,7 +181,7 @@ export function registerProjectRoutes(app: Express): void {
    * Delete a project (hard delete)
    * Note: Workflows in the project will have their projectId set to null
    */
-  app.delete('/api/projects/:projectId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/projects/:projectId', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -191,7 +192,7 @@ export function registerProjectRoutes(app: Express): void {
       await projectService.deleteProject(projectId, userId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting project:", error);
+      logger.error({ error }, "Error deleting project");
       const message = error instanceof Error ? error.message : "Failed to delete project";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -206,7 +207,7 @@ export function registerProjectRoutes(app: Express): void {
    * GET /api/projects/:projectId/access
    * Get all ACL entries for a project
    */
-  app.get('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects/:projectId/access', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -217,7 +218,7 @@ export function registerProjectRoutes(app: Express): void {
       const access = await projectService.getProjectAccess(projectId, userId);
       res.json({ success: true, data: access });
     } catch (error) {
-      console.error("Error fetching project access:", error);
+      logger.error({ error }, "Error fetching project access");
       const message = error instanceof Error ? error.message : "Failed to fetch project access";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -229,7 +230,7 @@ export function registerProjectRoutes(app: Express): void {
    * Grant or update access to a project
    * Body: { entries: [{ principalType: 'user' | 'team', principalId: string, role: 'view' | 'edit' | 'owner' }] }
    */
-  app.put('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+  app.put('/api/projects/:projectId/access', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -250,7 +251,7 @@ export function registerProjectRoutes(app: Express): void {
       const access = await projectService.grantProjectAccess(projectId, userId, entries);
       res.json({ success: true, data: access });
     } catch (error) {
-      console.error("Error granting project access:", error);
+      logger.error({ error }, "Error granting project access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -271,7 +272,7 @@ export function registerProjectRoutes(app: Express): void {
    * Revoke access from a project
    * Body: { entries: [{ principalType: 'user' | 'team', principalId: string }] }
    */
-  app.delete('/api/projects/:projectId/access', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/projects/:projectId/access', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -291,7 +292,7 @@ export function registerProjectRoutes(app: Express): void {
       await projectService.revokeProjectAccess(projectId, userId, entries);
       res.json({ success: true, message: "Access revoked successfully" });
     } catch (error) {
-      console.error("Error revoking project access:", error);
+      logger.error({ error }, "Error revoking project access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -312,7 +313,7 @@ export function registerProjectRoutes(app: Express): void {
    * Transfer project ownership
    * Body: { userId: string }
    */
-  app.put('/api/projects/:projectId/owner', isAuthenticated, async (req: any, res) => {
+  app.put('/api/projects/:projectId/owner', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const currentOwnerId = req.user?.claims?.sub;
       if (!currentOwnerId) {
@@ -329,7 +330,7 @@ export function registerProjectRoutes(app: Express): void {
       const project = await projectService.transferProjectOwnership(projectId, currentOwnerId, newOwnerId);
       res.json({ success: true, data: project });
     } catch (error) {
-      console.error("Error transferring project ownership:", error);
+      logger.error({ error }, "Error transferring project ownership");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({

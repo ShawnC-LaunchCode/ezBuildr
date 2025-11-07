@@ -16,7 +16,7 @@ export function requireProjectRole(
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = (req.session as any)?.user || (req as any).user;
+      const user = req.session?.user || req.user;
 
       if (!user?.claims?.sub) {
         logger.warn({ ip: req.ip }, 'Project access denied: Not authenticated');
@@ -52,7 +52,7 @@ export function requireProjectRole(
       }
 
       // Attach user ID to request for use in route handlers
-      (req as any).userId = userId;
+      req.userId = userId;
 
       logger.debug(
         { userId, projectId, minRole },
@@ -80,7 +80,7 @@ export function requireWorkflowRole(
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = (req.session as any)?.user || (req as any).user;
+      const user = req.session?.user || req.user;
 
       if (!user?.claims?.sub) {
         logger.warn({ ip: req.ip }, 'Workflow access denied: Not authenticated');
@@ -116,7 +116,7 @@ export function requireWorkflowRole(
       }
 
       // Attach user ID to request for use in route handlers
-      (req as any).userId = userId;
+      req.userId = userId;
 
       logger.debug(
         { userId, workflowId, minRole },
@@ -143,7 +143,7 @@ export const requireAuth: RequestHandler = async (
   next: NextFunction
 ) => {
   try {
-    const user = (req.session as any)?.user || (req as any).user;
+    const user = req.session?.user || req.user;
 
     if (!user?.claims?.sub) {
       logger.warn({ ip: req.ip }, 'Authentication required');
@@ -154,7 +154,7 @@ export const requireAuth: RequestHandler = async (
     }
 
     // Attach user ID to request for use in route handlers
-    (req as any).userId = user.claims.sub;
+    req.userId = user.claims.sub;
 
     next();
   } catch (error) {

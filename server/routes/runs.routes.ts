@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { insertWorkflowRunSchema, insertStepValueSchema } from "@shared/schema";
 import { runService } from "../services/RunService";
@@ -18,7 +18,7 @@ export function registerRunRoutes(app: Express): void {
    * For authenticated: POST /api/workflows/:workflowId/runs (with session)
    * For anonymous: POST /api/workflows/:workflowId/runs?publicLink=<slug>
    */
-  app.post('/api/workflows/:workflowId/runs', async (req: any, res) => {
+  app.post('/api/workflows/:workflowId/runs', async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const { publicLink } = req.query;
@@ -63,7 +63,7 @@ export function registerRunRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      console.error("Error creating run:", error);
+      logger.error("Error creating run:", error);
       const message = error instanceof Error ? error.message : "Failed to create run";
       const status = message.includes("not found") ? 404 :
                      message.includes("Access denied") ? 403 :
@@ -86,7 +86,7 @@ export function registerRunRoutes(app: Express): void {
       const run = await runService.getRun(runId, userId, runToken);
       res.json({ success: true, data: run });
     } catch (error) {
-      console.error("Error fetching run:", error);
+      logger.error("Error fetching run:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch run";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -107,7 +107,7 @@ export function registerRunRoutes(app: Express): void {
       const run = await runService.getRunWithValues(runId, userId, runToken);
       res.json({ success: true, data: run });
     } catch (error) {
-      console.error("Error fetching run with values:", error);
+      logger.error("Error fetching run with values:", error);
       const message = error instanceof Error ? error.message : "Failed to fetch run";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -138,7 +138,7 @@ export function registerRunRoutes(app: Express): void {
 
       res.status(200).json({ success: true, message: "Step value saved" });
     } catch (error) {
-      console.error("Error saving step value:", error);
+      logger.error("Error saving step value:", error);
       const message = error instanceof Error ? error.message : "Failed to save step value";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -169,7 +169,7 @@ export function registerRunRoutes(app: Express): void {
 
       res.json(result);
     } catch (error) {
-      console.error("Error submitting section values:", error);
+      logger.error("Error submitting section values:", error);
       const message = error instanceof Error ? error.message : "Failed to submit section values";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -195,7 +195,7 @@ export function registerRunRoutes(app: Express): void {
       const result = await runService.navigateNext(runId, userId, currentSectionId, runToken);
       res.json({ success: true, data: result });
     } catch (error) {
-      console.error("Error navigating to next section:", error);
+      logger.error("Error navigating to next section:", error);
       const message = error instanceof Error ? error.message : "Failed to navigate to next section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -221,7 +221,7 @@ export function registerRunRoutes(app: Express): void {
       await runService.bulkUpsertValues(runId, userId, values, runToken);
       res.status(200).json({ success: true, message: "Step values saved" });
     } catch (error) {
-      console.error("Error saving step values:", error);
+      logger.error("Error saving step values:", error);
       const message = error instanceof Error ? error.message : "Failed to save step values";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -233,7 +233,7 @@ export function registerRunRoutes(app: Express): void {
    * Calculate and navigate to the next section in the workflow
    * Updates run state (currentSectionId, progress) and returns navigation info
    */
-  app.post('/api/runs/:runId/next', isAuthenticated, async (req: any, res) => {
+  app.post('/api/runs/:runId/next', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -248,7 +248,7 @@ export function registerRunRoutes(app: Express): void {
         data: navigation,
       });
     } catch (error) {
-      console.error("Error calculating next section:", error);
+      logger.error("Error calculating next section:", error);
       const message = error instanceof Error ? error.message : "Failed to calculate next section";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("already completed") ? 400 : 500;
       res.status(status).json({
@@ -272,7 +272,7 @@ export function registerRunRoutes(app: Express): void {
       const run = await runService.completeRun(runId, userId, runToken);
       res.json({ success: true, data: run });
     } catch (error) {
-      console.error("Error completing run:", error);
+      logger.error("Error completing run:", error);
       const message = error instanceof Error ? error.message : "Failed to complete run";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("Missing required") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
@@ -283,7 +283,7 @@ export function registerRunRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/runs
    * List all runs for a workflow
    */
-  app.get('/api/workflows/:workflowId/runs', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/runs', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -294,7 +294,7 @@ export function registerRunRoutes(app: Express): void {
       const runs = await runService.listRuns(workflowId, userId);
       res.json(runs);
     } catch (error) {
-      console.error("Error listing runs:", error);
+      logger.error("Error listing runs:", error);
       const message = error instanceof Error ? error.message : "Failed to list runs";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

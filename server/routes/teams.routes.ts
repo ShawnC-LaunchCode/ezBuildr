@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { requireAuth } from "../middleware/aclAuth";
 import { teamService } from "../services/TeamService";
 import { z } from "zod";
@@ -25,7 +25,7 @@ export function registerTeamRoutes(app: Express): void {
    * POST /api/teams
    * Create a new team (user becomes team admin)
    */
-  app.post("/api/teams", requireAuth, async (req: any, res) => {
+  app.post("/api/teams", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
 
@@ -34,7 +34,7 @@ export function registerTeamRoutes(app: Express): void {
 
       res.status(201).json({ success: true, data: team });
     } catch (error) {
-      console.error("Error creating team:", error);
+      logger.error("Error creating team:", error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -55,14 +55,14 @@ export function registerTeamRoutes(app: Express): void {
    * GET /api/teams
    * Get all teams for the authenticated user
    */
-  app.get("/api/teams", requireAuth, async (req: any, res) => {
+  app.get("/api/teams", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
       const teams = await teamService.getUserTeams(userId);
 
       res.json({ success: true, data: teams });
     } catch (error) {
-      console.error("Error fetching teams:", error);
+      logger.error("Error fetching teams:", error);
       res.status(500).json({
         success: false,
         error: "Failed to fetch teams",
@@ -74,7 +74,7 @@ export function registerTeamRoutes(app: Express): void {
    * GET /api/teams/:id
    * Get team details with members
    */
-  app.get("/api/teams/:id", requireAuth, async (req: any, res) => {
+  app.get("/api/teams/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
       const { id } = req.params;
@@ -82,7 +82,7 @@ export function registerTeamRoutes(app: Express): void {
       const team = await teamService.getTeamWithMembers(id, userId);
       res.json({ success: true, data: team });
     } catch (error) {
-      console.error("Error fetching team:", error);
+      logger.error("Error fetching team:", error);
 
       const message =
         error instanceof Error ? error.message : "Failed to fetch team";
@@ -100,7 +100,7 @@ export function registerTeamRoutes(app: Express): void {
    * PUT /api/teams/:id
    * Update team details (admin only)
    */
-  app.put("/api/teams/:id", requireAuth, async (req: any, res) => {
+  app.put("/api/teams/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
       const { id } = req.params;
@@ -110,7 +110,7 @@ export function registerTeamRoutes(app: Express): void {
 
       res.json({ success: true, data: team });
     } catch (error) {
-      console.error("Error updating team:", error);
+      logger.error("Error updating team:", error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -132,7 +132,7 @@ export function registerTeamRoutes(app: Express): void {
    * DELETE /api/teams/:id
    * Delete a team (admin only)
    */
-  app.delete("/api/teams/:id", requireAuth, async (req: any, res) => {
+  app.delete("/api/teams/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
       const { id } = req.params;
@@ -140,7 +140,7 @@ export function registerTeamRoutes(app: Express): void {
       await teamService.deleteTeam(id, userId);
       res.json({ success: true, message: "Team deleted successfully" });
     } catch (error) {
-      console.error("Error deleting team:", error);
+      logger.error("Error deleting team:", error);
 
       const message =
         error instanceof Error ? error.message : "Failed to delete team";
@@ -154,7 +154,7 @@ export function registerTeamRoutes(app: Express): void {
    * POST /api/teams/:id/members
    * Add or update a team member (admin only)
    */
-  app.post("/api/teams/:id/members", requireAuth, async (req: any, res) => {
+  app.post("/api/teams/:id/members", requireAuth, async (req: Request, res: Response) => {
     try {
       const requestorId = req.userId;
       const { id } = req.params;
@@ -164,7 +164,7 @@ export function registerTeamRoutes(app: Express): void {
 
       res.status(201).json({ success: true, data: member });
     } catch (error) {
-      console.error("Error adding team member:", error);
+      logger.error("Error adding team member:", error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -190,7 +190,7 @@ export function registerTeamRoutes(app: Express): void {
    * DELETE /api/teams/:id/members/:userId
    * Remove a team member (admin only)
    */
-  app.delete("/api/teams/:id/members/:userId", requireAuth, async (req: any, res) => {
+  app.delete("/api/teams/:id/members/:userId", requireAuth, async (req: Request, res: Response) => {
     try {
       const requestorId = req.userId;
       const { id, userId } = req.params;
@@ -198,7 +198,7 @@ export function registerTeamRoutes(app: Express): void {
       await teamService.removeMember(id, requestorId, userId);
       res.json({ success: true, message: "Team member removed successfully" });
     } catch (error) {
-      console.error("Error removing team member:", error);
+      logger.error("Error removing team member:", error);
 
       const message =
         error instanceof Error ? error.message : "Failed to remove team member";

@@ -1,9 +1,13 @@
-import type { Express } from "express";
-import { storage } from "../storage";
+import type { Express, Request, Response } from "express";
+import { surveyRepository } from "../repositories";
+import { analyticsService } from "../services/AnalyticsService";
 import { isAuthenticated } from "../googleAuth";
 import { ActivityLogService } from "../services/ActivityLogService";
 import type { ActivityItem } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: 'dashboard-routes' });
 
 /**
  * Register dashboard-related routes
@@ -16,14 +20,17 @@ export function registerDashboardRoutes(app: Express): void {
    * GET /api/dashboard/stats
    * Get dashboard statistics for the authenticated user
    */
-  app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/stats', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const stats = await storage.getDashboardStats(userId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const stats = await analyticsService.getDashboardStats(userId);
 
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      logger.error({ error }, "Error fetching dashboard stats");
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
@@ -32,14 +39,17 @@ export function registerDashboardRoutes(app: Express): void {
    * GET /api/dashboard/analytics
    * Get analytics for all surveys owned by the user
    */
-  app.get('/api/dashboard/analytics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/analytics', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const analytics = await storage.getSurveyAnalytics(userId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const analytics = await analyticsService.getSurveyAnalytics(userId);
 
       res.json(analytics);
     } catch (error) {
-      console.error("Error fetching dashboard analytics:", error);
+      logger.error({ error }, "Error fetching dashboard analytics");
       res.status(500).json({ message: "Failed to fetch dashboard analytics" });
     }
   });
@@ -48,14 +58,17 @@ export function registerDashboardRoutes(app: Express): void {
    * GET /api/dashboard/trends
    * Get response trends across all surveys
    */
-  app.get('/api/dashboard/trends', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/trends', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const trends = await storage.getResponseTrends(userId);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const trends = await analyticsService.getResponseTrends(userId);
 
       res.json(trends);
     } catch (error) {
-      console.error("Error fetching response trends:", error);
+      logger.error({ error }, "Error fetching response trends");
       res.status(500).json({ message: "Failed to fetch response trends" });
     }
   });
@@ -64,13 +77,16 @@ export function registerDashboardRoutes(app: Express): void {
    * GET /api/dashboard/activity
    * Get recent activity across all surveys using the analytics events
    */
-  app.get('/api/dashboard/activity', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/activity', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       const limit = parseInt(req.query.limit as string) || 20;
 
       // Get user's surveys to filter activity
-      const userSurveys = await storage.getSurveysByCreator(userId);
+      const userSurveys = await surveyRepository.findByCreator(userId);
       const surveyIds = userSurveys.map(s => s.id);
 
       if (surveyIds.length === 0) {
@@ -160,7 +176,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json(sortedActivities);
     } catch (error) {
-      console.error("Error fetching recent activity:", error);
+      logger.error({ error }, "Error fetching recent activity");
       res.status(500).json({ message: "Failed to fetch recent activity" });
     }
   });
@@ -169,13 +185,16 @@ export function registerDashboardRoutes(app: Express): void {
    * GET /api/dashboard/surveys
    * Get recent surveys with basic stats
    */
-  app.get('/api/dashboard/surveys', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/surveys', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
       const limit = parseInt(req.query.limit as string) || 10;
       const status = req.query.status as string | undefined;
 
-      const surveys = await storage.getSurveysByCreator(userId);
+      const surveys = await surveyRepository.findByCreator(userId);
 
       // Filter by status if provided
       let filteredSurveys = surveys;
@@ -188,7 +207,7 @@ export function registerDashboardRoutes(app: Express): void {
 
       res.json(limitedSurveys);
     } catch (error) {
-      console.error("Error fetching dashboard surveys:", error);
+      logger.error({ error }, "Error fetching dashboard surveys");
       res.status(500).json({ message: "Failed to fetch dashboard surveys" });
     }
   });

@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { workflowExportService } from "../services/WorkflowExportService";
 
@@ -11,7 +11,7 @@ export function registerWorkflowExportRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/export?format=json|csv
    * Export workflow runs as JSON or CSV
    */
-  app.get('/api/workflows/:workflowId/export', isAuthenticated, async (req: any, res) => {
+  app.get('/api/workflows/:workflowId/export', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
@@ -35,7 +35,7 @@ export function registerWorkflowExportRoutes(app: Express): void {
         res.status(400).json({ message: "Invalid format. Use 'json' or 'csv'" });
       }
     } catch (error) {
-      console.error("Error exporting workflow:", error);
+      logger.error("Error exporting workflow:", error);
       const message = error instanceof Error ? error.message : "Failed to export workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

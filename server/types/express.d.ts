@@ -19,7 +19,7 @@ declare global {
         given_name?: string;
         family_name?: string;
         exp?: number;
-        [key: string]: any;
+        [key: string]: string | number | boolean | undefined;
       };
       access_token?: string;
       refresh_token?: string;
@@ -27,10 +27,21 @@ declare global {
     }
 
     /**
-     * Augment Request interface to include user
+     * Augment Request interface to include user and userId
      */
     interface Request {
       user?: User;
+      userId?: string;
+      adminUser?: {
+        id: string;
+        email: string;
+        role: string;
+        firstName: string | null;
+        lastName: string | null;
+        profileImageUrl: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      };
     }
   }
 }

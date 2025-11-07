@@ -2,6 +2,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
 import { users, type User, type UpsertUser } from "@shared/schema";
 import { db } from "../db";
 import { eq, sql } from "drizzle-orm";
+import { logger } from "../logger";
 
 /**
  * Repository for user-related database operations
@@ -142,7 +143,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       await db.execute(sql`SELECT 1`);
       return true;
     } catch (error) {
-      console.error('Database ping failed:', error);
+      logger.error({ err: error }, 'Database ping failed');
       return false;
     }
   }

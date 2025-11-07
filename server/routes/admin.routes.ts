@@ -1,5 +1,4 @@
-import type { Express } from "express";
-import { storage } from "../storage";
+import type { Express, Request, Response } from "express";
 import { isAdmin } from "../middleware/adminAuth";
 import { userRepository } from "../repositories/UserRepository";
 import { surveyRepository } from "../repositories/SurveyRepository";
@@ -25,8 +24,12 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/users
    * Get all users in the system
    */
-  app.get('/api/admin/users', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const users = await userRepository.findAllUsers();
 
       // Return users with survey count
@@ -41,13 +44,13 @@ export function registerAdminRoutes(app: Express): void {
       );
 
       logger.info(
-        { adminId: req.adminUser.id, userCount: users.length },
+        { adminId: req.adminUser!.id, userCount: users.length },
         'Admin fetched all users'
       );
 
       res.json(usersWithStats);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching all users');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching all users');
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
@@ -56,8 +59,12 @@ export function registerAdminRoutes(app: Express): void {
    * PUT /api/admin/users/:userId/role
    * Update user role (promote/demote admin)
    */
-  app.put('/api/admin/users/:userId/role', isAdmin, async (req: any, res) => {
+  app.put('/api/admin/users/:userId/role', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const { userId } = req.params;
       const { role } = req.body;
 
@@ -68,7 +75,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // Prevent self-demotion
-      if (userId === req.adminUser.id && role === 'creator') {
+      if (userId === req.adminUser!.id && role === 'creator') {
         return res.status(400).json({
           message: "You cannot demote yourself from admin"
         });
@@ -92,7 +99,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser.id,
+          adminId: req.adminUser!.id,
           targetUserId: userId,
           newRole: role,
           oldRole: role === 'admin' ? 'creator' : 'admin'
@@ -106,7 +113,7 @@ export function registerAdminRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, userId: req.params.userId },
+        { err: error, adminId: req.adminUser!.id, userId: req.params.userId },
         'Error updating user role'
       );
 
@@ -122,12 +129,16 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/users/:userId/surveys
    * Get all surveys for a specific user
    */
-  app.get('/api/admin/users/:userId/surveys', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/users/:userId/surveys', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const { userId } = req.params;
 
       // Verify user exists
-      const user = await storage.getUser(userId);
+      const user = await userRepository.findById(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -135,7 +146,7 @@ export function registerAdminRoutes(app: Express): void {
       const surveys = await surveyRepository.findByCreator(userId);
 
       logger.info(
-        { adminId: req.adminUser.id, targetUserId: userId, surveyCount: surveys.length },
+        { adminId: req.adminUser!.id, targetUserId: userId, surveyCount: surveys.length },
         'Admin fetched user surveys'
       );
 
@@ -150,7 +161,7 @@ export function registerAdminRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, userId: req.params.userId },
+        { err: error, adminId: req.adminUser!.id, userId: req.params.userId },
         'Error fetching user surveys'
       );
       res.status(500).json({ message: "Failed to fetch user surveys" });
@@ -165,8 +176,12 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/surveys
    * Get all surveys in the system
    */
-  app.get('/api/admin/surveys', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/surveys', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       // Get all users first
       const users = await userRepository.findAllUsers();
 
@@ -189,13 +204,13 @@ export function registerAdminRoutes(app: Express): void {
       const flattenedSurveys = allSurveys.flat();
 
       logger.info(
-        { adminId: req.adminUser.id, surveyCount: flattenedSurveys.length },
+        { adminId: req.adminUser!.id, surveyCount: flattenedSurveys.length },
         'Admin fetched all surveys'
       );
 
       res.json(flattenedSurveys);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching all surveys');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching all surveys');
       res.status(500).json({ message: "Failed to fetch surveys" });
     }
   });
@@ -204,23 +219,27 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/surveys/:surveyId
    * Get any survey (including full details)
    */
-  app.get('/api/admin/surveys/:surveyId', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/surveys/:surveyId', isAdmin, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
 
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
 
       logger.info(
-        { adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Admin fetched survey details'
       );
 
       res.json(survey);
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { err: error, adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Error fetching survey'
       );
       res.status(500).json({ message: "Failed to fetch survey" });
@@ -231,9 +250,13 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/surveys/:surveyId/responses
    * Get all responses for any survey
    */
-  app.get('/api/admin/surveys/:surveyId/responses', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/surveys/:surveyId/responses', isAdmin, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
 
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
@@ -242,14 +265,14 @@ export function registerAdminRoutes(app: Express): void {
       const responses = await responseRepository.findBySurvey(req.params.surveyId);
 
       logger.info(
-        { adminId: req.adminUser.id, surveyId: req.params.surveyId, responseCount: responses.length },
+        { adminId: req.adminUser!.id, surveyId: req.params.surveyId, responseCount: responses.length },
         'Admin fetched survey responses'
       );
 
       res.json(responses);
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { err: error, adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Error fetching survey responses'
       );
       res.status(500).json({ message: "Failed to fetch responses" });
@@ -260,25 +283,29 @@ export function registerAdminRoutes(app: Express): void {
    * PUT /api/admin/surveys/:surveyId
    * Update any survey
    */
-  app.put('/api/admin/surveys/:surveyId', isAdmin, async (req: any, res) => {
+  app.put('/api/admin/surveys/:surveyId', isAdmin, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
 
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
 
-      const updatedSurvey = await storage.updateSurvey(req.params.surveyId, req.body);
+      const updatedSurvey = await surveyRepository.update(req.params.surveyId, req.body);
 
       logger.info(
-        { adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Admin updated survey'
       );
 
       res.json(updatedSurvey);
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { err: error, adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Error updating survey'
       );
       res.status(500).json({ message: "Failed to update survey" });
@@ -289,9 +316,13 @@ export function registerAdminRoutes(app: Express): void {
    * DELETE /api/admin/surveys/:surveyId
    * Delete any survey
    */
-  app.delete('/api/admin/surveys/:surveyId', isAdmin, async (req: any, res) => {
+  app.delete('/api/admin/surveys/:surveyId', isAdmin, async (req: Request, res: Response) => {
     try {
-      const survey = await storage.getSurvey(req.params.surveyId);
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const survey = await surveyRepository.findById(req.params.surveyId);
 
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
@@ -302,14 +333,14 @@ export function registerAdminRoutes(app: Express): void {
       const responseCount = responses.length;
 
       // Delete the survey (cascade deletes responses)
-      await storage.deleteSurvey(req.params.surveyId);
+      await surveyRepository.delete(req.params.surveyId);
 
       // Update system stats
       await systemStatsRepository.incrementSurveysDeleted(1, responseCount);
 
       logger.warn(
         {
-          adminId: req.adminUser.id,
+          adminId: req.adminUser!.id,
           surveyId: req.params.surveyId,
           surveyTitle: survey.title,
           deletedResponses: responseCount
@@ -320,7 +351,7 @@ export function registerAdminRoutes(app: Express): void {
       res.json({ message: "Survey deleted successfully" });
     } catch (error) {
       logger.error(
-        { err: error, adminId: req.adminUser.id, surveyId: req.params.surveyId },
+        { err: error, adminId: req.adminUser!.id, surveyId: req.params.surveyId },
         'Error deleting survey'
       );
       res.status(500).json({ message: "Failed to delete survey" });
@@ -335,8 +366,12 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/stats
    * Get system-wide statistics
    */
-  app.get('/api/admin/stats', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/stats', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const users = await userRepository.findAllUsers();
       const adminCount = users.filter(u => u.role === 'admin').length;
 
@@ -372,11 +407,11 @@ export function registerAdminRoutes(app: Express): void {
         totalResponsesDeleted: systemStats.totalResponsesDeleted,
       };
 
-      logger.info({ adminId: req.adminUser.id }, 'Admin fetched system stats');
+      logger.info({ adminId: req.adminUser!.id }, 'Admin fetched system stats');
 
       res.json(stats);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching admin stats');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching admin stats');
       res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
@@ -389,8 +424,12 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs
    * Get activity logs with filtering and pagination
    */
-  app.get('/api/admin/logs', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/logs', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const query = {
         q: req.query.q as string | undefined,
         event: req.query.event as string | undefined,
@@ -409,7 +448,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser.id,
+          adminId: req.adminUser!.id,
           query,
           resultCount: result.rows.length,
           total: result.total
@@ -419,7 +458,7 @@ export function registerAdminRoutes(app: Express): void {
 
       res.json(result);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching activity logs');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching activity logs');
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
@@ -428,8 +467,12 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/export
    * Export activity logs to CSV
    */
-  app.get('/api/admin/logs/export', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/logs/export', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const query = {
         q: req.query.q as string | undefined,
         event: req.query.event as string | undefined,
@@ -447,7 +490,7 @@ export function registerAdminRoutes(app: Express): void {
       const { filename, csv } = await activityLogService.exportCsv(query);
 
       logger.info(
-        { adminId: req.adminUser.id, query, filename },
+        { adminId: req.adminUser!.id, query, filename },
         'Admin exported activity logs to CSV'
       );
 
@@ -455,7 +498,7 @@ export function registerAdminRoutes(app: Express): void {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(csv);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error exporting activity logs');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error exporting activity logs');
       res.status(500).json({ message: "Failed to export activity logs" });
     }
   });
@@ -464,18 +507,22 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/events
    * Get unique event types for filter dropdowns
    */
-  app.get('/api/admin/logs/events', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/logs/events', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const events = await activityLogService.getUniqueEvents();
 
       logger.info(
-        { adminId: req.adminUser.id, eventCount: events.length },
+        { adminId: req.adminUser!.id, eventCount: events.length },
         'Admin fetched unique event types'
       );
 
       res.json(events);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching event types');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching event types');
       res.status(500).json({ message: "Failed to fetch event types" });
     }
   });
@@ -484,18 +531,22 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/actors
    * Get unique actors for filter dropdowns
    */
-  app.get('/api/admin/logs/actors', isAdmin, async (req: any, res) => {
+  app.get('/api/admin/logs/actors', isAdmin, async (req: Request, res: Response) => {
     try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
       const actors = await activityLogService.getUniqueActors();
 
       logger.info(
-        { adminId: req.adminUser.id, actorCount: actors.length },
+        { adminId: req.adminUser!.id, actorCount: actors.length },
         'Admin fetched unique actors'
       );
 
       res.json(actors);
     } catch (error) {
-      logger.error({ err: error, adminId: req.adminUser.id }, 'Error fetching actors');
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching actors');
       res.status(500).json({ message: "Failed to fetch actors" });
     }
   });

@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { logger } from "../logger";
 
 /**
  * Repository for survey-related database operations
@@ -36,7 +37,7 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
    * Find survey by public link
    */
   async findByPublicLink(publicLink: string, tx?: DbTransaction): Promise<Survey | undefined> {
-    console.log('Looking up survey by public link:', publicLink);
+    logger.info({ publicLink }, 'Looking up survey by public link');
 
     const database = this.getDb(tx);
     try {
@@ -46,20 +47,20 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
         .where(eq(surveys.publicLink, publicLink));
 
       if (survey) {
-        console.log('Found survey:', {
+        logger.info({
           id: survey.id,
           title: survey.title,
           publicLink: survey.publicLink,
           allowAnonymous: survey.allowAnonymous,
           status: survey.status,
-        });
+        }, 'Found survey');
       } else {
-        console.log('No survey found for public link');
+        logger.info('No survey found for public link');
       }
 
       return survey;
     } catch (error) {
-      console.error('Error looking up survey by public link:', error);
+      logger.error({ err: error }, 'Error looking up survey by public link');
       throw error;
     }
   }
@@ -68,11 +69,11 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
    * Create survey with logging and verification
    */
   async create(survey: InsertSurvey, tx?: DbTransaction): Promise<Survey> {
-    console.log('Creating survey:', {
+    logger.info({
       title: survey.title,
       creatorId: survey.creatorId,
       description: survey.description?.substring(0, 100),
-    });
+    }, 'Creating survey');
 
     return await this.transaction(async (innerTx) => {
       try {
@@ -81,11 +82,11 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
           .values(survey as any)
           .returning();
 
-        console.log('Survey created:', {
+        logger.info({
           id: newSurvey.id,
           title: newSurvey.title,
           status: newSurvey.status,
-        });
+        }, 'Survey created');
 
         // Verify the survey was actually saved
         const [verification] = await innerTx
@@ -94,14 +95,14 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
           .where(eq(surveys.id, newSurvey.id));
 
         if (!verification) {
-          console.error('CRITICAL: Survey not found immediately after creation!', newSurvey.id);
+          logger.error({ surveyId: newSurvey.id }, 'CRITICAL: Survey not found immediately after creation!');
           throw new Error('Survey creation failed - survey not persisted');
         }
 
-        console.log('Survey creation verified successfully');
+        logger.info('Survey creation verified successfully');
         return newSurvey;
       } catch (error) {
-        console.error('Error creating survey:', error);
+        logger.error({ err: error }, 'Error creating survey');
         throw error;
       }
     });
@@ -118,7 +119,7 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
     const database = this.getDb(tx);
     const [updatedSurvey] = await database
       .update(surveys)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(updates)
       .where(eq(surveys.id, id))
       .returning();
     return updatedSurvey;
@@ -141,32 +142,31 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
     config: { accessType: string; anonymousConfig?: AnonymousSurveyConfig },
     tx?: DbTransaction
   ): Promise<Survey> {
-    console.log('Enabling anonymous access for survey:', surveyId);
+    logger.info({ surveyId }, 'Enabling anonymous access for survey');
 
     return await this.transaction(async (innerTx) => {
       const existingSurvey = await this.findById(surveyId, innerTx);
       if (!existingSurvey) {
-        console.error('Survey not found:', surveyId);
+        logger.error({ surveyId }, 'Survey not found');
         throw new Error('Survey not found');
       }
 
-      console.log('Survey exists:', {
+      logger.info({
         id: existingSurvey.id,
         title: existingSurvey.title,
         hasExistingPublicLink: !!existingSurvey.publicLink,
         allowAnonymous: existingSurvey.allowAnonymous,
-      });
+      }, 'Survey exists');
 
       // If anonymous access is already enabled with a public link, update config only
       if (existingSurvey.allowAnonymous && existingSurvey.publicLink) {
-        console.log('Anonymous access already enabled, updating config only');
+        logger.info('Anonymous access already enabled, updating config only');
 
         const [updatedSurvey] = await innerTx
           .update(surveys)
           .set({
             anonymousAccessType: config.accessType as any,
             anonymousConfig: config.anonymousConfig ? JSON.stringify(config.anonymousConfig) : null,
-            updatedAt: new Date(),
           })
           .where(eq(surveys.id, surveyId))
           .returning();
@@ -175,19 +175,19 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
           throw new Error('Survey configuration update failed');
         }
 
-        console.log('Anonymous access configuration updated');
+        logger.info('Anonymous access configuration updated');
         return updatedSurvey;
       }
 
       // Auto-publish draft surveys when enabling anonymous access
       const shouldPublish = existingSurvey.status === 'draft';
       if (shouldPublish) {
-        console.log('Auto-publishing draft survey for anonymous access');
+        logger.info('Auto-publishing draft survey for anonymous access');
       }
 
       // Generate new public link only if one doesn't exist
       const publicLink = existingSurvey.publicLink || randomUUID();
-      console.log('Using public link:', { isNew: !existingSurvey.publicLink, publicLink });
+      logger.info({ isNew: !existingSurvey.publicLink, publicLink }, 'Using public link');
 
       try {
         const [updatedSurvey] = await innerTx
@@ -198,7 +198,6 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
             publicLink,
             status: shouldPublish ? 'open' : existingSurvey.status,
             anonymousConfig: config.anonymousConfig ? JSON.stringify(config.anonymousConfig) : null,
-            updatedAt: new Date(),
           })
           .where(eq(surveys.id, surveyId))
           .returning();
@@ -207,14 +206,14 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
           throw new Error('Survey update failed');
         }
 
-        console.log('Survey updated with anonymous access:', {
+        logger.info({
           id: updatedSurvey.id,
           publicLink: updatedSurvey.publicLink,
           allowAnonymous: updatedSurvey.allowAnonymous,
           anonymousAccessType: updatedSurvey.anonymousAccessType,
           status: updatedSurvey.status,
           autoPublished: shouldPublish,
-        });
+        }, 'Survey updated with anonymous access');
 
         // Verify the survey can be found by public link
         const [verification] = await innerTx
@@ -223,14 +222,14 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
           .where(eq(surveys.publicLink, updatedSurvey.publicLink || ''));
 
         if (!verification) {
-          console.error('CRITICAL: Survey not findable by public link!', updatedSurvey.publicLink);
+          logger.error({ publicLink: updatedSurvey.publicLink }, 'CRITICAL: Survey not findable by public link!');
           throw new Error('Anonymous access enablement failed');
         }
 
-        console.log('Anonymous access verified successfully');
+        logger.info('Anonymous access verified successfully');
         return updatedSurvey;
       } catch (error) {
-        console.error('Error enabling anonymous access:', error);
+        logger.error({ err: error }, 'Error enabling anonymous access');
         throw error;
       }
     });
@@ -248,7 +247,6 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
         anonymousAccessType: 'disabled',
         publicLink: null,
         anonymousConfig: null,
-        updatedAt: new Date(),
       })
       .where(eq(surveys.id, surveyId))
       .returning();
@@ -291,7 +289,6 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
         .update(surveys)
         .set({
           status: status as any,
-          updatedAt: new Date(),
         })
         .where(and(inArray(surveys.id, surveyIds), eq(surveys.creatorId, creatorId)));
 
@@ -435,7 +432,6 @@ export class SurveyRepository extends BaseRepository<typeof surveys, Survey, Ins
       .update(surveys)
       .set({
         status: 'closed',
-        updatedAt: new Date(),
       })
       .where(and(eq(surveys.id, surveyId), eq(surveys.creatorId, creatorId)))
       .returning();

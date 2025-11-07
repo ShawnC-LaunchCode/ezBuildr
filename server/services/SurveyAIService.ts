@@ -8,6 +8,7 @@ import {
 } from "../repositories";
 import { surveys, surveyPages, questions } from "@shared/schema";
 import type { Survey, Question } from "@shared/schema";
+import { logger } from "../logger";
 
 type QuestionType = Question['type'];
 
@@ -177,7 +178,7 @@ export class SurveyAIService {
         })
         .returning();
 
-      console.log('AI Survey created:', {
+      logger.info('AI Survey created:', {
         id: survey.id,
         title: survey.title,
         pageCount: surveyData.pages.length
@@ -195,7 +196,7 @@ export class SurveyAIService {
           })
           .returning();
 
-        console.log('Page created:', {
+        logger.info('Page created:', {
           pageId: page.id,
           title: page.title,
           questionCount: pageData.questions.length

@@ -1,8 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./googleAuth";
-import { storage } from "./storage";
+import { userRepository } from "./repositories";
 import { registerAllRoutes } from "./routes/index";
+import { createLogger } from "./logger";
+
+const logger = createLogger({ module: 'routes' });
 
 // Extend Express Request type for authenticated requests
 declare global {
@@ -32,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/health', async (req, res) => {
     try {
       // Robust health check - verify database connectivity with lightweight ping
-      const isDbHealthy = await storage.ping();
+      const isDbHealthy = await userRepository.ping();
 
       if (!isDbHealthy) {
         return res.status(503).json({
@@ -49,7 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         environment: process.env.NODE_ENV || 'development'
       });
     } catch (error) {
-      console.error('Health check failed:', error);
+      logger.error({ err: error }, 'Health check failed');
       res.status(503).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
