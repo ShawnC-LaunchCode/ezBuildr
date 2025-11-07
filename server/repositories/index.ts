@@ -30,5 +30,9 @@ export { StepValueRepository, stepValueRepository } from "./StepValueRepository"
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
 
+// Teams & ACL repositories
+export { TeamRepository, teamRepository, TeamMemberRepository, teamMemberRepository } from "./TeamRepository";
+export { ProjectAccessRepository, projectAccessRepository, WorkflowAccessRepository, workflowAccessRepository } from "./AclRepository";
+
 // Export type for Insert operations
 export type { InsertAnalyticsEvent } from "./AnalyticsRepository";

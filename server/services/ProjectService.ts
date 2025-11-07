@@ -1,9 +1,10 @@
 import {
   projectRepository,
   workflowRepository,
+  projectAccessRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Project, InsertProject, Workflow } from "@shared/schema";
+import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType } from "@shared/schema";
 
 /**
  * Service layer for project-related business logic
@@ -11,13 +12,16 @@ import type { Project, InsertProject, Workflow } from "@shared/schema";
 export class ProjectService {
   private projectRepo: typeof projectRepository;
   private workflowRepo: typeof workflowRepository;
+  private projectAccessRepo: typeof projectAccessRepository;
 
   constructor(
     projectRepo?: typeof projectRepository,
-    workflowRepo?: typeof workflowRepository
+    workflowRepo?: typeof workflowRepository,
+    projectAccessRepo?: typeof projectAccessRepository
   ) {
     this.projectRepo = projectRepo || projectRepository;
     this.workflowRepo = workflowRepo || workflowRepository;
+    this.projectAccessRepo = projectAccessRepo || projectAccessRepository;
   }
 
   /**
@@ -44,6 +48,7 @@ export class ProjectService {
     return await this.projectRepo.create({
       ...data,
       creatorId,
+      ownerId: creatorId, // Creator is also the initial owner
       status: 'active',
     });
   }
@@ -136,6 +141,98 @@ export class ProjectService {
     await this.verifyOwnership(projectId, userId);
     const workflows = await this.workflowRepo.findByProjectId(projectId);
     return workflows.length;
+  }
+
+  // ===================================================================
+  // ACL MANAGEMENT METHODS
+  // ===================================================================
+
+  /**
+   * Get all ACL entries for a project
+   */
+  async getProjectAccess(projectId: string, userId: string, tx?: DbTransaction): Promise<ProjectAccess[]> {
+    await this.verifyOwnership(projectId, userId);
+    return await this.projectAccessRepo.findByProjectId(projectId, tx);
+  }
+
+  /**
+   * Grant or update access to a project
+   * Only owner can grant 'owner' role to others
+   */
+  async grantProjectAccess(
+    projectId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
+    tx?: DbTransaction
+  ): Promise<ProjectAccess[]> {
+    const project = await this.verifyOwnership(projectId, requestorId);
+
+    const results: ProjectAccess[] = [];
+
+    for (const entry of entries) {
+      // Only owner can grant 'owner' role
+      if (entry.role === 'owner' && project.ownerId !== requestorId) {
+        throw new Error("Only the project owner can grant owner access to others");
+      }
+
+      const acl = await this.projectAccessRepo.upsert(
+        projectId,
+        entry.principalType,
+        entry.principalId,
+        entry.role,
+        tx
+      );
+      results.push(acl);
+    }
+
+    return results;
+  }
+
+  /**
+   * Revoke access from a project
+   */
+  async revokeProjectAccess(
+    projectId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx?: DbTransaction
+  ): Promise<void> {
+    await this.verifyOwnership(projectId, requestorId);
+
+    for (const entry of entries) {
+      await this.projectAccessRepo.deleteByPrincipal(
+        projectId,
+        entry.principalType,
+        entry.principalId,
+        tx
+      );
+    }
+  }
+
+  /**
+   * Transfer project ownership to another user
+   * Only current owner can transfer ownership
+   */
+  async transferProjectOwnership(
+    projectId: string,
+    currentOwnerId: string,
+    newOwnerId: string,
+    tx?: DbTransaction
+  ): Promise<Project> {
+    const project = await this.verifyOwnership(projectId, currentOwnerId);
+
+    if (project.ownerId !== currentOwnerId) {
+      throw new Error("Only the current owner can transfer ownership");
+    }
+
+    return await this.projectRepo.update(
+      projectId,
+      {
+        ownerId: newOwnerId,
+        updatedAt: new Date(),
+      },
+      tx
+    );
   }
 }
 
