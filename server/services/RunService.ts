@@ -158,7 +158,6 @@ export class RunService {
       await this.runRepo.update(runId, {
         currentSectionId: navigation.nextSectionId,
         progress: navigation.currentProgress,
-        updatedAt: new Date(),
       });
     }
 

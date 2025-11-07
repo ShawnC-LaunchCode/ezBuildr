@@ -3,6 +3,9 @@ import { isAuthenticated } from "../googleAuth";
 import { insertStepSchema } from "@shared/schema";
 import { stepService } from "../services/StepService";
 import { z } from "zod";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "steps-routes" });
 
 /**
  * Register step-related routes
@@ -26,7 +29,7 @@ export function registerStepRoutes(app: Express): void {
       const step = await stepService.createStep(workflowId, sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
-      logger.error("Error creating step:", error);
+      logger.error({ error }, "Error creating step");
       const message = error instanceof Error ? error.message : "Failed to create step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -48,7 +51,7 @@ export function registerStepRoutes(app: Express): void {
       const steps = await stepService.getSteps(workflowId, sectionId, userId);
       res.json(steps);
     } catch (error) {
-      logger.error("Error fetching steps:", error);
+      logger.error({ error }, "Error fetching steps");
       const message = error instanceof Error ? error.message : "Failed to fetch steps";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -76,7 +79,7 @@ export function registerStepRoutes(app: Express): void {
       const step = await stepService.updateStep(stepId, workflowId, userId, updateData);
       res.json(step);
     } catch (error) {
-      logger.error("Error updating step:", error);
+      logger.error({ error }, "Error updating step");
       const message = error instanceof Error ? error.message : "Failed to update step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -104,7 +107,7 @@ export function registerStepRoutes(app: Express): void {
       await stepService.deleteStep(stepId, workflowId, userId);
       res.status(204).send();
     } catch (error) {
-      logger.error("Error deleting step:", error);
+      logger.error({ error }, "Error deleting step");
       const message = error instanceof Error ? error.message : "Failed to delete step";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -132,7 +135,7 @@ export function registerStepRoutes(app: Express): void {
       await stepService.reorderSteps(workflowId, sectionId, userId, steps);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
-      logger.error("Error reordering steps:", error);
+      logger.error({ error }, "Error reordering steps");
       const message = error instanceof Error ? error.message : "Failed to reorder steps";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

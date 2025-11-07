@@ -107,7 +107,13 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.get('/api/surveys/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const survey = await surveyService.getSurveyForUser(req.params.id, userId);
 
       res.json(survey);
@@ -131,13 +137,19 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.put('/api/surveys/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const updates = insertSurveySchema.partial().parse(req.body);
 
       const updatedSurvey = await surveyService.updateSurvey(req.params.id, userId, updates);
       res.json(updatedSurvey);
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId }, "Error updating survey");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error updating survey");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -156,12 +168,18 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.delete('/api/surveys/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       await surveyService.deleteSurvey(req.params.id, userId);
 
       res.json({ message: "Survey deleted successfully" });
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId }, "Error deleting survey");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error deleting survey");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -184,12 +202,18 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.get('/api/surveys/:id/validate', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const validation = await surveyService.validateForPublish(req.params.id, userId);
 
       res.json(validation);
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId }, "Error validating survey");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error validating survey");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -208,13 +232,19 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.put('/api/surveys/:id/status', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const { status } = req.body;
 
       const result = await surveyService.changeStatus(req.params.id, userId, status);
       res.json(result);
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId, status: req.body.status }, "Error updating survey status");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub, status: req.body.status }, "Error updating survey status");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -311,7 +341,13 @@ export function registerSurveyRoutes(app: Express): void {
   app.post('/api/surveys/:id/anonymous', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const surveyId = req.params.id;
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const { accessType, anonymousConfig } = req.body;
 
       const updatedSurvey = await surveyService.enableAnonymousAccess(
@@ -325,7 +361,7 @@ export function registerSurveyRoutes(app: Express): void {
         publicLink: `${req.protocol}://${req.get('host')}/survey/${updatedSurvey.publicLink}`
       });
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId }, "Error enabling anonymous access");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error enabling anonymous access");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -349,12 +385,18 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.delete('/api/surveys/:id/anonymous', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const updatedSurvey = await surveyService.disableAnonymousAccess(req.params.id, userId);
 
       res.json(updatedSurvey);
     } catch (error) {
-      logger.error({ error, surveyId: req.params.id, userId }, "Error disabling anonymous access");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error disabling anonymous access");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -378,12 +420,18 @@ export function registerSurveyRoutes(app: Express): void {
   app.get('/api/surveys/:id/results', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const surveyId = req.params.id;
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
 
       const results = await analyticsService.getSurveyResults(surveyId, userId);
       res.json(results);
     } catch (error) {
-      logger.error({ error, surveyId, userId }, "Error fetching survey results");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error fetching survey results");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -406,7 +454,13 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.post('/api/surveys/bulk/status', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const { surveyIds, status } = req.body;
 
       if (!Array.isArray(surveyIds) || !status) {
@@ -416,7 +470,7 @@ export function registerSurveyRoutes(app: Express): void {
       const result = await surveyService.bulkUpdateStatus(surveyIds, status, userId);
       res.json(result);
     } catch (error) {
-      logger.error({ error, surveyIds: req.body.surveyIds, status: req.body.status, userId }, "Error in bulk status update");
+      logger.error({ error, surveyIds: req.body.surveyIds, status: req.body.status, userId: req.user?.claims?.sub }, "Error in bulk status update");
       res.status(500).json({ message: "Failed to update survey statuses" });
     }
   });
@@ -427,7 +481,13 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.post('/api/surveys/bulk/delete', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const { surveyIds } = req.body;
 
       if (!Array.isArray(surveyIds)) {
@@ -437,7 +497,7 @@ export function registerSurveyRoutes(app: Express): void {
       const result = await surveyService.bulkDeleteSurveys(surveyIds, userId);
       res.json(result);
     } catch (error) {
-      logger.error({ error, surveyIds: req.body.surveyIds, userId }, "Error in bulk delete");
+      logger.error({ error, surveyIds: req.body.surveyIds, userId: req.user?.claims?.sub }, "Error in bulk delete");
       res.status(500).json({ message: "Failed to delete surveys" });
     }
   });
@@ -452,7 +512,13 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.post('/api/surveys/:id/duplicate', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const surveyId = req.params.id;
       const { title } = req.body;
 
@@ -463,7 +529,7 @@ export function registerSurveyRoutes(app: Express): void {
       const duplicatedSurvey = await surveyService.duplicateSurvey(surveyId, userId, title);
       res.json(duplicatedSurvey);
     } catch (error) {
-      logger.error({ error, surveyId, userId, newTitle: req.body.title }, "Error duplicating survey");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub, newTitle: req.body.title }, "Error duplicating survey");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -477,13 +543,19 @@ export function registerSurveyRoutes(app: Express): void {
    */
   app.post('/api/surveys/:id/archive', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
       const surveyId = req.params.id;
 
       const archivedSurvey = await surveyService.archiveSurvey(surveyId, userId);
       res.json(archivedSurvey);
     } catch (error) {
-      logger.error({ error, surveyId, userId }, "Error archiving survey");
+      logger.error({ error, surveyId: req.params.id, userId: req.user?.claims?.sub }, "Error archiving survey");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -502,7 +574,13 @@ export function registerSurveyRoutes(app: Express): void {
   app.post('/api/surveys/:surveyId/export', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const surveyId = req.params.surveyId;
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+
+      }
 
       // Verify ownership
       await surveyService.getSurveyForUser(surveyId, userId);
@@ -526,7 +604,7 @@ export function registerSurveyRoutes(app: Express): void {
         mimeType: exportedFile.mimeType
       });
     } catch (error) {
-      logger.error({ error, surveyId, userId, format: req.body.format }, "Error exporting survey data");
+      logger.error({ error, surveyId: req.params.surveyId, userId: req.user?.claims?.sub, format: req.body.format }, "Error exporting survey data");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });

@@ -3,6 +3,9 @@ import { isAuthenticated } from "../googleAuth";
 import { insertTransformBlockSchema } from "@shared/schema";
 import { transformBlockService } from "../services/TransformBlockService";
 import { z } from "zod";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "transform-blocks-routes" });
 
 // Rate limiting for test endpoint (in-memory, per user)
 const testRateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -57,7 +60,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.createBlock(workflowId, userId, blockData);
       res.status(201).json({ success: true, data: block });
     } catch (error) {
-      logger.error("Error creating transform block:", error);
+      logger.error({ error }, "Error creating transform block");
       const message = error instanceof Error ? error.message : "Failed to create transform block";
 
       if (error instanceof z.ZodError) {
@@ -84,7 +87,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const blocks = await transformBlockService.listBlocks(workflowId, userId);
       res.json({ success: true, data: blocks });
     } catch (error) {
-      logger.error("Error listing transform blocks:", error);
+      logger.error({ error }, "Error listing transform blocks");
       const message = error instanceof Error ? error.message : "Failed to list transform blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -106,7 +109,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.getBlock(blockId, userId);
       res.json({ success: true, data: block });
     } catch (error) {
-      logger.error("Error fetching transform block:", error);
+      logger.error({ error }, "Error fetching transform block");
       const message = error instanceof Error ? error.message : "Failed to fetch transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -130,7 +133,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const block = await transformBlockService.updateBlock(blockId, userId, updateData);
       res.json({ success: true, data: block });
     } catch (error) {
-      logger.error("Error updating transform block:", error);
+      logger.error({ error }, "Error updating transform block");
       const message = error instanceof Error ? error.message : "Failed to update transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("limit") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
@@ -152,7 +155,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       await transformBlockService.deleteBlock(blockId, userId);
       res.status(200).json({ success: true, message: "Transform block deleted" });
     } catch (error) {
-      logger.error("Error deleting transform block:", error);
+      logger.error({ error }, "Error deleting transform block");
       const message = error instanceof Error ? error.message : "Failed to delete transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -197,7 +200,7 @@ export function registerTransformBlockRoutes(app: Express): void {
         res.status(400).json(result);
       }
     } catch (error) {
-      logger.error("Error testing transform block:", error);
+      logger.error({ error }, "Error testing transform block");
       const message = error instanceof Error ? error.message : "Failed to test transform block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });

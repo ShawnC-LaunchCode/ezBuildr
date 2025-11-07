@@ -30,7 +30,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.createWorkflow(workflowData, userId);
       res.status(201).json(workflow);
     } catch (error) {
-      logger.error({ error, userId }, "Error creating workflow");
+      logger.error({ error, userId: req.user?.claims?.sub }, "Error creating workflow");
       res.status(500).json({
         message: "Failed to create workflow",
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
@@ -52,7 +52,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflows = await workflowService.listWorkflows(userId);
       res.json(workflows);
     } catch (error) {
-      logger.error({ error, userId }, "Error fetching workflows");
+      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching workflows");
       res.status(500).json({ message: "Failed to fetch workflows" });
     }
   });
@@ -72,7 +72,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId }, "Error fetching workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -96,7 +96,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error updating workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error updating workflow");
       const message = error instanceof Error ? error.message : "Failed to update workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -118,7 +118,7 @@ export function registerWorkflowRoutes(app: Express): void {
       await workflowService.deleteWorkflow(workflowId, userId);
       res.status(204).send();
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error deleting workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error deleting workflow");
       const message = error instanceof Error ? error.message : "Failed to delete workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -146,7 +146,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId, userId, status: req.body.status }, "Error changing workflow status");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, status: req.body.status }, "Error changing workflow status");
       const message = error instanceof Error ? error.message : "Failed to change status";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -172,7 +172,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId, userId, projectId: req.body.projectId }, "Error moving workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, projectId: req.body.projectId }, "Error moving workflow");
       const message = error instanceof Error ? error.message : "Failed to move workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -193,7 +193,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflows = await workflowService.listUnfiledWorkflows(userId);
       res.json(workflows);
     } catch (error) {
-      logger.error({ error, userId }, "Error fetching unfiled workflows");
+      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching unfiled workflows");
       res.status(500).json({ message: "Failed to fetch unfiled workflows" });
     }
   });
@@ -213,7 +213,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const result = await workflowService.getResolvedMode(workflowId, userId);
       res.json({ success: true, data: result });
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error fetching workflow mode");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow mode");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow mode";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -239,7 +239,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.setModeOverride(workflowId, userId, modeOverride);
       res.json({ success: true, data: workflow });
     } catch (error) {
-      logger.error({ error, workflowId, userId, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -273,7 +273,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const variables = await variableService.listVariables(workflowId, userId);
       res.json(variables);
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error fetching workflow variables");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow variables");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow variables";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -299,7 +299,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const access = await workflowService.getWorkflowAccess(workflowId, userId);
       res.json({ success: true, data: access });
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error fetching workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow access");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow access";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -332,7 +332,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const access = await workflowService.grantWorkflowAccess(workflowId, userId, entries);
       res.json({ success: true, data: access });
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error granting workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error granting workflow access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -373,7 +373,7 @@ export function registerWorkflowRoutes(app: Express): void {
       await workflowService.revokeWorkflowAccess(workflowId, userId, entries);
       res.json({ success: true, message: "Access revoked successfully" });
     } catch (error) {
-      logger.error({ error, workflowId, userId }, "Error revoking workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error revoking workflow access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -411,7 +411,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.transferWorkflowOwnership(workflowId, currentOwnerId, newOwnerId);
       res.json({ success: true, data: workflow });
     } catch (error) {
-      logger.error({ error, workflowId, currentOwnerId, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
+      logger.error({ error, workflowId: req.params.workflowId, currentOwnerId: req.user?.claims?.sub, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({

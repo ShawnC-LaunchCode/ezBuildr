@@ -28,6 +28,7 @@ export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
 export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
+export { BlockRepository, blockRepository } from "./BlockRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
 
 // Teams & ACL repositories

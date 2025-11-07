@@ -1,5 +1,5 @@
 import {
-  transformBlockRepository,
+  blockRepository,
   workflowRepository,
   sectionRepository,
 } from "../repositories";
@@ -11,16 +11,16 @@ import type { BlockPhase } from "@shared/types/blocks";
  * Handles CRUD operations for workflow blocks with ownership verification
  */
 export class BlockService {
-  private blockRepo: typeof transformBlockRepository;
+  private blockRepo: typeof blockRepository;
   private workflowRepo: typeof workflowRepository;
   private sectionRepo: typeof sectionRepository;
 
   constructor(
-    blockRepo?: typeof transformBlockRepository,
+    blockRepo?: typeof blockRepository,
     workflowRepo?: typeof workflowRepository,
     sectionRepo?: typeof sectionRepository
   ) {
-    this.blockRepo = blockRepo || transformBlockRepository;
+    this.blockRepo = blockRepo || blockRepository;
     this.workflowRepo = workflowRepo || workflowRepository;
     this.sectionRepo = sectionRepo || sectionRepository;
   }
@@ -122,10 +122,7 @@ export class BlockService {
       await this.verifySectionBelongsToWorkflow(updates.sectionId, block.workflowId);
     }
 
-    return await this.blockRepo.update(blockId, {
-      ...updates,
-      updatedAt: new Date(),
-    });
+    return await this.blockRepo.update(blockId, updates);
   }
 
   /**
@@ -174,12 +171,12 @@ export class BlockService {
       // Get section-specific blocks and workflow-scoped blocks for this phase
       const [sectionBlocks, workflowBlocks] = await Promise.all([
         this.blockRepo.findBySectionPhase(sectionId, phase),
-        this.blockRepo.findByWorkflowPhase(workflowId, phase).then(blocks =>
-          blocks.filter(b => !b.sectionId) // Only workflow-scoped blocks
+        this.blockRepo.findByWorkflowPhase(workflowId, phase).then((blocks: Block[]) =>
+          blocks.filter((b: Block) => !b.sectionId) // Only workflow-scoped blocks
         ),
       ]);
       // Combine and sort by order
-      return [...workflowBlocks, ...sectionBlocks].sort((a, b) => a.order - b.order);
+      return [...workflowBlocks, ...sectionBlocks].sort((a: Block, b: Block) => a.order - b.order);
     }
 
     // Just get workflow-scoped blocks for this phase

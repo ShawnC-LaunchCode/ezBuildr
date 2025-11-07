@@ -61,8 +61,9 @@ export async function runJsVm2(
     }
 
     // Dynamically import vm2 (may not be available in all environments)
-    let VM2: typeof import("vm2").VM;
+    let VM2: any;
     try {
+      // @ts-ignore - vm2 is optional and may not be installed
       const vm2Module = await import("vm2");
       VM2 = vm2Module.VM;
     } catch (importError) {
@@ -162,8 +163,8 @@ async function runJsNodeVm(
       setImmediate: undefined,
     };
 
-    vm.createContext(sandbox);
-    vm.runInContext(code, sandbox as vm.Context, {
+    const context = vm.createContext(sandbox);
+    vm.runInContext(code, context, {
       timeout: timeoutMs,
       displayErrors: true,
     });

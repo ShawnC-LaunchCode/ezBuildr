@@ -12,6 +12,7 @@ import type {
   AssertionOperator,
 } from "@shared/types/blocks";
 import type { Block } from "@shared/schema";
+import { logger } from "../logger";
 
 /**
  * BlockRunner Service

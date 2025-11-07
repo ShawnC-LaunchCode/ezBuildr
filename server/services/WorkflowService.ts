@@ -139,7 +139,7 @@ export class WorkflowService {
     status: 'draft' | 'active' | 'archived'
   ): Promise<Workflow> {
     await this.verifyOwnership(workflowId, userId);
-    return await this.workflowRepo.update(workflowId, { status, updatedAt: new Date() });
+    return await this.workflowRepo.update(workflowId, { status });
   }
 
   /**
@@ -207,7 +207,6 @@ export class WorkflowService {
 
     return await this.workflowRepo.update(workflowId, {
       modeOverride,
-      updatedAt: new Date(),
     });
   }
 
@@ -297,7 +296,6 @@ export class WorkflowService {
       workflowId,
       {
         ownerId: newOwnerId,
-        updatedAt: new Date(),
       },
       tx
     );

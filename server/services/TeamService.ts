@@ -194,7 +194,6 @@ export class TeamService {
       teamId,
       {
         name: data.name,
-        updatedAt: new Date(),
       },
       tx
     );

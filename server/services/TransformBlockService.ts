@@ -225,10 +225,10 @@ export class TransformBlockService {
           await this.valueRepo.upsert({
             runId,
             stepId: block.outputKey, // Use outputKey as identifier
-            value: result.output,
+            value: result.output as Record<string, unknown> | string | number | boolean | null,
           });
         } catch (error) {
-          logger.error(`Failed to persist transform block output for ${block.name}:`, error);
+          logger.error({ error }, `Failed to persist transform block output for ${block.name}`);
           // Continue execution even if persistence fails
         }
       } else {

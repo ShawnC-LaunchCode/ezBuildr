@@ -1,7 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { TemplateSharingService } from "../services/TemplateSharingService";
+import { createLogger } from "../logger";
+import { userRepository } from "../repositories";
 
+const logger = createLogger({ module: "template-sharing-routes" });
 const sharingService = new TemplateSharingService();
 
 /**
@@ -17,12 +20,19 @@ export function registerTemplateSharingRoutes(app: Express): void {
   app.get("/api/templates/:id/shares", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const user = req.user;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized - no user ID" });
+      }
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
       const shares = await sharingService.listShares(id, user);
       res.json(shares);
     } catch (error: any) {
-      logger.error("Error listing shares:", error);
+      logger.error({ error }, "Error listing shares");
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -40,27 +50,36 @@ export function registerTemplateSharingRoutes(app: Express): void {
    */
   app.post("/api/templates/:id/share", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized - no user ID" });
+      }
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       const { id } = req.params;
-      const { userId, email, access } = req.body;
-      const user = req.user;
+      const { userId: targetUserId, email, access } = req.body;
+      
 
       if (!access || !["use", "edit"].includes(access)) {
         return res.status(400).json({ error: "Invalid access level. Must be 'use' or 'edit'" });
       }
 
-      if (!userId && !email) {
+      if (!targetUserId && !email) {
         return res.status(400).json({ error: "Must provide either userId or email" });
       }
 
       const share = await sharingService.shareWithUser(id, user, {
-        userId,
+        userId: targetUserId,
         email,
         access,
       });
 
       res.json(share);
     } catch (error: any) {
-      logger.error("Error sharing template:", error);
+      logger.error({ error }, "Error sharing template");
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -81,9 +100,18 @@ export function registerTemplateSharingRoutes(app: Express): void {
    */
   app.put("/api/template-shares/:shareId", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized - no user ID" });
+      }
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       const { shareId } = req.params;
       const { access } = req.body;
-      const user = req.user;
+      
 
       if (!access || !["use", "edit"].includes(access)) {
         return res.status(400).json({ error: "Invalid access level. Must be 'use' or 'edit'" });
@@ -97,7 +125,7 @@ export function registerTemplateSharingRoutes(app: Express): void {
 
       res.json(share);
     } catch (error: any) {
-      logger.error("Error updating share access:", error);
+      logger.error({ error }, "Error updating share access");
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -111,8 +139,17 @@ export function registerTemplateSharingRoutes(app: Express): void {
    */
   app.delete("/api/template-shares/:shareId", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized - no user ID" });
+      }
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       const { shareId } = req.params;
-      const user = req.user;
+      
       const success = await sharingService.revoke(shareId, user);
 
       if (success) {
@@ -121,7 +158,7 @@ export function registerTemplateSharingRoutes(app: Express): void {
         res.status(404).json({ error: "Share not found" });
       }
     } catch (error: any) {
-      logger.error("Error revoking share:", error);
+      logger.error({ error }, "Error revoking share");
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -135,11 +172,20 @@ export function registerTemplateSharingRoutes(app: Express): void {
    */
   app.get("/api/templates-shared-with-me", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = req.user;
-      const sharedTemplates = await sharingService.listSharedWithUser(user.id, user.email!);
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized - no user ID" });
+      }
+
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const sharedTemplates = await sharingService.listSharedWithUser(userId, user.email || "");
       res.json(sharedTemplates);
     } catch (error: any) {
-      logger.error("Error listing shared templates:", error);
+      logger.error({ error }, "Error listing shared templates");
       res.status(500).json({ error: "Failed to list shared templates" });
     }
   });

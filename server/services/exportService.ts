@@ -75,7 +75,7 @@ class ExportService {
         engagement
       };
     } catch (error) {
-      logger.error('Error fetching analytics:', error);
+      logger.error({ error }, 'Error fetching analytics');
       // Return empty analytics if there's an error
       return {
         questionAnalytics: {},
@@ -603,7 +603,7 @@ class ExportService {
         }
       }
     } catch (error) {
-      logger.error('Error cleaning up exports:', error);
+      logger.error({ error }, 'Error cleaning up exports');
     }
   }
 

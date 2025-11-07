@@ -52,9 +52,9 @@ Vault-Logic Team
       `
     });
     */
-    
+
   } catch (error) {
-    logger.error("Error sending notification email:", error);
+    logger.error({ error }, "Error sending notification email");
     // Don't throw error to avoid breaking the survey submission flow
   }
 }
@@ -85,8 +85,8 @@ Vault-Logic Team
     `);
     
     // In production, implement actual email sending similar to above
-    
+
   } catch (error) {
-    logger.error("Error sending survey invitation:", error);
+    logger.error({ error }, "Error sending survey invitation");
   }
 }

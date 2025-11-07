@@ -84,7 +84,7 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
       for (const { id, order } of updates) {
         await txn
           .update(blocks)
-          .set({ order, updatedAt: new Date() })
+          .set({ order })
           .where(eq(blocks.id, id));
       }
     };

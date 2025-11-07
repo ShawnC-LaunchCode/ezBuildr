@@ -88,7 +88,7 @@ export class LogicService {
     // Start with all sections, then apply hide rules
     const allSectionIds = new Set(sections.map((s) => s.id));
     const visibleSections = new Set(
-      [...allSectionIds].filter((id) => {
+      Array.from(allSectionIds).filter((id) => {
         // If explicitly shown by a rule, include it
         if (evalResult.visibleSections.has(id)) return true;
         // If not explicitly hidden, include it (default visible)
@@ -138,7 +138,7 @@ export class LogicService {
 
     // Filter to only include visible required steps
     const visibleRequiredSteps = new Set(
-      [...effectiveRequiredSteps].filter((id) => visibleSteps.has(id))
+      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
     );
 
     // Calculate normal next section
@@ -199,7 +199,7 @@ export class LogicService {
 
     // Build visible sections
     const allSectionIds = new Set(sections.map((s) => s.id));
-    const visibleSections = new Set([...allSectionIds].filter((id) => {
+    const visibleSections = new Set(Array.from(allSectionIds).filter((id) => {
       if (evalResult.visibleSections.has(id)) return true;
       const hideRules = logicRules.filter(
         (r) => r.targetType === "section" && r.targetSectionId === id && r.action === "hide"
@@ -244,7 +244,7 @@ export class LogicService {
 
     // Filter to only visible required steps
     const visibleRequiredSteps = new Set(
-      [...effectiveRequiredSteps].filter((id) => visibleSteps.has(id))
+      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
     );
 
     // Validate all visible required steps have values

@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { workflowExportService } from "../services/WorkflowExportService";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "workflow-exports-routes" });
 
 /**
  * Register workflow export routes
@@ -35,7 +38,7 @@ export function registerWorkflowExportRoutes(app: Express): void {
         res.status(400).json({ message: "Invalid format. Use 'json' or 'csv'" });
       }
     } catch (error) {
-      logger.error("Error exporting workflow:", error);
+      logger.error({ error }, "Error exporting workflow");
       const message = error instanceof Error ? error.message : "Failed to export workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });

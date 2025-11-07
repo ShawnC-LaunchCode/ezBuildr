@@ -131,7 +131,7 @@ export class WorkflowExportService {
       const row = [
         run.id,
         run.createdBy || 'anon',
-        run.completed.toString(),
+        (run.completed ?? false).toString(),
         run.completedAt?.toISOString() || '',
         run.createdAt?.toISOString() || '',
         ...Array.from(allStepKeys).map((key) => {

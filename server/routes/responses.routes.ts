@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { isAuthenticated } from "../googleAuth";
 import { responseService } from "../services";
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "responses-routes" });
 
 /**
  * Register response-related routes
@@ -58,7 +61,7 @@ export function registerResponseRoutes(app: Express): void {
         message: result.message
       });
     } catch (error) {
-      logger.error("Error creating response:", error);
+      logger.error({ error }, "Error creating response");
       if (error instanceof Error) {
         if (error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -111,7 +114,7 @@ export function registerResponseRoutes(app: Express): void {
         message: result.message
       });
     } catch (error) {
-      logger.error("Error submitting answer:", error);
+      logger.error({ error }, "Error submitting answer");
       if (error instanceof Error) {
         if (error.message === "Response not found") {
           return res.status(404).json({ message: error.message });
@@ -145,7 +148,7 @@ export function registerResponseRoutes(app: Express): void {
         message: result.message
       });
     } catch (error) {
-      logger.error("Error completing response:", error);
+      logger.error({ error }, "Error completing response");
       if (error instanceof Error) {
         if (error.message === "Response not found" || error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });
@@ -178,12 +181,16 @@ export function registerResponseRoutes(app: Express): void {
    */
   app.get('/api/surveys/:surveyId/responses', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       const responses = await responseService.getResponsesForSurvey(req.params.surveyId, userId);
 
       res.json(responses);
     } catch (error) {
-      logger.error("Error fetching responses:", error);
+      logger.error({ error }, "Error fetching responses");
       if (error instanceof Error && error.message.includes("Access denied")) {
         return res.status(403).json({ message: error.message });
       }
@@ -197,12 +204,16 @@ export function registerResponseRoutes(app: Express): void {
    */
   app.get('/api/responses/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       const result = await responseService.getResponseDetails(req.params.id, userId);
 
       res.json(result);
     } catch (error) {
-      logger.error("Error fetching response:", error);
+      logger.error({ error }, "Error fetching response");
       if (error instanceof Error) {
         if (error.message === "Response not found" || error.message === "Survey not found") {
           return res.status(404).json({ message: error.message });

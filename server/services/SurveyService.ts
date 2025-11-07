@@ -270,32 +270,32 @@ export class SurveyService {
     survey: Survey;
     pages: any[];
   }> {
-    logger.info('[SurveyService] getSurveyByPublicLink called with:', publicLink);
+    logger.info({ publicLink }, '[SurveyService] getSurveyByPublicLink called');
 
     // Look up survey by public link
     const survey = await this.surveyRepo.findByPublicLink(publicLink);
 
     if (!survey) {
-      logger.info('[SurveyService] Survey not found for public link:', publicLink);
+      logger.info({ publicLink }, '[SurveyService] Survey not found for public link');
       throw new Error("Survey not found");
     }
 
-    logger.info('[SurveyService] Survey found:', {
+    logger.info({
       id: survey.id,
       title: survey.title,
       status: survey.status,
       allowAnonymous: survey.allowAnonymous,
       publicLink: survey.publicLink
-    });
+    }, '[SurveyService] Survey found');
 
     // Verify survey is open and allows anonymous access
     if (survey.status !== 'open') {
-      logger.info('[SurveyService] Survey not open. Status:', survey.status);
+      logger.info({ status: survey.status }, '[SurveyService] Survey not open');
       throw new Error("Survey not available");
     }
 
     if (!survey.allowAnonymous) {
-      logger.info('[SurveyService] Anonymous access not allowed:', survey.allowAnonymous);
+      logger.info({ allowAnonymous: survey.allowAnonymous }, '[SurveyService] Anonymous access not allowed');
       throw new Error("Survey not available");
     }
 
@@ -304,18 +304,21 @@ export class SurveyService {
     // Fetch pages with questions
     const pages = await this.pageRepo.findBySurvey(survey.id);
 
-    logger.info('[SurveyService] Pages fetched:', pages.length);
+    logger.info({ pageCount: pages.length }, '[SurveyService] Pages fetched');
 
     // Fetch questions for each page
     const pagesWithQuestions = await Promise.all(
       pages.map(async (page) => {
         const pageQuestions = await this.questionRepo.findByPage(page.id);
-        logger.info('[SurveyService] Questions for page', page.id, ':', pageQuestions.map(q => ({
-          id: q.id,
-          title: q.title,
-          type: q.type,
-          description: q.description
-        })));
+        logger.info({
+          pageId: page.id,
+          questions: pageQuestions.map(q => ({
+            id: q.id,
+            title: q.title,
+            type: q.type,
+            description: q.description
+          }))
+        }, '[SurveyService] Questions for page');
         return {
           ...page,
           questions: pageQuestions
@@ -323,8 +326,10 @@ export class SurveyService {
       })
     );
 
-    logger.info('[SurveyService] Returning survey data with', pagesWithQuestions.length, 'pages');
-    logger.info('[SurveyService] Total questions across all pages:', pagesWithQuestions.reduce((sum, p: any) => sum + (p.questions?.length || 0), 0));
+    logger.info({ pageCount: pagesWithQuestions.length }, '[SurveyService] Returning survey data');
+    logger.info({
+      totalQuestions: pagesWithQuestions.reduce((sum, p: any) => sum + (p.questions?.length || 0), 0)
+    }, '[SurveyService] Total questions across all pages');
 
     return {
       survey,

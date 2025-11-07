@@ -178,11 +178,11 @@ export class SurveyAIService {
         })
         .returning();
 
-      logger.info('AI Survey created:', {
+      logger.info({
         id: survey.id,
         title: survey.title,
         pageCount: surveyData.pages.length
-      });
+      }, 'AI Survey created');
 
       // Create pages and questions
       let pageOrder = 1;
@@ -196,11 +196,11 @@ export class SurveyAIService {
           })
           .returning();
 
-        logger.info('Page created:', {
+        logger.info({
           pageId: page.id,
           title: page.title,
           questionCount: pageData.questions.length
-        });
+        }, 'Page created');
 
         // Create questions for this page
         let questionOrder = 1;

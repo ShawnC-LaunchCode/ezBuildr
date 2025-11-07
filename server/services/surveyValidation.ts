@@ -238,7 +238,7 @@ export async function validateSurveyForPublish(
       warnings,
     };
   } catch (error) {
-    logger.error("Error validating survey:", error);
+    logger.error({ error }, "Error validating survey");
     errors.push({
       field: "system",
       message: "An error occurred during validation",

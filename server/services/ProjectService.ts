@@ -89,10 +89,7 @@ export class ProjectService {
     data: Partial<InsertProject>
   ): Promise<Project> {
     await this.verifyOwnership(projectId, userId);
-    return await this.projectRepo.update(projectId, {
-      ...data,
-      updatedAt: new Date(),
-    });
+    return await this.projectRepo.update(projectId, data);
   }
 
   /**
@@ -102,7 +99,6 @@ export class ProjectService {
     await this.verifyOwnership(projectId, userId);
     return await this.projectRepo.update(projectId, {
       status: 'archived',
-      updatedAt: new Date(),
     });
   }
 
@@ -113,7 +109,6 @@ export class ProjectService {
     await this.verifyOwnership(projectId, userId);
     return await this.projectRepo.update(projectId, {
       status: 'active',
-      updatedAt: new Date(),
     });
   }
 
@@ -229,7 +224,6 @@ export class ProjectService {
       projectId,
       {
         ownerId: newOwnerId,
-        updatedAt: new Date(),
       },
       tx
     );
