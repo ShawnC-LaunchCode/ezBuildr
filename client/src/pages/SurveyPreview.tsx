@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Eye } from "lucide-react";
 import QuestionRenderer from "@/components/survey/QuestionRenderer";
 import ProgressBar from "@/components/survey/ProgressBar";
-import { StatusBadge } from "@/components/survey/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 export default function SurveyPreview() {
   const { id } = useParams();

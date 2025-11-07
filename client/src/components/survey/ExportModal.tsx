@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { formatFileSize } from "@/lib/formatting";
 import { format } from "date-fns";
 
 interface ExportModalProps {
@@ -77,14 +78,6 @@ export default function ExportModal({ surveyId, surveyTitle, isOpen, onClose }: 
     if (downloadInfo) {
       window.open(downloadInfo.downloadUrl, '_blank');
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const resetModal = () => {

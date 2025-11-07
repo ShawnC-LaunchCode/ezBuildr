@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Upload, X, File, Image, FileText, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatFileSize } from "@/lib/formatting";
 import type { FileUploadConfig, FileMetadata } from "@shared/schema";
 
 interface FileUploadProps {
@@ -208,14 +209,6 @@ export function FileUpload({
         variant: "destructive",
       });
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const getFileIcon = (mimeType: string) => {

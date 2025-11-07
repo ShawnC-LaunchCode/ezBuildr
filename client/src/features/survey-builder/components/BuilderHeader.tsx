@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/survey/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Eye } from "lucide-react";
 import type { Survey } from "@shared/schema";
 
