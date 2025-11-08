@@ -213,6 +213,9 @@ export const stepAPI = {
   list: (sectionId: string) =>
     fetchAPI<ApiStep[]>(`/api/sections/${sectionId}/steps`),
 
+  get: (id: string) =>
+    fetchAPI<ApiStep>(`/api/steps/${id}`),
+
   create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId">) =>
     fetchAPI<ApiStep>(`/api/sections/${sectionId}/steps`, {
       method: "POST",

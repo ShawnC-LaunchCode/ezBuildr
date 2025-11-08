@@ -19,6 +19,7 @@ export const queryKeys = {
   variables: (workflowId: string) => ["workflows", workflowId, "variables"] as const,
   sections: (workflowId: string) => ["sections", workflowId] as const,
   steps: (sectionId: string) => ["steps", sectionId] as const,
+  step: (id: string) => ["steps", "single", id] as const,
   blocks: (workflowId: string, phase?: string) => ["blocks", workflowId, phase] as const,
   transformBlocks: (workflowId: string) => ["transformBlocks", workflowId] as const,
   transformBlock: (id: string) => ["transformBlocks", id] as const,
@@ -269,6 +270,14 @@ export function useSteps(sectionId: string | undefined) {
   });
 }
 
+export function useStep(stepId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.step(stepId!),
+    queryFn: () => stepAPI.get(stepId!),
+    enabled: !!stepId,
+  });
+}
+
 export function useCreateStep() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -287,6 +296,7 @@ export function useUpdateStep() {
       stepAPI.update(id, data),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.step(variables.id) });
       // Invalidate variables when step alias changes
       const section = data?.sectionId;
       if (section) {

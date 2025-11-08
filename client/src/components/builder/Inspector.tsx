@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { BlocksPanel } from "./BlocksPanel";
 import { TransformBlocksPanel } from "./TransformBlocksPanel";
+import { StepPropertiesPanel } from "./StepPropertiesPanel";
 import { Settings, Blocks, GitBranch, Code } from "lucide-react";
 
 export function Inspector({ workflowId }: { workflowId: string }) {
@@ -20,6 +21,39 @@ export function Inspector({ workflowId }: { workflowId: string }) {
       </div>
     );
   }
+
+  // Determine which properties panel to show based on selection type
+  const renderPropertiesPanel = () => {
+    if (selection.type === "step") {
+      // We need the sectionId to update the step, which we can get from the step data
+      // For now, we'll pass it through. The StepPropertiesPanel will fetch the step and get sectionId
+      return <StepPropertiesPanel stepId={selection.id} sectionId="" />;
+    } else if (selection.type === "section") {
+      return (
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Section properties can be edited directly in the canvas.
+          </p>
+        </div>
+      );
+    } else if (selection.type === "block") {
+      return (
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Block properties can be edited by clicking on the block in the Blocks tab.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4">
+        <p className="text-sm text-muted-foreground">
+          Select a question to edit its properties.
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -43,12 +77,8 @@ export function Inspector({ workflowId }: { workflowId: string }) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="properties" className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Edit properties in the canvas area →
-            </p>
-          </div>
+        <TabsContent value="properties" className="flex-1 overflow-y-auto">
+          {renderPropertiesPanel()}
         </TabsContent>
 
         <TabsContent value="blocks" className="flex-1 overflow-y-auto">

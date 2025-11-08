@@ -272,6 +272,28 @@ export class StepService {
     // Use the existing method with the workflowId
     await this.deleteStep(stepId, section.workflowId, userId);
   }
+
+  /**
+   * Get a step by ID (workflow looked up automatically)
+   */
+  async getStepById(stepId: string, userId: string): Promise<Step> {
+    // Look up the step
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error("Step not found");
+    }
+
+    // Look up the section to get its workflowId
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section) {
+      throw new Error("Section not found");
+    }
+
+    // Verify ownership
+    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+
+    return step;
+  }
 }
 
 // Singleton instance

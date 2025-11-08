@@ -284,9 +284,11 @@ function StepField({ step, value, onChange }: { step: any; value: any; onChange:
         );
 
       case "date_time":
+        const dateTimeType = step.options?.dateTimeType || "datetime";
+        const inputType = dateTimeType === "date" ? "date" : dateTimeType === "time" ? "time" : "datetime-local";
         return (
           <Input
-            type="datetime-local"
+            type={inputType}
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
           />

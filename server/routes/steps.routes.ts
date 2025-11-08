@@ -168,6 +168,28 @@ export function registerStepRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/steps/:stepId
+   * Get a single step (workflow looked up automatically)
+   */
+  app.get('/api/steps/:stepId', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { stepId } = req.params;
+      const step = await stepService.getStepById(stepId, userId);
+      res.json(step);
+    } catch (error) {
+      logger.error({ error }, "Error fetching step");
+      const message = error instanceof Error ? error.message : "Failed to fetch step";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
    * PUT /api/steps/:stepId
    * Update a step (workflow looked up automatically)
    */
