@@ -51,7 +51,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const deleteSectionMutation = useDeleteSection();
   const reorderStepsMutation = useReorderSteps();
   const reorderBlocksMutation = useReorderBlocks();
-  const { selectSection, selection } = useWorkflowBuilder();
+  const { selectSection, selectBlock, selectStep, selection } = useWorkflowBuilder();
   const { toast } = useToast();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
@@ -317,7 +317,23 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-2">
-                {items.map((item) => {
+                {items.map((item, index) => {
+                  const handleEnterNext = () => {
+                    // Find next item in list
+                    if (index < items.length - 1) {
+                      const nextItem = items[index + 1];
+                      if (nextItem.kind === "step") {
+                        // Select and expand next step
+                        selectStep(nextItem.id);
+                        setExpandedStepIds((prev) => new Set(prev).add(nextItem.id));
+                        setAutoFocusStepId(nextItem.id);
+                      } else {
+                        // Just select next block
+                        selectBlock(nextItem.id);
+                      }
+                    }
+                  };
+
                   if (item.kind === "step") {
                     return (
                       <QuestionCard
@@ -327,6 +343,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
                         isExpanded={expandedStepIds.has(item.id)}
                         autoFocus={autoFocusStepId === item.id}
                         onToggleExpand={() => handleToggleExpand(item.id)}
+                        onEnterNext={handleEnterNext}
                       />
                     );
                   } else {
@@ -336,6 +353,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
                         item={item}
                         workflowId={workflowId}
                         sectionId={page.id}
+                        onEnterNext={handleEnterNext}
                       />
                     );
                   }

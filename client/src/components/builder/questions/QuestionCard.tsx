@@ -39,6 +39,7 @@ interface QuestionCardProps {
   isExpanded?: boolean;
   autoFocus?: boolean;
   onToggleExpand?: () => void;
+  onEnterNext?: () => void;
 }
 
 const STEP_TYPE_OPTIONS: Array<{ value: StepType; label: string }> = [
@@ -57,6 +58,7 @@ export function QuestionCard({
   isExpanded = false,
   autoFocus = false,
   onToggleExpand,
+  onEnterNext,
 }: QuestionCardProps) {
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
@@ -237,6 +239,13 @@ export function QuestionCard({
                     ref={titleInputRef}
                     value={localTitle}
                     onChange={(e) => handleTitleChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.currentTarget.blur();
+                        // Navigate to next item after debounce completes
+                        setTimeout(() => onEnterNext?.(), 600);
+                      }
+                    }}
                     placeholder="Question text"
                     className="font-medium text-sm border-transparent hover:border-input focus:border-input"
                   />

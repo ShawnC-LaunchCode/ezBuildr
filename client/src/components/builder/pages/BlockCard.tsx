@@ -22,6 +22,7 @@ interface BlockCardProps {
   item: PageItem;
   workflowId: string;
   sectionId: string;
+  onEnterNext?: () => void;
 }
 
 const STEP_TYPE_LABELS: Record<string, string> = {
@@ -48,7 +49,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   js: "JS Transform",
 };
 
-export function BlockCard({ item, workflowId, sectionId }: BlockCardProps) {
+export function BlockCard({ item, workflowId, sectionId, onEnterNext }: BlockCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 
@@ -224,6 +225,8 @@ export function BlockCard({ item, workflowId, sectionId }: BlockCardProps) {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.currentTarget.blur();
+                          // Navigate to next item after blur completes
+                          setTimeout(() => onEnterNext?.(), 0);
                         }
                       }}
                       autoFocus
@@ -253,6 +256,8 @@ export function BlockCard({ item, workflowId, sectionId }: BlockCardProps) {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.currentTarget.blur();
+                            // Navigate to next item after blur completes
+                            setTimeout(() => onEnterNext?.(), 0);
                           }
                         }}
                         autoFocus
