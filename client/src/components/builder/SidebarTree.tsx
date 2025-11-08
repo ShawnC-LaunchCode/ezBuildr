@@ -1,5 +1,5 @@
 /**
- * Sidebar Tree - Drag-and-drop section/step hierarchy
+ * Sidebar Tree - Drag-and-drop page/question hierarchy
  */
 
 import { useState } from "react";

@@ -4,6 +4,7 @@
  * Includes toolbars for adding questions and logic
  */
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -21,7 +22,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GripVertical, Settings, Trash2 } from "lucide-react";
+import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const reorderBlocksMutation = useReorderBlocks();
   const { selectSection } = useWorkflowBuilder();
   const { toast } = useToast();
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
@@ -128,20 +130,44 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
           </div>
 
           {/* Page title and description */}
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-1">
             <Input
               value={page.title}
               onChange={(e) => handleUpdateTitle(e.target.value)}
               className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0"
               placeholder="Page title"
             />
-            <Textarea
-              value={page.description || ""}
-              onChange={(e) => handleUpdateDescription(e.target.value)}
-              className="text-sm text-muted-foreground border-none shadow-none px-0 resize-none focus-visible:ring-0"
-              placeholder="Page description (optional)"
-              rows={2}
-            />
+            {page.description && !isDescriptionExpanded && (
+              <div
+                className="flex items-center gap-1 cursor-pointer group"
+                onClick={() => setIsDescriptionExpanded(true)}
+              >
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground truncate flex-1">
+                  {page.description}
+                </p>
+              </div>
+            )}
+            {(!page.description || isDescriptionExpanded) && (
+              <div className="space-y-1">
+                {isDescriptionExpanded && page.description && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1 -ml-1"
+                    onClick={() => setIsDescriptionExpanded(false)}
+                  >
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                )}
+                <Input
+                  value={page.description || ""}
+                  onChange={(e) => handleUpdateDescription(e.target.value)}
+                  className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0"
+                  placeholder="Page description (optional)"
+                />
+              </div>
+            )}
           </div>
 
           {/* Page actions */}
@@ -164,19 +190,9 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
             </Button>
           </div>
         </div>
-
-        {/* Toolbars */}
-        <div className="flex items-center gap-2 pt-2">
-          <QuestionAddMenu sectionId={page.id} nextOrder={nextOrder} />
-          <LogicAddMenu
-            workflowId={workflowId}
-            sectionId={page.id}
-            nextOrder={nextOrder}
-          />
-        </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-3">
         {items.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             {UI_LABELS.NO_QUESTIONS}
@@ -204,6 +220,16 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
             </SortableContext>
           </DndContext>
         )}
+
+        {/* Add buttons at the bottom */}
+        <div className="flex items-center gap-2 pt-2">
+          <QuestionAddMenu sectionId={page.id} nextOrder={nextOrder} />
+          <LogicAddMenu
+            workflowId={workflowId}
+            sectionId={page.id}
+            nextOrder={nextOrder}
+          />
+        </div>
       </CardContent>
     </Card>
   );
