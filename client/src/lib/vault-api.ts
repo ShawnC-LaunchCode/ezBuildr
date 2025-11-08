@@ -204,6 +204,7 @@ export interface ApiStep {
   description: string | null;
   required: boolean;
   options: any; // JSON - for choice types
+  alias: string | null; // Optional variable name for logic/blocks
   order: number;
   createdAt: string;
 }
