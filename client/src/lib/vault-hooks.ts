@@ -303,7 +303,33 @@ export function useReorderSteps() {
   return useMutation({
     mutationFn: ({ sectionId, steps }: { sectionId: string; steps: Array<{ id: string; order: number }> }) =>
       stepAPI.reorder(sectionId, steps),
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+
+      // Snapshot the previous value
+      const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(variables.sectionId));
+
+      // Optimistically update to the new value
+      if (previousSteps) {
+        const updatedSteps = previousSteps.map((step) => {
+          const newOrder = variables.steps.find((s) => s.id === step.id);
+          return newOrder ? { ...step, order: newOrder.order } : step;
+        });
+        queryClient.setQueryData(queryKeys.steps(variables.sectionId), updatedSteps);
+      }
+
+      // Return context with the previous value
+      return { previousSteps };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousSteps) {
+        queryClient.setQueryData(queryKeys.steps(variables.sectionId), context.previousSteps);
+      }
+    },
+    onSettled: (_, __, variables) => {
+      // Always refetch after error or success to ensure sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
     },
   });
@@ -359,8 +385,34 @@ export function useReorderBlocks() {
   return useMutation({
     mutationFn: ({ workflowId, blocks }: { workflowId: string; blocks: Array<{ id: string; order: number }> }) =>
       blockAPI.reorder(workflowId, blocks),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.blocks(variables.workflowId) });
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["blocks", variables.workflowId] });
+
+      // Snapshot the previous value
+      const previousBlocks = queryClient.getQueryData<ApiBlock[]>(queryKeys.blocks(variables.workflowId));
+
+      // Optimistically update to the new value
+      if (previousBlocks) {
+        const updatedBlocks = previousBlocks.map((block) => {
+          const newOrder = variables.blocks.find((b) => b.id === block.id);
+          return newOrder ? { ...block, order: newOrder.order } : block;
+        });
+        queryClient.setQueryData(queryKeys.blocks(variables.workflowId), updatedBlocks);
+      }
+
+      // Return context with the previous value
+      return { previousBlocks };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousBlocks) {
+        queryClient.setQueryData(queryKeys.blocks(variables.workflowId), context.previousBlocks);
+      }
+    },
+    onSettled: (_, __, variables) => {
+      // Always refetch after error or success to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: ["blocks", variables.workflowId] });
     },
   });
 }
