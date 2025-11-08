@@ -2,7 +2,7 @@
  * Transform Blocks Panel - CRUD for JavaScript/Python transform blocks
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, Play } from "lucide-react";
 import { useTransformBlocks, useCreateTransformBlock, useDeleteTransformBlock, useUpdateTransformBlock, useTestTransformBlock } from "@/lib/vault-hooks";
 import { Button } from "@/components/ui/button";
@@ -140,6 +140,26 @@ function TransformBlockEditor({
   const [inputKeysText, setInputKeysText] = useState(block?.inputKeys?.join(", ") || "");
   const [testData, setTestData] = useState("{}");
   const [testResult, setTestResult] = useState<any>(null);
+
+  // Reset form data when dialog opens or block changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: block?.name || "",
+        language: block?.language || ("javascript" as TransformBlockLanguage),
+        phase: block?.phase || "onSectionSubmit",
+        code: block?.code || "",
+        inputKeys: block?.inputKeys || [],
+        outputKey: block?.outputKey || "",
+        timeoutMs: block?.timeoutMs || 1000,
+        enabled: block?.enabled ?? true,
+        order: block?.order ?? 0,
+      });
+      setInputKeysText(block?.inputKeys?.join(", ") || "");
+      setTestData("{}");
+      setTestResult(null);
+    }
+  }, [isOpen, block]);
 
   const handleSave = async () => {
     try {

@@ -2,7 +2,7 @@
  * Blocks Panel - CRUD for prefill/validate/branch blocks
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { useBlocks, useCreateBlock, useDeleteBlock, useUpdateBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
@@ -145,6 +145,20 @@ function BlockEditor({
     order: block?.order ?? 0,
     sectionId: block?.sectionId || null,
   });
+
+  // Reset form data when dialog opens or block changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        type: block?.type || ("prefill" as BlockType),
+        phase: block?.phase || ("onRunStart" as BlockPhase),
+        config: block?.config || {},
+        enabled: block?.enabled ?? true,
+        order: block?.order ?? 0,
+        sectionId: block?.sectionId || null,
+      });
+    }
+  }, [isOpen, block]);
 
   const availableBlockTypes = getAvailableBlockTypes(mode);
 
