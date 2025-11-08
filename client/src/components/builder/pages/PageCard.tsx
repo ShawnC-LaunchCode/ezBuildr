@@ -54,6 +54,16 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const { toast } = useToast();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
+  // Make the page card sortable for page reordering
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: page.id });
+
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
   const items = combinePageItems(steps, pageBlocks);
@@ -120,14 +130,24 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
 
   const nextOrder = getNextOrder(items);
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="pb-3">
-        <div className="flex items-start gap-2">
-          {/* Drag handle for page reordering (future feature) */}
-          <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-          </div>
+    <div ref={setNodeRef} style={style}>
+      <Card className={cn("shadow-sm", isDragging && "opacity-50")}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start gap-2">
+            {/* Drag handle for page reordering */}
+            <button
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
 
           {/* Page title and description */}
           <div className="flex-1 space-y-1">
@@ -232,5 +252,6 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
