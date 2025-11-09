@@ -304,13 +304,16 @@ export type TransformBlockLanguage = "javascript" | "python";
 export interface ApiTransformBlock {
   id: string;
   workflowId: string;
+  sectionId?: string | null;
   name: string;
   language: TransformBlockLanguage;
+  phase: "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
   code: string;
   inputKeys: string[];
   outputKey: string;
   enabled: boolean;
   order: number;
+  timeoutMs?: number;
   createdAt: string;
   updatedAt: string;
 }

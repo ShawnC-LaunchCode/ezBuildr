@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCreateBlock, useWorkflowMode } from "@/lib/vault-hooks";
+import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { isFeatureAllowed } from "@/lib/mode";
@@ -58,6 +58,7 @@ const LOGIC_TYPES = {
 
 export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuProps) {
   const createBlockMutation = useCreateBlock();
+  const createTransformBlockMutation = useCreateTransformBlock();
   const { data: workflowMode } = useWorkflowMode(workflowId);
   const { toast } = useToast();
   const { selectBlock } = useWorkflowBuilder();
@@ -67,8 +68,35 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
 
   const handleAddLogic = async (type: "prefill" | "validate" | "branch" | "js") => {
     try {
+      // Handle JS blocks differently - they use the transform blocks API
+      if (type === "js") {
+        const block = await createTransformBlockMutation.mutateAsync({
+          workflowId,
+          sectionId,
+          name: "JS Transform",
+          language: "javascript" as const,
+          phase: "onSectionSubmit",
+          code: "// Write your custom JavaScript here\n// Access variables via input.variableName\n// Return an object with your transformed data\n\nreturn {\n  // your computed values\n};",
+          inputKeys: [],
+          outputKey: "computed_value",
+          timeoutMs: 1000,
+          enabled: true,
+          order: nextOrder,
+        });
+
+        // Select the newly created block
+        selectBlock(block.id);
+
+        toast({
+          title: "Logic block added",
+          description: "JS Transform created",
+        });
+        return;
+      }
+
+      // Handle regular blocks (prefill, validate, branch)
       let config = {};
-      let phase: any = "onSectionEnter";
+      let phase: "onSectionEnter" | "onSectionSubmit" = "onSectionEnter";
 
       // Set default config based on type
       if (type === "prefill") {
@@ -79,15 +107,6 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
         phase = "onSectionSubmit";
       } else if (type === "branch") {
         config = { conditions: [], targetSectionId: null };
-        phase = "onSectionSubmit";
-      } else if (type === "js") {
-        config = {
-          code: "// Write your custom JavaScript here\n// Access variables via input.variableName\n// Return an object with your transformed data\n\nreturn {\n  // your computed values\n};",
-          inputKeys: [],
-          outputKey: "computed_value",
-          timeoutMs: 1000,
-          display: "invisible", // invisible = no UI in runner, visible = shows as question-like block
-        };
         phase = "onSectionSubmit";
       }
 
@@ -106,7 +125,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
 
       toast({
         title: "Logic block added",
-        description: `${LOGIC_TYPES.easy.find((t) => t.type === type)?.label || LOGIC_TYPES.advanced.find((t) => t.type === type)?.label} created`,
+        description: `${LOGIC_TYPES.easy.find((t) => t.type === type)?.label} created`,
       });
     } catch (error) {
       toast({
