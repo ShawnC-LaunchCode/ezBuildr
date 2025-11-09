@@ -109,6 +109,11 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
     setInputKeys(inputKeys.filter((k) => k !== key));
   };
 
+  const getVariableDisplayName = (key: string) => {
+    const variable = variables.find((v) => v.key === key);
+    return variable?.alias || key;
+  };
+
   const validateCode = () => {
     try {
       // eslint-disable-next-line no-new-func
@@ -222,7 +227,7 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
               <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 border rounded-md">
                 {inputKeys.map((key) => (
                   <Badge key={key} variant="secondary" className="font-mono text-xs">
-                    {key}
+                    {getVariableDisplayName(key)}
                     <button
                       onClick={() => handleRemoveInputKey(key)}
                       className="ml-1.5 hover:text-destructive"

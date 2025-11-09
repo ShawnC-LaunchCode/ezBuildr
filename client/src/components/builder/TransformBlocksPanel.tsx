@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Play } from "lucide-react";
-import { useTransformBlocks, useCreateTransformBlock, useDeleteTransformBlock, useUpdateTransformBlock, useTestTransformBlock } from "@/lib/vault-hooks";
+import { useTransformBlocks, useCreateTransformBlock, useDeleteTransformBlock, useUpdateTransformBlock, useTestTransformBlock, useWorkflowVariables } from "@/lib/vault-hooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,6 +64,12 @@ export function TransformBlocksPanel({ workflowId }: { workflowId: string }) {
 function TransformBlockCard({ block, workflowId, onEdit }: { block: any; workflowId: string; onEdit: (block: any) => void }) {
   const deleteMutation = useDeleteTransformBlock();
   const { toast } = useToast();
+  const { data: variables = [] } = useWorkflowVariables(workflowId);
+
+  const getVariableDisplayName = (key: string) => {
+    const variable = variables.find((v) => v.key === key);
+    return variable?.alias || key;
+  };
 
   const handleDelete = async () => {
     try {
@@ -73,6 +79,8 @@ function TransformBlockCard({ block, workflowId, onEdit }: { block: any; workflo
       toast({ title: "Error", description: "Failed to delete block", variant: "destructive" });
     }
   };
+
+  const displayInputKeys = block.inputKeys.map(getVariableDisplayName).join(", ") || "none";
 
   return (
     <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onEdit(block)}>
@@ -87,7 +95,7 @@ function TransformBlockCard({ block, workflowId, onEdit }: { block: any; workflo
             </div>
             <div className="text-xs text-muted-foreground space-y-0.5">
               <div>Phase: {block.phase || "onSectionSubmit"}</div>
-              <div>Inputs: {block.inputKeys.join(", ") || "none"}</div>
+              <div>Inputs: {displayInputKeys}</div>
               <div>Output: {block.outputKey}</div>
               <div>Order: {block.order} • {block.enabled ? "Enabled" : "Disabled"}</div>
             </div>
