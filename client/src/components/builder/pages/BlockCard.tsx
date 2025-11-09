@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { useDeleteStep, useDeleteBlock, useUpdateStep } from "@/lib/vault-hooks";
+import { useDeleteStep, useDeleteBlock, useDeleteTransformBlock, useUpdateStep } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import type { PageItem } from "@/lib/dnd";
 
@@ -61,6 +61,7 @@ export function BlockCard({ item, workflowId, sectionId, onEnterNext }: BlockCar
   const { selection, selectStep, selectBlock } = useWorkflowBuilder();
   const deleteStepMutation = useDeleteStep();
   const deleteBlockMutation = useDeleteBlock();
+  const deleteTransformBlockMutation = useDeleteTransformBlock();
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
@@ -100,7 +101,12 @@ export function BlockCard({ item, workflowId, sectionId, onEnterNext }: BlockCar
       }
     } else {
       try {
-        await deleteBlockMutation.mutateAsync({ id: item.id, workflowId });
+        // Use different API for transform blocks (type === "js")
+        if (item.data.type === "js") {
+          await deleteTransformBlockMutation.mutateAsync({ id: item.id, workflowId });
+        } else {
+          await deleteBlockMutation.mutateAsync({ id: item.id, workflowId });
+        }
         toast({
           title: "Logic block deleted",
           description: "Logic block removed from page",
@@ -297,7 +303,9 @@ export function BlockCard({ item, workflowId, sectionId, onEnterNext }: BlockCar
               ) : (
                 <>
                   <div className="font-medium text-sm">
-                    {BLOCK_TYPE_LABELS[item.data.type] || item.data.type}
+                    {item.data.type === "js" && item.data.config?.name
+                      ? item.data.config.name
+                      : (BLOCK_TYPE_LABELS[item.data.type] || item.data.type)}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="outline" className="text-xs">

@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useSteps, useBlocks, useUpdateSection, useDeleteSection, useReorderSteps, useReorderBlocks } from "@/lib/vault-hooks";
+import { useSteps, useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderSteps, useReorderBlocks } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { useToast } from "@/hooks/use-toast";
 import { combinePageItems, recomputeOrders, getNextOrder } from "@/lib/dnd";
@@ -47,6 +47,7 @@ interface PageCardProps {
 
 export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const { data: steps = [] } = useSteps(page.id);
+  const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
   const updateSectionMutation = useUpdateSection();
   const deleteSectionMutation = useDeleteSection();
   const reorderStepsMutation = useReorderSteps();
@@ -109,7 +110,33 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
 
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
-  const items = combinePageItems(steps, pageBlocks);
+
+  // Convert transform blocks to ApiBlock format for this section
+  const pageTransformBlocks: ApiBlock[] = transformBlocks
+    .filter((tb) => tb.sectionId === page.id)
+    .map((tb) => ({
+      id: tb.id,
+      workflowId: tb.workflowId,
+      sectionId: tb.sectionId,
+      type: "js" as const,
+      phase: tb.phase as any,
+      config: {
+        name: tb.name,
+        language: tb.language,
+        code: tb.code,
+        inputKeys: tb.inputKeys,
+        outputKey: tb.outputKey,
+        timeoutMs: tb.timeoutMs,
+      },
+      enabled: tb.enabled,
+      order: tb.order,
+      createdAt: tb.createdAt,
+      updatedAt: tb.updatedAt,
+    }));
+
+  // Combine regular blocks and transform blocks
+  const allPageBlocks = [...pageBlocks, ...pageTransformBlocks];
+  const items = combinePageItems(steps, allPageBlocks);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
