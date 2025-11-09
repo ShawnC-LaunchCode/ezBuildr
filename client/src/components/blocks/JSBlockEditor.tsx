@@ -11,6 +11,7 @@ import { Code, Play, CheckCircle2, ChevronLeft, ChevronRight, X } from "lucide-r
 import { VariablePalette } from "@/components/builder/pages/VariablePalette";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
 import { cn } from "@/lib/utils";
+import { DevPanelBus } from "@/lib/devpanelBus";
 
 interface JSBlockEditorProps {
   block: any;
@@ -46,6 +47,29 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
       },
     });
   }, [code, displayMode, inputKeys, outputKey, timeoutMs]);
+
+  // Listen for Insert events from DevPanel
+  useEffect(() => {
+    const unsubscribe = DevPanelBus.onInsert((key) => {
+      const textarea = textareaRef.current;
+
+      // If no textarea or not focused, fallback to clipboard
+      if (!textarea || document.activeElement !== textarea) {
+        navigator.clipboard.writeText(key).then(() => {
+          toast({
+            title: "Copied to clipboard",
+            description: `"${key}" copied. No active editor found.`,
+          });
+        });
+        return;
+      }
+
+      // Insert into active editor
+      handleInsertVariable(key);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
 
   const handleInsertVariable = (key: string) => {
     const textarea = textareaRef.current;

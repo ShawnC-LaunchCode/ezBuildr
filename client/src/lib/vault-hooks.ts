@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { projectAPI, workflowAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse } from "./vault-api";
+import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
 // Query Keys
@@ -221,6 +222,7 @@ export function useCreateSection() {
       sectionAPI.create(workflowId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -232,6 +234,7 @@ export function useUpdateSection() {
       sectionAPI.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -254,6 +257,7 @@ export function useDeleteSection() {
       sectionAPI.delete(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -285,6 +289,7 @@ export function useCreateStep() {
       stepAPI.create(sectionId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -304,6 +309,7 @@ export function useUpdateStep() {
         // For simplicity, just invalidate all workflow variables queries
         queryClient.invalidateQueries({ queryKey: ["workflows"] });
       }
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -352,6 +358,7 @@ export function useDeleteStep() {
       stepAPI.delete(id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }

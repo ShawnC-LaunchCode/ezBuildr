@@ -18,6 +18,7 @@ import { RunnerPreview } from "@/components/builder/RunnerPreview";
 import { WorkflowSettings } from "@/components/builder/WorkflowSettings";
 import { AdvancedModeBanner } from "@/components/builder/AdvancedModeBanner";
 import { PageCanvas } from "@/components/builder/pages/PageCanvas";
+import { DevPanel } from "@/components/devpanel/DevPanel";
 import { UI_LABELS } from "@/lib/labels";
 import { useToast } from "@/hooks/use-toast";
 import { getModeLabel, type Mode } from "@/lib/mode";
@@ -215,7 +216,7 @@ export default function WorkflowBuilder() {
         </div>
       )}
 
-      {/* 3-Pane Layout */}
+      {/* 3-Pane Layout + Dev Panel */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Section/Step Tree */}
         <div className="w-64 border-r bg-card overflow-y-auto">
@@ -239,6 +240,11 @@ export default function WorkflowBuilder() {
           <div className="w-96 bg-muted/30 overflow-y-auto">
             <RunnerPreview runId={previewRunId} />
           </div>
+        )}
+
+        {/* Dev Panel - Advanced Mode Only */}
+        {mode === 'advanced' && (
+          <DevPanel workflowId={workflowId!} />
         )}
       </div>
     </div>
