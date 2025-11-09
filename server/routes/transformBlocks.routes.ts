@@ -54,8 +54,11 @@ export function registerTransformBlockRoutes(app: Express): void {
 
       const { workflowId } = req.params;
 
+      // Merge workflowId from URL params into body data for schema validation
+      const dataWithWorkflowId = { ...req.body, workflowId };
+
       // Validate request body
-      const blockData = insertTransformBlockSchema.parse(req.body);
+      const blockData = insertTransformBlockSchema.parse(dataWithWorkflowId);
 
       const block = await transformBlockService.createBlock(workflowId, userId, blockData);
       res.status(201).json({ success: true, data: block });
