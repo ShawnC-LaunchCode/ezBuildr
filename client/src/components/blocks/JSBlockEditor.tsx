@@ -168,6 +168,25 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
     return mockInput;
   };
 
+  const handleGenerateAll = () => {
+    const generatedData: Record<string, string> = { ...testData };
+
+    for (const key of inputKeys) {
+      // Only generate for empty fields
+      if (!testData[key] || testData[key] === '') {
+        const variable = variables.find((v) => v.key === key);
+        const variableType = variable?.type || 'unknown';
+        const mockValue = generateMockValue(variableType);
+        // Convert to string (JSON.stringify for objects/arrays, toString for primitives)
+        generatedData[key] = typeof mockValue === 'object'
+          ? JSON.stringify(mockValue)
+          : String(mockValue);
+      }
+    }
+
+    setTestData(generatedData);
+  };
+
   const validateCode = () => {
     try {
       // eslint-disable-next-line no-new-func
@@ -419,6 +438,14 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
                       );
                     })}
                     <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateAll}
+                        className="h-7 text-xs"
+                      >
+                        Generate All
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
