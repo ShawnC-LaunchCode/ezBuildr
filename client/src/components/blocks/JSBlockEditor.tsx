@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Code, Play, CheckCircle2, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Code, Play, CheckCircle2, ChevronLeft, ChevronRight, X, Settings } from "lucide-react";
 import { VariablePalette } from "@/components/builder/pages/VariablePalette";
-import { useWorkflowVariables } from "@/lib/vault-hooks";
+import { useWorkflowVariables, useWorkflowMode } from "@/lib/vault-hooks";
 import { cn } from "@/lib/utils";
 import { DevPanelBus } from "@/lib/devpanelBus";
 
@@ -30,9 +30,13 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
   const [error, setError] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [showInputKeySelector, setShowInputKeySelector] = useState(false);
+  const [showTestConfig, setShowTestConfig] = useState(false);
+  const [testData, setTestData] = useState<Record<string, string>>(block.config?.testData || {});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const { data: variables = [] } = useWorkflowVariables(workflowId || "");
+  const { data: workflowMode } = useWorkflowMode(workflowId || "");
+  const isAdvancedMode = workflowMode?.mode === "advanced";
 
   useEffect(() => {
     onChange({
@@ -44,9 +48,10 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
         inputKeys,
         outputKey,
         timeoutMs,
+        testData,
       },
     });
-  }, [code, displayMode, inputKeys, outputKey, timeoutMs]);
+  }, [code, displayMode, inputKeys, outputKey, timeoutMs, testData]);
 
   // Listen for Insert events from DevPanel
   useEffect(() => {
@@ -114,6 +119,55 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
     return variable?.alias || key;
   };
 
+  const generateMockValue = (type: string): any => {
+    switch (type) {
+      case 'short_text':
+        return 'Sample Text';
+      case 'long_text':
+        return 'This is a sample long text response with multiple words.';
+      case 'yes_no':
+        return true;
+      case 'radio':
+        return 'Option 1';
+      case 'multiple_choice':
+        return ['Option 1', 'Option 2'];
+      case 'date_time':
+        return new Date().toISOString();
+      case 'file_upload':
+        return 'sample-file.pdf';
+      case 'loop_group':
+        return [{ iteration: 1, value: 'Sample' }];
+      default:
+        return 'Sample Value';
+    }
+  };
+
+  const generateMockInput = (): Record<string, any> => {
+    const mockInput: Record<string, any> = {};
+
+    for (const key of inputKeys) {
+      // Check if user provided custom test data
+      if (testData[key] !== undefined && testData[key] !== '') {
+        // Try to parse as JSON first, fallback to string
+        try {
+          mockInput[key] = JSON.parse(testData[key]);
+        } catch {
+          mockInput[key] = testData[key];
+        }
+      } else {
+        // Generate mock data based on variable type
+        const variable = variables.find((v) => v.key === key);
+        if (variable) {
+          mockInput[key] = generateMockValue(variable.type);
+        } else {
+          mockInput[key] = 'Sample Value';
+        }
+      }
+    }
+
+    return mockInput;
+  };
+
   const validateCode = () => {
     try {
       // eslint-disable-next-line no-new-func
@@ -137,16 +191,30 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
     try {
       // eslint-disable-next-line no-new-func
       const fn = new Function("input", code);
-      const mockInput = {
-        exampleVar: 42,
-        userName: "Ada",
-        firstName: "Ada",
-        lastName: "Lovelace"
-      };
+      const mockInput = generateMockInput();
+
+      console.log('Test Input:', mockInput);
       const result = fn(mockInput);
+      console.log('Test Output:', result);
+
       toast({
-        title: "Test Run Complete",
-        description: `Output: ${JSON.stringify(result, null, 2)}`,
+        title: "Test Run Complete ✓",
+        description: (
+          <div className="space-y-2">
+            <div>
+              <strong>Input:</strong>
+              <pre className="text-xs mt-1 p-2 bg-background rounded overflow-auto max-h-32">
+                {JSON.stringify(mockInput, null, 2)}
+              </pre>
+            </div>
+            <div>
+              <strong>Output:</strong>
+              <pre className="text-xs mt-1 p-2 bg-background rounded overflow-auto max-h-32">
+                {JSON.stringify(result, null, 2)}
+              </pre>
+            </div>
+          </div>
+        ) as any,
       });
     } catch (err: any) {
       toast({
@@ -306,6 +374,71 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
               </p>
             </div>
 
+            {/* Test Data Configuration (Advanced Mode Only) */}
+            {isAdvancedMode && inputKeys.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Test Data Configuration</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTestConfig(!showTestConfig)}
+                    className="h-6 text-xs"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    {showTestConfig ? 'Hide' : 'Configure'}
+                  </Button>
+                </div>
+
+                {showTestConfig && (
+                  <div className="border rounded-md p-3 space-y-3 bg-muted/30">
+                    <p className="text-xs text-muted-foreground">
+                      Customize test values for each input variable. Leave empty to use auto-generated mock data based on the variable type.
+                    </p>
+                    {inputKeys.map((key) => {
+                      const variable = variables.find((v) => v.key === key);
+                      const displayName = variable?.alias || key;
+                      const variableType = variable?.type || 'unknown';
+
+                      return (
+                        <div key={key} className="space-y-1">
+                          <Label htmlFor={`test-${key}`} className="text-xs font-medium">
+                            {displayName}
+                            <span className="text-muted-foreground font-normal ml-1">
+                              ({variableType})
+                            </span>
+                          </Label>
+                          <Input
+                            id={`test-${key}`}
+                            value={testData[key] || ''}
+                            onChange={(e) => setTestData({ ...testData, [key]: e.target.value })}
+                            placeholder={`Auto: ${JSON.stringify(generateMockValue(variableType))}`}
+                            className="font-mono text-xs h-8"
+                          />
+                        </div>
+                      );
+                    })}
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTestData({})}
+                        className="h-7 text-xs"
+                      >
+                        Reset All
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {!showTestConfig && (
+                  <p className="text-xs text-muted-foreground">
+                    Tests will use auto-generated mock data. Click Configure to customize.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* JavaScript Code */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">
@@ -344,7 +477,8 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
               <ul className="text-xs text-muted-foreground mt-1 space-y-1 list-disc list-inside">
                 <li>Access variables via <code className="bg-background px-1 py-0.5 rounded">input.variableName</code></li>
                 <li>Return an object with your transformed data</li>
-                <li>Test with mock data: <code className="bg-background px-1 py-0.5 rounded">&#123;userName: "Ada", exampleVar: 42&#125;</code></li>
+                <li>Tests use realistic mock data based on variable types</li>
+                {isAdvancedMode && <li>Configure custom test data for precise testing scenarios</li>}
               </ul>
             </div>
           </div>
