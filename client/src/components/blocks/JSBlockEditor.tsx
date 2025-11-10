@@ -374,8 +374,8 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
               </p>
             </div>
 
-            {/* Test Data Configuration (Advanced Mode Only) */}
-            {isAdvancedMode && inputKeys.length > 0 && (
+            {/* Test Data Configuration */}
+            {inputKeys.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm">Test Data Configuration</Label>
@@ -478,7 +478,7 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
                 <li>Access variables via <code className="bg-background px-1 py-0.5 rounded">input.variableName</code></li>
                 <li>Return an object with your transformed data</li>
                 <li>Tests use realistic mock data based on variable types</li>
-                {isAdvancedMode && <li>Configure custom test data for precise testing scenarios</li>}
+                <li>Configure custom test data for precise testing scenarios</li>
               </ul>
             </div>
           </div>
