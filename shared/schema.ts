@@ -67,18 +67,39 @@ export const conditionalActionEnum = pgEnum('conditional_action', [
   'skip_to'  // Skip to a specific section (workflow navigation)
 ]);
 
-// Users table for Google Auth
+// ===================================================================
+// MULTI-TENANT ENUMS (must be defined before users table)
+// ===================================================================
+
+// Tenant plan enum
+export const tenantPlanEnum = pgEnum('tenant_plan', ['free', 'pro', 'enterprise']);
+
+// User tenant role enum for RBAC
+export const userTenantRoleEnum = pgEnum('user_tenant_role', ['owner', 'builder', 'runner', 'viewer']);
+
+// Auth provider enum
+export const authProviderEnum = pgEnum('auth_provider', ['local', 'google']);
+
+// Users table with multi-tenant support
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("role").default('creator').notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  fullName: varchar("full_name", { length: 255 }),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  profileImageUrl: varchar("profile_image_url", { length: 500 }),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+  role: userRoleEnum("role").default('creator').notNull(), // Legacy role for surveys
+  tenantRole: userTenantRoleEnum("tenant_role"), // New RBAC role for workflows
+  authProvider: authProviderEnum("auth_provider").default('local').notNull(),
   defaultMode: text("default_mode").default('easy').notNull(), // 'easy' | 'advanced'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("users_email_idx").on(table.email),
+  index("users_tenant_idx").on(table.tenantId),
+  index("users_tenant_email_idx").on(table.tenantId, table.email),
+]);
 
 // Anonymous access type enum
 export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disabled', 'unlimited', 'one_per_ip', 'one_per_session']);
@@ -709,11 +730,39 @@ export interface AnonymousResponseMetadata {
 // VAULT-LOGIC SCHEMA (Workflow Builder)
 // =====================================================================
 
+// =====================================================================
+// MULTI-TENANT & RBAC
+// =====================================================================
+
+// Tenants table for multi-tenancy
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  billingEmail: varchar("billing_email", { length: 255 }),
+  plan: tenantPlanEnum("plan").default('free').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tenants_plan_idx").on(table.plan),
+]);
+
 // Project status enum
 export const projectStatusEnum = pgEnum('project_status', ['active', 'archived']);
 
 // Workflow status enum
-export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'active', 'archived']);
+export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'published']);
+
+// WorkflowVersion status
+export const versionStatusEnum = pgEnum('version_status', ['draft', 'published']);
+
+// Template type enum
+export const templateTypeEnum = pgEnum('template_type', ['docx', 'html']);
+
+// Run status enum
+export const runStatusEnum = pgEnum('run_status', ['pending', 'success', 'error']);
+
+// Log level enum
+export const logLevelEnum = pgEnum('log_level', ['info', 'warn', 'error']);
 
 // Step (question) type enum - reuse question types
 export const stepTypeEnum = pgEnum('step_type', [
@@ -732,41 +781,144 @@ export const stepTypeEnum = pgEnum('step_type', [
 // Logic rule target type enum
 export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);
 
+// =====================================================================
+// CORE TABLES
+// =====================================================================
+
 // Projects table (for organizing workflows)
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: varchar("title").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
-  creatorId: varchar("creator_id").references(() => users.id).notNull(),
-  ownerId: varchar("owner_id").references(() => users.id).notNull(),
-  status: projectStatusEnum("status").default('active').notNull(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  archived: boolean("archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("projects_creator_idx").on(table.creatorId),
-  index("projects_owner_idx").on(table.ownerId),
-  index("projects_status_idx").on(table.status),
+  index("projects_tenant_idx").on(table.tenantId),
+  index("projects_archived_idx").on(table.archived),
 ]);
 
-// Workflows table (equivalent to surveys)
+// Workflows table
 export const workflows = pgTable("workflows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: varchar("title").notNull(),
-  description: text("description"),
-  creatorId: varchar("creator_id").references(() => users.id).notNull(),
-  ownerId: varchar("owner_id").references(() => users.id).notNull(),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }), // Optional project assignment
+  name: varchar("name", { length: 255 }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
   status: workflowStatusEnum("status").default('draft').notNull(),
-  modeOverride: text("mode_override"), // 'easy' | 'advanced' | null (null = use user default)
-  publicLink: text("public_link").unique(), // UUID/slug for anonymous run access
+  currentVersionId: uuid("current_version_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("workflows_creator_idx").on(table.creatorId),
-  index("workflows_owner_idx").on(table.ownerId),
   index("workflows_project_idx").on(table.projectId),
   index("workflows_status_idx").on(table.status),
-  index("workflows_public_link_idx").on(table.publicLink),
+  index("workflows_project_name_idx").on(table.projectId, table.name),
+]);
+
+// WorkflowVersion table for versioning support
+export const workflowVersions = pgTable("workflow_versions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  graphJson: jsonb("graph_json").notNull(),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  published: boolean("published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_versions_workflow_idx").on(table.workflowId),
+  index("workflow_versions_published_idx").on(table.published),
+  index("workflow_versions_created_by_idx").on(table.createdBy),
+]);
+
+// Templates table for document templates
+export const templates = pgTable("templates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  fileRef: varchar("file_ref", { length: 500 }).notNull(),
+  type: templateTypeEnum("type").notNull(),
+  helpersVersion: integer("helpers_version").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("templates_project_idx").on(table.projectId),
+  index("templates_type_idx").on(table.type),
+]);
+
+// Run table (workflow execution instances)
+export const runs = pgTable("runs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+  inputJson: jsonb("input_json"),
+  outputRefs: jsonb("output_refs"),
+  status: runStatusEnum("status").default('pending').notNull(),
+  durationMs: integer("duration_ms"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("runs_workflow_version_idx").on(table.workflowVersionId),
+  index("runs_status_idx").on(table.status),
+  index("runs_created_by_idx").on(table.createdBy),
+  index("runs_created_at_idx").on(table.createdAt),
+]);
+
+// Secrets table for encrypted API keys and credentials
+export const secrets = pgTable("secrets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  key: varchar("key", { length: 255 }).notNull(),
+  valueEnc: text("value_enc").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("secrets_project_idx").on(table.projectId),
+  index("secrets_project_key_idx").on(table.projectId, table.key),
+]);
+
+// AuditEvent table for audit logging
+export const auditEvents = pgTable("audit_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").references(() => users.id),
+  entityType: varchar("entity_type", { length: 100 }).notNull(),
+  entityId: uuid("entity_id").notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  diff: jsonb("diff"),
+  ts: timestamp("ts").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("audit_events_actor_idx").on(table.actorId),
+  index("audit_events_entity_idx").on(table.entityType, table.entityId),
+  index("audit_events_ts_idx").on(table.ts),
+]);
+
+// ApiKey table for API access control
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  keyHash: varchar("key_hash", { length: 255 }).notNull().unique(),
+  scopes: text("scopes").array().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("api_keys_project_idx").on(table.projectId),
+  index("api_keys_key_hash_idx").on(table.keyHash),
+]);
+
+// RunLog table for runtime logging
+export const runLogs = pgTable("run_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+  nodeId: varchar("node_id", { length: 100 }),
+  level: logLevelEnum("level").notNull(),
+  message: text("message").notNull(),
+  context: jsonb("context"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("run_logs_run_idx").on(table.runId),
+  index("run_logs_level_idx").on(table.level),
+  index("run_logs_created_at_idx").on(table.createdAt),
 ]);
 
 // Sections table (equivalent to survey pages)
@@ -882,27 +1034,95 @@ export const blocks = pgTable("blocks", {
 ]);
 
 // Vault-Logic Relations
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  users: many(users),
+  projects: many(projects),
+}));
+
 export const projectsRelations = relations(projects, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [projects.creatorId],
-    references: [users.id],
+  tenant: one(tenants, {
+    fields: [projects.tenantId],
+    references: [tenants.id],
   }),
   workflows: many(workflows),
+  templates: many(templates),
+  secrets: many(secrets),
+  apiKeys: many(apiKeys),
 }));
 
 export const workflowsRelations = relations(workflows, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [workflows.creatorId],
-    references: [users.id],
-  }),
   project: one(projects, {
     fields: [workflows.projectId],
     references: [projects.id],
   }),
+  currentVersion: one(workflowVersions, {
+    fields: [workflows.currentVersionId],
+    references: [workflowVersions.id],
+  }),
+  versions: many(workflowVersions),
   sections: many(sections),
   logicRules: many(logicRules),
   runs: many(workflowRuns),
   transformBlocks: many(transformBlocks),
+}));
+
+export const workflowVersionsRelations = relations(workflowVersions, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [workflowVersions.workflowId],
+    references: [workflows.id],
+  }),
+  createdByUser: one(users, {
+    fields: [workflowVersions.createdBy],
+    references: [users.id],
+  }),
+  runs: many(runs),
+}));
+
+export const templatesRelations = relations(templates, ({ one }) => ({
+  project: one(projects, {
+    fields: [templates.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const runsRelations = relations(runs, ({ one, many }) => ({
+  workflowVersion: one(workflowVersions, {
+    fields: [runs.workflowVersionId],
+    references: [workflowVersions.id],
+  }),
+  createdByUser: one(users, {
+    fields: [runs.createdBy],
+    references: [users.id],
+  }),
+  logs: many(runLogs),
+}));
+
+export const secretsRelations = relations(secrets, ({ one }) => ({
+  project: one(projects, {
+    fields: [secrets.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
+  actor: one(users, {
+    fields: [auditEvents.actorId],
+    references: [users.id],
+  }),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  project: one(projects, {
+    fields: [apiKeys.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const runLogsRelations = relations(runLogs, ({ one }) => ({
+  run: one(runs, {
+    fields: [runLogs.runId],
+    references: [runs.id],
+  }),
 }));
 
 export const sectionsRelations = relations(sections, ({ one, many }) => ({
@@ -977,8 +1197,16 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
 }));
 
 // Vault-Logic Insert Schemas
+export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, publicLink: true });
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, currentVersionId: true });
+export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
+export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRunSchema = createInsertSchema(runs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSecretSchema = createInsertSchema(secrets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({ id: true, ts: true, createdAt: true });
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true });
+export const insertRunLogSchema = createInsertSchema(runLogs).omit({ id: true, createdAt: true });
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
 export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
 export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
@@ -1150,10 +1378,26 @@ export const insertProjectAccessSchema = createInsertSchema(projectAccess).omit(
 export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess).omit({ id: true, createdAt: true });
 
 // Vault-Logic Types
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = typeof insertTenantSchema._type;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = typeof insertProjectSchema._type;
 export type Workflow = typeof workflows.$inferSelect;
 export type InsertWorkflow = typeof insertWorkflowSchema._type;
+export type WorkflowVersion = typeof workflowVersions.$inferSelect;
+export type InsertWorkflowVersion = typeof insertWorkflowVersionSchema._type;
+export type Template = typeof templates.$inferSelect;
+export type InsertTemplate = typeof insertTemplateSchema._type;
+export type Run = typeof runs.$inferSelect;
+export type InsertRun = typeof insertRunSchema._type;
+export type Secret = typeof secrets.$inferSelect;
+export type InsertSecret = typeof insertSecretSchema._type;
+export type AuditEvent = typeof auditEvents.$inferSelect;
+export type InsertAuditEvent = typeof insertAuditEventSchema._type;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof insertApiKeySchema._type;
+export type RunLog = typeof runLogs.$inferSelect;
+export type InsertRunLog = typeof insertRunLogSchema._type;
 export type Section = typeof sections.$inferSelect;
 export type InsertSection = typeof insertSectionSchema._type;
 export type Step = typeof steps.$inferSelect;

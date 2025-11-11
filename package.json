@@ -15,6 +15,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/runMigrations.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "set-admin": "tsx scripts/setAdmin.ts",
     "generate-fake-data": "tsx scripts/generateFakeData.ts",
     "test-gemini": "tsx scripts/testGeminiApi.ts",
