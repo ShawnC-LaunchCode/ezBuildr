@@ -1,15 +1,271 @@
 import type { Express, Request, Response } from "express";
-import { userRepository } from "../repositories";
+import { userRepository, userCredentialsRepository } from "../repositories";
 import { isAuthenticated } from "../googleAuth";
 import { createLogger } from "../logger";
+import {
+  createToken,
+  hashPassword,
+  comparePassword,
+  validateEmail,
+  validatePasswordStrength
+} from "../services/auth";
+import { requireAuth, hybridAuth, type AuthRequest } from "../middleware/auth";
+import { nanoid } from "nanoid";
 
 const logger = createLogger({ module: 'auth-routes' });
 
 /**
  * Register authentication-related routes
+ * Supports both JWT-based auth (email/password) and session-based auth (Google OAuth)
  */
 export function registerAuthRoutes(app: Express): void {
-  // Development authentication helper (for development and testing)
+  // =====================================================================
+  // EMAIL/PASSWORD AUTHENTICATION (JWT)
+  // =====================================================================
+
+  /**
+   * POST /api/auth/register
+   * Register a new user with email and password
+   * Returns a JWT token on success
+   */
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    try {
+      const { email, password, firstName, lastName, tenantId, tenantRole } = req.body;
+
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({
+          message: 'Email and password are required',
+          error: 'missing_fields',
+        });
+      }
+
+      // Validate email format
+      if (!validateEmail(email)) {
+        return res.status(400).json({
+          message: 'Invalid email format',
+          error: 'invalid_email',
+        });
+      }
+
+      // Validate password strength
+      const passwordValidation = validatePasswordStrength(password);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({
+          message: passwordValidation.message,
+          error: 'weak_password',
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await userRepository.findByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({
+          message: 'User with this email already exists',
+          error: 'user_exists',
+        });
+      }
+
+      // Create user
+      const userId = nanoid();
+      const user = await userRepository.create({
+        id: userId,
+        email,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
+        profileImageUrl: null,
+        tenantId: tenantId || null,
+        role: 'creator',
+        tenantRole: tenantRole || null,
+        authProvider: 'local',
+        defaultMode: 'easy',
+      });
+
+      // Hash password and store credentials
+      const passwordHash = await hashPassword(password);
+      await userCredentialsRepository.createCredentials(userId, passwordHash);
+
+      // Generate JWT token
+      const token = createToken(user);
+
+      logger.info({ userId: user.id, email: user.email }, 'User registered successfully');
+
+      res.status(201).json({
+        message: 'Registration successful',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          tenantId: user.tenantId,
+          role: user.tenantRole,
+        },
+      });
+    } catch (error) {
+      logger.error({ error }, 'Registration failed');
+      res.status(500).json({
+        message: 'Registration failed',
+        error: 'internal_error',
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/login
+   * Login with email and password
+   * Returns a JWT token on success
+   */
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({
+          message: 'Email and password are required',
+          error: 'missing_fields',
+        });
+      }
+
+      // Find user by email
+      const user = await userRepository.findByEmail(email);
+      if (!user) {
+        return res.status(401).json({
+          message: 'Invalid email or password',
+          error: 'invalid_credentials',
+        });
+      }
+
+      // Check if user uses local auth
+      if (user.authProvider !== 'local') {
+        return res.status(400).json({
+          message: `This account uses ${user.authProvider} authentication. Please sign in with ${user.authProvider}.`,
+          error: 'wrong_auth_provider',
+        });
+      }
+
+      // Get user credentials
+      const credentials = await userCredentialsRepository.findByUserId(user.id);
+      if (!credentials) {
+        return res.status(401).json({
+          message: 'Invalid email or password',
+          error: 'invalid_credentials',
+        });
+      }
+
+      // Verify password
+      const isPasswordValid = await comparePassword(password, credentials.passwordHash);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          message: 'Invalid email or password',
+          error: 'invalid_credentials',
+        });
+      }
+
+      // Generate JWT token
+      const token = createToken(user);
+
+      logger.info({ userId: user.id, email: user.email }, 'User logged in successfully');
+
+      res.json({
+        message: 'Login successful',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          tenantId: user.tenantId,
+          role: user.tenantRole,
+        },
+      });
+    } catch (error) {
+      logger.error({ error }, 'Login failed');
+      res.status(500).json({
+        message: 'Login failed',
+        error: 'internal_error',
+      });
+    }
+  });
+
+  /**
+   * GET /api/auth/me
+   * Get current authenticated user
+   * Supports both JWT and session-based authentication
+   */
+  app.get('/api/auth/me', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthRequest;
+      const userId = authReq.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        profileImageUrl: user.profileImageUrl,
+        tenantId: user.tenantId,
+        role: user.tenantRole,
+        authProvider: user.authProvider,
+        defaultMode: user.defaultMode,
+      });
+    } catch (error) {
+      logger.error({ error }, "Error fetching current user");
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  /**
+   * POST /api/auth/logout
+   * Logout (currently a no-op for JWT, but included for API consistency)
+   * For session-based auth, this would clear the session
+   */
+  app.post('/api/auth/logout', (req: Request, res: Response) => {
+    // For JWT, logout is handled client-side by removing the token
+    // For session auth, we destroy the session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          logger.error({ err }, 'Session destruction failed');
+        }
+      });
+    }
+
+    logger.info('User logged out');
+    res.json({ message: 'Logout successful' });
+  });
+
+  // =====================================================================
+  // GOOGLE OAUTH AUTHENTICATION (Session-based)
+  // Note: Google OAuth routes are registered in googleAuth.ts via setupAuth()
+  // =====================================================================
+
+  /**
+   * GET /api/auth/google
+   * Redirects to Google OAuth (handled in googleAuth.ts)
+   */
+
+  /**
+   * GET /api/auth/google/callback
+   * Google OAuth callback (handled in googleAuth.ts)
+   */
+
+  // =====================================================================
+  // DEVELOPMENT AUTHENTICATION HELPER
+  // =====================================================================
+
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     const devLoginHandler = async (req: Request, res: Response) => {
       try {
@@ -68,7 +324,7 @@ export function registerAuthRoutes(app: Express): void {
     app.post('/api/auth/dev-login', devLoginHandler);
   }
 
-  // Get current authenticated user
+  // Legacy route for backward compatibility (uses session-based auth)
   app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;

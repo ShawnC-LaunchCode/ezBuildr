@@ -23,6 +23,7 @@ import { registerRunRoutes } from "./runs.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerTeamRoutes } from "./teams.routes";
+import { registerTenantRoutes } from "./tenant.routes";
 
 /**
  * Register all modular routes
@@ -31,6 +32,9 @@ import { registerTeamRoutes } from "./teams.routes";
 export function registerAllRoutes(app: Express): void {
   // Authentication routes
   registerAuthRoutes(app);
+
+  // Tenant routes (multi-tenancy and RBAC)
+  registerTenantRoutes(app);
 
   // Account routes (mode preferences)
   registerAccountRoutes(app);

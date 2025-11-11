@@ -101,6 +101,17 @@ export const users = pgTable("users", {
   index("users_tenant_email_idx").on(table.tenantId, table.email),
 ]);
 
+// User credentials table for local authentication (email/password)
+export const userCredentials = pgTable("user_credentials", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("user_credentials_user_idx").on(table.userId),
+]);
+
 // Anonymous access type enum
 export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disabled', 'unlimited', 'one_per_ip', 'one_per_session']);
 
@@ -316,6 +327,17 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [userPreferences.userId],
   }),
+  credentials: one(userCredentials, {
+    fields: [users.id],
+    references: [userCredentials.userId],
+  }),
+}));
+
+export const userCredentialsRelations = relations(userCredentials, ({ one }) => ({
+  user: one(users, {
+    fields: [userCredentials.userId],
+    references: [users.id],
+  }),
 }));
 
 export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
@@ -417,6 +439,7 @@ export const templateSharesRelations = relations(templateShares, ({ one }) => ({
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserCredentialsSchema = createInsertSchema(userCredentials).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSurveySchema = createInsertSchema(surveys).omit({ id: true, createdAt: true, updatedAt: true, publicLink: true });
 export const insertSurveyPageSchema = createInsertSchema(surveyPages).omit({ id: true, createdAt: true });
 export const insertQuestionSchema = createInsertSchema(questions).omit({ id: true, createdAt: true });
@@ -447,6 +470,8 @@ export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).om
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type UserCredentials = typeof userCredentials.$inferSelect;
+export type InsertUserCredentials = typeof insertUserCredentialsSchema._type;
 export type Survey = typeof surveys.$inferSelect;
 export type InsertSurvey = typeof insertSurveySchema._type;
 export type SurveyPage = typeof surveyPages.$inferSelect;
