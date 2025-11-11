@@ -3,6 +3,8 @@ import {
   transformBlockRunRepository,
   workflowRepository,
   stepValueRepository,
+  sectionRepository,
+  stepRepository,
 } from "../repositories";
 import type { TransformBlock, InsertTransformBlock } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
@@ -19,19 +21,25 @@ export class TransformBlockService {
   private workflowRepo: typeof workflowRepository;
   private valueRepo: typeof stepValueRepository;
   private workflowSvc: typeof workflowService;
+  private sectionRepo: typeof sectionRepository;
+  private stepRepo: typeof stepRepository;
 
   constructor(
     blockRepo?: typeof transformBlockRepository,
     runRepo?: typeof transformBlockRunRepository,
     workflowRepo?: typeof workflowRepository,
     valueRepo?: typeof stepValueRepository,
-    workflowSvc?: typeof workflowService
+    workflowSvc?: typeof workflowService,
+    sectionRepo?: typeof sectionRepository,
+    stepRepo?: typeof stepRepository
   ) {
     this.blockRepo = blockRepo || transformBlockRepository;
     this.runRepo = runRepo || transformBlockRunRepository;
     this.workflowRepo = workflowRepo || workflowRepository;
     this.valueRepo = valueRepo || stepValueRepository;
     this.workflowSvc = workflowSvc || workflowService;
+    this.sectionRepo = sectionRepo || sectionRepository;
+    this.stepRepo = stepRepo || stepRepository;
   }
 
   /**
@@ -124,11 +132,41 @@ export class TransformBlockService {
   }): Promise<{ ok: boolean; output?: unknown; error?: string; errorDetails?: { message: string; stack?: string; name?: string; line?: number; column?: number } }> {
     const { block, data } = params;
 
-    // Build input object with only whitelisted keys
+    // Fetch all steps for the workflow to build alias-to-ID mapping
+    const sections = await this.sectionRepo.findByWorkflowId(block.workflowId);
+    const sectionIds = sections.map(s => s.id);
+    const steps = await this.stepRepo.findBySectionIds(sectionIds);
+
+    // Create maps for both alias-to-ID and ID lookups
+    const aliasToIdMap = new Map<string, string>();
+    const idSet = new Set<string>();
+
+    for (const step of steps) {
+      idSet.add(step.id);
+      if (step.alias) {
+        aliasToIdMap.set(step.alias, step.id);
+      }
+    }
+
+    // Build input object with only whitelisted keys, resolving aliases to IDs
     const input: Record<string, unknown> = {};
     for (const key of block.inputKeys || []) {
-      if (key in data) {
-        input[key] = data[key];
+      let resolvedKey = key;
+      let dataKey = key;
+
+      // If key is not directly in data, try to resolve it as an alias
+      if (!(key in data)) {
+        const resolvedId = aliasToIdMap.get(key);
+        if (resolvedId && resolvedId in data) {
+          dataKey = resolvedId;
+          // Keep the original key (alias) in the input object so user code can use it
+          resolvedKey = key;
+        }
+      }
+
+      // Add to input if we found the data
+      if (dataKey in data) {
+        input[resolvedKey] = data[dataKey];
       }
     }
 
