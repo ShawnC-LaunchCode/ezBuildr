@@ -32,13 +32,15 @@ export function registerRunRoutes(app: Express): void {
 
       // For authenticated runs, require session
       if (!isAnonymous) {
-        if (!req.user) {
+        // Check for user in both possible locations
+        const user = req.user || (req.session as any)?.user;
+        if (!user) {
           return res.status(401).json({
             success: false,
             error: "Unauthorized - authentication required for creator runs"
           });
         }
-        const userId = req.user?.claims?.sub;
+        const userId = user?.claims?.sub;
         if (!userId) {
           return res.status(401).json({
             success: false,
