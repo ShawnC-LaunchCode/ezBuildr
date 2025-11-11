@@ -24,6 +24,10 @@ import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTenantRoutes } from "./tenant.routes";
+import { registerApiProjectRoutes } from "./api.projects.routes";
+import { registerApiWorkflowRoutes } from "./api.workflows.routes";
+import { registerApiTemplateRoutes } from "./api.templates.routes";
+import { registerApiRunRoutes } from "./api.runs.routes";
 
 /**
  * Register all modular routes
@@ -108,4 +112,20 @@ export function registerAllRoutes(app: Express): void {
 
   // Workflow export routes (JSON and CSV)
   registerWorkflowExportRoutes(app);
+
+  // ========================================================================
+  // Stage 4: REST API Endpoints (Projects, Workflows, Templates, Runs)
+  // ========================================================================
+
+  // Projects API (tenant-scoped)
+  registerApiProjectRoutes(app);
+
+  // Workflows API (versioning, publishing)
+  registerApiWorkflowRoutes(app);
+
+  // Templates API (file upload, placeholders)
+  registerApiTemplateRoutes(app);
+
+  // Runs API (workflow execution, logs, download)
+  registerApiRunRoutes(app);
 }

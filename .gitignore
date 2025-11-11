@@ -3,6 +3,7 @@ dist
 coverage
 .DS_Store
 server/public
+server/files
 vite.config.ts.*
 *.tar.gz
 
