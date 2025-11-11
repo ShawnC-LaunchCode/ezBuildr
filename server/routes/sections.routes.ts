@@ -4,6 +4,7 @@ import { insertSectionSchema } from "@shared/schema";
 import { sectionService } from "../services/SectionService";
 import { z } from "zod";
 import { createLogger } from "../logger";
+import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 
 const logger = createLogger({ module: "sections-routes" });
 
@@ -39,8 +40,9 @@ export function registerSectionRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/sections
    * Get all sections for a workflow
+   * Accepts creator session OR Bearer runToken
    */
-  app.get('/api/workflows/:workflowId/sections', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/workflows/:workflowId/sections', creatorOrRunTokenAuth, async (req: RunAuthRequest, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {

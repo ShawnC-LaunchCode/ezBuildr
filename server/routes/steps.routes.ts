@@ -4,6 +4,7 @@ import { insertStepSchema } from "@shared/schema";
 import { stepService } from "../services/StepService";
 import { z } from "zod";
 import { createLogger } from "../logger";
+import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 
 const logger = createLogger({ module: "steps-routes" });
 
@@ -94,8 +95,9 @@ export function registerStepRoutes(app: Express): void {
   /**
    * GET /api/sections/:sectionId/steps
    * Get all steps for a section (workflow looked up automatically)
+   * Accepts creator session OR Bearer runToken
    */
-  app.get('/api/sections/:sectionId/steps', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/sections/:sectionId/steps', creatorOrRunTokenAuth, async (req: RunAuthRequest, res: Response) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
