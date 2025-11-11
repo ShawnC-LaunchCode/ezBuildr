@@ -144,12 +144,24 @@ export function registerRunRoutes(app: Express): void {
       const { runId } = req.params;
       const { stepId, value } = req.body;
       const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
-      }
+      const runAuth = req.runAuth;
 
       if (!stepId) {
         return res.status(400).json({ success: false, error: "stepId is required" });
+      }
+
+      // For run token auth
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+        await runService.upsertStepValueNoAuth(runId, { runId, stepId, value });
+        return res.status(200).json({ success: true, message: "Step value saved" });
+      }
+
+      // For session auth
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
 
       await runService.upsertStepValue(runId, userId, {
@@ -178,12 +190,28 @@ export function registerRunRoutes(app: Express): void {
       const { runId, sectionId } = req.params;
       const { values } = req.body;
       const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
-      }
+      const runAuth = req.runAuth;
 
       if (!Array.isArray(values)) {
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
+      }
+
+      // For run token auth
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
+        }
+        const result = await runService.submitSectionNoAuth(runId, sectionId, values);
+        if (result.success) {
+          return res.json({ success: true, message: "Section values saved" });
+        } else {
+          return res.status(400).json({ success: false, errors: result.errors });
+        }
+      }
+
+      // For session auth
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
 
       // Submit section with validation
@@ -212,6 +240,18 @@ export function registerRunRoutes(app: Express): void {
     try {
       const { runId } = req.params;
       const userId = req.user?.claims?.sub;
+      const runAuth = req.runAuth;
+
+      // For run token auth
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
+        }
+        const result = await runService.nextNoAuth(runId);
+        return res.json({ success: true, data: result });
+      }
+
+      // For session auth
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -266,6 +306,18 @@ export function registerRunRoutes(app: Express): void {
     try {
       const { runId } = req.params;
       const userId = req.user?.claims?.sub;
+      const runAuth = req.runAuth;
+
+      // For run token auth
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+        const run = await runService.completeRunNoAuth(runId);
+        return res.json({ success: true, data: run });
+      }
+
+      // For session auth
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }

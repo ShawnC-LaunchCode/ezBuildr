@@ -169,6 +169,33 @@ export class RunService {
   }
 
   /**
+   * Upsert a step value without ownership check
+   * Used for preview/run token authentication
+   */
+  async upsertStepValueNoAuth(
+    runId: string,
+    data: InsertStepValue
+  ): Promise<void> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    // Verify step belongs to the workflow
+    const step = await this.stepRepo.findById(data.stepId);
+    if (!step) {
+      throw new Error("Step not found");
+    }
+
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section || section.workflowId !== run.workflowId) {
+      throw new Error("Step does not belong to this workflow");
+    }
+
+    await this.valueRepo.upsert(data);
+  }
+
+  /**
    * Bulk upsert step values
    */
   async bulkUpsertValues(
@@ -336,6 +363,64 @@ export class RunService {
   }
 
   /**
+   * Submit section values with validation without ownership check
+   * Used for preview/run token authentication
+   */
+  async submitSectionNoAuth(
+    runId: string,
+    sectionId: string,
+    values: Array<{ stepId: string; value: any }>
+  ): Promise<{ success: boolean; errors?: string[] }> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    if (run.completed) {
+      throw new Error("Run is already completed");
+    }
+
+    // Save all values first
+    for (const { stepId, value } of values) {
+      await this.upsertStepValueNoAuth(runId, {
+        runId,
+        stepId,
+        value,
+      });
+    }
+
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute JS questions for this section
+    const jsResult = await this.executeJsQuestions(runId, sectionId, dataMap);
+    if (!jsResult.success) {
+      return {
+        success: false,
+        errors: jsResult.errors,
+      };
+    }
+
+    // Execute onSectionSubmit blocks (transform + validate)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onSectionSubmit",
+      sectionId,
+      data: dataMap,
+    });
+
+    return {
+      success: blockResult.success,
+      errors: blockResult.errors,
+    };
+  }
+
+  /**
    * Calculate next section and update run state
    * Executes onNext blocks (transform + branch)
    *
@@ -404,11 +489,132 @@ export class RunService {
   }
 
   /**
+   * Calculate next section without ownership check
+   * Used for preview/run token authentication
+   */
+  async nextNoAuth(runId: string): Promise<NavigationResult> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    if (run.completed) {
+      throw new Error("Run is already completed");
+    }
+
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute JS questions for the current section (if any)
+    if (run.currentSectionId) {
+      await this.executeJsQuestions(runId, run.currentSectionId, dataMap);
+    }
+
+    // Execute onNext blocks (transform + branch)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onNext",
+      sectionId: run.currentSectionId ?? undefined,
+      data: dataMap,
+    });
+
+    // If transform blocks produced a nextSectionId, use it
+    // Otherwise, evaluate navigation using LogicService
+    let navigation: NavigationResult;
+
+    if (blockResult.nextSectionId) {
+      // Branch block decided the next section
+      navigation = {
+        nextSectionId: blockResult.nextSectionId,
+        currentProgress: 0,
+      };
+    } else {
+      // Use logic service to determine navigation
+      navigation = await this.logicSvc.evaluateNavigation(
+        run.workflowId,
+        runId,
+        run.currentSectionId ?? null
+      );
+    }
+
+    // Update run with next section and progress
+    if (navigation.nextSectionId !== run.currentSectionId) {
+      await this.runRepo.update(runId, {
+        currentSectionId: navigation.nextSectionId,
+        progress: navigation.currentProgress,
+      });
+    }
+
+    return navigation;
+  }
+
+  /**
    * Complete a workflow run (with validation)
    * Executes onRunComplete blocks before completion
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
+
+    if (run.completed) {
+      throw new Error("Run is already completed");
+    }
+
+    // Get workflow
+    const workflow = await this.workflowRepo.findById(run.workflowId);
+    if (!workflow) {
+      throw new Error("Workflow not found");
+    }
+
+    // Get all step values for this run
+    const allValues = await this.valueRepo.findByRunId(runId);
+    const dataMap = allValues.reduce((acc, v) => {
+      acc[v.stepId] = v.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Execute onRunComplete blocks (transform + validate)
+    const blockResult = await blockRunner.runPhase({
+      workflowId: run.workflowId,
+      runId: run.id,
+      phase: "onRunComplete",
+      data: dataMap,
+    });
+
+    // If blocks produced validation errors, reject completion
+    if (!blockResult.success && blockResult.errors) {
+      throw new Error(`Validation failed: ${blockResult.errors.join(', ')}`);
+    }
+
+    // Validate using LogicService
+    const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
+
+    if (!validation.valid) {
+      const stepTitles = validation.missingStepTitles?.join(', ') || validation.missingSteps.join(', ');
+      throw new Error(`Missing required steps: ${stepTitles}`);
+    }
+
+    // Mark run as complete with 100% progress
+    return await this.runRepo.update(runId, {
+      completed: true,
+      completedAt: new Date(),
+      progress: 100,
+    });
+  }
+
+  /**
+   * Complete a workflow run without ownership check
+   * Used for preview/run token authentication
+   */
+  async completeRunNoAuth(runId: string): Promise<WorkflowRun> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
 
     if (run.completed) {
       throw new Error("Run is already completed");
