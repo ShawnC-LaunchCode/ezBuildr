@@ -1,5 +1,5 @@
 import { Router, type Request, Response } from 'express';
-import { eq, and, desc, lt } from 'drizzle-orm';
+import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import path from 'path';
 import { db } from '../db';
 import * as schema from '@shared/schema';
