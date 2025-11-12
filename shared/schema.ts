@@ -1402,6 +1402,97 @@ export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id:
 export const insertProjectAccessSchema = createInsertSchema(projectAccess).omit({ id: true, createdAt: true });
 export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess).omit({ id: true, createdAt: true });
 
+// ===================================================================
+// REAL-TIME COLLABORATION (Stage 7B)
+// ===================================================================
+
+// Collaboration documents table
+export const collabDocs = pgTable("collab_docs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'set null' }), // nullable - used for draft by default
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("collab_docs_workflow_idx").on(table.workflowId),
+  index("collab_docs_tenant_idx").on(table.tenantId),
+  index("collab_docs_version_idx").on(table.versionId),
+]);
+
+// Collaboration updates table (append-only log)
+export const collabUpdates = pgTable("collab_updates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  docId: uuid("doc_id").references(() => collabDocs.id, { onDelete: 'cascade' }).notNull(),
+  seq: integer("seq").notNull(), // Sequential number for ordering
+  update: text("update").notNull(), // Base64-encoded Yjs update
+  ts: timestamp("ts").defaultNow().notNull(),
+}, (table) => [
+  index("collab_updates_doc_seq_idx").on(table.docId, table.seq),
+  index("collab_updates_doc_ts_idx").on(table.docId, table.ts),
+]);
+
+// Collaboration snapshots table
+export const collabSnapshots = pgTable("collab_snapshots", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  docId: uuid("doc_id").references(() => collabDocs.id, { onDelete: 'cascade' }).notNull(),
+  clock: integer("clock").notNull(), // Logical clock / seq number at snapshot time
+  state: text("state").notNull(), // Base64-encoded Yjs state
+  ts: timestamp("ts").defaultNow().notNull(),
+}, (table) => [
+  index("collab_snapshots_doc_clock_idx").on(table.docId, table.clock),
+  index("collab_snapshots_doc_ts_idx").on(table.docId, table.ts),
+]);
+
+// Collaboration Relations
+export const collabDocsRelations = relations(collabDocs, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [collabDocs.workflowId],
+    references: [workflows.id],
+  }),
+  version: one(workflowVersions, {
+    fields: [collabDocs.versionId],
+    references: [workflowVersions.id],
+  }),
+  tenant: one(tenants, {
+    fields: [collabDocs.tenantId],
+    references: [tenants.id],
+  }),
+  updates: many(collabUpdates),
+  snapshots: many(collabSnapshots),
+}));
+
+export const collabUpdatesRelations = relations(collabUpdates, ({ one }) => ({
+  doc: one(collabDocs, {
+    fields: [collabUpdates.docId],
+    references: [collabDocs.id],
+  }),
+}));
+
+export const collabSnapshotsRelations = relations(collabSnapshots, ({ one }) => ({
+  doc: one(collabDocs, {
+    fields: [collabSnapshots.docId],
+    references: [collabDocs.id],
+  }),
+}));
+
+// Collaboration Insert Schemas
+export const insertCollabDocSchema = createInsertSchema(collabDocs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCollabUpdateSchema = createInsertSchema(collabUpdates).omit({ id: true, ts: true });
+export const insertCollabSnapshotSchema = createInsertSchema(collabSnapshots).omit({ id: true, ts: true });
+
+// Collaboration Types
+export type CollabDoc = typeof collabDocs.$inferSelect;
+export type InsertCollabDoc = typeof insertCollabDocSchema._type;
+export type CollabUpdate = typeof collabUpdates.$inferSelect;
+export type InsertCollabUpdate = typeof insertCollabUpdateSchema._type;
+export type CollabSnapshot = typeof collabSnapshots.$inferSelect;
+export type InsertCollabSnapshot = typeof insertCollabSnapshotSchema._type;
+
+// ===================================================================
+// LEGACY TYPES
+// ===================================================================
+
 // Vault-Logic Types
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = typeof insertTenantSchema._type;

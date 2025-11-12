@@ -4,6 +4,7 @@ import { setupAuth } from "./googleAuth";
 import { userRepository } from "./repositories";
 import { registerAllRoutes } from "./routes/index";
 import { createLogger } from "./logger";
+import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabServer";
 
 const logger = createLogger({ module: 'routes' });
 
@@ -64,6 +65,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register all modular routes
   registerAllRoutes(app);
 
+  // Real-time collaboration metrics endpoint (dev only)
+  if (process.env.NODE_ENV === 'development') {
+    app.get('/api/realtime/metrics', (req, res) => {
+      try {
+        const metrics = getMetrics();
+        res.json(metrics);
+      } catch (error) {
+        logger.error({ error }, 'Failed to get collab metrics');
+        res.status(500).json({ error: 'Failed to get metrics' });
+      }
+    });
+
+    app.get('/api/realtime/rooms/:roomId/stats', (req, res) => {
+      try {
+        const stats = getRoomStats(req.params.roomId);
+        if (!stats) {
+          return res.status(404).json({ error: 'Room not found' });
+        }
+        res.json(stats);
+      } catch (error) {
+        logger.error({ error }, 'Failed to get room stats');
+        res.status(500).json({ error: 'Failed to get room stats' });
+      }
+    });
+  }
+
   const httpServer = createServer(app);
+
+  // Initialize WebSocket collaboration server
+  initCollabServer(httpServer);
+
+  logger.info('Real-time collaboration server initialized');
+
   return httpServer;
 }
