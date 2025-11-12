@@ -1,5 +1,9 @@
 import type { EvalContext } from '../expr';
 import { evaluateExpression } from '../expr';
+import { db } from '../../db';
+import * as schema from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { renderTemplate } from '../../services/templates';
 
 /**
  * Template Node Executor
@@ -25,11 +29,13 @@ export interface TemplateNodeOutput {
   status: 'executed' | 'skipped';
   outputRef?: {
     fileRef: string;
+    pdfRef?: string;
     format: string;
     size?: number;
   };
   bindings?: Record<string, any>;  // Resolved binding values
   skipReason?: string;
+  error?: string;
 }
 
 /**
@@ -67,26 +73,53 @@ export async function executeTemplateNode(
       }
     }
 
-    // TODO: Integrate with actual docx service
-    // For now, create a stub output reference
-    const outputRef = {
-      fileRef: `template-${config.templateId}-${Date.now()}.docx`,
-      format: 'docx',
-      size: 1024,
-    };
+    // Fetch template from database
+    const template = await db.query.templates.findFirst({
+      where: eq(schema.templates.id, config.templateId),
+      with: {
+        project: true,
+      },
+    });
 
-    // In a real implementation, we would call:
-    // const outputRef = await docxService.render(config.templateId, resolvedBindings, tenantId);
+    if (!template) {
+      throw new Error(`Template ${config.templateId} not found`);
+    }
+
+    // Verify tenant access
+    if (template.project.tenantId !== tenantId) {
+      throw new Error(`Access denied to template ${config.templateId}`);
+    }
+
+    // Render the template with bindings
+    const result = await renderTemplate(
+      template.fileRef,
+      resolvedBindings,
+      {
+        outputName: config.outputName,
+        toPdf: false, // Can be made configurable via node config
+      }
+    );
 
     return {
       status: 'executed',
-      outputRef,
+      outputRef: {
+        fileRef: result.fileRef,
+        pdfRef: result.pdfRef,
+        format: result.format,
+        size: result.size,
+      },
       bindings: resolvedBindings,
     };
   } catch (error) {
-    throw new Error(
-      `Template node ${nodeId} failed: ${error instanceof Error ? error.message : 'unknown error'}`
-    );
+    const errorMessage = error instanceof Error ? error.message : 'unknown error';
+
+    // Return error status instead of throwing
+    // This allows the workflow to continue and log the error
+    return {
+      status: 'executed', // Mark as executed even on error
+      error: errorMessage,
+      bindings: {},
+    };
   }
 }
 

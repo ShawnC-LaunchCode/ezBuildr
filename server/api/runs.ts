@@ -10,7 +10,7 @@ import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 import { runGraph } from '../engine';
 import { createRun, updateRun, createRunLogs, getRunById, getRunLogs } from '../services/runs';
-import { getTemplateFilePath, templateFileExists } from '../services/templates';
+import { getTemplateFilePath, templateFileExists, getOutputFilePath, outputFileExists } from '../services/templates';
 import type { AuthRequest } from '../middleware/auth';
 import {
   createRunSchema,
@@ -393,7 +393,7 @@ router.get(
 
 /**
  * GET /runs/:id/download
- * Download run output file
+ * Download run output file (DOCX or PDF)
  */
 router.get(
   '/runs/:id/download',
@@ -436,24 +436,44 @@ router.get(
       }
 
       const outputRefs = run.outputRefs as Record<string, any>;
-      const documentRef = outputRefs.document?.fileRef;
 
-      if (!documentRef) {
+      // Determine which file to download (docx or pdf)
+      let fileRef: string | undefined;
+      let mimeType: string;
+      let extension: string;
+
+      if (query.type === 'pdf') {
+        // Try to get PDF version
+        fileRef = outputRefs.document?.pdfRef || outputRefs.pdfRef;
+        mimeType = 'application/pdf';
+        extension = 'pdf';
+
+        if (!fileRef) {
+          throw createError.notFound('PDF output not available. Only DOCX format was generated.');
+        }
+      } else {
+        // Default to DOCX
+        fileRef = outputRefs.document?.fileRef || outputRefs.fileRef;
+        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        extension = 'docx';
+      }
+
+      if (!fileRef) {
         throw createError.notFound('Output document');
       }
 
-      // Check if file exists
-      const exists = await templateFileExists(documentRef);
+      // Check if file exists in outputs directory
+      const exists = await outputFileExists(fileRef);
       if (!exists) {
         throw createError.notFound('Output file');
       }
 
-      // Get file path
-      const filePath = getTemplateFilePath(documentRef);
+      // Get file path from outputs directory
+      const filePath = getOutputFilePath(fileRef);
 
       // Set headers for download
-      const filename = `run-${run.id}-output.${query.type}`;
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      const filename = `run-${run.id}-output.${extension}`;
+      res.setHeader('Content-Type', mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
       // Send file

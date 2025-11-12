@@ -3,9 +3,15 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { createError } from '../utils/errors';
 import type { PlaceholderInfo } from '../api/validators/templates';
+import {
+  extractPlaceholdersFromDocx,
+  renderDocx,
+  validateTemplateData,
+} from './docxRenderer';
 
 // Local file storage directory
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
+const OUTPUTS_DIR = path.join(process.cwd(), 'server', 'files', 'outputs');
 
 /**
  * Template Service
@@ -92,10 +98,54 @@ export async function templateFileExists(fileRef: string): Promise<boolean> {
 }
 
 /**
+ * Get file path for an output file
+ */
+export function getOutputFilePath(fileRef: string): string {
+  return path.join(OUTPUTS_DIR, fileRef);
+}
+
+/**
+ * Check if output file exists
+ */
+export async function outputFileExists(fileRef: string): Promise<boolean> {
+  try {
+    const filePath = getOutputFilePath(fileRef);
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate template against allowed placeholders
+ * @param fileRef - Template file reference
+ * @param allowedVars - List of allowed variable names
+ * @returns Validation result with missing/invalid placeholders
+ */
+export async function validateTemplate(
+  fileRef: string,
+  allowedVars: string[]
+): Promise<{ valid: boolean; missingVars: string[]; extraVars: string[] }> {
+  // Extract placeholders from template
+  const placeholders = await extractPlaceholders(fileRef);
+  const placeholderNames = placeholders.map((p) => p.name);
+
+  // Check for placeholders not in allowed vars
+  const extraVars = placeholderNames.filter((name) => !allowedVars.includes(name));
+
+  // Check for required vars missing from template
+  const missingVars = allowedVars.filter((name) => !placeholderNames.includes(name));
+
+  return {
+    valid: extraVars.length === 0,
+    missingVars,
+    extraVars,
+  };
+}
+
+/**
  * Extract placeholders from docx template
- *
- * For MVP, this is a stub that returns mock placeholders.
- * In Stage 7, this will integrate with docxtemplater to actually parse the template.
  *
  * @param fileRef - Template file reference
  * @returns Array of placeholder information
@@ -107,58 +157,67 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
     throw createError.notFound('Template file');
   }
 
-  // TODO: Stage 7 - Implement actual docxtemplater placeholder extraction
-  // For now, return mock placeholders
-  return [
-    {
-      name: 'customer_name',
-      type: 'text',
-      example: 'John Doe',
-    },
-    {
-      name: 'date',
-      type: 'text',
-      example: '2025-01-01',
-    },
-    {
-      name: 'items',
-      type: 'list',
-      example: '[{name: "Item 1", price: 100}]',
-    },
-  ];
+  // Get template file path
+  const templatePath = getTemplateFilePath(fileRef);
+
+  // Extract placeholders using docxtemplater
+  const placeholderNames = await extractPlaceholdersFromDocx(templatePath);
+
+  // Convert to PlaceholderInfo format
+  const placeholders: PlaceholderInfo[] = placeholderNames.map((name) => ({
+    name,
+    type: 'text', // Default to text type
+    example: '', // Could be enhanced to provide better examples
+  }));
+
+  return placeholders;
 }
 
 /**
  * Render template with context data
  *
- * For MVP, this is a stub that returns a mock file path.
- * In Stage 7, this will integrate with docxtemplater to actually render the document.
- *
  * @param fileRef - Template file reference
  * @param context - Data to populate the template
- * @returns Path to the rendered document
+ * @param options - Rendering options
+ * @returns Path to the rendered document (fileRef)
  */
 export async function renderTemplate(
   fileRef: string,
-  context: Record<string, any>
-): Promise<string> {
+  context: Record<string, any>,
+  options?: {
+    toPdf?: boolean;
+    outputName?: string;
+  }
+): Promise<{ fileRef: string; pdfRef?: string; size: number; format: string }> {
   // Verify file exists
   const exists = await templateFileExists(fileRef);
   if (!exists) {
     throw createError.notFound('Template file');
   }
 
-  // TODO: Stage 7 - Implement actual docxtemplater rendering
-  // For now, copy the template file as the output
-  const outputFileName = `output-${nanoid(16)}.docx`;
+  // Get template file path
   const templatePath = getTemplateFilePath(fileRef);
-  const outputPath = path.join(FILES_DIR, outputFileName);
 
   try {
-    // Copy template as output (placeholder for actual rendering)
-    const templateBuffer = await fs.readFile(templatePath);
-    await fs.writeFile(outputPath, templateBuffer);
-    return outputFileName;
+    // Render the template using docxtemplater
+    const result = await renderDocx({
+      templatePath,
+      data: context,
+      outputDir: OUTPUTS_DIR,
+      outputName: options?.outputName,
+      toPdf: options?.toPdf || false,
+    });
+
+    // Extract just the filename (fileRef) from the full path
+    const docxFileRef = path.basename(result.docxPath);
+    const pdfFileRef = result.pdfPath ? path.basename(result.pdfPath) : undefined;
+
+    return {
+      fileRef: docxFileRef,
+      pdfRef: pdfFileRef,
+      size: result.size,
+      format: 'docx',
+    };
   } catch (error) {
     console.error('Failed to render template:', error);
     throw createError.internal('Failed to render template');
