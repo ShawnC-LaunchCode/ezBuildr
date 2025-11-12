@@ -24,12 +24,15 @@ export async function createRun(data: InsertRun): Promise<schema.Run> {
 
 /**
  * Update run status and results
+ * Stage 8: Added trace and error fields
  */
 export async function updateRun(
   runId: string,
   updates: {
     status?: 'pending' | 'success' | 'error';
     outputRefs?: Record<string, any>;
+    trace?: any; // Stage 8: Execution trace
+    error?: string | null; // Stage 8: Error message
     durationMs?: number;
   }
 ): Promise<schema.Run> {

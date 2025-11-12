@@ -876,7 +876,9 @@ export const runs = pgTable("runs", {
   workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
   inputJson: jsonb("input_json"),
   outputRefs: jsonb("output_refs"),
+  trace: jsonb("trace"), // Stage 8: Debug trace (node-by-node execution)
   status: runStatusEnum("status").default('pending').notNull(),
+  error: text("error"), // Stage 8: Error message if failed
   durationMs: integer("duration_ms"),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

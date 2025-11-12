@@ -32,6 +32,9 @@ import VisualWorkflowBuilder from "@/pages/VisualWorkflowBuilder";
 import NewWorkflow from "@/pages/NewWorkflow";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
 import PreviewRunner from "@/pages/PreviewRunner";
+import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
+import RunDetails from "@/pages/RunDetails"; // Stage 8
+import RunsCompare from "@/pages/RunsCompare"; // Stage 8
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -66,6 +69,11 @@ function Router() {
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
+
+            {/* Stage 8: Document Runs routes */}
+            <Route path="/runs" component={RunsDashboard} />
+            <Route path="/runs/compare" component={RunsCompare} />
+            <Route path="/runs/:id" component={RunDetails} />
 
             <Route path="/surveys" component={WorkflowsList} />
             <Route path="/surveys/new" component={SurveyBuilder} />
