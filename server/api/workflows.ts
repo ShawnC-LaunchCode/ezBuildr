@@ -8,7 +8,8 @@ import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 import { validateGraphStructure } from '../engine';
-import { validateNodeConditions, type GraphJson } from '../engine/validate';
+import { validateNodeConditions, collectAvailableVars, type GraphJson } from '../engine/validate';
+import { validateExpression, Helpers, AllowedHelperNames } from '../engine/expr';
 import type { AuthRequest } from '../middleware/auth';
 import {
   createWorkflowSchema,
@@ -531,6 +532,190 @@ router.get(
       }
 
       res.json(version);
+    } catch (error) {
+      const formatted = formatErrorResponse(error);
+      res.status(formatted.status).json(formatted.body);
+    }
+  }
+);
+
+/**
+ * POST /workflows/validateExpression
+ * Validate an expression for syntax and allowed variables
+ */
+router.post(
+  '/workflows/validateExpression',
+  requireAuth,
+  requireTenant,
+  requirePermission('workflow:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthRequest;
+      const tenantId = authReq.tenantId!;
+
+      const { workflowId, nodeId, expression } = req.body;
+
+      if (!workflowId || !nodeId || typeof expression !== 'string') {
+        return res.status(400).json({
+          ok: false,
+          errors: [{
+            message: 'Missing required fields: workflowId, nodeId, expression',
+            start: { line: 0, col: 0 },
+            end: { line: 0, col: 1 },
+          }],
+        });
+      }
+
+      // Fetch workflow with project for tenant check
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(schema.workflows.id, workflowId),
+        with: {
+          project: true,
+          currentVersion: true,
+        },
+      });
+
+      if (!workflow) {
+        throw createError.notFound('Workflow', workflowId);
+      }
+
+      // Verify tenant access
+      if (workflow.project.tenantId !== tenantId) {
+        throw createError.forbidden('Access denied to this workflow');
+      }
+
+      // Get current graph
+      const graphJson = workflow.currentVersion?.graphJson as unknown as GraphJson;
+      if (!graphJson) {
+        return res.status(400).json({
+          ok: false,
+          errors: [{
+            message: 'Workflow has no graph data',
+            start: { line: 0, col: 0 },
+            end: { line: 0, col: 1 },
+          }],
+        });
+      }
+
+      // Get available variables for this node
+      const availableVars = collectAvailableVars(graphJson);
+      const varsAtNode = availableVars.get(nodeId) || [];
+
+      // Validate expression
+      const result = validateExpression(expression, varsAtNode);
+
+      if (result.ok) {
+        res.json({ ok: true });
+      } else {
+        res.json({
+          ok: false,
+          errors: [{
+            message: result.error,
+            start: { line: 0, col: 0 },
+            end: { line: 0, col: expression.length },
+          }],
+        });
+      }
+    } catch (error) {
+      const formatted = formatErrorResponse(error);
+      res.status(formatted.status).json(formatted.body);
+    }
+  }
+);
+
+/**
+ * GET /workflows/:id/availableVars/:nodeId
+ * Get available variables at a specific node
+ */
+router.get(
+  '/workflows/:id/availableVars/:nodeId',
+  requireAuth,
+  requireTenant,
+  requirePermission('workflow:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthRequest;
+      const tenantId = authReq.tenantId!;
+
+      const { id: workflowId, nodeId } = req.params;
+
+      // Fetch workflow with project for tenant check
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(schema.workflows.id, workflowId),
+        with: {
+          project: true,
+          currentVersion: true,
+        },
+      });
+
+      if (!workflow) {
+        throw createError.notFound('Workflow', workflowId);
+      }
+
+      // Verify tenant access
+      if (workflow.project.tenantId !== tenantId) {
+        throw createError.forbidden('Access denied to this workflow');
+      }
+
+      // Get current graph
+      const graphJson = workflow.currentVersion?.graphJson as unknown as GraphJson;
+      if (!graphJson) {
+        return res.json({ vars: [] });
+      }
+
+      // Get available variables for this node
+      const availableVars = collectAvailableVars(graphJson);
+      const varsAtNode = availableVars.get(nodeId) || [];
+
+      res.json({ vars: varsAtNode });
+    } catch (error) {
+      const formatted = formatErrorResponse(error);
+      res.status(formatted.status).json(formatted.body);
+    }
+  }
+);
+
+/**
+ * GET /engine/helpers
+ * Get list of available helper functions
+ */
+router.get(
+  '/engine/helpers',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      // Build helper metadata
+      const helpers = [
+        // Math helpers
+        { name: 'round', signature: 'round(number, digits?)', doc: 'Round a number to specified decimal places' },
+        { name: 'ceil', signature: 'ceil(number)', doc: 'Round up to nearest integer' },
+        { name: 'floor', signature: 'floor(number)', doc: 'Round down to nearest integer' },
+        { name: 'abs', signature: 'abs(number)', doc: 'Absolute value' },
+        { name: 'min', signature: 'min(...numbers)', doc: 'Return minimum value' },
+        { name: 'max', signature: 'max(...numbers)', doc: 'Return maximum value' },
+
+        // String helpers
+        { name: 'len', signature: 'len(string)', doc: 'Length of string' },
+        { name: 'upper', signature: 'upper(string)', doc: 'Convert to uppercase' },
+        { name: 'lower', signature: 'lower(string)', doc: 'Convert to lowercase' },
+        { name: 'contains', signature: 'contains(string, substring)', doc: 'Check if string contains substring' },
+        { name: 'trim', signature: 'trim(string)', doc: 'Remove leading/trailing whitespace' },
+        { name: 'concat', signature: 'concat(...parts)', doc: 'Concatenate strings' },
+
+        // Array helpers
+        { name: 'includes', signature: 'includes(array, value)', doc: 'Check if array includes value' },
+        { name: 'count', signature: 'count(array)', doc: 'Get array length' },
+
+        // Date helpers
+        { name: 'dateDiff', signature: 'dateDiff(unit, fromISO, toISO?)', doc: 'Calculate date difference (units: days, hours, minutes, seconds)' },
+
+        // Logic helpers
+        { name: 'coalesce', signature: 'coalesce(...values)', doc: 'Return first non-null value' },
+        { name: 'isEmpty', signature: 'isEmpty(value)', doc: 'Check if value is empty' },
+        { name: 'not', signature: 'not(value)', doc: 'Logical NOT' },
+      ];
+
+      res.json({ helpers });
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);

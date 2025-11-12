@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'wouter';
 import { useBuilderStore } from '../store/useBuilderStore';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -13,8 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { ExpressionEditor } from './ExpressionEditor';
+import { ExpressionToolbar } from './ExpressionToolbar';
 
 export function NodeSidebar() {
+  const { id: workflowId } = useParams<{ id: string }>();
   const { nodes, selectedNodeId, updateNode, deleteNode } = useBuilderStore();
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
@@ -85,17 +89,29 @@ export function NodeSidebar() {
 
           <div className="space-y-2">
             <Label htmlFor="condition">Condition (optional)</Label>
-            <Textarea
-              id="condition"
-              value={localConfig.condition || ''}
-              onChange={(e) => handleUpdate({ condition: e.target.value })}
-              placeholder="e.g., age > 18"
-              className="font-mono text-sm"
-              rows={2}
-            />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mb-2">
               Node will only execute if condition evaluates to true
             </p>
+            {workflowId && selectedNode && (
+              <>
+                <ExpressionToolbar
+                  workflowId={workflowId}
+                  nodeId={selectedNode.id}
+                  onInsert={(text) => {
+                    const currentValue = localConfig.condition || '';
+                    handleUpdate({ condition: currentValue + text });
+                  }}
+                />
+                <ExpressionEditor
+                  value={localConfig.condition || ''}
+                  onChange={(value) => handleUpdate({ condition: value })}
+                  nodeId={selectedNode.id}
+                  workflowId={workflowId}
+                  placeholder="e.g., age > 18"
+                  height="80px"
+                />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -105,16 +121,31 @@ export function NodeSidebar() {
         <QuestionConfig config={localConfig} onUpdate={handleUpdate} />
       )}
 
-      {selectedNode.type === 'compute' && (
-        <ComputeConfig config={localConfig} onUpdate={handleUpdate} />
+      {selectedNode.type === 'compute' && workflowId && (
+        <ComputeConfig
+          config={localConfig}
+          onUpdate={handleUpdate}
+          workflowId={workflowId}
+          nodeId={selectedNode.id}
+        />
       )}
 
-      {selectedNode.type === 'branch' && (
-        <BranchConfig config={localConfig} onUpdate={handleUpdate} />
+      {selectedNode.type === 'branch' && workflowId && (
+        <BranchConfig
+          config={localConfig}
+          onUpdate={handleUpdate}
+          workflowId={workflowId}
+          nodeId={selectedNode.id}
+        />
       )}
 
-      {selectedNode.type === 'template' && (
-        <TemplateConfig config={localConfig} onUpdate={handleUpdate} />
+      {selectedNode.type === 'template' && workflowId && (
+        <TemplateConfig
+          config={localConfig}
+          onUpdate={handleUpdate}
+          workflowId={workflowId}
+          nodeId={selectedNode.id}
+        />
       )}
     </div>
   );
@@ -175,7 +206,17 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
 }
 
 // Compute Node Config
-function ComputeConfig({ config, onUpdate }: { config: any; onUpdate: (updates: any) => void }) {
+function ComputeConfig({
+  config,
+  onUpdate,
+  workflowId,
+  nodeId,
+}: {
+  config: any;
+  onUpdate: (updates: any) => void;
+  workflowId: string;
+  nodeId: string;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -184,17 +225,25 @@ function ComputeConfig({ config, onUpdate }: { config: any; onUpdate: (updates: 
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="expression">Expression</Label>
-          <Textarea
-            id="expression"
-            value={config.expression || ''}
-            onChange={(e) => onUpdate({ expression: e.target.value })}
-            placeholder="e.g., age * 2 + 10"
-            className="font-mono text-sm"
-            rows={3}
-          />
-          <p className="text-xs text-muted-foreground">
-            Use variables from previous nodes (e.g., $age, $name)
+          <p className="text-xs text-muted-foreground mb-2">
+            Use variables from previous nodes
           </p>
+          <ExpressionToolbar
+            workflowId={workflowId}
+            nodeId={nodeId}
+            onInsert={(text) => {
+              const currentValue = config.expression || '';
+              onUpdate({ expression: currentValue + text });
+            }}
+          />
+          <ExpressionEditor
+            value={config.expression || ''}
+            onChange={(value) => onUpdate({ expression: value })}
+            nodeId={nodeId}
+            workflowId={workflowId}
+            placeholder="e.g., age * 2 + 10"
+            height="100px"
+          />
         </div>
 
         <div className="space-y-2">
@@ -213,7 +262,17 @@ function ComputeConfig({ config, onUpdate }: { config: any; onUpdate: (updates: 
 }
 
 // Branch Node Config
-function BranchConfig({ config, onUpdate }: { config: any; onUpdate: (updates: any) => void }) {
+function BranchConfig({
+  config,
+  onUpdate,
+  workflowId,
+  nodeId,
+}: {
+  config: any;
+  onUpdate: (updates: any) => void;
+  workflowId: string;
+  nodeId: string;
+}) {
   const branches = config.branches || [];
 
   const addBranch = () => {
@@ -260,12 +319,14 @@ function BranchConfig({ config, onUpdate }: { config: any; onUpdate: (updates: a
                   className="text-sm"
                 />
 
-                <Textarea
+                <Label className="text-xs">Condition</Label>
+                <ExpressionEditor
                   value={branch.condition || ''}
-                  onChange={(e) => updateBranch(index, { condition: e.target.value })}
+                  onChange={(value) => updateBranch(index, { condition: value })}
+                  nodeId={nodeId}
+                  workflowId={workflowId}
                   placeholder="e.g., age >= 18"
-                  className="font-mono text-sm"
-                  rows={2}
+                  height="60px"
                 />
               </div>
             </Card>
@@ -282,7 +343,17 @@ function BranchConfig({ config, onUpdate }: { config: any; onUpdate: (updates: a
 }
 
 // Template Node Config
-function TemplateConfig({ config, onUpdate }: { config: any; onUpdate: (updates: any) => void }) {
+function TemplateConfig({
+  config,
+  onUpdate,
+  workflowId,
+  nodeId,
+}: {
+  config: any;
+  onUpdate: (updates: any) => void;
+  workflowId: string;
+  nodeId: string;
+}) {
   const bindings = config.bindings || {};
 
   const addBinding = () => {
@@ -344,12 +415,13 @@ function TemplateConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-                  <Textarea
+                  <ExpressionEditor
                     value={expression as string}
-                    onChange={(e) => updateBinding(placeholder, e.target.value)}
+                    onChange={(value) => updateBinding(placeholder, value)}
+                    nodeId={nodeId}
+                    workflowId={workflowId}
                     placeholder="Expression or variable"
-                    className="font-mono text-sm"
-                    rows={2}
+                    height="60px"
                   />
                 </div>
               </Card>
