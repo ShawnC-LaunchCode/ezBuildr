@@ -430,6 +430,7 @@ export interface ApiStepValue {
   updatedAt: string;
 }
 
+// Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
   create: (workflowId: string, data: { participantId?: string; metadata?: any }, queryParams?: Record<string, string>) => {
     const params = queryParams ? `?${new URLSearchParams(queryParams)}` : "";
@@ -470,6 +471,189 @@ export const runAPI = {
 
   list: (workflowId: string) =>
     fetchAPI<ApiRun[]>(`/api/workflows/${workflowId}/runs`),
+};
+
+// ============================================================================
+// Document Runs (Stage 8: Run History UI + Debug Traces)
+// ============================================================================
+
+export interface TraceEntry {
+  nodeId: string;
+  type: string;
+  condition?: string;
+  conditionResult?: boolean;
+  status: 'executed' | 'skipped';
+  outputsDelta?: Record<string, any>;
+  error?: string;
+  timestamp: string;
+}
+
+export interface DocumentRun {
+  id: string;
+  workflowVersionId: string;
+  inputJson?: Record<string, any>;
+  outputRefs?: Record<string, any>;
+  trace?: TraceEntry[];
+  status: 'pending' | 'success' | 'error';
+  error?: string | null;
+  durationMs?: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // Relations
+  workflowVersion?: {
+    id: string;
+    name: string;
+    workflow: {
+      id: string;
+      name: string;
+      projectId: string;
+    };
+  };
+  createdByUser?: {
+    id: string;
+    email: string;
+    fullName?: string;
+  };
+}
+
+export interface RunLogEntry {
+  id: string;
+  runId: string;
+  nodeId: string | null;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  context?: Record<string, any> | null;
+  createdAt: string;
+}
+
+export interface ListRunsParams {
+  cursor?: string;
+  limit?: number;
+  workflowId?: string;
+  projectId?: string;
+  status?: 'pending' | 'success' | 'error';
+  from?: string;
+  to?: string;
+  q?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  nextCursor?: string;
+}
+
+export interface CompareRunsResponse {
+  runA: {
+    id: string;
+    status: string;
+    durationMs?: number;
+    inputs?: Record<string, any>;
+    outputs?: Record<string, any>;
+    trace?: TraceEntry[];
+    error?: string | null;
+    createdAt: string;
+  };
+  runB: {
+    id: string;
+    status: string;
+    durationMs?: number;
+    inputs?: Record<string, any>;
+    outputs?: Record<string, any>;
+    trace?: TraceEntry[];
+    error?: string | null;
+    createdAt: string;
+  };
+  summaryDiff: {
+    inputsChangedKeys: string[];
+    outputsChangedKeys: string[];
+    statusMatch: boolean;
+    durationDiff: number;
+  };
+}
+
+// Stage 8: Document runs API (for template/document generation workflows)
+export const documentRunsAPI = {
+  /**
+   * List document runs with filters and pagination
+   */
+  list: (params: ListRunsParams = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.cursor) queryParams.set('cursor', params.cursor);
+    if (params.limit) queryParams.set('limit', params.limit.toString());
+    if (params.workflowId) queryParams.set('workflowId', params.workflowId);
+    if (params.projectId) queryParams.set('projectId', params.projectId);
+    if (params.status) queryParams.set('status', params.status);
+    if (params.from) queryParams.set('from', params.from);
+    if (params.to) queryParams.set('to', params.to);
+    if (params.q) queryParams.set('q', params.q);
+
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return fetchAPI<PaginatedResponse<DocumentRun>>(`/runs${query}`);
+  },
+
+  /**
+   * Get a single run by ID (includes trace, logs, etc.)
+   */
+  get: (id: string) =>
+    fetchAPI<DocumentRun>(`/runs/${id}`),
+
+  /**
+   * Get logs for a run
+   */
+  getLogs: (id: string, params: { cursor?: string; limit?: number } = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.cursor) queryParams.set('cursor', params.cursor);
+    if (params.limit) queryParams.set('limit', params.limit.toString());
+
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return fetchAPI<PaginatedResponse<RunLogEntry>>(`/runs/${id}/logs${query}`);
+  },
+
+  /**
+   * Download run output (DOCX or PDF)
+   */
+  downloadUrl: (id: string, type: 'docx' | 'pdf' = 'docx') => {
+    const queryParams = new URLSearchParams({ type });
+    return `${API_BASE}/runs/${id}/download?${queryParams.toString()}`;
+  },
+
+  /**
+   * Re-run a workflow with same or override inputs
+   */
+  rerun: (id: string, data: {
+    overrideInputJson?: Record<string, any>;
+    versionId?: string;
+    options?: { debug?: boolean };
+  } = {}) =>
+    fetchAPI<{ runId: string; status: string; durationMs?: number }>(`/runs/${id}/rerun`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Export runs to CSV
+   */
+  exportCsvUrl: (params: Omit<ListRunsParams, 'cursor' | 'limit'> = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.workflowId) queryParams.set('workflowId', params.workflowId);
+    if (params.projectId) queryParams.set('projectId', params.projectId);
+    if (params.status) queryParams.set('status', params.status);
+    if (params.from) queryParams.set('from', params.from);
+    if (params.to) queryParams.set('to', params.to);
+    if (params.q) queryParams.set('q', params.q);
+
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return `${API_BASE}/runs/export.csv${query}`;
+  },
+
+  /**
+   * Compare two runs
+   */
+  compare: (runA: string, runB: string) => {
+    const queryParams = new URLSearchParams({ runA, runB });
+    return fetchAPI<CompareRunsResponse>(`/runs/compare?${queryParams.toString()}`);
+  },
 };
 
 // ============================================================================
