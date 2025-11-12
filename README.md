@@ -29,6 +29,9 @@ cp .env.example .env
 # Initialize database
 npm run db:push
 
+# Fix database schema (if needed - adds missing columns)
+npx tsx scripts/fixAllMissingColumns.ts
+
 # Start development server
 npm run dev
 ```
@@ -147,13 +150,16 @@ Routes → Services → Repositories → Database
 - 📄 **Sections & Steps** — Structure user journeys as pages and questions
 - ⚡ **Conditional Logic** — Show/hide fields and pages dynamically based on user input
 - 🧮 **Workflow Runs** — Capture user data and track execution progress
+- 🔧 **Transform Blocks** — Execute custom JavaScript/Python code for data transformation with sandboxed execution
+- 🏷️ **Step Aliases** — Human-friendly variable names for steps (e.g., `firstName`, `age`)
+- 🔑 **Token Authentication** — Bearer token support for anonymous and authenticated runs
 - 🧰 **Data Export** — JSON/CSV outputs for reporting or integration
 - 🧱 **Drizzle ORM Schema** — Strongly typed PostgreSQL models with migrations
 - 🧑‍💻 **Developer Friendly** — TypeScript end-to-end, modular services, comprehensive tests
 - 📊 **Advanced Analytics** — Completion rates, drop-off analysis, engagement metrics, time tracking
 - 📧 **Email Distribution** — SendGrid integration for invitations and notifications
 - 🤖 **AI-Powered** — Google Gemini integration for workflow generation and analysis
-- 🔐 **Secure Auth** — Google OAuth2 with session management
+- 🔐 **Secure Auth** — Google OAuth2 with session management + run token authentication
 - 📤 **File Uploads** — Support for file upload questions with Multer
 
 ---
@@ -241,17 +247,21 @@ The database uses **Drizzle ORM** with 17 main tables:
 - `files`, `survey_templates`, `system_stats` — Supporting features
 
 **Supported Question Types:**
-- `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`
-- `date_time`, `file_upload`, `loop_group` (repeating sections)
+- `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `checkbox`
+- `date_time`, `file_upload`, `loop_group` (repeating sections), `computed` (virtual steps)
 
 ### Key Implementation Details
 
 - **Environment Isolation:** Poll-Vault and Vault-Logic use separate Neon databases
 - **Schema Management:** Run `npm run db:push` to sync schema changes
 - **File Uploads:** Handled via Multer with metadata stored in `files` table
-- **Logic Engine:** Located in `shared/conditionalLogic.ts`
-- **Service Layer:** 20+ service classes in `server/services/`
+- **Logic Engine:** Located in `shared/conditionalLogic.ts` and `shared/workflowLogic.ts`
+- **Service Layer:** 25+ service classes in `server/services/`
 - **Repository Layer:** 15+ repository classes in `server/repositories/`
+- **Transform Blocks:** Sandboxed JS/Python execution with vm2 and subprocess
+- **Virtual Steps:** Transform block outputs stored via virtual steps with proper UUIDs
+- **Step Aliases:** Human-friendly variable names for referencing steps in logic and blocks
+- **Run Tokens:** UUID-based authentication for workflow runs (creator + anonymous modes)
 
 ---
 
@@ -294,12 +304,14 @@ npm run test-gemini      # Test Gemini API connection
 | ✅ | Workflow Builder + Section Logic | Complete |
 | ✅ | Multi-page Workflows with Conditional Logic | Complete |
 | ✅ | Response Collection & Analytics | Complete |
+| ✅ | Transform Blocks (JavaScript/Python) | Complete (Nov 2025) |
+| ✅ | Step Aliases (Variables) | Complete (Nov 2025) |
+| ✅ | Run Token Authentication | Complete (Nov 2025) |
 | 🔄 | Advanced Conditional Logic Engine | In Progress |
+| 🔄 | Team Collaboration | In Progress |
 | 🔜 | Document Automation (PDF/DOCX) | Planned |
-| 🔜 | Logic Blocks (JavaScript/Python) | Planned |
 | 🔜 | Integrations (DocuSign, Zapier) | Planned |
 | 🔜 | Workflow Versioning | Planned |
-| 🔜 | Team Collaboration | Planned |
 
 ---
 
@@ -353,9 +365,13 @@ Originally inspired by Poll-Vault, rebuilt for next-generation workflow automati
 
 VaultLogic has comprehensive documentation organized by topic:
 
+- **[Architecture & Current State](./claude.md)** - Complete architecture overview and current state
 - **[Documentation Index](./docs/INDEX.md)** - Complete documentation map
 - **[API Reference](./docs/api/API.md)** - Complete Workflow API documentation
 - **[Developer Reference](./docs/reference/DEVELOPER_REFERENCE.md)** - Comprehensive technical guide
+- **[Transform Blocks](./docs/api/TRANSFORM_BLOCKS.md)** - JavaScript/Python code execution guide
+- **[Step Aliases](./docs/guides/STEP_ALIASES.md)** - Variable system implementation guide
+- **[Authentication](./docs/guides/AUTHENTICATION.md)** - Run token authentication system
 - **[Testing Framework](./docs/testing/TESTING.md)** - Testing infrastructure and guidelines
 - **[Frontend Guide](./docs/guides/FRONTEND.md)** - Frontend development guide
 - **[Error Handling](./docs/architecture/ERROR_HANDLING.md)** - Centralized error handler
@@ -365,4 +381,47 @@ For a complete list of available documentation, see the [Documentation Index](./
 
 ---
 
-**Last Updated:** 2025-11-07
+## 🔧 Troubleshooting
+
+### Database Schema Issues
+
+**Symptoms:**
+- Login fails with authentication errors
+- "Workflow not found" errors when opening workflows
+- Delete button doesn't work
+- "column does not exist" errors in server logs (PostgreSQL error 42703)
+
+**Solution:**
+```bash
+# Run the comprehensive schema fix script
+npx tsx scripts/fixAllMissingColumns.ts
+
+# Restart your dev server
+npm run dev
+```
+
+**What it fixes:**
+- Adds missing columns to `users` table (`full_name`, `tenant_id`, `first_name`, `last_name`, `profile_image_url`)
+- Adds missing columns to `projects` table (`tenant_id`, `name`, `archived`)
+- Adds missing columns to `workflows` table (`name`, `current_version_id`, `project_id`)
+- Creates default tenant organization
+- Sets up proper database indices
+
+**When to use:** After pulling latest code changes or when encountering schema-related errors.
+
+### Other Common Issues
+
+**Google OAuth not working:**
+- Verify `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` are correctly set in `.env`
+- Ensure authorized JavaScript origins include your domain in Google Cloud Console
+- Check cookie settings and CORS configuration
+
+**Transform blocks not persisting:**
+- Ensure transform blocks have virtual steps assigned
+- Check that code calls `emit(value)` exactly once
+
+For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting section.
+
+---
+
+**Last Updated:** 2025-11-12

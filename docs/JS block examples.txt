@@ -1,0 +1,21 @@
+// Get all input values as an array
+const values = Object.values(input).filter(v => v != null && v !== "");
+
+// If you have exactly 2 inputs, assume first is firstName, second is lastName
+if (values.length >= 2) {
+    const firstName = values[0];
+    const lastName = values[1];
+    
+    return {
+        FullName: `${firstName} ${lastName}`.trim(),
+        FirstN: firstName,
+        LastN: lastName
+    };
+}
+
+// Fallback: concatenate all values
+return {
+    FullName: values.join(" "),
+    FirstN: values[0] || "",
+    LastN: values[1] || ""
+};

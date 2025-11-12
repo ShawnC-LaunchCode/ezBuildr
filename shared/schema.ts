@@ -827,16 +827,24 @@ export const projects = pgTable("projects", {
 // Workflows table
 export const workflows = pgTable("workflows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name", { length: 255 }).notNull(),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
-  status: workflowStatusEnum("status").default('draft').notNull(),
+  // Legacy fields (old schema)
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  modeOverride: text("mode_override"),
+  publicLink: text("public_link"),
+  // New multi-tenant fields (optional for migration)
+  name: varchar("name", { length: 255 }),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   currentVersionId: uuid("current_version_id"),
+  // Common fields
+  status: surveyStatusEnum("status").default('draft').notNull(), // Uses survey_status enum
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflows_project_idx").on(table.projectId),
   index("workflows_status_idx").on(table.status),
-  index("workflows_project_name_idx").on(table.projectId, table.name),
 ]);
 
 // WorkflowVersion table for versioning support
