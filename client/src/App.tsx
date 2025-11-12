@@ -28,6 +28,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import WorkflowDashboard from "@/pages/WorkflowDashboard";
 import WorkflowBuilder from "@/pages/WorkflowBuilder";
+import VisualWorkflowBuilder from "@/pages/VisualWorkflowBuilder";
 import NewWorkflow from "@/pages/NewWorkflow";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
 import PreviewRunner from "@/pages/PreviewRunner";
@@ -64,6 +65,7 @@ function Router() {
             <Route path="/workflows" component={WorkflowDashboard} />
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
+            <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
 
             <Route path="/surveys" component={WorkflowsList} />
             <Route path="/surveys/new" component={SurveyBuilder} />
