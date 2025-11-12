@@ -30,6 +30,7 @@ import { registerApiProjectRoutes } from "./api.projects.routes";
 import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiRunRoutes } from "./api.runs.routes";
+import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
 
 /**
  * Register all modular routes
@@ -136,4 +137,11 @@ export function registerAllRoutes(app: Express): void {
 
   // Runs API (workflow execution, logs, download)
   registerApiRunRoutes(app);
+
+  // ========================================================================
+  // Stage 11: Workflow Analytics & SLIs
+  // ========================================================================
+
+  // Workflow analytics routes (metrics, rollups, SLI)
+  registerWorkflowAnalyticsRoutes(app);
 }

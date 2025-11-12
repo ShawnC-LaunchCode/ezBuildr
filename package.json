@@ -29,7 +29,9 @@
     "test:watch": "vitest watch",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "ci:test": "npm run test:integration"
+    "ci:test": "npm run test:integration",
+    "metrics:rollup": "tsx scripts/runMetricsRollup.ts",
+    "metrics:sli": "tsx scripts/computeSLIs.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

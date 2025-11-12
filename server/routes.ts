@@ -5,6 +5,7 @@ import { userRepository } from "./repositories";
 import { registerAllRoutes } from "./routes/index";
 import { createLogger } from "./logger";
 import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabServer";
+import { startRollupWorker } from "./jobs/metricsRollup";
 
 const logger = createLogger({ module: 'routes' });
 
@@ -97,6 +98,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   initCollabServer(httpServer);
 
   logger.info('Real-time collaboration server initialized');
+
+  // Start metrics rollup worker (Stage 11)
+  // Runs every minute to aggregate metrics events into rollups
+  if (process.env.NODE_ENV !== 'test') {
+    startRollupWorker(60000); // Run every 60 seconds
+    logger.info('Metrics rollup worker started');
+  }
 
   return httpServer;
 }

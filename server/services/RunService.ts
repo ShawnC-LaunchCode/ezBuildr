@@ -5,6 +5,7 @@ import {
   sectionRepository,
   stepRepository,
   logicRuleRepository,
+  projectRepository,
 } from "../repositories";
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
 import { workflowService } from "./WorkflowService";
@@ -14,6 +15,7 @@ import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from 
 import { runJsVm2 } from "../utils/sandboxExecutor";
 import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
 import { randomUUID } from "crypto";
+import { captureRunLifecycle } from "./metrics";
 
 /**
  * Service layer for workflow run-related business logic
@@ -25,6 +27,7 @@ export class RunService {
   private sectionRepo: typeof sectionRepository;
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
+  private projectRepo: typeof projectRepository;
   private workflowSvc: typeof workflowService;
   private logicSvc: typeof logicService;
 
@@ -35,6 +38,7 @@ export class RunService {
     sectionRepo?: typeof sectionRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
+    projectRepo?: typeof projectRepository,
     workflowSvc?: typeof workflowService,
     logicSvc?: typeof logicService
   ) {
@@ -44,8 +48,34 @@ export class RunService {
     this.sectionRepo = sectionRepo || sectionRepository;
     this.stepRepo = stepRepo || stepRepository;
     this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
+    this.projectRepo = projectRepo || projectRepository;
     this.workflowSvc = workflowSvc || workflowService;
     this.logicSvc = logicSvc || logicService;
+  }
+
+  /**
+   * Get tenant and project IDs for a workflow (for metrics)
+   */
+  private async getWorkflowContext(workflowId: string): Promise<{ tenantId: string; projectId: string } | null> {
+    try {
+      const workflow = await this.workflowRepo.findById(workflowId);
+      if (!workflow || !workflow.projectId) {
+        return null;
+      }
+
+      const project = await this.projectRepo.findById(workflow.projectId);
+      if (!project) {
+        return null;
+      }
+
+      return {
+        tenantId: project.tenantId,
+        projectId: project.id,
+      };
+    } catch (error) {
+      console.error('Failed to get workflow context for metrics:', error);
+      return null;
+    }
   }
 
   /**
@@ -61,6 +91,7 @@ export class RunService {
 
     // Generate a unique token for this run
     const runToken = randomUUID();
+    const startTime = Date.now();
 
     // Create the run
     const run = await this.runRepo.create({
@@ -69,6 +100,18 @@ export class RunService {
       runToken,
       completed: false,
     });
+
+    // Capture run_started metric (Stage 11)
+    const context = await this.getWorkflowContext(workflowId);
+    if (context) {
+      await captureRunLifecycle.started({
+        tenantId: context.tenantId,
+        projectId: context.projectId,
+        workflowId,
+        runId: run.id,
+        createdBy: userId,
+      });
+    }
 
     // Execute onRunStart blocks (transform + generic)
     try {
@@ -559,51 +602,114 @@ export class RunService {
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
+    const startTime = Date.now();
 
     if (run.completed) {
       throw new Error("Run is already completed");
     }
 
-    // Get workflow
-    const workflow = await this.workflowRepo.findById(run.workflowId);
-    if (!workflow) {
-      throw new Error("Workflow not found");
+    // Get workflow context for metrics
+    const context = await this.getWorkflowContext(run.workflowId);
+
+    try {
+      // Get workflow
+      const workflow = await this.workflowRepo.findById(run.workflowId);
+      if (!workflow) {
+        throw new Error("Workflow not found");
+      }
+
+      // Get all step values for this run
+      const allValues = await this.valueRepo.findByRunId(runId);
+      const dataMap = allValues.reduce((acc, v) => {
+        acc[v.stepId] = v.value;
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Execute onRunComplete blocks (transform + validate)
+      const blockResult = await blockRunner.runPhase({
+        workflowId: run.workflowId,
+        runId: run.id,
+        phase: "onRunComplete",
+        data: dataMap,
+      });
+
+      // If blocks produced validation errors, reject completion
+      if (!blockResult.success && blockResult.errors) {
+        const errorMsg = `Validation failed: ${blockResult.errors.join(', ')}`;
+
+        // Capture run_failed metric (Stage 11)
+        if (context) {
+          await captureRunLifecycle.failed({
+            tenantId: context.tenantId,
+            projectId: context.projectId,
+            workflowId: run.workflowId,
+            runId: run.id,
+            durationMs: Date.now() - startTime,
+            errorType: 'validation_error',
+          });
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      // Validate using LogicService
+      const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
+
+      if (!validation.valid) {
+        const stepTitles = validation.missingStepTitles?.join(', ') || validation.missingSteps.join(', ');
+        const errorMsg = `Missing required steps: ${stepTitles}`;
+
+        // Capture run_failed metric (Stage 11)
+        if (context) {
+          await captureRunLifecycle.failed({
+            tenantId: context.tenantId,
+            projectId: context.projectId,
+            workflowId: run.workflowId,
+            runId: run.id,
+            durationMs: Date.now() - startTime,
+            errorType: 'missing_required_steps',
+          });
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      // Mark run as complete with 100% progress
+      const completedRun = await this.runRepo.update(runId, {
+        completed: true,
+        completedAt: new Date(),
+        progress: 100,
+      });
+
+      // Capture run_succeeded metric (Stage 11)
+      if (context) {
+        await captureRunLifecycle.succeeded({
+          tenantId: context.tenantId,
+          projectId: context.projectId,
+          workflowId: run.workflowId,
+          runId: run.id,
+          durationMs: Date.now() - startTime,
+          stepCount: allValues.length,
+        });
+      }
+
+      return completedRun;
+    } catch (error) {
+      // If we haven't already captured a failure, capture it now
+      if (error instanceof Error && !error.message.includes('Validation failed') && !error.message.includes('Missing required steps')) {
+        if (context) {
+          await captureRunLifecycle.failed({
+            tenantId: context.tenantId,
+            projectId: context.projectId,
+            workflowId: run.workflowId,
+            runId: run.id,
+            durationMs: Date.now() - startTime,
+            errorType: 'unknown_error',
+          });
+        }
+      }
+      throw error;
     }
-
-    // Get all step values for this run
-    const allValues = await this.valueRepo.findByRunId(runId);
-    const dataMap = allValues.reduce((acc, v) => {
-      acc[v.stepId] = v.value;
-      return acc;
-    }, {} as Record<string, any>);
-
-    // Execute onRunComplete blocks (transform + validate)
-    const blockResult = await blockRunner.runPhase({
-      workflowId: run.workflowId,
-      runId: run.id,
-      phase: "onRunComplete",
-      data: dataMap,
-    });
-
-    // If blocks produced validation errors, reject completion
-    if (!blockResult.success && blockResult.errors) {
-      throw new Error(`Validation failed: ${blockResult.errors.join(', ')}`);
-    }
-
-    // Validate using LogicService
-    const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
-
-    if (!validation.valid) {
-      const stepTitles = validation.missingStepTitles?.join(', ') || validation.missingSteps.join(', ');
-      throw new Error(`Missing required steps: ${stepTitles}`);
-    }
-
-    // Mark run as complete with 100% progress
-    return await this.runRepo.update(runId, {
-      completed: true,
-      completedAt: new Date(),
-      progress: 100,
-    });
   }
 
   /**

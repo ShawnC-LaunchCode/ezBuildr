@@ -1540,6 +1540,193 @@ export type CollabSnapshot = typeof collabSnapshots.$inferSelect;
 export type InsertCollabSnapshot = typeof insertCollabSnapshotSchema._type;
 
 // ===================================================================
+// ANALYTICS & SLIs (Stage 11)
+// ===================================================================
+
+// Metrics event type enum
+export const metricsEventTypeEnum = pgEnum('metrics_event_type', [
+  'run_started',
+  'run_succeeded',
+  'run_failed',
+  'pdf_succeeded',
+  'pdf_failed',
+  'docx_succeeded',
+  'docx_failed',
+  'queue_enqueued',
+  'queue_dequeued'
+]);
+
+// Rollup bucket size enum
+export const rollupBucketEnum = pgEnum('rollup_bucket', ['1m', '5m', '1h', '1d']);
+
+// SLI window enum
+export const sliWindowEnum = pgEnum('sli_window', ['1d', '7d', '30d']);
+
+// Metrics events table (raw event stream)
+export const metricsEvents = pgTable("metrics_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'set null' }),
+  type: metricsEventTypeEnum("type").notNull(),
+  ts: timestamp("ts", { withTimezone: true }).notNull().default(sql`now()`),
+  durationMs: integer("duration_ms"), // For run_* events
+  payload: jsonb("payload").default(sql`'{}'::jsonb`), // Small structured context, redacted
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("metrics_events_project_ts_idx").on(table.projectId, table.ts),
+  index("metrics_events_workflow_ts_idx").on(table.workflowId, table.ts),
+  index("metrics_events_type_idx").on(table.type),
+  index("metrics_events_tenant_idx").on(table.tenantId),
+  index("metrics_events_run_idx").on(table.runId),
+]);
+
+// Metrics rollup table (aggregated metrics by time bucket)
+export const metricsRollups = pgTable("metrics_rollups", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }),
+  bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+  bucket: rollupBucketEnum("bucket").notNull(),
+  runsCount: integer("runs_count").default(0).notNull(),
+  runsSuccess: integer("runs_success").default(0).notNull(),
+  runsError: integer("runs_error").default(0).notNull(),
+  durP50: integer("dur_p50"), // Median duration in ms
+  durP95: integer("dur_p95"), // P95 duration in ms
+  pdfSuccess: integer("pdf_success").default(0).notNull(),
+  pdfError: integer("pdf_error").default(0).notNull(),
+  docxSuccess: integer("docx_success").default(0).notNull(),
+  docxError: integer("docx_error").default(0).notNull(),
+  queueEnqueued: integer("queue_enqueued").default(0).notNull(),
+  queueDequeued: integer("queue_dequeued").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("metrics_rollups_project_bucket_idx").on(table.projectId, table.bucketStart, table.bucket),
+  index("metrics_rollups_workflow_bucket_idx").on(table.workflowId, table.bucketStart, table.bucket),
+  index("metrics_rollups_tenant_idx").on(table.tenantId),
+]);
+
+// SLI configuration table
+export const sliConfigs = pgTable("sli_configs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }),
+  targetSuccessPct: integer("target_success_pct").default(99).notNull(), // e.g., 99
+  targetP95Ms: integer("target_p95_ms").default(5000).notNull(), // e.g., 5000ms
+  errorBudgetPct: integer("error_budget_pct").default(1).notNull(), // e.g., 1% allowed error
+  window: sliWindowEnum("window").default('7d').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("sli_configs_project_idx").on(table.projectId),
+  index("sli_configs_workflow_idx").on(table.workflowId),
+  index("sli_configs_tenant_idx").on(table.tenantId),
+]);
+
+// SLI window table (computed SLI metrics for time windows)
+export const sliWindows = pgTable("sli_windows", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  windowEnd: timestamp("window_end", { withTimezone: true }).notNull(),
+  successPct: integer("success_pct"), // Success percentage (0-100)
+  p95Ms: integer("p95_ms"), // P95 duration in ms
+  errorBudgetBurnPct: integer("error_budget_burn_pct"), // How much budget burned (0-100+)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("sli_windows_project_window_idx").on(table.projectId, table.windowStart, table.windowEnd),
+  index("sli_windows_workflow_window_idx").on(table.workflowId, table.windowStart, table.windowEnd),
+  index("sli_windows_tenant_idx").on(table.tenantId),
+]);
+
+// Analytics Relations
+export const metricsEventsRelations = relations(metricsEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [metricsEvents.tenantId],
+    references: [tenants.id],
+  }),
+  project: one(projects, {
+    fields: [metricsEvents.projectId],
+    references: [projects.id],
+  }),
+  workflow: one(workflows, {
+    fields: [metricsEvents.workflowId],
+    references: [workflows.id],
+  }),
+  run: one(workflowRuns, {
+    fields: [metricsEvents.runId],
+    references: [workflowRuns.id],
+  }),
+}));
+
+export const metricsRollupsRelations = relations(metricsRollups, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [metricsRollups.tenantId],
+    references: [tenants.id],
+  }),
+  project: one(projects, {
+    fields: [metricsRollups.projectId],
+    references: [projects.id],
+  }),
+  workflow: one(workflows, {
+    fields: [metricsRollups.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+export const sliConfigsRelations = relations(sliConfigs, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sliConfigs.tenantId],
+    references: [tenants.id],
+  }),
+  project: one(projects, {
+    fields: [sliConfigs.projectId],
+    references: [projects.id],
+  }),
+  workflow: one(workflows, {
+    fields: [sliConfigs.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+export const sliWindowsRelations = relations(sliWindows, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sliWindows.tenantId],
+    references: [tenants.id],
+  }),
+  project: one(projects, {
+    fields: [sliWindows.projectId],
+    references: [projects.id],
+  }),
+  workflow: one(workflows, {
+    fields: [sliWindows.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+// Analytics Insert Schemas
+export const insertMetricsEventSchema = createInsertSchema(metricsEvents).omit({ id: true, createdAt: true });
+export const insertMetricsRollupSchema = createInsertSchema(metricsRollups).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSliConfigSchema = createInsertSchema(sliConfigs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSliWindowSchema = createInsertSchema(sliWindows).omit({ id: true, createdAt: true });
+
+// Analytics Types
+export type MetricsEvent = typeof metricsEvents.$inferSelect;
+export type InsertMetricsEvent = typeof insertMetricsEventSchema._type;
+export type MetricsRollup = typeof metricsRollups.$inferSelect;
+export type InsertMetricsRollup = typeof insertMetricsRollupSchema._type;
+export type SliConfig = typeof sliConfigs.$inferSelect;
+export type InsertSliConfig = typeof insertSliConfigSchema._type;
+export type SliWindow = typeof sliWindows.$inferSelect;
+export type InsertSliWindow = typeof insertSliWindowSchema._type;
+
+// ===================================================================
 // LEGACY TYPES
 // ===================================================================
 
