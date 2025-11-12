@@ -38,9 +38,9 @@ export default function PreviewRunner() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate(-1)} className="w-full">
+            <Button onClick={() => navigate('/workflows')} className="w-full">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Builder
+              Back to Workflows
             </Button>
           </CardContent>
         </Card>
@@ -77,6 +77,15 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
   });
 
   const run = runData?.data;
+
+  // Function to navigate back to builder
+  const navigateToBuilder = () => {
+    if (run?.workflowId) {
+      navigate(`/workflows/${run.workflowId}/builder`);
+    } else {
+      navigate('/workflows');
+    }
+  };
 
   // Fetch sections
   const { data: sections, isLoading: loadingSections } = useQuery({
@@ -221,7 +230,7 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={navigateToBuilder}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Builder
         </Button>

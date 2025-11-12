@@ -1,9 +1,11 @@
 /**
  * Preview Store - Manages run tokens for preview mode
  * Stores bearer tokens for runs created in preview mode
+ * Persists to localStorage to survive page refreshes
  */
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface PreviewState {
   // Map of runId -> runToken
@@ -22,22 +24,29 @@ interface PreviewState {
   clearAll: () => void;
 }
 
-export const usePreviewStore = create<PreviewState>((set, get) => ({
-  tokens: {},
+export const usePreviewStore = create<PreviewState>()(
+  persist(
+    (set, get) => ({
+      tokens: {},
 
-  setToken: (runId: string, token: string) =>
-    set((state) => ({
-      tokens: { ...state.tokens, [runId]: token },
-    })),
+      setToken: (runId: string, token: string) =>
+        set((state) => ({
+          tokens: { ...state.tokens, [runId]: token },
+        })),
 
-  getToken: (runId: string) => get().tokens[runId],
+      getToken: (runId: string) => get().tokens[runId],
 
-  clearToken: (runId: string) =>
-    set((state) => {
-      const newTokens = { ...state.tokens };
-      delete newTokens[runId];
-      return { tokens: newTokens };
+      clearToken: (runId: string) =>
+        set((state) => {
+          const newTokens = { ...state.tokens };
+          delete newTokens[runId];
+          return { tokens: newTokens };
+        }),
+
+      clearAll: () => set({ tokens: {} }),
     }),
-
-  clearAll: () => set({ tokens: {} }),
-}));
+    {
+      name: "vaultlogic-preview-tokens",
+    }
+  )
+);
