@@ -8,6 +8,7 @@ import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 import { validateGraphStructure } from '../engine';
+import { validateNodeConditions, type GraphJson } from '../engine/validate';
 import type { AuthRequest } from '../middleware/auth';
 import {
   createWorkflowSchema,
@@ -126,6 +127,13 @@ router.post(
       // Validate graph structure if provided
       if (data.graphJson) {
         validateGraphStructure(data.graphJson);
+
+        // Validate node conditions and expressions (for DRAFT, give warnings)
+        const conditionsValidation = validateNodeConditions(data.graphJson as unknown as GraphJson);
+        if (!conditionsValidation.valid) {
+          // For draft creation, we log warnings but don't block
+          console.warn('Workflow has expression validation issues:', conditionsValidation.errors);
+        }
       }
 
       // Create workflow and initial draft version in a transaction
@@ -260,6 +268,13 @@ router.patch(
       // Validate graph structure if provided
       if (data.graphJson) {
         validateGraphStructure(data.graphJson);
+
+        // Validate node conditions and expressions (for DRAFT updates, give warnings)
+        const conditionsValidation = validateNodeConditions(data.graphJson as unknown as GraphJson);
+        if (!conditionsValidation.valid) {
+          // For draft updates, we log warnings but don't block
+          console.warn('Workflow has expression validation issues:', conditionsValidation.errors);
+        }
       }
 
       // Update workflow and version
@@ -340,6 +355,26 @@ router.post(
       // Must have a current version
       if (!workflow.currentVersion) {
         throw createError.workflowNoVersion();
+      }
+
+      // Validate graph structure and expressions before publishing
+      const graphJson = workflow.currentVersion.graphJson as unknown as GraphJson;
+      validateGraphStructure(graphJson as any);
+
+      // Validate node conditions and expressions (STRICT for publish)
+      const conditionsValidation = validateNodeConditions(graphJson);
+      if (!conditionsValidation.valid) {
+        const errorDetails = conditionsValidation.errors.map(e => ({
+          nodeId: e.nodeId,
+          field: e.field,
+          message: e.message,
+          path: e.path,
+        }));
+
+        throw createError.validation(
+          `Cannot publish workflow with invalid expressions: ${conditionsValidation.errors.map(e => e.message).join('; ')}`,
+          errorDetails
+        );
       }
 
       // Publish workflow in transaction
