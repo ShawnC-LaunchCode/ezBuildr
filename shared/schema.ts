@@ -838,6 +838,12 @@ export const workflows = pgTable("workflows", {
   name: varchar("name", { length: 255 }),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   currentVersionId: uuid("current_version_id"),
+  // Stage 12: Intake Portal fields
+  isPublic: boolean("is_public").default(false).notNull(),
+  slug: text("slug"),
+  requireLogin: boolean("require_login").default(false).notNull(),
+  // Stage 13: Version management
+  pinnedVersionId: uuid("pinned_version_id"),
   // Common fields
   status: surveyStatusEnum("status").default('draft').notNull(), // Uses survey_status enum
   createdAt: timestamp("created_at").defaultNow(),
@@ -845,6 +851,9 @@ export const workflows = pgTable("workflows", {
 }, (table) => [
   index("workflows_project_idx").on(table.projectId),
   index("workflows_status_idx").on(table.status),
+  index("workflows_is_public_idx").on(table.isPublic),
+  index("workflows_slug_idx").on(table.slug),
+  index("workflows_pinned_version_idx").on(table.pinnedVersionId),
 ]);
 
 // WorkflowVersion table for versioning support
@@ -855,12 +864,17 @@ export const workflowVersions = pgTable("workflow_versions", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   published: boolean("published").default(false).notNull(),
   publishedAt: timestamp("published_at"),
+  // Stage 13: Version management metadata
+  notes: text("notes"),
+  changelog: jsonb("changelog"),
+  checksum: text("checksum"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflow_versions_workflow_idx").on(table.workflowId),
   index("workflow_versions_published_idx").on(table.published),
   index("workflow_versions_created_by_idx").on(table.createdBy),
+  index("workflow_versions_checksum_idx").on(table.checksum),
 ]);
 
 // Templates table for document templates

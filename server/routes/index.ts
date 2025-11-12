@@ -31,6 +31,8 @@ import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiRunRoutes } from "./api.runs.routes";
 import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
+import { registerIntakeRoutes } from "./intake.routes";
+import { registerVersionRoutes } from "./versions.routes";
 
 /**
  * Register all modular routes
@@ -144,4 +146,18 @@ export function registerAllRoutes(app: Express): void {
 
   // Workflow analytics routes (metrics, rollups, SLI)
   registerWorkflowAnalyticsRoutes(app);
+
+  // ========================================================================
+  // Stage 12: Intake Portal (Public Workflow Runner)
+  // ========================================================================
+
+  // Intake portal routes (public workflow execution)
+  registerIntakeRoutes(app);
+
+  // ========================================================================
+  // Stage 13: Publishing, Snapshots & Rollback
+  // ========================================================================
+
+  // Version management routes (publish, rollback, diff)
+  registerVersionRoutes(app);
 }

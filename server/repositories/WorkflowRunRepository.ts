@@ -40,6 +40,19 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Find run by token (for intake portal)
+   */
+  async findByToken(token: string, tx?: DbTransaction): Promise<WorkflowRun | null> {
+    const database = this.getDb(tx);
+    const [run] = await database
+      .select()
+      .from(workflowRuns)
+      .where(eq(workflowRuns.runToken, token))
+      .limit(1);
+    return run || null;
+  }
+
+  /**
    * Mark run as complete
    */
   async markComplete(runId: string, tx?: DbTransaction): Promise<WorkflowRun> {
