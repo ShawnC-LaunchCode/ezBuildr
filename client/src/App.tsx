@@ -35,6 +35,11 @@ import PreviewRunner from "@/pages/PreviewRunner";
 import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
 import RunDetails from "@/pages/RunDetails"; // Stage 8
 import RunsCompare from "@/pages/RunsCompare"; // Stage 8
+import BrandingSettingsPage from "@/pages/BrandingSettingsPage"; // Stage 17
+import DomainSettingsPage from "@/pages/DomainSettingsPage"; // Stage 17
+import IntakePreviewPage from "@/pages/IntakePreviewPage"; // Stage 17
+import EmailTemplatesPage from "@/pages/EmailTemplatesPage"; // Stage 17
+import EmailTemplateEditorPage from "@/pages/EmailTemplateEditorPage"; // Stage 17
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +57,9 @@ function Router() {
 
         {/* Preview runner - available to everyone (uses bearer token) */}
         <Route path="/preview/:id" component={PreviewRunner} />
+
+        {/* Intake preview - public branded intake portal preview */}
+        <Route path="/intake/preview" component={IntakePreviewPage} />
 
         {isLoading || !isAuthenticated ? (
           <>
@@ -89,6 +97,11 @@ function Router() {
             <Route path="/responses" component={Responses} />
             <Route path="/analytics" component={Dashboard} />
             <Route path="/settings" component={SettingsPage} />
+            {/* Stage 17: Branding Settings */}
+            <Route path="/projects/:id/settings/branding" component={BrandingSettingsPage} />
+            <Route path="/projects/:id/settings/branding/domains" component={DomainSettingsPage} />
+            <Route path="/projects/:id/settings/email-templates" component={EmailTemplatesPage} />
+            <Route path="/projects/:id/settings/email-templates/:templateId" component={EmailTemplateEditorPage} />
             {/* Admin routes */}
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/admin/users" component={AdminUsers} />

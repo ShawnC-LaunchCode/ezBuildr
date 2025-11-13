@@ -695,3 +695,177 @@ export const workflowModeAPI = {
       body: JSON.stringify({ modeOverride }),
     }).then(res => res.data),
 };
+
+// ============================================================================
+// Branding & Tenant Customization (Stage 17)
+// ============================================================================
+
+export interface TenantBranding {
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  darkModeEnabled?: boolean | null;
+  intakeHeaderText?: string | null;
+  emailSenderName?: string | null;
+  emailSenderAddress?: string | null;
+}
+
+export interface TenantDomain {
+  id: string;
+  tenantId: string;
+  domain: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GetBrandingResponse {
+  branding: TenantBranding | null;
+}
+
+export interface UpdateBrandingRequest {
+  branding?: Partial<TenantBranding>;
+}
+
+export interface UpdateBrandingResponse {
+  message: string;
+  branding: TenantBranding;
+}
+
+export interface GetDomainsResponse {
+  domains: TenantDomain[];
+  total: number;
+}
+
+export interface CreateDomainRequest {
+  domain: string;
+}
+
+export interface CreateDomainResponse {
+  message: string;
+  domain: TenantDomain;
+}
+
+export interface DeleteDomainResponse {
+  message: string;
+}
+
+export const brandingAPI = {
+  /**
+   * Get tenant branding configuration
+   */
+  getBranding: (tenantId: string) =>
+    fetchAPI<GetBrandingResponse>(`/api/tenants/${tenantId}/branding`),
+
+  /**
+   * Update tenant branding configuration
+   */
+  updateBranding: (tenantId: string, branding: Partial<TenantBranding>) =>
+    fetchAPI<UpdateBrandingResponse>(`/api/tenants/${tenantId}/branding`, {
+      method: "PATCH",
+      body: JSON.stringify(branding),
+    }),
+
+  /**
+   * Get tenant branding by domain (public endpoint, no auth required)
+   */
+  getBrandingByDomain: (domain: string) =>
+    fetchAPI<{ tenantId: string; branding: TenantBranding | null }>(
+      `/api/branding/by-domain?domain=${encodeURIComponent(domain)}`
+    ),
+
+  /**
+   * Get all custom domains for a tenant
+   */
+  getDomains: (tenantId: string) =>
+    fetchAPI<GetDomainsResponse>(`/api/tenants/${tenantId}/domains`),
+
+  /**
+   * Add a custom domain to a tenant
+   */
+  addDomain: (tenantId: string, domain: string) =>
+    fetchAPI<CreateDomainResponse>(`/api/tenants/${tenantId}/domains`, {
+      method: "POST",
+      body: JSON.stringify({ domain }),
+    }),
+
+  /**
+   * Remove a custom domain from a tenant
+   */
+  removeDomain: (tenantId: string, domainId: string) =>
+    fetchAPI<DeleteDomainResponse>(`/api/tenants/${tenantId}/domains/${domainId}`, {
+      method: "DELETE",
+    }),
+};
+
+// =====================================================================
+// EMAIL TEMPLATE METADATA API
+// =====================================================================
+
+export interface EmailTemplateMetadata {
+  id: string;
+  templateKey: string;
+  name: string;
+  description?: string | null;
+  subjectPreview?: string | null;
+  brandingTokens?: Record<string, boolean> | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GetEmailTemplatesResponse {
+  templates: EmailTemplateMetadata[];
+  total: number;
+}
+
+export interface GetEmailTemplateResponse {
+  template: EmailTemplateMetadata;
+}
+
+export interface UpdateEmailTemplateMetadataRequest {
+  name?: string;
+  description?: string | null;
+  subjectPreview?: string | null;
+  brandingTokens?: Record<string, boolean> | null;
+}
+
+export interface UpdateEmailTemplateMetadataResponse {
+  message: string;
+  template: EmailTemplateMetadata;
+}
+
+export const emailTemplateAPI = {
+  /**
+   * Get all email template metadata
+   */
+  listTemplates: () =>
+    fetchAPI<GetEmailTemplatesResponse>("/api/email-templates"),
+
+  /**
+   * Get a specific email template metadata
+   */
+  getTemplate: (templateId: string) =>
+    fetchAPI<GetEmailTemplateResponse>(`/api/email-templates/${templateId}`),
+
+  /**
+   * Update email template metadata
+   */
+  updateTemplateMetadata: (
+    templateId: string,
+    metadata: UpdateEmailTemplateMetadataRequest
+  ) =>
+    fetchAPI<UpdateEmailTemplateMetadataResponse>(
+      `/api/email-templates/${templateId}/metadata`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(metadata),
+      }
+    ),
+
+  /**
+   * Get templates that use a specific branding token
+   */
+  getTemplatesByToken: (tokenKey: string) =>
+    fetchAPI<{ templates: EmailTemplateMetadata[]; total: number; tokenKey: string }>(
+      `/api/email-templates/token/${tokenKey}`
+    ),
+};
