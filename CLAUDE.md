@@ -1,7 +1,7 @@
 # VaultLogic - Architecture & Current State
 
 **Last Updated:** November 13, 2025
-**Version:** 1.2.0 - Stage 14 Complete (Backend)
+**Version:** 1.3.0 - Stage 15 Complete (Backend)
 **Status:** Production Ready (Backend), Frontend Pending
 
 ---
@@ -13,12 +13,15 @@ VaultLogic is a **comprehensive workflow automation platform** that combines vis
 **Key Differentiators:**
 - Visual workflow builder with drag-and-drop interface
 - Sandboxed JavaScript/Python execution for data transformation
+- **AI-powered workflow generation from natural language** 🆕
+- **AI-driven workflow suggestions and improvements** 🆕
+- **Intelligent template variable binding with AI** 🆕
 - **HTTP/API integration with comprehensive authentication**
 - **Encrypted secrets management for API credentials**
 - **OAuth2 Client Credentials flow with intelligent caching**
-- **Human-in-the-loop workflows with review and e-signature nodes** 🆕
-- **Document review portals with approval/rejection workflow** 🆕
-- **Native e-signature support with token-based signing** 🆕
+- **Human-in-the-loop workflows with review and e-signature nodes**
+- **Document review portals with approval/rejection workflow**
+- **Native e-signature support with token-based signing**
 - Token-based run authentication (creator + anonymous modes)
 - Step aliases (human-friendly variable names)
 - Virtual steps architecture for computed values
@@ -456,7 +459,51 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 ## Recent Major Changes (Nov 2025)
 
-### 1. E-Signature Node + Document Review Portal (Nov 13, 2025) - Stage 14 🆕
+### 1. AI-Assisted Workflow Builder (Nov 13, 2025) - Stage 15 🆕
+**Major Feature:** AI-powered workflow generation using OpenAI and Anthropic
+
+**AI Workflow Generation:**
+- Generate complete workflows from natural language descriptions
+- Creates sections, steps, logic rules, and transform blocks automatically
+- Validates AI-generated structures for consistency and correctness
+- Configurable constraints (max sections, max steps, preferred types)
+
+**AI Workflow Suggestions:**
+- Suggest improvements to existing workflows based on user requests
+- Propose new sections, steps, and logic rules
+- Non-destructive suggestions that can be reviewed before applying
+
+**AI Template Bindings:**
+- Automatically map DOCX placeholders to workflow variables
+- Semantic matching with confidence scores (0-1)
+- Identifies unmatched placeholders and variables
+- Saves time on manual template configuration
+
+**Supporting Infrastructure:**
+- TypeScript types and Zod schemas for AI-generated structures
+- AIService class with OpenAI and Anthropic provider support
+- Structured prompts with constraints and examples
+- Rate limiting (10 requests/min per user)
+- RBAC enforcement (Builder/Owner only)
+- Comprehensive error handling and logging
+
+**API Endpoints:**
+- `POST /api/ai/workflows/generate` - Generate new workflow
+- `POST /api/ai/workflows/:id/suggest` - Suggest improvements
+- `POST /api/ai/templates/:templateId/bindings` - Suggest bindings
+
+**Configuration:**
+- `AI_PROVIDER`: 'openai' or 'anthropic'
+- `AI_API_KEY`: API key for chosen provider
+- `AI_MODEL_WORKFLOW`: Model to use (e.g., gpt-4-turbo-preview, claude-3-5-sonnet)
+
+**Documentation:** See `docs/STAGE_15_AI_WORKFLOW_BUILDER.md` for complete guide
+
+**Status:** Backend complete, frontend UI pending
+
+---
+
+### 2. E-Signature Node + Document Review Portal (Nov 13, 2025) - Stage 14
 **Major Feature:** Human-in-the-loop workflow capabilities with review gates and e-signatures
 
 **REVIEW Node:**
@@ -650,6 +697,11 @@ SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 GEMINI_API_KEY=your-google-gemini-api-key
 MAX_FILE_SIZE=10485760
 UPLOAD_DIR=./uploads
+
+# AI Workflow Generation (Stage 15 - Optional)
+AI_PROVIDER=openai                      # or 'anthropic'
+AI_API_KEY=your-openai-or-anthropic-api-key
+AI_MODEL_WORKFLOW=gpt-4-turbo-preview   # or claude-3-5-sonnet-20241022
 ```
 
 **Important:** Generate `VL_MASTER_KEY` using:
