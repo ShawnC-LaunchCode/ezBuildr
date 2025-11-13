@@ -19,6 +19,10 @@ export {
 
 export type { BrandingContextValue, BrandingProviderProps } from './BrandingContext';
 
+// Components
+export { default as BrandingPreview } from './BrandingPreview';
+export type { BrandingPreviewProps } from './BrandingPreview';
+
 // Theme utilities
 export {
   brandingToThemeTokens,
