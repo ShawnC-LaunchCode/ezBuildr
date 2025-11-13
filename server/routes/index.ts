@@ -34,6 +34,8 @@ import { registerApiRunRoutes } from "./api.runs.routes";
 import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
 import { registerIntakeRoutes } from "./intake.routes";
 import { registerVersionRoutes } from "./versions.routes";
+import { registerBrandingRoutes } from "./branding.routes";
+import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
 
 /**
  * Register all modular routes
@@ -45,6 +47,12 @@ export function registerAllRoutes(app: Express): void {
 
   // Tenant routes (multi-tenancy and RBAC)
   registerTenantRoutes(app);
+
+  // Branding routes (Stage 17)
+  registerBrandingRoutes(app);
+
+  // Email template metadata routes (Stage 17)
+  registerEmailTemplateRoutes(app);
 
   // Account routes (mode preferences)
   registerAccountRoutes(app);

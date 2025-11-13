@@ -765,10 +765,37 @@ export const tenants = pgTable("tenants", {
   name: varchar("name", { length: 255 }).notNull(),
   billingEmail: varchar("billing_email", { length: 255 }),
   plan: tenantPlanEnum("plan").default('free').notNull(),
+  branding: jsonb("branding"), // Stage 17: Branding customization
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("tenants_plan_idx").on(table.plan),
+]);
+
+// Stage 17: Tenant domains table for custom subdomain mapping
+export const tenantDomains = pgTable("tenant_domains", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  domain: text("domain").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tenant_domains_tenant_idx").on(table.tenantId),
+  index("tenant_domains_domain_idx").on(table.domain),
+]);
+
+// Stage 17: Email template metadata table (registry only, no rendering)
+export const emailTemplateMetadata = pgTable("email_template_metadata", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateKey: varchar("template_key", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  subjectPreview: text("subject_preview"),
+  brandingTokens: jsonb("branding_tokens"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("email_template_metadata_key_idx").on(table.templateKey),
 ]);
 
 // Project status enum
@@ -1251,6 +1278,15 @@ export const blocks = pgTable("blocks", {
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
   projects: many(projects),
+  domains: many(tenantDomains), // Stage 17: Custom domains
+}));
+
+// Stage 17: Tenant domains relations
+export const tenantDomainsRelations = relations(tenantDomains, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantDomains.tenantId],
+    references: [tenants.id],
+  }),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -1425,6 +1461,8 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
 
 // Vault-Logic Insert Schemas
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTenantDomainSchema = createInsertSchema(tenantDomains).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 17
+export const insertEmailTemplateMetadataSchema = createInsertSchema(emailTemplateMetadata).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 17
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, currentVersionId: true });
 export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
