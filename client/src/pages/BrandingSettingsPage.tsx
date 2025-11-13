@@ -33,6 +33,7 @@ import {
   RotateCcw,
   Eye,
   Globe,
+  ExternalLink,
 } from 'lucide-react';
 import BrandingPreview from '@/components/branding/BrandingPreview';
 import { isValidHexColor, normalizeHexColor } from '@/lib/colorUtils';
@@ -203,6 +204,14 @@ export default function BrandingSettingsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`/intake/preview?tenantId=${tenantId}`, '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Full Preview
+                </Button>
                 <Link href={`/projects/${projectId}/settings/branding/domains`}>
                   <Button variant="outline" size="sm">
                     <Globe className="h-4 w-4 mr-2" />

@@ -37,6 +37,7 @@ import RunDetails from "@/pages/RunDetails"; // Stage 8
 import RunsCompare from "@/pages/RunsCompare"; // Stage 8
 import BrandingSettingsPage from "@/pages/BrandingSettingsPage"; // Stage 17
 import DomainSettingsPage from "@/pages/DomainSettingsPage"; // Stage 17
+import IntakePreviewPage from "@/pages/IntakePreviewPage"; // Stage 17
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -54,6 +55,9 @@ function Router() {
 
         {/* Preview runner - available to everyone (uses bearer token) */}
         <Route path="/preview/:id" component={PreviewRunner} />
+
+        {/* Intake preview - public branded intake portal preview */}
+        <Route path="/intake/preview" component={IntakePreviewPage} />
 
         {isLoading || !isAuthenticated ? (
           <>
