@@ -1,12 +1,14 @@
 import type { Express, Request, Response } from "express";
 import { intakeService } from "../services/IntakeService";
 import { runService } from "../services/RunService";
+import { CaptchaService } from "../services/CaptchaService.js";
 import { z } from "zod";
 import { createLogger } from "../logger";
 import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
+import type { CaptchaResponse } from "../../shared/types/intake.js";
 
 const logger = createLogger({ module: "intake-routes" });
 
@@ -33,6 +35,7 @@ const upload = multer({
 const createRunSchema = z.object({
   slug: z.string(),
   answers: z.record(z.any()).optional(),
+  prefillParams: z.record(z.string()).optional(), // Stage 12.5: URL prefill
 });
 
 const saveProgressSchema = z.object({
@@ -41,6 +44,12 @@ const saveProgressSchema = z.object({
 
 const submitRunSchema = z.object({
   answers: z.record(z.any()),
+  captcha: z.object({ // Stage 12.5: CAPTCHA validation
+    type: z.enum(["simple", "recaptcha"]),
+    token: z.string(),
+    answer: z.string().optional(),
+    recaptchaToken: z.string().optional(),
+  }).optional(),
 });
 
 /**
@@ -51,6 +60,7 @@ export function registerIntakeRoutes(app: Express): void {
   /**
    * GET /intake/workflows/:slug/published
    * Get published workflow metadata and branding
+   * Stage 12.5: Includes intakeConfig
    */
   app.get('/intake/workflows/:slug/published', async (req: Request, res: Response) => {
     try {
@@ -68,6 +78,7 @@ export function registerIntakeRoutes(app: Express): void {
             requireLogin: data.workflow.requireLogin,
           },
           sections: data.sections,
+          intakeConfig: data.intakeConfig, // Stage 12.5
           tenantBranding: data.tenantBranding,
         },
       });
@@ -80,9 +91,32 @@ export function registerIntakeRoutes(app: Express): void {
   });
 
   /**
+   * GET /intake/captcha/challenge
+   * Generate a new CAPTCHA challenge
+   * Stage 12.5: Simple math CAPTCHA
+   */
+  app.get('/intake/captcha/challenge', async (req: Request, res: Response) => {
+    try {
+      const challenge = CaptchaService.generateSimpleChallenge();
+
+      res.json({
+        success: true,
+        data: challenge,
+      });
+    } catch (error) {
+      logger.error({ error }, "Error generating CAPTCHA challenge");
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate CAPTCHA challenge",
+      });
+    }
+  });
+
+  /**
    * POST /intake/runs
    * Create a new intake run
-   * Body: { slug, answers? }
+   * Body: { slug, answers?, prefillParams? }
+   * Stage 12.5: Supports prefillParams for URL-based prefill
    */
   app.post('/intake/runs', async (req: Request, res: Response) => {
     try {
@@ -95,7 +129,8 @@ export function registerIntakeRoutes(app: Express): void {
       const result = await intakeService.createIntakeRun(
         data.slug,
         userId,
-        data.answers
+        data.answers,
+        data.prefillParams // Stage 12.5: URL prefill
       );
 
       res.status(201).json({
@@ -137,14 +172,19 @@ export function registerIntakeRoutes(app: Express): void {
   /**
    * POST /intake/runs/:token/submit
    * Submit intake run (complete workflow)
-   * Body: { answers }
+   * Body: { answers, captcha? }
+   * Stage 12.5: Validates CAPTCHA and sends email receipt
    */
   app.post('/intake/runs/:token/submit', async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
       const data = submitRunSchema.parse(req.body);
 
-      const result = await intakeService.submitIntakeRun(token, data.answers);
+      const result = await intakeService.submitIntakeRun(
+        token,
+        data.answers,
+        data.captcha as CaptchaResponse | undefined // Stage 12.5: CAPTCHA
+      );
 
       res.json({
         success: true,

@@ -307,6 +307,28 @@ export class WorkflowService {
       tx
     );
   }
+
+  /**
+   * Update workflow intake configuration (Stage 12.5)
+   * Owner and builders can update intake config
+   */
+  async updateIntakeConfig(
+    workflowId: string,
+    userId: string,
+    intakeConfig: Record<string, any>,
+    tx?: DbTransaction
+  ): Promise<Workflow> {
+    // Verify user has owner or builder access
+    const workflow = await this.verifyAccess(workflowId, userId, ['owner', 'builder']);
+
+    return await this.workflowRepo.update(
+      workflowId,
+      {
+        intakeConfig,
+      },
+      tx
+    );
+  }
 }
 
 // Singleton instance

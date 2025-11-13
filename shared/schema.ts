@@ -842,6 +842,8 @@ export const workflows = pgTable("workflows", {
   isPublic: boolean("is_public").default(false).notNull(),
   slug: text("slug"),
   requireLogin: boolean("require_login").default(false).notNull(),
+  // Stage 12.5: Intake Portal extras
+  intakeConfig: jsonb("intake_config").default(sql`'{}'::jsonb`).notNull(),
   // Stage 13: Version management
   pinnedVersionId: uuid("pinned_version_id"),
   // Common fields

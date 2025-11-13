@@ -175,6 +175,40 @@ export function registerWorkflowRoutes(app: Express): void {
   });
 
   /**
+   * PUT /api/workflows/:workflowId/intake-config
+   * Update workflow intake configuration (Stage 12.5)
+   */
+  app.put('/api/workflows/:workflowId/intake-config', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const intakeConfigSchema = z.object({
+        allowPrefill: z.boolean().optional(),
+        allowedPrefillKeys: z.array(z.string()).optional(),
+        requireCaptcha: z.boolean().optional(),
+        captchaType: z.enum(["simple", "recaptcha"]).optional(),
+        sendEmailReceipt: z.boolean().optional(),
+        receiptEmailVar: z.string().optional(),
+        receiptTemplateId: z.string().optional(),
+      });
+
+      const intakeConfig = intakeConfigSchema.parse(req.body);
+
+      const workflow = await workflowService.updateIntakeConfig(workflowId, userId, intakeConfig);
+      res.json(workflow);
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error updating intake config");
+      const message = error instanceof Error ? error.message : "Failed to update intake config";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
    * PUT /api/workflows/:workflowId/move
    * Move workflow to a project (or unfiled if projectId is null)
    */

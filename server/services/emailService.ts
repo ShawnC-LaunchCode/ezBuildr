@@ -83,10 +83,108 @@ Best regards,
 Vault-Logic Team
 =========================
     `);
-    
+
     // In production, implement actual email sending similar to above
 
   } catch (error) {
     logger.error({ error }, "Error sending survey invitation");
+  }
+}
+
+/**
+ * Send intake receipt email (Stage 12.5)
+ * Sends confirmation email after successful intake submission
+ */
+export interface IntakeReceiptData {
+  to: string;
+  tenantId: string;
+  workflowId: string;
+  workflowName: string;
+  runId: string;
+  summary?: Record<string, any>;
+  downloadLinks?: {
+    pdf?: string;
+    docx?: string;
+  };
+}
+
+export async function sendIntakeReceipt(
+  data: IntakeReceiptData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { to, workflowName, runId, summary, downloadLinks } = data;
+
+    // Format summary for email (limit to non-sensitive fields)
+    let summaryText = "";
+    if (summary && Object.keys(summary).length > 0) {
+      summaryText = "\n\nYour submission:\n";
+      for (const [key, value] of Object.entries(summary)) {
+        // Skip sensitive-looking fields
+        if (key.toLowerCase().includes("password") ||
+            key.toLowerCase().includes("ssn") ||
+            key.toLowerCase().includes("credit")) {
+          continue;
+        }
+        summaryText += `  - ${key}: ${String(value).substring(0, 100)}\n`;
+      }
+    }
+
+    // Format download links
+    let downloadText = "";
+    if (downloadLinks && (downloadLinks.pdf || downloadLinks.docx)) {
+      downloadText = "\n\nYour documents are ready:\n";
+      if (downloadLinks.pdf) {
+        downloadText += `  - Download PDF: ${downloadLinks.pdf}\n`;
+      }
+      if (downloadLinks.docx) {
+        downloadText += `  - Download DOCX: ${downloadLinks.docx}\n`;
+      }
+    }
+
+    logger.info(`
+=== INTAKE RECEIPT ===
+To: ${to}
+Subject: Confirmation - ${workflowName}
+
+Thank you for completing "${workflowName}".
+${summaryText}${downloadText}
+
+Reference ID: ${runId}
+
+If you have any questions, please contact us with your reference ID.
+
+Best regards,
+VaultLogic Team
+=====================
+    `);
+
+    // In production, implement actual email sending:
+    /*
+    const sendgrid = require('@sendgrid/mail');
+    sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+
+    await sendgrid.send({
+      to,
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@vaultlogic.com',
+      subject: `Confirmation - ${workflowName}`,
+      html: `
+        <h2>Thank you for your submission</h2>
+        <p>You have successfully completed "<strong>${workflowName}</strong>".</p>
+        ${summaryHtml}
+        ${downloadLinksHtml}
+        <p><small>Reference ID: ${runId}</small></p>
+        <br>
+        <p>Best regards,<br>VaultLogic Team</p>
+      `
+    });
+    */
+
+    return { success: true };
+  } catch (error) {
+    logger.error({ error, data }, "Error sending intake receipt email");
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send email"
+    };
   }
 }
