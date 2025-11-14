@@ -1,6 +1,7 @@
 ﻿import { sql } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -862,11 +863,17 @@ export const projects = pgTable("projects", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
-  archived: boolean("archived").default(false).notNull(),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: projectStatusEnum("status").default('active').notNull(),
+  archived: boolean("archived").default(false).notNull(), // DEPRECATED: Use status instead
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("projects_tenant_idx").on(table.tenantId),
+  index("projects_created_by_idx").on(table.createdBy),
+  index("projects_owner_idx").on(table.ownerId),
+  index("projects_status_idx").on(table.status),
   index("projects_archived_idx").on(table.archived),
 ]);
 
@@ -1100,7 +1107,7 @@ export const connections = pgTable("connections", {
   index("connections_type_idx").on(table.type),
   index("connections_enabled_idx").on(table.enabled),
   // Ensure unique connection names per project
-  index("connections_project_name_unique_idx").on(table.projectId, table.name).unique(),
+  uniqueIndex("connections_project_name_unique_idx").on(table.projectId, table.name),
 ]);
 
 // =====================================================================
@@ -1121,7 +1128,7 @@ export const collections = pgTable("collections", {
   index("collections_slug_idx").on(table.slug),
   index("collections_created_at_idx").on(table.createdAt),
   // Ensure unique slug per tenant
-  index("collections_tenant_slug_unique_idx").on(table.tenantId, table.slug).unique(),
+  uniqueIndex("collections_tenant_slug_unique_idx").on(table.tenantId, table.slug),
 ]);
 
 // Collection fields table - field definitions for collections
@@ -1141,7 +1148,7 @@ export const collectionFields = pgTable("collection_fields", {
   index("collection_fields_slug_idx").on(table.slug),
   index("collection_fields_type_idx").on(table.type),
   // Ensure unique slug per collection
-  index("collection_fields_collection_slug_unique_idx").on(table.collectionId, table.slug).unique(),
+  uniqueIndex("collection_fields_collection_slug_unique_idx").on(table.collectionId, table.slug),
 ]);
 
 // Records table - data stored in collections (schemaless JSONB)
@@ -1292,6 +1299,7 @@ export const sections = pgTable("sections", {
   visibleIf: jsonb("visible_if"), // Condition expression for visibility
   skipIf: jsonb("skip_if"), // Condition expression for skip logic
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("sections_workflow_idx").on(table.workflowId),
 ]);
@@ -1313,6 +1321,7 @@ export const steps = pgTable("steps", {
   // Stage 20 PR 4: Repeater configuration
   repeaterConfig: jsonb("repeater_config"), // Configuration for repeater fields
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("steps_section_idx").on(table.sectionId),
   index("steps_is_virtual_idx").on(table.isVirtual),
@@ -1332,6 +1341,7 @@ export const logicRules = pgTable("logic_rules", {
   logicalOperator: varchar("logical_operator").default("AND"),
   order: integer("order").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("logic_rules_workflow_idx").on(table.workflowId),
   index("logic_rules_condition_step_idx").on(table.conditionStepId),
