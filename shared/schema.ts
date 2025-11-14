@@ -1242,6 +1242,9 @@ export const sections = pgTable("sections", {
   title: varchar("title").notNull(),
   description: text("description"),
   order: integer("order").notNull(),
+  // Stage 20 PR 2: Page-level conditional logic
+  visibleIf: jsonb("visible_if"), // Condition expression for visibility
+  skipIf: jsonb("skip_if"), // Condition expression for skip logic
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("sections_workflow_idx").on(table.workflowId),
