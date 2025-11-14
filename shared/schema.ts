@@ -1319,7 +1319,15 @@ export const stepValues = pgTable("step_values", {
 ]);
 
 // Block type enum
-export const blockTypeEnum = pgEnum('block_type', ['prefill', 'validate', 'branch']);
+export const blockTypeEnum = pgEnum('block_type', [
+  'prefill',
+  'validate',
+  'branch',
+  'create_record',  // Stage 19: Create record in collection
+  'update_record',  // Stage 19: Update existing record
+  'find_record',    // Stage 19: Query and find records
+  'delete_record',  // Stage 19: Delete record from collection
+]);
 
 // Block phase enum
 export const blockPhaseEnum = pgEnum('block_phase', [

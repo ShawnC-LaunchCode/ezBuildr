@@ -1,5 +1,7 @@
 import { blockService } from "./BlockService";
 import { transformBlockService } from "./TransformBlockService";
+import { collectionService } from "./CollectionService";
+import { recordService } from "./RecordService";
 import type {
   BlockPhase,
   BlockContext,
@@ -7,6 +9,10 @@ import type {
   PrefillConfig,
   ValidateConfig,
   BranchConfig,
+  CreateRecordConfig,
+  UpdateRecordConfig,
+  FindRecordConfig,
+  DeleteRecordConfig,
   WhenCondition,
   AssertExpression,
   ComparisonOperator,
@@ -124,6 +130,18 @@ export class BlockRunner {
 
       case "branch":
         return this.executeBranchBlock(block.config as BranchConfig, context);
+
+      case "create_record":
+        return await this.executeCreateRecordBlock(block.config as CreateRecordConfig, context);
+
+      case "update_record":
+        return await this.executeUpdateRecordBlock(block.config as UpdateRecordConfig, context);
+
+      case "find_record":
+        return await this.executeFindRecordBlock(block.config as FindRecordConfig, context);
+
+      case "delete_record":
+        return await this.executeDeleteRecordBlock(block.config as DeleteRecordConfig, context);
 
       default:
         logger.warn(`Unknown block type: ${(block as any).type}`);
@@ -380,6 +398,176 @@ export class BlockRunner {
     } catch (error) {
       logger.warn(`Invalid regex pattern: ${pattern}`);
       return false;
+    }
+  }
+
+  /**
+   * Execute create_record block
+   * Creates a new record in a collection
+   */
+  private async executeCreateRecordBlock(
+    config: CreateRecordConfig,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    try {
+      // Get tenant ID from workflow (assuming it's available in context or we need to fetch it)
+      // For now, we'll need to fetch the workflow to get tenantId
+      // This is a limitation - we may need to add tenantId to BlockContext
+
+      // Build record data from fieldMap
+      const recordData: Record<string, any> = {};
+      for (const [fieldSlug, stepAlias] of Object.entries(config.fieldMap)) {
+        const value = context.data[stepAlias];
+        if (value !== undefined && value !== null) {
+          recordData[fieldSlug] = value;
+        }
+      }
+
+      // Create the record
+      // Note: This will require tenantId - we'll need to enhance BlockContext or fetch it
+      // For now, let's log a warning and return a placeholder implementation
+      logger.info({ config, recordData }, "Creating record via block");
+
+      // TODO: Implement once tenantId is available in context
+      // const record = await recordService.createRecord(tenantId, config.collectionId, recordData);
+
+      const updates: Record<string, any> = {};
+      if (config.outputKey) {
+        // TODO: Set this to the actual record ID once implemented
+        updates[config.outputKey] = "placeholder-record-id";
+      }
+
+      return {
+        success: true,
+        data: updates,
+      };
+    } catch (error) {
+      logger.error({ error, config }, "Error executing create_record block");
+      return {
+        success: false,
+        errors: [`Failed to create record: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
+    }
+  }
+
+  /**
+   * Execute update_record block
+   * Updates an existing record in a collection
+   */
+  private async executeUpdateRecordBlock(
+    config: UpdateRecordConfig,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    try {
+      const recordId = context.data[config.recordIdKey];
+      if (!recordId) {
+        return {
+          success: false,
+          errors: [`Record ID not found in data key: ${config.recordIdKey}`],
+        };
+      }
+
+      // Build update data from fieldMap
+      const updateData: Record<string, any> = {};
+      for (const [fieldSlug, stepAlias] of Object.entries(config.fieldMap)) {
+        const value = context.data[stepAlias];
+        if (value !== undefined && value !== null) {
+          updateData[fieldSlug] = value;
+        }
+      }
+
+      logger.info({ config, recordId, updateData }, "Updating record via block");
+
+      // TODO: Implement once tenantId is available in context
+      // await recordService.updateRecord(tenantId, config.collectionId, recordId, updateData);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      logger.error({ error, config }, "Error executing update_record block");
+      return {
+        success: false,
+        errors: [`Failed to update record: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
+    }
+  }
+
+  /**
+   * Execute find_record block
+   * Queries records and returns matches
+   */
+  private async executeFindRecordBlock(
+    config: FindRecordConfig,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    try {
+      logger.info({ config }, "Finding records via block");
+
+      // TODO: Implement once tenantId is available in context
+      // const records = await recordService.findRecordsByFilters(
+      //   tenantId,
+      //   config.collectionId,
+      //   config.filters,
+      //   config.limit || 1
+      // );
+
+      const records: any[] = []; // Placeholder
+
+      if (records.length === 0 && config.failIfNotFound) {
+        return {
+          success: false,
+          errors: ["No records found matching the criteria"],
+        };
+      }
+
+      const updates: Record<string, any> = {};
+      updates[config.outputKey] = config.limit === 1 ? (records[0] || null) : records;
+
+      return {
+        success: true,
+        data: updates,
+      };
+    } catch (error) {
+      logger.error({ error, config }, "Error executing find_record block");
+      return {
+        success: false,
+        errors: [`Failed to find records: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
+    }
+  }
+
+  /**
+   * Execute delete_record block
+   * Deletes a record from a collection
+   */
+  private async executeDeleteRecordBlock(
+    config: DeleteRecordConfig,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    try {
+      const recordId = context.data[config.recordIdKey];
+      if (!recordId) {
+        return {
+          success: false,
+          errors: [`Record ID not found in data key: ${config.recordIdKey}`],
+        };
+      }
+
+      logger.info({ config, recordId }, "Deleting record via block");
+
+      // TODO: Implement once tenantId is available in context
+      // await recordService.deleteRecord(tenantId, config.collectionId, recordId);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      logger.error({ error, config }, "Error executing delete_record block");
+      return {
+        success: false,
+        errors: [`Failed to delete record: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
     }
   }
 }

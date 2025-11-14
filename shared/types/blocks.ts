@@ -105,13 +105,58 @@ export type BranchConfig = {
 };
 
 /**
+ * Create Record Block Configuration
+ * Creates a new record in a collection
+ */
+export type CreateRecordConfig = {
+  collectionId: string;               // Collection to create record in
+  fieldMap: Record<string, string>;   // Map of fieldSlug -> stepAlias (where to get the value from)
+  outputKey?: string;                 // Step alias to store the created record ID (optional)
+};
+
+/**
+ * Update Record Block Configuration
+ * Updates an existing record in a collection
+ */
+export type UpdateRecordConfig = {
+  collectionId: string;               // Collection containing the record
+  recordIdKey: string;                // Step alias containing the record ID to update
+  fieldMap: Record<string, string>;   // Map of fieldSlug -> stepAlias (values to update)
+};
+
+/**
+ * Find Record Block Configuration
+ * Queries records and returns matches
+ */
+export type FindRecordConfig = {
+  collectionId: string;               // Collection to query
+  filters: Record<string, any>;       // Filter criteria (fieldSlug -> expected value or {op, value})
+  limit?: number;                     // Max number of records to return (default: 1)
+  outputKey: string;                  // Step alias to store found record(s)
+  failIfNotFound?: boolean;           // Whether to fail the workflow if no records found (default: false)
+};
+
+/**
+ * Delete Record Block Configuration
+ * Deletes a record from a collection
+ */
+export type DeleteRecordConfig = {
+  collectionId: string;               // Collection containing the record
+  recordIdKey: string;                // Step alias containing the record ID to delete
+};
+
+/**
  * Discriminated union of block kinds
  * Each block type has its own config shape
  */
 export type BlockKind =
   | { type: "prefill"; phase: BlockPhase; config: PrefillConfig; sectionId?: string | null }
   | { type: "validate"; phase: BlockPhase; config: ValidateConfig; sectionId?: string | null }
-  | { type: "branch"; phase: BlockPhase; config: BranchConfig; sectionId?: string | null };
+  | { type: "branch"; phase: BlockPhase; config: BranchConfig; sectionId?: string | null }
+  | { type: "create_record"; phase: BlockPhase; config: CreateRecordConfig; sectionId?: string | null }
+  | { type: "update_record"; phase: BlockPhase; config: UpdateRecordConfig; sectionId?: string | null }
+  | { type: "find_record"; phase: BlockPhase; config: FindRecordConfig; sectionId?: string | null }
+  | { type: "delete_record"; phase: BlockPhase; config: DeleteRecordConfig; sectionId?: string | null };
 
 /**
  * Block execution context
