@@ -1,7 +1,7 @@
 # VaultLogic - Architecture & Current State
 
-**Last Updated:** November 13, 2025
-**Version:** 1.4.0 - Stage 16 Complete (Backend)
+**Last Updated:** November 14, 2025
+**Version:** 1.4.0 - Stage 21 Complete (Backend + Document Engine)
 **Status:** Production Ready (Backend), Frontend Pending
 
 ---
@@ -314,12 +314,12 @@ return input.firstName + ' ' + input.lastName;
 
 ### 📋 Planned Features
 
-1. **Workflow Versioning**
-2. **Document Automation** (DOCX/PDF generation)
-3. **Webhooks & Integrations** (Zapier, Make, n8n)
-4. **Logic Block Templates**
-5. **Real-time Collaboration**
-6. **AI-Powered Workflow Generation** (Gemini integration ready)
+1. **Workflow Versioning** - Track changes and rollback capabilities
+2. **Logic Block Templates** - Pre-built reusable logic patterns
+3. **Real-time Collaboration** - Multi-user editing with presence
+4. **Integration Marketplace** - Third-party integrations ecosystem
+5. **Advanced Analytics Dashboards** - Custom reporting and visualizations
+6. **Workflow Templates Gallery** - Industry-specific starter templates
 
 ---
 
@@ -459,7 +459,7 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 ## Recent Major Changes (Nov 2025)
 
-### 1. Integrations Hub (Nov 13, 2025) - Stage 16 🆕
+### Stage 16: Integrations Hub (Nov 13, 2025) 🆕
 **Major Feature:** Unified connection management, OAuth2 3-legged flow, and webhook node
 
 **Unified Connection Model:**
@@ -520,7 +520,7 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 ---
 
-### 2. AI-Assisted Workflow Builder (Nov 13, 2025) - Stage 15 🆕
+### Stage 15: AI-Assisted Workflow Builder (Nov 13, 2025) 🆕
 **Major Feature:** AI-powered workflow generation using OpenAI and Anthropic
 
 **AI Workflow Generation:**
@@ -564,7 +564,7 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 ---
 
-### 2. E-Signature Node + Document Review Portal (Nov 13, 2025) - Stage 14
+### Stage 14: E-Signature Node + Document Review Portal (Nov 13, 2025)
 **Major Feature:** Human-in-the-loop workflow capabilities with review gates and e-signatures
 
 **REVIEW Node:**
@@ -613,7 +613,7 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 ---
 
-### 2. HTTP/Fetch Node + Secrets Management (Nov 12, 2025) - Stage 9
+### Stage 9: HTTP/Fetch Node + Secrets Management (Nov 12, 2025)
 **Major Feature:** External API integration and secure credential management
 
 **HTTP Node Engine:**
@@ -654,7 +654,9 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 **Documentation:** See `docs/STAGE_9_HTTP_SECRETS.md` for complete guide
 
-### 2. Virtual Steps for Transform Blocks (Nov 11, 2025)
+---
+
+### Stage 8: Virtual Steps for Transform Blocks (Nov 11, 2025)
 **Problem:** Transform block outputs couldn't be persisted because `outputKey` (string) was used as `stepId` (UUID required)
 
 **Solution:** Virtual steps architecture
@@ -671,24 +673,28 @@ GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 
 **Migration:** `migrations/0008_add_virtual_steps_for_transform_blocks.sql`
 
-### 2. Bearer Token Authentication (Nov 2025)
+---
+
+### Additional Stage 8 Features (Nov 2025)
+
+**Bearer Token Authentication:**
 - All preview runner endpoints support `Authorization: Bearer <runToken>`
 - Middleware: `creatorOrRunTokenAuth` accepts session OR token
 - Enables anonymous runs with public links
 
-### 3. Step Aliases (Variables) (Nov 2025)
+**Step Aliases (Variables):**
 - Added `alias` column to `steps` table
 - Unique per workflow with partial index
 - VariableSelect component for UI
 - Variable resolution in logic rules and transform blocks
 
-### 4. Enhanced Transform Block Features (Nov 2025)
+**Enhanced Transform Block Features:**
 - Test data configuration UI with "Generate All" button
 - Custom titles for blocks
 - Enhanced error reporting with stack traces and line numbers
 - Improved code editor with syntax validation
 
-### 5. Run Token System (Nov 2025)
+**Run Token System:**
 - Removed `participants` table completely
 - Added `runToken`, `createdBy`, `currentSectionId`, `progress` to `workflowRuns`
 - Added `publicLink` to `workflows`
@@ -928,6 +934,6 @@ Set environment variables in Railway dashboard:
 
 **Document Maintainer:** Development Team
 **Review Cycle:** Monthly
-**Next Review:** December 12, 2025
+**Next Review:** December 14, 2025
 
 **For questions or issues:** See troubleshooting section or create a GitHub issue
