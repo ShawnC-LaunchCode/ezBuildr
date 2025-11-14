@@ -14,6 +14,9 @@ import {
   useCreateCollectionField,
   useUpdateCollectionField,
   useDeleteCollectionField,
+  useCreateCollectionRecord,
+  useUpdateCollectionRecord,
+  useDeleteCollectionRecord,
 } from "@/lib/vault-hooks";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +24,7 @@ import { Plus, Loader2, ArrowLeft, Database } from "lucide-react";
 import { FieldsList } from "@/components/collections/FieldsList";
 import { CreateFieldModal } from "@/components/collections/CreateFieldModal";
 import { RecordsList } from "@/components/collections/RecordsList";
+import { RecordEditorModal } from "@/components/collections/RecordEditorModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { ApiCollectionField } from "@/lib/vault-api";
+import type { ApiCollectionField, ApiCollectionRecord } from "@/lib/vault-api";
 
 export default function CollectionDetailPage() {
   const { id: collectionId } = useParams<{ id: string }>();
@@ -61,9 +65,17 @@ export default function CollectionDetailPage() {
   const updateFieldMutation = useUpdateCollectionField();
   const deleteFieldMutation = useDeleteCollectionField();
 
+  const createRecordMutation = useCreateCollectionRecord();
+  const updateRecordMutation = useUpdateCollectionRecord();
+  const deleteRecordMutation = useDeleteCollectionRecord();
+
   const [fieldModalOpen, setFieldModalOpen] = useState(false);
   const [editingField, setEditingField] = useState<ApiCollectionField | undefined>();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<ApiCollectionRecord | undefined>();
+  const [deleteRecordConfirm, setDeleteRecordConfirm] = useState<{ id: string } | null>(null);
 
   const handleCreateField = async (data: Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) => {
     if (!tenantId || !collectionId) return;
@@ -156,6 +168,96 @@ export default function CollectionDetailPage() {
       setEditingField(undefined);
     }
     setFieldModalOpen(open);
+  };
+
+  const handleCreateRecord = async (data: Record<string, any>) => {
+    if (!tenantId || !collectionId) return;
+
+    try {
+      await createRecordMutation.mutateAsync({
+        tenantId,
+        collectionId,
+        data,
+      });
+
+      toast({
+        title: "Record created",
+        description: "The record has been added to the collection.",
+      });
+
+      setRecordModalOpen(false);
+      setEditingRecord(undefined);
+    } catch (error) {
+      toast({
+        title: "Failed to create record",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateRecord = async (data: Record<string, any>) => {
+    if (!tenantId || !collectionId || !editingRecord) return;
+
+    try {
+      await updateRecordMutation.mutateAsync({
+        tenantId,
+        collectionId,
+        recordId: editingRecord.id,
+        data,
+      });
+
+      toast({
+        title: "Record updated",
+        description: "The record has been updated successfully.",
+      });
+
+      setRecordModalOpen(false);
+      setEditingRecord(undefined);
+    } catch (error) {
+      toast({
+        title: "Failed to update record",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!deleteRecordConfirm || !tenantId || !collectionId) return;
+
+    try {
+      await deleteRecordMutation.mutateAsync({
+        tenantId,
+        collectionId,
+        recordId: deleteRecordConfirm.id,
+      });
+
+      toast({
+        title: "Record deleted",
+        description: "The record has been removed from the collection.",
+      });
+
+      setDeleteRecordConfirm(null);
+    } catch (error) {
+      toast({
+        title: "Failed to delete record",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditRecord = (record: ApiCollectionRecord) => {
+    setEditingRecord(record);
+    setRecordModalOpen(true);
+  };
+
+  const handleRecordModalClose = (open: boolean) => {
+    if (!open) {
+      setEditingRecord(undefined);
+    }
+    setRecordModalOpen(open);
   };
 
   if (loadingCollection || loadingFields) {
@@ -256,13 +358,9 @@ export default function CollectionDetailPage() {
               pageSize={recordsPageSize}
               totalRecords={recordsData?.total || 0}
               onPageChange={setRecordsPage}
-              onAddRecord={() => {
-                // TODO: Open record editor modal in PR 7
-                toast({
-                  title: "Coming soon",
-                  description: "Record creation will be available in PR 7",
-                });
-              }}
+              onRecordClick={handleEditRecord}
+              onAddRecord={() => setRecordModalOpen(true)}
+              onDelete={(id) => setDeleteRecordConfirm({ id })}
             />
           )}
         </TabsContent>
@@ -277,7 +375,7 @@ export default function CollectionDetailPage() {
         field={editingField}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Field Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -297,6 +395,40 @@ export default function CollectionDetailPage() {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
               Delete Field
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create/Edit Record Modal */}
+      <RecordEditorModal
+        open={recordModalOpen}
+        onOpenChange={handleRecordModalClose}
+        fields={fields || []}
+        record={editingRecord}
+        onSubmit={editingRecord ? handleUpdateRecord : handleCreateRecord}
+        isLoading={createRecordMutation.isPending || updateRecordMutation.isPending}
+      />
+
+      {/* Delete Record Confirmation Dialog */}
+      <AlertDialog open={!!deleteRecordConfirm} onOpenChange={() => setDeleteRecordConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteRecord}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRecordMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Delete Record
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

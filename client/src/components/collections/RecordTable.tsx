@@ -14,7 +14,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import type { ApiCollectionRecord, ApiCollectionField } from "@/lib/vault-api";
 
 interface RecordTableProps {
@@ -26,6 +33,7 @@ interface RecordTableProps {
   totalRecords?: number;
   onPageChange?: (page: number) => void;
   onRecordClick?: (record: ApiCollectionRecord) => void;
+  onDelete?: (recordId: string) => void;
 }
 
 export function RecordTable({
@@ -37,6 +45,7 @@ export function RecordTable({
   totalRecords = 0,
   onPageChange,
   onRecordClick,
+  onDelete,
 }: RecordTableProps) {
   const totalPages = Math.ceil(totalRecords / pageSize);
   const hasNextPage = page < totalPages;
@@ -154,20 +163,54 @@ export function RecordTable({
                   </code>
                 </TableHead>
               ))}
+              {(onRecordClick || onDelete) && (
+                <TableHead className="w-[50px]">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {records.map((record) => (
-              <TableRow
-                key={record.id}
-                className={onRecordClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                onClick={() => onRecordClick?.(record)}
-              >
+              <TableRow key={record.id}>
                 {fields.map((field) => (
-                  <TableCell key={field.id}>
+                  <TableCell
+                    key={field.id}
+                    className={onRecordClick && !onDelete ? "cursor-pointer" : ""}
+                    onClick={onRecordClick && !onDelete ? () => onRecordClick(record) : undefined}
+                  >
                     {renderFieldValue(record.data[field.slug], field)}
                   </TableCell>
                 ))}
+                {(onRecordClick || onDelete) && (
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onRecordClick && (
+                          <DropdownMenuItem onClick={() => onRecordClick(record)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {onDelete && onRecordClick && <DropdownMenuSeparator />}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => onDelete(record.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

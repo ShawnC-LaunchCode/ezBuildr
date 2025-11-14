@@ -20,6 +20,7 @@ interface RecordsListProps {
   onPageChange?: (page: number) => void;
   onRecordClick?: (record: ApiCollectionRecord) => void;
   onAddRecord?: () => void;
+  onDelete?: (recordId: string) => void;
 }
 
 export function RecordsList({
@@ -32,6 +33,7 @@ export function RecordsList({
   onPageChange,
   onRecordClick,
   onAddRecord,
+  onDelete,
 }: RecordsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -104,6 +106,7 @@ export function RecordsList({
         totalRecords={searchQuery ? filteredRecords.length : totalRecords}
         onPageChange={onPageChange}
         onRecordClick={onRecordClick}
+        onDelete={onDelete}
       />
     </div>
   );
