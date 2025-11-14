@@ -40,6 +40,7 @@ import DomainSettingsPage from "@/pages/DomainSettingsPage"; // Stage 17
 import IntakePreviewPage from "@/pages/IntakePreviewPage"; // Stage 17
 import EmailTemplatesPage from "@/pages/EmailTemplatesPage"; // Stage 17
 import EmailTemplateEditorPage from "@/pages/EmailTemplateEditorPage"; // Stage 17
+import CollectionsPage from "@/pages/CollectionsPage"; // Stage 19
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -99,6 +100,8 @@ function Router() {
             <Route path="/settings" component={SettingsPage} />
             {/* Stage 17: Branding Settings */}
             <Route path="/projects/:id/settings/branding" component={BrandingSettingsPage} />
+            {/* Stage 19: Collections / Datastore */}
+            <Route path="/data" component={CollectionsPage} />
             <Route path="/projects/:id/settings/branding/domains" component={DomainSettingsPage} />
             <Route path="/projects/:id/settings/email-templates" component={EmailTemplatesPage} />
             <Route path="/projects/:id/settings/email-templates/:templateId" component={EmailTemplateEditorPage} />

@@ -869,3 +869,166 @@ export const emailTemplateAPI = {
       `/api/email-templates/token/${tokenKey}`
     ),
 };
+
+// ============================================================================
+// Collections / Datastore API (Stage 19)
+// ============================================================================
+
+export interface ApiCollection {
+  id: string;
+  tenantId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiCollectionWithStats extends ApiCollection {
+  fieldCount: number;
+  recordCount: number;
+}
+
+export interface ApiCollectionField {
+  id: string;
+  collectionId: string;
+  name: string;
+  slug: string;
+  type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'file' | 'select' | 'multi_select' | 'json';
+  isRequired: boolean;
+  options: any[] | null;
+  defaultValue: any | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiCollectionRecord {
+  id: string;
+  tenantId: string;
+  collectionId: string;
+  data: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+}
+
+export interface ApiCollectionWithFields extends ApiCollection {
+  fields: ApiCollectionField[];
+}
+
+export interface ListRecordsResponse {
+  records: ApiCollectionRecord[];
+  count?: number;
+}
+
+export const collectionsAPI = {
+  // Collections
+  list: (tenantId: string, withStats?: boolean) => {
+    const query = withStats ? '?stats=true' : '';
+    return fetchAPI<ApiCollectionWithStats[]>(`/api/tenants/${tenantId}/collections${query}`);
+  },
+
+  get: (tenantId: string, collectionId: string, withFields?: boolean) => {
+    const query = withFields ? '?fields=true' : '';
+    return fetchAPI<ApiCollectionWithFields>(`/api/tenants/${tenantId}/collections/${collectionId}${query}`);
+  },
+
+  getBySlug: (tenantId: string, slug: string) =>
+    fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections/slug/${slug}`),
+
+  create: (tenantId: string, data: { name: string; slug?: string; description?: string | null }) =>
+    fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (tenantId: string, collectionId: string, data: Partial<Pick<ApiCollection, 'name' | 'slug' | 'description'>>) =>
+    fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections/${collectionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (tenantId: string, collectionId: string) =>
+    fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}`, {
+      method: 'DELETE',
+    }),
+
+  // Fields
+  listFields: (tenantId: string, collectionId: string) =>
+    fetchAPI<ApiCollectionField[]>(`/api/tenants/${tenantId}/collections/${collectionId}/fields`),
+
+  createField: (tenantId: string, collectionId: string, data: Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) =>
+    fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  createFieldsBulk: (tenantId: string, collectionId: string, fields: Array<Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>>) =>
+    fetchAPI<ApiCollectionField[]>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ fields }),
+    }),
+
+  getField: (tenantId: string, collectionId: string, fieldId: string) =>
+    fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`),
+
+  updateField: (tenantId: string, collectionId: string, fieldId: string, data: Partial<Pick<ApiCollectionField, 'name' | 'slug' | 'isRequired' | 'options' | 'defaultValue'>>) =>
+    fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteField: (tenantId: string, collectionId: string, fieldId: string) =>
+    fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`, {
+      method: 'DELETE',
+    }),
+
+  // Records
+  listRecords: (tenantId: string, collectionId: string, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.offset) queryParams.set('offset', params.offset.toString());
+    if (params?.orderBy) queryParams.set('orderBy', params.orderBy);
+    if (params?.order) queryParams.set('order', params.order);
+    if (params?.includeCount) queryParams.set('includeCount', 'true');
+
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return fetchAPI<ApiCollectionRecord[] | ListRecordsResponse>(`/api/tenants/${tenantId}/collections/${collectionId}/records${query}`);
+  },
+
+  createRecord: (tenantId: string, collectionId: string, data: Record<string, any>) =>
+    fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records`, {
+      method: 'POST',
+      body: JSON.stringify({ data }),
+    }),
+
+  createRecordsBulk: (tenantId: string, collectionId: string, records: Array<Record<string, any>>) =>
+    fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    }),
+
+  queryRecords: (tenantId: string, collectionId: string, filters: Record<string, any>) =>
+    fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/query`, {
+      method: 'POST',
+      body: JSON.stringify({ filters }),
+    }),
+
+  getRecord: (tenantId: string, collectionId: string, recordId: string) =>
+    fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`),
+
+  updateRecord: (tenantId: string, collectionId: string, recordId: string, data: Record<string, any>) =>
+    fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ data }),
+    }),
+
+  deleteRecord: (tenantId: string, collectionId: string, recordId: string) =>
+    fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`, {
+      method: 'DELETE',
+    }),
+
+  countRecords: (tenantId: string, collectionId: string) =>
+    fetchAPI<{ count: number }>(`/api/tenants/${tenantId}/collections/${collectionId}/records/count`),
+};

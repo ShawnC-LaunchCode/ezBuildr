@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse } from "./vault-api";
+import { projectAPI, workflowAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
@@ -29,6 +29,11 @@ export const queryKeys = {
   runWithValues: (id: string) => ["runs", id, "values"] as const,
   accountPreferences: ["account", "preferences"] as const,
   workflowMode: (workflowId: string) => ["workflows", workflowId, "mode"] as const,
+  collections: (tenantId: string) => ["collections", tenantId] as const,
+  collection: (tenantId: string, collectionId: string) => ["collections", tenantId, collectionId] as const,
+  collectionFields: (tenantId: string, collectionId: string) => ["collections", tenantId, collectionId, "fields"] as const,
+  collectionRecords: (tenantId: string, collectionId: string) => ["collections", tenantId, collectionId, "records"] as const,
+  collectionRecord: (tenantId: string, collectionId: string, recordId: string) => ["collections", tenantId, collectionId, "records", recordId] as const,
 };
 
 // ============================================================================
@@ -624,6 +629,158 @@ export function useSetWorkflowMode() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflowMode(variables.workflowId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+    },
+  });
+}
+
+// ============================================================================
+// Collections / Datastore (Stage 19)
+// ============================================================================
+
+export function useCollections(tenantId: string | undefined, withStats?: boolean) {
+  return useQuery({
+    queryKey: queryKeys.collections(tenantId!),
+    queryFn: () => collectionsAPI.list(tenantId!, withStats),
+    enabled: !!tenantId,
+  });
+}
+
+export function useCollection(tenantId: string | undefined, collectionId: string | undefined, withFields?: boolean) {
+  return useQuery({
+    queryKey: queryKeys.collection(tenantId!, collectionId!),
+    queryFn: () => collectionsAPI.get(tenantId!, collectionId!, withFields),
+    enabled: !!tenantId && !!collectionId,
+  });
+}
+
+export function useCreateCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, ...data }: { tenantId: string; name: string; slug?: string; description?: string | null }) =>
+      collectionsAPI.create(tenantId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collections(variables.tenantId) });
+    },
+  });
+}
+
+export function useUpdateCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, ...data }: { tenantId: string; collectionId: string; name?: string; slug?: string; description?: string | null }) =>
+      collectionsAPI.update(tenantId, collectionId, data),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collections(variables.tenantId) });
+    },
+  });
+}
+
+export function useDeleteCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId }: { tenantId: string; collectionId: string }) =>
+      collectionsAPI.delete(tenantId, collectionId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collections(variables.tenantId) });
+    },
+  });
+}
+
+// Fields
+export function useCollectionFields(tenantId: string | undefined, collectionId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.collectionFields(tenantId!, collectionId!),
+    queryFn: () => collectionsAPI.listFields(tenantId!, collectionId!),
+    enabled: !!tenantId && !!collectionId,
+  });
+}
+
+export function useCreateCollectionField() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, ...data }: { tenantId: string; collectionId: string } & Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) =>
+      collectionsAPI.createField(tenantId, collectionId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionFields(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+export function useUpdateCollectionField() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, fieldId, ...data }: { tenantId: string; collectionId: string; fieldId: string } & Partial<Pick<ApiCollectionField, 'name' | 'slug' | 'isRequired' | 'options' | 'defaultValue'>>) =>
+      collectionsAPI.updateField(tenantId, collectionId, fieldId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionFields(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+export function useDeleteCollectionField() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, fieldId }: { tenantId: string; collectionId: string; fieldId: string }) =>
+      collectionsAPI.deleteField(tenantId, collectionId, fieldId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionFields(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+// Records
+export function useCollectionRecords(tenantId: string | undefined, collectionId: string | undefined, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) {
+  return useQuery({
+    queryKey: [...queryKeys.collectionRecords(tenantId!, collectionId!), params],
+    queryFn: () => collectionsAPI.listRecords(tenantId!, collectionId!, params),
+    enabled: !!tenantId && !!collectionId,
+  });
+}
+
+export function useCollectionRecord(tenantId: string | undefined, collectionId: string | undefined, recordId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.collectionRecord(tenantId!, collectionId!, recordId!),
+    queryFn: () => collectionsAPI.getRecord(tenantId!, collectionId!, recordId!),
+    enabled: !!tenantId && !!collectionId && !!recordId,
+  });
+}
+
+export function useCreateCollectionRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, data }: { tenantId: string; collectionId: string; data: Record<string, any> }) =>
+      collectionsAPI.createRecord(tenantId, collectionId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+export function useUpdateCollectionRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, recordId, data }: { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }) =>
+      collectionsAPI.updateRecord(tenantId, collectionId, recordId, data),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecord(variables.tenantId, variables.collectionId, variables.recordId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+export function useDeleteCollectionRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, collectionId, recordId }: { tenantId: string; collectionId: string; recordId: string }) =>
+      collectionsAPI.deleteRecord(tenantId, collectionId, recordId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
     },
   });
 }
