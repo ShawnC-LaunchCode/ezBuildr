@@ -887,11 +887,13 @@ Set environment variables in Railway dashboard:
 - **Fix:** Use `npm run db:push` for schema sync
 
 **Issue:** "column does not exist" errors (error code 42703)
-- **Symptoms:** Login fails, workflows don't load, delete button doesn't work
-- **Cause:** Database schema is out of sync with code (missing columns)
-- **Fix:** Run schema fix script: `npx tsx scripts/fixAllMissingColumns.ts`
-- **Details:** This adds missing columns to `users`, `projects`, and `workflows` tables, creates default tenant, and sets up proper indices
-- **When to use:** After pulling latest code or when encountering "column does not exist" errors
+- **Symptoms:** Login fails, workflows don't load, workflows can't be created, delete button doesn't work
+- **Cause:** Database schema is out of sync with code (missing columns: `tenant_id`, `project_id`, `name`, etc.)
+- **Fix (Recommended):** Apply migration 0024: `npx tsx scripts/applyMigration0024.ts`
+- **Fix (Alternative):** Run schema fix script: `npx tsx scripts/fixAllMissingColumns.ts`
+- **Documentation:** See `MIGRATION_0024_README.md` for detailed instructions and troubleshooting
+- **Details:** This adds missing columns to `users`, `projects`, and `workflows` tables, creates default tenant/project, and sets up proper foreign keys and indices
+- **When to use:** After pulling latest code, when encountering "column does not exist" errors, or when workflows fail to display/create
 
 ---
 
