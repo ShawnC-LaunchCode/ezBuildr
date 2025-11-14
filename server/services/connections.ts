@@ -3,7 +3,7 @@
  * Manages unified integration connections with OAuth2 3-legged flow support
  */
 
-import { db } from '@db';
+import { db } from '../db';
 import { connections, projects } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import {

@@ -161,6 +161,21 @@ export function registerSectionRoutes(app: Express): void {
         return res.status(400).json({ message: "Invalid sections array" });
       }
 
+      // Log the sections data for debugging
+      logger.info({ sections, workflowId }, "Reordering sections");
+
+      // Validate that all section IDs are valid UUIDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      for (const section of sections) {
+        if (!section.id || !uuidRegex.test(section.id)) {
+          logger.error({ invalidSection: section }, "Invalid section ID format");
+          return res.status(400).json({
+            message: `Invalid section ID format: ${section.id}`,
+            details: "Section ID must be a valid UUID"
+          });
+        }
+      }
+
       await sectionService.reorderSections(workflowId, userId, sections);
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {

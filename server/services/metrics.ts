@@ -8,7 +8,7 @@
 import { db } from '../db';
 import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import logger from '../utils/logger';
+import logger from '../logger';
 
 export interface MetricsEventInput {
   type: 'run_started' | 'run_succeeded' | 'run_failed' | 'pdf_succeeded' | 'pdf_failed' | 'docx_succeeded' | 'docx_failed' | 'queue_enqueued' | 'queue_dequeued';

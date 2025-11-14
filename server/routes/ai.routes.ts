@@ -7,7 +7,7 @@ import { SurveyAIService } from "../services/SurveyAIService";
 import { logger } from "../logger";
 import { createLogger } from "../logger";
 import { requireBuilder } from "../middleware/rbac";
-import { authMiddleware } from "../middleware/auth";
+import { requireAuth } from "../middleware";
 import {
   AIWorkflowGenerationRequestSchema,
   AIWorkflowSuggestionRequestSchema,
@@ -37,11 +37,12 @@ const aiWorkflowRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Use user ID instead of IP for authenticated requests
+  // Use user ID for rate limiting (authenticated requests only)
   keyGenerator: (req: Request) => {
     const authReq = req as AuthRequest;
-    return authReq.userId || req.ip || 'anonymous';
+    return authReq.userId || 'anonymous';
   },
+  skipFailedRequests: true,
 });
 
 /**
@@ -288,7 +289,7 @@ export function registerAiRoutes(app: Express): void {
    */
   app.post(
     '/api/ai/workflows/generate',
-    authMiddleware,
+    requireAuth,
     requireBuilder,
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
@@ -398,7 +399,7 @@ export function registerAiRoutes(app: Express): void {
    */
   app.post(
     '/api/ai/workflows/:id/suggest',
-    authMiddleware,
+    requireAuth,
     requireBuilder,
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
@@ -521,7 +522,7 @@ export function registerAiRoutes(app: Express): void {
    */
   app.post(
     '/api/ai/templates/:templateId/bindings',
-    authMiddleware,
+    requireAuth,
     requireBuilder,
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {

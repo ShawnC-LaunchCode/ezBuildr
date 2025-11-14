@@ -6,7 +6,7 @@
  */
 
 import sli from './sli';
-import logger from '../utils/logger';
+import logger from '../logger';
 import { db } from '../db';
 
 interface AlertConfig {

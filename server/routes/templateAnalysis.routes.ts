@@ -6,8 +6,7 @@
 
 import type { Express } from 'express';
 import express from 'express';
-import { authenticate } from '../middleware/authenticate';
-import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth, asyncHandler } from '../middleware';
 import { z } from 'zod';
 import { documentTemplateService } from '../services/DocumentTemplateService';
 import {
@@ -21,7 +20,7 @@ import { createError } from '../utils/errors';
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(requireAuth);
 
 /**
  * Analyze template structure

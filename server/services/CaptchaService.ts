@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { CaptchaChallenge, CaptchaResponse, CaptchaType } from "../../shared/types/intake.js";
-import logger from "../utils/logger.js";
+import logger from "../logger";
 
 /**
  * CAPTCHA Service for Intake Portal (Stage 12.5)

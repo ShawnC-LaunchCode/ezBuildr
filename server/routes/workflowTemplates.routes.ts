@@ -6,8 +6,7 @@
 
 import type { Express } from 'express';
 import express from 'express';
-import { authenticate } from '../middleware/authenticate';
-import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth, asyncHandler } from '../middleware';
 import { z } from 'zod';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
@@ -15,7 +14,7 @@ import { createError } from '../utils/errors';
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(requireAuth);
 
 /**
  * List all templates attached to a workflow version

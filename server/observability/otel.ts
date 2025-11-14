@@ -16,7 +16,7 @@
  * - @opentelemetry/exporter-metrics-otlp-http
  */
 
-import logger from '../utils/logger';
+import logger from '../logger';
 
 interface OtelConfig {
   serviceName?: string;

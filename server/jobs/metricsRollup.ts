@@ -12,7 +12,7 @@ import {
   type InsertMetricsRollup,
 } from '../../shared/schema';
 import { sql, and, gte, lt, eq, or, isNull } from 'drizzle-orm';
-import logger from '../utils/logger';
+import logger from '../logger';
 import sli from '../services/sli';
 
 export type BucketSize = '1m' | '5m' | '1h' | '1d';

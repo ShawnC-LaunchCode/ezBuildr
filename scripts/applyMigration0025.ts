@@ -1,16 +1,16 @@
 #!/usr/bin/env tsx
 /**
- * Apply Migration 0024: Fix Missing Columns
+ * Apply Migration 0025: Fix Schema Inconsistencies
  *
- * This script applies the critical migration that fixes missing columns
- * in users, projects, and workflows tables that prevent workflows from
- * being created or displayed.
+ * This script applies the comprehensive migration that fixes:
+ * - Missing columns in projects table (created_by, owner_id, status)
+ * - Missing updated_at columns in sections, steps, logic_rules
  *
  * Usage:
- *   npx tsx scripts/applyMigration0024.ts
+ *   npx tsx scripts/applyMigration0025.ts
  *
  * Or with explicit DATABASE_URL:
- *   DATABASE_URL="postgresql://..." npx tsx scripts/applyMigration0024.ts
+ *   DATABASE_URL="postgresql://..." npx tsx scripts/applyMigration0025.ts
  */
 
 import { neon } from '@neondatabase/serverless';
@@ -74,22 +74,27 @@ async function applyMigration() {
     console.error('❌ ERROR: DATABASE_URL environment variable is not set');
     console.error('');
     console.error('Please set DATABASE_URL in your environment:');
-    console.error('  DATABASE_URL="postgresql://user:pass@host/db" npx tsx scripts/applyMigration0024.ts');
+    console.error('  DATABASE_URL="postgresql://user:pass@host/db" npx tsx scripts/applyMigration0025.ts');
     console.error('');
     console.error('Or add it to your .env file');
     process.exit(1);
   }
 
-  console.log('🔧 VaultLogic Migration 0024: Fix Missing Columns');
+  console.log('🔧 VaultLogic Migration 0025: Fix Schema Inconsistencies');
   console.log('');
   console.log('This migration will:');
-  console.log('  ✓ Create tenants table if missing');
-  console.log('  ✓ Add missing columns to users table (tenant_id, full_name, etc.)');
-  console.log('  ✓ Add missing columns to projects table (tenant_id, name, archived)');
-  console.log('  ✓ Add missing columns to workflows table (project_id, name, current_version_id)');
-  console.log('  ✓ Create default tenant and project');
-  console.log('  ✓ Populate foreign key relationships');
-  console.log('  ✓ Create necessary indices');
+  console.log('  Part 1: Projects Table');
+  console.log('    ✓ Add created_by column with foreign key to users');
+  console.log('    ✓ Add owner_id column with foreign key to users');
+  console.log('    ✓ Add status column (active/archived)');
+  console.log('    ✓ Backfill data from first user');
+  console.log('    ✓ Create performance indices');
+  console.log('');
+  console.log('  Part 2: Updated Timestamps');
+  console.log('    ✓ Add updated_at to sections table');
+  console.log('    ✓ Add updated_at to steps table');
+  console.log('    ✓ Add updated_at to logic_rules table');
+  console.log('    ✓ Backfill with created_at values');
   console.log('');
   console.log('📍 Database:', dbUrl.split('@')[1] || 'hidden');
   console.log('');
@@ -98,7 +103,7 @@ async function applyMigration() {
     const client = neon(dbUrl);
 
     // Read migration file
-    const migrationPath = join(__dirname, '..', 'migrations', '0024_fix_workflows_missing_columns.sql');
+    const migrationPath = join(__dirname, '..', 'migrations', '0025_fix_schema_inconsistencies.sql');
     const migrationSql = await readFile(migrationPath, 'utf-8');
 
     console.log('📝 Applying migration...');
@@ -123,7 +128,8 @@ async function applyMigration() {
       } catch (error: any) {
         // Ignore errors for already-applied changes
         if (error.message?.includes('already exists') ||
-            error.message?.includes('duplicate')) {
+            error.message?.includes('duplicate') ||
+            error.message?.includes('column') && error.message?.includes('already')) {
           skipCount++;
           process.stdout.write('s');
         } else {
@@ -133,15 +139,24 @@ async function applyMigration() {
     }
 
     console.log('');
-    console.log(`✅ Migration completed! (${successCount} applied, ${skipCount} skipped)`);
+    console.log('');
+    console.log(`✅ Migration 0025 completed successfully!`);
+    console.log(`   ${successCount} statements applied`);
+    console.log(`   ${skipCount} statements skipped (already applied)`);
+    console.log('');
+    console.log('📊 Changes applied:');
+    console.log('   Part 1: projects table now has created_by, owner_id, status');
+    console.log('   Part 2: sections, steps, logic_rules now have updated_at');
     console.log('');
     console.log('🔄 Next steps:');
     console.log('   1. Restart your application server');
-    console.log('   2. Try creating a workflow again');
-    console.log('   3. If issues persist, check application logs');
+    console.log('   2. Test project creation');
+    console.log('   3. Test workflow editing (verify updated_at is set)');
+    console.log('   4. Check application logs for any schema errors');
     console.log('');
 
   } catch (error: any) {
+    console.error('');
     console.error('❌ Migration failed:', error.message);
     if (error.detail) {
       console.error('   Details:', error.detail);
@@ -154,6 +169,9 @@ async function applyMigration() {
     console.error('   - Check that DATABASE_URL is correct');
     console.error('   - Ensure database is accessible');
     console.error('   - Verify you have necessary permissions');
+    console.error('   - Check if migration was already partially applied');
+    console.error('');
+    console.error('📝 For more details, see: docs/DATA_LAYER_AUDIT_2025_11_14.md');
     process.exit(1);
   }
 }

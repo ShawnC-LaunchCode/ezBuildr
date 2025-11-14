@@ -212,7 +212,7 @@ export default function Dashboard() {
                     />
 
                     <QuickActionButton
-                      href="/surveys"
+                      href="/workflows"
                       icon={Settings}
                       iconColor="text-success"
                       iconBgColor="bg-success/10"
@@ -247,7 +247,7 @@ export default function Dashboard() {
                         <Clock className="mr-2 h-4 w-4 text-primary" />
                         Recent Surveys
                       </CardTitle>
-                      <Link href="/surveys" className="text-sm text-primary hover:text-primary/80 font-medium">
+                      <Link href="/workflows" className="text-sm text-primary hover:text-primary/80 font-medium">
                         View all
                       </Link>
                     </div>

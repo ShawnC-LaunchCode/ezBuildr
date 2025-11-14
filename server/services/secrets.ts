@@ -4,7 +4,7 @@
  * All values are encrypted at rest using AES-256-GCM envelope encryption
  */
 
-import { db } from '@db';
+import { db } from '../db';
 import { secrets, type Secret, type InsertSecret } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { encrypt, decrypt, redact, maskSecret } from '../utils/encryption';

@@ -19,7 +19,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     return await database
       .select()
       .from(projects)
-      .where(eq(projects.creatorId, creatorId))
+      .where(eq(projects.createdBy, creatorId))
       .orderBy(desc(projects.updatedAt));
   }
 
@@ -47,7 +47,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     return await database
       .select()
       .from(projects)
-      .where(and(eq(projects.creatorId, creatorId), eq(projects.status, status)))
+      .where(and(eq(projects.createdBy, creatorId), eq(projects.status, status)))
       .orderBy(desc(projects.updatedAt));
   }
 

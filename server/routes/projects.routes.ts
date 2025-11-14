@@ -23,7 +23,7 @@ export function registerProjectRoutes(app: Express): void {
 
       const projectData = insertProjectSchema.parse({
         ...req.body,
-        creatorId: userId,
+        createdBy: userId,
         ownerId: userId, // Creator is also the initial owner
       });
 

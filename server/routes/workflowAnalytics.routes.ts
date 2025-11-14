@@ -7,7 +7,7 @@
 import type { Express } from 'express';
 import express from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth';
+import { requireAuth } from '../middleware';
 import { db } from '../db';
 import {
   metricsEvents,
@@ -17,7 +17,7 @@ import {
 } from '../../shared/schema';
 import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm';
 import sli from '../services/sli';
-import logger from '../utils/logger';
+import logger from '../logger';
 
 const router = express.Router();
 
@@ -62,7 +62,7 @@ const sliConfigCreateSchema = z.object({
  * GET /api/analytics/overview
  * Get high-level analytics overview for a project or workflow
  */
-router.get('/overview', authenticate, async (req, res) => {
+router.get('/overview', requireAuth, async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
 
@@ -154,7 +154,7 @@ router.get('/overview', authenticate, async (req, res) => {
  * GET /api/analytics/timeseries
  * Get timeseries data for charts
  */
-router.get('/timeseries', authenticate, async (req, res) => {
+router.get('/timeseries', requireAuth, async (req, res) => {
   try {
     const query = timeseriesQuerySchema.parse(req.query);
 
@@ -207,7 +207,7 @@ router.get('/timeseries', authenticate, async (req, res) => {
  * GET /api/analytics/sli
  * Get SLI data and configuration
  */
-router.get('/sli', authenticate, async (req, res) => {
+router.get('/sli', requireAuth, async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
 
@@ -251,7 +251,7 @@ router.get('/sli', authenticate, async (req, res) => {
  * POST /api/analytics/sli-config
  * Create or update SLI configuration
  */
-router.post('/sli-config', authenticate, async (req, res) => {
+router.post('/sli-config', requireAuth, async (req, res) => {
   try {
     const body = sliConfigCreateSchema.parse(req.body);
 
@@ -301,7 +301,7 @@ router.post('/sli-config', authenticate, async (req, res) => {
  * PUT /api/analytics/sli-config/:id
  * Update SLI configuration
  */
-router.put('/sli-config/:id', authenticate, async (req, res) => {
+router.put('/sli-config/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const body = sliConfigUpdateSchema.parse(req.body);

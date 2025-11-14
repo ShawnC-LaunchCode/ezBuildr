@@ -14,7 +14,7 @@
  */
 
 import type { Express } from 'express';
-import logger from '../utils/logger';
+import logger from '../logger';
 
 /**
  * Initialize Prometheus metrics collection

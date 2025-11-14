@@ -75,7 +75,7 @@ function Router() {
             <Route path="/dashboard" component={Dashboard} />
 
             {/* Workflow routes */}
-            <Route path="/workflows" component={WorkflowDashboard} />
+            <Route path="/workflows" component={WorkflowsList} />
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
@@ -85,7 +85,13 @@ function Router() {
             <Route path="/runs/compare" component={RunsCompare} />
             <Route path="/runs/:id" component={RunDetails} />
 
-            <Route path="/surveys" component={WorkflowsList} />
+            {/* Legacy redirect - /surveys now redirects to /workflows */}
+            <Route path="/surveys">
+              {() => {
+                window.location.href = '/workflows';
+                return null;
+              }}
+            </Route>
             <Route path="/surveys/new" component={SurveyBuilder} />
             <Route path="/ai-survey" component={AISurveyCreator} />
             <Route path="/templates" component={TemplatesPage} />

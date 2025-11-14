@@ -18,7 +18,7 @@ import {
   type SliConfig,
 } from '../../shared/schema';
 import { eq, and, gte, lte, isNull, or, sql, desc } from 'drizzle-orm';
-import logger from '../utils/logger';
+import logger from '../logger';
 
 export interface SliResult {
   successPct: number;

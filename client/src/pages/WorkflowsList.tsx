@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useWorkflows, useDeleteWorkflow } from "@/lib/vault-hooks";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -13,13 +18,16 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
 import { Link } from "wouter";
-import { Plus, Edit, Trash2, PenSquare, Wand2 } from "lucide-react";
+import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus } from "lucide-react";
 
 export default function WorkflowsList() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null);
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -38,6 +46,44 @@ export default function WorkflowsList() {
 
   const { data: workflows, isLoading: workflowsLoading } = useWorkflows();
   const deleteWorkflowMutation = useDeleteWorkflow();
+
+  const createProjectMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      return apiRequest("POST", "/api/projects", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: "Success",
+        description: "Project created successfully",
+      });
+      setIsProjectDialogOpen(false);
+      setNewProjectName("");
+      setNewProjectDescription("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create project",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Project name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    createProjectMutation.mutate({
+      name: newProjectName,
+      description: newProjectDescription || undefined,
+    });
+  };
 
   const handleDeleteWorkflow = (workflowId: string) => {
     setDeletingWorkflowId(workflowId);
@@ -73,12 +119,38 @@ export default function WorkflowsList() {
           title="My Workflows"
           description="Create, manage, and run your workflows"
           actions={
-            <Link href="/workflows/new">
-              <Button data-testid="button-create-workflow" className="bg-indigo-600 hover:bg-indigo-700">
-                <Plus className="w-4 h-4 mr-2" />
-                New Workflow
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/workflows/new">
+                <Button data-testid="button-create-workflow" className="bg-indigo-600 hover:bg-indigo-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Workflow
+                </Button>
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    data-testid="button-create-dropdown"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/workflows/new" className="cursor-pointer">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Workflow
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsProjectDialogOpen(true)}>
+                    <FolderPlus className="w-4 h-4 mr-2" />
+                    New Project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           }
         />
 
@@ -183,6 +255,63 @@ export default function WorkflowsList() {
           </div>
         </div>
       </main>
+
+      {/* New Project Dialog */}
+      <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Projects help you organize related workflows together.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Project Name *</Label>
+              <Input
+                id="project-name"
+                placeholder="Enter project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleCreateProject();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description">Description</Label>
+              <Textarea
+                id="project-description"
+                placeholder="Enter project description (optional)"
+                value={newProjectDescription}
+                onChange={(e) => setNewProjectDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsProjectDialogOpen(false);
+                setNewProjectName("");
+                setNewProjectDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={createProjectMutation.isPending || !newProjectName.trim()}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

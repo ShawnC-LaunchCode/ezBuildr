@@ -34,7 +34,7 @@ export class ProjectService {
       throw new Error("Project not found");
     }
 
-    if (project.creatorId !== userId) {
+    if (project.createdBy !== userId) {
       throw new Error("Access denied - you do not own this project");
     }
 
@@ -47,7 +47,7 @@ export class ProjectService {
   async createProject(data: InsertProject, creatorId: string): Promise<Project> {
     return await this.projectRepo.create({
       ...data,
-      creatorId,
+      createdBy: creatorId,
       ownerId: creatorId, // Creator is also the initial owner
       status: 'active',
     });
