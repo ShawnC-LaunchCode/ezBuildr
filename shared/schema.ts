@@ -828,6 +828,12 @@ export const signatureProviderEnum = pgEnum('signature_provider', ['native', 'do
 // Stage 14: Signature event type enum
 export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined']);
 
+// Stage 21: Run output status enum
+export const outputStatusEnum = pgEnum('output_status', ['pending', 'ready', 'failed']);
+
+// Stage 21: Output file type enum
+export const outputFileTypeEnum = pgEnum('output_file_type', ['docx', 'pdf']);
+
 // Step (question) type enum - reuse question types
 export const stepTypeEnum = pgEnum('step_type', [
   'short_text',
@@ -924,6 +930,7 @@ export const templates = pgTable("templates", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"), // Stage 21: Template description
   fileRef: varchar("file_ref", { length: 500 }).notNull(),
   type: templateTypeEnum("type").notNull(),
   helpersVersion: integer("helpers_version").default(1).notNull(),
@@ -932,6 +939,23 @@ export const templates = pgTable("templates", {
 }, (table) => [
   index("templates_project_idx").on(table.projectId),
   index("templates_type_idx").on(table.type),
+]);
+
+// Stage 21: Workflow Templates mapping (multi-template support per workflow)
+export const workflowTemplates = pgTable("workflow_templates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+  templateId: uuid("template_id").references(() => templates.id, { onDelete: 'cascade' }).notNull(),
+  key: text("key").notNull(), // e.g., 'engagement_letter', 'schedule_a'
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_templates_version_idx").on(table.workflowVersionId),
+  index("workflow_templates_template_idx").on(table.templateId),
+  index("workflow_templates_key_idx").on(table.key),
+  // Unique constraint: one template per key per workflow version
+  index("workflow_templates_version_key_unique").on(table.workflowVersionId, table.key),
 ]);
 
 // Run table (workflow execution instances)
@@ -952,6 +976,27 @@ export const runs = pgTable("runs", {
   index("runs_status_idx").on(table.status),
   index("runs_created_by_idx").on(table.createdBy),
   index("runs_created_at_idx").on(table.createdAt),
+]);
+
+// Stage 21: Run outputs table (tracks generated documents per run)
+export const runOutputs = pgTable("run_outputs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+  workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+  templateKey: text("template_key").notNull(), // Reference to workflowTemplates.key
+  fileType: outputFileTypeEnum("file_type").notNull(), // 'docx' or 'pdf'
+  storagePath: text("storage_path").notNull(), // Path to generated file
+  status: outputStatusEnum("status").default('pending').notNull(), // 'pending', 'ready', 'failed'
+  error: text("error"), // Error message if status is 'failed'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("run_outputs_run_idx").on(table.runId),
+  index("run_outputs_template_key_idx").on(table.templateKey),
+  index("run_outputs_status_idx").on(table.status),
+  index("run_outputs_workflow_version_idx").on(table.workflowVersionId),
+  // Composite index for common query pattern
+  index("run_outputs_run_template_type_idx").on(table.runId, table.templateKey, table.fileType),
 ]);
 
 // Secret type enum
@@ -1454,12 +1499,26 @@ export const workflowVersionsRelations = relations(workflowVersions, ({ one, man
     references: [users.id],
   }),
   runs: many(runs),
+  workflowTemplates: many(workflowTemplates), // Stage 21: Attached templates
 }));
 
-export const templatesRelations = relations(templates, ({ one }) => ({
+export const templatesRelations = relations(templates, ({ one, many }) => ({
   project: one(projects, {
     fields: [templates.projectId],
     references: [projects.id],
+  }),
+  workflowTemplates: many(workflowTemplates), // Stage 21: Templates can be attached to multiple workflows
+}));
+
+// Stage 21: Workflow Templates relations
+export const workflowTemplatesRelations = relations(workflowTemplates, ({ one }) => ({
+  workflowVersion: one(workflowVersions, {
+    fields: [workflowTemplates.workflowVersionId],
+    references: [workflowVersions.id],
+  }),
+  template: one(templates, {
+    fields: [workflowTemplates.templateId],
+    references: [templates.id],
   }),
 }));
 
@@ -1473,6 +1532,19 @@ export const runsRelations = relations(runs, ({ one, many }) => ({
     references: [users.id],
   }),
   logs: many(runLogs),
+  outputs: many(runOutputs), // Stage 21: Run can have multiple document outputs
+}));
+
+// Stage 21: Run Outputs relations
+export const runOutputsRelations = relations(runOutputs, ({ one }) => ({
+  run: one(runs, {
+    fields: [runOutputs.runId],
+    references: [runs.id],
+  }),
+  workflowVersion: one(workflowVersions, {
+    fields: [runOutputs.workflowVersionId],
+    references: [workflowVersions.id],
+  }),
 }));
 
 export const secretsRelations = relations(secrets, ({ one, many }) => ({
@@ -1594,7 +1666,9 @@ export const insertProjectSchema = createInsertSchema(projects).omit({ id: true,
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, currentVersionId: true });
 export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
 export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 21
 export const insertRunSchema = createInsertSchema(runs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRunOutputSchema = createInsertSchema(runOutputs).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 21
 export const insertSecretSchema = createInsertSchema(secrets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertExternalConnectionSchema = createInsertSchema(externalConnections).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({ id: true, ts: true, createdAt: true });
@@ -2070,8 +2144,12 @@ export type WorkflowVersion = typeof workflowVersions.$inferSelect;
 export type InsertWorkflowVersion = typeof insertWorkflowVersionSchema._type;
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = typeof insertTemplateSchema._type;
+export type WorkflowTemplate = typeof workflowTemplates.$inferSelect; // Stage 21
+export type InsertWorkflowTemplate = typeof insertWorkflowTemplateSchema._type; // Stage 21
 export type Run = typeof runs.$inferSelect;
 export type InsertRun = typeof insertRunSchema._type;
+export type RunOutput = typeof runOutputs.$inferSelect; // Stage 21
+export type InsertRunOutput = typeof insertRunOutputSchema._type; // Stage 21
 export type Secret = typeof secrets.$inferSelect;
 export type InsertSecret = typeof insertSecretSchema._type;
 export type ExternalConnection = typeof externalConnections.$inferSelect;
