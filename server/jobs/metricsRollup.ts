@@ -41,7 +41,7 @@ export async function runRollup(params?: {
         until: params?.until,
       });
     } catch (error) {
-      logger.error('Rollup failed for bucket', { bucket, error });
+      logger.error({ err: error, bucket }, 'Rollup failed for bucket');
     }
   }
 
@@ -197,11 +197,11 @@ export async function computeAndSaveSLIs(): Promise<void> {
         sli: sliResult,
       });
     } catch (error) {
-      logger.error('Failed to compute SLI', {
+      logger.error({
+        err: error,
         projectId: row.project_id,
         workflowId: row.workflow_id,
-        error,
-      });
+      }, 'Failed to compute SLI');
     }
   }
 
@@ -265,13 +265,13 @@ export function startRollupWorker(intervalMs: number = 60000): NodeJS.Timeout {
         await computeAndSaveSLIs();
       }
     } catch (error) {
-      logger.error('Rollup worker error', { error });
+      logger.error({ err: error }, 'Rollup worker error');
     }
   }, intervalMs);
 
   // Run immediately on start
   runRollup().catch((error) => {
-    logger.error('Initial rollup failed', { error });
+    logger.error({ err: error }, 'Initial rollup failed');
   });
 
   return interval;
