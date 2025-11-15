@@ -3,7 +3,7 @@
  * Reusable card component for displaying projects, workflows, and other entities
  */
 
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { MoreVertical } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,11 +57,21 @@ export function EntityCard({
   className = "",
 }: EntityCardProps) {
   const hasActions = actions.length > 0;
+  const [, setLocation] = useLocation();
+
+  // Handle card click navigation
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick(entity);
+    } else if (link?.href) {
+      setLocation(link.href);
+    }
+  };
 
   return (
     <Card
-      className={`group hover:shadow-lg transition-shadow ${onClick ? 'cursor-pointer' : ''} ${className}`}
-      onClick={onClick ? () => onClick(entity) : undefined}
+      className={`group hover:shadow-lg transition-shadow ${onClick || link ? 'cursor-pointer' : ''} ${className}`}
+      onClick={onClick || link ? handleCardClick : undefined}
     >
       <CardHeader>
         <div className="flex items-start justify-between">
@@ -70,17 +80,9 @@ export function EntityCard({
               <Icon className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              {link ? (
-                <Link href={link.href}>
-                  <CardTitle className="text-lg hover:text-primary cursor-pointer truncate">
-                    {entity.title}
-                  </CardTitle>
-                </Link>
-              ) : (
-                <CardTitle className="text-lg truncate">
-                  {entity.title}
-                </CardTitle>
-              )}
+              <CardTitle className="text-lg truncate">
+                {entity.title}
+              </CardTitle>
               {entity.description !== undefined && (
                 <CardDescription className="mt-1 line-clamp-2">
                   {entity.description || "No description"}

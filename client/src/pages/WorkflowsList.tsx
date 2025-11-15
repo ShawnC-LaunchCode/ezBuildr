@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useWorkflows, useDeleteWorkflow, useProjects } from "@/lib/vault-hooks";
+import { useWorkflows, useDeleteWorkflow, useProjects, useDeleteProject } from "@/lib/vault-hooks";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,6 +26,7 @@ export default function WorkflowsList() {
   const { isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
@@ -48,6 +49,7 @@ export default function WorkflowsList() {
   const { data: workflows, isLoading: workflowsLoading } = useWorkflows();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const deleteWorkflowMutation = useDeleteWorkflow();
+  const deleteProjectMutation = useDeleteProject();
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
@@ -104,6 +106,27 @@ export default function WorkflowsList() {
           variant: "destructive",
         });
         setDeletingWorkflowId(null);
+      },
+    });
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    setDeletingProjectId(projectId);
+    deleteProjectMutation.mutate(projectId, {
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Project deleted successfully",
+        });
+        setDeletingProjectId(null);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete project",
+          variant: "destructive",
+        });
+        setDeletingProjectId(null);
       },
     });
   };
@@ -171,6 +194,7 @@ export default function WorkflowsList() {
                   <ProjectCard
                     key={project.id}
                     project={project}
+                    onDelete={(id) => setDeletingProjectId(id)}
                   />
                 ))}
 
@@ -271,6 +295,31 @@ export default function WorkflowsList() {
           </div>
         </div>
       </main>
+
+      {/* Delete Project Confirmation Dialog */}
+      {deletingProjectId && (
+        <AlertDialog open={!!deletingProjectId} onOpenChange={() => setDeletingProjectId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this project? This action cannot be undone.
+                All workflows within this project will also be deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteProject(deletingProjectId)}
+                disabled={deleteProjectMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {/* New Project Dialog */}
       <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>

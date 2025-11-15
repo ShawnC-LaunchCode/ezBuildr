@@ -52,6 +52,7 @@ export function ProjectCard({ project, onEdit, onArchive, onDelete }: ProjectCar
       iconClassName="bg-primary/10 text-primary"
       link={{ href: `/projects/${project.id}` }}
       actions={actions}
+      className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200/50 dark:border-blue-800/50"
       renderBadge={(entity) => (
         <Badge variant={entity.status === "active" ? "default" : "outline"}>
           {entity.workflowCount ?? 0} workflow{(entity.workflowCount ?? 0) !== 1 ? 's' : ''}
