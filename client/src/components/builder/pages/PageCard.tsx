@@ -61,14 +61,6 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const prevSelectionRef = useRef<typeof selection>(null);
   const prevItemsLengthRef = useRef<number>(0);
 
-  // Local state for title and description to prevent stuttering
-  const [localTitle, setLocalTitle] = useState(page.title);
-  const [localDescription, setLocalDescription] = useState(page.description || "");
-
-  // Refs for debounce timers
-  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const descriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
 
@@ -98,15 +90,6 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   // Combine regular blocks and transform blocks
   const allPageBlocks = [...pageBlocks, ...pageTransformBlocks];
   const items = combinePageItems(steps, allPageBlocks);
-
-  // Sync local state when page prop changes (e.g., from server update)
-  useEffect(() => {
-    setLocalTitle(page.title);
-  }, [page.title]);
-
-  useEffect(() => {
-    setLocalDescription(page.description || "");
-  }, [page.description]);
 
   // Auto-expand and focus newly selected items
   useEffect(() => {
@@ -204,47 +187,15 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
     }
   };
 
-  // Debounced update for title
+  // Immediate update with optimistic rendering
   const handleTitleChange = (title: string) => {
-    setLocalTitle(title);
-
-    // Clear existing timeout
-    if (titleTimeoutRef.current) {
-      clearTimeout(titleTimeoutRef.current);
-    }
-
-    // Set new timeout to save after 500ms of no typing
-    titleTimeoutRef.current = setTimeout(() => {
-      updateSectionMutation.mutate({ id: page.id, workflowId, title });
-    }, 500);
+    updateSectionMutation.mutate({ id: page.id, workflowId, title });
   };
 
-  // Debounced update for description
+  // Immediate update with optimistic rendering
   const handleDescriptionChange = (description: string) => {
-    setLocalDescription(description);
-
-    // Clear existing timeout
-    if (descriptionTimeoutRef.current) {
-      clearTimeout(descriptionTimeoutRef.current);
-    }
-
-    // Set new timeout to save after 500ms of no typing
-    descriptionTimeoutRef.current = setTimeout(() => {
-      updateSectionMutation.mutate({ id: page.id, workflowId, description });
-    }, 500);
+    updateSectionMutation.mutate({ id: page.id, workflowId, description });
   };
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (titleTimeoutRef.current) {
-        clearTimeout(titleTimeoutRef.current);
-      }
-      if (descriptionTimeoutRef.current) {
-        clearTimeout(descriptionTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleDelete = async () => {
     if (!confirm(`Delete page "${page.title}"? This will remove all questions and logic blocks.`)) {
@@ -314,25 +265,25 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
           {/* Page title and description */}
           <div className="flex-1 space-y-1">
             <Input
-              value={localTitle}
+              value={page.title}
               onChange={(e) => handleTitleChange(e.target.value)}
               className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0"
               placeholder="Page title"
             />
-            {localDescription && !isDescriptionExpanded && (
+            {page.description && !isDescriptionExpanded && (
               <div
                 className="flex items-center gap-1 cursor-pointer group"
                 onClick={() => setIsDescriptionExpanded(true)}
               >
                 <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground truncate flex-1">
-                  {localDescription}
+                  {page.description}
                 </p>
               </div>
             )}
-            {(!localDescription || isDescriptionExpanded) && (
+            {(!page.description || isDescriptionExpanded) && (
               <div className="space-y-1">
-                {isDescriptionExpanded && localDescription && (
+                {isDescriptionExpanded && page.description && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -343,7 +294,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
                   </Button>
                 )}
                 <Input
-                  value={localDescription}
+                  value={page.description || ""}
                   onChange={(e) => handleDescriptionChange(e.target.value)}
                   className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0"
                   placeholder="Page description (optional)"
