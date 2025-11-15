@@ -237,7 +237,34 @@ export function useUpdateSection() {
   return useMutation({
     mutationFn: ({ id, workflowId, ...data }: Partial<ApiSection> & { id: string; workflowId: string }) =>
       sectionAPI.update(id, data),
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      const { id, workflowId, ...data } = variables;
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.sections(workflowId) });
+
+      // Snapshot the previous value
+      const previousSections = queryClient.getQueryData<ApiSection[]>(queryKeys.sections(workflowId));
+
+      // Optimistically update to the new value
+      if (previousSections) {
+        const updatedSections = previousSections.map((section) =>
+          section.id === id ? { ...section, ...data } : section
+        );
+        queryClient.setQueryData(queryKeys.sections(workflowId), updatedSections);
+      }
+
+      // Return context with the previous value
+      return { previousSections };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousSections) {
+        queryClient.setQueryData(queryKeys.sections(variables.workflowId), context.previousSections);
+      }
+    },
+    onSettled: (_, __, variables) => {
+      // Always refetch after error or success to ensure sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
       DevPanelBus.emitWorkflowUpdate();
     },
@@ -332,7 +359,44 @@ export function useUpdateStep() {
   return useMutation({
     mutationFn: ({ id, sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
       stepAPI.update(id, data),
-    onSuccess: (data, variables) => {
+    onMutate: async (variables) => {
+      const { id, sectionId, ...data } = variables;
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.steps(sectionId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.step(id) });
+
+      // Snapshot the previous values
+      const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(sectionId));
+      const previousStep = queryClient.getQueryData<ApiStep>(queryKeys.step(id));
+
+      // Optimistically update the steps list
+      if (previousSteps) {
+        const updatedSteps = previousSteps.map((step) =>
+          step.id === id ? { ...step, ...data } : step
+        );
+        queryClient.setQueryData(queryKeys.steps(sectionId), updatedSteps);
+      }
+
+      // Optimistically update the single step
+      if (previousStep) {
+        queryClient.setQueryData(queryKeys.step(id), { ...previousStep, ...data });
+      }
+
+      // Return context with the previous values
+      return { previousSteps, previousStep };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous values on error
+      if (context?.previousSteps) {
+        queryClient.setQueryData(queryKeys.steps(variables.sectionId), context.previousSteps);
+      }
+      if (context?.previousStep) {
+        queryClient.setQueryData(queryKeys.step(variables.id), context.previousStep);
+      }
+    },
+    onSettled: (data, error, variables) => {
+      // Always refetch after error or success to ensure sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.step(variables.id) });
       // Invalidate variables when step alias changes

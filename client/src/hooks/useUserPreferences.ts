@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { getQueryFn } from "@/lib/queryClient";
+import { useEffect } from "react";
 
 export interface UserPreferences {
   celebrationEffects?: boolean;
@@ -22,13 +23,38 @@ export function useUserPreferences() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Update preferences mutation
+  // Update preferences mutation with optimistic updates
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<UserPreferences>) => {
       const response = await axios.put("/api/preferences", updates);
       return response.data;
     },
-    onSuccess: () => {
+    onMutate: async (updates) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["preferences"] });
+
+      // Snapshot the previous value
+      const previousPrefs = queryClient.getQueryData<UserPreferences>(["preferences"]);
+
+      // Optimistically update to the new value
+      if (previousPrefs) {
+        queryClient.setQueryData<UserPreferences>(["preferences"], {
+          ...previousPrefs,
+          ...updates,
+        });
+      }
+
+      // Return context with the previous value
+      return { previousPrefs };
+    },
+    onError: (err, updates, context) => {
+      // Rollback to previous value on error
+      if (context?.previousPrefs) {
+        queryClient.setQueryData(["preferences"], context.previousPrefs);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure sync with server
       queryClient.invalidateQueries({ queryKey: ["preferences"] });
     },
   });
@@ -44,12 +70,50 @@ export function useUserPreferences() {
     },
   });
 
+  const currentPrefs = prefs || {
+    celebrationEffects: true,
+    darkMode: "system" as const,
+    aiHints: true,
+  };
+
+  // Apply dark mode class to HTML element
+  useEffect(() => {
+    const applyTheme = (mode: "system" | "light" | "dark") => {
+      const root = document.documentElement;
+
+      if (mode === "dark") {
+        root.classList.add("dark");
+      } else if (mode === "light") {
+        root.classList.remove("dark");
+      } else {
+        // System mode - check OS preference
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (prefersDark) {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+      }
+    };
+
+    applyTheme(currentPrefs.darkMode);
+
+    // Listen for system theme changes when in system mode
+    if (currentPrefs.darkMode === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = (e: MediaQueryListEvent) => {
+        if (currentPrefs.darkMode === "system") {
+          applyTheme("system");
+        }
+      };
+
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+  }, [currentPrefs.darkMode]);
+
   return {
-    prefs: prefs || {
-      celebrationEffects: true,
-      darkMode: "system",
-      aiHints: true,
-    },
+    prefs: currentPrefs,
     isLoading,
     update: updateMutation.mutate,
     updateAsync: updateMutation.mutateAsync,

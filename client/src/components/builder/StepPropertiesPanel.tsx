@@ -48,8 +48,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   // Get sectionId from prop or from the step data
   const sectionId = propSectionId || step?.sectionId || "";
 
-  const [localDescription, setLocalDescription] = useState("");
-  const [localRequired, setLocalRequired] = useState(false);
+  // Local state only for options (needed for intermediate editing state)
   const [localOptions, setLocalOptions] = useState<string[]>([]);
   const [dateTimeType, setDateTimeType] = useState<DateTimeType>("datetime");
   const [textType, setTextType] = useState<TextType>("short");
@@ -57,9 +56,6 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   // Initialize local state from step data
   useEffect(() => {
     if (step) {
-      setLocalDescription(step.description || "");
-      setLocalRequired(step.required || false);
-
       // Initialize options for radio/multiple_choice
       if ((step.type === "radio" || step.type === "multiple_choice") && step.options?.options) {
         setLocalOptions(step.options.options);
@@ -96,12 +92,10 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   }
 
   const handleDescriptionChange = (description: string) => {
-    setLocalDescription(description);
     updateStepMutation.mutate({ id: stepId, sectionId, description });
   };
 
   const handleRequiredChange = (required: boolean) => {
-    setLocalRequired(required);
     updateStepMutation.mutate({ id: stepId, sectionId, required });
   };
 
@@ -188,7 +182,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
-          value={localDescription}
+          value={step.description || ""}
           onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Add a description for this question..."
           rows={3}
@@ -200,7 +194,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
         <Label htmlFor="required">Required</Label>
         <Switch
           id="required"
-          checked={localRequired}
+          checked={step.required || false}
           onCheckedChange={handleRequiredChange}
         />
       </div>

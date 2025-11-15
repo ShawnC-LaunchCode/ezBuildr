@@ -99,10 +99,7 @@ export function QuestionCard({
   const { toast } = useToast();
 
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const [localTitle, setLocalTitle] = useState(step.title);
-  const [localDescription, setLocalDescription] = useState(step.description || "");
   const [localRequired, setLocalRequired] = useState(step.required || false);
-  const [localAlias, setLocalAlias] = useState(step.alias || "");
   const [localType, setLocalType] = useState<StepType>(step.type);
   const [localOptions, setLocalOptions] = useState<string[]>(
     step.type === "radio" || step.type === "multiple_choice"
@@ -122,11 +119,6 @@ export function QuestionCard({
         }
   );
 
-  // Debounce refs
-  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const descriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const aliasTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // Auto-focus on mount if requested
   useEffect(() => {
     if (autoFocus && titleInputRef.current) {
@@ -137,24 +129,12 @@ export function QuestionCard({
 
   // Sync local state when step prop changes
   useEffect(() => {
-    setLocalTitle(step.title);
-    setLocalDescription(step.description || "");
     setLocalRequired(step.required || false);
-    setLocalAlias(step.alias || "");
     setLocalType(step.type);
     if (step.type === "radio" || step.type === "multiple_choice") {
       setLocalOptions(step.options?.options || []);
     }
   }, [step]);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
-      if (descriptionTimeoutRef.current) clearTimeout(descriptionTimeoutRef.current);
-      if (aliasTimeoutRef.current) clearTimeout(aliasTimeoutRef.current);
-    };
-  }, []);
 
   // Make sortable
   const {
@@ -171,41 +151,28 @@ export function QuestionCard({
     transition,
   };
 
-  // Debounced handlers
+  // Immediate update handlers with optimistic rendering
   const handleTitleChange = (value: string) => {
-    setLocalTitle(value);
-    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
-    titleTimeoutRef.current = setTimeout(() => {
-      updateStepMutation.mutate({ id: step.id, sectionId, title: value });
-    }, 500);
+    updateStepMutation.mutate({ id: step.id, sectionId, title: value });
   };
 
   const handleDescriptionChange = (value: string) => {
-    setLocalDescription(value);
-    if (descriptionTimeoutRef.current) clearTimeout(descriptionTimeoutRef.current);
-    descriptionTimeoutRef.current = setTimeout(() => {
-      updateStepMutation.mutate({ id: step.id, sectionId, description: value });
-    }, 500);
+    updateStepMutation.mutate({ id: step.id, sectionId, description: value });
   };
 
   const handleAliasChange = (value: string) => {
-    setLocalAlias(value);
-    if (aliasTimeoutRef.current) clearTimeout(aliasTimeoutRef.current);
-    aliasTimeoutRef.current = setTimeout(() => {
-      updateStepMutation.mutate(
-        { id: step.id, sectionId, alias: value.trim() || null },
-        {
-          onError: (error: any) => {
-            toast({
-              title: "Error",
-              description: error?.message || "Failed to update variable name",
-              variant: "destructive",
-            });
-            setLocalAlias(step.alias || "");
-          },
-        }
-      );
-    }, 500);
+    updateStepMutation.mutate(
+      { id: step.id, sectionId, alias: value.trim() || null },
+      {
+        onError: (error: any) => {
+          toast({
+            title: "Error",
+            description: error?.message || "Failed to update variable name",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   const handleRequiredChange = (required: boolean) => {
@@ -317,13 +284,12 @@ export function QuestionCard({
                 <div className="flex-1">
                   <Input
                     ref={titleInputRef}
-                    value={localTitle}
+                    value={step.title}
                     onChange={(e) => handleTitleChange(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.currentTarget.blur();
-                        // Navigate to next item after debounce completes
-                        setTimeout(() => onEnterNext?.(), 600);
+                        onEnterNext?.();
                       }
                     }}
                     placeholder="Question text"
@@ -349,7 +315,7 @@ export function QuestionCard({
                       Description (optional)
                     </Label>
                     <Textarea
-                      value={localDescription}
+                      value={step.description || ""}
                       onChange={(e) => handleDescriptionChange(e.target.value)}
                       placeholder="Add a description for this question..."
                       rows={2}
@@ -433,7 +399,7 @@ export function QuestionCard({
                       Variable (alias)
                     </Label>
                     <Input
-                      value={localAlias}
+                      value={step.alias || ""}
                       onChange={(e) => handleAliasChange(e.target.value)}
                       placeholder="e.g., user_email, phone_number"
                       className="h-9 text-sm font-mono"
