@@ -183,6 +183,9 @@ export const workflowAPI = {
     fetchAPI<void>(`/api/workflows/${id}`, {
       method: "DELETE",
     }),
+
+  getPublicLink: (id: string) =>
+    fetchAPI<{ publicUrl: string }>(`/api/workflows/${id}/public-link`),
 };
 
 // ============================================================================

@@ -3,10 +3,12 @@
  * Displays a workflow document card with status
  */
 
-import { FileText, Archive, Trash2, Play, Move } from "lucide-react";
+import { FileText, Archive, Trash2, Play, Move, Link } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
 import type { ApiWorkflow } from "@/lib/vault-api";
+import { workflowAPI } from "@/lib/vault-api";
+import { toast } from "@/hooks/use-toast";
 
 interface WorkflowCardProps {
   workflow: ApiWorkflow;
@@ -19,10 +21,32 @@ interface WorkflowCardProps {
 export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete }: WorkflowCardProps) {
   const statusVariant = workflow.status === "active" ? "default" : workflow.status === "draft" ? "secondary" : "outline";
 
+  const handleCopyLink = async () => {
+    try {
+      const { publicUrl } = await workflowAPI.getPublicLink(workflow.id);
+      await navigator.clipboard.writeText(publicUrl);
+      toast({
+        title: "Link copied!",
+        description: "The workflow link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy link",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
   const actions: EntityAction[] = [
     {
       label: "Edit Builder",
       href: `/workflows/${workflow.id}/builder`,
+    },
+    {
+      label: "Copy Link",
+      icon: Link,
+      onClick: handleCopyLink,
     },
   ];
 

@@ -316,6 +316,29 @@ export function registerWorkflowRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/workflows/:workflowId/public-link
+   * Get or generate public link for a workflow
+   * Returns the full public URL that can be shared
+   */
+  app.get('/api/workflows/:workflowId/public-link', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const publicUrl = await workflowService.getOrGeneratePublicLink(workflowId, userId);
+      res.json({ publicUrl });
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow public link");
+      const message = error instanceof Error ? error.message : "Failed to fetch workflow public link";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
   // ===================================================================
   // WORKFLOW ACCESS (ACL) ENDPOINTS
   // ===================================================================

@@ -320,6 +320,55 @@ export class WorkflowService {
       tx
     );
   }
+
+  /**
+   * Generate or retrieve public link for a workflow
+   * Creates a unique slug-based link if one doesn't exist
+   */
+  async getOrGeneratePublicLink(workflowId: string, userId: string): Promise<string> {
+    const workflow = await this.verifyOwnership(workflowId, userId);
+
+    // If publicLink already exists, return it
+    if (workflow.publicLink) {
+      return this.constructPublicUrl(workflow.publicLink);
+    }
+
+    // Generate a unique slug (using workflow ID for uniqueness)
+    const slug = this.generateSlug(workflow.title, workflowId);
+
+    // Update workflow with new publicLink
+    await this.workflowRepo.update(workflowId, {
+      publicLink: slug,
+      isPublic: true
+    });
+
+    return this.constructPublicUrl(slug);
+  }
+
+  /**
+   * Generate a URL-friendly slug from workflow title and ID
+   */
+  private generateSlug(title: string, workflowId: string): string {
+    // Take first 6 characters of workflow ID for uniqueness
+    const shortId = workflowId.substring(0, 6);
+
+    // Convert title to lowercase, replace spaces and special chars with hyphens
+    const titleSlug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+      .substring(0, 50); // Limit length
+
+    return `${titleSlug}-${shortId}`;
+  }
+
+  /**
+   * Construct full public URL from slug
+   */
+  private constructPublicUrl(slug: string): string {
+    const baseUrl = process.env.BASE_URL || process.env.VITE_BASE_URL || 'http://localhost:5000';
+    return `${baseUrl}/run/${slug}`;
+  }
 }
 
 // Singleton instance
