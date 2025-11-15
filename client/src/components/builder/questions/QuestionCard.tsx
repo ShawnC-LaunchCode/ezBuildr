@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useUpdateStep, useDeleteStep } from "@/lib/vault-hooks";
+import { useUpdateStep, useDeleteStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import { OptionsEditor } from "./OptionsEditor";
 import { JSQuestionEditor, type JSQuestionConfig } from "./JSQuestionEditor";
@@ -45,6 +45,7 @@ import type { ApiStep, StepType } from "@/lib/vault-api";
 interface QuestionCardProps {
   step: ApiStep;
   sectionId: string;
+  workflowId: string;
   isExpanded?: boolean;
   autoFocus?: boolean;
   onToggleExpand?: () => void;
@@ -89,6 +90,7 @@ function getQuestionTypeIcon(type: StepType) {
 export function QuestionCard({
   step,
   sectionId,
+  workflowId,
   isExpanded = false,
   autoFocus = false,
   onToggleExpand,
@@ -97,6 +99,8 @@ export function QuestionCard({
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
   const { toast } = useToast();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
+  const mode = workflowMode?.mode || 'easy';
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localRequired, setLocalRequired] = useState(step.required || false);
@@ -323,8 +327,8 @@ export function QuestionCard({
                     />
                   </div>
 
-                  {/* Type Selector - Toggle for text types (short/long) */}
-                  {(localType === "short_text" || localType === "long_text") && (
+                  {/* Type Selector - Toggle for text types (short/long) - Hidden in Easy Mode */}
+                  {mode === 'advanced' && (localType === "short_text" || localType === "long_text") && (
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Question Type</Label>
                       <div className="flex items-center gap-2">
@@ -352,8 +356,8 @@ export function QuestionCard({
                     </div>
                   )}
 
-                  {/* Type Selector - Toggle for choice types (radio/multiple) */}
-                  {(localType === "radio" || localType === "multiple_choice") && (
+                  {/* Type Selector - Toggle for choice types (radio/multiple) - Hidden in Easy Mode */}
+                  {mode === 'advanced' && (localType === "radio" || localType === "multiple_choice") && (
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Question Type</Label>
                       <div className="flex items-center gap-2">

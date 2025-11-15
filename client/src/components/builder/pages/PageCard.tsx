@@ -364,6 +364,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
                         key={item.id}
                         step={item.data}
                         sectionId={page.id}
+                        workflowId={workflowId}
                         isExpanded={expandedStepIds.has(item.id)}
                         autoFocus={autoFocusStepId === item.id}
                         onToggleExpand={() => handleToggleExpand(item.id)}
