@@ -83,7 +83,7 @@ CREATE TABLE sli_configs (
   target_success_pct INTEGER NOT NULL DEFAULT 99,
   target_p95_ms INTEGER NOT NULL DEFAULT 5000,
   error_budget_pct INTEGER NOT NULL DEFAULT 1,
-  window sli_window NOT NULL DEFAULT '7d',
+  "window" sli_window NOT NULL DEFAULT '7d',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
