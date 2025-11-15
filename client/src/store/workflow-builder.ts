@@ -30,10 +30,6 @@ interface WorkflowBuilderState {
   isPreviewOpen: boolean;
   startPreview: (runId: string) => void;
   stopPreview: () => void;
-
-  // Inspector Tab
-  inspectorTab: "properties" | "blocks" | "logic";
-  setInspectorTab: (tab: "properties" | "blocks" | "logic") => void;
 }
 
 export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
@@ -54,8 +50,4 @@ export const useWorkflowBuilder = create<WorkflowBuilderState>((set) => ({
   isPreviewOpen: false,
   startPreview: (runId) => set({ previewRunId: runId, isPreviewOpen: true }),
   stopPreview: () => set({ previewRunId: null, isPreviewOpen: false }),
-
-  // Inspector Tab
-  inspectorTab: "properties",
-  setInspectorTab: (tab) => set({ inspectorTab: tab }),
 }));
