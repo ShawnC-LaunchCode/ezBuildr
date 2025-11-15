@@ -397,21 +397,23 @@ export function QuestionCard({
                     />
                   </div>
 
-                  {/* Variable Alias */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Variable (alias)
-                    </Label>
-                    <Input
-                      value={step.alias || ""}
-                      onChange={(e) => handleAliasChange(e.target.value)}
-                      placeholder="e.g., user_email, phone_number"
-                      className="h-9 text-sm font-mono"
-                    />
-                    <p className="text-xs text-muted-foreground pl-1">
-                      Internal key: <code className="font-mono">{step.id}</code>
-                    </p>
-                  </div>
+                  {/* Variable Alias - Hidden in Easy Mode */}
+                  {mode === 'advanced' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Variable (alias)
+                      </Label>
+                      <Input
+                        value={step.alias || ""}
+                        onChange={(e) => handleAliasChange(e.target.value)}
+                        placeholder="e.g., user_email, phone_number"
+                        className="h-9 text-sm font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground pl-1">
+                        Internal key: <code className="font-mono">{step.id}</code>
+                      </p>
+                    </div>
+                  )}
 
                   {/* Options Editor (for radio/multiple_choice) */}
                   {(localType === "radio" || localType === "multiple_choice") && (

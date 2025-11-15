@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code } from "lucide-react";
-import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps } from "@/lib/vault-hooks";
+import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,6 +35,8 @@ import { UI_LABELS } from "@/lib/labels";
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: sections } = useSections(workflowId);
   const createSectionMutation = useCreateSection();
+  const { data: workflowMode } = useWorkflowMode(workflowId);
+  const mode = workflowMode?.mode || 'easy';
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showBlocksDialog, setShowBlocksDialog] = useState(false);
   const [showTransformDialog, setShowTransformDialog] = useState(false);
@@ -67,16 +69,19 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           <Plus className="w-4 h-4 mr-2" />
           {UI_LABELS.ADD_PAGE}
         </Button>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowBlocksDialog(true)} size="sm" variant="outline" className="flex-1">
-            <Blocks className="w-3 h-3 mr-1" />
-            Blocks
-          </Button>
-          <Button onClick={() => setShowTransformDialog(true)} size="sm" variant="outline" className="flex-1">
-            <Code className="w-3 h-3 mr-1" />
-            Transform
-          </Button>
-        </div>
+        {/* Blocks and Transform buttons - Hidden in Easy Mode */}
+        {mode === 'advanced' && (
+          <div className="flex gap-2">
+            <Button onClick={() => setShowBlocksDialog(true)} size="sm" variant="outline" className="flex-1">
+              <Blocks className="w-3 h-3 mr-1" />
+              Blocks
+            </Button>
+            <Button onClick={() => setShowTransformDialog(true)} size="sm" variant="outline" className="flex-1">
+              <Code className="w-3 h-3 mr-1" />
+              Transform
+            </Button>
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
