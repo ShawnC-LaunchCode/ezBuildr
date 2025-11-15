@@ -61,7 +61,7 @@ export function useCollabClient(
   });
 
   const docRef = useRef<Y.Doc | null>(null);
-  const providerRef = useRef<WebsocketProvider | null>(null);
+  const providerRef = useRef<WebSocketProvider | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
   const isLocalUpdateRef = useRef(false);
 
@@ -98,12 +98,12 @@ export function useCollabClient(
     }
 
     // Initialize meta map
-    if (!doc.has('yMeta')) {
+    if (!(doc as any).has('yMeta')) {
       doc.getMap('yMeta');
     }
 
     // Initialize comments map
-    if (!doc.has('yComments')) {
+    if (!(doc as any).has('yComments')) {
       doc.getMap('yComments');
     }
 

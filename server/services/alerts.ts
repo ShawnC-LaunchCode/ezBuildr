@@ -61,10 +61,10 @@ export async function evaluateAndAlert(params: {
 
   // Check if targets are violated
   if (!sliResult.violatesTarget) {
-    logger.debug('SLI within targets, no alert needed', {
+    logger.debug({
       projectId: params.projectId,
       workflowId: params.workflowId,
-    });
+    }, 'SLI within targets, no alert needed');
     return;
   }
 
@@ -116,11 +116,11 @@ export async function evaluateAndAlert(params: {
   // Set cooldown
   setCooldown(cooldownKey);
 
-  logger.info('Alert sent for SLI violation', {
+  logger.info({
     projectId: params.projectId,
     workflowId: params.workflowId,
     severity,
-  });
+  }, 'Alert sent for SLI violation');
 }
 
 /**

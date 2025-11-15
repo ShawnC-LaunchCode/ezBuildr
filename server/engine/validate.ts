@@ -356,7 +356,7 @@ function buildAdjacencyList(graphJson: GraphJson): Map<string, string[]> {
 /**
  * Topological sort of nodes
  */
-function topologicalSort(graphJson: GraphJson): string[] {
+export function topologicalSort(graphJson: GraphJson): string[] {
   const adjacency = buildAdjacencyList(graphJson);
   const visited = new Set<string>();
   const result: string[] = [];

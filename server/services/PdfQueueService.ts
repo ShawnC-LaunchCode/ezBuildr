@@ -142,7 +142,7 @@ export class PdfQueueService {
           eq(runOutputs.fileType, 'pdf'),
           eq(runOutputs.status, 'pending')
         ),
-        orderBy: (outputs, { asc }) => [asc(outputs.createdAt)],
+        orderBy: (outputs: any, { asc }: any) => [asc(outputs.createdAt)],
         limit: 10, // Process up to 10 jobs per batch
       });
 

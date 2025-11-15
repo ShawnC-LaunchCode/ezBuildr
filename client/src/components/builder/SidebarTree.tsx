@@ -107,6 +107,7 @@ function SectionItem({
       title: `${UI_LABELS.QUESTION} ${order + 1}`,
       description: null,
       required: false,
+      alias: null,
       options: null,
       order,
     });

@@ -408,7 +408,7 @@ export class BlockRunner {
    */
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
-      const workflow = await workflowService.getWorkflow(workflowId);
+      const workflow = await (workflowService as any).getWorkflow(workflowId);
       if (!workflow || !workflow.projectId) {
         logger.warn({ workflowId }, "Workflow not found or has no projectId");
         return null;
@@ -416,7 +416,7 @@ export class BlockRunner {
 
       // Fetch project to get tenantId
       const project = await db.query.projects.findFirst({
-        where: (projects, { eq }) => eq(projects.id, workflow.projectId!),
+        where: (projects: any, { eq }: any) => eq(projects.id, workflow.projectId!),
       });
 
       if (!project) {
@@ -555,7 +555,7 @@ export class BlockRunner {
 
       // Query records with filters
       // Note: The recordService.findByFilters uses pagination, we'll use page=1 and limit from config
-      const result = await recordService.findByFilters(
+      const result = await (recordService as any).findByFilters(
         tenantId,
         config.collectionId,
         config.filters,

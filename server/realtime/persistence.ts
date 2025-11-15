@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { db } from '../db';
 import { collabDocs, collabUpdates, collabSnapshots } from '../../shared/schema';
-import { eq, desc, and, gt } from 'drizzle-orm';
+import { eq, desc, and, gt, isNull } from 'drizzle-orm';
 import { createLogger } from '../logger';
 import Redis from 'ioredis';
 
@@ -107,7 +107,7 @@ export async function getOrCreateCollabDoc(
       where: and(
         eq(collabDocs.workflowId, workflowId),
         eq(collabDocs.tenantId, tenantId),
-        versionId ? eq(collabDocs.versionId, versionId) : eq(collabDocs.versionId, null)
+        versionId ? eq(collabDocs.versionId, versionId) : isNull(collabDocs.versionId)
       ),
     });
 
@@ -283,12 +283,12 @@ export async function exportDocumentAsJson(docId: string): Promise<any> {
     const yComments = doc.getMap('yComments');
 
     // Convert to plain JSON
-    const nodes = yGraph.get('nodes')?.toJSON() || [];
-    const edges = yGraph.get('edges')?.toJSON() || [];
-    const meta = yMeta.toJSON();
-    const comments = {};
+    const nodes = (yGraph.get('nodes') as any)?.toJSON() || [];
+    const edges = (yGraph.get('edges') as any)?.toJSON() || [];
+    const meta = (yMeta as any).toJSON();
+    const comments: Record<string, any> = {};
 
-    yComments.forEach((value, key) => {
+    yComments.forEach((value: any, key: string) => {
       comments[key] = value.toJSON();
     });
 
@@ -382,7 +382,7 @@ export async function getCollabMetrics(docId: string): Promise<{
     });
 
     const lastUpdate = updates.length > 0
-      ? updates.reduce((latest, update) =>
+      ? updates.reduce((latest: any, update: any) =>
           update.ts > latest ? update.ts : latest,
           updates[0].ts
         )

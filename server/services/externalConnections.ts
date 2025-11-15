@@ -69,7 +69,7 @@ export async function listConnections(projectId: string): Promise<ConnectionWith
     .leftJoin(secrets, eq(externalConnections.secretId, secrets.id))
     .where(eq(externalConnections.projectId, projectId));
 
-  return results.map(r => ({
+  return results.map((r: any) => ({
     id: r.connection.id,
     projectId: r.connection.projectId,
     name: r.connection.name,
@@ -162,7 +162,7 @@ export async function connectionNameExists(projectId: string, name: string, excl
     .where(and(eq(externalConnections.projectId, projectId), eq(externalConnections.name, name)));
 
   if (excludeId) {
-    return results.some(r => r.id !== excludeId);
+    return results.some((r: any) => r.id !== excludeId);
   }
 
   return results.length > 0;
@@ -250,9 +250,7 @@ export async function updateConnection(
   }
 
   // Build update object
-  const updates: Partial<InsertExternalConnection> = {
-    updatedAt: new Date(),
-  };
+  const updates: Partial<InsertExternalConnection> = {};
 
   if (input.name !== undefined) updates.name = input.name;
   if (input.baseUrl !== undefined) updates.baseUrl = input.baseUrl;

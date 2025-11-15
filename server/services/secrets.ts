@@ -62,7 +62,7 @@ export async function listSecrets(projectId: string): Promise<SecretMetadata[]> 
     .from(secrets)
     .where(eq(secrets.projectId, projectId));
 
-  return results.map(s => ({
+  return results.map((s: any) => ({
     ...s,
     type: s.type as 'api_key' | 'bearer' | 'oauth2' | 'basic_auth',
     metadata: s.metadata as Record<string, any> | undefined,
@@ -147,7 +147,7 @@ export async function secretKeyExists(projectId: string, key: string, excludeId?
   const results = await query;
 
   if (excludeId) {
-    return results.some(r => r.id !== excludeId);
+    return results.some((r: any) => r.id !== excludeId);
   }
 
   return results.length > 0;
@@ -212,9 +212,7 @@ export async function updateSecret(
   }
 
   // Build update object
-  const updates: Partial<InsertSecret> = {
-    updatedAt: new Date(),
-  };
+  const updates: Partial<InsertSecret> = {};
 
   if (input.key) updates.key = input.key;
   if (input.type) updates.type = input.type;

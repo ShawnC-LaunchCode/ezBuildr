@@ -29,7 +29,7 @@ export async function createRun(data: InsertRun): Promise<schema.Run> {
 export async function updateRun(
   runId: string,
   updates: {
-    status?: 'pending' | 'success' | 'error';
+    status?: 'pending' | 'success' | 'error' | 'waiting_review' | 'waiting_signature';
     outputRefs?: Record<string, any>;
     trace?: any; // Stage 8: Execution trace
     error?: string | null; // Stage 8: Error message
@@ -90,7 +90,7 @@ export async function createRunLogs(data: InsertRunLog[]): Promise<schema.RunLog
 /**
  * Get run by ID
  */
-export async function getRunById(runId: string): Promise<schema.Run | undefined> {
+export async function getRunById(runId: string) {
   try {
     const run = await db.query.runs.findFirst({
       where: eq(schema.runs.id, runId),
@@ -129,7 +129,7 @@ export async function getRunLogs(
   try {
     const logs = await db.query.runLogs.findMany({
       where: eq(schema.runLogs.runId, runId),
-      orderBy: (runLogs, { desc }) => [desc(runLogs.createdAt)],
+      orderBy: (runLogs: any, { desc }: any) => [desc(runLogs.createdAt)],
       limit: options.limit || 100,
     });
     return logs;
@@ -153,7 +153,7 @@ export async function getRunLogs(
 export async function resumeRunFromNode(
   runId: string,
   nodeId: string
-): Promise<schema.Run> {
+) {
   try {
     // Get the run with its workflow version
     const run = await getRunById(runId);

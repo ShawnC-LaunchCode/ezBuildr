@@ -65,13 +65,13 @@ export function initOpenTelemetry(config?: OtelConfig): void {
   }
 
   logger.warn('OpenTelemetry integration is not yet implemented');
-  logger.info('To enable OpenTelemetry:', {
+  logger.info({
     steps: [
       '1. Install required packages: npm install @opentelemetry/sdk-node @opentelemetry/auto-instrumentations-node',
       '2. Configure exporter endpoints in environment variables',
       '3. Implement the SDK initialization in this file',
     ],
-  });
+  }, 'To enable OpenTelemetry:');
 
   // TODO: Implement OpenTelemetry SDK initialization
   // const sdk = new NodeSDK({ ... });
@@ -100,7 +100,7 @@ export function initOpenTelemetry(config?: OtelConfig): void {
  * ```
  */
 export function createSpan(name: string, attributes?: Record<string, any>): any {
-  logger.debug('OTEL span not implemented', { name, attributes });
+  logger.debug({ name, attributes }, 'OTEL span not implemented');
   return {
     setStatus: () => {},
     recordException: () => {},
@@ -122,7 +122,7 @@ export function createSpan(name: string, attributes?: Record<string, any>): any 
  * ```
  */
 export function recordMetric(name: string, value: number, attributes?: Record<string, any>): void {
-  logger.debug('OTEL metric not implemented', { name, value, attributes });
+  logger.debug({ name, value, attributes }, 'OTEL metric not implemented');
   // TODO: Implement metric recording
 }
 

@@ -90,7 +90,7 @@ export const publishWorkflowSchema = z.object({
 });
 
 export const listWorkflowsQuerySchema = paginationQuerySchema.extend({
-  status: z.enum(['draft', 'published']).optional(),
+  status: z.enum(['draft', 'open', 'closed']).optional(),
   q: z.string().max(255).optional(), // Search query
 });
 

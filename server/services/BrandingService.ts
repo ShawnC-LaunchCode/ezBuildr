@@ -1,6 +1,8 @@
 import { db } from '../db';
-import { tenants, tenantDomains, type TenantDomain } from '@shared/schema';
+import { tenants, tenantDomains } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+
+type TenantDomain = typeof tenantDomains.$inferSelect;
 import { createLogger } from '../logger';
 import type { TenantBranding } from '@shared/types/branding';
 

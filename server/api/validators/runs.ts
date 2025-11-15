@@ -17,7 +17,7 @@ export const createRunSchema = z.object({
 export const listRunsQuerySchema = paginationQuerySchema.extend({
   workflowId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(), // Stage 8: Filter by project
-  status: z.enum(['pending', 'success', 'error']).optional(), // Stage 8: Filter by status
+  status: z.enum(['pending', 'success', 'error', 'waiting_review', 'waiting_signature']).optional(), // Stage 8: Filter by status
   from: z.string().datetime().optional(), // Stage 8: Date range start
   to: z.string().datetime().optional(), // Stage 8: Date range end
   q: z.string().optional(), // Stage 8: Search query (runId, createdBy, input JSON)
@@ -50,7 +50,7 @@ export const rerunSchema = z.object({
 export const exportRunsQuerySchema = z.object({
   projectId: z.string().uuid().optional(),
   workflowId: z.string().uuid().optional(),
-  status: z.enum(['pending', 'success', 'error']).optional(),
+  status: z.enum(['pending', 'success', 'error', 'waiting_review', 'waiting_signature']).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   q: z.string().optional(),
@@ -76,7 +76,7 @@ export type CompareRunsQuery = z.infer<typeof compareRunsQuerySchema>; // Stage 
 // Run response shapes
 export interface CreateRunResponse {
   runId: string;
-  status: 'pending' | 'success' | 'error';
+  status: 'pending' | 'success' | 'error' | 'waiting_review' | 'waiting_signature';
   outputRefs?: Record<string, any>;
   logs?: Array<{
     level: 'info' | 'warn' | 'error';

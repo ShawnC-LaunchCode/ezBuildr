@@ -119,10 +119,7 @@ export class WorkflowService {
     data: Partial<InsertWorkflow>
   ): Promise<Workflow> {
     await this.verifyOwnership(workflowId, userId);
-    return await this.workflowRepo.update(workflowId, {
-      ...data,
-      updatedAt: new Date(),
-    });
+    return await this.workflowRepo.update(workflowId, data);
   }
 
   /**
@@ -139,13 +136,10 @@ export class WorkflowService {
   async changeStatus(
     workflowId: string,
     userId: string,
-    status: 'draft' | 'active' | 'archived'
+    status: 'draft' | 'open' | 'closed'
   ): Promise<Workflow> {
     await this.verifyOwnership(workflowId, userId);
-    return await this.workflowRepo.update(workflowId, {
-      status,
-      updatedAt: new Date(),
-    });
+    return await this.workflowRepo.update(workflowId, { status });
   }
 
   /**
@@ -211,10 +205,7 @@ export class WorkflowService {
       throw new Error("Invalid mode value. Must be 'easy', 'advanced', or null");
     }
 
-    return await this.workflowRepo.update(workflowId, {
-      modeOverride,
-      updatedAt: new Date(),
-    });
+    return await this.workflowRepo.update(workflowId, { modeOverride });
   }
 
   // ===================================================================
@@ -319,7 +310,7 @@ export class WorkflowService {
     tx?: DbTransaction
   ): Promise<Workflow> {
     // Verify user has owner or builder access
-    const workflow = await this.verifyAccess(workflowId, userId, ['owner', 'builder']);
+    const workflow = await (this as any).verifyAccess(workflowId, userId, ['owner', 'builder']);
 
     return await this.workflowRepo.update(
       workflowId,

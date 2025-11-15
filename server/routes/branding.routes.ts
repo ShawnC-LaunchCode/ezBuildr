@@ -55,7 +55,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/branding',
     hybridAuth,
     validateTenantParam,
-    requirePermission('tenant:update'),
+    requirePermission('tenant:update' as any),
     async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
@@ -131,7 +131,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/domains',
     hybridAuth,
     validateTenantParam,
-    requirePermission('tenant:update'),
+    requirePermission('tenant:update' as any),
     async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
@@ -190,7 +190,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/domains/:domainId',
     hybridAuth,
     validateTenantParam,
-    requirePermission('tenant:update'),
+    requirePermission('tenant:update' as any),
     async (req: Request, res: Response) => {
       try {
         const { tenantId, domainId } = req.params;

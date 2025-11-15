@@ -26,12 +26,12 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   /**
    * Find workflows by status
    */
-  async findByStatus(status: 'draft' | 'active' | 'archived', tx?: DbTransaction): Promise<Workflow[]> {
+  async findByStatus(status: 'draft' | 'open' | 'closed', tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
     return await database
       .select()
       .from(workflows)
-      .where(eq(workflows.status, status))
+      .where(eq(workflows.status, status as any))
       .orderBy(desc(workflows.updatedAt));
   }
 
@@ -40,14 +40,14 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async findByCreatorAndStatus(
     creatorId: string,
-    status: 'draft' | 'active' | 'archived',
+    status: 'draft' | 'open' | 'closed',
     tx?: DbTransaction
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     return await database
       .select()
       .from(workflows)
-      .where(and(eq(workflows.creatorId, creatorId), eq(workflows.status, status)))
+      .where(and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)))
       .orderBy(desc(workflows.updatedAt));
   }
 

@@ -294,9 +294,13 @@ export async function setupAuth(app: Express) {
         const userForSharing = {
           id: payload.sub!,
           email: payload.email!,
-          firstName: payload.given_name || "",
-          lastName: payload.family_name || "",
+          fullName: payload.name || null,
+          firstName: payload.given_name || null,
+          lastName: payload.family_name || null,
           profileImageUrl: payload.picture || null,
+          tenantId: null,
+          tenantRole: null,
+          authProvider: 'google' as const,
           defaultMode: 'easy' as const,
           role: 'creator' as const, // Default role
           createdAt: new Date(),

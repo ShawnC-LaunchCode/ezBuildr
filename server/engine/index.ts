@@ -149,7 +149,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         const traceEntry: TraceEntry = {
           nodeId: node.id,
           type: node.type,
-          status: nodeOutput.status,
+          status: nodeOutput.status as 'executed' | 'skipped',
           timestamp: new Date(),
         };
 
@@ -256,7 +256,7 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
     const visited = new Set<string>();
     const order: string[] = [];
 
-    function visit(nodeId: string) {
+    const visit = (nodeId: string): void => {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
       order.push(nodeId);
@@ -268,7 +268,7 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
           visit(edge.target);
         }
       }
-    }
+    };
 
     visit(graphJson.startNodeId);
 

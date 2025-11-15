@@ -1,5 +1,5 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { records, type CollectionRecord, type InsertRecord } from "@shared/schema";
+import { records, type CollectionRecord, type InsertCollectionRecord } from "@shared/schema";
 import { eq, and, desc, sql, SQL } from "drizzle-orm";
 import { db } from "../db";
 
@@ -7,7 +7,7 @@ import { db } from "../db";
  * Repository for record data access
  * Records are rows in collections with schemaless JSONB data
  */
-export class RecordRepository extends BaseRepository<typeof records, CollectionRecord, InsertRecord> {
+export class RecordRepository extends BaseRepository<typeof records, CollectionRecord, InsertCollectionRecord> {
   constructor(dbInstance?: typeof db) {
     super(records, dbInstance);
   }
@@ -116,7 +116,7 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
    */
   async update(
     id: string,
-    updates: Partial<InsertRecord>,
+    updates: Partial<InsertCollectionRecord>,
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {

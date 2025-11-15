@@ -1,7 +1,7 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 import { transformBlocks, transformBlockRuns, type TransformBlock, type InsertTransformBlock, type TransformBlockRun, type InsertTransformBlockRun } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, isNull } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -61,7 +61,7 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
       // This is handled by not filtering on sectionId, as workflow-scoped blocks apply everywhere
     } else {
       // For workflow-scoped phases (onRunStart, onRunComplete), only use workflow-scoped blocks
-      conditions.push(eq(transformBlocks.sectionId, null));
+      conditions.push(isNull(transformBlocks.sectionId));
     }
 
     return await database

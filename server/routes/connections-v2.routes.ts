@@ -71,7 +71,7 @@ export function registerConnectionsV2Routes(app: Express) {
 
       res.json(connections);
     } catch (error) {
-      logger.error('Failed to list connections:', error);
+      logger.error({ error }, 'Failed to list connections:');
       res.status(500).json({
         error: 'Failed to list connections',
         message: (error as Error).message,
@@ -95,7 +95,7 @@ export function registerConnectionsV2Routes(app: Express) {
 
       res.json(connection);
     } catch (error) {
-      logger.error('Failed to get connection:', error);
+      logger.error({ error }, 'Failed to get connection:');
       res.status(500).json({
         error: 'Failed to get connection',
         message: (error as Error).message,
@@ -122,12 +122,12 @@ export function registerConnectionsV2Routes(app: Express) {
       // Create connection
       const connection = await createConnection(input);
 
-      logger.info('Connection created:', {
+      logger.info({
         connectionId: connection.id,
         projectId,
         name: connection.name,
         type: connection.type,
-      });
+      }, 'Connection created:');
 
       res.status(201).json(connection);
     } catch (error) {
@@ -138,7 +138,7 @@ export function registerConnectionsV2Routes(app: Express) {
         });
       }
 
-      logger.error('Failed to create connection:', error);
+      logger.error({ error }, 'Failed to create connection:');
       res.status(500).json({
         error: 'Failed to create connection',
         message: (error as Error).message,
@@ -162,11 +162,11 @@ export function registerConnectionsV2Routes(app: Express) {
       // Update connection
       const connection = await updateConnection(projectId, connectionId, input);
 
-      logger.info('Connection updated:', {
+      logger.info({
         connectionId: connection.id,
         projectId,
         name: connection.name,
-      });
+      }, 'Connection updated:');
 
       res.json(connection);
     } catch (error) {
@@ -177,7 +177,7 @@ export function registerConnectionsV2Routes(app: Express) {
         });
       }
 
-      logger.error('Failed to update connection:', error);
+      logger.error({ error }, 'Failed to update connection:');
       res.status(500).json({
         error: 'Failed to update connection',
         message: (error as Error).message,
@@ -195,14 +195,14 @@ export function registerConnectionsV2Routes(app: Express) {
 
       await deleteConnection(projectId, connectionId);
 
-      logger.info('Connection deleted:', {
+      logger.info({
         connectionId,
         projectId,
-      });
+      }, 'Connection deleted:');
 
       res.status(204).send();
     } catch (error) {
-      logger.error('Failed to delete connection:', error);
+      logger.error({ error }, 'Failed to delete connection:');
       res.status(500).json({
         error: 'Failed to delete connection',
         message: (error as Error).message,
@@ -220,16 +220,16 @@ export function registerConnectionsV2Routes(app: Express) {
 
       const result = await testConnection(projectId, connectionId);
 
-      logger.info('Connection tested:', {
+      logger.info({
         connectionId,
         projectId,
         success: result.success,
         statusCode: result.statusCode,
-      });
+      }, 'Connection tested:');
 
       res.json(result);
     } catch (error) {
-      logger.error('Failed to test connection:', error);
+      logger.error({ error }, 'Failed to test connection:');
       res.status(500).json({
         error: 'Failed to test connection',
         message: (error as Error).message,
@@ -249,7 +249,7 @@ export function registerConnectionsV2Routes(app: Express) {
 
       res.json(status);
     } catch (error) {
-      logger.error('Failed to get connection status:', error);
+      logger.error({ error }, 'Failed to get connection status:');
       res.status(500).json({
         error: 'Failed to get connection status',
         message: (error as Error).message,
@@ -280,16 +280,16 @@ export function registerConnectionsV2Routes(app: Express) {
 
       const result = await initiateOAuth2Flow(projectId, connectionId, baseUrl);
 
-      logger.info('OAuth2 flow initiated:', {
+      logger.info({
         connectionId,
         projectId,
         state: result.state,
-      });
+      }, 'OAuth2 flow initiated:');
 
       // Redirect user to authorization URL
       res.redirect(result.authorizationUrl);
     } catch (error) {
-      logger.error('Failed to initiate OAuth2 flow:', error);
+      logger.error({ error }, 'Failed to initiate OAuth2 flow:');
       res.status(500).json({
         error: 'Failed to initiate OAuth2 flow',
         message: (error as Error).message,
@@ -307,7 +307,7 @@ export function registerConnectionsV2Routes(app: Express) {
 
       // Check for OAuth error
       if (oauthError) {
-        logger.error('OAuth2 callback error:', { error: oauthError });
+        logger.error({ error: oauthError }, 'OAuth2 callback error:');
         return res.status(400).send(`
           <html>
             <body>
@@ -342,9 +342,9 @@ export function registerConnectionsV2Routes(app: Express) {
       // Clean up state
       cleanupOAuth2State(state);
 
-      logger.info('OAuth2 flow completed:', {
+      logger.info({
         connectionId: stateRecord.connectionId,
-      });
+      }, 'OAuth2 flow completed:');
 
       // Redirect to success page
       res.send(`
@@ -357,7 +357,7 @@ export function registerConnectionsV2Routes(app: Express) {
         </html>
       `);
     } catch (error) {
-      logger.error('Failed to handle OAuth2 callback:', error);
+      logger.error({ error }, 'Failed to handle OAuth2 callback:');
       res.status(500).json({
         error: 'Failed to handle OAuth2 callback',
         message: (error as Error).message,

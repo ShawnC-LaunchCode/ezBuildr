@@ -147,7 +147,7 @@ export function TemplateUploadDialog({
                 </div>
               )}
               <p className="text-sm text-gray-500">
-                Upload a .docx file with template placeholders (e.g., {`{name}`, `{email}`})
+                Upload a .docx file with template placeholders (e.g., {`{name}`}, {`{email}`})
               </p>
             </div>
 

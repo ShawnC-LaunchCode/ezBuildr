@@ -31,7 +31,7 @@ export default function CollectionsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const tenantId = user?.tenantId;
+  const tenantId = user?.tenantId ?? undefined;
 
   const { data: collections, isLoading } = useCollections(tenantId, true);
   const createMutation = useCreateCollection();

@@ -92,7 +92,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
     updates: Partial<InsertCollectionField>,
     tx?: DbTransaction
   ): Promise<CollectionField> {
-    return super.update(id, { ...updates, updatedAt: new Date() }, tx);
+    return super.update(id, updates, tx);
   }
 }
 

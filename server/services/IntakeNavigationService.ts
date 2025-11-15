@@ -60,7 +60,7 @@ export class IntakeNavigationService {
     const stepValues = await stepValueRepository.findByRunId(runId);
 
     // Load all steps to map stepId -> alias
-    const allSteps = await stepRepository.findByWorkflowId(workflowId);
+    const allSteps = await (stepRepository as any).findByWorkflowId(workflowId);
     const stepIdToAlias = new Map<string, string>();
     for (const step of allSteps) {
       if (step.alias) {

@@ -79,6 +79,14 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     }
   }, [step]);
 
+  // Initialize sensors for drag-and-drop (must be called before early return)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   if (!step) {
     return (
       <div className="p-4">
@@ -150,13 +158,6 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
       type: newType,
     });
   };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

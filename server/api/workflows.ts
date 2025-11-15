@@ -1,5 +1,7 @@
 import { Router, type Request, Response } from 'express';
-import { eq, and, desc, lt, ilike, or } from 'drizzle-orm';
+import { eq, and, desc, lt, ilike, or, ExtractTablesWithRelations } from 'drizzle-orm';
+import type { PgTransaction } from 'drizzle-orm/pg-core';
+import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { requireAuth } from '../middleware/auth';
@@ -138,7 +140,7 @@ router.post(
       }
 
       // Create workflow and initial draft version in a transaction
-      const result = await db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx: PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>) => {
         // Create workflow
         const [workflow] = await tx
           .insert(schema.workflows)
@@ -279,7 +281,7 @@ router.patch(
       }
 
       // Update workflow and version
-      const result = await db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx: PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>) => {
         // Update workflow name if provided
         if (data.name) {
           await tx
@@ -379,7 +381,7 @@ router.post(
       }
 
       // Publish workflow in transaction
-      const result = await db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx: PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>) => {
         // Mark current version as published
         await tx
           .update(schema.workflowVersions)
@@ -389,11 +391,11 @@ router.post(
           })
           .where(eq(schema.workflowVersions.id, workflow.currentVersionId!));
 
-        // Update workflow status to published
+        // Update workflow status to open
         await tx
           .update(schema.workflows)
           .set({
-            status: 'published',
+            status: 'open',
             updatedAt: new Date(),
           })
           .where(eq(schema.workflows.id, params.id));

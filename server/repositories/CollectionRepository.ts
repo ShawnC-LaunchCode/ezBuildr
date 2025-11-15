@@ -73,7 +73,7 @@ export class CollectionRepository extends BaseRepository<typeof collections, Col
     updates: Partial<InsertCollection>,
     tx?: DbTransaction
   ): Promise<Collection> {
-    return super.update(id, { ...updates, updatedAt: new Date() }, tx);
+    return super.update(id, updates, tx);
   }
 }
 

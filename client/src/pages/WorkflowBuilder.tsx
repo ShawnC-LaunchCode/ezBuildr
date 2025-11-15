@@ -57,6 +57,7 @@ export default function WorkflowBuilder() {
     previewRunId,
     startPreview,
     stopPreview,
+    selection,
   } = useWorkflowBuilder();
 
   const { setToken } = usePreviewStore();
@@ -74,8 +75,8 @@ export default function WorkflowBuilder() {
       });
 
       // Extract runId and runToken from response
-      const runId = result.data?.runId || result.id;
-      const runToken = result.data?.runToken || result.runToken;
+      const runId = result.data?.runId || (result as any).id;
+      const runToken = result.data?.runToken || (result as any).runToken;
 
       if (!runId || !runToken) {
         throw new Error("Invalid response from server - missing runId or runToken");
@@ -271,7 +272,7 @@ export default function WorkflowBuilder() {
         </div>
 
         {/* Inspector - Properties/Blocks */}
-        {!isPreviewOpen && (
+        {!isPreviewOpen && selection && (
           <div className="w-96 border-l bg-card overflow-y-auto">
             <Inspector workflowId={workflowId!} />
           </div>

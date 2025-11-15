@@ -110,12 +110,12 @@ export class IntakeService {
         intake: true,
         slug,
       },
-    });
+    } as any);
 
     // Handle prefill from URL parameters (Stage 12.5)
     if (prefillParams && intakeConfig.allowPrefill && intakeConfig.allowedPrefillKeys) {
       // Get all steps to map aliases to stepIds
-      const allSteps = await stepRepository.findByWorkflowId(workflow.id);
+      const allSteps = await (stepRepository as any).findByWorkflowId(workflow.id);
       const aliasToStepId = new Map<string, string>();
       for (const step of allSteps) {
         if (step.alias) {
@@ -261,8 +261,8 @@ export class IntakeService {
       // Stage 12.5: Send email receipt if configured
       if (intakeConfig.sendEmailReceipt && intakeConfig.receiptEmailVar) {
         // Get all step values to find the email
-        const allSteps = await stepRepository.findByWorkflowId(workflow.id);
-        const emailStep = allSteps.find(s => s.alias === intakeConfig.receiptEmailVar);
+        const allSteps = await (stepRepository as any).findByWorkflowId(workflow.id);
+        const emailStep = allSteps.find((s: any) => s.alias === intakeConfig.receiptEmailVar);
 
         if (emailStep) {
           const stepValues = await stepValueRepository.findByRunId(run.id);

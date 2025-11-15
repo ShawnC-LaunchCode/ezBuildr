@@ -33,7 +33,7 @@ router.get(
     const { projectId } = req.query;
 
     if (!projectId || typeof projectId !== 'string') {
-      throw createError.badRequest('projectId query parameter is required');
+      throw createError.validation('projectId query parameter is required');
     }
 
     // Verify template exists and user has access
@@ -65,7 +65,7 @@ router.post(
     const { projectId } = req.query;
 
     if (!projectId || typeof projectId !== 'string') {
-      throw createError.badRequest('projectId query parameter is required');
+      throw createError.validation('projectId query parameter is required');
     }
 
     // Validate request body
@@ -95,7 +95,7 @@ router.post(
     const { projectId } = req.query;
 
     if (!projectId || typeof projectId !== 'string') {
-      throw createError.badRequest('projectId query parameter is required');
+      throw createError.validation('projectId query parameter is required');
     }
 
     // Verify template exists and user has access
@@ -127,7 +127,7 @@ router.post(
     const { projectId } = req.query;
 
     if (!projectId || typeof projectId !== 'string') {
-      throw createError.badRequest('projectId query parameter is required');
+      throw createError.validation('projectId query parameter is required');
     }
 
     // Validate request body

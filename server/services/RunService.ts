@@ -99,7 +99,7 @@ export class RunService {
       workflowId,
       runToken,
       completed: false,
-    });
+    } as any);
 
     // Capture run_started metric (Stage 11)
     const context = await this.getWorkflowContext(workflowId);

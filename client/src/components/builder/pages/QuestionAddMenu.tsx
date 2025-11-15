@@ -65,6 +65,7 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
         title: `New ${QUESTION_TYPES.find((t) => t.value === type)?.label || "Question"}`,
         description: null,
         required: false,
+        alias: null,
         options,
         order: nextOrder,
       });

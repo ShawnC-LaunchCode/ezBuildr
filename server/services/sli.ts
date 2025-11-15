@@ -135,11 +135,11 @@ export async function saveSLIWindow(params: {
 
   await db.insert(sliWindows).values(insertData);
 
-  logger.debug('SLI window saved', {
+  logger.debug({
     projectId: params.projectId,
     workflowId: params.workflowId,
     successPct: params.sli.successPct,
-  });
+  }, 'SLI window saved');
 }
 
 /**
@@ -172,7 +172,7 @@ export async function getOrCreateConfig(params: {
   // Create default config
   // Need tenantId - get from project
   const project = await db.query.projects.findFirst({
-    where: (projects, { eq }) => eq(projects.id, params.projectId),
+    where: (projects: any, { eq }: any) => eq(projects.id, params.projectId),
   });
 
   if (!project) {
@@ -191,10 +191,10 @@ export async function getOrCreateConfig(params: {
 
   const [created] = await db.insert(sliConfigs).values(defaultConfig).returning();
 
-  logger.info('SLI config created with defaults', {
+  logger.info({
     projectId: params.projectId,
     workflowId: params.workflowId,
-  });
+  }, 'SLI config created with defaults');
 
   return created;
 }
@@ -234,7 +234,7 @@ export async function updateConfig(params: {
     throw new Error(`SLI config not found: ${params.id}`);
   }
 
-  logger.info('SLI config updated', { id: params.id, updates: updateData });
+  logger.info({ id: params.id, updates: updateData }, 'SLI config updated');
 
   return updated;
 }

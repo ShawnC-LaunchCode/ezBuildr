@@ -32,7 +32,7 @@ router.get(
 
     const outputs = await db.query.runOutputs.findMany({
       where: eq(runOutputs.runId, runId),
-      orderBy: (outputs, { asc }) => [asc(outputs.createdAt)],
+      orderBy: (outputs: any, { asc }: any) => [asc(outputs.createdAt)],
     });
 
     res.json({
@@ -65,7 +65,7 @@ router.get(
     }
 
     if (output.status !== 'ready') {
-      throw createError.badRequest(`Output is not ready (status: ${output.status})`);
+      throw createError.validation(`Output is not ready (status: ${output.status})`);
     }
 
     if (!output.storagePath) {
@@ -126,11 +126,11 @@ router.post(
     }
 
     if (output.fileType !== 'pdf') {
-      throw createError.badRequest('Only PDF outputs can be retried');
+      throw createError.validation('Only PDF outputs can be retried');
     }
 
     if (output.status === 'ready') {
-      throw createError.badRequest('Output is already ready');
+      throw createError.validation('Output is already ready');
     }
 
     // Reset status to pending

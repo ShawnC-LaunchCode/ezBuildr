@@ -249,7 +249,35 @@ export function useReorderSections() {
   return useMutation({
     mutationFn: ({ workflowId, sections }: { workflowId: string; sections: Array<{ id: string; order: number }> }) =>
       sectionAPI.reorder(workflowId, sections),
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+
+      // Snapshot the previous value
+      const previousSections = queryClient.getQueryData<ApiSection[]>(queryKeys.sections(variables.workflowId));
+
+      // Optimistically update to the new value
+      if (previousSections) {
+        const updatedSections = previousSections
+          .map((section) => {
+            const newOrder = variables.sections.find((s) => s.id === section.id);
+            return newOrder ? { ...section, order: newOrder.order } : section;
+          })
+          .sort((a, b) => a.order - b.order); // Sort by order to match backend behavior
+        queryClient.setQueryData(queryKeys.sections(variables.workflowId), updatedSections);
+      }
+
+      // Return context with the previous value
+      return { previousSections };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousSections) {
+        queryClient.setQueryData(queryKeys.sections(variables.workflowId), context.previousSections);
+      }
+    },
+    onSettled: (_, __, variables) => {
+      // Always refetch after error or success to ensure sync with server
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
     },
   });

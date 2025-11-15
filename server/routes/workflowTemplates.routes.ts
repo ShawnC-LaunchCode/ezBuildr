@@ -122,7 +122,7 @@ router.patch(
     const { workflowVersionId } = req.query;
 
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
-      throw createError.badRequest('workflowVersionId query parameter is required');
+      throw createError.validation('workflowVersionId query parameter is required');
     }
 
     // Validate request body
@@ -152,7 +152,7 @@ router.post(
     const { workflowVersionId } = req.query;
 
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
-      throw createError.badRequest('workflowVersionId query parameter is required');
+      throw createError.validation('workflowVersionId query parameter is required');
     }
 
     const updated = await workflowTemplateService.setPrimaryTemplate(
@@ -178,7 +178,7 @@ router.delete(
     const { workflowVersionId } = req.query;
 
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
-      throw createError.badRequest('workflowVersionId query parameter is required');
+      throw createError.validation('workflowVersionId query parameter is required');
     }
 
     await workflowTemplateService.detachTemplate(mappingId, workflowVersionId);

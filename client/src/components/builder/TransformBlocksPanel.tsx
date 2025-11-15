@@ -174,8 +174,8 @@ function TransformBlockEditor({
       // Parse input keys from comma-separated string
       const inputKeys = inputKeysText
         .split(",")
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+        .map((k: string) => k.trim())
+        .filter((k: string) => k.length > 0);
 
       const data = {
         ...formData,

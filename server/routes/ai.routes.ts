@@ -440,7 +440,7 @@ export function registerAiRoutes(app: Express): void {
           {
             sections: workflow.sections || [],
             logicRules: workflow.logicRules || [],
-            transformBlocks: workflow.transformBlocks || [],
+            transformBlocks: (workflow as any).transformBlocks || [],
           }
         );
 
@@ -545,7 +545,7 @@ export function registerAiRoutes(app: Express): void {
         }, 'AI template binding suggestion requested');
 
         // Get workflow variables
-        const variables = await variableService.getWorkflowVariables(
+        const variables = await (variableService as any).getWorkflowVariables(
           requestData.workflowId
         );
 

@@ -45,7 +45,7 @@ export async function runRollup(params?: {
     }
   }
 
-  logger.info('Metrics rollup completed', { buckets });
+  logger.info({ buckets }, 'Metrics rollup completed');
 }
 
 /**
@@ -62,12 +62,12 @@ async function rollupBucket(params: RollupParams): Promise<void> {
   // Get bucket boundaries
   const buckets = getBucketBoundaries(since, until, bucketMs);
 
-  logger.debug('Rolling up metrics', {
+  logger.debug({
     bucketSize: params.bucketSize,
     bucketCount: buckets.length,
     since,
     until,
-  });
+  }, 'Rolling up metrics');
 
   for (const bucket of buckets) {
     await rollupSingleBucket({
@@ -159,11 +159,11 @@ async function rollupSingleBucket(params: {
       });
   }
 
-  logger.debug('Bucket rollup completed', {
+  logger.debug({
     bucketSize: params.bucketSize,
     bucketStart: params.bucketStart,
     groupCount: results.rows.length,
-  });
+  }, 'Bucket rollup completed');
 }
 
 /**
@@ -254,7 +254,7 @@ function getBucketMilliseconds(bucket: BucketSize): number {
  * Start rollup worker (runs periodically)
  */
 export function startRollupWorker(intervalMs: number = 60000): NodeJS.Timeout {
-  logger.info('Starting metrics rollup worker', { intervalMs });
+  logger.info({ intervalMs }, 'Starting metrics rollup worker');
 
   const interval = setInterval(async () => {
     try {

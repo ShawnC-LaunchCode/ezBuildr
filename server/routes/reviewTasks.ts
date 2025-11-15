@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middleware/requireAuth";
+import { requireAuth } from "../middleware/auth";
 import { reviewTaskService } from "../services";
 import { resumeRunFromNode } from "../services/runs";
 import { createError } from "../utils/errors";
@@ -25,7 +25,7 @@ const decisionSchema = z.object({
 router.get("/tasks/:id", requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const task = await reviewTaskService.getReviewTask(id, userId);
 
@@ -45,7 +45,7 @@ router.get("/tasks/:id", requireAuth, async (req, res, next) => {
 router.get("/tasks/project/:projectId", requireAuth, async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const tasks = await reviewTaskService.getPendingTasksByProject(projectId, userId);
 
@@ -61,7 +61,7 @@ router.get("/tasks/project/:projectId", requireAuth, async (req, res, next) => {
  */
 router.get("/my-tasks", requireAuth, async (req, res, next) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const tasks = await reviewTaskService.getTasksForReviewer(userId);
 
@@ -80,7 +80,7 @@ router.get("/my-tasks", requireAuth, async (req, res, next) => {
 router.post("/tasks/:id/decision", requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     // Validate request body
     const result = decisionSchema.safeParse(req.body);

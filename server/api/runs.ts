@@ -98,7 +98,7 @@ router.post(
 
       // Create run record
       const run = await createRun({
-        workflowVersionId: workflowVersion.id,
+        workflowVersionId: workflowVersion!.id,
         inputJson: data.inputJson,
         status: 'pending',
         createdBy: userId,
@@ -110,7 +110,7 @@ router.post(
       try {
         // Run the workflow engine (Stage 8: Always enable debug to capture trace)
         const result = await runGraph({
-          workflowVersion,
+          workflowVersion: workflowVersion!,
           inputJson: data.inputJson,
           tenantId,
           options: { ...data.options, debug: true }, // Always capture trace for Stage 8
@@ -256,29 +256,31 @@ router.get(
         },
       });
 
+      type RunWithRelations = typeof runs[number];
+
       // Apply tenant filtering + additional filters in-memory (since complex joins)
       let filteredRuns = runs.filter(
-        run => run.workflowVersion.workflow.project.tenantId === tenantId
+        (run: RunWithRelations) => run.workflowVersion.workflow.project.tenantId === tenantId
       );
 
       // Stage 8: Filter by workflow
       if (workflowId) {
         filteredRuns = filteredRuns.filter(
-          run => run.workflowVersion.workflow.id === workflowId
+          (run: RunWithRelations) => run.workflowVersion.workflow.id === workflowId
         );
       }
 
       // Stage 8: Filter by project
       if (projectId) {
         filteredRuns = filteredRuns.filter(
-          run => run.workflowVersion.workflow.projectId === projectId
+          (run: RunWithRelations) => run.workflowVersion.workflow.projectId === projectId
         );
       }
 
       // Stage 8: Search query (runId, createdBy email, or simple input JSON match)
       if (q) {
         const lowerQ = q.toLowerCase();
-        filteredRuns = filteredRuns.filter(run => {
+        filteredRuns = filteredRuns.filter((run: RunWithRelations) => {
           // Match run ID
           if (run.id.toLowerCase().includes(lowerQ)) return true;
 
@@ -719,8 +721,10 @@ router.get(
         },
       });
 
+      type ExportRunWithRelations = typeof runs[number];
+
       // Apply tenant filtering + additional filters
-      let filteredRuns = runs.filter(run => {
+      let filteredRuns = runs.filter((run: ExportRunWithRelations) => {
         // Verify tenant through workflow version
         const workflow = run.workflowVersion?.workflow;
         if (!workflow) return false;
@@ -731,19 +735,19 @@ router.get(
 
       if (workflowId) {
         filteredRuns = filteredRuns.filter(
-          run => run.workflowVersion?.workflow?.id === workflowId
+          (run: ExportRunWithRelations) => run.workflowVersion?.workflow?.id === workflowId
         );
       }
 
       if (projectId) {
         filteredRuns = filteredRuns.filter(
-          run => run.workflowVersion?.workflow?.projectId === projectId
+          (run: ExportRunWithRelations) => run.workflowVersion?.workflow?.projectId === projectId
         );
       }
 
       if (q) {
         const lowerQ = q.toLowerCase();
-        filteredRuns = filteredRuns.filter(run => {
+        filteredRuns = filteredRuns.filter((run: ExportRunWithRelations) => {
           if (run.id.toLowerCase().includes(lowerQ)) return true;
           if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) return true;
           if (run.inputJson && JSON.stringify(run.inputJson).toLowerCase().includes(lowerQ)) {
@@ -756,7 +760,7 @@ router.get(
       // Generate CSV
       const csvHeader = 'runId,projectId,workflowId,workflowName,versionId,status,durationMs,createdBy,createdAt\n';
 
-      const csvRows = filteredRuns.map(run => {
+      const csvRows = filteredRuns.map((run: ExportRunWithRelations) => {
         const workflow = run.workflowVersion?.workflow;
         return [
           run.id,

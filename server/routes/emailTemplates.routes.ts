@@ -71,7 +71,7 @@ export function registerEmailTemplateRoutes(app: Express): void {
   app.patch(
     '/api/email-templates/:id/metadata',
     hybridAuth,
-    requirePermission('tenant:update'),
+    requirePermission('tenant:update' as any),
     async (req: Request, res: Response) => {
       try {
         const { id } = req.params;

@@ -43,15 +43,15 @@ export async function emit(event: MetricsEventInput): Promise<void> {
 
     await db.insert(metricsEvents).values(insertData);
 
-    logger.debug('Metrics event emitted', {
+    logger.debug({
       type: event.type,
       projectId: event.projectId,
       workflowId: event.workflowId,
       runId: event.runId,
-    });
+    }, 'Metrics event emitted');
   } catch (error) {
     // Don't throw - metrics failures should not break application flow
-    logger.error('Failed to emit metrics event', { error, event });
+    logger.error({ error, event }, 'Failed to emit metrics event');
   }
 }
 

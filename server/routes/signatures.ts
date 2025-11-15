@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middleware/requireAuth";
+import { requireAuth } from "../middleware/auth";
 import { signatureRequestService } from "../services";
 import { resumeRunFromNode } from "../services/runs";
 import { createError } from "../utils/errors";
@@ -25,7 +25,7 @@ const signActionSchema = z.object({
 router.get("/requests/:id", requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const request = await signatureRequestService.getSignatureRequest(id, userId);
 
@@ -42,7 +42,7 @@ router.get("/requests/:id", requireAuth, async (req, res, next) => {
 router.get("/requests/project/:projectId", requireAuth, async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const requests = await signatureRequestService.getPendingRequestsByProject(
       projectId,
@@ -62,7 +62,7 @@ router.get("/requests/project/:projectId", requireAuth, async (req, res, next) =
 router.get("/requests/:id/events", requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const events = await signatureRequestService.getSignatureEvents(id, userId);
 

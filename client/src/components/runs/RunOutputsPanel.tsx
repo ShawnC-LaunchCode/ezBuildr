@@ -64,9 +64,9 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
 
       return response.json();
     },
-    refetchInterval: (data) => {
+    refetchInterval: (data: any) => {
       // Auto-refresh if there are pending outputs
-      const hasPending = data?.data?.some((o) => o.status === 'pending');
+      const hasPending = data?.data?.some((o: any) => o.status === 'pending');
       return hasPending ? 5000 : false; // Poll every 5 seconds
     },
   });

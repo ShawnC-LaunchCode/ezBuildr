@@ -62,13 +62,13 @@ export function initPrometheus(app: Express): void {
   }
 
   logger.warn('Prometheus integration is not yet implemented');
-  logger.info('To enable Prometheus:', {
+  logger.info({
     steps: [
       '1. Install prom-client: npm install prom-client',
       '2. Set PROMETHEUS_ENABLED=true in environment',
       '3. Implement metrics collection in this file',
     ],
-  });
+  }, 'To enable Prometheus:');
 
   // TODO: Implement Prometheus metrics
   // Add /metrics endpoint stub for now
@@ -124,7 +124,7 @@ export function getRegistry(): any {
  * ```
  */
 export function incrementCounter(metric: string, labels?: Record<string, string>): void {
-  logger.debug('Prometheus counter not implemented', { metric, labels });
+  logger.debug({ metric, labels }, 'Prometheus counter not implemented');
   // TODO: Implement counter increment
 }
 
@@ -137,7 +137,7 @@ export function incrementCounter(metric: string, labels?: Record<string, string>
  * ```
  */
 export function setGauge(metric: string, value: number, labels?: Record<string, string>): void {
-  logger.debug('Prometheus gauge not implemented', { metric, value, labels });
+  logger.debug({ metric, value, labels }, 'Prometheus gauge not implemented');
   // TODO: Implement gauge set
 }
 
@@ -150,7 +150,7 @@ export function setGauge(metric: string, value: number, labels?: Record<string, 
  * ```
  */
 export function observeHistogram(metric: string, value: number, labels?: Record<string, string>): void {
-  logger.debug('Prometheus histogram not implemented', { metric, value, labels });
+  logger.debug({ metric, value, labels }, 'Prometheus histogram not implemented');
   // TODO: Implement histogram observe
 }
 

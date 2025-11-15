@@ -179,7 +179,7 @@ export default function BrandingSettingsPage() {
       <div className="flex h-screen bg-background">
         <Sidebar />
         <div className="flex-1 flex flex-col">
-          <Header />
+          <Header title="Branding Settings" />
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -192,7 +192,7 @@ export default function BrandingSettingsPage() {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <Header title="Branding Settings" />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Page Header */}

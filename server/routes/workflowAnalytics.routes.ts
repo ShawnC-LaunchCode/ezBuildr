@@ -178,7 +178,7 @@ router.get('/timeseries', requireAuth, async (req, res) => {
       .where(and(...conditions))
       .orderBy(metricsRollups.bucketStart);
 
-    const timeseries = rollups.map((rollup) => ({
+    const timeseries = rollups.map((rollup: any) => ({
       timestamp: rollup.bucketStart,
       runsCount: rollup.runsCount,
       runsSuccess: rollup.runsSuccess,
@@ -242,7 +242,7 @@ router.get('/sli', requireAuth, async (req, res) => {
       history: recentWindows,
     });
   } catch (error) {
-    logger.error('Failed to get SLI data', { error });
+    logger.error({ error }, 'Failed to get SLI data');
     res.status(500).json({ error: 'Failed to get SLI data' });
   }
 });
@@ -292,7 +292,7 @@ router.post('/sli-config', requireAuth, async (req, res) => {
       res.status(201).json(updated);
     }
   } catch (error) {
-    logger.error('Failed to create/update SLI config', { error });
+    logger.error({ error }, 'Failed to create/update SLI config');
     res.status(500).json({ error: 'Failed to create/update SLI config' });
   }
 });
@@ -313,7 +313,7 @@ router.put('/sli-config/:id', requireAuth, async (req, res) => {
 
     res.json(updated);
   } catch (error) {
-    logger.error('Failed to update SLI config', { error });
+    logger.error({ error }, 'Failed to update SLI config');
     res.status(500).json({ error: 'Failed to update SLI config' });
   }
 });

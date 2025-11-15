@@ -34,7 +34,7 @@ export async function listConnections(projectId: string): Promise<Connection[]> 
     .where(eq(connections.projectId, projectId))
     .orderBy(connections.name);
 
-  return results.map(row => ({
+  return results.map((row: any) => ({
     id: row.id,
     tenantId: row.tenantId,
     projectId: row.projectId,
@@ -276,7 +276,7 @@ export async function resolveConnection(
   const secrets: Record<string, string> = {};
   for (const [refName, secretKey] of Object.entries(connection.secretRefs)) {
     const secretValue = await getSecretValue(projectId, secretKey);
-    secrets[refName] = secretValue;
+    secrets[refName] = secretValue || '';
   }
 
   // Decrypt OAuth2 access token if available
@@ -397,8 +397,8 @@ export async function initiateOAuth2Flow(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = await getSecretValue(projectId, connection.authConfig.clientIdRef);
-  const clientSecret = await getSecretValue(projectId, connection.authConfig.clientSecretRef);
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,
@@ -432,8 +432,8 @@ export async function handleOAuth2Callback(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = await getSecretValue(projectId, connection.authConfig.clientIdRef);
-  const clientSecret = await getSecretValue(projectId, connection.authConfig.clientSecretRef);
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,
@@ -492,8 +492,8 @@ export async function refreshConnectionToken(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = await getSecretValue(projectId, connection.authConfig.clientIdRef);
-  const clientSecret = await getSecretValue(projectId, connection.authConfig.clientSecretRef);
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,

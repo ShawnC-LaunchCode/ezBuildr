@@ -43,7 +43,7 @@ export default function CollectionDetailPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const tenantId = user?.tenantId;
+  const tenantId = user?.tenantId ?? undefined;
 
   const { data: collection, isLoading: loadingCollection } = useCollection(tenantId, collectionId, false);
   const { data: fields, isLoading: loadingFields } = useCollectionFields(tenantId, collectionId);
@@ -56,7 +56,7 @@ export default function CollectionDetailPage() {
     tenantId,
     collectionId,
     {
-      page: recordsPage,
+      offset: (recordsPage - 1) * recordsPageSize,
       limit: recordsPageSize,
     }
   );
@@ -315,7 +315,7 @@ export default function CollectionDetailPage() {
             Fields ({fields?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="records">
-            Records ({recordsData?.total || 0})
+            Records ({(recordsData as any)?.total || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -351,12 +351,12 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <RecordsList
-              records={recordsData?.records || []}
+              records={(recordsData as any)?.records || []}
               fields={fields || []}
               isLoading={loadingRecords}
               page={recordsPage}
               pageSize={recordsPageSize}
-              totalRecords={recordsData?.total || 0}
+              totalRecords={(recordsData as any)?.total || 0}
               onPageChange={setRecordsPage}
               onRecordClick={handleEditRecord}
               onAddRecord={() => setRecordModalOpen(true)}
