@@ -32,6 +32,7 @@ import VisualWorkflowBuilder from "@/pages/VisualWorkflowBuilder";
 import NewWorkflow from "@/pages/NewWorkflow";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
 import PreviewRunner from "@/pages/PreviewRunner";
+import ProjectView from "@/pages/ProjectView";
 import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
 import RunDetails from "@/pages/RunDetails"; // Stage 8
 import RunsCompare from "@/pages/RunsCompare"; // Stage 8
@@ -79,6 +80,9 @@ function Router() {
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
+
+            {/* Project routes */}
+            <Route path="/projects/:id" component={ProjectView} />
 
             {/* Stage 8: Document Runs routes */}
             <Route path="/runs" component={RunsDashboard} />

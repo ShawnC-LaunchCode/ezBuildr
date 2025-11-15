@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useWorkflows, useDeleteWorkflow } from "@/lib/vault-hooks";
+import { useWorkflows, useDeleteWorkflow, useProjects } from "@/lib/vault-hooks";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
+import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { Link } from "wouter";
 import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus } from "lucide-react";
 
@@ -45,6 +46,7 @@ export default function WorkflowsList() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: workflows, isLoading: workflowsLoading } = useWorkflows();
+  const { data: projects, isLoading: projectsLoading } = useProjects();
   const deleteWorkflowMutation = useDeleteWorkflow();
 
   const createProjectMutation = useMutation({
@@ -158,80 +160,91 @@ export default function WorkflowsList() {
         />
 
         <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Workflows Grid */}
+          {/* Projects and Workflows Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {workflowsLoading ? (
+            {(projectsLoading || workflowsLoading) ? (
               <SkeletonCard count={6} height="h-48" />
-            ) : workflows && workflows.length > 0 ? (
-              workflows.map((workflow) => (
-                <Card key={workflow.id} className="hover:shadow-md transition-shadow min-h-[220px]">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg font-semibold text-foreground line-clamp-2" data-testid={`text-workflow-title-${workflow.id}`}>
-                        {workflow.title}
-                      </CardTitle>
-                      <StatusBadge status={workflow.status} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {workflow.description && (
-                      <p className="text-muted-foreground text-sm mb-4 line-clamp-3" data-testid={`text-workflow-description-${workflow.id}`}>
-                        {workflow.description}
-                      </p>
-                    )}
+            ) : (projects && projects.length > 0) || (workflows && workflows.length > 0) ? (
+              <>
+                {/* Projects - shown first */}
+                {projects?.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                  />
+                ))}
 
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Created: {workflow.createdAt ? new Date(workflow.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                {/* Workflows */}
+                {workflows?.map((workflow) => (
+                  <Card key={workflow.id} className="hover:shadow-md transition-shadow min-h-[220px]">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg font-semibold text-foreground line-clamp-2" data-testid={`text-workflow-title-${workflow.id}`}>
+                          {workflow.title}
+                        </CardTitle>
+                        <StatusBadge status={workflow.status} />
                       </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      {workflow.description && (
+                        <p className="text-muted-foreground text-sm mb-4 line-clamp-3" data-testid={`text-workflow-description-${workflow.id}`}>
+                          {workflow.description}
+                        </p>
+                      )}
 
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        <Link href={`/workflows/${workflow.id}/builder`}>
-                          <Button variant="outline" size="sm" data-testid={`button-edit-workflow-${workflow.id}`}>
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
-                        </Link>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              data-testid={`button-delete-workflow-${workflow.id}`}
-                            >
-                              <Trash2 className="w-4 h-4 mr-1" />
-                              Delete
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Created: {workflow.createdAt ? new Date(workflow.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <Link href={`/workflows/${workflow.id}/builder`}>
+                            <Button variant="outline" size="sm" data-testid={`button-edit-workflow-${workflow.id}`}>
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{workflow.title}"? This action cannot be undone.
-                                All sections, steps, and run data will be permanently deleted.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel data-testid={`button-cancel-delete-${workflow.id}`}>
-                                Cancel
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteWorkflow(workflow.id)}
-                                disabled={deletingWorkflowId === workflow.id}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                data-testid={`button-confirm-delete-${workflow.id}`}
+                          </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                data-testid={`button-delete-workflow-${workflow.id}`}
                               >
-                                {deletingWorkflowId === workflow.id ? "Deleting..." : "Delete Workflow"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                Delete
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{workflow.title}"? This action cannot be undone.
+                                  All sections, steps, and run data will be permanently deleted.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel data-testid={`button-cancel-delete-${workflow.id}`}>
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteWorkflow(workflow.id)}
+                                  disabled={deletingWorkflowId === workflow.id}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  data-testid={`button-confirm-delete-${workflow.id}`}
+                                >
+                                  {deletingWorkflowId === workflow.id ? "Deleting..." : "Delete Workflow"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
             ) : (
               <div className="col-span-full">
                 <Card className="border-dashed">
@@ -240,10 +253,10 @@ export default function WorkflowsList() {
                       <Wand2 className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-foreground mb-2" data-testid="text-no-workflows">
-                      Create your first workflow
+                      Create your first project or workflow
                     </h3>
                     <p className="text-muted-foreground text-center mb-6 max-w-md text-sm">
-                      Build workflows with sections, steps, logic, and blocks.
+                      Build workflows with sections, steps, logic, and blocks. Organize them in projects.
                     </p>
                     <Link href="/workflows/new">
                       <Button data-testid="button-create-first-workflow" className="bg-indigo-600 hover:bg-indigo-700">
