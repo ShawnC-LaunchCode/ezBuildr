@@ -50,8 +50,8 @@ export default function Landing() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => window.location.href = '/demo'}>
-                Watch Demo
+              <Button variant="ghost" disabled className="opacity-50">
+                Watch Demo (Coming Soon)
               </Button>
               {googleClientId ? (
                 <GoogleLogin data-testid="button-login" />
@@ -140,11 +140,11 @@ export default function Landing() {
               <Button
                 size="lg"
                 variant="outline"
-                className="group"
-                onClick={() => window.location.href = '/demo'}
+                className="group opacity-50"
+                disabled
               >
-                <Play className="mr-2 w-4 h-4 group-hover:scale-110 transition-transform" />
-                Watch Demo
+                <Play className="mr-2 w-4 h-4" />
+                Watch Demo (Coming Soon)
               </Button>
             </motion.div>
           </motion.div>
@@ -425,11 +425,11 @@ export default function Landing() {
               <Button
                 size="lg"
                 variant="secondary"
-                className="bg-white text-indigo-600 hover:bg-white/90 px-8"
-                onClick={() => window.location.href = '/demo'}
+                className="bg-white text-indigo-600 px-8 opacity-50"
+                disabled
               >
                 <Play className="mr-2 w-5 h-5" />
-                Watch Demo Video
+                Watch Demo Video (Coming Soon)
               </Button>
             </div>
           </motion.div>
@@ -572,9 +572,10 @@ export default function Landing() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => window.location.href = '/demo'}
+                disabled
+                className="opacity-50"
               >
-                Watch Demo
+                Watch Demo (Coming Soon)
               </Button>
             </div>
           </motion.div>
@@ -589,7 +590,7 @@ export default function Landing() {
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="/app" className="hover:text-foreground transition-colors">Features</a></li>
-                <li><a href="/demo" className="hover:text-foreground transition-colors">Demo</a></li>
+                <li><span className="opacity-50 cursor-not-allowed">Demo (Coming Soon)</span></li>
                 <li><a href="/app" className="hover:text-foreground transition-colors">Pricing</a></li>
               </ul>
             </div>
