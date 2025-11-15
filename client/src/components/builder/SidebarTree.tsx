@@ -3,13 +3,16 @@
  */
 
 import { useState } from "react";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code } from "lucide-react";
 import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { BlocksPanel } from "./BlocksPanel";
+import { TransformBlocksPanel } from "./TransformBlocksPanel";
 import {
   DndContext,
   closestCenter,
@@ -33,6 +36,8 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: sections } = useSections(workflowId);
   const createSectionMutation = useCreateSection();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [showBlocksDialog, setShowBlocksDialog] = useState(false);
+  const [showTransformDialog, setShowTransformDialog] = useState(false);
 
   const handleCreateSection = async () => {
     const order = sections?.length || 0;
@@ -57,11 +62,21 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b space-y-2">
         <Button onClick={handleCreateSection} size="sm" className="w-full">
           <Plus className="w-4 h-4 mr-2" />
           {UI_LABELS.ADD_PAGE}
         </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowBlocksDialog(true)} size="sm" variant="outline" className="flex-1">
+            <Blocks className="w-3 h-3 mr-1" />
+            Blocks
+          </Button>
+          <Button onClick={() => setShowTransformDialog(true)} size="sm" variant="outline" className="flex-1">
+            <Code className="w-3 h-3 mr-1" />
+            Transform
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -77,6 +92,26 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           ))}
         </div>
       </ScrollArea>
+
+      {/* Blocks Dialog */}
+      <Dialog open={showBlocksDialog} onOpenChange={setShowBlocksDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Workflow Blocks</DialogTitle>
+          </DialogHeader>
+          <BlocksPanel workflowId={workflowId} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Transform Blocks Dialog */}
+      <Dialog open={showTransformDialog} onOpenChange={setShowTransformDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transform Blocks</DialogTitle>
+          </DialogHeader>
+          <TransformBlocksPanel workflowId={workflowId} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

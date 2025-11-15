@@ -1,6 +1,6 @@
 /**
- * Workflow Builder - 3-pane layout
- * Sidebar: Section/Step tree | Canvas: Editor | Inspector: Properties/Blocks
+ * Workflow Builder - 2-pane layout (3-pane with preview)
+ * Sidebar: Section/Step tree | Canvas: Editor | Optional: Preview
  */
 
 import { useParams, useLocation } from "wouter";
@@ -14,7 +14,6 @@ import { Toggle } from "@/components/ui/toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarTree } from "@/components/builder/SidebarTree";
 import { CanvasEditor } from "@/components/builder/CanvasEditor";
-import { Inspector } from "@/components/builder/Inspector";
 import { RunnerPreview } from "@/components/builder/RunnerPreview";
 import { WorkflowSettings } from "@/components/builder/WorkflowSettings";
 import { AdvancedModeBanner } from "@/components/builder/AdvancedModeBanner";
@@ -57,7 +56,6 @@ export default function WorkflowBuilder() {
     previewRunId,
     startPreview,
     stopPreview,
-    selection,
   } = useWorkflowBuilder();
 
   const { setToken } = usePreviewStore();
@@ -259,7 +257,7 @@ export default function WorkflowBuilder() {
         </div>
       )}
 
-      {/* 3-Pane Layout + Dev Panel */}
+      {/* 2-Pane Layout (+ Preview) + Dev Panel */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Section/Step Tree */}
         <div className="w-64 border-r bg-card overflow-y-auto">
@@ -270,13 +268,6 @@ export default function WorkflowBuilder() {
         <div className={`flex-1 overflow-hidden ${isPreviewOpen ? 'border-r' : ''}`}>
           <PageCanvas workflowId={workflowId!} />
         </div>
-
-        {/* Inspector - Properties/Blocks */}
-        {!isPreviewOpen && selection && (
-          <div className="w-96 border-l bg-card overflow-y-auto">
-            <Inspector workflowId={workflowId!} />
-          </div>
-        )}
 
         {/* Preview Pane */}
         {isPreviewOpen && previewRunId && (
