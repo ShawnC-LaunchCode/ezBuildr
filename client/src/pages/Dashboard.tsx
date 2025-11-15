@@ -62,7 +62,7 @@ export default function Dashboard() {
   });
 
   const { data: surveys, isLoading: surveysLoading, refetch: refetchSurveys } = useQuery<Survey[]>({
-    queryKey: ["/api/surveys"],
+    queryKey: ["/api/workflows"],
     retry: false,
   });
 
@@ -97,20 +97,20 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Dashboard"
-          description="Comprehensive survey analytics and management"
+          description="Workflow automation platform analytics and management"
         />
 
         <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* AI Hero Card */}
           <AIHeroCard
-            onAIClick={() => track("ai_survey_entry_clicked", { source: "dashboard_hero" })}
-            onBlankClick={() => track("new_survey_blank_clicked", { source: "dashboard_hero" })}
+            onAIClick={() => track("ai_workflow_entry_clicked", { source: "dashboard_hero" })}
+            onBlankClick={() => track("new_workflow_blank_clicked", { source: "dashboard_hero" })}
           />
 
           {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
             <StatsCard
-              title="Total Surveys"
+              title="Total Workflows"
               value={stats?.totalSurveys ?? 0}
               icon={FileText}
               iconColor="text-primary"
@@ -118,23 +118,23 @@ export default function Dashboard() {
               changeLabel="pending"
               isLoading={statsLoading}
             />
-            
+
             <StatsCard
-              title="Active Surveys"
+              title="Active Workflows"
               value={stats?.activeSurveys ?? 0}
               icon={PlayCircle}
               iconColor="text-success"
-              change={`${stats?.closedSurveys ?? 0} closed`}
+              change={`${stats?.closedSurveys ?? 0} archived`}
               changeLabel="total"
               isLoading={statsLoading}
             />
-            
+
             <StatsCard
-              title="Total Responses"
+              title="Total Runs"
               value={stats?.totalResponses ?? 0}
               icon={TrendingUp}
               iconColor="text-foreground"
-              change={`${stats?.avgResponsesPerSurvey ?? 0}/survey`}
+              change={`${stats?.avgResponsesPerSurvey ?? 0}/workflow`}
               changeLabel="average"
               isLoading={statsLoading}
             />
@@ -197,18 +197,18 @@ export default function Dashboard() {
                       iconColor="text-indigo-600"
                       iconBgColor="bg-indigo-50"
                       label="Generate with AI"
-                      testId="button-quick-ai-survey"
-                      onClick={() => track("ai_survey_entry_clicked", { source: "quick_actions" })}
+                      testId="button-quick-ai-workflow"
+                      onClick={() => track("ai_workflow_entry_clicked", { source: "quick_actions" })}
                     />
 
                     <QuickActionButton
-                      href="/surveys/new"
+                      href="/workflows/new"
                       icon={Plus}
                       iconColor="text-primary"
                       iconBgColor="bg-primary/10"
-                      label="Create New Survey"
-                      testId="button-quick-create-survey"
-                      onClick={() => track("new_survey_blank_clicked", { source: "quick_actions" })}
+                      label="Create New Workflow"
+                      testId="button-quick-create-workflow"
+                      onClick={() => track("new_workflow_blank_clicked", { source: "quick_actions" })}
                     />
 
                     <QuickActionButton
@@ -216,17 +216,17 @@ export default function Dashboard() {
                       icon={Settings}
                       iconColor="text-success"
                       iconBgColor="bg-success/10"
-                      label="Manage Surveys"
-                      testId="button-quick-manage-surveys"
+                      label="Manage Workflows"
+                      testId="button-quick-manage-workflows"
                     />
 
                     <QuickActionButton
-                      href="/responses"
+                      href="/runs"
                       icon={BarChart3}
                       iconColor="text-foreground"
                       iconBgColor="bg-accent"
-                      label="View All Responses"
-                      testId="button-quick-view-responses"
+                      label="View All Runs"
+                      testId="button-quick-view-runs"
                     />
 
                     <QuickActionButton
@@ -239,13 +239,13 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Recent Surveys */}
+                {/* Recent Workflows */}
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center">
                         <Clock className="mr-2 h-4 w-4 text-primary" />
-                        Recent Surveys
+                        Recent Workflows
                       </CardTitle>
                       <Link href="/workflows" className="text-sm text-primary hover:text-primary/80 font-medium">
                         View all
@@ -258,20 +258,20 @@ export default function Dashboard() {
                     ) : surveys && surveys.length > 0 ? (
                       <div className="space-y-2 sm:space-y-3">
                         {surveys.slice(0, 4).map((survey) => {
-                          // Determine target URL based on survey status
+                          // Determine target URL based on workflow status
                           const targetUrl = survey.status === 'draft'
                             ? `/builder/${survey.id}`
-                            : `/surveys/${survey.id}/results`;
+                            : `/workflows/${survey.id}/results`;
 
                           return (
                             <Link key={survey.id} href={targetUrl}>
-                              <div className="flex items-center justify-between p-2 sm:p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid={`card-recent-survey-${survey.id}`}>
+                              <div className="flex items-center justify-between p-2 sm:p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid={`card-recent-workflow-${survey.id}`}>
                                 <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                                   <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <FileText className="h-4 w-4 text-primary" />
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <h4 className="font-medium text-sm sm:text-base text-foreground line-clamp-1" data-testid={`text-recent-survey-title-${survey.id}`}>
+                                    <h4 className="font-medium text-sm sm:text-base text-foreground line-clamp-1" data-testid={`text-recent-workflow-title-${survey.id}`}>
                                       {survey.title}
                                     </h4>
                                     <p className="text-xs text-muted-foreground">
@@ -293,12 +293,12 @@ export default function Dashboard() {
                         <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         </div>
-                        <h4 className="font-medium text-foreground mb-2">No surveys yet</h4>
-                        <p className="text-sm text-muted-foreground mb-4">Create your first survey to get started</p>
-                        <Link href="/surveys/new">
-                          <Button size="sm" data-testid="button-create-first-survey">
+                        <h4 className="font-medium text-foreground mb-2">No workflows yet</h4>
+                        <p className="text-sm text-muted-foreground mb-4">Create your first workflow to get started</p>
+                        <Link href="/workflows/new">
+                          <Button size="sm" data-testid="button-create-first-workflow">
                             <Plus className="mr-2 h-4 w-4" />
-                            Create Survey
+                            Create Workflow
                           </Button>
                         </Link>
                       </div>
