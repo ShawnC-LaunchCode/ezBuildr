@@ -45,7 +45,7 @@ export async function runRollup(params?: {
     }
   }
 
-  logger.info({ buckets }, 'Metrics rollup completed');
+  // logger.info({ buckets }, 'Metrics rollup completed');
 }
 
 /**
@@ -62,12 +62,12 @@ async function rollupBucket(params: RollupParams): Promise<void> {
   // Get bucket boundaries
   const buckets = getBucketBoundaries(since, until, bucketMs);
 
-  logger.debug({
-    bucketSize: params.bucketSize,
-    bucketCount: buckets.length,
-    since,
-    until,
-  }, 'Rolling up metrics');
+  // logger.debug({
+  //   bucketSize: params.bucketSize,
+  //   bucketCount: buckets.length,
+  //   since,
+  //   until,
+  // }, 'Rolling up metrics');
 
   for (const bucket of buckets) {
     await rollupSingleBucket({
@@ -181,11 +181,11 @@ async function rollupSingleBucket(params: {
     `);
   }
 
-  logger.debug({
-    bucketSize: params.bucketSize,
-    bucketStart: params.bucketStart,
-    groupCount: results.rows.length,
-  }, 'Bucket rollup completed');
+  // logger.debug({
+  //   bucketSize: params.bucketSize,
+  //   bucketStart: params.bucketStart,
+  //   groupCount: results.rows.length,
+  // }, 'Bucket rollup completed');
 }
 
 /**
