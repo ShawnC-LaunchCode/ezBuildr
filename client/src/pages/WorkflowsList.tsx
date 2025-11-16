@@ -19,7 +19,8 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { Link } from "wouter";
-import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus } from "lucide-react";
+import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus, Link as LinkIcon } from "lucide-react";
+import { workflowAPI } from "@/lib/vault-api";
 
 export default function WorkflowsList() {
   const { toast } = useToast();
@@ -131,6 +132,23 @@ export default function WorkflowsList() {
     });
   };
 
+  const handleCopyLink = async (workflowId: string) => {
+    try {
+      const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
+      await navigator.clipboard.writeText(publicUrl);
+      toast({
+        title: "Link copied!",
+        description: "The workflow link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy link",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading || !isAuthenticated) {
     return null;
   }
@@ -228,6 +246,15 @@ export default function WorkflowsList() {
                               Edit
                             </Button>
                           </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyLink(workflow.id)}
+                            data-testid={`button-copy-link-workflow-${workflow.id}`}
+                          >
+                            <LinkIcon className="w-4 h-4 mr-1" />
+                            Copy Link
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
