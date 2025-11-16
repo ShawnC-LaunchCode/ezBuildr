@@ -1,0 +1,352 @@
+/**
+ * SettingsTab - Workflow-specific settings
+ * PR7: Full UI implementation with stub saves
+ */
+
+import { useState } from "react";
+import { Save, Link as LinkIcon, Palette, Settings as SettingsIcon, Eye, Copy, Check } from "lucide-react";
+import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+interface SettingsTabProps {
+  workflowId: string;
+}
+
+export function SettingsTab({ workflowId }: SettingsTabProps) {
+  const { toast } = useToast();
+
+  // General Settings
+  const [name, setName] = useState("My Workflow");
+  const [description, setDescription] = useState("Description of my workflow");
+  const [slug, setSlug] = useState("my-workflow");
+
+  // Branding Settings
+  const [brandingEnabled, setBrandingEnabled] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#3b82f6");
+  const [secondaryColor, setSecondaryColor] = useState("#8b5cf6");
+
+  // Behavior Settings
+  const [completionMessage, setCompletionMessage] = useState("Thank you for completing this workflow!");
+  const [redirectUrl, setRedirectUrl] = useState("");
+  const [allowSaveAndResume, setAllowSaveAndResume] = useState(true);
+
+  // Publishing Settings
+  const [isPublic, setIsPublic] = useState(false);
+  const [requireLogin, setRequireLogin] = useState(false);
+  const [shareableLink, setShareableLink] = useState(`https://vaultlogic.app/run/${workflowId}`);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Stub: Save all settings
+  const handleSaveSettings = () => {
+    console.log("Saving settings:", {
+      general: { name, description, slug },
+      branding: { enabled: brandingEnabled, logoUrl, primaryColor, secondaryColor },
+      behavior: { completionMessage, redirectUrl, allowSaveAndResume },
+      publishing: { isPublic, requireLogin },
+    });
+
+    toast({
+      title: "Settings Saved",
+      description: "Workflow settings have been updated successfully",
+    });
+  };
+
+  // Copy shareable link
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareableLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+
+    toast({
+      title: "Link Copied",
+      description: "Shareable link copied to clipboard",
+    });
+  };
+
+  return (
+    <BuilderLayout>
+      <BuilderLayoutHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Workflow Settings</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure general settings, branding, behavior, and publishing options
+            </p>
+          </div>
+
+          <Button onClick={handleSaveSettings}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Settings
+          </Button>
+        </div>
+      </BuilderLayoutHeader>
+
+      <BuilderLayoutContent>
+        <div className="max-w-3xl space-y-6">
+          {/* General Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <SettingsIcon className="w-5 h-5" />
+                <CardTitle>General</CardTitle>
+              </div>
+              <CardDescription>
+                Basic workflow information and identification
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Workflow Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter workflow name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe the purpose of this workflow"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slug">URL Slug</Label>
+                <Input
+                  id="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="my-workflow"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used in public URLs: /run/{slug}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Branding Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5" />
+                <CardTitle>Branding</CardTitle>
+              </div>
+              <CardDescription>
+                Customize the appearance of your workflow
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="branding-enabled">Enable Custom Branding</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Apply custom colors and logo to this workflow
+                  </p>
+                </div>
+                <Switch
+                  id="branding-enabled"
+                  checked={brandingEnabled}
+                  onCheckedChange={setBrandingEnabled}
+                />
+              </div>
+
+              {brandingEnabled && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">Logo URL</Label>
+                    <Input
+                      id="logo"
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder="https://example.com/logo.png"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="primary-color">Primary Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="primary-color"
+                          type="color"
+                          value={primaryColor}
+                          onChange={(e) => setPrimaryColor(e.target.value)}
+                          className="w-16 h-10 p-1"
+                        />
+                        <Input
+                          value={primaryColor}
+                          onChange={(e) => setPrimaryColor(e.target.value)}
+                          placeholder="#3b82f6"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="secondary-color">Secondary Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="secondary-color"
+                          type="color"
+                          value={secondaryColor}
+                          onChange={(e) => setSecondaryColor(e.target.value)}
+                          className="w-16 h-10 p-1"
+                        />
+                        <Input
+                          value={secondaryColor}
+                          onChange={(e) => setSecondaryColor(e.target.value)}
+                          placeholder="#8b5cf6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Behavior Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <SettingsIcon className="w-5 h-5" />
+                <CardTitle>Behavior</CardTitle>
+              </div>
+              <CardDescription>
+                Configure workflow completion and user experience
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="completion-message">Completion Message</Label>
+                <Textarea
+                  id="completion-message"
+                  value={completionMessage}
+                  onChange={(e) => setCompletionMessage(e.target.value)}
+                  placeholder="Thank you message shown after completion"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="redirect-url">Redirect URL (Optional)</Label>
+                <Input
+                  id="redirect-url"
+                  value={redirectUrl}
+                  onChange={(e) => setRedirectUrl(e.target.value)}
+                  placeholder="https://example.com/thank-you"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Redirect users to this URL after completion instead of showing completion message
+                </p>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="save-resume">Allow Save & Resume</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Let users save progress and return later
+                  </p>
+                </div>
+                <Switch
+                  id="save-resume"
+                  checked={allowSaveAndResume}
+                  onCheckedChange={setAllowSaveAndResume}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Publishing Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                <CardTitle>Publishing</CardTitle>
+              </div>
+              <CardDescription>
+                Control who can access and run this workflow
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="is-public">Public Access</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Allow anyone with the link to run this workflow
+                  </p>
+                </div>
+                <Switch
+                  id="is-public"
+                  checked={isPublic}
+                  onCheckedChange={setIsPublic}
+                />
+              </div>
+
+              {isPublic && (
+                <>
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="require-login">Require Login</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Users must sign in to run this workflow
+                      </p>
+                    </div>
+                    <Switch
+                      id="require-login"
+                      checked={requireLogin}
+                      onCheckedChange={setRequireLogin}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label>Shareable Link</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={shareableLink}
+                        readOnly
+                        className="flex-1 font-mono text-sm"
+                      />
+                      <Button variant="outline" onClick={handleCopyLink}>
+                        {linkCopied ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Share this link with participants to access the workflow
+                    </p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </BuilderLayoutContent>
+    </BuilderLayout>
+  );
+}

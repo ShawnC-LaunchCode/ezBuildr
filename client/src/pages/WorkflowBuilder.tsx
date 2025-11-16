@@ -1,10 +1,10 @@
 /**
- * Workflow Builder - 2-pane layout (3-pane with preview)
- * Sidebar: Section/Step tree | Canvas: Editor | Optional: Preview
+ * Workflow Builder - Tabbed interface with Sections, Templates, Data Sources, Settings, Snapshots
+ * PR1: Added tab-based navigation structure
  */
 
 import { useParams, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft } from "lucide-react";
 import { useWorkflow, useSections, useCreateRun, useWorkflowMode, useSetWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
@@ -12,13 +12,7 @@ import { usePreviewStore } from "@/store/preview";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SidebarTree } from "@/components/builder/SidebarTree";
-import { CanvasEditor } from "@/components/builder/CanvasEditor";
-import { RunnerPreview } from "@/components/builder/RunnerPreview";
-import { WorkflowSettings } from "@/components/builder/WorkflowSettings";
 import { AdvancedModeBanner } from "@/components/builder/AdvancedModeBanner";
-import { PageCanvas } from "@/components/builder/pages/PageCanvas";
-import { DevPanel } from "@/components/devpanel/DevPanel";
 import { UI_LABELS } from "@/lib/labels";
 import { useToast } from "@/hooks/use-toast";
 import { getModeLabel, type Mode } from "@/lib/mode";
@@ -29,18 +23,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+
+// Tab components
+import { BuilderTabNav, type BuilderTab } from "@/components/builder/layout/BuilderTabNav";
+import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
+import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
+import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
+import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
+import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
+import { ActivateToggle } from "@/components/builder/ActivateToggle";
+import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
 
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
   const { data: workflowMode, isLoading: modeLoading } = useWorkflowMode(workflowId);
@@ -48,19 +44,41 @@ export default function WorkflowBuilder() {
   const createRunMutation = useCreateRun();
   const { toast } = useToast();
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [launchingPreview, setLaunchingPreview] = useState(false);
+  const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
 
-  const {
-    isPreviewOpen,
-    previewRunId,
-    startPreview,
-    stopPreview,
-  } = useWorkflowBuilder();
+  // Extract active tab from URL query params (default: sections)
+  const searchParams = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState<BuilderTab>(
+    (searchParams.get("tab") as BuilderTab) || "sections"
+  );
 
   const { setToken } = usePreviewStore();
 
   const mode = workflowMode?.mode || 'easy';
+
+  // Handle workflow status changes
+  const handleStatusChange = (newStatus: "draft" | "open" | "closed") => {
+    // Optimistically update the UI by refetching workflow data
+    // The useWorkflow hook will automatically refetch with invalidation
+    console.log("Workflow status changed to:", newStatus);
+  };
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: BuilderTab) => {
+    setActiveTab(tab);
+    const newUrl = `/workflows/${workflowId}/builder?tab=${tab}`;
+    window.history.pushState({}, "", newUrl);
+  };
+
+  // Sync tab state with URL on mount and location changes
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabFromUrl = params.get("tab") as BuilderTab;
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location]);
 
   const handleStartPreview = async () => {
     if (!workflowId) return;
@@ -210,6 +228,15 @@ export default function WorkflowBuilder() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Activate Toggle */}
+          <div className="border-l pl-2 ml-2">
+            <ActivateToggle
+              workflowId={workflowId!}
+              currentStatus={workflow.status}
+              onStatusChange={handleStatusChange}
+            />
+          </div>
+
           {/* Preview Button */}
           <Button
             variant="outline"
@@ -229,58 +256,51 @@ export default function WorkflowBuilder() {
               </>
             )}
           </Button>
-
-          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Workflow Settings</DialogTitle>
-                <DialogDescription>
-                  Configure settings for "{workflow.title}"
-                </DialogDescription>
-              </DialogHeader>
-              <WorkflowSettings workflowId={workflowId!} />
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <BuilderTabNav
+        workflowId={workflowId!}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      />
+
       {/* Advanced Mode Banner */}
-      {mode === 'advanced' && (
+      {mode === 'advanced' && activeTab === 'sections' && (
         <div className="px-6 py-3">
           <AdvancedModeBanner />
         </div>
       )}
 
-      {/* 2-Pane Layout (+ Preview) + Dev Panel */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Section/Step Tree */}
-        <div className="w-64 border-r bg-card overflow-y-auto">
-          <SidebarTree workflowId={workflowId!} />
-        </div>
-
-        {/* Canvas - Page Builder */}
-        <div className={`flex-1 overflow-hidden ${isPreviewOpen ? 'border-r' : ''}`}>
-          <PageCanvas workflowId={workflowId!} />
-        </div>
-
-        {/* Preview Pane */}
-        {isPreviewOpen && previewRunId && (
-          <div className="w-96 bg-muted/30 overflow-y-auto">
-            <RunnerPreview runId={previewRunId} />
-          </div>
+      {/* Tab Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {activeTab === 'sections' && (
+          <SectionsTab workflowId={workflowId!} mode={mode} />
         )}
-
-        {/* Dev Panel - Advanced Mode Only */}
-        {mode === 'advanced' && (
-          <DevPanel workflowId={workflowId!} />
+        {activeTab === 'templates' && (
+          <TemplatesTab workflowId={workflowId!} />
+        )}
+        {activeTab === 'data-sources' && (
+          <DataSourcesTab
+            workflowId={workflowId!}
+            onConfigureCollections={() => setCollectionsDrawerOpen(true)}
+          />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsTab workflowId={workflowId!} />
+        )}
+        {activeTab === 'snapshots' && (
+          <SnapshotsTab workflowId={workflowId!} />
         )}
       </div>
+
+      {/* Collections Configuration Drawer */}
+      <CollectionsDrawer
+        open={collectionsDrawerOpen}
+        onOpenChange={setCollectionsDrawerOpen}
+        workflowId={workflowId!}
+      />
     </div>
   );
 }
