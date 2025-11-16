@@ -150,7 +150,7 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
     try {
       // Submit section with validation
       const result = await submitMutation.mutateAsync({
-        runId,
+        runId: actualRunId!,
         sectionId: currentSection.id,
         values: sectionValues,
       });
@@ -163,14 +163,14 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
 
       // If last section, complete the run
       if (isLastSection) {
-        await completeMutation.mutateAsync(runId);
+        await completeMutation.mutateAsync(actualRunId!);
         toast({ title: "Complete!", description: "Workflow completed successfully" });
         return;
       }
 
       // Otherwise, navigate to next section
       const nextResult = await nextMutation.mutateAsync({
-        runId,
+        runId: actualRunId!,
         currentSectionId: currentSection.id,
       });
 
