@@ -25,8 +25,8 @@ const TABS: TabConfig[] = [
   { id: "sections", label: "Sections", icon: Layers },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "data-sources", label: "Data Sources", icon: Database },
-  { id: "settings", label: "Settings", icon: Settings },
   { id: "snapshots", label: "Snapshots", icon: Camera },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 interface BuilderTabNavProps {
@@ -37,7 +37,7 @@ interface BuilderTabNavProps {
 
 export function BuilderTabNav({ workflowId, activeTab, onTabChange }: BuilderTabNavProps) {
   return (
-    <div className="flex items-center gap-1 border-b bg-card/50">
+    <div className="flex items-center justify-center gap-1 border-b bg-card/50">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;

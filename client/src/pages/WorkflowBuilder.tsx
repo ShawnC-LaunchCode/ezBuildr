@@ -172,99 +172,102 @@ export default function WorkflowBuilder() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b px-6 py-3 flex items-center justify-between bg-card">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/workflows')}
-            className="mr-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-xl font-semibold">{workflow.title}</h1>
-          <span className="text-sm text-muted-foreground">
-            {sections?.length || 0} {sections?.length === 1 ? UI_LABELS.PAGE.toLowerCase() : UI_LABELS.PAGES.toLowerCase()}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Mode Selector */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="mr-2">
-                {getModeLabel(mode, workflowMode?.source || 'user')}
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => handleModeChange('easy')}>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">Switch to Easy</span>
-                  <span className="text-xs text-muted-foreground">
-                    Curated set of features
-                  </span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleModeChange('advanced')}>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">Switch to Advanced</span>
-                  <span className="text-xs text-muted-foreground">
-                    Full logic and all blocks
-                  </span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleClearOverride}>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">Clear Override</span>
-                  <span className="text-xs text-muted-foreground">
-                    Use account default
-                  </span>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Activate Toggle */}
-          <div className="border-l pl-2 ml-2">
-            <ActivateToggle
-              workflowId={workflowId!}
-              currentStatus={workflow.status}
-              onStatusChange={handleStatusChange}
-            />
+      {/* Header - Sticky at top */}
+      <div className="sticky top-0 z-10 bg-background">
+        {/* Top bar with title and controls */}
+        <div className="border-b px-6 py-3 flex items-center justify-between bg-card">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/workflows')}
+              className="mr-2"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <h1 className="text-xl font-semibold">{workflow.title}</h1>
+            <span className="text-sm text-muted-foreground">
+              {sections?.length || 0} {sections?.length === 1 ? UI_LABELS.PAGE.toLowerCase() : UI_LABELS.PAGES.toLowerCase()}
+            </span>
           </div>
 
-          {/* Preview Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleStartPreview}
-            disabled={launchingPreview}
-          >
-            {launchingPreview ? (
-              <>
-                <Play className="w-4 h-4 mr-2 animate-spin" />
-                Launching...
-              </>
-            ) : (
-              <>
-                <Eye className="w-4 h-4 mr-2" />
-                Preview
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+          <div className="flex items-center gap-2">
+            {/* Mode Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="mr-2">
+                  {getModeLabel(mode, workflowMode?.source || 'user')}
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => handleModeChange('easy')}>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">Switch to Easy</span>
+                    <span className="text-xs text-muted-foreground">
+                      Curated set of features
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleModeChange('advanced')}>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">Switch to Advanced</span>
+                    <span className="text-xs text-muted-foreground">
+                      Full logic and all blocks
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleClearOverride}>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium">Clear Override</span>
+                    <span className="text-xs text-muted-foreground">
+                      Use account default
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-      {/* Tab Navigation */}
-      <BuilderTabNav
-        workflowId={workflowId!}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-      />
+            {/* Activate Toggle */}
+            <div className="border-l pl-2 ml-2">
+              <ActivateToggle
+                workflowId={workflowId!}
+                currentStatus={workflow.status}
+                onStatusChange={handleStatusChange}
+              />
+            </div>
+
+            {/* Preview Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStartPreview}
+              disabled={launchingPreview}
+            >
+              {launchingPreview ? (
+                <>
+                  <Play className="w-4 h-4 mr-2 animate-spin" />
+                  Launching...
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <BuilderTabNav
+          workflowId={workflowId!}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+      </div>
 
       {/* Advanced Mode Banner */}
       {mode === 'advanced' && activeTab === 'sections' && (
