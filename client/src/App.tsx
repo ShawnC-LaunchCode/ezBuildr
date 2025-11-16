@@ -32,6 +32,7 @@ import EmailTemplatesPage from "@/pages/EmailTemplatesPage"; // Stage 17
 import EmailTemplateEditorPage from "@/pages/EmailTemplateEditorPage"; // Stage 17
 import CollectionsPage from "@/pages/CollectionsPage"; // Stage 19
 import CollectionDetailPage from "@/pages/CollectionDetailPage"; // Stage 19
+import TemplateTestRunner from "@/pages/TemplateTestRunner"; // Template Test Runner PR1
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -66,6 +67,10 @@ function Router() {
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
+            {/* Template Test Runner - PR1 */}
+            <Route path="/workflows/:workflowId/builder/templates/test/:templateId">
+              {(params) => <TemplateTestRunner />}
+            </Route>
 
             {/* Project routes */}
             <Route path="/projects/:id" component={ProjectView} />

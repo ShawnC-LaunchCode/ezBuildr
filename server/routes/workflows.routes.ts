@@ -3,6 +3,7 @@ import { isAuthenticated } from "../googleAuth";
 import { insertWorkflowSchema } from "@shared/schema";
 import { workflowService } from "../services/WorkflowService";
 import { variableService } from "../services/VariableService";
+import { templateTestService } from "../services/TemplateTestService";
 import { z } from "zod";
 import { logger } from "../logger";
 
@@ -483,6 +484,72 @@ export function registerWorkflowRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : "Failed to transfer workflow ownership";
       const status = message.includes("not found") ? 404 : message.includes("Only the") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * POST /api/workflows/:workflowId/templates/:templateId/test
+   * Test a template with sample data
+   * PR4: Template Test Runner API
+   * Body: { outputType: 'docx' | 'pdf' | 'both', sampleData: any }
+   */
+  app.post('/api/workflows/:workflowId/templates/:templateId/test', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId, templateId } = req.params;
+
+      // Validate request body
+      const schema = z.object({
+        outputType: z.enum(['docx', 'pdf', 'both']),
+        sampleData: z.record(z.any()),
+      });
+
+      const { outputType, sampleData } = schema.parse(req.body);
+
+      // Run the template test
+      const result = await templateTestService.runTest({
+        workflowId,
+        templateId,
+        outputType,
+        sampleData,
+      });
+
+      // Return result with appropriate status code
+      const statusCode = result.ok ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, templateId: req.params.templateId, userId: req.user?.claims?.sub }, "Error testing template");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          ok: false,
+          status: 'error',
+          durationMs: 0,
+          errors: [
+            {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid request body',
+              path: error.errors[0]?.path?.join('.'),
+            },
+          ],
+        });
+      }
+
+      res.status(500).json({
+        ok: false,
+        status: 'error',
+        durationMs: 0,
+        errors: [
+          {
+            code: 'INTERNAL_ERROR',
+            message: error instanceof Error ? error.message : 'Internal server error',
+          },
+        ],
+      });
     }
   });
 }

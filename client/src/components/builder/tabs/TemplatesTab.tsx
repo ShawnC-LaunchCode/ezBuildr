@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Upload, FileText, Trash2, RefreshCw, TestTube } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ interface TemplatesTabProps {
 
 export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -165,13 +167,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     });
   };
 
-  // Stub: Test template
-  const handleTest = async (templateId: string) => {
-    console.log("Test template:", templateId);
-    toast({
-      title: "Coming Soon",
-      description: "Template testing will be implemented soon",
-    });
+  // Navigate to template test runner
+  const handleTest = (templateId: string) => {
+    navigate(`/workflows/${workflowId}/builder/templates/test/${templateId}`);
   };
 
   const formatFileSize = (bytes?: number) => {
