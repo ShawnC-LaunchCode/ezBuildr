@@ -81,13 +81,16 @@ export class RunService {
   /**
    * Create a new workflow run
    * Executes onRunStart blocks after creation
+   * @param idOrSlug - Workflow UUID or slug
    */
   async createRun(
-    workflowId: string,
+    idOrSlug: string,
     userId: string,
     data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken'>
   ): Promise<WorkflowRun> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    // Resolve slug to UUID and verify ownership
+    const workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
+    const workflowId = workflow.id; // Use the actual UUID
 
     // Generate a unique token for this run
     const runToken = randomUUID();
@@ -96,7 +99,7 @@ export class RunService {
     // Create the run
     const run = await this.runRepo.create({
       ...data,
-      workflowId,
+      workflowId, // Always use UUID here
       runToken,
       completed: false,
     } as any);

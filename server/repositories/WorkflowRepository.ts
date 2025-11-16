@@ -52,6 +52,33 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   }
 
   /**
+   * Find workflow by slug (Stage 12: Intake Portal)
+   */
+  async findBySlug(slug: string, tx?: DbTransaction): Promise<Workflow | null> {
+    const database = this.getDb(tx);
+    const [workflow] = await database
+      .select()
+      .from(workflows)
+      .where(eq(workflows.slug, slug))
+      .limit(1);
+    return workflow || null;
+  }
+
+  /**
+   * Find workflow by ID or slug (helper for UUID/slug resolution)
+   */
+  async findByIdOrSlug(idOrSlug: string, tx?: DbTransaction): Promise<Workflow | null> {
+    // Try UUID first (faster and more common)
+    const database = this.getDb(tx);
+
+    const byId = await this.findById(idOrSlug, tx);
+    if (byId) return byId;
+
+    // If not found by ID, try slug
+    return await this.findBySlug(idOrSlug, tx);
+  }
+
+  /**
    * Find workflows by project ID
    */
   async findByProjectId(projectId: string, tx?: DbTransaction): Promise<Workflow[]> {

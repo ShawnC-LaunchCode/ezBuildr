@@ -34,10 +34,10 @@ export class WorkflowService {
   }
 
   /**
-   * Verify user owns the workflow
+   * Verify user owns the workflow (accepts UUID or slug)
    */
-  async verifyOwnership(workflowId: string, userId: string): Promise<Workflow> {
-    const workflow = await this.workflowRepo.findById(workflowId);
+  async verifyOwnership(idOrSlug: string, userId: string): Promise<Workflow> {
+    const workflow = await this.workflowRepo.findByIdOrSlug(idOrSlug);
 
     if (!workflow) {
       throw new Error("Workflow not found");

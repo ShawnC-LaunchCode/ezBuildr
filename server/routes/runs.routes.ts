@@ -49,6 +49,7 @@ export function registerRunRoutes(app: Express): void {
         }
 
         const run = await runService.createRun(workflowId, userId, runData);
+
         return res.status(201).json({
           success: true,
           data: {
