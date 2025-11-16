@@ -47,15 +47,16 @@ export function BuilderTabNav({ workflowId, activeTab, onTabChange }: BuilderTab
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative",
+              "flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 py-3 text-sm font-medium transition-colors relative",
+              "w-[100px] md:w-auto md:px-4",
               "hover:text-foreground hover:bg-accent/50",
               isActive
                 ? "text-foreground bg-background border-b-2 border-primary"
                 : "text-muted-foreground"
             )}
           >
-            <Icon className="w-4 h-4" />
-            {tab.label}
+            <Icon className="w-5 h-5 md:w-4 md:h-4" />
+            <span className="text-xs md:text-sm">{tab.label}</span>
           </button>
         );
       })}
