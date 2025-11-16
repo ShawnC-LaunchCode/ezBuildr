@@ -42,7 +42,7 @@ describe('DOCX Renderer 2.0', () => {
     });
 
     it('should detect missing placeholders', () => {
-      const placeholders = ['name', 'email', 'date'];
+      const placeholders = ['name', 'email', 'birthdate']; // Note: 'date' is a helper function, use 'birthdate' instead
       const data = {
         name: 'John Doe',
       };
@@ -51,7 +51,7 @@ describe('DOCX Renderer 2.0', () => {
 
       expect(result.valid).toBe(false);
       expect(result.missing).toContain('email');
-      expect(result.missing).toContain('date');
+      expect(result.missing).toContain('birthdate');
       expect(result.missing).toHaveLength(2);
     });
 

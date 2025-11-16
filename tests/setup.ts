@@ -74,7 +74,7 @@ vi.mock("../server/storage", () => ({
 }));
 
 // Mock file upload - multer is a CommonJS module
-// Mock file upload - multer is a CommonJS module  
+// Mock file upload - multer is a CommonJS module
 vi.mock("multer", () => {
   const multer: any = (options?: any) => ({
     single: () => (req: any, res: any, next: any) => next(),
@@ -85,6 +85,12 @@ vi.mock("multer", () => {
   // Add diskStorage method
   multer.diskStorage = (options: any) => ({
     _handleFile: (req: any, file: any, cb: any) => cb(null, { path: '/tmp/test-file', size: 0 }),
+    _removeFile: (req: any, file: any, cb: any) => cb(null),
+  });
+
+  // Add memoryStorage method
+  multer.memoryStorage = () => ({
+    _handleFile: (req: any, file: any, cb: any) => cb(null, { buffer: Buffer.from('test'), size: 4 }),
     _removeFile: (req: any, file: any, cb: any) => cb(null),
   });
 
