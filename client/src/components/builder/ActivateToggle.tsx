@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-type WorkflowStatus = "draft" | "open" | "closed";
+type WorkflowStatus = "draft" | "active" | "archived";
 
 interface ActivateToggleProps {
   workflowId: string;
@@ -28,12 +28,12 @@ export function ActivateToggle({
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
-  const isActive = currentStatus === "open";
+  const isActive = currentStatus === "active";
 
   const handleToggle = async () => {
     if (disabled) return;
 
-    const newStatus: WorkflowStatus = isActive ? "draft" : "open";
+    const newStatus: WorkflowStatus = isActive ? "draft" : "active";
 
     setIsUpdating(true);
 

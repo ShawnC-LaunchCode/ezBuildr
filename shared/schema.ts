@@ -803,7 +803,7 @@ export const emailTemplateMetadata = pgTable("email_template_metadata", {
 export const projectStatusEnum = pgEnum('project_status', ['active', 'archived']);
 
 // Workflow status enum
-export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'published']);
+export const workflowStatusEnum = pgEnum('workflow_status', ['draft', 'active', 'archived']);
 
 // WorkflowVersion status
 export const versionStatusEnum = pgEnum('version_status', ['draft', 'published']);
