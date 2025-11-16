@@ -2,15 +2,9 @@
 import { registerAuthRoutes } from "./auth.routes";
 import { registerAccountRoutes } from "./account.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
-import { registerSurveyRoutes } from "./surveys.routes";
-import { registerPageRoutes } from "./pages.routes";
-import { registerQuestionRoutes } from "./questions.routes";
-import { registerResponseRoutes } from "./responses.routes";
-import { registerAnalyticsRoutes } from "./analytics.routes";
 import { registerFileRoutes } from "./files.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
 import { registerAdminRoutes } from "./admin.routes";
-import { registerExportRoutes } from "./export.routes";
 import { registerAiRoutes } from "./ai.routes";
 import { registerTemplateRoutes } from "./templates.routes";
 import { registerTemplateSharingRoutes } from "./templateSharing.routes";
@@ -64,11 +58,8 @@ export function registerAllRoutes(app: Express): void {
   // User preferences routes
   registerUserPreferencesRoutes(app);
 
-  // Dashboard routes
-  registerDashboardRoutes(app);
-
-  // Survey management routes
-  registerSurveyRoutes(app);
+  // Dashboard routes (DISABLED - survey-specific, needs workflow conversion)
+  // registerDashboardRoutes(app);
 
   // Template management routes
   registerTemplateRoutes(app);
@@ -76,23 +67,8 @@ export function registerAllRoutes(app: Express): void {
   // Template sharing and collaboration routes
   registerTemplateSharingRoutes(app);
 
-  // Survey page routes
-  registerPageRoutes(app);
-
-  // Question and conditional logic routes
-  registerQuestionRoutes(app);
-
-  // Response collection routes
-  registerResponseRoutes(app);
-
-  // Analytics and reporting routes
-  registerAnalyticsRoutes(app);
-
   // File upload and management routes
   registerFileRoutes(app);
-
-  // Export routes (CSV and PDF)
-  registerExportRoutes(app);
 
   // AI-powered analytics routes
   registerAiRoutes(app);

@@ -28,16 +28,6 @@ export const queryKeys = {
     steps: (id: string) => [...queryKeys.workflows.all(), id, 'steps'] as const,
   },
 
-  // Surveys
-  surveys: {
-    all: () => ['surveys'] as const,
-    list: () => [...queryKeys.surveys.all(), 'list'] as const,
-    detail: (id: string) => [...queryKeys.surveys.all(), 'detail', id] as const,
-    pages: (id: string) => [...queryKeys.surveys.all(), id, 'pages'] as const,
-    analytics: (id: string) => [...queryKeys.surveys.all(), id, 'analytics'] as const,
-    responses: (id: string) => [...queryKeys.surveys.all(), id, 'responses'] as const,
-  },
-
   // Templates
   templates: {
     all: () => ['templates'] as const,
@@ -46,28 +36,11 @@ export const queryKeys = {
     shared: () => [...queryKeys.templates.all(), 'shared'] as const,
   },
 
-  // Responses
-  responses: {
-    all: () => ['responses'] as const,
-    list: () => [...queryKeys.responses.all(), 'list'] as const,
-    detail: (id: string) => [...queryKeys.responses.all(), 'detail', id] as const,
-    bySurvey: (surveyId: string) => [...queryKeys.responses.all(), 'survey', surveyId] as const,
-  },
-
-  // Analytics
-  analytics: {
-    all: () => ['analytics'] as const,
-    overview: (surveyId: string) => [...queryKeys.analytics.all(), 'overview', surveyId] as const,
-    question: (surveyId: string, questionId: string) =>
-      [...queryKeys.analytics.all(), 'question', surveyId, questionId] as const,
-  },
-
   // User
   user: {
     all: () => ['user'] as const,
     detail: () => [...queryKeys.user.all(), 'detail'] as const,
     preferences: () => [...queryKeys.user.all(), 'preferences'] as const,
-    surveys: () => [...queryKeys.user.all(), 'surveys'] as const,
   },
 
   // Admin
@@ -75,6 +48,5 @@ export const queryKeys = {
     all: () => ['admin'] as const,
     users: () => [...queryKeys.admin.all(), 'users'] as const,
     userDetail: (id: string) => [...queryKeys.admin.all(), 'users', id] as const,
-    surveys: () => [...queryKeys.admin.all(), 'surveys'] as const,
   },
 } as const;

@@ -8,21 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import SurveyBuilder from "@/pages/SurveyBuilder";
-import SurveyPlayer from "@/pages/SurveyPlayer";
-import SurveyPreview from "@/pages/SurveyPreview";
-import SurveysList from "@/pages/SurveysList";
 import WorkflowsList from "@/pages/WorkflowsList";
-import Responses from "@/pages/Responses";
-import ResponseDetails from "@/pages/ResponseDetails";
-import SurveyAnalytics from "@/pages/SurveyAnalytics";
-import SurveyResults from "@/pages/SurveyResults";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
-import AdminUserSurveys from "@/pages/AdminUserSurveys";
-import AdminSurveys from "@/pages/AdminSurveys";
 import AdminLogs from "@/pages/AdminLogs";
-import AISurveyCreator from "@/pages/AISurveyCreator";
 import TemplatesPage from "@/pages/TemplatesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FeedbackWidget from "@/components/FeedbackWidget";
@@ -50,9 +39,6 @@ function Router() {
   return (
     <>
       <Switch>
-        {/* Survey response route - available to everyone (authenticated or not) */}
-        <Route path="/survey/:identifier" component={SurveyPlayer} />
-
         {/* Workflow runner - available to everyone */}
         <Route path="/run/:id">
           {(params) => <WorkflowRunner runId={params.id} />}
@@ -89,25 +75,7 @@ function Router() {
             <Route path="/runs/compare" component={RunsCompare} />
             <Route path="/runs/:id" component={RunDetails} />
 
-            {/* Legacy redirect - /surveys now redirects to /workflows */}
-            <Route path="/surveys">
-              {() => {
-                window.location.href = '/workflows';
-                return null;
-              }}
-            </Route>
-            <Route path="/surveys/new" component={SurveyBuilder} />
-            <Route path="/ai-survey" component={AISurveyCreator} />
             <Route path="/templates" component={TemplatesPage} />
-            <Route path="/builder/:surveyId" component={SurveyBuilder} />
-            <Route path="/builder/:surveyId/preview" component={SurveyPreview} />
-            <Route path="/surveys/:id/preview" component={SurveyPreview} />
-            <Route path="/surveys/:surveyId/results" component={SurveyResults} />
-            <Route path="/surveys/:id/responses" component={Responses} />
-            <Route path="/surveys/:surveyId/analytics" component={SurveyAnalytics} />
-            <Route path="/responses/:id" component={ResponseDetails} />
-            <Route path="/responses" component={Responses} />
-            <Route path="/analytics" component={Dashboard} />
             <Route path="/settings" component={SettingsPage} />
             {/* Stage 17: Branding Settings */}
             <Route path="/projects/:id/settings/branding" component={BrandingSettingsPage} />
@@ -120,8 +88,6 @@ function Router() {
             {/* Admin routes */}
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/admin/users" component={AdminUsers} />
-            <Route path="/admin/users/:userId/surveys" component={AdminUserSurveys} />
-            <Route path="/admin/surveys" component={AdminSurveys} />
             <Route path="/admin/logs" component={AdminLogs} />
             {/* 404 for authenticated users only */}
             <Route component={NotFound} />

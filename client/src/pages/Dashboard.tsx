@@ -12,9 +12,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { QuickActionButton } from "@/components/shared/QuickActionButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
-import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { SurveyManagement } from "@/components/dashboard/SurveyManagement";
 import AIHeroCard from "@/components/AIHeroCard";
 import { Link } from "wouter";
 import {
@@ -66,20 +63,21 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery<SurveyAnalytics[]>({
-    queryKey: ["/api/dashboard/analytics"],
-    retry: false,
-  });
+  // DISABLED: Survey-specific analytics endpoints removed
+  // const { data: analytics, isLoading: analyticsLoading } = useQuery<SurveyAnalytics[]>({
+  //   queryKey: ["/api/dashboard/analytics"],
+  //   retry: false,
+  // });
 
-  const { data: trends, isLoading: trendsLoading } = useQuery<ResponseTrend[]>({
-    queryKey: ["/api/dashboard/trends"],
-    retry: false,
-  });
+  // const { data: trends, isLoading: trendsLoading } = useQuery<ResponseTrend[]>({
+  //   queryKey: ["/api/dashboard/trends"],
+  //   retry: false,
+  // });
 
-  const { data: activity, isLoading: activityLoading } = useQuery<ActivityItem[]>({
-    queryKey: ["/api/dashboard/activity"],
-    retry: false,
-  });
+  // const { data: activity, isLoading: activityLoading } = useQuery<ActivityItem[]>({
+  //   queryKey: ["/api/dashboard/activity"],
+  //   retry: false,
+  // });
 
   const handleDataUpdate = () => {
     refetchStats();
@@ -310,18 +308,34 @@ export default function Dashboard() {
 
 
             <TabsContent value="management" className="space-y-4 sm:space-y-6">
-              <SurveyManagement
-                surveys={surveys || []}
-                isLoading={surveysLoading}
-                onSurveyUpdate={handleDataUpdate}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Workflow Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-4">Advanced workflow management features coming soon</p>
+                    <Link href="/workflows">
+                      <Button>Go to Workflows</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-4 sm:space-y-6">
-              <ActivityFeed
-                activities={activity || []}
-                isLoading={activityLoading}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Activity Feed</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Activity tracking for workflows coming soon</p>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
