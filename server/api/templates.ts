@@ -25,9 +25,14 @@ import {
 
 const router = Router();
 
-// Configure multer for file uploads (memory storage)
-const upload = multer({
-  storage: multer.memoryStorage(),
+// Handle CommonJS/ESM compatibility for multer
+// In Vitest/ESM mode, multer might be wrapped in { default: multer }
+// @ts-ignore - multer types don't account for ESM/CommonJS differences
+const multerInstance = (multer as any).default || multer;
+
+// Configure multer for file uploads (memory storage is default in v2)
+const upload = multerInstance({
+  storage: multerInstance.memoryStorage ? multerInstance.memoryStorage() : undefined,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max file size
   },
