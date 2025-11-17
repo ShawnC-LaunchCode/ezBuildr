@@ -39,6 +39,7 @@ export default function Sidebar() {
   const navigation = [
     { name: "Dashboard", href: "/", icon: "fas fa-home" },
     { name: "Workflows", href: "/workflows", icon: "fas fa-list-ul" },
+    { name: "DataVault", href: "/datavault", icon: "fas fa-database" },
     { name: "Settings", href: "/settings", icon: "fas fa-cog" },
   ];
 
