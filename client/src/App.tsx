@@ -35,6 +35,7 @@ import CollectionDetailPage from "@/pages/CollectionDetailPage"; // Stage 19
 import TemplateTestRunner from "@/pages/TemplateTestRunner"; // Template Test Runner PR1
 import DataVaultDashboard from "@/pages/datavault"; // DataVault Phase 1
 import DataVaultTablesPage from "@/pages/datavault/tables"; // DataVault Phase 1
+import TableViewPage from "@/pages/datavault/[tableId]"; // DataVault Phase 1
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -92,6 +93,7 @@ function Router() {
             {/* DataVault Phase 1: Built-in Data Tables */}
             <Route path="/datavault" component={DataVaultDashboard} />
             <Route path="/datavault/tables" component={DataVaultTablesPage} />
+            <Route path="/datavault/tables/:tableId" component={TableViewPage} />
             <Route path="/projects/:id/settings/branding/domains" component={DomainSettingsPage} />
             <Route path="/projects/:id/settings/email-templates" component={EmailTemplatesPage} />
             <Route path="/projects/:id/settings/email-templates/:templateId" component={EmailTemplateEditorPage} />
