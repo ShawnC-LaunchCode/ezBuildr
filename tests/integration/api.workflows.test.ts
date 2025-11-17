@@ -248,4 +248,178 @@ describe("Workflows API Integration Tests", () => {
       expect(response.body.items[0]).toHaveProperty("published", true);
     });
   });
+
+  describe("PUT /api/workflows/:id/move", () => {
+    let workflowId: string;
+    let targetProjectId: string;
+
+    beforeEach(async () => {
+      // Create a workflow in the default project
+      const workflowResponse = await request(baseURL)
+        .post("/api/workflows")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          title: "Move Test Workflow",
+          description: "Test workflow for move operations",
+        });
+      workflowId = workflowResponse.body.id;
+
+      // Create a second project as move target
+      const projectResponse = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          name: "Target Project",
+          description: "Target project for move tests",
+        });
+      targetProjectId = projectResponse.body.id;
+    });
+
+    it("should move workflow to a project", async () => {
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: targetProjectId })
+        .expect(200);
+
+      expect(response.body).toHaveProperty("id", workflowId);
+      expect(response.body).toHaveProperty("projectId", targetProjectId);
+
+      // Verify the workflow was actually moved
+      const verifyResponse = await request(baseURL)
+        .get(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(verifyResponse.body).toHaveProperty("projectId", targetProjectId);
+    });
+
+    it("should move workflow to Main Folder (projectId = null)", async () => {
+      // First move to a project
+      await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: targetProjectId });
+
+      // Then move back to Main Folder
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: null })
+        .expect(200);
+
+      expect(response.body).toHaveProperty("id", workflowId);
+      expect(response.body.projectId).toBeNull();
+
+      // Verify the workflow was actually moved to Main Folder
+      const verifyResponse = await request(baseURL)
+        .get(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(verifyResponse.body.projectId).toBeNull();
+    });
+
+    it("should reject move to non-existent project", async () => {
+      const fakeProjectId = "00000000-0000-0000-0000-000000000000";
+
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: fakeProjectId })
+        .expect(404);
+
+      expect(response.body).toHaveProperty("message");
+      expect(response.body.message).toContain("not found");
+    });
+
+    it("should reject move without authentication", async () => {
+      await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .send({ projectId: targetProjectId })
+        .expect(401);
+    });
+
+    it("should reject move of workflow user does not own", async () => {
+      // Create a second user
+      const email2 = `test-workflows-${nanoid()}@example.com`;
+      const registerResponse2 = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email: email2,
+          password: "password123",
+          fullName: "Test User 2",
+          tenantId,
+        });
+
+      const authToken2 = registerResponse2.body.token;
+
+      // Try to move the first user's workflow as the second user
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken2}`)
+        .send({ projectId: targetProjectId })
+        .expect(403);
+
+      expect(response.body).toHaveProperty("message");
+      expect(response.body.message).toContain("Access denied");
+    });
+
+    it("should reject move with invalid projectId format", async () => {
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: "invalid-uuid" })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("message");
+    });
+
+    it("should reject move without projectId in body", async () => {
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({})
+        .expect(400);
+
+      expect(response.body).toHaveProperty("message");
+    });
+
+    it("should reject move to project user does not have access to", async () => {
+      // Create a second user with their own project
+      const email2 = `test-workflows-${nanoid()}@example.com`;
+      const registerResponse2 = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email: email2,
+          password: "password123",
+          fullName: "Test User 2",
+          tenantId,
+        });
+
+      const authToken2 = registerResponse2.body.token;
+
+      // Create a project owned by user 2
+      const projectResponse2 = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken2}`)
+        .send({
+          name: "User 2 Project",
+          description: "Project owned by user 2",
+        });
+
+      const user2ProjectId = projectResponse2.body.id;
+
+      // Try to move user 1's workflow to user 2's project
+      const response = await request(baseURL)
+        .put(`/api/workflows/${workflowId}/move`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ projectId: user2ProjectId })
+        .expect(403);
+
+      expect(response.body).toHaveProperty("message");
+      expect(response.body.message).toContain("Access denied");
+      expect(response.body.message).toContain("target project");
+    });
+  });
 });

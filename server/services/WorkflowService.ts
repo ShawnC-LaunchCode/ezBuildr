@@ -5,6 +5,7 @@ import {
   logicRuleRepository,
   userRepository,
   workflowAccessRepository,
+  projectRepository,
   type DbTransaction,
 } from "../repositories";
 import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType } from "@shared/schema";
@@ -18,19 +19,22 @@ export class WorkflowService {
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private workflowAccessRepo: typeof workflowAccessRepository;
+  private projectRepo: typeof projectRepository;
 
   constructor(
     workflowRepo?: typeof workflowRepository,
     sectionRepo?: typeof sectionRepository,
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
-    workflowAccessRepo?: typeof workflowAccessRepository
+    workflowAccessRepo?: typeof workflowAccessRepository,
+    projectRepo?: typeof projectRepository
   ) {
     this.workflowRepo = workflowRepo || workflowRepository;
     this.sectionRepo = sectionRepo || sectionRepository;
     this.stepRepo = stepRepo || stepRepository;
     this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
     this.workflowAccessRepo = workflowAccessRepo || workflowAccessRepository;
+    this.projectRepo = projectRepo || projectRepository;
   }
 
   /**
@@ -170,13 +174,32 @@ export class WorkflowService {
 
   /**
    * Move workflow to a project (or unfiled if projectId is null)
+   * Verifies:
+   * - User owns the workflow
+   * - If moving to a project, user has access to that project
    */
   async moveToProject(
     workflowId: string,
     userId: string,
     projectId: string | null
   ): Promise<Workflow> {
+    // Verify user owns the workflow
     await this.verifyOwnership(workflowId, userId);
+
+    // If moving to a project (not unfiled), verify user has access to target project
+    if (projectId !== null) {
+      const project = await this.projectRepo.findById(projectId);
+
+      if (!project) {
+        throw new Error("Target project not found");
+      }
+
+      // Verify user owns or has access to the target project
+      if (project.createdBy !== userId && project.ownerId !== userId) {
+        throw new Error("Access denied - you do not have access to the target project");
+      }
+    }
+
     return await this.workflowRepo.moveToProject(workflowId, projectId);
   }
 
