@@ -81,7 +81,7 @@ export function ProjectAssignmentSection({
   // Determine the current location display
   const currentLocation = currentProjectId === null
     ? "Main Folder (no project)"
-    : currentProjectName || "Unknown Project";
+    : currentProjectName || "Default Workflow Folder";
 
   // Determine the select value (use "main-folder" as a sentinel for null)
   const selectValue = currentProjectId === null ? "main-folder" : currentProjectId;
@@ -89,7 +89,7 @@ export function ProjectAssignmentSection({
   // Determine target name for modal
   const targetName = pendingProjectId === null
     ? "Main Folder"
-    : projects.find(p => p.id === pendingProjectId)?.name || "Unknown Project";
+    : projects.find(p => p.id === pendingProjectId)?.name || "Default Workflow Folder";
 
   // PR4: Loading state UI
   if (isLoading) {
