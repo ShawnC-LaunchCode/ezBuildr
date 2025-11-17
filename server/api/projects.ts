@@ -122,12 +122,15 @@ router.get(
       // Validate params
       const params = projectParamsSchema.parse(req.params);
 
-      // Fetch project
+      // Fetch project with workflows
       const project = await db.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.id),
           eq(schema.projects.tenantId, tenantId)
         ),
+        with: {
+          workflows: true,
+        },
       });
 
       if (!project) {
