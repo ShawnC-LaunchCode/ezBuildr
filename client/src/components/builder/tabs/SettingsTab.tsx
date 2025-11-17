@@ -1,6 +1,7 @@
 /**
  * SettingsTab - Workflow-specific settings
  * PR7: Full UI implementation with stub saves
+ * PR2: Added Project Assignment section
  */
 
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
 
 interface SettingsTabProps {
   workflowId: string;
@@ -44,6 +46,17 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const [shareableLink, setShareableLink] = useState(`https://vaultlogic.app/run/${workflowId}`);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Project Assignment (PR2: Static mock data)
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProjectName, setCurrentProjectName] = useState<string | undefined>(undefined);
+
+  // Mock projects data
+  const mockProjects = [
+    { id: "proj-1", name: "Customer Onboarding" },
+    { id: "proj-2", name: "Employee Management" },
+    { id: "proj-3", name: "Sales Pipeline" },
+  ];
+
   // Stub: Save all settings
   const handleSaveSettings = () => {
     console.log("Saving settings:", {
@@ -69,6 +82,20 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       title: "Link Copied",
       description: "Shareable link copied to clipboard",
     });
+  };
+
+  // Handle project assignment change (PR2: Static handler)
+  const handleProjectChange = (projectId: string | null) => {
+    console.log("Project change requested:", projectId);
+
+    // Update local state (will be replaced with modal in PR3)
+    setCurrentProjectId(projectId);
+    if (projectId === null) {
+      setCurrentProjectName(undefined);
+    } else {
+      const project = mockProjects.find(p => p.id === projectId);
+      setCurrentProjectName(project?.name);
+    }
   };
 
   return (
@@ -138,6 +165,15 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Project Assignment (PR2) */}
+          <ProjectAssignmentSection
+            workflowId={workflowId}
+            currentProjectId={currentProjectId}
+            currentProjectName={currentProjectName}
+            projects={mockProjects}
+            onChange={handleProjectChange}
+          />
 
           {/* Branding Settings */}
           <Card>
