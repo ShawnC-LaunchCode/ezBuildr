@@ -1,10 +1,12 @@
 /**
  * DataVault Tables List Page
  * Lists all tables with stats, search, and create/delete actions
- * Updated for PR 8 with Table Templates "Coming Soon" section
+ *
+ * PR 8: Table Templates "Coming Soon" section
+ * PR 10: UX polish - skeleton loading, keyboard shortcuts (⌘K)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -20,6 +22,7 @@ import { Loader2, Search, Plus, Sparkles } from "lucide-react";
 import { CreateTableModal } from "@/components/datavault/CreateTableModal";
 import { TableCard } from "@/components/datavault/TableCard";
 import { TemplateCard } from "@/components/datavault/TemplateCard";
+import { TablesListSkeleton } from "@/components/datavault/LoadingSkeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -148,6 +151,19 @@ export default function DataVaultTablesPage() {
     setLocation(`/datavault/tables/${tableId}`);
   };
 
+  // Keyboard shortcut: Ctrl/Cmd + K to create table
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCreateModalOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
@@ -170,6 +186,9 @@ export default function DataVaultTablesPage() {
                 <Button onClick={() => setCreateModalOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Table
+                  <kbd className="ml-2 hidden sm:inline-block pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                    <span className="text-xs">⌘</span>K
+                  </kbd>
                 </Button>
               </div>
 
@@ -222,11 +241,7 @@ export default function DataVaultTablesPage() {
             )}
 
             {/* Loading State */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
-            )}
+            {isLoading && <TablesListSkeleton />}
 
             {/* Tables Grid */}
             {!isLoading && filteredTables && filteredTables.length > 0 ? (
