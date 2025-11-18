@@ -1709,9 +1709,9 @@ export const insertSignatureRequestSchema = createInsertSchema(signatureRequests
 export const insertSignatureEventSchema = createInsertSchema(signatureEvents).omit({ id: true, timestamp: true });
 
 // Stage 19: Collections/Datastore insert schemas
-export const insertCollectionSchema = createInsertSchema(collections).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertCollectionFieldSchema = createInsertSchema(collectionFields).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRecordSchema = createInsertSchema(records).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCollectionSchema = createInsertSchema(collections).omit({ id: true, createdAt: true, updatedAt: true }).strict();
+export const insertCollectionFieldSchema = createInsertSchema(collectionFields).omit({ id: true, createdAt: true, updatedAt: true }).strict();
+export const insertRecordSchema = createInsertSchema(records).omit({ id: true, createdAt: true, updatedAt: true }).strict();
 
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
 export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });

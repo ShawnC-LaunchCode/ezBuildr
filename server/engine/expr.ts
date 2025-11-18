@@ -27,15 +27,23 @@ const FORBIDDEN_IDENTIFIERS = [
 ];
 
 // Whitelisted helper functions
+// Note: expr-eval has built-in functions we leverage:
+// - roundTo(n, decimals) - use instead of round(n, decimals)
+// - abs, ceil, floor, round (unary), sqrt, etc.
+// - min, max, pow (multi-arg)
 export const Helpers = {
   // Math helpers
-  round: (n: number, digits: number = 0): number => {
+  // Use expr-eval's built-in roundTo instead of custom round
+  roundTo: (n: number, digits: number = 0): number => {
     const factor = Math.pow(10, digits);
     return Math.round(n * factor) / factor;
   },
+  // Note: abs, ceil, floor are built-in unary ops in expr-eval
+  // We include them here for consistency, but they work as-is
+  abs: (n: number): number => Math.abs(n),
   ceil: (n: number): number => Math.ceil(n),
   floor: (n: number): number => Math.floor(n),
-  abs: (n: number): number => Math.abs(n),
+  // Note: min, max are built-in functions in expr-eval
   min: (...args: number[]): number => Math.min(...args),
   max: (...args: number[]): number => Math.max(...args),
 
@@ -126,8 +134,10 @@ export function validateExpression(expr: string, allowedVars: string[]): Validat
     const parser = new Parser();
 
     // Register helper functions for validation
+    // Note: All helpers registered as functions (not unaryOps) to support multi-arg
     for (const helperName of AllowedHelperNames) {
-      parser.functions[helperName] = () => null; // Dummy function for validation
+      // Use a variadic dummy function to support both single and multi-arg helpers
+      parser.functions[helperName] = ((...args: any[]) => null) as any;
     }
 
     const parsed = parser.parse(expr);

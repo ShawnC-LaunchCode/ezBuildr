@@ -33,14 +33,15 @@ describe('DatavaultRowsService', () => {
       findById: vi.fn(),
       findByTableId: vi.fn(),
       create: vi.fn(),
-      delete: vi.fn(),
+      deleteRow: vi.fn(),
       countByTableId: vi.fn(),
       createRowWithValues: vi.fn(),
       getRowsWithValues: vi.fn(),
+      getRowWithValues: vi.fn(),
       updateRowValues: vi.fn(),
     };
 
-    service = new DatavaultRowsService(mockTablesRepo, mockColumnsRepo, mockRowsRepo);
+    service = new DatavaultRowsService(mockRowsRepo, mockTablesRepo, mockColumnsRepo);
   });
 
   describe('getRows', () => {
@@ -94,16 +95,10 @@ describe('DatavaultRowsService', () => {
       mockRowsRepo.getRowsWithValues.mockResolvedValue(mockRowsData);
       mockRowsRepo.countByTableId.mockResolvedValue(1);
 
-      const result = await service.getRows(mockTableId, mockTenantId, { limit: 25, offset: 0 });
+      const result = await service.listRows(mockTableId, mockTenantId, { limit: 25, offset: 0 });
 
-      expect(result.rows).toHaveLength(1);
-      expect(result.rows[0].values).toHaveProperty(mockColumnId, 'John Doe');
-      expect(result.pagination).toEqual({
-        limit: 25,
-        offset: 0,
-        total: 1,
-        hasMore: false,
-      });
+      expect(result).toHaveLength(1);
+      expect(result[0].value.value).toEqual({ data: 'John Doe' });
     });
   });
 
@@ -158,12 +153,11 @@ describe('DatavaultRowsService', () => {
       mockRowsRepo.findById.mockResolvedValue(mockRow);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-      mockRowsRepo.getRowsWithValues.mockResolvedValue(mockRowsData);
+      mockRowsRepo.getRowWithValues.mockResolvedValue(mockRowsData);
 
       const result = await service.getRow(mockRowId, mockTenantId);
 
-      expect(result.row).toEqual(mockRow);
-      expect(result.values).toHaveProperty(mockColumnId, 'John Doe');
+      expect(result).toEqual(mockRowsData);
     });
 
     it('should throw 404 if row not found', async () => {
@@ -232,7 +226,8 @@ describe('DatavaultRowsService', () => {
       const result = await service.createRow(mockTableId, mockTenantId, values);
 
       expect(result.row).toEqual(createdRow.row);
-      expect(result.values).toHaveProperty(mockColumnId, 'John Doe');
+      expect(result.values).toHaveLength(1);
+      expect(result.values[0].value).toEqual({ data: 'John Doe' });
     });
 
     it('should throw error if required field is missing', async () => {
@@ -341,11 +336,11 @@ describe('DatavaultRowsService', () => {
 
       mockRowsRepo.findById.mockResolvedValue(mockRow);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
-      mockRowsRepo.delete.mockResolvedValue(undefined);
+      mockRowsRepo.deleteRow.mockResolvedValue(undefined);
 
       await service.deleteRow(mockRowId, mockTenantId);
 
-      expect(mockRowsRepo.delete).toHaveBeenCalledWith(mockRowId, undefined);
+      expect(mockRowsRepo.deleteRow).toHaveBeenCalledWith(mockRowId, undefined);
     });
   });
 

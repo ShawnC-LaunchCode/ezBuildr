@@ -15,13 +15,13 @@ describe('Expression Evaluator', () => {
     });
 
     it('should allow helper functions', () => {
-      const result = validateExpression('round(amount, 2)', ['amount']);
+      const result = validateExpression('roundTo(amount, 2)', ['amount']);
       expect(result.ok).toBe(true);
     });
 
     it('should allow complex expressions with multiple helpers', () => {
       const result = validateExpression(
-        'round(amount * 1.0825, 2) + coalesce(discount, 0)',
+        'roundTo(amount * 1.0825, 2) + coalesce(discount, 0)',
         ['amount', 'discount']
       );
       expect(result.ok).toBe(true);
@@ -82,7 +82,7 @@ describe('Expression Evaluator', () => {
 
     it('should evaluate with helper functions', () => {
       const context: EvalContext = { vars: { amount: 123.456 } };
-      const result = evaluateExpression('round(amount, 2)', context);
+      const result = evaluateExpression('roundTo(amount, 2)', context);
       expect(result).toBe(123.46);
     });
 
@@ -198,7 +198,7 @@ describe('Expression Evaluator', () => {
       };
 
       const result = evaluateExpression(
-        'round((price * quantity - discount) * (1 + tax_rate), 2)',
+        'roundTo((price * quantity - discount) * (1 + tax_rate), 2)',
         context
       );
 
@@ -234,11 +234,11 @@ describe('Expression Evaluator', () => {
       expect(AllowedHelperNames.sort()).toEqual(helperKeys.sort());
     });
 
-    it('round should handle edge cases', () => {
-      expect(Helpers.round(123.456, 0)).toBe(123);
-      expect(Helpers.round(123.456, 1)).toBe(123.5);
-      expect(Helpers.round(123.456, 2)).toBe(123.46);
-      expect(Helpers.round(123.456, 3)).toBe(123.456);
+    it('roundTo should handle edge cases', () => {
+      expect(Helpers.roundTo(123.456, 0)).toBe(123);
+      expect(Helpers.roundTo(123.456, 1)).toBe(123.5);
+      expect(Helpers.roundTo(123.456, 2)).toBe(123.46);
+      expect(Helpers.roundTo(123.456, 3)).toBe(123.456);
     });
 
     it('dateDiff should calculate differences correctly', () => {

@@ -127,6 +127,13 @@ export class CollectionFieldService {
         if (typeof defaultValue !== 'string' && !(defaultValue instanceof Date)) {
           throw new Error(`Default value for '${type}' field must be an ISO date string`);
         }
+        // Validate that string can be parsed as a valid date
+        if (typeof defaultValue === 'string') {
+          const parsed = new Date(defaultValue);
+          if (isNaN(parsed.getTime())) {
+            throw new Error(`Default value for '${type}' field must be a valid date string`);
+          }
+        }
         break;
       case 'select':
         if (typeof defaultValue !== 'string') {

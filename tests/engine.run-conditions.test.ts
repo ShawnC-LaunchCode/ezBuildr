@@ -150,7 +150,7 @@ describe('Engine - Conditional Execution', () => {
             type: 'compute',
             config: {
               outputKey: 'total',
-              expression: 'round(amount * 1.0825, 2)',
+              expression: 'roundTo(amount * 1.0825, 2)',
             },
           },
         ],
@@ -262,7 +262,7 @@ describe('Engine - Conditional Execution', () => {
       const input: RunGraphInput = {
         workflowVersion,
         inputJson: {
-          has_code: false,
+          q1: false, // Answer for q1 (by node ID)
           // Note: code is not provided because q2 should be skipped
         },
         tenantId: 'test-tenant',
@@ -316,8 +316,8 @@ describe('Engine - Conditional Execution', () => {
       const input: RunGraphInput = {
         workflowVersion,
         inputJson: {
-          has_code: true,
-          q2: 'ABC123', // Provide answer for q2
+          q1: true, // Answer for q1 (by node ID)
+          q2: 'ABC123', // Answer for q2 (by node ID)
         },
         tenantId: 'test-tenant',
         options: { debug: true, clock: fixedClock },
@@ -353,7 +353,7 @@ describe('Engine - Conditional Execution', () => {
             type: 'compute',
             config: {
               outputKey: 'tax',
-              expression: 'round(amount * 0.0825, 2)',
+              expression: 'roundTo(amount * 0.0825, 2)',
               condition: 'amount > 0',
             },
           },
@@ -407,7 +407,7 @@ describe('Engine - Conditional Execution', () => {
             type: 'compute',
             config: {
               outputKey: 'tax',
-              expression: 'round(amount * 0.0825, 2)',
+              expression: 'roundTo(amount * 0.0825, 2)',
               condition: 'amount > 0',
             },
           },
@@ -478,7 +478,7 @@ describe('Engine - Conditional Execution', () => {
             type: 'compute',
             config: {
               outputKey: 'total',
-              expression: 'round(amount * 1.0825, 2)',
+              expression: 'roundTo(amount * 1.0825, 2)',
               condition: 'amount > 0',
             },
           },
@@ -511,8 +511,8 @@ describe('Engine - Conditional Execution', () => {
       const input: RunGraphInput = {
         workflowVersion,
         inputJson: {
-          has_code: false,
-          q3: 1000,
+          q1: false, // Answer for q1 (by node ID)
+          q3: 1000,  // Answer for q3 (by node ID)
         },
         tenantId: 'test-tenant',
         options: { debug: true, clock: fixedClock },
