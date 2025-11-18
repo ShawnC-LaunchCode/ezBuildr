@@ -1,8 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { Survey, Question, Response, Answer } from "@shared/schema";
-import { SURVEY_ANALYSIS_PROMPT, fillPromptVariables } from "../config/aiPrompts";
-import { surveyRepository, pageRepository, responseRepository } from "../repositories";
-import { extractTextValue } from "../utils/answerFormatting";
+// Legacy survey imports - DISABLED (survey system removed Nov 2025)
+// import type { Survey, Question, Response, Answer } from "@shared/schema";
+// import { SURVEY_ANALYSIS_PROMPT, fillPromptVariables } from "../config/aiPrompts";
+// import { surveyRepository, pageRepository, responseRepository } from "../repositories";
+// import { extractTextValue } from "../utils/answerFormatting";
 import { logger } from "../logger";
 
 /**
@@ -38,7 +39,9 @@ export class GeminiService {
 
   /**
    * Generate AI insights for a complete survey
+   * DEPRECATED: Survey system removed Nov 2025
    */
+  /*
   async analyzeSurvey(surveyId: string): Promise<{
     insights: string;
     metadata: {
@@ -119,10 +122,13 @@ export class GeminiService {
       },
     };
   }
+  */
 
   /**
    * Format survey data for AI consumption
+   * DEPRECATED: Survey system removed Nov 2025
    */
+  /*
   private formatSurveyData(
     survey: Survey,
     questions: Question[],
@@ -242,6 +248,7 @@ export class GeminiService {
 
     return formatted;
   }
+  */
 
   /**
    * Quick sentiment analysis for text responses

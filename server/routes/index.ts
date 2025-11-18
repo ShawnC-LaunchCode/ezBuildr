@@ -6,8 +6,9 @@ import { registerFileRoutes } from "./files.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
 import { registerAdminRoutes } from "./admin.routes";
 import { registerAiRoutes } from "./ai.routes";
-import { registerTemplateRoutes } from "./templates.routes";
-import { registerTemplateSharingRoutes } from "./templateSharing.routes";
+// Legacy survey templates - DISABLED (survey system removed Nov 2025)
+// import { registerTemplateRoutes } from "./templates.routes";
+// import { registerTemplateSharingRoutes } from "./templateSharing.routes";
 import { registerProjectRoutes } from "./projects.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerSectionRoutes } from "./sections.routes";
@@ -61,14 +62,13 @@ export function registerAllRoutes(app: Express): void {
   // Dashboard routes (using legacy survey data for now)
   registerDashboardRoutes(app);
 
-  // Template management routes
-  registerTemplateRoutes(app);
+  // Legacy survey template routes - DISABLED (survey system removed Nov 2025)
+  // registerTemplateRoutes(app);
+  // registerTemplateSharingRoutes(app);
 
-  // Template sharing and collaboration routes
-  registerTemplateSharingRoutes(app);
-
-  // File upload and management routes
-  registerFileRoutes(app);
+  // Legacy survey file routes - DISABLED (survey system removed Nov 2025)
+  // File upload for workflows will need to be reimplemented
+  // registerFileRoutes(app);
 
   // AI-powered analytics routes
   registerAiRoutes(app);

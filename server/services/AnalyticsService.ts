@@ -1,8 +1,9 @@
+// Legacy survey repositories - DISABLED (survey system removed Nov 2025)
 import {
-  surveyRepository,
-  responseRepository,
-  pageRepository,
-  questionRepository,
+  // surveyRepository,
+  // responseRepository,
+  // pageRepository,
+  // questionRepository,
   analyticsRepository
 } from "../repositories";
 import type {
@@ -30,23 +31,25 @@ import { randomUUID } from "crypto";
  */
 export class AnalyticsService {
   private analyticsRepo: typeof analyticsRepository;
-  private responseRepo: typeof responseRepository;
-  private surveyRepo: typeof surveyRepository;
-  private questionRepo: typeof questionRepository;
-  private pageRepo: typeof pageRepository;
+  // Legacy survey repositories - DISABLED (survey system removed Nov 2025)
+  // private responseRepo: typeof responseRepository;
+  // private surveyRepo: typeof surveyRepository;
+  // private questionRepo: typeof questionRepository;
+  // private pageRepo: typeof pageRepository;
 
   constructor(
     analyticsRepo?: typeof analyticsRepository,
-    responseRepo?: typeof responseRepository,
-    surveyRepo?: typeof surveyRepository,
-    questionRepo?: typeof questionRepository,
-    pageRepo?: typeof pageRepository
+    // Legacy survey repositories - DISABLED
+    // responseRepo?: typeof responseRepository,
+    // surveyRepo?: typeof surveyRepository,
+    // questionRepo?: typeof questionRepository,
+    // pageRepo?: typeof pageRepository
   ) {
     this.analyticsRepo = analyticsRepo || analyticsRepository;
-    this.responseRepo = responseRepo || responseRepository;
-    this.surveyRepo = surveyRepo || surveyRepository;
-    this.questionRepo = questionRepo || questionRepository;
-    this.pageRepo = pageRepo || pageRepository;
+    // this.responseRepo = responseRepo || responseRepository;
+    // this.surveyRepo = surveyRepo || surveyRepository;
+    // this.questionRepo = questionRepo || questionRepository;
+    // this.pageRepo = pageRepo || pageRepository;
   }
 
   /**
