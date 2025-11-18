@@ -8,11 +8,11 @@ import { describe, it } from 'vitest';
 
 /**
  * Check if database is available for testing
- * For unit tests, we always return false to skip database-dependent tests
- * These tests should be in the integration test suite instead
+ * Returns true if DATABASE_URL environment variable is set and valid
  */
 export function isDatabaseAvailable(): boolean {
-  return false;  // Always skip in unit tests - database tests belong in integration suite
+  const dbUrl = process.env.DATABASE_URL;
+  return !!dbUrl && dbUrl !== 'undefined' && dbUrl !== '';
 }
 
 /**
