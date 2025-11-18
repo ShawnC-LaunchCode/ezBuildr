@@ -16,6 +16,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/runMigrations.ts",
+    "db:migrate:datavault": "tsx scripts/applyDatavaultMigrations.ts",
     "db:seed": "tsx scripts/seed.ts",
     "set-admin": "tsx scripts/setAdmin.ts",
     "generate-fake-data": "tsx scripts/generateFakeData.ts",
