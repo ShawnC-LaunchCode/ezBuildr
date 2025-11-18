@@ -178,6 +178,74 @@ node scripts/ci/get-file-changes.js --output file-changes.json
 - 🔥 `medium` - 20-99 files changed (Medium change)
 - 🔥🔥 `high` - 100+ files changed (Mega-change)
 
+### `build-slack-payload.js`
+
+Generates comprehensive Slack notification payloads using BlockKit, including main message and threaded replies.
+
+**Usage:**
+```bash
+node scripts/ci/build-slack-payload.js \
+  --test-results test-results-parsed.json \
+  --coverage coverage-parsed.json \
+  --file-changes file-changes.json \
+  --coverage-delta coverage-delta.json \
+  --output slack-payload.json
+```
+
+**Required environment variables:**
+- `GITHUB_RUN_NUMBER` - Build/run number
+- `GITHUB_REF_NAME` - Branch name
+- `GITHUB_SHA` - Commit SHA
+- `GITHUB_ACTOR` - Actor username
+- `GITHUB_REPOSITORY` - owner/repo
+- `GITHUB_RUN_ID` - Run ID
+- `GITHUB_SERVER_URL` - GitHub server URL
+- `GITHUB_EVENT_NAME` - Event type
+
+**Output format:**
+```json
+{
+  "main": {
+    "text": "🚀 Build #142 — main — 🟢 SUCCESS",
+    "blocks": [ /* BlockKit blocks */ ],
+    "attachments": [{ "color": "#10B981" }],
+    "unfurl_links": false,
+    "unfurl_media": false
+  },
+  "threads": {
+    "links": {
+      "text": "🔗 *Links*\n• <url|View Run>\n...",
+      "unfurl_links": false
+    },
+    "failures": {
+      "text": "❌ *3 Test(s) Failed*\n..."
+    },
+    "coverage": {
+      "text": "📊 *Coverage Report*\n..."
+    },
+    "artifacts": {
+      "text": "📦 *Artifacts*\n..."
+    }
+  }
+}
+```
+
+**Main message features:**
+- Compact format (5-8 lines)
+- No URLs in main message (only in threads)
+- Status emoji (🟢/🔴/🟡)
+- Test results summary
+- Coverage percentage with delta
+- File change heat indicator
+- Duration and trigger type
+- Color-coded attachment
+
+**Thread messages:**
+1. **Links**: All URLs (run, logs, compare, PR) with unfurl disabled
+2. **Failures**: Detailed test failure information (up to 10 failures)
+3. **Coverage**: Breakdown by metric + top/bottom files
+4. **Artifacts**: Build artifacts and deployment info (placeholder)
+
 ## Integration with GitHub Actions
 
 These scripts are designed to be called from GitHub Actions workflows:
@@ -200,6 +268,14 @@ These scripts are designed to be called from GitHub Actions workflows:
   run: |
     node scripts/ci/get-file-changes.js \
       --output file-changes.json
+
+- name: Build Slack payload
+  run: |
+    node scripts/ci/build-slack-payload.js \
+      --test-results test-results-parsed.json \
+      --coverage coverage-parsed.json \
+      --file-changes file-changes.json \
+      --output slack-payload.json
 ```
 
 The output JSON files can then be used by subsequent steps (e.g., Slack notifications).
@@ -225,8 +301,12 @@ node scripts/ci/parse-test-results.js
 node scripts/ci/parse-coverage.js
 node scripts/ci/get-file-changes.js
 
+# Build Slack payload
+node scripts/ci/build-slack-payload.js
+
 # Check output
 cat test-results-parsed.json
 cat coverage-parsed.json
 cat file-changes.json
+cat slack-payload.json
 ```
