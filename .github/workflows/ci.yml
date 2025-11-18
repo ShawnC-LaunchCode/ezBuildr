@@ -206,7 +206,7 @@ jobs:
   #         retention-days: 1
 
   notify-slack:
-    name: Slack Notification
+    name: Slack Notification Suite
     needs: [test, test-coverage]
     runs-on: ubuntu-latest
     if: always()
@@ -223,13 +223,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download coverage artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: coverage-summary
-          path: ./
-
+      # Download test and coverage artifacts
       - name: Download Vitest JSON summary
         uses: actions/download-artifact@v4
         continue-on-error: true
@@ -237,27 +231,90 @@ jobs:
           name: vitest-summary
           path: ./
 
-      - name: Extract failed test names
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-summary
+          path: ./
+
+      # Download previous coverage for delta calculation
+      - name: Download previous coverage
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-for-next-run
+          path: ./
+
+      # Parse test results
+      - name: Parse test results
         if: always()
         run: |
-          # Extract failed Vitest tests
-          if [ -f vitest-summary.json ]; then
-            jq -r '.testResults[]?.assertionResults[]? | select(.status == "failed") | "- [Vitest] " + .ancestorTitles[0] + " › " + .title' vitest-summary.json > failed-tests.txt 2>/dev/null || echo "" > failed-tests.txt
-          else
-            echo "" > failed-tests.txt
-          fi
+          node scripts/ci/parse-test-results.js \
+            --vitest-json vitest-summary.json \
+            --output test-results-parsed.json
 
-          echo "Failed tests extracted:"
-          cat failed-tests.txt || echo "No failed tests"
+      # Parse coverage data
+      - name: Parse coverage
+        if: always()
+        run: |
+          node scripts/ci/parse-coverage.js \
+            --coverage-json coverage/coverage-summary.json \
+            --output coverage-parsed.json
 
-      - name: Send Slack notification
-        run: npm run slack:test
+      # Compute coverage delta
+      - name: Compute coverage delta
+        if: always()
+        run: |
+          node scripts/ci/compute-coverage-delta.js \
+            --current coverage-parsed.json \
+            --previous coverage-for-next-run.json \
+            --output coverage-delta.json
+
+      # Upload current coverage for next run
+      - name: Upload coverage for next run
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-for-next-run
+          path: coverage-for-next-run.json
+          retention-days: 30
+
+      # Get file change statistics
+      - name: Get file changes
+        if: always()
+        run: |
+          node scripts/ci/get-file-changes.js \
+            --output file-changes.json
+
+      # Build Slack payload
+      - name: Build Slack payload
+        if: always()
+        run: |
+          node scripts/ci/build-slack-payload.js \
+            --test-results test-results-parsed.json \
+            --coverage coverage-parsed.json \
+            --file-changes file-changes.json \
+            --coverage-delta coverage-delta.json \
+            --output slack-payload.json
+
+      # Post main Slack message
+      - name: Post Slack main message
+        if: always()
+        run: |
+          node scripts/ci/post-slack-main.js \
+            --payload slack-payload.json \
+            --output slack-message.json
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          GITHUB_SERVER_URL: https://github.com
+
+      # Post threaded replies
+      - name: Post Slack thread replies
+        if: always()
+        run: |
+          node scripts/ci/post-slack-threads.js \
+            --payload slack-payload.json \
+            --message-info slack-message.json
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
