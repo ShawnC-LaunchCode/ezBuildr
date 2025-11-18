@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 async function applyMigration() {
-  console.log('🔄 Applying migration 0028 (DataVault tables)...');
+  console.log('🔄 Applying migration 0029 (DataVault tables)...');
 
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -22,7 +22,7 @@ async function applyMigration() {
 
   try {
     // Read the migration file
-    const migrationPath = path.join(process.cwd(), 'migrations', '0028_add_datavault_tables.sql');
+    const migrationPath = path.join(process.cwd(), 'migrations', '0029_add_datavault_tables.sql');
     const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
 
     console.log('📄 Migration file loaded');
@@ -31,7 +31,7 @@ async function applyMigration() {
     console.log('⚙️  Executing migration...');
     await pool.query(migrationSQL);
 
-    console.log('✅ Migration 0028 applied successfully!');
+    console.log('✅ Migration 0029 applied successfully!');
     console.log('✨ DataVault Phase 1 tables created:');
     console.log('   - datavault_tables');
     console.log('   - datavault_columns');
