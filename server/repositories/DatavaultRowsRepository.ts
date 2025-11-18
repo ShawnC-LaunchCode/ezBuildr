@@ -221,6 +221,34 @@ export class DatavaultRowsRepository extends BaseRepository<
   }
 
   /**
+   * Get next auto-number for a column
+   * Returns the count of existing rows, which will be used to calculate the next number
+   */
+  async getNextAutoNumber(
+    tableId: string,
+    columnId: string,
+    tx?: DbTransaction
+  ): Promise<number> {
+    const database = this.getDb(tx);
+
+    // Get the maximum value for this auto_number column
+    const [result] = await database
+      .select({
+        max: sql<number>`COALESCE(
+          (SELECT MAX((value->>'value')::int)
+           FROM ${datavaultValues}
+           WHERE ${datavaultValues.columnId} = ${columnId}),
+          -1
+        )::int`
+      })
+      .from(datavaultRows)
+      .where(eq(datavaultRows.tableId, tableId))
+      .limit(1);
+
+    return (result?.max ?? -1) + 1;
+  }
+
+  /**
    * Update row with automatic timestamp update
    */
   async update(

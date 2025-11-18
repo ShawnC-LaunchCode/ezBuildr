@@ -69,7 +69,7 @@ export class DatavaultRowsService {
    */
   private validateAndCoerceValue(value: any, column: DatavaultColumn): any {
     if (value === null || value === undefined) {
-      if (column.required) {
+      if (column.required && column.type !== 'auto_number') {
         throw new Error(`Column '${column.name}' is required`);
       }
       return null;
@@ -88,6 +88,10 @@ export class DatavaultRowsService {
           throw new Error(`Column '${column.name}' must be a valid number`);
         }
         return num;
+
+      case 'auto_number':
+        // Auto-number values should be numbers (generated automatically)
+        return Number(value);
 
       case 'boolean':
         if (typeof value === 'boolean') return value;
@@ -132,10 +136,20 @@ export class DatavaultRowsService {
     const columnMap = new Map(columns.map((c) => [c.id, c]));
     const validatedValues: Array<{ columnId: string; value: any }> = [];
 
-    // Check required columns
+    // Check required columns (excluding auto_number columns)
     for (const column of columns) {
-      if (column.required && !(column.id in values)) {
+      if (column.required && column.type !== 'auto_number' && !(column.id in values)) {
         throw new Error(`Required column '${column.name}' is missing`);
+      }
+    }
+
+    // Generate auto-number values for auto_number columns
+    for (const column of columns) {
+      if (column.type === 'auto_number' && !(column.id in values)) {
+        // Get the next auto-number value
+        const nextNumber = await this.rowsRepo.getNextAutoNumber(tableId, column.id, tx);
+        const startValue = column.autoNumberStart ?? 1;
+        values[column.id] = startValue + nextNumber;
       }
     }
 

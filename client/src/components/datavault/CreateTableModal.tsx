@@ -15,7 +15,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 
 interface Column {
   name: string;
-  type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'email' | 'phone' | 'url' | 'json';
+  type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'email' | 'phone' | 'url' | 'json' | 'auto_number';
   required: boolean;
 }
 
@@ -201,6 +201,7 @@ export function CreateTableModal({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="auto_number">Auto Number</SelectItem>
                         <SelectItem value="text">Text</SelectItem>
                         <SelectItem value="number">Number</SelectItem>
                         <SelectItem value="boolean">Boolean</SelectItem>

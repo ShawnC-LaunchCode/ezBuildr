@@ -863,7 +863,8 @@ export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
   'email',
   'phone',
   'url',
-  'json'
+  'json',
+  'auto_number'  // Auto-incrementing number column
 ]);
 
 // =====================================================================
@@ -2111,6 +2112,7 @@ export const datavaultColumns = pgTable("datavault_columns", {
   type: datavaultColumnTypeEnum("type").notNull(),
   required: boolean("required").default(false).notNull(),
   orderIndex: integer("order_index").notNull().default(0),
+  autoNumberStart: integer("auto_number_start").default(1),  // Starting value for auto_number columns
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
