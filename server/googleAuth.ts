@@ -294,12 +294,27 @@ export async function setupAuth(app: Express) {
       // Verify the Google ID token
       const payload = await verifyGoogleToken(googleToken);
 
-      // Create user session data
-      const user: any = {};
-      updateUserSession(user, payload);
-
       // Upsert user in database
       await upsertUser(payload);
+
+      // Fetch full user data from database (includes tenantId)
+      const dbUser = await userRepository.findById(payload.sub!);
+
+      if (!dbUser) {
+        logger.error({ userId: payload.sub }, 'User not found after upsert');
+        throw new Error('Failed to retrieve user data');
+      }
+
+      // Create user session data with both OAuth claims and database fields
+      const user: any = {
+        id: dbUser.id,
+        email: dbUser.email,
+        tenantId: dbUser.tenantId,
+        tenantRole: dbUser.tenantRole,
+        role: dbUser.role,
+        defaultMode: dbUser.defaultMode,
+      };
+      updateUserSession(user, payload);
 
       // Accept any pending template shares for this user's email
       try {
