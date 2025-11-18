@@ -117,6 +117,67 @@ node scripts/ci/parse-coverage.js \
 - 🟡 `yellow` - 50-79% coverage
 - 🔴 `red` - <50% coverage
 
+### `get-file-changes.js`
+
+Extracts file change statistics from Git and computes "heat" level based on change volume.
+
+**Usage:**
+```bash
+node scripts/ci/get-file-changes.js --output file-changes.json
+```
+
+**Required environment variables:**
+- `GITHUB_SHA` - Commit SHA
+- `GITHUB_REPOSITORY` - owner/repo
+- `GITHUB_ACTOR` - Actor username
+- `GITHUB_EVENT_NAME` - Event type (push, pull_request, etc.)
+- `GITHUB_EVENT_PATH` - Path to event JSON (for PR info)
+- `GITHUB_BASE_REF` - Base branch (for PRs)
+- `GITHUB_HEAD_REF` - Head branch (for PRs)
+
+**Output format:**
+```json
+{
+  "filesChanged": 34,
+  "additions": 245,
+  "deletions": 89,
+  "heat": {
+    "level": "medium",
+    "emoji": "🔥",
+    "label": "Medium change"
+  },
+  "files": [
+    {
+      "path": "server/routes/workflows.ts",
+      "additions": 45,
+      "deletions": 12,
+      "status": "modified"
+    }
+  ],
+  "pr": {
+    "number": 123,
+    "title": "Add new feature",
+    "url": "https://github.com/owner/repo/pull/123",
+    "author": "username",
+    "draft": false,
+    "labels": ["enhancement"]
+  },
+  "commit": {
+    "sha": "8af32d1",
+    "fullSha": "8af32d1...",
+    "message": "Fix DataVault row updates",
+    "author": "John Doe",
+    "actor": "johndoe"
+  },
+  "compareUrl": "https://github.com/owner/repo/compare/main...8af32d1"
+}
+```
+
+**Heat levels:**
+- 🧊 `low` - <20 files changed (Small change)
+- 🔥 `medium` - 20-99 files changed (Medium change)
+- 🔥🔥 `high` - 100+ files changed (Mega-change)
+
 ## Integration with GitHub Actions
 
 These scripts are designed to be called from GitHub Actions workflows:
@@ -134,6 +195,11 @@ These scripts are designed to be called from GitHub Actions workflows:
     node scripts/ci/parse-coverage.js \
       --coverage-json coverage/coverage-summary.json \
       --output coverage-parsed.json
+
+- name: Get file changes
+  run: |
+    node scripts/ci/get-file-changes.js \
+      --output file-changes.json
 ```
 
 The output JSON files can then be used by subsequent steps (e.g., Slack notifications).
@@ -157,8 +223,10 @@ npm run test:coverage -- --reporter=json --outputFile=vitest-summary.json
 # Parse results
 node scripts/ci/parse-test-results.js
 node scripts/ci/parse-coverage.js
+node scripts/ci/get-file-changes.js
 
 # Check output
 cat test-results-parsed.json
 cat coverage-parsed.json
+cat file-changes.json
 ```
