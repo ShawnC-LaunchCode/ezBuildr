@@ -40,19 +40,24 @@ export function RowEditorModal({
   mode,
 }: RowEditorModalProps) {
   const [values, setValues] = useState<Record<string, any>>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Only initialize values when modal opens, not when initialValues changes during typing
   useEffect(() => {
-    if (open) {
+    if (open && !isInitialized) {
       setValues(initialValues);
+      setIsInitialized(true);
+    } else if (!open) {
+      setIsInitialized(false);
     }
-  }, [open, initialValues]);
+  }, [open, initialValues, isInitialized]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
+    // Validate required fields (excluding auto_number fields which are auto-generated)
     const missingRequired = columns
-      .filter((col) => col.required && !values[col.id])
+      .filter((col) => col.required && col.type !== "auto_number" && !values[col.id])
       .map((col) => col.name);
 
     if (missingRequired.length > 0) {
@@ -60,8 +65,19 @@ export function RowEditorModal({
       return;
     }
 
-    await onSubmit(values);
+    // Remove auto_number values from submission in add mode (backend will generate them)
+    const submitValues = mode === "add"
+      ? Object.fromEntries(
+          Object.entries(values).filter(([key]) => {
+            const column = columns.find(c => c.id === key);
+            return column?.type !== "auto_number";
+          })
+        )
+      : values;
+
+    await onSubmit(submitValues);
     setValues({});
+    setIsInitialized(false);
   };
 
   const handleCancel = () => {
@@ -71,6 +87,20 @@ export function RowEditorModal({
 
   const renderField = (column: DatavaultColumn) => {
     const value = values[column.id] ?? "";
+    const isAutoNumber = column.type === "auto_number";
+    const isReadOnly = isAutoNumber || isLoading;
+
+    // Auto-number fields in add mode show placeholder, in edit mode show the value
+    if (isAutoNumber && mode === "add") {
+      return (
+        <Input
+          id={column.id}
+          value="Auto-generated"
+          disabled
+          className="bg-muted text-muted-foreground"
+        />
+      );
+    }
 
     switch (column.type) {
       case "text":
@@ -84,7 +114,18 @@ export function RowEditorModal({
             value={value}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
+          />
+        );
+
+      case "auto_number":
+        return (
+          <Input
+            id={column.id}
+            type="number"
+            value={value}
+            disabled
+            className="bg-muted text-muted-foreground"
           />
         );
 
@@ -95,7 +136,7 @@ export function RowEditorModal({
             value={typeof value === "object" ? JSON.stringify(value, null, 2) : value}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
             rows={4}
           />
         );
@@ -108,7 +149,7 @@ export function RowEditorModal({
             value={value}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
           />
         );
 
@@ -135,7 +176,7 @@ export function RowEditorModal({
             value={value ? new Date(value).toISOString().split("T")[0] : ""}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
           />
         );
 
@@ -147,7 +188,7 @@ export function RowEditorModal({
             value={value ? new Date(value).toISOString().slice(0, 16) : ""}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
           />
         );
 
@@ -158,7 +199,7 @@ export function RowEditorModal({
             value={value}
             onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
-            disabled={isLoading}
+            disabled={isReadOnly}
           />
         );
     }
@@ -185,8 +226,10 @@ export function RowEditorModal({
                 <div key={column.id} className="grid gap-2">
                   <Label htmlFor={column.id}>
                     {column.name}
-                    {column.required && <span className="text-destructive ml-1">*</span>}
-                    <span className="text-xs text-muted-foreground ml-2">({column.type})</span>
+                    {column.required && column.type !== "auto_number" && <span className="text-destructive ml-1">*</span>}
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({column.type}{column.type === "auto_number" ? " - auto-generated" : ""})
+                    </span>
                   </Label>
                   {renderField(column)}
                 </div>

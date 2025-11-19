@@ -135,6 +135,21 @@ export class DatavaultTablesService {
   }
 
   /**
+   * Get table schema (for workflow builder integration)
+   * Returns minimal table metadata + ordered columns
+   */
+  async getTableSchema(tableId: string, tenantId: string, tx?: DbTransaction) {
+    await this.verifyTenantOwnership(tableId, tenantId, tx);
+    const schema = await this.tablesRepo.getSchema(tableId, tx);
+
+    if (!schema) {
+      throw new Error("Table not found");
+    }
+
+    return schema;
+  }
+
+  /**
    * List all tables for a tenant
    */
   async listTables(tenantId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {

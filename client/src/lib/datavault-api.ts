@@ -129,6 +129,11 @@ export const datavaultAPI = {
     return res.json();
   },
 
+  getTableSchema: async (tableId: string) => {
+    const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/schema`);
+    return res.json();
+  },
+
   // Columns
   listColumns: async (tableId: string): Promise<DatavaultColumn[]> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/columns`);

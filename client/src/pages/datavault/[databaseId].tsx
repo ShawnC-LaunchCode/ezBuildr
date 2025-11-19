@@ -1,7 +1,8 @@
 /**
- * Database Detail Page
- * Shows database details with tabs for tables, settings, etc.
- * DataVault Phase 2: Databases feature
+ * Database Detail Page - Airtable Style
+ * Shows database with horizontal tab bar for tables
+ * Clicking a tab loads that table's grid view
+ * DataVault Phase 2: PR 6
  */
 
 import { useState } from "react";
@@ -10,13 +11,40 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useDatavaultDatabase,
   useDatabaseTables,
-  useUpdateDatavaultDatabase,
+  useDatavaultColumns,
+  useDatavaultRows,
+  useCreateDatavaultColumn,
+  useUpdateDatavaultColumn,
+  useDeleteDatavaultColumn,
+  useReorderDatavaultColumns,
+  useCreateDatavaultRow,
+  useUpdateDatavaultRow,
+  useDeleteDatavaultRow,
+  useCreateDatavaultTable,
 } from "@/lib/datavault-hooks";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database as DatabaseIcon, Table, Settings, ArrowLeft, Search, Plus } from "lucide-react";
-import { TableCard } from "@/components/datavault/TableCard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2 } from "lucide-react";
+import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
+import { InfiniteEditableDataGrid } from "@/components/datavault/InfiniteEditableDataGrid";
+import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
+import { RowEditorModal } from "@/components/datavault/RowEditorModal";
 import { CreateTableModal } from "@/components/datavault/CreateTableModal";
 import { DatabaseSettings } from "@/components/datavault/DatabaseSettings";
 import Header from "@/components/layout/Header";
@@ -30,27 +58,162 @@ export default function DatabaseDetailPage() {
   const { data: database, isLoading: dbLoading } = useDatavaultDatabase(databaseId);
   const { data: tables, isLoading: tablesLoading } = useDatabaseTables(databaseId);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTableId, setActiveTableId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [createTableOpen, setCreateTableOpen] = useState(false);
+  const [rowEditorOpen, setRowEditorOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, any> } | null>(null);
+  const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
 
-  // Filter tables by search query
-  const filteredTables = tables?.filter((table) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      table.name.toLowerCase().includes(query) ||
-      table.slug.toLowerCase().includes(query) ||
-      table.description?.toLowerCase().includes(query)
-    );
+  // Auto-select first table when tables load
+  useState(() => {
+    if (tables && tables.length > 0 && !activeTableId) {
+      setActiveTableId(tables[0].id);
+    }
   });
 
-  const handleTableClick = (tableId: string) => {
-    setLocation(`/datavault/tables/${tableId}`);
+  // Data for active table
+  const { data: columns, isLoading: columnsLoading } = useDatavaultColumns(activeTableId || undefined);
+  const { data: rowsData, isLoading: rowsLoading } = useDatavaultRows(activeTableId || undefined, {
+    limit: 25,
+    offset: 0,
+  });
+
+  // Mutations
+  const createTableMutation = useCreateDatavaultTable();
+  const createColumnMutation = useCreateDatavaultColumn();
+  const updateColumnMutation = useUpdateDatavaultColumn();
+  const deleteColumnMutation = useDeleteDatavaultColumn();
+  const reorderColumnsMutation = useReorderDatavaultColumns();
+  const createRowMutation = useCreateDatavaultRow();
+  const updateRowMutation = useUpdateDatavaultRow();
+  const deleteRowMutation = useDeleteDatavaultRow();
+
+  const isColumnMutating =
+    createColumnMutation.isPending || updateColumnMutation.isPending || deleteColumnMutation.isPending;
+  const isRowMutating =
+    createRowMutation.isPending || updateRowMutation.isPending || deleteRowMutation.isPending;
+
+  // Handlers
+  const handleCreateTable = async (data: { name: string; description?: string; slug?: string }) => {
+    try {
+      const table = await createTableMutation.mutateAsync({
+        ...data,
+        databaseId,
+      } as any);
+      toast({ title: "Table created", description: `Table "${data.name}" has been created.` });
+      setCreateTableOpen(false);
+      setActiveTableId(table.id);
+    } catch (error) {
+      toast({
+        title: "Failed to create table",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleTableDelete = (tableId: string) => {
-    // This would trigger a delete confirmation modal
-    // Implementation depends on existing table deletion flow
-    console.log('Delete table:', tableId);
+  const handleAddColumn = async (data: { name: string; type: string; required: boolean }) => {
+    if (!activeTableId) return;
+
+    try {
+      await createColumnMutation.mutateAsync({ tableId: activeTableId, ...data });
+      toast({ title: "Column added", description: `Column "${data.name}" has been added.` });
+    } catch (error) {
+      toast({
+        title: "Failed to add column",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateColumn = async (columnId: string, data: { name: string; required: boolean }) => {
+    if (!activeTableId) return;
+
+    try {
+      await updateColumnMutation.mutateAsync({ columnId, tableId: activeTableId, ...data });
+      toast({ title: "Column updated" });
+    } catch (error) {
+      toast({
+        title: "Failed to update column",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (!activeTableId) return;
+
+    try {
+      await deleteColumnMutation.mutateAsync({ columnId, tableId: activeTableId });
+      toast({ title: "Column deleted" });
+    } catch (error) {
+      toast({
+        title: "Failed to delete column",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReorderColumns = async (columnIds: string[]) => {
+    if (!activeTableId) return;
+    await reorderColumnsMutation.mutateAsync({ tableId: activeTableId, columnIds });
+  };
+
+  const handleAddRow = async (values: Record<string, any>) => {
+    if (!activeTableId) return;
+
+    try {
+      await createRowMutation.mutateAsync({ tableId: activeTableId, values });
+      toast({ title: "Row added" });
+      setRowEditorOpen(false);
+    } catch (error) {
+      toast({
+        title: "Failed to add row",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateRow = async (values: Record<string, any>) => {
+    if (!activeTableId || !editingRow) return;
+
+    try {
+      await updateRowMutation.mutateAsync({ rowId: editingRow.id, tableId: activeTableId, values });
+      toast({ title: "Row updated" });
+      setEditingRow(null);
+    } catch (error) {
+      toast({
+        title: "Failed to update row",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteRow = async () => {
+    if (!activeTableId || !deleteRowConfirm) return;
+
+    try {
+      await deleteRowMutation.mutateAsync({ rowId: deleteRowConfirm, tableId: activeTableId });
+      toast({ title: "Row deleted" });
+      setDeleteRowConfirm(null);
+    } catch (error) {
+      toast({
+        title: "Failed to delete row",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditRow = (rowId: string, values: Record<string, any>) => {
+    setEditingRow({ id: rowId, values });
   };
 
   if (dbLoading) {
@@ -59,13 +222,8 @@ export default function DatabaseDetailPage() {
         <Sidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header title="Loading..." description="" />
-          <main className="flex-1 overflow-y-auto">
-            <div className="container mx-auto px-4 py-8">
-              <div className="animate-pulse space-y-4">
-                <div className="h-8 bg-muted rounded w-1/3"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-              </div>
-            </div>
+          <main className="flex-1 overflow-y-auto flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </main>
         </div>
       </div>
@@ -79,17 +237,12 @@ export default function DatabaseDetailPage() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header title="Not Found" description="" />
           <main className="flex-1 overflow-y-auto">
-            <div className="container mx-auto px-4 py-8">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Database not found</h2>
-                <Button
-                  onClick={() => setLocation('/datavault/databases')}
-                  className="mt-4"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Databases
-                </Button>
-              </div>
+            <div className="container mx-auto px-4 py-8 text-center">
+              <h2 className="text-2xl font-bold mb-4">Database not found</h2>
+              <Button onClick={() => setLocation("/datavault/databases")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Databases
+              </Button>
             </div>
           </main>
         </div>
@@ -97,141 +250,217 @@ export default function DatabaseDetailPage() {
     );
   }
 
+  const activeTable = tables?.find((t) => t.id === activeTableId);
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Header title={database.name} description={database.description || ''} />
-        <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-4 py-8">
-            {/* Page Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLocation('/datavault/databases')}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
+        {/* Header with database info and actions */}
+        <div className="border-b bg-background px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => setLocation("/datavault/databases")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <DatabaseIcon className="w-6 h-6 text-muted-foreground" />
+              <div>
+                <h1 className="text-lg font-semibold">{database.name}</h1>
+                {database.description && (
+                  <p className="text-sm text-muted-foreground">{database.description}</p>
+                )}
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreVertical className="w-4 h-4" />
                 </Button>
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                    <DatabaseIcon className="w-8 h-8" />
-                    {database.name}
-                  </h1>
-                  {database.description && (
-                    <p className="text-muted-foreground mt-1">{database.description}</p>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowSettings(!showSettings)}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Horizontal Table Tabs (Airtable-style) */}
+        <DatabaseTableTabs
+          tables={tables || []}
+          activeTableId={activeTableId}
+          onTabClick={setActiveTableId}
+          onCreateTable={() => setCreateTableOpen(true)}
+        />
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-hidden">
+          {showSettings ? (
+            <div className="h-full overflow-y-auto p-6">
+              <DatabaseSettings database={database} />
+            </div>
+          ) : !activeTableId || !activeTable ? (
+            <div className="h-full flex items-center justify-center text-center p-8">
+              <div className="max-w-md">
+                <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
+                  <DatabaseIcon className="w-10 h-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-3">No tables yet</h3>
+                <p className="text-muted-foreground mb-6 text-base">
+                  Tables are where you store your data. Create your first table to start organizing and managing your information.
+                </p>
+                <Button onClick={() => setCreateTableOpen(true)} size="lg">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Table
+                </Button>
+                <p className="text-xs text-muted-foreground mt-6">
+                  💡 Tip: Each table can have custom columns, primary keys, and unique constraints to fit your data structure.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col overflow-hidden">
+              {/* Table Header */}
+              <div className="border-b px-6 py-4 bg-background">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">{activeTable.name}</h2>
+                    {activeTable.description && (
+                      <p className="text-sm text-muted-foreground">{activeTable.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setRowEditorOpen(true)}
+                      disabled={!columns || columns.length === 0}
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Row
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="flex items-center gap-6 mt-3 text-sm text-muted-foreground">
+                  <span>{columns?.length || 0} columns</span>
+                  <span>{rowsData?.pagination.total || 0} rows</span>
+                </div>
+              </div>
+
+              {/* Table Content - Split View */}
+              <div className="flex-1 overflow-hidden flex">
+                {/* Data Grid */}
+                <div className="flex-1 overflow-auto p-6">
+                  {columns && columns.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                        <svg
+                          className="w-8 h-8 text-muted-foreground"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No columns defined yet</h3>
+                      <p className="text-sm text-muted-foreground max-w-md mb-4">
+                        Define the structure of your table by adding columns in the Columns panel on the right.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        💡 Tip: Start with a primary key column to uniquely identify each row.
+                      </p>
+                    </div>
+                  ) : (
+                    <InfiniteEditableDataGrid
+                      tableId={activeTableId}
+                      columns={columns || []}
+                      onEditRow={openEditRow}
+                      onDeleteRow={setDeleteRowConfirm}
+                    />
                   )}
+                </div>
+
+                {/* Column Manager Sidebar */}
+                <div className="w-96 border-l overflow-y-auto bg-muted/20">
+                  <div className="p-4">
+                    <h3 className="font-semibold mb-4">Columns</h3>
+                    <ColumnManagerWithDnd
+                      columns={columns || []}
+                      tableId={activeTableId}
+                      onAddColumn={handleAddColumn}
+                      onUpdateColumn={handleUpdateColumn}
+                      onDeleteColumn={handleDeleteColumn}
+                      onReorderColumns={handleReorderColumns}
+                      isLoading={isColumnMutating}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Tabs */}
-            <Tabs defaultValue="tables" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="tables" className="gap-2">
-                  <Table className="w-4 h-4" />
-                  Tables
-                  {typeof database.tableCount === 'number' && (
-                    <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-                      {database.tableCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="gap-2">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Tables Tab */}
-              <TabsContent value="tables" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="relative max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Search tables..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Button onClick={() => setCreateTableOpen(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Table
-                  </Button>
-                </div>
-
-                {tablesLoading ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-48 bg-muted animate-pulse rounded-lg"
-                      />
-                    ))}
-                  </div>
-                ) : filteredTables && filteredTables.length > 0 ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredTables.map((table) => (
-                      <TableCard
-                        key={table.id}
-                        table={table}
-                        onClick={() => handleTableClick(table.id)}
-                        onDelete={() => handleTableDelete(table.id)}
-                      />
-                    ))}
-                  </div>
-                ) : tables?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="rounded-full bg-muted p-6 mb-4">
-                      <Table className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">No tables yet</h3>
-                    <p className="text-muted-foreground mb-6 max-w-sm">
-                      Get started by creating your first table in this database
-                    </p>
-                    <Button onClick={() => setCreateTableOpen(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Table
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Search className="w-12 h-12 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">No results found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      No tables match "{searchQuery}"
-                    </p>
-                    <Button variant="outline" onClick={() => setSearchQuery("")}>
-                      Clear Search
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Settings Tab */}
-              <TabsContent value="settings">
-                <DatabaseSettings database={database} />
-              </TabsContent>
-            </Tabs>
-          </div>
+          )}
         </main>
       </div>
 
-      {/* Create Table Modal */}
+      {/* Modals */}
       <CreateTableModal
         open={createTableOpen}
         onOpenChange={setCreateTableOpen}
-        onSubmit={async (data) => {
-          // Implementation would create table with databaseId
-          console.log('Create table in database:', databaseId, data);
-          setCreateTableOpen(false);
-        }}
-        isLoading={false}
+        onSubmit={handleCreateTable}
+        isLoading={createTableMutation.isPending}
         defaultDatabaseId={databaseId}
       />
+
+      <RowEditorModal
+        open={rowEditorOpen}
+        onOpenChange={setRowEditorOpen}
+        columns={columns || []}
+        onSubmit={handleAddRow}
+        isLoading={isRowMutating}
+        mode="add"
+      />
+
+      <RowEditorModal
+        open={!!editingRow}
+        onOpenChange={() => setEditingRow(null)}
+        columns={columns || []}
+        initialValues={editingRow?.values || {}}
+        onSubmit={handleUpdateRow}
+        isLoading={isRowMutating}
+        mode="edit"
+      />
+
+      <AlertDialog open={!!deleteRowConfirm} onOpenChange={() => setDeleteRowConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Row?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this row? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteRow}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isRowMutating}
+            >
+              {isRowMutating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Delete Row
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

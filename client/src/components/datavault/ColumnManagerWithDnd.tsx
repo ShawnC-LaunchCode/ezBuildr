@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
 import type { DatavaultColumn } from "@shared/schema";
+import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
 import {
   DndContext,
   closestCenter,
@@ -99,6 +100,7 @@ function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: Sort
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 flex-wrap">
+            <ColumnTypeIcon type={column.type} className={getColumnTypeColor(column.type)} />
             <p className="font-medium truncate">{column.name}</p>
             {column.isPrimaryKey && (
               <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded font-semibold">

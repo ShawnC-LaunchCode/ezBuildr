@@ -1,6 +1,6 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { datavaultTables, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { datavaultTables, datavaultColumns, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
+import { eq, and, desc, sql, asc } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -92,6 +92,45 @@ export class DatavaultTablesRepository extends BaseRepository<
       .where(eq(datavaultTables.tenantId, tenantId));
 
     return result?.count || 0;
+  }
+
+  /**
+   * Get table schema with columns
+   * Returns table metadata and ordered list of columns
+   */
+  async getSchema(tableId: string, tx?: DbTransaction) {
+    const database = this.getDb(tx);
+
+    // Get table
+    const table = await this.findById(tableId, tx);
+    if (!table) {
+      return null;
+    }
+
+    // Get columns ordered by orderIndex
+    const columns = await database
+      .select({
+        id: datavaultColumns.id,
+        name: datavaultColumns.name,
+        type: datavaultColumns.type,
+        required: datavaultColumns.required,
+        orderIndex: datavaultColumns.orderIndex,
+        isPrimaryKey: datavaultColumns.isPrimaryKey,
+        isUnique: datavaultColumns.isUnique,
+        slug: datavaultColumns.slug,
+      })
+      .from(datavaultColumns)
+      .where(eq(datavaultColumns.tableId, tableId))
+      .orderBy(asc(datavaultColumns.orderIndex));
+
+    return {
+      id: table.id,
+      name: table.name,
+      slug: table.slug,
+      description: table.description,
+      databaseId: table.databaseId,
+      columns,
+    };
   }
 
   /**

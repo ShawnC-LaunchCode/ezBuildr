@@ -129,6 +129,14 @@ export function useDatavaultTable(tableId: string | undefined, withColumns = fal
   });
 }
 
+export function useDatavaultTableSchema(tableId: string | undefined) {
+  return useQuery({
+    queryKey: [...datavaultQueryKeys.table(tableId!), 'schema'],
+    queryFn: () => datavaultAPI.getTableSchema(tableId!),
+    enabled: !!tableId,
+  });
+}
+
 export function useCreateDatavaultTable() {
   const queryClient = useQueryClient();
   return useMutation({

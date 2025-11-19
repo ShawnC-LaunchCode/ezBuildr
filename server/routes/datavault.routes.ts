@@ -338,6 +338,26 @@ export function registerDatavaultRoutes(app: Express): void {
     }
   });
 
+  /**
+   * GET /api/datavault/tables/:tableId/schema
+   * Get table schema (for workflow builder integration)
+   * Returns: { id, name, slug, description, databaseId, columns: [...] }
+   */
+  app.get('/api/datavault/tables/:tableId/schema', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { tableId } = req.params;
+
+      const schema = await datavaultTablesService.getTableSchema(tableId, tenantId);
+      res.json(schema);
+    } catch (error) {
+      logger.error({ error }, 'Error fetching DataVault table schema');
+      const message = error instanceof Error ? error.message : 'Failed to fetch table schema';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
   // ===================================================================
   // COLUMN ENDPOINTS
   // ===================================================================
