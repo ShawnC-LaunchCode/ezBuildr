@@ -81,7 +81,30 @@ export default function DataVaultDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <i className="fas fa-database text-blue-500"></i>
+                    <span>Databases</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Organize tables into databases
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Link href="/datavault/databases">
+                    <Button className="w-full" variant="default">
+                      <i className="fas fa-list mr-2"></i>
+                      View Databases
+                    </Button>
+                  </Link>
+                  <p className="text-xs text-muted-foreground">
+                    Group related tables by project, workflow, or account
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">

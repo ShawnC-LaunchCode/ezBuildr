@@ -14,9 +14,12 @@ import {
   useCreateDatavaultColumn,
   useUpdateDatavaultColumn,
   useDeleteDatavaultColumn,
+  useReorderDatavaultColumns,
   useCreateDatavaultRow,
   useUpdateDatavaultRow,
   useDeleteDatavaultRow,
+  useMoveDatavaultTable,
+  useDatavaultDatabases,
 } from "@/lib/datavault-hooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,10 +34,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, ArrowLeft, Plus, Database } from "lucide-react";
-import { ColumnManager } from "@/components/datavault/ColumnManager";
+import { Loader2, ArrowLeft, Plus, Database, FolderInput } from "lucide-react";
+import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
 import { RowEditorModal } from "@/components/datavault/RowEditorModal";
-import { DataGrid } from "@/components/datavault/DataGrid";
+import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
+import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 
@@ -45,18 +49,22 @@ export default function TableViewPage() {
   const { data: table, isLoading: tableLoading } = useDatavaultTable(tableId);
   const { data: columns, isLoading: columnsLoading } = useDatavaultColumns(tableId);
   const { data: rowsData, isLoading: rowsLoading } = useDatavaultRows(tableId, { limit: 25, offset: 0 });
+  const { data: databases } = useDatavaultDatabases();
 
   const createColumnMutation = useCreateDatavaultColumn();
   const updateColumnMutation = useUpdateDatavaultColumn();
   const deleteColumnMutation = useDeleteDatavaultColumn();
+  const reorderColumnsMutation = useReorderDatavaultColumns();
   const createRowMutation = useCreateDatavaultRow();
   const updateRowMutation = useUpdateDatavaultRow();
   const deleteRowMutation = useDeleteDatavaultRow();
+  const moveTableMutation = useMoveDatavaultTable();
 
   const [activeTab, setActiveTab] = useState("data");
   const [rowEditorOpen, setRowEditorOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, any> } | null>(null);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
+  const [moveTableOpen, setMoveTableOpen] = useState(false);
 
   // Column handlers
   const handleAddColumn = async (data: { name: string; type: string; required: boolean }) => {
@@ -86,6 +94,7 @@ export default function TableViewPage() {
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+      throw error; // Re-throw so ColumnManager can handle it
     }
   };
 
@@ -102,6 +111,12 @@ export default function TableViewPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleReorderColumns = async (columnIds: string[]) => {
+    if (!tableId) return;
+
+    await reorderColumnsMutation.mutateAsync({ tableId, columnIds });
   };
 
   // Row handlers
@@ -153,6 +168,25 @@ export default function TableViewPage() {
     }
   };
 
+  const handleMoveTable = async (databaseId: string | null) => {
+    if (!tableId) return;
+
+    try {
+      await moveTableMutation.mutateAsync({ tableId, databaseId });
+      toast({
+        title: "Table moved",
+        description: `Table has been moved to ${databaseId ? databases?.find((db) => db.id === databaseId)?.name : "Main Folder"} successfully.`,
+      });
+      setMoveTableOpen(false);
+    } catch (error) {
+      toast({
+        title: "Failed to move table",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
   const openEditRow = (rowId: string, values: Record<string, any>) => {
     setEditingRow({ id: rowId, values });
   };
@@ -167,7 +201,7 @@ export default function TableViewPage() {
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Header title={table?.name || "Table Details"} description={table?.description} />
+        <Header title={table?.name || "Table Details"} description={table?.description ?? undefined} />
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-4 py-8">
             {isLoading && (
@@ -199,6 +233,15 @@ export default function TableViewPage() {
                         Slug: <span className="font-mono">/{table.slug}</span>
                       </p>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMoveTableOpen(true)}
+                      disabled={moveTableMutation.isPending}
+                    >
+                      <FolderInput className="w-4 h-4 mr-2" />
+                      Move Table
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -260,20 +303,10 @@ export default function TableViewPage() {
                             <p className="mb-2">No columns defined yet</p>
                             <p className="text-sm">Add columns in the Columns tab to start adding data</p>
                           </div>
-                        ) : rowsLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : !rowsData || rowsData.rows.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <Database className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                            <p className="mb-2">No data yet</p>
-                            <p className="text-sm mb-4">Click "Add Row" to start adding data to your table</p>
-                          </div>
                         ) : (
-                          <DataGrid
+                          <InfiniteDataGrid
+                            tableId={tableId!}
                             columns={columns || []}
-                            rows={rowsData.rows}
                             onEditRow={openEditRow}
                             onDeleteRow={setDeleteRowConfirm}
                           />
@@ -283,11 +316,13 @@ export default function TableViewPage() {
                   </TabsContent>
 
                   <TabsContent value="columns" className="mt-6">
-                    <ColumnManager
+                    <ColumnManagerWithDnd
                       columns={columns || []}
+                      tableId={tableId!}
                       onAddColumn={handleAddColumn}
                       onUpdateColumn={handleUpdateColumn}
                       onDeleteColumn={handleDeleteColumn}
+                      onReorderColumns={handleReorderColumns}
                       isLoading={isColumnMutating}
                     />
                   </TabsContent>
@@ -357,6 +392,17 @@ export default function TableViewPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Move Table Modal */}
+      <MoveTableModal
+        open={moveTableOpen}
+        onOpenChange={setMoveTableOpen}
+        tableName={table?.name || ""}
+        currentDatabaseId={table?.databaseId || null}
+        databases={databases || []}
+        onMove={handleMoveTable}
+        isLoading={moveTableMutation.isPending}
+      />
     </div>
   );
 }

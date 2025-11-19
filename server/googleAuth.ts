@@ -446,6 +446,35 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   //   return res.status(401).json({ message: "Token expired" });
   // }
 
+  // Auto-populate missing tenantId from database (for legacy sessions)
+  if (!user.tenantId && user.id) {
+    try {
+      const dbUser = await userRepository.findById(user.id);
+      if (dbUser?.tenantId) {
+        logger.info(
+          { userId: user.id, email: user.email },
+          'Auto-populating missing tenantId from database into session'
+        );
+        user.tenantId = dbUser.tenantId;
+        user.tenantRole = dbUser.tenantRole;
+        // Update session to persist the fix
+        if (req.session) {
+          (req.session as any).user = user;
+        }
+      } else {
+        logger.error(
+          { userId: user.id, email: user.email },
+          'User missing tenantId in database - cannot auto-populate'
+        );
+      }
+    } catch (error) {
+      logger.error(
+        { err: error, userId: user.id },
+        'Failed to auto-populate tenantId from database'
+      );
+    }
+  }
+
   // Set user on request for backward compatibility
   (req as any).user = user;
   next();

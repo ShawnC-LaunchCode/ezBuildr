@@ -1,6 +1,6 @@
 /**
  * DataVault API client
- * API functions for DataVault Phase 1
+ * API functions for DataVault Phase 1 & Phase 2 (Databases)
  */
 
 import { apiRequest } from "./queryClient";
@@ -16,7 +16,79 @@ export interface ApiDatavaultRowWithValues {
   values: Record<string, any>; // columnId -> value
 }
 
+export interface DatavaultDatabase {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  scopeType: 'account' | 'project' | 'workflow';
+  scopeId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tableCount?: number;
+}
+
 export const datavaultAPI = {
+  // ============================================================================
+  // Databases (Phase 2)
+  // ============================================================================
+
+  listDatabases: async (params?: {
+    scopeType?: 'account' | 'project' | 'workflow';
+    scopeId?: string;
+  }): Promise<DatavaultDatabase[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.scopeType) queryParams.set('scopeType', params.scopeType);
+    if (params?.scopeId) queryParams.set('scopeId', params.scopeId);
+
+    const url = `/api/datavault/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const res = await apiRequest('GET', url);
+    return res.json();
+  },
+
+  getDatabase: async (id: string): Promise<DatavaultDatabase> => {
+    const res = await apiRequest('GET', `/api/datavault/databases/${id}`);
+    return res.json();
+  },
+
+  createDatabase: async (data: {
+    name: string;
+    description?: string;
+    scopeType: 'account' | 'project' | 'workflow';
+    scopeId?: string;
+  }): Promise<DatavaultDatabase> => {
+    const res = await apiRequest('POST', '/api/datavault/databases', data);
+    return res.json();
+  },
+
+  updateDatabase: async (
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      scopeType?: 'account' | 'project' | 'workflow';
+      scopeId?: string | null;
+    }
+  ): Promise<DatavaultDatabase> => {
+    const res = await apiRequest('PATCH', `/api/datavault/databases/${id}`, data);
+    return res.json();
+  },
+
+  deleteDatabase: async (id: string): Promise<void> => {
+    const res = await apiRequest('DELETE', `/api/datavault/databases/${id}`);
+    if (res.status !== 204) {
+      await res.json();
+    }
+  },
+
+  getTablesInDatabase: async (databaseId: string): Promise<DatavaultTable[]> => {
+    const res = await apiRequest('GET', `/api/datavault/databases/${databaseId}/tables`);
+    return res.json();
+  },
+
+  // ============================================================================
+  // Tables (Phase 1)
+  // ============================================================================
   // Tables
   listTables: async (withStats = false): Promise<ApiDatavaultTableWithStats[]> => {
     const res = await apiRequest('GET', `/api/datavault/tables?stats=${withStats}`);
@@ -50,6 +122,11 @@ export const datavaultAPI = {
     if (res.status !== 204) {
       await res.json();
     }
+  },
+
+  moveTable: async (tableId: string, databaseId: string | null): Promise<DatavaultTable> => {
+    const res = await apiRequest('PATCH', `/api/datavault/tables/${tableId}/move`, { databaseId });
+    return res.json();
   },
 
   // Columns

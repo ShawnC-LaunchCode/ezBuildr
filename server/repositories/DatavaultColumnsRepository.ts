@@ -60,16 +60,21 @@ export class DatavaultColumnsRepository extends BaseRepository<
   ): Promise<boolean> {
     const database = this.getDb(tx);
 
-    let query = database
-      .select({ id: datavaultColumns.id })
-      .from(datavaultColumns)
-      .where(and(eq(datavaultColumns.tableId, tableId), eq(datavaultColumns.slug, slug)));
+    const conditions = [
+      eq(datavaultColumns.tableId, tableId),
+      eq(datavaultColumns.slug, slug)
+    ];
 
     if (excludeId) {
-      query = query.where(sql`${datavaultColumns.id} != ${excludeId}`) as any;
+      conditions.push(sql`${datavaultColumns.id} != ${excludeId}`);
     }
 
-    const [result] = await query.limit(1);
+    const [result] = await database
+      .select({ id: datavaultColumns.id })
+      .from(datavaultColumns)
+      .where(and(...conditions))
+      .limit(1);
+
     return !!result;
   }
 

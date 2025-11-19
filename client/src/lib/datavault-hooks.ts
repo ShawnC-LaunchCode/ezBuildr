@@ -1,6 +1,6 @@
 /**
  * TanStack Query hooks for DataVault API
- * DataVault Phase 1 hooks
+ * DataVault Phase 1 & Phase 2 (Databases) hooks
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,12 +11,104 @@ import { datavaultAPI } from "./datavault-api";
 // ============================================================================
 
 export const datavaultQueryKeys = {
+  databases: ["datavault", "databases"] as const,
+  database: (id: string) => ["datavault", "databases", id] as const,
+  databaseTables: (databaseId: string) => ["datavault", "databases", databaseId, "tables"] as const,
+  databasesByScope: (scopeType?: string, scopeId?: string) =>
+    ["datavault", "databases", "scope", scopeType, scopeId] as const,
   tables: ["datavault", "tables"] as const,
   table: (id: string) => ["datavault", "tables", id] as const,
   tableColumns: (tableId: string) => ["datavault", "tables", tableId, "columns"] as const,
   tableRows: (tableId: string) => ["datavault", "tables", tableId, "rows"] as const,
   row: (id: string) => ["datavault", "rows", id] as const,
 };
+
+// ============================================================================
+// Databases (Phase 2)
+// ============================================================================
+
+export function useDatavaultDatabases(params?: {
+  scopeType?: 'account' | 'project' | 'workflow';
+  scopeId?: string;
+}) {
+  return useQuery({
+    queryKey: params?.scopeType
+      ? datavaultQueryKeys.databasesByScope(params.scopeType, params.scopeId)
+      : datavaultQueryKeys.databases,
+    queryFn: () => datavaultAPI.listDatabases(params),
+  });
+}
+
+export function useDatavaultDatabase(id: string | undefined) {
+  return useQuery({
+    queryKey: id ? datavaultQueryKeys.database(id) : ['datavault', 'databases', 'null'],
+    queryFn: () => {
+      if (!id) throw new Error('Database ID is required');
+      return datavaultAPI.getDatabase(id);
+    },
+    enabled: !!id,
+  });
+}
+
+export function useDatabaseTables(databaseId: string | undefined) {
+  return useQuery({
+    queryKey: databaseId
+      ? datavaultQueryKeys.databaseTables(databaseId)
+      : ['datavault', 'databases', 'null', 'tables'],
+    queryFn: () => {
+      if (!databaseId) throw new Error('Database ID is required');
+      return datavaultAPI.getTablesInDatabase(databaseId);
+    },
+    enabled: !!databaseId,
+  });
+}
+
+export function useCreateDatavaultDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: datavaultAPI.createDatabase,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
+    },
+  });
+}
+
+export function useUpdateDatavaultDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Parameters<typeof datavaultAPI.updateDatabase>[1]) =>
+      datavaultAPI.updateDatabase(id, data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.database(result.id) });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
+    },
+  });
+}
+
+export function useDeleteDatavaultDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: datavaultAPI.deleteDatabase,
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: datavaultQueryKeys.database(id) });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
+    },
+  });
+}
+
+export function useMoveDatavaultTable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, databaseId }: { tableId: string; databaseId: string | null }) =>
+      datavaultAPI.moveTable(tableId, databaseId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.table(result.id) });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
+    },
+  });
+}
 
 // ============================================================================
 // Tables
@@ -115,6 +207,17 @@ export function useDeleteDatavaultColumn() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableColumns(variables.tableId) });
       queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
+    },
+  });
+}
+
+export function useReorderDatavaultColumns() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, columnIds }: { tableId: string; columnIds: string[] }) =>
+      datavaultAPI.reorderColumns(tableId, columnIds),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableColumns(variables.tableId) });
     },
   });
 }

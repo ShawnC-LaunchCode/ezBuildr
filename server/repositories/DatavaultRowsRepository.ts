@@ -258,6 +258,34 @@ export class DatavaultRowsRepository extends BaseRepository<
   ): Promise<DatavaultRow> {
     return super.update(id, { ...updates, updatedAt: new Date() } as Partial<InsertDatavaultRow>, tx);
   }
+
+  /**
+   * Check if a column has duplicate values
+   * Used for validating unique constraints
+   */
+  async checkColumnHasDuplicates(
+    columnId: string,
+    tx?: DbTransaction
+  ): Promise<boolean> {
+    const database = this.getDb(tx);
+
+    const [result] = await database
+      .select({
+        hasDuplicates: sql<boolean>`
+          EXISTS (
+            SELECT value
+            FROM ${datavaultValues}
+            WHERE ${datavaultValues.columnId} = ${columnId}
+            GROUP BY value
+            HAVING COUNT(*) > 1
+          )
+        `
+      })
+      .from(datavaultValues)
+      .limit(1);
+
+    return result?.hasDuplicates ?? false;
+  }
 }
 
 // Singleton instance

@@ -10,6 +10,7 @@ import {
   datavaultColumnsService,
   datavaultRowsService,
 } from '../services';
+import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { z } from 'zod';
 import { logger } from '../logger';
 
@@ -40,6 +41,168 @@ export function registerDatavaultRoutes(app: Express): void {
   const getUserId = (req: Request): string | undefined => {
     return (req.user as any)?.id;
   };
+
+  // ===================================================================
+  // DATABASE ENDPOINTS
+  // ===================================================================
+
+  /**
+   * GET /api/datavault/databases
+   * List all databases for the authenticated tenant
+   */
+  app.get('/api/datavault/databases', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { scopeType, scopeId } = req.query;
+
+      let databases;
+      if (scopeType && typeof scopeType === 'string') {
+        databases = await datavaultDatabasesService.getDatabasesByScope(
+          tenantId,
+          scopeType as any,
+          scopeId as string
+        );
+      } else {
+        databases = await datavaultDatabasesService.getDatabasesForTenant(tenantId);
+      }
+
+      res.json(databases);
+    } catch (error) {
+      logger.error({ error }, 'Error fetching DataVault databases');
+      const message = error instanceof Error ? error.message : 'Failed to fetch databases';
+      res.status(500).json({ message });
+    }
+  });
+
+  /**
+   * POST /api/datavault/databases
+   * Create a new database
+   */
+  app.post('/api/datavault/databases', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+
+      const createSchema = z.object({
+        name: z.string().min(1).max(255),
+        description: z.string().optional(),
+        scopeType: z.enum(['account', 'project', 'workflow']),
+        scopeId: z.string().uuid().optional(),
+      });
+
+      const input = createSchema.parse(req.body);
+      const database = await datavaultDatabasesService.createDatabase({
+        ...input,
+        tenantId,
+      });
+
+      res.status(201).json(database);
+    } catch (error) {
+      logger.error({ error }, 'Error creating DataVault database');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to create database';
+      res.status(500).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/datavault/databases/:id
+   * Get a single database with stats
+   */
+  app.get('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { id } = req.params;
+
+      const database = await datavaultDatabasesService.getDatabaseById(id, tenantId);
+      res.json(database);
+    } catch (error) {
+      logger.error({ error }, 'Error fetching DataVault database');
+      const message = error instanceof Error ? error.message : 'Failed to fetch database';
+      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * PATCH /api/datavault/databases/:id
+   * Update a database
+   */
+  app.patch('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { id } = req.params;
+
+      const updateSchema = z.object({
+        name: z.string().min(1).max(255).optional(),
+        description: z.string().optional(),
+        scopeType: z.enum(['account', 'project', 'workflow']).optional(),
+        scopeId: z.string().uuid().optional().nullable(),
+      });
+
+      const input = updateSchema.parse(req.body);
+      const database = await datavaultDatabasesService.updateDatabase(id, tenantId, input);
+
+      res.json(database);
+    } catch (error) {
+      logger.error({ error }, 'Error updating DataVault database');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to update database';
+      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * DELETE /api/datavault/databases/:id
+   * Delete a database (tables will be moved to main folder)
+   */
+  app.delete('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { id } = req.params;
+
+      await datavaultDatabasesService.deleteDatabase(id, tenantId);
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ error }, 'Error deleting DataVault database');
+      const message = error instanceof Error ? error.message : 'Failed to delete database';
+      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/datavault/databases/:id/tables
+   * Get all tables in a database
+   */
+  app.get('/api/datavault/databases/:id/tables', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { id } = req.params;
+
+      const tables = await datavaultDatabasesService.getTablesInDatabase(id, tenantId);
+      res.json(tables);
+    } catch (error) {
+      logger.error({ error }, 'Error fetching database tables');
+      const message = error instanceof Error ? error.message : 'Failed to fetch tables';
+      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
 
   // ===================================================================
   // TABLE ENDPOINTS

@@ -1,6 +1,6 @@
 /**
- * ColumnManager Component
- * Manage columns for a table: add, edit, delete, reorder
+ * ColumnManager Component with Drag & Drop
+ * Manage columns for a table: add, edit, delete, reorder with drag & drop
  */
 
 import { useState } from "react";
@@ -30,22 +30,142 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
 import type { DatavaultColumn } from "@shared/schema";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useToast } from "@/hooks/use-toast";
 
 interface ColumnManagerProps {
   columns: DatavaultColumn[];
+  tableId: string;
   onAddColumn: (data: { name: string; type: string; required: boolean }) => Promise<void>;
   onUpdateColumn: (columnId: string, data: { name: string; required: boolean }) => Promise<void>;
   onDeleteColumn: (columnId: string) => Promise<void>;
+  onReorderColumns?: (columnIds: string[]) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function ColumnManager({
+interface SortableColumnProps {
+  column: DatavaultColumn;
+  onEdit: () => void;
+  onDelete: () => void;
+  isLoading: boolean;
+  canDelete: boolean;
+}
+
+function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: SortableColumnProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+    >
+      <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-2 flex-wrap">
+            <p className="font-medium truncate">{column.name}</p>
+            {column.isPrimaryKey && (
+              <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded font-semibold">
+                🔑 PRIMARY KEY
+              </span>
+            )}
+            {column.isUnique && !column.isPrimaryKey && (
+              <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">
+                Unique
+              </span>
+            )}
+            {column.required && !column.isPrimaryKey && (
+              <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 px-2 py-0.5 rounded">
+                Required
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Type: <span className="font-mono">{column.type}</span>
+            {column.slug && (
+              <span className="ml-3">
+                Slug: <span className="font-mono">{column.slug}</span>
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center space-x-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={isLoading}
+          title="Edit column"
+        >
+          <Edit2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={isLoading || !canDelete}
+          className="text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+          title={
+            !canDelete
+              ? "Cannot delete the only primary key column"
+              : "Delete column"
+          }
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function ColumnManagerWithDnd({
   columns,
+  tableId,
   onAddColumn,
   onUpdateColumn,
   onDeleteColumn,
+  onReorderColumns,
   isLoading = false,
 }: ColumnManagerProps) {
+  const { toast } = useToast();
+  const [localColumns, setLocalColumns] = useState(columns);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialog, setEditDialog] = useState<{ id: string; name: string; required: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -58,6 +178,50 @@ export function ColumnManager({
   // Edit column state
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnRequired, setEditColumnRequired] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Update local columns when props change
+  useState(() => {
+    setLocalColumns(columns);
+  });
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = localColumns.findIndex((col) => col.id === active.id);
+      const newIndex = localColumns.findIndex((col) => col.id === over.id);
+
+      const newColumns = arrayMove(localColumns, oldIndex, newIndex);
+      setLocalColumns(newColumns);
+
+      // Call reorder API
+      if (onReorderColumns) {
+        try {
+          await onReorderColumns(newColumns.map((col) => col.id));
+          toast({
+            title: "Columns reordered",
+            description: "Column order has been updated successfully.",
+          });
+        } catch (error) {
+          // Revert on error
+          setLocalColumns(columns);
+          toast({
+            title: "Failed to reorder columns",
+            description: error instanceof Error ? error.message : "An error occurred",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  };
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
@@ -86,8 +250,6 @@ export function ColumnManager({
 
       setEditDialog(null);
     } catch (error) {
-      // Error is handled by parent component with toast
-      // Dialog stays open so user can fix the issue
       console.error('Failed to update column:', error);
     }
   };
@@ -112,7 +274,7 @@ export function ColumnManager({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Columns</CardTitle>
-              <CardDescription>Manage table columns and their properties</CardDescription>
+              <CardDescription>Manage table columns and their properties. Drag to reorder.</CardDescription>
             </div>
             <Button onClick={() => setAddDialogOpen(true)} size="sm">
               <Plus className="w-4 h-4 mr-2" />
@@ -121,77 +283,35 @@ export function ColumnManager({
           </div>
         </CardHeader>
         <CardContent>
-          {columns.length === 0 ? (
+          {localColumns.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <i className="fas fa-columns text-4xl mb-4"></i>
               <p>No columns yet. Add your first column to get started.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {columns.map((column) => (
-                <div
-                  key={column.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 flex-wrap">
-                        <p className="font-medium truncate">{column.name}</p>
-                        {column.isPrimaryKey && (
-                          <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded font-semibold">
-                            🔑 PRIMARY KEY
-                          </span>
-                        )}
-                        {column.isUnique && !column.isPrimaryKey && (
-                          <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">
-                            Unique
-                          </span>
-                        )}
-                        {column.required && !column.isPrimaryKey && (
-                          <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 px-2 py-0.5 rounded">
-                            Required
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Type: <span className="font-mono">{column.type}</span>
-                        {column.slug && (
-                          <span className="ml-3">
-                            Slug: <span className="font-mono">{column.slug}</span>
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(column)}
-                      disabled={isLoading}
-                      title="Edit column"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteConfirm({ id: column.id, name: column.name })}
-                      disabled={isLoading || (column.isPrimaryKey && columns.filter(c => c.isPrimaryKey).length === 1)}
-                      className="text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={
-                        column.isPrimaryKey && columns.filter(c => c.isPrimaryKey).length === 1
-                          ? "Cannot delete the only primary key column"
-                          : "Delete column"
-                      }
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={localColumns.map((col) => col.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {localColumns.map((column) => (
+                    <SortableColumn
+                      key={column.id}
+                      column={column}
+                      onEdit={() => openEditDialog(column)}
+                      onDelete={() => setDeleteConfirm({ id: column.id, name: column.name })}
+                      isLoading={isLoading}
+                      canDelete={!(column.isPrimaryKey && localColumns.filter(c => c.isPrimaryKey).length === 1)}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </CardContent>
       </Card>

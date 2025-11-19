@@ -78,20 +78,40 @@ export class DatavaultTablesService {
   }
 
   /**
-   * Create a new table
+   * Create a new table with automatic primary key column
    */
   async createTable(data: InsertDatavaultTable, tx?: DbTransaction): Promise<DatavaultTable> {
     // Generate slug if not provided
     const baseSlug = data.slug || this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tenantId, baseSlug, undefined, tx);
 
-    return await this.tablesRepo.create(
+    // Create the table
+    const table = await this.tablesRepo.create(
       {
         ...data,
         slug: uniqueSlug,
       },
       tx
     );
+
+    // Auto-create a primary key column (ID) for the new table
+    // Every table must have at least one primary key
+    await this.columnsRepo.create(
+      {
+        tableId: table.id,
+        name: 'ID',
+        slug: 'id',
+        type: 'auto_number',
+        required: true,
+        isPrimaryKey: true,
+        isUnique: true,
+        orderIndex: 0,
+        autoNumberStart: 1,
+      },
+      tx
+    );
+
+    return table;
   }
 
   /**
