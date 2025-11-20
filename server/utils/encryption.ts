@@ -164,3 +164,40 @@ export function maskSecret(value: string): string {
 export function validateMasterKey(): void {
   getMasterKey(); // Will throw if invalid
 }
+
+/**
+ * Generate a secure random API token
+ * Returns a base64url-encoded string (URL-safe, no padding)
+ * Default length: 48 bytes -> 64 characters when base64url-encoded
+ */
+export function generateApiToken(byteLength: number = 48): string {
+  const buffer = crypto.randomBytes(byteLength);
+  // Use base64url encoding (URL-safe, no padding)
+  return buffer.toString('base64url');
+}
+
+/**
+ * Hash an API token using SHA-256
+ * Returns a hex-encoded hash string
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Verify that a plaintext token matches a stored hash
+ * Returns true if they match, false otherwise
+ */
+export function verifyToken(plainToken: string, storedHash: string): boolean {
+  const computedHash = hashToken(plainToken);
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(computedHash, 'hex'),
+      Buffer.from(storedHash, 'hex')
+    );
+  } catch {
+    // Hashes have different lengths, not equal
+    return false;
+  }
+}

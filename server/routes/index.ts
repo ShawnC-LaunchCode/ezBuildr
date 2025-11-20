@@ -35,6 +35,7 @@ import { registerTemplateAnalysisRoutes } from "./templateAnalysis.routes";
 import { registerWorkflowTemplateRoutes } from "./workflowTemplates.routes";
 import { registerRunOutputsRoutes } from "./runOutputs.routes";
 import { registerDatavaultRoutes } from "./datavault.routes";
+import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
 
 /**
  * Register all modular routes
@@ -172,4 +173,7 @@ export function registerAllRoutes(app: Express): void {
 
   // DataVault routes (tenant-scoped custom tables, columns, rows)
   registerDatavaultRoutes(app);
+
+  // DataVault API token routes (v4 Micro-Phase 5: API token management)
+  registerDatavaultApiTokenRoutes(app);
 }

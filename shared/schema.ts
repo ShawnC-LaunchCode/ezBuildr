@@ -2230,6 +2230,24 @@ export const datavaultRowNotes = pgTable("datavault_row_notes", {
   index("idx_datavault_row_notes_row_created").on(table.rowId, table.createdAt),
 ]);
 
+// DataVault API Tokens - API tokens for external access (v4 Micro-Phase 5)
+export const datavaultApiTokens = pgTable("datavault_api_tokens", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  databaseId: uuid("database_id").references(() => datavaultDatabases.id, { onDelete: 'cascade' }).notNull(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  label: text("label").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  scopes: text("scopes").array().notNull().default(sql`ARRAY[]::text[]`),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_datavault_api_tokens_database_id").on(table.databaseId),
+  index("idx_datavault_api_tokens_tenant_id").on(table.tenantId),
+  index("idx_datavault_api_tokens_token_hash").on(table.tokenHash),
+  index("idx_datavault_api_tokens_expires_at").on(table.expiresAt),
+  uniqueIndex("unique_token_hash").on(table.tokenHash),
+]);
+
 // Analytics Relations
 export const metricsEventsRelations = relations(metricsEvents, ({ one }) => ({
   tenant: one(tenants, {
@@ -2302,6 +2320,7 @@ export const datavaultDatabasesRelations = relations(datavaultDatabases, ({ one,
     references: [tenants.id],
   }),
   tables: many(datavaultTables),
+  apiTokens: many(datavaultApiTokens),
 }));
 
 export const datavaultTablesRelations = relations(datavaultTables, ({ one, many }) => ({
@@ -2356,6 +2375,17 @@ export const datavaultValuesRelations = relations(datavaultValues, ({ one }) => 
   }),
 }));
 
+export const datavaultApiTokensRelations = relations(datavaultApiTokens, ({ one }) => ({
+  database: one(datavaultDatabases, {
+    fields: [datavaultApiTokens.databaseId],
+    references: [datavaultDatabases.id],
+  }),
+  tenant: one(tenants, {
+    fields: [datavaultApiTokens.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
 // Analytics Insert Schemas
 export const insertMetricsEventSchema = createInsertSchema(metricsEvents).omit({ id: true, createdAt: true });
 export const insertMetricsRollupSchema = createInsertSchema(metricsRollups).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2390,6 +2420,7 @@ export const insertDatavaultColumnSchema = createInsertSchema(datavaultColumns)
 export const insertDatavaultRowSchema = createInsertSchema(datavaultRows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDatavaultValueSchema = createInsertSchema(datavaultValues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDatavaultRowNoteSchema = createInsertSchema(datavaultRowNotes).omit({ id: true, createdAt: true });
+export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiTokens).omit({ id: true, createdAt: true });
 
 // DataVault Types
 export type DatavaultDatabase = typeof datavaultDatabases.$inferSelect;
@@ -2405,6 +2436,8 @@ export type DatavaultValue = typeof datavaultValues.$inferSelect;
 export type InsertDatavaultValue = typeof insertDatavaultValueSchema._type;
 export type DatavaultRowNote = typeof datavaultRowNotes.$inferSelect;
 export type InsertDatavaultRowNote = typeof insertDatavaultRowNoteSchema._type;
+export type DatavaultApiToken = typeof datavaultApiTokens.$inferSelect;
+export type InsertDatavaultApiToken = typeof insertDatavaultApiTokenSchema._type;
 
 // ===================================================================
 // LEGACY TYPES
