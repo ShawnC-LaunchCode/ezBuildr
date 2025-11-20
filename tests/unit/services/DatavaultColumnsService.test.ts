@@ -332,4 +332,136 @@ describe('DatavaultColumnsService', () => {
       expect(mockColumnsRepo.reorderColumns).toHaveBeenCalledWith(columnIds, undefined);
     });
   });
+
+  describe('select/multiselect columns', () => {
+    const mockTable = {
+      id: mockTableId,
+      tenantId: mockTenantId,
+      ownerUserId: 'user-1',
+      name: 'Test Table',
+      slug: 'test-table',
+      description: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('should create select column with valid options', async () => {
+      const insertData = {
+        tableId: mockTableId,
+        name: 'Status',
+        type: 'select' as const,
+        required: false,
+        options: [
+          { label: 'Active', value: 'active', color: 'green' },
+          { label: 'Inactive', value: 'inactive', color: 'gray' },
+        ],
+      };
+
+      const createdColumn = {
+        id: mockColumnId,
+        ...insertData,
+        slug: 'status',
+        orderIndex: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.slugExists.mockResolvedValue(false);
+      mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
+      mockColumnsRepo.create.mockResolvedValue(createdColumn);
+
+      const result = await service.createColumn(insertData, mockTenantId);
+
+      expect(result).toEqual(createdColumn);
+      expect(result.options).toEqual(insertData.options);
+    });
+
+    it('should create multiselect column with valid options', async () => {
+      const insertData = {
+        tableId: mockTableId,
+        name: 'Tags',
+        type: 'multiselect' as const,
+        required: false,
+        options: [
+          { label: 'Important', value: 'important', color: 'red' },
+          { label: 'Urgent', value: 'urgent', color: 'orange' },
+          { label: 'Review', value: 'review', color: 'blue' },
+        ],
+      };
+
+      const createdColumn = {
+        id: mockColumnId,
+        ...insertData,
+        slug: 'tags',
+        orderIndex: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.slugExists.mockResolvedValue(false);
+      mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
+      mockColumnsRepo.create.mockResolvedValue(createdColumn);
+
+      const result = await service.createColumn(insertData, mockTenantId);
+
+      expect(result).toEqual(createdColumn);
+      expect(result.options).toEqual(insertData.options);
+    });
+
+    it('should reject select column without options', async () => {
+      const insertData = {
+        tableId: mockTableId,
+        name: 'Status',
+        type: 'select' as const,
+        required: false,
+        options: [],
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+
+      await expect(service.createColumn(insertData, mockTenantId))
+        .rejects
+        .toThrow('Select and multiselect columns require at least one option');
+    });
+
+    it('should reject options with duplicate values', async () => {
+      const insertData = {
+        tableId: mockTableId,
+        name: 'Status',
+        type: 'select' as const,
+        required: false,
+        options: [
+          { label: 'Active', value: 'active', color: 'green' },
+          { label: 'Active Again', value: 'active', color: 'blue' },
+        ],
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+
+      await expect(service.createColumn(insertData, mockTenantId))
+        .rejects
+        .toThrow('Duplicate option value: active');
+    });
+
+    it('should reject options without label or value', async () => {
+      const insertData = {
+        tableId: mockTableId,
+        name: 'Status',
+        type: 'select' as const,
+        required: false,
+        options: [
+          { label: 'Active', value: 'active' },
+          { label: 'Inactive' } as any,
+        ],
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+
+      await expect(service.createColumn(insertData, mockTenantId))
+        .rejects
+        .toThrow('Each option must have both label and value');
+    });
+  });
 });

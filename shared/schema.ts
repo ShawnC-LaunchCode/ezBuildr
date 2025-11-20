@@ -866,7 +866,9 @@ export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
   'url',
   'json',
   'auto_number',  // Auto-incrementing number column
-  'reference'     // Reference to another table
+  'reference',    // Reference to another table
+  'select',       // Single-select dropdown with predefined options
+  'multiselect'   // Multi-select with predefined options
 ]);
 
 // DataVault: Database scope type enum
@@ -2146,6 +2148,7 @@ export const datavaultColumns = pgTable("datavault_columns", {
   autoNumberStart: integer("auto_number_start").default(1),  // Starting value for auto_number columns
   referenceTableId: uuid("reference_table_id"),  // Reference to another datavault table (for 'reference' type columns)
   referenceDisplayColumnSlug: text("reference_display_column_slug"),  // Slug of column to display from referenced table
+  options: jsonb("options"),  // For select/multiselect: array of {label, value, color} objects
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

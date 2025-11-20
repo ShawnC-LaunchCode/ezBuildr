@@ -129,6 +129,43 @@ export class DatavaultRowsService {
         }
         return stringValue;
 
+      case 'select':
+        // Select values must be one of the defined options
+        const selectValue = String(value);
+        const selectOptions = column.options as Array<{ value: string; label: string; color?: string }> | null;
+        if (!selectOptions || selectOptions.length === 0) {
+          throw new Error(`Column '${column.name}' has no defined options`);
+        }
+        const validSelectValues = new Set(selectOptions.map(opt => opt.value));
+        if (!validSelectValues.has(selectValue)) {
+          throw new Error(
+            `Column '${column.name}' value must be one of: ${Array.from(validSelectValues).join(', ')}`
+          );
+        }
+        return selectValue;
+
+      case 'multiselect':
+        // Multiselect values must be an array of valid option values
+        let multiselectValues: string[];
+        if (Array.isArray(value)) {
+          multiselectValues = value.map(v => String(v));
+        } else {
+          throw new Error(`Column '${column.name}' must be an array`);
+        }
+        const multiselectOptions = column.options as Array<{ value: string; label: string; color?: string }> | null;
+        if (!multiselectOptions || multiselectOptions.length === 0) {
+          throw new Error(`Column '${column.name}' has no defined options`);
+        }
+        const validMultiselectValues = new Set(multiselectOptions.map(opt => opt.value));
+        for (const val of multiselectValues) {
+          if (!validMultiselectValues.has(val)) {
+            throw new Error(
+              `Column '${column.name}' contains invalid value '${val}'. Valid values: ${Array.from(validMultiselectValues).join(', ')}`
+            );
+          }
+        }
+        return multiselectValues;
+
       default:
         return value;
     }

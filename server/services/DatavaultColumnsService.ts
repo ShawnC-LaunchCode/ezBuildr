@@ -139,6 +139,40 @@ export class DatavaultColumnsService {
   }
 
   /**
+   * Validate select/multiselect column options
+   */
+  private validateSelectOptions(
+    type: string,
+    options: any | null | undefined
+  ): void {
+    if (type === 'select' || type === 'multiselect') {
+      // Select/multiselect columns require options
+      if (!options || !Array.isArray(options) || options.length === 0) {
+        throw new Error('Select and multiselect columns require at least one option');
+      }
+
+      // Validate option structure
+      const valueSet = new Set<string>();
+      for (const option of options) {
+        if (!option.label || !option.value) {
+          throw new Error('Each option must have both label and value');
+        }
+
+        // Check for duplicate values
+        if (valueSet.has(option.value)) {
+          throw new Error(`Duplicate option value: ${option.value}`);
+        }
+        valueSet.add(option.value);
+
+        // Validate color if provided (simple Tailwind color names)
+        if (option.color && typeof option.color !== 'string') {
+          throw new Error('Option color must be a string');
+        }
+      }
+    }
+  }
+
+  /**
    * Validate reference column configuration
    */
   private async validateReferenceColumn(
@@ -233,6 +267,9 @@ export class DatavaultColumnsService {
     // Verify table ownership
     await this.verifyTableOwnership(data.tableId, tenantId, tx);
 
+    // Validate select/multiselect options
+    this.validateSelectOptions(data.type, data.options);
+
     // Validate reference column configuration
     await this.validateReferenceColumn(
       data.type,
@@ -265,6 +302,12 @@ export class DatavaultColumnsService {
       referenceDisplayColumnSlug = null;
     }
 
+    // Clear options if type is not 'select' or 'multiselect'
+    let options = data.options;
+    if (data.type !== 'select' && data.type !== 'multiselect') {
+      options = null;
+    }
+
     // Validate primary key constraints
     if (data.isPrimaryKey) {
       await this.validatePrimaryKey(data.tableId, true, undefined, tx);
@@ -294,6 +337,7 @@ export class DatavaultColumnsService {
         isUnique,
         referenceTableId,
         referenceDisplayColumnSlug,
+        options,
       },
       tx
     );
@@ -338,8 +382,12 @@ export class DatavaultColumnsService {
       throw new Error("Cannot change column type after creation");
     }
 
-    // If reference-related fields are being updated, validate them
+    // If select/multiselect options are being updated, validate them
     const typeToValidate = data.type || column.type;
+    const optionsToValidate = data.options !== undefined ? data.options : column.options;
+    this.validateSelectOptions(typeToValidate, optionsToValidate);
+
+    // If reference-related fields are being updated, validate them
     const refTableId = data.referenceTableId !== undefined ? data.referenceTableId : column.referenceTableId;
     const refDisplaySlug = data.referenceDisplayColumnSlug !== undefined
       ? data.referenceDisplayColumnSlug
@@ -372,6 +420,11 @@ export class DatavaultColumnsService {
     if (typeToValidate !== 'reference') {
       data.referenceTableId = null;
       data.referenceDisplayColumnSlug = null;
+    }
+
+    // Clear options if type is not 'select' or 'multiselect'
+    if (typeToValidate !== 'select' && typeToValidate !== 'multiselect') {
+      data.options = null;
     }
 
     // Validate primary key changes
