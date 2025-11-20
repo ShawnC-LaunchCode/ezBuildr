@@ -465,6 +465,104 @@ export class DatavaultRowsService {
 
     return resultMap;
   }
+
+  /**
+   * Archive (soft delete) a row
+   */
+  async archiveRow(
+    tenantId: string,
+    rowId: string,
+    tx?: DbTransaction
+  ): Promise<void> {
+    // Verify ownership
+    await this.verifyRowOwnership(rowId, tenantId, tx);
+
+    // Archive the row
+    await this.rowsRepo.archiveRow(rowId, tx);
+  }
+
+  /**
+   * Unarchive (restore) a row
+   */
+  async unarchiveRow(
+    tenantId: string,
+    rowId: string,
+    tx?: DbTransaction
+  ): Promise<void> {
+    // Verify ownership
+    await this.verifyRowOwnership(rowId, tenantId, tx);
+
+    // Unarchive the row
+    await this.rowsRepo.unarchiveRow(rowId, tx);
+  }
+
+  /**
+   * Bulk archive rows
+   */
+  async bulkArchiveRows(
+    tenantId: string,
+    rowIds: string[],
+    tx?: DbTransaction
+  ): Promise<void> {
+    if (rowIds.length === 0) return;
+
+    // Verify all rows belong to tenant
+    await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
+
+    // Bulk archive
+    await this.rowsRepo.bulkArchiveRows(rowIds, tx);
+  }
+
+  /**
+   * Bulk unarchive rows
+   */
+  async bulkUnarchiveRows(
+    tenantId: string,
+    rowIds: string[],
+    tx?: DbTransaction
+  ): Promise<void> {
+    if (rowIds.length === 0) return;
+
+    // Verify all rows belong to tenant
+    await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
+
+    // Bulk unarchive
+    await this.rowsRepo.bulkUnarchiveRows(rowIds, tx);
+  }
+
+  /**
+   * Get rows with filtering, sorting, and archiving support
+   */
+  async getRowsWithOptions(
+    tenantId: string,
+    tableId: string,
+    options: {
+      limit?: number;
+      offset?: number;
+      showArchived?: boolean;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    } = {},
+    tx?: DbTransaction
+  ): Promise<{
+    rows: Array<{ row: DatavaultRow; values: Record<string, any> }>;
+    total: number;
+  }> {
+    // Verify table ownership
+    await this.verifyTableOwnership(tableId, tenantId, tx);
+
+    // Get rows
+    const rows = await this.rowsRepo.getRowsWithValues(tableId, options, tx);
+
+    // Get total count
+    const total = await this.rowsRepo.countByTableIdWithFilter(
+      tableId,
+      options.showArchived || false,
+      tx
+    );
+
+    return { rows, total };
+  }
 }
 
 // Singleton instance

@@ -7,6 +7,9 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { datavaultAPI } from "@/lib/datavault-api";
+import { datavaultQueryKeys } from "@/lib/datavault-hooks";
 import {
   useDatavaultTable,
   useDatavaultColumns,
@@ -24,6 +27,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,12 +45,16 @@ import { RowEditorModal } from "@/components/datavault/RowEditorModal";
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
 import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
+import { BulkActionsToolbar } from "@/components/datavault/BulkActionsToolbar";
+import { FilterPanel } from "@/components/datavault/FilterPanel";
+import { useDatavaultFilterStore } from "@/stores/useDatavaultFilterStore";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default function TableViewPage() {
   const { tableId } = useParams<{ tableId: string }>();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: table, isLoading: tableLoading } = useDatavaultTable(tableId);
   const { data: columns, isLoading: columnsLoading } = useDatavaultColumns(tableId);
@@ -61,14 +70,97 @@ export default function TableViewPage() {
   const deleteRowMutation = useDeleteDatavaultRow();
   const moveTableMutation = useMoveDatavaultTable();
 
+  // Archive mutations
+  const archiveRowMutation = useMutation({
+    mutationFn: (rowId: string) => datavaultAPI.archiveRow(rowId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId!) });
+      toast({ title: "Row archived", description: "Row has been archived successfully." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to archive row",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unarchiveRowMutation = useMutation({
+    mutationFn: (rowId: string) => datavaultAPI.unarchiveRow(rowId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId!) });
+      toast({ title: "Row restored", description: "Row has been restored successfully." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to restore row",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk mutations
+  const bulkArchiveRowsMutation = useMutation({
+    mutationFn: (rowIds: string[]) => datavaultAPI.bulkArchiveRows(rowIds),
+    onSuccess: (_, rowIds) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId!) });
+      toast({ title: "Rows archived", description: `${rowIds.length} row(s) archived successfully.` });
+      setSelectedRowIds(new Set());
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to archive rows",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkUnarchiveRowsMutation = useMutation({
+    mutationFn: (rowIds: string[]) => datavaultAPI.bulkUnarchiveRows(rowIds),
+    onSuccess: (_, rowIds) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId!) });
+      toast({ title: "Rows restored", description: `${rowIds.length} row(s) restored successfully.` });
+      setSelectedRowIds(new Set());
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to restore rows",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
   const [activeTab, setActiveTab] = useState("data");
   const [rowEditorOpen, setRowEditorOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, any> } | null>(null);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
   const [moveTableOpen, setMoveTableOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<string | undefined>(undefined);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>(undefined);
+
+  // Filters from Zustand store
+  const filters = useDatavaultFilterStore((state) => state.getFilters(tableId || ""));
+  const apiFilters = filters.map((f) => ({
+    columnId: f.columnId,
+    operator: f.operator,
+    value: f.value,
+  }));
 
   // Column handlers
-  const handleAddColumn = async (data: { name: string; type: string; required: boolean }) => {
+  const handleAddColumn = async (data: {
+    name: string;
+    type: string;
+    required: boolean;
+    description?: string;
+    referenceTableId?: string;
+    referenceDisplayColumnSlug?: string;
+  }) => {
     if (!tableId) return;
 
     try {
@@ -83,7 +175,11 @@ export default function TableViewPage() {
     }
   };
 
-  const handleUpdateColumn = async (columnId: string, data: { name: string; required: boolean }) => {
+  const handleUpdateColumn = async (columnId: string, data: {
+    name: string;
+    required: boolean;
+    description?: string;
+  }) => {
     if (!tableId) return;
 
     try {
@@ -185,6 +281,83 @@ export default function TableViewPage() {
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+    }
+  };
+
+  // Selection handlers
+  const handleSelectRow = (rowId: string, selected: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(rowId);
+      } else {
+        next.delete(rowId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (!rowsData?.rows) return;
+    if (selected) {
+      setSelectedRowIds(new Set(rowsData.rows.map((r) => r.row.id)));
+    } else {
+      setSelectedRowIds(new Set());
+    }
+  };
+
+  // Bulk action handlers
+  const handleBulkArchive = () => {
+    if (selectedRowIds.size === 0) return;
+    bulkArchiveRowsMutation.mutate(Array.from(selectedRowIds));
+  };
+
+  const handleBulkUnarchive = () => {
+    if (selectedRowIds.size === 0) return;
+    bulkUnarchiveRowsMutation.mutate(Array.from(selectedRowIds));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRowIds.size === 0) return;
+    // This would require a bulk delete API endpoint
+    // For now, show a warning
+    toast({
+      title: "Bulk delete",
+      description: "Bulk delete is not implemented yet. Please delete rows individually.",
+      variant: "destructive",
+    });
+  };
+
+  // Sort handler
+  const handleSort = (columnSlug: string) => {
+    if (sortBy === columnSlug) {
+      // Cycle: asc -> desc -> none
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
+      } else if (sortOrder === 'desc') {
+        setSortBy(undefined);
+        setSortOrder(undefined);
+      }
+    } else {
+      // New column: start with asc
+      setSortBy(columnSlug);
+      setSortOrder('asc');
+    }
+  };
+
+  // Column resize handler
+  const handleColumnResize = async (columnId: string, widthPx: number) => {
+    if (!tableId) return;
+
+    try {
+      await updateColumnMutation.mutateAsync({
+        columnId,
+        tableId,
+        widthPx,
+      });
+    } catch (error) {
+      // Silently fail - resize feedback is visual
+      console.error('Failed to persist column width:', error);
     }
   };
 
@@ -293,10 +466,22 @@ export default function TableViewPage() {
                               {rowsData?.pagination.total || 0} row{rowsData?.pagination.total === 1 ? "" : "s"}
                             </CardDescription>
                           </div>
-                          <Button onClick={() => setRowEditorOpen(true)} disabled={!columns || columns.length === 0}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Row
-                          </Button>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id="show-archived"
+                                checked={showArchived}
+                                onCheckedChange={setShowArchived}
+                              />
+                              <Label htmlFor="show-archived" className="cursor-pointer">
+                                Show Archived
+                              </Label>
+                            </div>
+                            <Button onClick={() => setRowEditorOpen(true)} disabled={!columns || columns.length === 0}>
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Row
+                            </Button>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -307,12 +492,33 @@ export default function TableViewPage() {
                             <p className="text-sm">Add columns in the Columns tab to start adding data</p>
                           </div>
                         ) : (
-                          <InfiniteDataGrid
-                            tableId={tableId!}
-                            columns={columns || []}
-                            onEditRow={openEditRow}
-                            onDeleteRow={setDeleteRowConfirm}
-                          />
+                          <>
+                            <FilterPanel tableId={tableId!} columns={columns || []} />
+                            <BulkActionsToolbar
+                              selectedCount={selectedRowIds.size}
+                              onClearSelection={() => setSelectedRowIds(new Set())}
+                              onBulkArchive={handleBulkArchive}
+                              onBulkUnarchive={handleBulkUnarchive}
+                              onBulkDelete={handleBulkDelete}
+                            />
+                            <InfiniteDataGrid
+                              tableId={tableId!}
+                              columns={columns || []}
+                              showArchived={showArchived}
+                              sortBy={sortBy}
+                              sortOrder={sortOrder}
+                              filters={apiFilters}
+                              selectedRowIds={selectedRowIds}
+                              onSelectRow={handleSelectRow}
+                              onSelectAll={handleSelectAll}
+                              onSort={handleSort}
+                              onColumnResize={handleColumnResize}
+                              onEditRow={openEditRow}
+                              onDeleteRow={setDeleteRowConfirm}
+                              onArchiveRow={(rowId) => archiveRowMutation.mutate(rowId)}
+                              onUnarchiveRow={(rowId) => unarchiveRowMutation.mutate(rowId)}
+                            />
+                          </>
                         )}
                       </CardContent>
                     </Card>

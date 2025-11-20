@@ -2137,6 +2137,8 @@ export const datavaultColumns = pgTable("datavault_columns", {
   name: text("name").notNull(),
   slug: text("slug").notNull(),
   type: datavaultColumnTypeEnum("type").notNull(),
+  description: text("description"),  // Column description (shown as tooltip)
+  widthPx: integer("width_px").default(150),  // Column width in pixels for UI
   required: boolean("required").default(false).notNull(),
   isPrimaryKey: boolean("is_primary_key").default(false).notNull(),  // Primary key column (one per table)
   isUnique: boolean("is_unique").default(false).notNull(),  // Unique constraint on column values
@@ -2156,6 +2158,7 @@ export const datavaultColumns = pgTable("datavault_columns", {
 export const datavaultRows = pgTable("datavault_rows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   tableId: uuid("table_id").references(() => datavaultTables.id, { onDelete: 'cascade' }).notNull(),
+  deletedAt: timestamp("deleted_at"),  // Soft delete timestamp (NULL = active)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),

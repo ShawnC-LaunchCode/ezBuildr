@@ -610,8 +610,12 @@ export function registerDatavaultRoutes(app: Express): void {
 
   /**
    * GET /api/datavault/tables/:tableId/rows
-   * List all rows for a table with offset-based pagination
-   * Query params: limit (max 100), offset (default 0)
+   * List all rows for a table with offset-based pagination, sorting, and archiving support
+   * Query params:
+   *  - limit (max 100), offset (default 0)
+   *  - showArchived (true/false, default false) - include archived rows
+   *  - sortBy (column slug or createdAt/updatedAt)
+   *  - sortOrder (asc/desc, default asc)
    */
   app.get('/api/datavault/tables/:tableId/rows', hybridAuth, async (req: Request, res: Response) => {
     try {
@@ -622,18 +626,25 @@ export function registerDatavaultRoutes(app: Express): void {
         ? Math.min(parseInt(req.query.limit as string, 10), DATAVAULT_CONFIG.MAX_PAGE_SIZE)
         : DATAVAULT_CONFIG.DEFAULT_PAGE_SIZE;
       const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+      const showArchived = req.query.showArchived === 'true';
+      const sortBy = req.query.sortBy as string | undefined;
+      const sortOrder = (req.query.sortOrder === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
 
-      const rows = await datavaultRowsService.listRows(tableId, tenantId, { limit, offset });
-      const totalCount = await datavaultRowsService.countRows(tableId, tenantId);
+      // Use new getRowsWithOptions method that supports archiving and sorting
+      const result = await datavaultRowsService.getRowsWithOptions(
+        tenantId,
+        tableId,
+        { limit, offset, showArchived, sortBy, sortOrder }
+      );
 
-      const hasMore = offset + rows.length < totalCount;
+      const hasMore = offset + result.rows.length < result.total;
 
       res.json({
-        rows,
+        rows: result.rows,
         pagination: {
           limit,
           offset,
-          total: totalCount,
+          total: result.total,
           hasMore,
         },
       });
@@ -778,6 +789,122 @@ export function registerDatavaultRoutes(app: Express): void {
       logger.error({ error }, 'Error deleting DataVault row');
       const message = error instanceof Error ? error.message : 'Failed to delete row';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  // ===================================================================
+  // ROW ARCHIVING ENDPOINTS (DataVault v3)
+  // ===================================================================
+
+  /**
+   * PATCH /api/datavault/rows/:rowId/archive
+   * Archive (soft delete) a row
+   */
+  app.patch('/api/datavault/rows/:rowId/archive', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { rowId } = req.params;
+
+      await datavaultRowsService.archiveRow(tenantId, rowId);
+      res.json({ success: true, message: 'Row archived successfully' });
+    } catch (error) {
+      logger.error({ error }, 'Error archiving DataVault row');
+      const message = error instanceof Error ? error.message : 'Failed to archive row';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * PATCH /api/datavault/rows/:rowId/unarchive
+   * Unarchive (restore) a row
+   */
+  app.patch('/api/datavault/rows/:rowId/unarchive', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { rowId } = req.params;
+
+      await datavaultRowsService.unarchiveRow(tenantId, rowId);
+      res.json({ success: true, message: 'Row unarchived successfully' });
+    } catch (error) {
+      logger.error({ error }, 'Error unarchiving DataVault row');
+      const message = error instanceof Error ? error.message : 'Failed to unarchive row';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * PATCH /api/datavault/rows/bulk/archive
+   * Bulk archive rows
+   * Body: { rowIds: string[] }
+   */
+  app.patch('/api/datavault/rows/bulk/archive', batchLimiter, hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+
+      const schema = z.object({
+        rowIds: z.array(z.string().uuid()).min(1).max(100),
+      });
+
+      const { rowIds } = schema.parse(req.body);
+
+      await datavaultRowsService.bulkArchiveRows(tenantId, rowIds);
+      res.json({
+        success: true,
+        message: `${rowIds.length} row(s) archived successfully`,
+        count: rowIds.length,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Error bulk archiving DataVault rows');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to archive rows';
+      const status = message.includes('not found') || message.includes('unauthorized') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * PATCH /api/datavault/rows/bulk/unarchive
+   * Bulk unarchive rows
+   * Body: { rowIds: string[] }
+   */
+  app.patch('/api/datavault/rows/bulk/unarchive', batchLimiter, hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+
+      const schema = z.object({
+        rowIds: z.array(z.string().uuid()).min(1).max(100),
+      });
+
+      const { rowIds } = schema.parse(req.body);
+
+      await datavaultRowsService.bulkUnarchiveRows(tenantId, rowIds);
+      res.json({
+        success: true,
+        message: `${rowIds.length} row(s) unarchived successfully`,
+        count: rowIds.length,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Error bulk unarchiving DataVault rows');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to unarchive rows';
+      const status = message.includes('not found') || message.includes('unauthorized') ? 403 : 500;
       res.status(status).json({ message });
     }
   });

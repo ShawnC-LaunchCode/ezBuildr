@@ -9,7 +9,7 @@ import {
   type DatavaultValue,
   type InsertDatavaultValue,
 } from "@shared/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, asc, isNull, isNotNull, or, like, gt, lt, gte, lte } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -26,27 +26,49 @@ export class DatavaultRowsRepository extends BaseRepository<
   }
 
   /**
-   * Find rows by table ID with pagination
+   * Find rows by table ID with pagination, filtering, sorting, and archive support
    */
   async findByTableId(
     tableId: string,
     options?: {
       limit?: number;
       offset?: number;
+      showArchived?: boolean;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
     },
     tx?: DbTransaction
   ): Promise<DatavaultRow[]> {
     const database = this.getDb(tx);
+
+    // Build base where clause
+    const whereConditions = [eq(datavaultRows.tableId, tableId)];
+
+    // Filter archived rows unless explicitly requested
+    if (!options?.showArchived) {
+      whereConditions.push(isNull(datavaultRows.deletedAt));
+    }
+
     let query = database
       .select()
       .from(datavaultRows)
-      .where(eq(datavaultRows.tableId, tableId))
-      .orderBy(datavaultRows.createdAt); // Ascending order - oldest first, newest at bottom
+      .where(and(...whereConditions));
 
-    // Offset-based pagination only
+    // Apply sorting
+    if (options?.sortBy) {
+      const sortOrder = options.sortOrder === 'desc' ? desc : asc;
+      if (options.sortBy === 'createdAt') {
+        query = query.orderBy(sortOrder(datavaultRows.createdAt)) as any;
+      } else if (options.sortBy === 'updatedAt') {
+        query = query.orderBy(sortOrder(datavaultRows.updatedAt)) as any;
+      }
+    } else {
+      query = query.orderBy(datavaultRows.createdAt) as any; // Default ascending order
+    }
+
+    // Offset-based pagination
     const limit = options?.limit || 100;
     const offset = options?.offset || 0;
-
     query = query.limit(limit).offset(offset) as any;
 
     return await query;
@@ -425,6 +447,73 @@ export class DatavaultRowsRepository extends BaseRepository<
     });
 
     return resultMap;
+  }
+
+  /**
+   * Archive (soft delete) a single row
+   */
+  async archiveRow(rowId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(datavaultRows)
+      .set({ deletedAt: new Date() })
+      .where(eq(datavaultRows.id, rowId));
+  }
+
+  /**
+   * Unarchive (restore) a single row
+   */
+  async unarchiveRow(rowId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(datavaultRows)
+      .set({ deletedAt: null })
+      .where(eq(datavaultRows.id, rowId));
+  }
+
+  /**
+   * Bulk archive rows
+   */
+  async bulkArchiveRows(rowIds: string[], tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(datavaultRows)
+      .set({ deletedAt: new Date() })
+      .where(inArray(datavaultRows.id, rowIds));
+  }
+
+  /**
+   * Bulk unarchive rows
+   */
+  async bulkUnarchiveRows(rowIds: string[], tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(datavaultRows)
+      .set({ deletedAt: null })
+      .where(inArray(datavaultRows.id, rowIds));
+  }
+
+  /**
+   * Count rows with filter support (active/archived)
+   */
+  async countByTableIdWithFilter(
+    tableId: string,
+    showArchived: boolean = false,
+    tx?: DbTransaction
+  ): Promise<number> {
+    const database = this.getDb(tx);
+
+    const whereConditions = [eq(datavaultRows.tableId, tableId)];
+    if (!showArchived) {
+      whereConditions.push(isNull(datavaultRows.deletedAt));
+    }
+
+    const [result] = await database
+      .select({ count: sql<number>`count(*)::int` })
+      .from(datavaultRows)
+      .where(and(...whereConditions));
+
+    return result?.count || 0;
   }
 }
 

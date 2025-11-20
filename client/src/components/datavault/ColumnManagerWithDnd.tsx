@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,10 +59,11 @@ interface ColumnManagerProps {
     name: string;
     type: string;
     required: boolean;
+    description?: string;
     referenceTableId?: string;
     referenceDisplayColumnSlug?: string;
   }) => Promise<void>;
-  onUpdateColumn: (columnId: string, data: { name: string; required: boolean }) => Promise<void>;
+  onUpdateColumn: (columnId: string, data: { name: string; required: boolean; description?: string }) => Promise<void>;
   onDeleteColumn: (columnId: string) => Promise<void>;
   onReorderColumns?: (columnIds: string[]) => Promise<void>;
   isLoading?: boolean;
@@ -183,12 +185,14 @@ export function ColumnManagerWithDnd({
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<string>("text");
   const [newColumnRequired, setNewColumnRequired] = useState(false);
+  const [newColumnDescription, setNewColumnDescription] = useState("");
   const [newReferenceTableId, setNewReferenceTableId] = useState<string>("");
   const [newReferenceDisplayColumnSlug, setNewReferenceDisplayColumnSlug] = useState<string>("");
 
   // Edit column state
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnRequired, setEditColumnRequired] = useState(false);
+  const [editColumnDescription, setEditColumnDescription] = useState("");
 
   // Fetch tables for reference column dropdown
   const { data: tables } = useTables();
@@ -269,6 +273,7 @@ export function ColumnManagerWithDnd({
       name: newColumnName.trim(),
       type: newColumnType,
       required: newColumnRequired,
+      description: newColumnDescription.trim() || undefined,
       referenceTableId: newColumnType === 'reference' ? newReferenceTableId : undefined,
       referenceDisplayColumnSlug: newColumnType === 'reference' ? newReferenceDisplayColumnSlug : undefined,
     });
@@ -277,6 +282,7 @@ export function ColumnManagerWithDnd({
     setNewColumnName("");
     setNewColumnType("text");
     setNewColumnRequired(false);
+    setNewColumnDescription("");
     setNewReferenceTableId("");
     setNewReferenceDisplayColumnSlug("");
     setAddDialogOpen(false);
@@ -289,6 +295,7 @@ export function ColumnManagerWithDnd({
       await onUpdateColumn(editDialog.id, {
         name: editColumnName.trim(),
         required: editColumnRequired,
+        description: editColumnDescription.trim() || undefined,
       });
 
       setEditDialog(null);
@@ -308,6 +315,7 @@ export function ColumnManagerWithDnd({
     setEditDialog({ id: column.id, name: column.name, required: column.required });
     setEditColumnName(column.name);
     setEditColumnRequired(column.required);
+    setEditColumnDescription(column.description || "");
   };
 
   return (
@@ -390,6 +398,17 @@ export function ColumnManagerWithDnd({
                   <SelectItem value="reference">🔗 Reference</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="column-description">Description (optional)</Label>
+              <Textarea
+                id="column-description"
+                placeholder="Describe this column's purpose..."
+                value={newColumnDescription}
+                onChange={(e) => setNewColumnDescription(e.target.value)}
+                rows={3}
+              />
             </div>
 
             {/* Reference-specific fields */}
@@ -480,6 +499,16 @@ export function ColumnManagerWithDnd({
                 value={editColumnName}
                 onChange={(e) => setEditColumnName(e.target.value)}
                 autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-column-description">Description (optional)</Label>
+              <Textarea
+                id="edit-column-description"
+                placeholder="Describe this column's purpose..."
+                value={editColumnDescription}
+                onChange={(e) => setEditColumnDescription(e.target.value)}
+                rows={3}
               />
             </div>
             <div className="flex items-center space-x-2">

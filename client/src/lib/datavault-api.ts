@@ -180,7 +180,14 @@ export const datavaultAPI = {
   // Rows
   listRows: async (
     tableId: string,
-    options?: { limit?: number; offset?: number }
+    options?: {
+      limit?: number;
+      offset?: number;
+      showArchived?: boolean;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+      filters?: Array<{ columnId: string; operator: string; value: any }>;
+    }
   ): Promise<{
     rows: ApiDatavaultRowWithValues[];
     pagination: { limit: number; offset: number; total: number; hasMore: boolean };
@@ -188,6 +195,12 @@ export const datavaultAPI = {
     const params = new URLSearchParams();
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.offset !== undefined) params.append('offset', options.offset.toString());
+    if (options?.showArchived) params.append('showArchived', 'true');
+    if (options?.sortBy) params.append('sortBy', options.sortBy);
+    if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
+    if (options?.filters && options.filters.length > 0) {
+      params.append('filters', JSON.stringify(options.filters));
+    }
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/rows?${params.toString()}`);
     return res.json();
   },
@@ -215,6 +228,35 @@ export const datavaultAPI = {
   deleteRow: async (rowId: string): Promise<void> => {
     const res = await apiRequest('DELETE', `/api/datavault/rows/${rowId}`);
     if (res.status !== 204) {
+      await res.json();
+    }
+  },
+
+  // Archive operations
+  archiveRow: async (rowId: string): Promise<void> => {
+    const res = await apiRequest('PATCH', `/api/datavault/rows/${rowId}/archive`);
+    if (res.status !== 200) {
+      await res.json();
+    }
+  },
+
+  unarchiveRow: async (rowId: string): Promise<void> => {
+    const res = await apiRequest('PATCH', `/api/datavault/rows/${rowId}/unarchive`);
+    if (res.status !== 200) {
+      await res.json();
+    }
+  },
+
+  bulkArchiveRows: async (rowIds: string[]): Promise<void> => {
+    const res = await apiRequest('PATCH', '/api/datavault/rows/bulk/archive', { rowIds });
+    if (res.status !== 200) {
+      await res.json();
+    }
+  },
+
+  bulkUnarchiveRows: async (rowIds: string[]): Promise<void> => {
+    const res = await apiRequest('PATCH', '/api/datavault/rows/bulk/unarchive', { rowIds });
+    if (res.status !== 200) {
       await res.json();
     }
   },

@@ -6,12 +6,20 @@
 
 import type { DatavaultColumn } from "@shared/schema";
 import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ColumnHeaderCellProps {
   column: DatavaultColumn;
 }
 
 export function ColumnHeaderCell({ column }: ColumnHeaderCellProps) {
+  const columnNameElement = <span className="font-semibold">{column.name}</span>;
+
   return (
     <div className="flex items-center gap-2">
       {/* Type icon with color */}
@@ -20,8 +28,21 @@ export function ColumnHeaderCell({ column }: ColumnHeaderCellProps) {
         className={getColumnTypeColor(column.type)}
       />
 
-      {/* Column name */}
-      <span className="font-semibold">{column.name}</span>
+      {/* Column name - with tooltip if description exists */}
+      {column.description ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {columnNameElement}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs">{column.description}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        columnNameElement
+      )}
 
       {/* Primary key badge */}
       {column.isPrimaryKey && (

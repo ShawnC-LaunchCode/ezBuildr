@@ -8,21 +8,45 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
 import { DataGrid } from "./DataGrid";
+import { DataGridSkeleton } from "./DataGridSkeleton";
+import { DataGridEmptyState } from "./DataGridEmptyState";
 import { Loader2 } from "lucide-react";
 import type { DatavaultColumn } from "@shared/schema";
 
 interface InfiniteDataGridProps {
   tableId: string;
   columns: DatavaultColumn[];
+  showArchived?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: Array<{ columnId: string; operator: string; value: any }>;
+  selectedRowIds?: Set<string>;
+  onSelectRow?: (rowId: string, selected: boolean) => void;
+  onSelectAll?: (selected: boolean) => void;
+  onSort?: (columnSlug: string) => void;
+  onColumnResize?: (columnId: string, widthPx: number) => void;
   onEditRow: (rowId: string, values: Record<string, any>) => void;
   onDeleteRow: (rowId: string) => void;
+  onArchiveRow?: (rowId: string) => void;
+  onUnarchiveRow?: (rowId: string) => void;
 }
 
 export function InfiniteDataGrid({
   tableId,
   columns,
+  showArchived = false,
+  sortBy,
+  sortOrder,
+  filters,
+  selectedRowIds,
+  onSelectRow,
+  onSelectAll,
+  onSort,
+  onColumnResize,
   onEditRow,
   onDeleteRow,
+  onArchiveRow,
+  onUnarchiveRow,
 }: InfiniteDataGridProps) {
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -35,9 +59,9 @@ export function InfiniteDataGrid({
     isError,
     error,
   } = useInfiniteQuery({
-    queryKey: [...datavaultQueryKeys.tableRows(tableId), "infinite"],
+    queryKey: [...datavaultQueryKeys.tableRows(tableId), "infinite", showArchived, sortBy, sortOrder, filters],
     queryFn: ({ pageParam = 0 }) =>
-      datavaultAPI.listRows(tableId, { limit: 25, offset: pageParam }),
+      datavaultAPI.listRows(tableId, { limit: 25, offset: pageParam, showArchived, sortBy, sortOrder, filters }),
     getNextPageParam: (lastPage, allPages) => {
       const totalFetched = allPages.reduce((sum, page) => sum + page.rows.length, 0);
       if (totalFetched < lastPage.pagination.total) {
@@ -72,11 +96,7 @@ export function InfiniteDataGrid({
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <DataGridSkeleton rows={10} columns={columns.length || 5} />;
   }
 
   if (isError) {
@@ -91,12 +111,7 @@ export function InfiniteDataGrid({
   const allRows = data?.pages.flatMap((page) => page.rows) || [];
 
   if (allRows.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p className="mb-2">No data yet</p>
-        <p className="text-sm mb-4">Click "Add Row" to start adding data to your table</p>
-      </div>
-    );
+    return <DataGridEmptyState variant="no_rows" />;
   }
 
   return (
@@ -104,8 +119,17 @@ export function InfiniteDataGrid({
       <DataGrid
         columns={columns}
         rows={allRows}
+        selectedRowIds={selectedRowIds}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSelectRow={onSelectRow}
+        onSelectAll={onSelectAll}
+        onSort={onSort}
+        onColumnResize={onColumnResize}
         onEditRow={onEditRow}
         onDeleteRow={onDeleteRow}
+        onArchiveRow={onArchiveRow}
+        onUnarchiveRow={onUnarchiveRow}
       />
 
       {/* Intersection observer target */}
