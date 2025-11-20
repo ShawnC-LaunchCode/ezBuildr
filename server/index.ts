@@ -6,6 +6,7 @@ import { log } from "./utils";
 import { serveStatic } from "./static";
 import { errorHandler } from "./middleware/errorHandler";
 import { logger } from "./logger";
+import { sanitizeInputs } from "./utils/sanitize";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -73,6 +74,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// XSS Protection: Sanitize all string inputs
+app.use(sanitizeInputs);
 
 // =====================================================================
 // 💡 REQUEST LOGGING MIDDLEWARE

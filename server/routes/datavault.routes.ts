@@ -1,5 +1,12 @@
 import type { Express, Request, Response } from 'express';
-import { isAuthenticated } from '../googleAuth';
+import { hybridAuth, type AuthRequest, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
+import {
+  apiLimiter,
+  batchLimiter,
+  createLimiter,
+  deleteLimiter,
+  strictLimiter,
+} from '../middleware/rateLimiter';
 import {
   insertDatavaultTableSchema,
   insertDatavaultColumnSchema,
@@ -13,6 +20,8 @@ import {
 import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { z } from 'zod';
 import { logger } from '../logger';
+import { DATAVAULT_CONFIG } from '@shared/config';
+import { validationMessages } from '../utils/validationMessages';
 
 /**
  * Register DataVault routes
@@ -22,24 +31,23 @@ import { logger } from '../logger';
  * custom tables, columns, and manage data without altering the database schema.
  */
 export function registerDatavaultRoutes(app: Express): void {
-  // Helper to get tenantId from authenticated user
+  // Apply global rate limiting to all DataVault routes
+  app.use('/api/datavault', apiLimiter);
+
+  // Helper to get tenantId with proper error handling
   const getTenantId = (req: Request): string => {
-    const tenantId = (req.user as any)?.tenantId;
+    const tenantId = getAuthUserTenantId(req);
     if (!tenantId) {
       logger.error(
         {
-          userId: (req.user as any)?.id,
-          email: (req.user as any)?.email
+          userId: getAuthUserId(req),
+          path: req.path
         },
         'User session missing tenantId - user may need to log out and log back in'
       );
       throw new Error('Your account is not properly configured. Please log out and log back in to fix this issue.');
     }
     return tenantId;
-  };
-
-  const getUserId = (req: Request): string | undefined => {
-    return (req.user as any)?.id;
   };
 
   // ===================================================================
@@ -50,7 +58,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/databases
    * List all databases for the authenticated tenant
    */
-  app.get('/api/datavault/databases', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/databases', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { scopeType, scopeId } = req.query;
@@ -78,15 +86,21 @@ export function registerDatavaultRoutes(app: Express): void {
    * POST /api/datavault/databases
    * Create a new database
    */
-  app.post('/api/datavault/databases', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/databases', createLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
 
       const createSchema = z.object({
-        name: z.string().min(1).max(255),
-        description: z.string().optional(),
-        scopeType: z.enum(['account', 'project', 'workflow']),
-        scopeId: z.string().uuid().optional(),
+        name: z.string()
+          .min(1, { message: validationMessages.database.nameMinLength })
+          .max(255, { message: validationMessages.database.nameMaxLength }),
+        description: z.string()
+          .max(1000, { message: validationMessages.database.descriptionMaxLength })
+          .optional(),
+        scopeType: z.enum(['account', 'project', 'workflow'], {
+          errorMap: () => ({ message: validationMessages.invalidOption('scopeType', ['account', 'project', 'workflow']) })
+        }),
+        scopeId: z.string().uuid({ message: validationMessages.invalidUuid }).optional(),
       });
 
       const input = createSchema.parse(req.body);
@@ -115,7 +129,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/databases/:id
    * Get a single database with stats
    */
-  app.get('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/databases/:id', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { id } = req.params;
@@ -134,20 +148,30 @@ export function registerDatavaultRoutes(app: Express): void {
    * PATCH /api/datavault/databases/:id
    * Update a database
    */
-  app.patch('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.patch('/api/datavault/databases/:id', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { id } = req.params;
 
       const updateSchema = z.object({
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        scopeType: z.enum(['account', 'project', 'workflow']).optional(),
-        scopeId: z.string().uuid().optional().nullable(),
+        name: z.string()
+          .min(1, { message: validationMessages.database.nameMinLength })
+          .max(255, { message: validationMessages.database.nameMaxLength })
+          .optional(),
+        description: z.string()
+          .max(1000, { message: validationMessages.database.descriptionMaxLength })
+          .optional(),
+        scopeType: z.enum(['account', 'project', 'workflow'], {
+          errorMap: () => ({ message: validationMessages.invalidOption('scopeType', ['account', 'project', 'workflow']) })
+        }).optional(),
+        scopeId: z.string().uuid({ message: validationMessages.invalidUuid }).optional().nullable(),
       });
 
       const input = updateSchema.parse(req.body);
-      const database = await datavaultDatabasesService.updateDatabase(id, tenantId, input);
+      const database = await datavaultDatabasesService.updateDatabase(id, tenantId, {
+        ...input,
+        scopeId: input.scopeId ?? undefined,
+      });
 
       res.json(database);
     } catch (error) {
@@ -170,7 +194,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * DELETE /api/datavault/databases/:id
    * Delete a database (tables will be moved to main folder)
    */
-  app.delete('/api/datavault/databases/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.delete('/api/datavault/databases/:id', deleteLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { id } = req.params;
@@ -189,7 +213,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/databases/:id/tables
    * Get all tables in a database
    */
-  app.get('/api/datavault/databases/:id/tables', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/databases/:id/tables', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { id } = req.params;
@@ -212,7 +236,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/tables
    * List all tables for the authenticated tenant
    */
-  app.get('/api/datavault/tables', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/tables', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const withStats = req.query.stats === 'true';
@@ -233,10 +257,10 @@ export function registerDatavaultRoutes(app: Express): void {
    * POST /api/datavault/tables
    * Create a new table
    */
-  app.post('/api/datavault/tables', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/tables', createLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
-      const userId = getUserId(req);
+      const userId = getAuthUserId(req);
 
       const tableData = insertDatavaultTableSchema.parse({
         ...req.body,
@@ -265,7 +289,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/tables/:tableId
    * Get a single table with optional columns
    */
-  app.get('/api/datavault/tables/:tableId', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/tables/:tableId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -288,7 +312,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * PATCH /api/datavault/tables/:tableId
    * Update a table
    */
-  app.patch('/api/datavault/tables/:tableId', isAuthenticated, async (req: Request, res: Response) => {
+  app.patch('/api/datavault/tables/:tableId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -320,10 +344,43 @@ export function registerDatavaultRoutes(app: Express): void {
   });
 
   /**
+   * PATCH /api/datavault/tables/:tableId/move
+   * Move table to a database or main folder
+   */
+  app.patch('/api/datavault/tables/:tableId/move', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { tableId } = req.params;
+
+      const moveSchema = z.object({
+        databaseId: z.string().uuid().nullable(),
+      });
+
+      const { databaseId } = moveSchema.parse(req.body);
+
+      const table = await datavaultTablesService.moveTable(tableId, tenantId, databaseId);
+      res.json(table);
+    } catch (error) {
+      logger.error({ error }, 'Error moving DataVault table');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to move table';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
    * DELETE /api/datavault/tables/:tableId
    * Delete a table (cascades to columns, rows, and values)
    */
-  app.delete('/api/datavault/tables/:tableId', isAuthenticated, async (req: Request, res: Response) => {
+  app.delete('/api/datavault/tables/:tableId', deleteLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -343,7 +400,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * Get table schema (for workflow builder integration)
    * Returns: { id, name, slug, description, databaseId, columns: [...] }
    */
-  app.get('/api/datavault/tables/:tableId/schema', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/tables/:tableId/schema', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -366,7 +423,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/tables/:tableId/columns
    * List all columns for a table
    */
-  app.get('/api/datavault/tables/:tableId/columns', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/tables/:tableId/columns', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -385,7 +442,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * POST /api/datavault/tables/:tableId/columns
    * Create a new column
    */
-  app.post('/api/datavault/tables/:tableId/columns', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/tables/:tableId/columns', createLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -417,7 +474,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * PATCH /api/datavault/columns/:columnId
    * Update a column (name only - type changes not allowed)
    */
-  app.patch('/api/datavault/columns/:columnId', isAuthenticated, async (req: Request, res: Response) => {
+  app.patch('/api/datavault/columns/:columnId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { columnId } = req.params;
@@ -453,7 +510,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * DELETE /api/datavault/columns/:columnId
    * Delete a column (cascades to all values)
    */
-  app.delete('/api/datavault/columns/:columnId', isAuthenticated, async (req: Request, res: Response) => {
+  app.delete('/api/datavault/columns/:columnId', deleteLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { columnId } = req.params;
@@ -472,7 +529,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * POST /api/datavault/tables/:tableId/columns/reorder
    * Reorder columns for a table
    */
-  app.post('/api/datavault/tables/:tableId/columns/reorder', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/tables/:tableId/columns/reorder', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
@@ -506,19 +563,70 @@ export function registerDatavaultRoutes(app: Express): void {
   // ===================================================================
 
   /**
-   * GET /api/datavault/tables/:tableId/rows
-   * List all rows for a table with pagination
+   * POST /api/datavault/references/batch
+   * Batch resolve reference values (fixes N+1 query problem)
+   * Body: { requests: [{ tableId, rowIds[], displayColumnSlug? }] }
    */
-  app.get('/api/datavault/tables/:tableId/rows', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/references/batch', batchLimiter, hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+
+      const schema = z.object({
+        requests: z.array(
+          z.object({
+            tableId: z.string().uuid(),
+            rowIds: z.array(z.string().uuid()),
+            displayColumnSlug: z.string().optional(),
+          })
+        ),
+      });
+
+      const { requests } = schema.parse(req.body);
+
+      const resultMap = await datavaultRowsService.batchResolveReferences(requests, tenantId);
+
+      // Convert Map to object for JSON serialization
+      const result: Record<string, { displayValue: string; row: any }> = {};
+      resultMap.forEach((value, key) => {
+        result[key] = value;
+      });
+
+      res.json(result);
+    } catch (error) {
+      logger.error({ error }, 'Error batch resolving references');
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: 'Invalid input',
+          errors: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to resolve references';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/datavault/tables/:tableId/rows
+   * List all rows for a table with offset-based pagination
+   * Query params: limit (max 100), offset (default 0)
+   */
+  app.get('/api/datavault/tables/:tableId/rows', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { tableId } = req.params;
 
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
+      const limit = req.query.limit
+        ? Math.min(parseInt(req.query.limit as string, 10), DATAVAULT_CONFIG.MAX_PAGE_SIZE)
+        : DATAVAULT_CONFIG.DEFAULT_PAGE_SIZE;
       const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
 
       const rows = await datavaultRowsService.listRows(tableId, tenantId, { limit, offset });
       const totalCount = await datavaultRowsService.countRows(tableId, tenantId);
+
+      const hasMore = offset + rows.length < totalCount;
 
       res.json({
         rows,
@@ -526,7 +634,7 @@ export function registerDatavaultRoutes(app: Express): void {
           limit,
           offset,
           total: totalCount,
-          hasMore: offset + rows.length < totalCount,
+          hasMore,
         },
       });
     } catch (error) {
@@ -541,10 +649,10 @@ export function registerDatavaultRoutes(app: Express): void {
    * POST /api/datavault/tables/:tableId/rows
    * Create a new row with values
    */
-  app.post('/api/datavault/tables/:tableId/rows', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/datavault/tables/:tableId/rows', strictLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
-      const userId = getUserId(req);
+      const userId = getAuthUserId(req);
       const { tableId } = req.params;
 
       const rowSchema = z.object({
@@ -575,7 +683,7 @@ export function registerDatavaultRoutes(app: Express): void {
    * GET /api/datavault/rows/:rowId
    * Get a single row with all its values
    */
-  app.get('/api/datavault/rows/:rowId', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/datavault/rows/:rowId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { rowId } = req.params;
@@ -599,10 +707,10 @@ export function registerDatavaultRoutes(app: Express): void {
    * PATCH /api/datavault/rows/:rowId
    * Update a row's values
    */
-  app.patch('/api/datavault/rows/:rowId', isAuthenticated, async (req: Request, res: Response) => {
+  app.patch('/api/datavault/rows/:rowId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
-      const userId = getUserId(req);
+      const userId = getAuthUserId(req);
       const { rowId } = req.params;
 
       const updateSchema = z.object({
@@ -630,10 +738,36 @@ export function registerDatavaultRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/datavault/rows/:rowId/references
+   * Check if row is referenced by other rows
+   * Returns list of tables/columns that reference this row
+   */
+  app.get('/api/datavault/rows/:rowId/references', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { rowId } = req.params;
+
+      const references = await datavaultRowsService.getRowReferences(rowId, tenantId);
+      res.json({
+        rowId,
+        isReferenced: references.length > 0,
+        references,
+        totalReferences: references.reduce((sum, ref) => sum + ref.referenceCount, 0)
+      });
+    } catch (error) {
+      logger.error({ error }, 'Error checking row references');
+      const message = error instanceof Error ? error.message : 'Failed to check references';
+      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      res.status(status).json({ message });
+    }
+  });
+
+  /**
    * DELETE /api/datavault/rows/:rowId
    * Delete a row and all its values
+   * Note: References to this row will be automatically set to NULL by database trigger
    */
-  app.delete('/api/datavault/rows/:rowId', isAuthenticated, async (req: Request, res: Response) => {
+  app.delete('/api/datavault/rows/:rowId', deleteLimiter, hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
       const { rowId } = req.params;
