@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { insertWorkflowSchema } from "@shared/schema";
 import { workflowService } from "../services/WorkflowService";
 import { variableService } from "../services/VariableService";
@@ -18,7 +18,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.post('/api/workflows', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -32,7 +32,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.createWorkflow(workflowData, userId);
       res.status(201).json(workflow);
     } catch (error) {
-      logger.error({ error, userId: req.user?.claims?.sub }, "Error creating workflow");
+      logger.error({ error, userId: (req as AuthRequest).userId }, "Error creating workflow");
       res.status(500).json({
         message: "Failed to create workflow",
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
@@ -46,7 +46,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -54,7 +54,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflows = await workflowService.listWorkflows(userId);
       res.json(workflows);
     } catch (error) {
-      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching workflows");
+      logger.error({ error, userId: (req as AuthRequest).userId }, "Error fetching workflows");
       res.status(500).json({ message: "Failed to fetch workflows" });
     }
   });
@@ -66,7 +66,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/unfiled', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -74,7 +74,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflows = await workflowService.listUnfiledWorkflows(userId);
       res.json(workflows);
     } catch (error) {
-      logger.error({ error, userId: req.user?.claims?.sub }, "Error fetching unfiled workflows");
+      logger.error({ error, userId: (req as AuthRequest).userId }, "Error fetching unfiled workflows");
       res.status(500).json({ message: "Failed to fetch unfiled workflows" });
     }
   });
@@ -85,7 +85,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -94,7 +94,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -107,7 +107,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -118,7 +118,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error updating workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");
       const message = error instanceof Error ? error.message : "Failed to update workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -131,7 +131,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.delete('/api/workflows/:workflowId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -140,7 +140,7 @@ export function registerWorkflowRoutes(app: Express): void {
       await workflowService.deleteWorkflow(workflowId, userId);
       res.status(204).send();
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error deleting workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error deleting workflow");
       const message = error instanceof Error ? error.message : "Failed to delete workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -153,7 +153,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/status', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -168,7 +168,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, status: req.body.status }, "Error changing workflow status");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, status: req.body.status }, "Error changing workflow status");
       const message = error instanceof Error ? error.message : "Failed to change status";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -181,7 +181,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/intake-config', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -202,7 +202,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.updateIntakeConfig(workflowId, userId, intakeConfig);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error updating intake config");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating intake config");
       const message = error instanceof Error ? error.message : "Failed to update intake config";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -215,7 +215,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/move', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -228,7 +228,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
       res.json(workflow);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, projectId: req.body.projectId }, "Error moving workflow");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, projectId: req.body.projectId }, "Error moving workflow");
       const message = error instanceof Error ? error.message : "Failed to move workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -241,7 +241,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/mode', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -250,7 +250,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const result = await workflowService.getResolvedMode(workflowId, userId);
       res.json({ success: true, data: result });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow mode");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow mode");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow mode";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -263,7 +263,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/mode', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -276,7 +276,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.setModeOverride(workflowId, userId, modeOverride);
       res.json({ success: true, data: workflow });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -301,7 +301,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/variables', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -310,7 +310,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const variables = await variableService.listVariables(workflowId, userId);
       res.json(variables);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow variables");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow variables");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow variables";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -324,7 +324,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/public-link', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -333,7 +333,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const publicUrl = await workflowService.getOrGeneratePublicLink(workflowId, userId);
       res.json({ publicUrl });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow public link");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow public link");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow public link";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -350,7 +350,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -359,7 +359,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const access = await workflowService.getWorkflowAccess(workflowId, userId);
       res.json({ success: true, data: access });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error fetching workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow access");
       const message = error instanceof Error ? error.message : "Failed to fetch workflow access";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -373,7 +373,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -392,7 +392,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const access = await workflowService.grantWorkflowAccess(workflowId, userId, entries);
       res.json({ success: true, data: access });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error granting workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error granting workflow access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -415,7 +415,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.delete('/api/workflows/:workflowId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -433,7 +433,7 @@ export function registerWorkflowRoutes(app: Express): void {
       await workflowService.revokeWorkflowAccess(workflowId, userId, entries);
       res.json({ success: true, message: "Access revoked successfully" });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, userId: req.user?.claims?.sub }, "Error revoking workflow access");
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error revoking workflow access");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -456,7 +456,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/owner', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const currentOwnerId = req.user?.claims?.sub;
+      const currentOwnerId = (req as AuthRequest).userId;
       if (!currentOwnerId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -471,7 +471,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.transferWorkflowOwnership(workflowId, currentOwnerId, newOwnerId);
       res.json({ success: true, data: workflow });
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, currentOwnerId: req.user?.claims?.sub, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
+      logger.error({ error, workflowId: req.params.workflowId, currentOwnerId: (req as AuthRequest).userId, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -495,7 +495,7 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.post('/api/workflows/:workflowId/templates/:templateId/test', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -522,7 +522,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const statusCode = result.ok ? 200 : 400;
       res.status(statusCode).json(result);
     } catch (error) {
-      logger.error({ error, workflowId: req.params.workflowId, templateId: req.params.templateId, userId: req.user?.claims?.sub }, "Error testing template");
+      logger.error({ error, workflowId: req.params.workflowId, templateId: req.params.templateId, userId: (req as AuthRequest).userId }, "Error testing template");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({

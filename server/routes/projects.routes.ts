@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { insertProjectSchema } from "@shared/schema";
 import { projectService } from "../services/ProjectService";
 import { z } from "zod";
@@ -16,7 +16,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.post('/api/projects', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -57,7 +57,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.get('/api/projects', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -80,7 +80,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.get('/api/projects/:projectId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -102,7 +102,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.get('/api/projects/:projectId/workflows', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -124,7 +124,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.put('/api/projects/:projectId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -152,7 +152,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.put('/api/projects/:projectId/archive', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -174,7 +174,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.put('/api/projects/:projectId/unarchive', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -197,7 +197,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.delete('/api/projects/:projectId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -223,7 +223,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.get('/api/projects/:projectId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -246,7 +246,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.put('/api/projects/:projectId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -288,7 +288,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.delete('/api/projects/:projectId/access', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -329,7 +329,7 @@ export function registerProjectRoutes(app: Express): void {
    */
   app.put('/api/projects/:projectId/owner', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const currentOwnerId = req.user?.claims?.sub;
+      const currentOwnerId = (req as AuthRequest).userId;
       if (!currentOwnerId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
