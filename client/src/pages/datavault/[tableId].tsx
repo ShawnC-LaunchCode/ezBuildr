@@ -47,7 +47,7 @@ import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import { BulkActionsToolbar } from "@/components/datavault/BulkActionsToolbar";
 import { FilterPanel } from "@/components/datavault/FilterPanel";
-import { useDatavaultFilterStore } from "@/stores/useDatavaultFilterStore";
+import { useDatavaultFilterStore, EMPTY_FILTERS } from "@/stores/useDatavaultFilterStore";
 import { TablePermissions } from "@/components/datavault/TablePermissions";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
@@ -145,8 +145,8 @@ export default function TableViewPage() {
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>(undefined);
 
-  // Filters from Zustand store
-  const filters = useDatavaultFilterStore((state) => state.getFilters(tableId || ""));
+  // Filters from Zustand store - use direct access to avoid creating new array references
+  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId || ""] ?? EMPTY_FILTERS);
   const apiFilters = filters.map((f) => ({
     columnId: f.columnId,
     operator: f.operator,

@@ -21,13 +21,21 @@ import {
   Calendar,
   Upload,
   Zap,
+  EyeOff,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { LogicBuilder, LogicIndicator, LogicStatusText } from "@/components/logic";
+import type { ConditionExpression } from "@shared/types/conditions";
 import {
   Select,
   SelectContent,
@@ -105,6 +113,7 @@ export function QuestionCard({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localRequired, setLocalRequired] = useState(step.required || false);
   const [localType, setLocalType] = useState<StepType>(step.type);
+  const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [localOptions, setLocalOptions] = useState<string[]>(
     step.type === "radio" || step.type === "multiple_choice"
       ? step.options?.options || []
@@ -230,6 +239,34 @@ export function QuestionCard({
     });
   };
 
+  const handleVisibilityChange = (expression: ConditionExpression) => {
+    updateStepMutation.mutate(
+      {
+        id: step.id,
+        sectionId,
+        visibleIf: expression,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Visibility updated",
+            description: "Question visibility conditions have been saved.",
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description:
+              error instanceof Error
+                ? error.message
+                : "Failed to save visibility conditions",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
   const handleDelete = async () => {
     if (!confirm(`Delete question "${step.title}"?`)) return;
 
@@ -264,8 +301,19 @@ export function QuestionCard({
 
             {/* Icon and Collapse Button (stacked vertically) */}
             <div className="flex flex-col items-center gap-1">
-              <div className="mt-2">
+              <div className="mt-2 relative">
                 {getQuestionTypeIcon(localType)}
+                {/* Show logic indicator when collapsed */}
+                {!isExpanded && step.visibleIf && (
+                  <div className="absolute -top-1 -right-1">
+                    <LogicIndicator
+                      visibleIf={step.visibleIf}
+                      variant="icon"
+                      size="sm"
+                      elementType="question"
+                    />
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -318,12 +366,13 @@ export function QuestionCard({
                     <Label className="text-xs text-muted-foreground">
                       Description (optional)
                     </Label>
-                    <Textarea
+                    <AutoExpandTextarea
                       value={step.description || ""}
                       onChange={(e) => handleDescriptionChange(e.target.value)}
                       placeholder="Add a description for this question..."
-                      rows={2}
-                      className="text-sm resize-none"
+                      minRows={1}
+                      maxRows={4}
+                      className="text-sm"
                     />
                   </div>
 
@@ -400,18 +449,20 @@ export function QuestionCard({
                   {/* Variable Alias - Hidden in Easy Mode */}
                   {mode === 'advanced' && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">
-                        Variable (alias)
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">
+                          Variable (alias)
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          Internal key: <code className="font-mono text-[10px]">{step.id.slice(0, 8)}...</code>
+                        </span>
+                      </div>
                       <Input
                         value={step.alias || ""}
                         onChange={(e) => handleAliasChange(e.target.value)}
                         placeholder="e.g., user_email, phone_number"
                         className="h-9 text-sm font-mono"
                       />
-                      <p className="text-xs text-muted-foreground pl-1">
-                        Internal key: <code className="font-mono">{step.id}</code>
-                      </p>
                     </div>
                   )}
 
@@ -429,6 +480,45 @@ export function QuestionCard({
                       config={localJsConfig}
                       onChange={handleJsConfigChange}
                     />
+                  )}
+
+                  {/* Visibility Logic Section - Advanced Mode Only */}
+                  {mode === 'advanced' && (
+                    <Collapsible
+                      open={isVisibilityOpen}
+                      onOpenChange={setIsVisibilityOpen}
+                      className="border rounded-md"
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-between px-3 py-2 h-auto"
+                        >
+                          <div className="flex items-center gap-2">
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">Visibility</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <LogicStatusText visibleIf={step.visibleIf} />
+                            {isVisibilityOpen ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </div>
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="px-3 pb-3">
+                        <LogicBuilder
+                          workflowId={workflowId}
+                          elementId={step.id}
+                          elementType="step"
+                          value={(step.visibleIf as ConditionExpression) || null}
+                          onChange={handleVisibilityChange}
+                          isSaving={updateStepMutation.isPending}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
                 </div>
               )}

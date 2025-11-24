@@ -38,11 +38,12 @@ export function Breadcrumbs({ items, className, showHome = true }: BreadcrumbsPr
             {index > 0 && <ChevronRight className="w-4 h-4 mx-1 flex-shrink-0" />}
 
             {item.href && !isLast ? (
-              <Link href={item.href}>
-                <a className="hover:text-foreground transition-colors flex items-center gap-1.5">
-                  {item.icon}
-                  <span>{item.label}</span>
-                </a>
+              <Link
+                href={item.href}
+                className="hover:text-foreground transition-colors flex items-center gap-1.5"
+              >
+                {item.icon}
+                <span>{item.label}</span>
               </Link>
             ) : (
               <span

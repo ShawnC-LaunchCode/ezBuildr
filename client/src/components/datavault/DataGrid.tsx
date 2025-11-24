@@ -150,7 +150,7 @@ export function DataGrid({
           <TableHeader>
             <TableRow>
               {onSelectAll && (
-                <TableHead className="w-[50px]">
+                <TableHead className="w-[50px] border-r border-border">
                   <Checkbox
                     checked={allSelected}
                     onCheckedChange={(checked) => onSelectAll(!!checked)}
@@ -159,7 +159,7 @@ export function DataGrid({
                   />
                 </TableHead>
               )}
-              {columns.map((column) => {
+              {columns.map((column, index) => {
                 const isSorted = sortBy === column.slug;
                 const SortIcon = isSorted
                   ? sortOrder === 'asc'
@@ -170,10 +170,12 @@ export function DataGrid({
                 return (
                   <TableHead
                     key={column.id}
-                    className="whitespace-nowrap relative"
+                    className={`whitespace-nowrap relative border-r border-border ${
+                      isSorted ? 'bg-primary/10' : ''
+                    }`}
                     style={{ width: `${columnWidths[column.id] || 150}px`, minWidth: '80px' }}
                   >
-                    <div className="flex items-center gap-2 pr-6">
+                    <div className="flex items-center gap-2 pr-2 relative z-10">
                       <span>
                         {column.name}
                         {column.required && <span className="text-destructive ml-1">*</span>}
@@ -182,8 +184,11 @@ export function DataGrid({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => onSort(column.slug)}
+                          className={`h-6 w-6 p-0 ${isSorted ? 'text-primary' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSort(column.slug);
+                          }}
                         >
                           <SortIcon className="h-4 w-4" />
                         </Button>
@@ -192,8 +197,11 @@ export function DataGrid({
                     {/* Resize handle */}
                     {onColumnResize && (
                       <div
-                        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 group"
-                        onMouseDown={(e) => handleResizeStart(column.id, e)}
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 group z-20"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          handleResizeStart(column.id, e);
+                        }}
                       >
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100">
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -214,7 +222,7 @@ export function DataGrid({
               return (
                 <TableRow key={rowData.row.id} className={isArchived ? "opacity-60" : undefined}>
                   {onSelectRow && (
-                    <TableCell>
+                    <TableCell className="border-r border-border">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => onSelectRow(rowData.row.id, !!checked)}
@@ -222,20 +230,23 @@ export function DataGrid({
                       />
                     </TableCell>
                   )}
-                  {columns.map((column, idx) => (
-                    <TableCell
-                      key={column.id}
-                      className="truncate"
-                      style={{ width: `${columnWidths[column.id] || 150}px`, minWidth: '80px', maxWidth: `${columnWidths[column.id] || 150}px` }}
-                    >
-                      {idx === 0 && isArchived && (
-                        <Badge variant="secondary" className="mr-2 text-xs">
-                          Archived
-                        </Badge>
-                      )}
-                      {formatValue(rowData.values[column.id], column.type)}
-                    </TableCell>
-                  ))}
+                  {columns.map((column, idx) => {
+                    const isSorted = sortBy === column.slug;
+                    return (
+                      <TableCell
+                        key={column.id}
+                        className={`truncate border-r border-border ${isSorted ? 'bg-primary/5' : ''}`}
+                        style={{ width: `${columnWidths[column.id] || 150}px`, minWidth: '80px', maxWidth: `${columnWidths[column.id] || 150}px` }}
+                      >
+                        {idx === 0 && isArchived && (
+                          <Badge variant="secondary" className="mr-2 text-xs">
+                            Archived
+                          </Badge>
+                        )}
+                        {formatValue(rowData.values[column.id], column.type)}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

@@ -5,6 +5,14 @@
 
 import { create } from "zustand";
 
+/**
+ * Stable empty array reference to avoid infinite re-renders in React.
+ * When using Zustand selectors, returning a new [] each time causes
+ * useSyncExternalStore to detect a "change" and re-render infinitely.
+ * Always use this constant for fallback empty arrays.
+ */
+export const EMPTY_FILTERS: FilterCondition[] = [];
+
 export type FilterOperator =
   | "equals"
   | "not_equals"
@@ -36,7 +44,8 @@ interface FilterState {
   updateFilter: (tableId: string, filterId: string, updates: Partial<FilterCondition>) => void;
   removeFilter: (tableId: string, filterId: string) => void;
   clearFilters: (tableId: string) => void;
-  getFilters: (tableId: string) => FilterCondition[];
+  // NOTE: getFilters was removed - use selector pattern instead:
+  // const filters = useDatavaultFilterStore((s) => s.filtersByTable[tableId] ?? EMPTY_FILTERS);
 }
 
 export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
@@ -92,9 +101,4 @@ export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
         [tableId]: [],
       },
     })),
-
-  getFilters: (tableId) => {
-    const state = get();
-    return state.filtersByTable[tableId] || [];
-  },
 }));

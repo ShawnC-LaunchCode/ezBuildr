@@ -11,9 +11,10 @@ import type { DatavaultColumn } from "@shared/schema";
 
 interface SortableColumnHeaderProps {
   column: DatavaultColumn;
+  isFirst?: boolean;
 }
 
-export function SortableColumnHeader({ column }: SortableColumnHeaderProps) {
+export function SortableColumnHeader({ column, isFirst = false }: SortableColumnHeaderProps) {
   const {
     attributes,
     listeners,
@@ -35,37 +36,40 @@ export function SortableColumnHeader({ column }: SortableColumnHeaderProps) {
     <th
       ref={setNodeRef}
       style={style}
-      className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b"
+      className={`text-left text-sm font-semibold text-foreground min-w-[150px] bg-muted/50 border-l border-border ${isFirst ? 'border-l-0' : ''}`}
     >
-      <div className="flex items-center gap-2">
-        {/* Drag handle */}
+      <div className="flex items-center">
+        {/* Drag handle zone - more pronounced */}
         <span
           {...listeners}
           {...attributes}
-          className="cursor-grab active:cursor-grabbing touch-none p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+          className="flex items-center justify-center w-8 h-full py-3 cursor-grab active:cursor-grabbing touch-none bg-muted/70 hover:bg-accent border-r border-border/50 transition-colors"
           title="Drag to reorder column"
         >
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </span>
 
-        {/* Type icon */}
-        <ColumnTypeIcon
-          type={column.type}
-          className={getColumnTypeColor(column.type)}
-        />
+        {/* Column content */}
+        <div className="flex items-center gap-2 px-3 py-3">
+          {/* Type icon */}
+          <ColumnTypeIcon
+            type={column.type}
+            className={getColumnTypeColor(column.type)}
+          />
 
-        {/* Column name */}
-        <span className="font-semibold">{column.name}</span>
+          {/* Column name */}
+          <span className="font-semibold">{column.name}</span>
 
-        {/* Primary key badge */}
-        {column.isPrimaryKey && (
-          <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-1.5 py-0.5 rounded">
-            PK
-          </span>
-        )}
+          {/* Primary key badge */}
+          {column.isPrimaryKey && (
+            <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-1.5 py-0.5 rounded">
+              PK
+            </span>
+          )}
 
-        {/* Required indicator */}
-        {column.required && <span className="text-xs text-red-500">*</span>}
+          {/* Required indicator */}
+          {column.required && <span className="text-xs text-red-500">*</span>}
+        </div>
       </div>
     </th>
   );

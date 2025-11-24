@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { verifyToken, extractTokenFromHeader, type JWTPayload } from '../services/auth';
+import { verifyToken, extractTokenFromHeader, looksLikeJwt, type JWTPayload } from '../services/auth';
 import { createLogger } from '../logger';
 import { userRepository } from '../repositories';
 
@@ -111,7 +111,9 @@ export async function hybridAuth(req: Request, res: Response, next: NextFunction
     const authHeader = req.headers.authorization;
     const token = extractTokenFromHeader(authHeader);
 
-    if (token) {
+    // Only attempt JWT verification if the token looks like a JWT
+    // This avoids noisy warnings when run tokens (UUIDs) are passed
+    if (token && looksLikeJwt(token)) {
       try {
         const payload = verifyToken(token);
         const authReq = req as AuthRequest;
@@ -128,6 +130,9 @@ export async function hybridAuth(req: Request, res: Response, next: NextFunction
         // JWT failed, will try session next
         logger.debug('JWT authentication failed, trying session');
       }
+    } else if (token) {
+      // Token exists but doesn't look like JWT (probably a run token)
+      logger.debug({ path: req.path }, 'Non-JWT token provided, skipping JWT auth');
     }
 
     // Fallback to session-based authentication (Google OAuth)

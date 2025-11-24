@@ -66,8 +66,9 @@ export const DATAVAULT_CONFIG = {
 /**
  * Server-specific configuration
  * Uses environment variables with sensible defaults
+ * Only available in Node.js environment (not in browser)
  */
-export const SERVER_CONFIG = {
+export const SERVER_CONFIG = typeof process !== 'undefined' ? {
   /** Server port (from PORT env var or default 5000) */
   PORT: parseInt(process.env.PORT || '5000', 10),
 
@@ -82,13 +83,14 @@ export const SERVER_CONFIG = {
 
   /** Environment (development, production, test) */
   NODE_ENV: process.env.NODE_ENV || 'development',
-} as const;
+} as const : {} as any;
 
 /**
  * Rate Limiting Configuration
  * Settings for API rate limiting to prevent abuse
+ * Only available in Node.js environment (not in browser)
  */
-export const RATE_LIMIT_CONFIG = {
+export const RATE_LIMIT_CONFIG = typeof process !== 'undefined' ? {
   /** Time window for rate limiting (15 minutes) */
   WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
 
@@ -103,7 +105,7 @@ export const RATE_LIMIT_CONFIG = {
 
   /** Maximum batch requests per minute */
   BATCH_MAX_PER_MINUTE: 5,
-} as const;
+} as const : {} as any;
 
 /**
  * Workflow Configuration

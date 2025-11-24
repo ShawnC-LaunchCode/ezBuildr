@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Filter, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
-import { useDatavaultFilterStore, type FilterCondition, type FilterOperator } from "@/stores/useDatavaultFilterStore";
+import { useDatavaultFilterStore, EMPTY_FILTERS, type FilterCondition, type FilterOperator } from "@/stores/useDatavaultFilterStore";
 import type { DatavaultColumn } from "@shared/schema";
 
 interface FilterPanelProps {
@@ -93,7 +93,8 @@ const operatorNeedsValue = (operator: FilterOperator): boolean => {
 
 export function FilterPanel({ tableId, columns }: FilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const filters = useDatavaultFilterStore((state) => state.getFilters(tableId));
+  // Use stable EMPTY_FILTERS reference to avoid infinite re-renders
+  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId] ?? EMPTY_FILTERS);
   const addFilter = useDatavaultFilterStore((state) => state.addFilter);
   const updateFilter = useDatavaultFilterStore((state) => state.updateFilter);
   const removeFilter = useDatavaultFilterStore((state) => state.removeFilter);

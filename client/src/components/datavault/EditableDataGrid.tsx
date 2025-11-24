@@ -50,9 +50,10 @@ interface EditableDataGridProps {
 interface SortableColumnHeaderProps {
   column: DatavaultColumn;
   isDragDisabled?: boolean;
+  isFirst?: boolean;
 }
 
-function SortableColumnHeader({ column, isDragDisabled = false }: SortableColumnHeaderProps) {
+function SortableColumnHeader({ column, isDragDisabled = false, isFirst = false }: SortableColumnHeaderProps) {
   const {
     attributes,
     listeners,
@@ -76,33 +77,37 @@ function SortableColumnHeader({ column, isDragDisabled = false }: SortableColumn
     <th
       ref={setNodeRef}
       style={style}
-      className="px-3 py-3 text-left text-sm font-semibold text-foreground min-w-[150px] bg-muted/50"
+      className={`text-left text-sm font-semibold text-foreground min-w-[150px] bg-muted/50 border-l border-border ${isFirst ? 'border-l-0' : ''}`}
       role="columnheader"
       scope="col"
       aria-label={`${column.name}${column.isPrimaryKey ? " (Primary Key)" : ""}${column.required ? " (Required)" : ""}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
+        {/* Drag handle zone - more pronounced */}
         <div
           {...attributes}
           {...listeners}
           className={isDragDisabled
-            ? "p-1 opacity-30 cursor-not-allowed"
-            : "cursor-grab active:cursor-grabbing touch-none p-1 hover:bg-accent rounded transition-colors"
+            ? "flex items-center justify-center w-8 h-full py-3 opacity-30 cursor-not-allowed bg-muted/30 border-r border-border/50"
+            : "flex items-center justify-center w-8 h-full py-3 cursor-grab active:cursor-grabbing touch-none bg-muted/70 hover:bg-accent border-r border-border/50 transition-colors"
           }
           title={isDragDisabled ? "Primary key position is locked" : "Drag to reorder column"}
         >
-          <GripVertical className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
-        <ColumnTypeIcon type={column.type} className={getColumnTypeColor(column.type)} />
-        <span>{column.name}</span>
-        {column.isPrimaryKey && (
-          <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-1.5 py-0.5 rounded" aria-label="Primary Key">
-            PK
-          </span>
-        )}
-        {column.required && (
-          <span className="text-xs text-destructive" aria-label="Required">*</span>
-        )}
+        {/* Column content */}
+        <div className="flex items-center gap-2 px-3 py-3">
+          <ColumnTypeIcon type={column.type} className={getColumnTypeColor(column.type)} />
+          <span>{column.name}</span>
+          {column.isPrimaryKey && (
+            <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-1.5 py-0.5 rounded" aria-label="Primary Key">
+              PK
+            </span>
+          )}
+          {column.required && (
+            <span className="text-xs text-destructive" aria-label="Required">*</span>
+          )}
+        </div>
       </div>
     </th>
   );
@@ -327,14 +332,14 @@ export function EditableDataGrid({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <table className="w-full" role="table" aria-label="Data table with inline editing">
+          <table className="w-full border-collapse" role="table" aria-label="Data table with inline editing">
             <thead className="border-b" role="rowgroup">
               <tr role="row">
                 <SortableContext
                   items={sortedColumns.map((col) => col.id)}
                   strategy={horizontalListSortingStrategy}
                 >
-                  {sortedColumns.map((column) => {
+                  {sortedColumns.map((column, index) => {
                     // Disable dragging if this is the only primary key
                     const primaryKeyCount = sortedColumns.filter((col) => col.isPrimaryKey).length;
                     const isDragDisabled = column.isPrimaryKey && primaryKeyCount === 1;
@@ -344,11 +349,12 @@ export function EditableDataGrid({
                         key={column.id}
                         column={column}
                         isDragDisabled={isDragDisabled}
+                        isFirst={index === 0}
                       />
                     );
                   })}
                 </SortableContext>
-                <th className="px-3 py-3 text-left text-sm font-semibold text-foreground w-[80px] bg-muted/50" role="columnheader" scope="col">
+                <th className="px-3 py-3 text-left text-sm font-semibold text-foreground w-[80px] bg-muted/50 border-l border-border" role="columnheader" scope="col">
                   Actions
                 </th>
               </tr>
@@ -356,8 +362,8 @@ export function EditableDataGrid({
           <tbody className="divide-y divide-border" role="rowgroup">
             {rows.map((row) => (
               <tr key={row.row.id} className="hover:bg-accent/30 transition-colors" role="row">
-                {sortedColumns.map((column) => (
-                  <td key={column.id} className="border-r last:border-r-0">
+                {sortedColumns.map((column, index) => (
+                  <td key={column.id} className={`border-l border-border ${index === 0 ? 'border-l-0' : ''}`}>
                     <EditableCell
                       column={column}
                       value={row.values[column.id]}
@@ -366,7 +372,7 @@ export function EditableDataGrid({
                     />
                   </td>
                 ))}
-                <td className="px-3 py-2" role="gridcell">
+                <td className="px-3 py-2 border-l border-border" role="gridcell">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Row actions">
@@ -402,10 +408,10 @@ export function EditableDataGrid({
 
             {/* Empty Row for Quick Add */}
             <tr className="bg-muted/20 hover:bg-muted/30 transition-colors" role="row">
-              {sortedColumns.map((column) => (
+              {sortedColumns.map((column, index) => (
                 <td
                   key={column.id}
-                  className={`border-r last:border-r-0 ${
+                  className={`border-l border-border ${index === 0 ? 'border-l-0' : ''} ${
                     isEmptyRowColumnMissingRequired(column.id) ? 'bg-red-50 dark:bg-red-950/20' : ''
                   }`}
                 >
@@ -424,7 +430,7 @@ export function EditableDataGrid({
                   />
                 </td>
               ))}
-              <td className="px-3 py-2" role="gridcell">
+              <td className="px-3 py-2 border-l border-border" role="gridcell">
                 {/* Empty cell for actions column */}
               </td>
             </tr>

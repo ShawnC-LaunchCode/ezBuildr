@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
 import { userRepository, userCredentialsRepository } from "../repositories";
-import { hybridAuth } from '../middleware/auth';
 import { createLogger } from "../logger";
 import {
   createToken,
@@ -306,12 +305,20 @@ export function registerAuthRoutes(app: Express): void {
           req.user = mockAuthUser;
           req.session.user = mockAuthUser;
 
-          // For GET requests, redirect to dashboard; for POST, return JSON
-          if (req.method === 'GET') {
-            res.redirect('/dashboard');
-          } else {
-            res.json({ message: "Development authentication successful", user: testUser });
-          }
+          // Save session before redirecting to avoid race condition
+          req.session.save((saveErr: unknown) => {
+            if (saveErr) {
+              logger.error({ error: saveErr }, 'Dev login session save error');
+              return res.status(500).json({ message: "Session save failed" });
+            }
+
+            // For GET requests, redirect to dashboard; for POST, return JSON
+            if (req.method === 'GET') {
+              res.redirect('/dashboard');
+            } else {
+              res.json({ message: "Development authentication successful", user: testUser });
+            }
+          });
         });
       } catch (error) {
         logger.error({ error }, "Dev login error");
@@ -327,7 +334,8 @@ export function registerAuthRoutes(app: Express): void {
   // Legacy route for backward compatibility (uses session-based auth)
   app.get('/api/auth/user', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const authReq = req as AuthRequest;
+      const userId = authReq.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -336,6 +344,56 @@ export function registerAuthRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching user");
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // =====================================================================
+  // JWT TOKEN ENDPOINT (for WebSocket/API authentication)
+  // =====================================================================
+
+  /**
+   * GET /api/auth/token
+   * Get a JWT token for the current authenticated session
+   * Useful for WebSocket connections and API authentication
+   * Requires existing session-based authentication (Google OAuth)
+   */
+  app.get('/api/auth/token', async (req: Request, res: Response) => {
+    try {
+      // Check for session-based authentication
+      const sessionUser = req.session?.user || req.user;
+      const userId = sessionUser?.claims?.sub || sessionUser?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          message: 'Authentication required',
+          error: 'unauthorized',
+        });
+      }
+
+      // Fetch full user from database
+      const user = await userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          message: 'User not found',
+          error: 'user_not_found',
+        });
+      }
+
+      // Generate JWT token
+      const token = createToken(user);
+
+      logger.debug({ userId: user.id }, 'JWT token generated for session user');
+
+      res.json({
+        token,
+        expiresIn: process.env.JWT_EXPIRY || '7d',
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to generate JWT token');
+      res.status(500).json({
+        message: 'Failed to generate token',
+        error: 'internal_error',
+      });
     }
   });
 }

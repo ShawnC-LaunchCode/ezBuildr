@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { LogicIndicator } from "@/components/logic";
 import { BlocksPanel } from "./BlocksPanel";
 import { TransformBlocksPanel } from "./TransformBlocksPanel";
 import {
@@ -176,6 +177,12 @@ function SectionItem({
         </Button>
         <GripVertical className="h-4 w-4 text-muted-foreground" />
         <span className="flex-1 text-sm truncate">{section.title}</span>
+        <LogicIndicator
+          visibleIf={section.visibleIf}
+          variant="icon"
+          size="sm"
+          elementType="section"
+        />
         <Button
           variant="ghost"
           size="icon"
@@ -212,6 +219,12 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
       <GripVertical className="h-3 w-3 text-muted-foreground" />
       <FileText className="h-3 w-3 text-muted-foreground" />
       <span className="flex-1 truncate">{step.title}</span>
+      <LogicIndicator
+        visibleIf={step.visibleIf}
+        variant="icon"
+        size="sm"
+        elementType="question"
+      />
       {step.alias && (
         <Badge variant="secondary" className="text-xs font-mono px-1.5 py-0">
           {step.alias}

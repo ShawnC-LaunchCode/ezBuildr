@@ -27,6 +27,7 @@ export class DatavaultRowsRepository extends BaseRepository<
 
   /**
    * Find rows by table ID with pagination, filtering, sorting, and archive support
+   * Supports sorting by row fields (createdAt, updatedAt) or column values (by slug)
    */
   async findByTableId(
     tableId: string,
@@ -49,21 +50,68 @@ export class DatavaultRowsRepository extends BaseRepository<
       whereConditions.push(isNull(datavaultRows.deletedAt));
     }
 
+    const sortDir = options?.sortOrder === 'desc' ? desc : asc;
+
+    // Check if sorting by a column value (not a row field)
+    if (options?.sortBy && options.sortBy !== 'createdAt' && options.sortBy !== 'updatedAt') {
+      // Look up the column by slug to get its ID
+      const [column] = await database
+        .select({ id: datavaultColumns.id })
+        .from(datavaultColumns)
+        .where(
+          and(
+            eq(datavaultColumns.tableId, tableId),
+            eq(datavaultColumns.slug, options.sortBy)
+          )
+        )
+        .limit(1);
+
+      if (column) {
+        // Sort by column value using a subquery join
+        // Use left join so rows without values for this column still appear
+        const limit = options?.limit || 100;
+        const offset = options?.offset || 0;
+
+        const rows = await database
+          .select({
+            id: datavaultRows.id,
+            tableId: datavaultRows.tableId,
+            createdBy: datavaultRows.createdBy,
+            updatedBy: datavaultRows.updatedBy,
+            createdAt: datavaultRows.createdAt,
+            updatedAt: datavaultRows.updatedAt,
+            deletedAt: datavaultRows.deletedAt,
+          })
+          .from(datavaultRows)
+          .leftJoin(
+            datavaultValues,
+            and(
+              eq(datavaultValues.rowId, datavaultRows.id),
+              eq(datavaultValues.columnId, column.id)
+            )
+          )
+          .where(and(...whereConditions))
+          .orderBy(sortDir(datavaultValues.value))
+          .limit(limit)
+          .offset(offset);
+
+        return rows as DatavaultRow[];
+      }
+      // If column not found, fall through to default sorting
+    }
+
+    // Sorting by row fields (createdAt, updatedAt) or default
     let query = database
       .select()
       .from(datavaultRows)
       .where(and(...whereConditions));
 
-    // Apply sorting
-    if (options?.sortBy) {
-      const sortOrder = options.sortOrder === 'desc' ? desc : asc;
-      if (options.sortBy === 'createdAt') {
-        query = query.orderBy(sortOrder(datavaultRows.createdAt)) as any;
-      } else if (options.sortBy === 'updatedAt') {
-        query = query.orderBy(sortOrder(datavaultRows.updatedAt)) as any;
-      }
+    if (options?.sortBy === 'createdAt') {
+      query = query.orderBy(sortDir(datavaultRows.createdAt)) as any;
+    } else if (options?.sortBy === 'updatedAt') {
+      query = query.orderBy(sortDir(datavaultRows.updatedAt)) as any;
     } else {
-      query = query.orderBy(datavaultRows.createdAt) as any; // Default ascending order
+      query = query.orderBy(asc(datavaultRows.createdAt)) as any; // Default ascending order
     }
 
     // Offset-based pagination
@@ -116,6 +164,9 @@ export class DatavaultRowsRepository extends BaseRepository<
       limit?: number;
       offset?: number;
       page?: number;
+      showArchived?: boolean;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
     },
     tx?: DbTransaction
   ): Promise<Array<{
@@ -124,7 +175,7 @@ export class DatavaultRowsRepository extends BaseRepository<
   }>> {
     const database = this.getDb(tx);
 
-    // Get rows
+    // Get rows (with sorting and archive filtering)
     const rows = await this.findByTableId(tableId, options, tx);
     if (rows.length === 0) return [];
 

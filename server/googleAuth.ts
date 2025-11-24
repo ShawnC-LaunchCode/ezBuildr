@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import { userRepository } from "./repositories";
 import { createLogger } from "./logger";
 import { templateSharingService } from "./services/TemplateSharingService";
+import { createToken } from "./services/auth";
 
 const logger = createLogger({ module: 'auth' });
 
@@ -351,16 +352,37 @@ export async function setupAuth(app: Express) {
         req.user = user;
         req.session.user = user;
 
-        logger.info({ email: payload.email }, 'OAuth2 login successful');
-        res.json({
-          message: "Authentication successful",
-          user: {
-            id: payload.sub,
-            email: payload.email,
-            firstName: payload.given_name,
-            lastName: payload.family_name,
-            profileImageUrl: payload.picture,
+        // Save session before responding to avoid race condition
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            logger.error({ err: saveErr }, 'Session save failed');
+            return res.status(500).json({ message: "Session save failed" });
           }
+
+          // Generate JWT for WebSocket/API authentication
+          let jwtToken: string | undefined;
+          try {
+            jwtToken = createToken(dbUser);
+            logger.debug({ userId: dbUser.id }, 'JWT token generated for OAuth user');
+          } catch (error) {
+            // Log but don't fail login - JWT is optional for session-based auth
+            logger.warn({ err: error, userId: dbUser.id }, 'Failed to generate JWT token');
+          }
+
+          logger.info({ email: payload.email }, 'OAuth2 login successful');
+          res.json({
+            message: "Authentication successful",
+            token: jwtToken, // JWT for WebSocket/API auth
+            user: {
+              id: payload.sub,
+              email: payload.email,
+              firstName: payload.given_name,
+              lastName: payload.family_name,
+              profileImageUrl: payload.picture,
+              tenantId: dbUser.tenantId,
+              tenantRole: dbUser.tenantRole,
+            }
+          });
         });
       });
     } catch (error) {

@@ -40,17 +40,15 @@ export function RowEditorModal({
   mode,
 }: RowEditorModalProps) {
   const [values, setValues] = useState<Record<string, any>>({});
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Only initialize values when modal opens, not when initialValues changes during typing
+  // Initialize values when modal opens
+  // Using open as the only dependency - we capture initialValues at open time
   useEffect(() => {
-    if (open && !isInitialized) {
+    if (open) {
       setValues(initialValues);
-      setIsInitialized(true);
-    } else if (!open) {
-      setIsInitialized(false);
     }
-  }, [open, initialValues, isInitialized]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +75,6 @@ export function RowEditorModal({
 
     await onSubmit(submitValues);
     setValues({});
-    setIsInitialized(false);
   };
 
   const handleCancel = () => {

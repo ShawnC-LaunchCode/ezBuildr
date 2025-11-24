@@ -22,12 +22,20 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
 import { useSteps, useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderSteps, useReorderBlocks } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +66,7 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
   const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
   const [expandedBlockIds, setExpandedBlockIds] = useState<Set<string>>(new Set());
   const [autoFocusStepId, setAutoFocusStepId] = useState<string | null>(null);
+  const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
   const prevSelectionRef = useRef<typeof selection>(null);
   const prevItemsLengthRef = useRef<number>(0);
 
@@ -264,63 +273,60 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
 
           {/* Page title and description */}
           <div className="flex-1 space-y-1">
-            <Input
-              value={page.title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0"
-              placeholder="Page title"
+            <div className="flex items-center gap-2">
+              <Input
+                value={page.title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
+                placeholder="Page title"
+              />
+              <LogicIndicator
+                visibleIf={page.visibleIf}
+                variant="badge"
+                size="sm"
+                elementType="page"
+              />
+            </div>
+            <AutoExpandTextarea
+              value={page.description || ""}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
+              className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
+              placeholder="Page description (optional)"
+              minRows={1}
+              maxRows={4}
             />
-            {page.description && !isDescriptionExpanded && (
-              <div
-                className="flex items-center gap-1 cursor-pointer group"
-                onClick={() => setIsDescriptionExpanded(true)}
-              >
-                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground truncate flex-1">
-                  {page.description}
-                </p>
-              </div>
-            )}
-            {(!page.description || isDescriptionExpanded) && (
-              <div className="space-y-1">
-                {isDescriptionExpanded && page.description && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 px-1 -ml-1"
-                    onClick={() => setIsDescriptionExpanded(false)}
-                  >
-                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                  </Button>
-                )}
-                <Input
-                  value={page.description || ""}
-                  onChange={(e) => handleDescriptionChange(e.target.value)}
-                  className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0"
-                  placeholder="Page description (optional)"
-                />
-              </div>
-            )}
           </div>
 
           {/* Page actions */}
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => selectSection(page.id)}
-              title="Page settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDelete}
-              title="Delete page"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="Page settings">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => selectSection(page.id)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Page Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsLogicSheetOpen(true)}>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Visibility Logic
+                  {page.visibleIf && (
+                    <span className="ml-auto text-xs text-amber-600">Active</span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Page
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardHeader>
@@ -405,6 +411,14 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
         </div>
       </CardContent>
     </Card>
+
+      {/* Section Logic Sheet */}
+      <SectionLogicSheet
+        open={isLogicSheetOpen}
+        onOpenChange={setIsLogicSheetOpen}
+        section={page}
+        workflowId={workflowId}
+      />
     </div>
   );
 }
