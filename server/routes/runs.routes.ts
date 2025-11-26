@@ -17,13 +17,15 @@ export function registerRunRoutes(app: Express): void {
    * POST /api/workflows/public/:publicLinkSlug/start
    * Start an anonymous workflow run from a public link slug
    * No authentication required - creates anonymous run
+   * Body: { initialValues?: Record<string, any> } - Optional key/value pairs to pre-populate steps
    */
   app.post('/api/workflows/public/:publicLinkSlug/start', async (req: Request, res: Response) => {
     try {
       const { publicLinkSlug } = req.params;
+      const { initialValues } = req.body;
 
-      // Create anonymous run
-      const run = await runService.createAnonymousRun(publicLinkSlug);
+      // Create anonymous run with optional initial values
+      const run = await runService.createAnonymousRun(publicLinkSlug, initialValues);
 
       return res.status(201).json({
         success: true,
@@ -50,12 +52,13 @@ export function registerRunRoutes(app: Express): void {
    *
    * For authenticated: POST /api/workflows/:workflowId/runs (with session)
    * For anonymous: POST /api/workflows/:workflowId/runs?publicLink=<slug>
+   * Body: { initialValues?: Record<string, any>, ...runData } - Optional initial values and run data
    */
   app.post('/api/workflows/:workflowId/runs', async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const { publicLink } = req.query;
-      const runData = req.body;
+      const { initialValues, ...runData } = req.body;
 
       // Check if this is an anonymous run request
       const isAnonymous = !!publicLink;
@@ -78,7 +81,7 @@ export function registerRunRoutes(app: Express): void {
           });
         }
 
-        const run = await runService.createRun(workflowId, userId, runData);
+        const run = await runService.createRun(workflowId, userId, runData, initialValues);
 
         return res.status(201).json({
           success: true,
@@ -255,9 +258,16 @@ export function registerRunRoutes(app: Express): void {
         res.status(400).json({ success: false, errors: result.errors });
       }
     } catch (error) {
-      logger.error({ error }, "Error submitting section values");
+      const { runId, sectionId } = req.params;
+      logger.error({
+        error,
+        runId,
+        sectionId,
+      }, "Error submitting section values");
       const message = error instanceof Error ? error.message : "Failed to submit section values";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const status = message.includes("not found") ? 404 :
+                      message.includes("Access denied") ? 403 :
+                      message.includes("already completed") ? 400 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
   });

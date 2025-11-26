@@ -7,21 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,29 +22,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
-import { useSteps, useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderSteps, useReorderBlocks } from "@/lib/vault-hooks";
+import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { useToast } from "@/hooks/use-toast";
-import { combinePageItems, recomputeOrders, getNextOrder } from "@/lib/dnd";
+import { combinePageItems, getNextOrder } from "@/lib/dnd";
 import { QuestionAddMenu } from "./QuestionAddMenu";
 import { LogicAddMenu } from "./LogicAddMenu";
 import { BlockCard } from "./BlockCard";
 import { QuestionCard } from "../questions/QuestionCard";
 import { UI_LABELS } from "@/lib/labels";
-import type { ApiSection, ApiBlock } from "@/lib/vault-api";
+import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
 
 interface PageCardProps {
   workflowId: string;
   page: ApiSection;
   blocks: ApiBlock[];
+  allSteps: ApiStep[];
 }
 
-export function PageCard({ workflowId, page, blocks }: PageCardProps) {
-  const { data: steps = [] } = useSteps(page.id);
+export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCardProps) {
   const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
   const updateSectionMutation = useUpdateSection();
   const deleteSectionMutation = useDeleteSection();
-  const reorderStepsMutation = useReorderSteps();
   const reorderBlocksMutation = useReorderBlocks();
   const { selectSection, selectBlock, selectStep, selection } = useWorkflowBuilder();
   const { toast } = useToast();
@@ -163,38 +148,6 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
     transition,
     isDragging,
   } = useSortable({ id: page.id });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => item.id === active.id);
-      const newIndex = items.findIndex((item) => item.id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const { steps: reorderedSteps, blocks: reorderedBlocks } = recomputeOrders(
-          items,
-          oldIndex,
-          newIndex
-        );
-
-        // Submit both reorder mutations
-        if (reorderedSteps.length > 0) {
-          reorderStepsMutation.mutate({ sectionId: page.id, steps: reorderedSteps });
-        }
-        if (reorderedBlocks.length > 0) {
-          reorderBlocksMutation.mutate({ workflowId, blocks: reorderedBlocks });
-        }
-      }
-    }
-  };
 
   // Immediate update with optimistic rendering
   const handleTitleChange = (title: string) => {
@@ -337,63 +290,57 @@ export function PageCard({ workflowId, page, blocks }: PageCardProps) {
             {UI_LABELS.NO_QUESTIONS}
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+          <SortableContext
+            items={items.map((i) => i.id)}
+            strategy={verticalListSortingStrategy}
           >
-            <SortableContext
-              items={items.map((i) => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {items.map((item, index) => {
-                  const handleEnterNext = () => {
-                    // Find next item in list
-                    if (index < items.length - 1) {
-                      const nextItem = items[index + 1];
-                      if (nextItem.kind === "step") {
-                        // Select and expand next step
-                        selectStep(nextItem.id);
-                        setExpandedStepIds((prev) => new Set(prev).add(nextItem.id));
-                        setAutoFocusStepId(nextItem.id);
-                      } else {
-                        // Just select next block
-                        selectBlock(nextItem.id);
-                      }
+            <div className="space-y-2">
+              {items.map((item, index) => {
+                const handleEnterNext = () => {
+                  // Find next item in list
+                  if (index < items.length - 1) {
+                    const nextItem = items[index + 1];
+                    if (nextItem.kind === "step") {
+                      // Select and expand next step
+                      selectStep(nextItem.id);
+                      setExpandedStepIds((prev) => new Set(prev).add(nextItem.id));
+                      setAutoFocusStepId(nextItem.id);
+                    } else {
+                      // Just select next block
+                      selectBlock(nextItem.id);
                     }
-                  };
-
-                  if (item.kind === "step") {
-                    return (
-                      <QuestionCard
-                        key={item.id}
-                        step={item.data}
-                        sectionId={page.id}
-                        workflowId={workflowId}
-                        isExpanded={expandedStepIds.has(item.id)}
-                        autoFocus={autoFocusStepId === item.id}
-                        onToggleExpand={() => handleToggleExpand(item.id)}
-                        onEnterNext={handleEnterNext}
-                      />
-                    );
-                  } else {
-                    return (
-                      <BlockCard
-                        key={item.id}
-                        item={item}
-                        workflowId={workflowId}
-                        sectionId={page.id}
-                        isExpanded={expandedBlockIds.has(item.id)}
-                        onToggleExpand={() => handleToggleBlockExpand(item.id)}
-                        onEnterNext={handleEnterNext}
-                      />
-                    );
                   }
-                })}
-              </div>
-            </SortableContext>
-          </DndContext>
+                };
+
+                if (item.kind === "step") {
+                  return (
+                    <QuestionCard
+                      key={item.id}
+                      step={item.data}
+                      sectionId={page.id}
+                      workflowId={workflowId}
+                      isExpanded={expandedStepIds.has(item.id)}
+                      autoFocus={autoFocusStepId === item.id}
+                      onToggleExpand={() => handleToggleExpand(item.id)}
+                      onEnterNext={handleEnterNext}
+                    />
+                  );
+                } else {
+                  return (
+                    <BlockCard
+                      key={item.id}
+                      item={item}
+                      workflowId={workflowId}
+                      sectionId={page.id}
+                      isExpanded={expandedBlockIds.has(item.id)}
+                      onToggleExpand={() => handleToggleBlockExpand(item.id)}
+                      onEnterNext={handleEnterNext}
+                    />
+                  );
+                }
+              })}
+            </div>
+          </SortableContext>
         )}
 
         {/* Add buttons at the bottom */}

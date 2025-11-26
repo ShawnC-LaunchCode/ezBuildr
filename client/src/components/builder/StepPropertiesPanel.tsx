@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Plus, X, GripVertical } from "lucide-react";
+import { Plus, X, GripVertical, HelpCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useStep, useUpdateStep } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -97,6 +98,33 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
   const handleRequiredChange = (required: boolean) => {
     updateStepMutation.mutate({ id: stepId, sectionId, required });
+  };
+
+  const handleDefaultValueChange = (value: string) => {
+    // Parse the value based on step type
+    let parsedValue: any = value;
+
+    // For empty string, set to null to clear the default
+    if (value === "") {
+      parsedValue = null;
+    } else if (step.type === "yes_no") {
+      // Convert to boolean
+      parsedValue = value.toLowerCase() === "yes" || value === "true";
+    } else if (step.type === "multiple_choice") {
+      // For multiple choice, try to parse as JSON array
+      try {
+        parsedValue = JSON.parse(value);
+      } catch {
+        // If not valid JSON, keep as string
+        parsedValue = value;
+      }
+    }
+
+    updateStepMutation.mutate({
+      id: stepId,
+      sectionId,
+      defaultValue: parsedValue
+    });
   };
 
   const handleOptionsChange = (options: string[]) => {
@@ -197,6 +225,65 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
           checked={step.required || false}
           onCheckedChange={handleRequiredChange}
         />
+      </div>
+
+      <Separator />
+
+      {/* Default Value */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="defaultValue">Default Value</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href="/docs/url-parameters"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </a>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="text-sm">
+                  Set a default value that appears when the workflow runs.
+                  Can be overridden using URL parameters.
+                </p>
+                <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                  <ExternalLink className="h-3 w-3" />
+                  <span>Click for full documentation</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Input
+          id="defaultValue"
+          value={
+            step.defaultValue === null || step.defaultValue === undefined
+              ? ""
+              : typeof step.defaultValue === "object"
+              ? JSON.stringify(step.defaultValue)
+              : String(step.defaultValue)
+          }
+          onChange={(e) => handleDefaultValueChange(e.target.value)}
+          placeholder={
+            step.type === "yes_no"
+              ? "yes or no"
+              : step.type === "multiple_choice"
+              ? '["Option 1", "Option 2"]'
+              : step.type === "radio"
+              ? "Option text"
+              : step.type === "date_time"
+              ? "YYYY-MM-DD or YYYY-MM-DDTHH:mm"
+              : "Enter default value..."
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          This value will be pre-filled when the workflow runs. Can be overridden by URL parameters.
+        </p>
       </div>
 
       {/* Text Type Toggle (for short_text and long_text) */}

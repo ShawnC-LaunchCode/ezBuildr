@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { blockService } from "../services/BlockService";
 import { blockRepository } from "../repositories/BlockRepository";
 import { z } from "zod";
@@ -20,7 +20,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.post('/api/workflows/:workflowId/blocks', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -52,7 +52,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/blocks', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -76,7 +76,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.get('/api/blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -98,7 +98,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.put('/api/blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -132,7 +132,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.delete('/api/blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
@@ -165,7 +165,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/blocks/reorder', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }

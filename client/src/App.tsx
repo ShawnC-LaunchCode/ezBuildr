@@ -39,6 +39,7 @@ import TableViewPage from "@/pages/datavault/[tableId]"; // DataVault Phase 1
 import DataVaultDatabasesPage from "@/pages/datavault/databases"; // DataVault Phase 2
 import DatabaseDetailPage from "@/pages/datavault/[databaseId]"; // DataVault Phase 2
 import DatabaseSettingsPage from "@/pages/datavault/DatabaseSettingsPage"; // DataVault Phase 2: PR 13
+import UrlParametersDoc from "@/pages/docs/UrlParametersDoc"; // Documentation
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -56,6 +57,9 @@ function Router() {
 
         {/* Intake preview - public branded intake portal preview */}
         <Route path="/intake/preview" component={IntakePreviewPage} />
+
+        {/* Documentation - available to everyone */}
+        <Route path="/docs/url-parameters" component={UrlParametersDoc} />
 
         {isLoading || !isAuthenticated ? (
           <>

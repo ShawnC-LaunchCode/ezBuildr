@@ -20,18 +20,18 @@ async function fetchAPI<T>(
     runToken = localStorage.getItem(`run_token_${runId}`);
   }
 
-  // Also check for a global active run token (used for workflow sections, steps, etc.)
-  if (!runToken) {
-    runToken = localStorage.getItem('active_run_token');
-  }
+  // IMPORTANT: Only send run tokens for run-specific endpoints
+  // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
+  // Preview/run endpoints use bearer tokens for anonymous access
+  const isRunEndpoint = endpoint.startsWith('/api/runs/');
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
 
-  // Add bearer token if we have one
-  if (runToken) {
+  // Only add bearer token for run endpoints
+  if (runToken && isRunEndpoint) {
     headers["Authorization"] = `Bearer ${runToken}`;
   }
 
@@ -71,7 +71,9 @@ export function apiWithToken(runToken: string) {
       }).then(async (res) => {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ message: res.statusText }));
-          throw new Error(error.message || `HTTP ${res.status}`);
+          // Handle both error.message and error.errors array formats
+          const errorMsg = error.message || (error.errors && error.errors[0]) || `HTTP ${res.status}`;
+          throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
       }),
@@ -87,7 +89,9 @@ export function apiWithToken(runToken: string) {
       }).then(async (res) => {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ message: res.statusText }));
-          throw new Error(error.message || `HTTP ${res.status}`);
+          // Handle both error.message and error.errors array formats
+          const errorMsg = error.message || (error.errors && error.errors[0]) || `HTTP ${res.status}`;
+          throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
       }),
@@ -103,7 +107,9 @@ export function apiWithToken(runToken: string) {
       }).then(async (res) => {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ message: res.statusText }));
-          throw new Error(error.message || `HTTP ${res.status}`);
+          // Handle both error.message and error.errors array formats
+          const errorMsg = error.message || (error.errors && error.errors[0]) || `HTTP ${res.status}`;
+          throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
       }),

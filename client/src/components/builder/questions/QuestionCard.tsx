@@ -22,6 +22,8 @@ import {
   Upload,
   Zap,
   EyeOff,
+  HelpCircle,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LogicBuilder, LogicIndicator, LogicStatusText } from "@/components/logic";
 import type { ConditionExpression } from "@shared/types/conditions";
 import {
@@ -191,6 +194,33 @@ export function QuestionCard({
   const handleRequiredChange = (required: boolean) => {
     setLocalRequired(required);
     updateStepMutation.mutate({ id: step.id, sectionId, required });
+  };
+
+  const handleDefaultValueChange = (value: string) => {
+    // Parse the value based on step type
+    let parsedValue: any = value;
+
+    // For empty string, set to null to clear the default
+    if (value === "") {
+      parsedValue = null;
+    } else if (localType === "yes_no") {
+      // Convert to boolean
+      parsedValue = value.toLowerCase() === "yes" || value === "true";
+    } else if (localType === "multiple_choice") {
+      // For multiple choice, try to parse as JSON array
+      try {
+        parsedValue = JSON.parse(value);
+      } catch {
+        // If not valid JSON, keep as string
+        parsedValue = value;
+      }
+    }
+
+    updateStepMutation.mutate({
+      id: step.id,
+      sectionId,
+      defaultValue: parsedValue
+    });
   };
 
   const handleTypeChange = (type: StepType) => {
@@ -444,6 +474,91 @@ export function QuestionCard({
                       checked={localRequired}
                       onCheckedChange={handleRequiredChange}
                     />
+                  </div>
+
+                  {/* Default Value */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">
+                        Default Value (optional)
+                      </Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="/docs/url-parameters"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <HelpCircle className="h-3 w-3" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p className="text-sm">
+                              Set a default value that appears when the workflow runs.
+                              Can be overridden using URL parameters.
+                            </p>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                              <ExternalLink className="h-3 w-3" />
+                              <span>Click for full documentation</span>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {localType === "yes_no" ? (
+                      <Select
+                        value={
+                          step.defaultValue === null || step.defaultValue === undefined
+                            ? "none"
+                            : step.defaultValue === true
+                            ? "yes"
+                            : "no"
+                        }
+                        onValueChange={(value) => {
+                          if (value === "none") {
+                            handleDefaultValueChange("");
+                          } else {
+                            handleDefaultValueChange(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="No default" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No default</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={
+                          step.defaultValue === null || step.defaultValue === undefined
+                            ? ""
+                            : typeof step.defaultValue === "object"
+                            ? JSON.stringify(step.defaultValue)
+                            : String(step.defaultValue)
+                        }
+                        onChange={(e) => handleDefaultValueChange(e.target.value)}
+                        placeholder={
+                          localType === "multiple_choice"
+                            ? '["Option 1", "Option 2"]'
+                            : localType === "radio"
+                            ? "Option text"
+                            : localType === "date_time"
+                            ? "YYYY-MM-DD or YYYY-MM-DDTHH:mm"
+                            : "Enter default value..."
+                        }
+                        className="h-9 text-sm"
+                      />
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Pre-fills this field when the workflow runs. Can be overridden by URL parameters.
+                    </p>
                   </div>
 
                   {/* Variable Alias - Hidden in Easy Mode */}

@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { insertTransformBlockSchema } from "@shared/schema";
 import { transformBlockService } from "../services/TransformBlockService";
 import { transformBlockRepository } from "../repositories/TransformBlockRepository";
@@ -49,7 +49,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.post('/api/workflows/:workflowId/transform-blocks', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -83,7 +83,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/transform-blocks', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -105,7 +105,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.get('/api/transform-blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -127,7 +127,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.put('/api/transform-blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -161,7 +161,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.delete('/api/transform-blocks/:blockId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
@@ -194,7 +194,7 @@ export function registerTransformBlockRoutes(app: Express): void {
    */
   app.post('/api/transform-blocks/:blockId/test', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }

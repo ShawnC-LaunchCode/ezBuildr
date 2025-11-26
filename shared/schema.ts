@@ -1356,6 +1356,7 @@ export const steps = pgTable("steps", {
   required: boolean("required").default(false),
   options: jsonb("options"), // For multiple choice, radio options
   alias: text("alias"), // Optional human-friendly variable name for logic/blocks
+  defaultValue: jsonb("default_value"), // Default value shown in preview and when workflow runs
   order: integer("order").notNull(),
   isVirtual: boolean("is_virtual").default(false).notNull(), // Virtual steps are hidden from UI
   // Stage 20 PR 3: Question-level conditional logic

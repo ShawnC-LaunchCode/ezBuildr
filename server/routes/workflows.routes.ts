@@ -1,9 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { creatorOrRunTokenAuth } from '../middleware/runTokenAuth';
 import { insertWorkflowSchema } from "@shared/schema";
 import { workflowService } from "../services/WorkflowService";
 import { variableService } from "../services/VariableService";
 import { templateTestService } from "../services/TemplateTestService";
+import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { z } from "zod";
 import { logger } from "../logger";
 
@@ -337,6 +339,23 @@ export function registerWorkflowRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : "Failed to fetch workflow public link";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/workflows/:workflowId/logic-rules
+   * Get all logic rules for a workflow
+   * Supports both session auth (builder) and run token (preview runner)
+   */
+  app.get('/api/workflows/:workflowId/logic-rules', creatorOrRunTokenAuth, async (req: Request, res: Response) => {
+    try {
+      const { workflowId } = req.params;
+      const logicRules = await logicRuleRepository.findByWorkflowId(workflowId);
+      res.json(logicRules);
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId }, "Error fetching workflow logic rules");
+      const message = error instanceof Error ? error.message : "Failed to fetch workflow logic rules";
+      res.status(500).json({ message });
     }
   });
 

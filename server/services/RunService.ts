@@ -80,14 +80,78 @@ export class RunService {
   }
 
   /**
+   * Populate step values with initial values and defaults
+   * Priority: initialValues > step defaultValue
+   * @param runId - Run ID
+   * @param workflowId - Workflow ID
+   * @param initialValues - Optional key/value pairs (key can be alias or stepId)
+   */
+  private async populateInitialValues(
+    runId: string,
+    workflowId: string,
+    initialValues?: Record<string, any>
+  ): Promise<void> {
+    // Get all sections for the workflow
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    const sectionIds = sections.map(s => s.id);
+
+    // Get all steps for these sections
+    const allSteps = await this.stepRepo.findBySectionIds(sectionIds);
+
+    // Create a map of alias -> stepId for quick lookup
+    const aliasToStepId = new Map<string, string>();
+    for (const step of allSteps) {
+      if (step.alias) {
+        aliasToStepId.set(step.alias, step.id);
+      }
+    }
+
+    // Populate step values
+    for (const step of allSteps) {
+      // Skip virtual steps (they are set by transform blocks)
+      if (step.isVirtual) {
+        continue;
+      }
+
+      let valueToSet: any = undefined;
+
+      // First priority: initialValues (by alias or stepId)
+      if (initialValues) {
+        // Check if initialValues has this step's alias or ID
+        if (step.alias && initialValues[step.alias] !== undefined) {
+          valueToSet = initialValues[step.alias];
+        } else if (initialValues[step.id] !== undefined) {
+          valueToSet = initialValues[step.id];
+        }
+      }
+
+      // Second priority: step's defaultValue
+      if (valueToSet === undefined && step.defaultValue !== undefined && step.defaultValue !== null) {
+        valueToSet = step.defaultValue;
+      }
+
+      // Only upsert if we have a value
+      if (valueToSet !== undefined) {
+        await this.valueRepo.upsert({
+          runId,
+          stepId: step.id,
+          value: valueToSet,
+        });
+      }
+    }
+  }
+
+  /**
    * Create a new workflow run
    * Executes onRunStart blocks after creation
    * @param idOrSlug - Workflow UUID or slug
+   * @param initialValues - Optional key/value pairs to pre-populate step values (key can be alias or stepId)
    */
   async createRun(
     idOrSlug: string,
     userId: string,
-    data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken'>
+    data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken'>,
+    initialValues?: Record<string, any>
   ): Promise<WorkflowRun> {
     // Resolve slug to UUID and verify ownership
     const workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
@@ -104,6 +168,9 @@ export class RunService {
       runToken,
       completed: false,
     } as any);
+
+    // Populate initial values (from URL params or step defaults)
+    await this.populateInitialValues(run.id, workflowId, initialValues);
 
     // Capture run_started metric (Stage 11)
     const context = await this.getWorkflowContext(workflowId);
@@ -782,8 +849,9 @@ export class RunService {
    * Create an anonymous workflow run from a public link slug
    * Does not require authentication or ownership verification
    * @param publicLinkSlug - The workflow's public link slug
+   * @param initialValues - Optional key/value pairs to pre-populate step values (key can be alias or stepId)
    */
-  async createAnonymousRun(publicLinkSlug: string): Promise<WorkflowRun> {
+  async createAnonymousRun(publicLinkSlug: string, initialValues?: Record<string, any>): Promise<WorkflowRun> {
     // Look up workflow by public link slug
     const workflow = await this.workflowRepo.findByPublicLink(publicLinkSlug);
     if (!workflow) {
@@ -809,6 +877,9 @@ export class RunService {
       createdBy: 'anon', // Anonymous user
       completed: false,
     } as any);
+
+    // Populate initial values (from URL params or step defaults)
+    await this.populateInitialValues(run.id, workflow.id, initialValues);
 
     // Capture run_started metric (Stage 11)
     const context = await this.getWorkflowContext(workflow.id);

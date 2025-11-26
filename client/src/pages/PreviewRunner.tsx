@@ -3,7 +3,7 @@
  * Launched from builder, uses runToken instead of session auth
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, Eye, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,8 +17,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePreviewStore } from "@/store/preview";
+import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
 import { apiWithToken } from "@/lib/vault-api";
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { ApiRun, ApiStepValue, ApiSection, ApiStep } from "@/lib/vault-api";
+import type { LogicRule } from "@shared/schema";
 
 export default function PreviewRunner() {
   const { id: runId = "" } = useParams<{ id: string }>();
@@ -87,15 +90,29 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
     }
   };
 
-  // Fetch sections
-  const { data: sections, isLoading: loadingSections } = useQuery({
-    queryKey: ["preview-sections", run?.workflowId],
-    queryFn: () =>
-      api.get<ApiSection[]>(
-        `/api/workflows/${run?.workflowId}/sections`
-      ),
+  // Fetch workflow with ALL details (sections + steps + logic rules) in ONE call
+  // This replaces the previous separate queries for sections and logic rules
+  const { data: workflowData, isLoading: loadingWorkflow } = useQuery({
+    queryKey: ["preview-workflow-details", run?.workflowId],
+    queryFn: async () => {
+      return await api.get<{
+        id: string;
+        title: string;
+        sections: (ApiSection & { steps: ApiStep[] })[];
+        logicRules: LogicRule[];
+      }>(
+        `/api/workflows/${run?.workflowId}`
+      );
+    },
     enabled: !!run?.workflowId,
   });
+
+  // Extract sections and logic rules from workflow data
+  const sections = workflowData?.sections;
+  const logicRules = workflowData?.logicRules;
+
+  // Flatten all steps from all sections for alias resolution
+  const allWorkflowSteps = sections?.flatMap(section => section.steps) || [];
 
   // Initialize form values from run values
   useEffect(() => {
@@ -107,6 +124,33 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
       setFormValues(initial);
     }
   }, [run]);
+
+  // Helper function to calculate visible sections
+  // Takes formValues as a parameter to avoid closure issues
+  const calculateVisibleSections = (currentFormValues: Record<string, any>) => {
+    if (!sections) return [];
+
+    // Create alias resolver for section visibility
+    const aliasResolver = (variableName: string): string | undefined => {
+      const step = allWorkflowSteps.find(s => s.alias === variableName);
+      return step?.id;
+    };
+
+    return sections.filter(section => {
+      // If section has no visibleIf, it's visible by default
+      if (!section.visibleIf) {
+        return true;
+      }
+
+      try {
+        return evaluateConditionExpression(section.visibleIf as any, currentFormValues, aliasResolver);
+      } catch (error) {
+        console.error('Error evaluating section visibility:', error);
+        // On error, default to visible
+        return true;
+      }
+    });
+  };
 
   // Submit section mutation
   const submitMutation = useMutation({
@@ -138,63 +182,187 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
 
     const currentSection = sections[currentSectionIndex];
 
-    // Collect values for current section
-    const sectionValues = Object.keys(formValues).map((stepId) => ({
-      stepId,
-      value: formValues[stepId],
-    }));
+    // Ensure allWorkflowSteps is available
+    if (!allWorkflowSteps || allWorkflowSteps.length === 0) {
+      toast({
+        title: "Error",
+        description: "Workflow data not loaded properly. Please refresh.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get steps for current section
+    const currentSectionSteps = allWorkflowSteps.filter(step => step.sectionId === currentSection.id);
+    const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
+
+    // Collect values ONLY for steps in the current section
+    const sectionValues = Object.keys(formValues)
+      .filter(stepId => currentSectionStepIds.has(stepId))
+      .map((stepId) => ({
+        stepId,
+        value: formValues[stepId],
+      }));
 
     try {
-      // Submit section with validation
-      const result = await submitMutation.mutateAsync({
-        sectionId: currentSection.id,
-        values: sectionValues,
-      });
+      // For preview mode, we can do optimistic navigation:
+      // 1. Calculate visibility immediately based on current formValues
+      // 2. Navigate to next section
+      // 3. Submit to server in background
 
-      if (!result.success && result.errors) {
-        setErrors(result.errors);
+      // IMPORTANT: Calculate visible sections BEFORE submission for instant navigation
+      const visibleSectionsAfterSubmit = calculateVisibleSections(formValues);
+
+      if (!visibleSectionsAfterSubmit.length) {
         toast({
-          title: "Validation Error",
-          description: result.errors[0],
+          title: "Error",
+          description: "No visible sections found",
           variant: "destructive",
         });
         return;
       }
 
-      // If last section, complete the run
-      const isLastSection = currentSectionIndex === sections.length - 1;
-      if (isLastSection) {
+      // Find current section's position in visible sections
+      const currentVisibleIndex = visibleSectionsAfterSubmit.findIndex(s => s.id === currentSection.id);
+
+      // Check if current section is still visible and if it's the last one
+      const isLastVisibleSection = currentVisibleIndex >= 0 && currentVisibleIndex === visibleSectionsAfterSubmit.length - 1;
+
+      if (isLastVisibleSection) {
+        // Submit section values in background
+        submitMutation.mutate({
+          sectionId: currentSection.id,
+          values: sectionValues,
+        });
+
         await completeMutation.mutateAsync();
         toast({ title: "Complete!", description: "Preview completed successfully" });
+
+        // Navigate back to builder after a short delay
+        setTimeout(() => {
+          if (run?.workflowId) {
+            navigate(`/workflows/${run.workflowId}/builder`);
+          }
+        }, 1500);
         return;
       }
 
-      // Otherwise, navigate to next section
-      const nextResult = await nextMutation.mutateAsync(currentSection.id);
+      // Determine the next visible section
+      let nextSectionToNavigate: typeof currentSection | undefined;
 
-      if (nextResult.data.nextSectionId) {
-        const nextIndex = sections.findIndex((s) => s.id === nextResult.data.nextSectionId);
-        if (nextIndex >= 0) {
-          setCurrentSectionIndex(nextIndex);
-        }
+      if (currentVisibleIndex >= 0) {
+        // Current section is still visible, get next visible section
+        nextSectionToNavigate = visibleSectionsAfterSubmit[currentVisibleIndex + 1];
       } else {
-        // Default: next in sequence
-        setCurrentSectionIndex((prev) => Math.min(prev + 1, sections.length - 1));
+        // Current section is now hidden, navigate to first visible section
+        nextSectionToNavigate = visibleSectionsAfterSubmit[0];
+      }
+
+      if (nextSectionToNavigate) {
+        const nextIndex = sections.findIndex(s => s.id === nextSectionToNavigate.id);
+        if (nextIndex >= 0) {
+          // OPTIMISTIC NAVIGATION: Navigate immediately
+          setCurrentSectionIndex(nextIndex);
+
+          // Submit to server in background (non-blocking)
+          submitMutation.mutate(
+            {
+              sectionId: currentSection.id,
+              values: sectionValues,
+            },
+            {
+              onError: () => {
+                toast({
+                  title: "Warning",
+                  description: "Failed to save section data. Please try again.",
+                  variant: "destructive",
+                });
+              },
+            }
+          );
+        }
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to proceed";
+
+      // Handle "already completed" errors specially
+      if (errorMessage.includes("already completed")) {
+        toast({
+          title: "Preview Complete",
+          description: "This preview has already been completed. Returning to builder...",
+        });
+        setTimeout(() => {
+          if (run?.workflowId) {
+            navigate(`/workflows/${run.workflowId}/builder`);
+          }
+        }, 1500);
+        return;
+      }
+
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to proceed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
   };
 
   const handlePrev = () => {
-    setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
+    if (!sections) return;
+
+    const currentSection = sections[currentSectionIndex];
+
+    // Find current section in visible sections
+    const currentVisibleIndex = visibleSections.findIndex(s => s.id === currentSection?.id);
+
+    // If we're not at the first visible section, go to previous visible section
+    if (currentVisibleIndex > 0) {
+      const prevVisibleSection = visibleSections[currentVisibleIndex - 1];
+      const prevIndex = sections.findIndex(s => s.id === prevVisibleSection.id);
+      if (prevIndex >= 0) {
+        setCurrentSectionIndex(prevIndex);
+      }
+    }
   };
 
-  if (loadingRun || loadingSections) {
+  // Memoize visible sections calculation to avoid recalculating on every render
+  // Recalculates only when sections, formValues, or allWorkflowSteps change
+  const visibleSections = useMemo(() => {
+    if (!sections) return [];
+    return calculateVisibleSections(formValues);
+  }, [sections, formValues, allWorkflowSteps]);
+
+  // Get current section from the original sections array
+  const currentSection = sections ? sections[currentSectionIndex] : null;
+
+  // Auto-navigate if current section is hidden
+  useEffect(() => {
+    if (!sections || !currentSection || visibleSections.length === 0) return;
+
+    const currentSectionVisible = visibleSections.find(s => s.id === currentSection.id);
+
+    if (!currentSectionVisible) {
+      // Find next visible section after the current one
+      const nextVisible = visibleSections.find(s => s.order > currentSection.order);
+      if (nextVisible) {
+        const nextIndex = sections.findIndex(s => s.id === nextVisible.id);
+        if (nextIndex >= 0 && nextIndex !== currentSectionIndex) {
+          setCurrentSectionIndex(nextIndex);
+        }
+      } else {
+        // No next visible section - go to first visible section
+        const firstVisible = visibleSections[0];
+        if (firstVisible) {
+          const firstIndex = sections.findIndex(s => s.id === firstVisible.id);
+          if (firstIndex >= 0 && firstIndex !== currentSectionIndex) {
+            setCurrentSectionIndex(firstIndex);
+          }
+        }
+      }
+    }
+  }, [currentSection?.id, visibleSections, sections, currentSectionIndex]);
+
+  if (loadingRun || loadingWorkflow) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -205,7 +373,7 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
     );
   }
 
-  if (!run || !sections) {
+  if (!run || !sections || !currentSection) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Failed to load preview</p>
@@ -213,9 +381,11 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
     );
   }
 
-  const currentSection = sections[currentSectionIndex];
-  const progress = ((currentSectionIndex + 1) / sections.length) * 100;
-  const isLastSection = currentSectionIndex === sections.length - 1;
+  // Calculate progress based on position within visible sections
+  const currentVisibleIndex = visibleSections.findIndex(s => s.id === currentSection.id);
+  const displayIndex = currentVisibleIndex >= 0 ? currentVisibleIndex : 0;
+  const progress = visibleSections.length > 0 ? ((displayIndex + 1) / visibleSections.length) * 100 : 0;
+  const isLastSection = displayIndex === visibleSections.length - 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -242,7 +412,7 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">
-              Step {currentSectionIndex + 1} of {sections.length}
+              Step {displayIndex + 1} of {visibleSections.length}
             </span>
             <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
           </div>
@@ -263,6 +433,8 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
               runToken={runToken}
               sectionId={currentSection.id}
               values={formValues}
+              logicRules={logicRules || []}
+              allWorkflowSteps={allWorkflowSteps}
               onChange={(stepId, value) =>
                 setFormValues((prev) => ({ ...prev, [stepId]: value }))
               }
@@ -282,7 +454,11 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-6">
-          <Button variant="outline" onClick={handlePrev} disabled={currentSectionIndex === 0}>
+          <Button
+            variant="outline"
+            onClick={handlePrev}
+            disabled={displayIndex === 0 || submitMutation.isPending || nextMutation.isPending}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
@@ -306,33 +482,39 @@ interface SectionStepsProps {
   runToken: string;
   sectionId: string;
   values: Record<string, any>;
+  logicRules: LogicRule[];
+  allWorkflowSteps: ApiStep[];
   onChange: (stepId: string, value: any) => void;
 }
 
-function SectionSteps({ runId, runToken, sectionId, values, onChange }: SectionStepsProps) {
-  const api = apiWithToken(runToken);
+function SectionSteps({ runId, runToken, sectionId, values, logicRules, allWorkflowSteps, onChange }: SectionStepsProps) {
+  // Filter steps for current section only
+  const steps = allWorkflowSteps.filter(step => step.sectionId === sectionId);
 
-  const { data: steps, isLoading } = useQuery({
-    queryKey: ["preview-steps", sectionId],
-    queryFn: () =>
-      api.get<ApiStep[]>(`/api/sections/${sectionId}/steps`),
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Use visibility hook to evaluate which steps should be shown
+  // Pass allWorkflowSteps for cross-section alias resolution
+  const { isStepVisible } = useWorkflowVisibility(logicRules, allWorkflowSteps, values);
 
   if (!steps || steps.length === 0) {
     return <p className="text-muted-foreground text-sm">No steps in this section</p>;
   }
 
+  // Filter steps to only show visible ones
+  const visibleSteps = steps.filter((step) => {
+    // Virtual steps are never shown
+    if (step.isVirtual) return false;
+
+    // Check visibility from logic rules
+    return isStepVisible(step.id);
+  });
+
+  if (visibleSteps.length === 0) {
+    return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
+  }
+
   return (
     <>
-      {steps.map((step) => {
+      {visibleSteps.map((step) => {
         // Handle JS questions - check display config
         if (step.type === "js_question") {
           const config = step.options || {};

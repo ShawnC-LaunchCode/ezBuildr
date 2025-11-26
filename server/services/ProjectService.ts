@@ -34,7 +34,9 @@ export class ProjectService {
       throw new Error("Project not found");
     }
 
-    if (project.createdBy !== userId) {
+    // Check both createdBy (new field) and creatorId (legacy field) for backward compatibility
+    const projectCreator = project.createdBy || project.creatorId;
+    if (projectCreator !== userId) {
       throw new Error("Access denied - you do not own this project");
     }
 

@@ -1,5 +1,5 @@
-import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import type { Express, Request, Response, NextFunction } from "express";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { insertSectionSchema } from "@shared/schema";
 import { sectionService } from "../services/SectionService";
 import { sectionRepository } from "../repositories/SectionRepository";
@@ -9,6 +9,35 @@ import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTok
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 
 const logger = createLogger({ module: "sections-routes" });
+
+/**
+ * Middleware helper: Look up workflowId from sectionId before auto-revert
+ * This allows auto-revert to work on simplified endpoints (without workflowId in path)
+ */
+async function lookupWorkflowIdMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { sectionId } = req.params;
+    if (!sectionId) {
+      return next();
+    }
+
+    const section = await sectionRepository.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+
+    // Add workflowId to params so autoRevertToDraft can access it
+    req.params.workflowId = section.workflowId;
+    next();
+  } catch (error) {
+    logger.error({ error }, "Error in lookupWorkflowIdMiddleware");
+    next(error);
+  }
+}
 
 /**
  * Register section-related routes
@@ -21,7 +50,7 @@ export function registerSectionRoutes(app: Express): void {
    */
   app.post('/api/workflows/:workflowId/sections', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -83,7 +112,7 @@ export function registerSectionRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/sections/:sectionId', hybridAuth, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -106,7 +135,7 @@ export function registerSectionRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/sections/reorder', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -149,7 +178,7 @@ export function registerSectionRoutes(app: Express): void {
    */
   app.put('/api/workflows/:workflowId/sections/:sectionId', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -173,7 +202,7 @@ export function registerSectionRoutes(app: Express): void {
    */
   app.delete('/api/workflows/:workflowId/sections/:sectionId', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
@@ -198,25 +227,15 @@ export function registerSectionRoutes(app: Express): void {
    * PUT /api/sections/:sectionId
    * Update a section (workflow looked up automatically)
    */
-  app.put('/api/sections/:sectionId', hybridAuth, async (req: Request, res: Response) => {
+  app.put('/api/sections/:sectionId', hybridAuth, lookupWorkflowIdMiddleware, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
 
       const { sectionId } = req.params;
       const updateData = req.body;
-
-      // Look up workflowId for auto-revert middleware
-      const section = await sectionRepository.findById(sectionId);
-      if (!section) {
-        return res.status(404).json({ message: "Section not found" });
-      }
-      req.params.workflowId = section.workflowId;
-
-      // Apply auto-revert
-      await autoRevertToDraft(req, res, () => {});
 
       const updatedSection = await sectionService.updateSectionById(sectionId, userId, updateData);
       res.json(updatedSection);
@@ -232,25 +251,14 @@ export function registerSectionRoutes(app: Express): void {
    * DELETE /api/sections/:sectionId
    * Delete a section (workflow looked up automatically)
    */
-  app.delete('/api/sections/:sectionId', hybridAuth, async (req: Request, res: Response) => {
+  app.delete('/api/sections/:sectionId', hybridAuth, lookupWorkflowIdMiddleware, autoRevertToDraft, async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
 
       const { sectionId } = req.params;
-
-      // Look up workflowId for auto-revert middleware
-      const section = await sectionRepository.findById(sectionId);
-      if (!section) {
-        return res.status(404).json({ message: "Section not found" });
-      }
-      req.params.workflowId = section.workflowId;
-
-      // Apply auto-revert
-      await autoRevertToDraft(req, res, () => {});
-
       await sectionService.deleteSectionById(sectionId, userId);
       res.status(204).send();
     } catch (error) {

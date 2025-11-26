@@ -201,20 +201,23 @@ Routes → Services → Repositories → Database
 ## ⚙️ Key Features
 
 - 🔀 **Workflow Builder** — Visually create logic-driven workflows with drag-and-drop interface
+- 🗄️ **DataVault** — Complete data management platform with databases, tables, and permissions 🆕
 - 📄 **Sections & Steps** — Structure user journeys as pages and questions
-- ⚡ **Conditional Logic** — Show/hide fields and pages dynamically based on user input
+- ⚡ **Conditional Logic** — Two-tier visibility system: workflow rules + step-level expressions 🆕
 - 🧮 **Workflow Runs** — Capture user data and track execution progress
 - 🔧 **Transform Blocks** — Execute custom JavaScript/Python code for data transformation with sandboxed execution
 - 🏷️ **Step Aliases** — Human-friendly variable names for steps (e.g., `firstName`, `age`)
-- 🔑 **Token Authentication** — Bearer token support for anonymous and authenticated runs
+- 📝 **Default Values** — Pre-fill steps with defaults, overridable via URL parameters 🆕
+- 🔑 **Token Authentication** — Bearer token support for anonymous and authenticated runs + JWT improvements 🆕
 - 🧰 **Data Export** — JSON/CSV outputs for reporting or integration
 - 🧱 **Drizzle ORM Schema** — Strongly typed PostgreSQL models with migrations
 - 🧑‍💻 **Developer Friendly** — TypeScript end-to-end, modular services, comprehensive tests
 - 📊 **Advanced Analytics** — Completion rates, drop-off analysis, engagement metrics, time tracking
 - 📧 **Email Distribution** — SendGrid integration for invitations and notifications
-- 🤖 **AI-Powered** — Google Gemini integration for workflow generation and analysis
-- 🔐 **Secure Auth** — Google OAuth2 with session management + run token authentication
+- 🤖 **AI-Powered** — Google Gemini, OpenAI, Anthropic integration for workflow generation
+- 🔐 **Secure Auth** — Google OAuth2 with session management + JWT token authentication
 - 📤 **File Uploads** — Support for file upload questions with Multer
+- 🔌 **API Tokens** — External data access via token-based authentication 🆕
 
 ---
 
@@ -410,8 +413,13 @@ npm run test-gemini      # Test Gemini API connection
 | ✅ Stage 20-21 | Document Engine 2.0 + Repeaters | Complete (Nov 2025) |
 | ✅ Nov 2025 | Survey System Removal | Complete (Nov 16, 2025) |
 | ✅ Nov 2025 | Builder Navigation Overhaul | Complete (Nov 17, 2025) |
+| ✅ Nov 2025 | **DataVault v4** - Complete Data Platform | **Complete (Nov 26, 2025)** 🆕 |
+| ✅ Nov 2025 | **Visibility Logic Builder** - Two-tier System | **Complete (Nov 25, 2025)** 🆕 |
+| ✅ Nov 2025 | **Default Values & URL Parameters** | **Complete (Nov 25, 2025)** 🆕 |
+| ✅ Nov 2025 | **JWT Authentication Enhancements** | **Complete (Nov 24, 2025)** 🆕 |
 | 🔄 | Advanced Analytics & Dashboards | In Progress |
 | 🔄 | Team Collaboration (Full RBAC) | In Progress |
+| 🔜 | DataVault-Workflow Integration | Planned Q1 2026 |
 | 🔜 | Workflow Versioning | Planned Q1 2026 |
 | 🔜 | Real-time Collaboration | Planned Q2 2026 |
 | 🔜 | Integration Marketplace | Planned Q2 2026 |
@@ -476,6 +484,8 @@ Originally inspired by Poll-Vault, rebuilt for next-generation workflow automati
 VaultLogic has comprehensive documentation organized by topic:
 
 - **[Architecture & Current State](./claude.md)** - Complete architecture overview and current state
+- **[Changelog v1.6.0](./CHANGELOG_1.6.0.md)** - Complete release notes for latest version 🆕
+- **[Fee Waiver Demo](./FEE_WAIVER_DEMO_README.md)** - Reference workflow showcasing all features 🆕
 - **[Documentation Index](./docs/INDEX.md)** - Complete documentation map
 - **[API Reference](./docs/api/API.md)** - Complete Workflow API documentation
 - **[Developer Reference](./docs/reference/DEVELOPER_REFERENCE.md)** - Comprehensive technical guide
@@ -534,5 +544,5 @@ For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting 
 
 ---
 
-**Last Updated:** 2025-11-17
-**Version:** 1.5.0 (Post-Stage 21: Survey Removal + Navigation Overhaul)
+**Last Updated:** 2025-11-26
+**Version:** 1.6.0 (DataVault v4 + Visibility Logic Builder)

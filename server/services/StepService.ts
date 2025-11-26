@@ -109,6 +109,14 @@ export class StepService {
       throw new Error("Step not found in this workflow");
     }
 
+    // If sectionId is being changed, validate new section belongs to same workflow
+    if (data.sectionId && data.sectionId !== step.sectionId) {
+      const newSection = await this.sectionRepo.findById(data.sectionId);
+      if (!newSection || newSection.workflowId !== workflowId) {
+        throw new Error("Cannot move step to a section in a different workflow");
+      }
+    }
+
     // Validate alias uniqueness if alias is being changed
     if (data.alias !== undefined && data.alias !== step.alias) {
       await this.validateAliasUniqueness(workflowId, data.alias, stepId);

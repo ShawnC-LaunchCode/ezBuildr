@@ -2,9 +2,11 @@
  * Workflow Runner - Participant view for completing workflows
  */
 
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
+import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +16,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+import type { LogicRule } from "@shared/schema";
 
 interface WorkflowRunnerProps {
   runId: string;
@@ -27,12 +31,16 @@ function isUUID(str: string): boolean {
 }
 
 // Helper to start a run from a public link slug
-async function startRunFromSlug(slug: string): Promise<{ runId: string; runToken: string; workflowId: string }> {
+async function startRunFromSlug(
+  slug: string,
+  initialValues?: Record<string, any>
+): Promise<{ runId: string; runToken: string; workflowId: string }> {
   const response = await fetch(`/api/workflows/public/${slug}/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ initialValues }),
   });
 
   if (!response.ok) {
@@ -54,12 +62,33 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
   useEffect(() => {
     async function initialize() {
       try {
+        // Parse URL parameters to get initial values
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialValues: Record<string, any> = {};
+
+        // Convert URL params to initialValues object
+        for (const [key, value] of urlParams.entries()) {
+          // Skip non-step parameters (like 'ref', 'source', etc.)
+          if (!['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign'].includes(key)) {
+            // Try to parse as JSON for complex values
+            try {
+              initialValues[key] = JSON.parse(value);
+            } catch {
+              // If not JSON, keep as string
+              initialValues[key] = value;
+            }
+          }
+        }
+
         if (isUUID(runId)) {
           // It's already a run ID - use it directly
           setActualRunId(runId);
         } else {
-          // It's a slug - need to start a new run
-          const runData = await startRunFromSlug(runId);
+          // It's a slug - need to start a new run with initial values
+          const runData = await startRunFromSlug(
+            runId,
+            Object.keys(initialValues).length > 0 ? initialValues : undefined
+          );
           setActualRunId(runData.runId);
 
           // Store the run token in localStorage for bearer auth
@@ -85,6 +114,20 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
   // Fetch run data - bearer token is automatically added by fetchAPI from localStorage
   const { data: run } = useRunWithValues(actualRunId || '');
   const { data: sections } = useSections(run?.workflowId);
+
+  // Fetch logic rules for visibility evaluation
+  const { data: logicRules } = useQuery<LogicRule[]>({
+    queryKey: ["workflow-logic-rules", run?.workflowId],
+    queryFn: async () => {
+      const response = await fetch(`/api/workflows/${run?.workflowId}/logic-rules`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch logic rules");
+      return response.json();
+    },
+    enabled: !!run?.workflowId,
+  });
+
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<string[]>([]);
@@ -134,9 +177,47 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
     );
   }
 
-  const currentSection = sections[currentSectionIndex];
-  const progress = ((currentSectionIndex + 1) / sections.length) * 100;
-  const isLastSection = currentSectionIndex === sections.length - 1;
+  // Fetch all steps for alias resolution
+  const { data: allSteps } = useQuery({
+    queryKey: ["workflow-all-steps", run?.workflowId],
+    queryFn: async () => {
+      if (!sections) return [];
+      const allStepPromises = sections.map(section =>
+        fetch(`/api/sections/${section.id}/steps`, {
+          credentials: "include",
+        }).then(res => res.json())
+      );
+      const allStepArrays = await Promise.all(allStepPromises);
+      return allStepArrays.flat();
+    },
+    enabled: !!run?.workflowId && !!sections,
+  });
+
+  // Memoize visible sections calculation with alias resolution
+  const visibleSections = useMemo(() => {
+    if (!sections) return [];
+
+    // Create alias resolver for section visibility
+    const aliasResolver = (variableName: string): string | undefined => {
+      if (!allSteps) return undefined;
+      const step = allSteps.find((s: any) => s.alias === variableName);
+      return step?.id;
+    };
+
+    return sections.filter(section => {
+      if (!section.visibleIf) return true;
+      try {
+        return evaluateConditionExpression(section.visibleIf as any, formValues, aliasResolver);
+      } catch (error) {
+        console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
+        return true;
+      }
+    });
+  }, [sections, formValues, allSteps]);
+
+  const currentSection = visibleSections[currentSectionIndex] || sections[currentSectionIndex];
+  const progress = ((currentSectionIndex + 1) / visibleSections.length) * 100;
+  const isLastSection = currentSectionIndex === visibleSections.length - 1;
 
   const handleNext = async () => {
     setErrors([]);
@@ -202,7 +283,7 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">
-              Step {currentSectionIndex + 1} of {sections.length}
+              Step {currentSectionIndex + 1} of {visibleSections.length}
             </span>
             <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
           </div>
@@ -221,6 +302,7 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
             <SectionSteps
               sectionId={currentSection.id}
               values={formValues}
+              logicRules={logicRules || []}
               onChange={(stepId, value) =>
                 setFormValues((prev) => ({ ...prev, [stepId]: value }))
               }
@@ -276,21 +358,39 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
 function SectionSteps({
   sectionId,
   values,
+  logicRules,
   onChange,
 }: {
   sectionId: string;
   values: Record<string, any>;
+  logicRules: LogicRule[];
   onChange: (stepId: string, value: any) => void;
 }) {
   const { data: steps } = useSteps(sectionId);
+
+  // Use visibility hook to evaluate which steps should be shown
+  const { isStepVisible } = useWorkflowVisibility(logicRules, steps, values);
 
   if (!steps || steps.length === 0) {
     return <p className="text-muted-foreground text-sm">No steps in this section</p>;
   }
 
+  // Filter steps to only show visible ones
+  const visibleSteps = steps.filter((step) => {
+    // Virtual steps are never shown
+    if (step.isVirtual) return false;
+
+    // Check visibility from logic rules
+    return isStepVisible(step.id);
+  });
+
+  if (visibleSteps.length === 0) {
+    return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
+  }
+
   return (
     <>
-      {steps.map((step) => (
+      {visibleSteps.map((step) => (
         <StepField key={step.id} step={step} value={values[step.id]} onChange={(v) => onChange(step.id, v)} />
       ))}
     </>

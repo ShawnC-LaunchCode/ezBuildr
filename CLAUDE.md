@@ -1,7 +1,7 @@
 # VaultLogic - Architecture & Current State
 
-**Last Updated:** November 17, 2025
-**Version:** 1.5.0 - Post-Stage 21 (Survey Removal + Navigation Overhaul)
+**Last Updated:** November 26, 2025
+**Version:** 1.6.0 - DataVault v4 + Visibility Logic Builder
 **Status:** Production Ready (Backend), Frontend Active Development
 
 ---
@@ -12,16 +12,19 @@ VaultLogic is a **comprehensive workflow automation platform** that combines vis
 
 **Key Differentiators:**
 - Visual workflow builder with drag-and-drop interface
+- **DataVault: Complete data management platform with databases, tables, and permissions** 🆕
+- **Two-tier visibility logic: workflow rules + step-level expressions** 🆕
 - Sandboxed JavaScript/Python execution for data transformation
-- **AI-powered workflow generation from natural language** 🆕
-- **AI-driven workflow suggestions and improvements** 🆕
-- **Intelligent template variable binding with AI** 🆕
+- **AI-powered workflow generation from natural language**
+- **AI-driven workflow suggestions and improvements**
+- **Intelligent template variable binding with AI**
 - **HTTP/API integration with comprehensive authentication**
 - **Encrypted secrets management for API credentials**
 - **OAuth2 Client Credentials flow with intelligent caching**
 - **Human-in-the-loop workflows with review and e-signature nodes**
 - **Document review portals with approval/rejection workflow**
 - **Native e-signature support with token-based signing**
+- **Default values for steps with URL parameter support** 🆕
 - Token-based run authentication (creator + anonymous modes)
 - Step aliases (human-friendly variable names)
 - Virtual steps architecture for computed values
@@ -168,6 +171,36 @@ Projects
 - `createdBy` (creator:<userId> or anon)
 - `completed`, `completedAt`, `currentSectionId`, `progress`
 
+#### DataVault Tables 🆕
+
+**`databases`** - Database definitions
+- `id` (uuid), `projectId`, `name`, `description`
+- `createdBy`, `createdAt`, `updatedAt`, `archived`
+
+**`tables`** - Table schemas and column definitions
+- `id` (uuid), `databaseId`, `name`, `description`
+- `columns` (jsonb) - column definitions with types and config
+- `createdBy`, `createdAt`, `updatedAt`
+- **Column types:** text, number, date, boolean, select, multiselect, autonumber
+
+**`table_rows`** - Actual data storage
+- `id` (uuid), `tableId`, `data` (jsonb)
+- `createdBy`, `createdAt`, `updatedAt`
+- Uses JSONB for flexible schema-less data storage
+
+**`table_permissions`** - Access control for tables
+- `id` (uuid), `tableId`, `userId`, `teamId`
+- `canView`, `canCreate`, `canUpdate`, `canDelete`
+
+**`api_tokens`** - External API access tokens
+- `id` (uuid), `projectId`, `name`, `token`
+- `expiresAt`, `createdBy`, `createdAt`
+- `lastUsedAt`, `revokedAt`
+
+**`row_notes`** - Comments and notes on table rows
+- `id` (uuid), `tableId`, `rowId`, `userId`
+- `note` (text), `createdAt`, `updatedAt`
+
 #### Logic & Automation Tables
 
 **`logicRules`** - Conditional logic rules
@@ -310,6 +343,40 @@ return input.firstName + ' ' + input.lastName;
 - **Invitation emails** with custom templates
 - **Reminder emails** for incomplete responses
 
+#### 11. DataVault - Data Management Platform 🆕
+**Status:** ✅ Complete (v4, Nov 2025)
+- **Database management** - Create and manage multiple databases per project
+- **Table schema editor** - Dynamic column creation with multiple types
+- **Column types:** text, number, date, boolean, select, multiselect, autonumber
+- **Infinite scroll** with virtual rendering for large datasets
+- **Advanced filtering** - equals, contains, greater_than, less_than, between, etc.
+- **Multi-column sorting** - Sort by multiple columns simultaneously
+- **Optimistic updates** - Instant UI feedback with automatic rollback on error
+- **API tokens** - External access with token-based authentication
+- **Row notes/comments** - Collaboration features for data discussions
+- **Table permissions** - Role-based access control (view, create, update, delete)
+- **Autonumber columns** - Auto-incrementing IDs with custom prefixes
+- **Bulk operations** - Import/export and batch updates
+- **Activity logging** - Full audit trail of data changes
+
+#### 12. Visibility Logic Builder 🆕
+**Status:** ✅ Complete (Nov 2025)
+- **Step-level visibility expressions** - `visibleIf` property on each step
+- **Two-tier system** - Workflow rules + step-level expressions
+- **Real-time evaluation** - Updates as users answer questions
+- **useWorkflowVisibility hook** - React hook for visibility management
+- **Alias resolution** - Works seamlessly with step aliases
+- **All operators supported** - equals, contains, greater_than, less_than, etc.
+- **Section-level visibility** - Apply expressions to entire sections
+
+#### 13. Default Values & URL Parameters 🆕
+**Status:** ✅ Complete (Migration 0044, Nov 2025)
+- **Default value storage** - JSONB column on steps table
+- **Preview mode defaults** - Auto-fill forms in preview
+- **URL parameter override** - Deep linking with pre-filled values
+- **In-app documentation** - URL parameters guide for end-users
+- **Testing support** - Pre-fill workflows with sample data
+
 ### 🚧 In Progress
 
 1. **Team Collaboration**
@@ -364,6 +431,17 @@ return input.firstName + ' ' + input.lastName;
 - `TransformBlockService` - Transform block CRUD, execution, testing
 - `BlockRunner` - Transform block execution engine
 - `VariableService` - Variable/alias management
+- `IntakeQuestionVisibilityService` - Visibility logic evaluation 🆕
+- `IntakeNavigationService` - Navigation with visibility 🆕
+- `RepeaterService` - Repeating section management 🆕
+
+**DataVault Services:** 🆕
+- `DatabaseService` - Database CRUD and management
+- `TableService` - Table schema and column management
+- `TableRowService` - Row data CRUD operations
+- `TablePermissionService` - Access control management
+- `ApiTokenService` - External API token management
+- `RowNoteService` - Comments and notes on rows
 
 **Legacy Survey Services:**
 - `SurveyService` - Survey CRUD
@@ -463,9 +541,189 @@ GET    /api/workflows/:id/export/csv                 # Export all run data (CSV)
 GET    /api/workflows/:id/export/pdf                 # Export responses (PDF)
 ```
 
+### DataVault 🆕
+
+```
+# Databases
+GET    /api/projects/:id/databases                   # List databases
+POST   /api/projects/:id/databases                   # Create database
+GET    /api/databases/:id                            # Get database
+PUT    /api/databases/:id                            # Update database
+DELETE /api/databases/:id                            # Delete database
+POST   /api/databases/:id/archive                    # Archive database
+
+# Tables
+GET    /api/databases/:id/tables                     # List tables
+POST   /api/databases/:id/tables                     # Create table
+GET    /api/tables/:id                               # Get table
+PUT    /api/tables/:id                               # Update table
+DELETE /api/tables/:id                               # Delete table
+PUT    /api/tables/:id/columns                       # Update column schema
+
+# Table Rows (Data)
+GET    /api/tables/:id/rows                          # List rows (with filtering)
+POST   /api/tables/:id/rows                          # Create row
+GET    /api/tables/:id/rows/:rowId                   # Get row
+PUT    /api/tables/:id/rows/:rowId                   # Update row
+DELETE /api/tables/:id/rows/:rowId                   # Delete row
+POST   /api/tables/:id/rows/bulk                     # Bulk operations
+
+# API Tokens
+GET    /api/projects/:id/api-tokens                  # List API tokens
+POST   /api/projects/:id/api-tokens                  # Create API token
+POST   /api/projects/:id/api-tokens/:tid/revoke      # Revoke token
+
+# Row Notes/Comments
+GET    /api/tables/:id/rows/:rowId/notes             # List notes
+POST   /api/tables/:id/rows/:rowId/notes             # Create note
+DELETE /api/notes/:id                                # Delete note
+```
+
 ---
 
 ## Recent Major Changes (Nov 2025)
+
+### DataVault v4 - Data Management Platform (Nov 18-26, 2025) 🆕
+**Major Feature:** Complete database and table management system for VaultLogic
+
+**Overview:**
+DataVault provides a comprehensive data management platform integrated with VaultLogic workflows. Create databases, design table schemas, manage data with advanced filtering and sorting, and expose data via API tokens.
+
+**Key Features:**
+- **Database Management** - Multiple databases per project with full CRUD
+- **Dynamic Table Schemas** - 7 column types: text, number, date, boolean, select, multiselect, autonumber
+- **Advanced Data Operations** - Infinite scroll, filtering, sorting, bulk operations
+- **API Tokens** - External access with token-based authentication
+- **Collaboration** - Row notes/comments for team discussions
+- **Permissions** - Role-based access control at table level
+- **Autonumber** - Auto-incrementing IDs with custom prefixes (e.g., "INV-0001")
+
+**Status:** ✅ Production Ready (v4 PR 13)
+
+**Git Commits:** 13+ commits including:
+- `cf72a7b` - feat(datavault): add final polish and regression tests
+- `01d3208` - feat(datavault): add autonumber enhancements and table permissions
+- `7312a54` - feat(datavault): add API tokens UI
+- `340ccf1` - feat: Complete DataVault v3 frontend implementation
+
+**Documentation:** See `CHANGELOG_1.6.0.md` for complete details
+
+---
+
+### Visibility Logic Builder (Nov 25, 2025) 🆕
+**Major Feature:** Two-tier visibility system with workflow rules + step-level expressions
+
+**What's New:**
+- **Step-level `visibleIf` expressions** - Direct visibility control on each step
+- **Section-level `visibleIf` expressions** - Control entire section visibility
+- **React Hook** - `useWorkflowVisibility()` for real-time visibility management
+- **Two-tier evaluation** - Workflow rules AND step expressions (both must be true)
+- **Alias resolution** - Works seamlessly with step aliases
+
+**Schema Changes:**
+- Added `visible_if JSONB` column to `steps` table
+- Added `visible_if JSONB` column to `sections` table
+
+**Example:**
+```json
+{
+  "operator": "greater_than",
+  "variableName": "age",
+  "value": 18
+}
+```
+
+**Files Created:**
+- `client/src/hooks/useWorkflowVisibility.ts` - Main hook (177 lines)
+- `shared/conditionEvaluator.ts` - Expression evaluator
+
+**Status:** ✅ Complete (commit `e2dd158`)
+
+---
+
+### JWT Authentication Improvements (Nov 24, 2025) 🆕
+**Enhancement:** New token endpoint and cleaner auth patterns
+
+**Changes:**
+- New JWT token endpoint for external integrations
+- Migrated from `req.user.claims.sub` to `AuthRequest.userId`
+- More consistent auth interface across all routes
+- Better TypeScript typing for authenticated requests
+
+**Git Commits:**
+- `95858c9` - fix(auth): improve JWT authentication and add token endpoint
+- `d93248b` - fix(auth): use AuthRequest.userId instead of req.user.claims.sub
+
+**Status:** ✅ Complete
+
+---
+
+### Default Values & URL Parameters (Nov 25, 2025) 🆕
+**Feature:** Steps can have default values, overridable via URL parameters
+
+**Capabilities:**
+- New `default_value` JSONB column on `steps` table
+- Auto-fill preview mode with default values
+- URL parameter override during run creation
+- Example: `?firstName=John&age=30`
+- In-app documentation page for end-users
+
+**Migration:** `migrations/0044_add_step_default_values.sql`
+
+**Use Cases:**
+- Pre-fill forms with common values
+- Testing workflows with sample data
+- Email link personalization
+- Deep linking with context
+
+**Status:** ✅ Complete (Migration 0044)
+
+---
+
+### Fee Waiver Demo Workflow (Nov 26, 2025) 🎓
+**Resource:** Comprehensive reference workflow showcasing all VaultLogic features
+
+**Overview:**
+A production-grade court fee waiver application workflow demonstrating best practices.
+
+**Statistics:**
+- **6 sections** - Multi-page workflow
+- **41 steps** - All with human-friendly aliases
+- **7 transform blocks** - JavaScript calculations
+- **5 logic rules** - Conditional requirements and visibility
+- **9 step types** - All question types demonstrated
+
+**Features Demonstrated:**
+- Federal Poverty Level calculations (2024 guidelines)
+- Income vs. expense analysis
+- Conditional section skipping
+- File upload validation
+- Transform blocks with real-world logic
+- Virtual steps for computed values
+
+**Documentation:** `FEE_WAIVER_DEMO_README.md` (360 lines)
+
+**Workflow ID:** `81a73b18-012d-458b-af05-5098eb75c753`
+
+**Status:** ✅ Complete and documented
+
+---
+
+### Project Data Integrity Fix (Nov 25, 2025) 🐛
+**Bug Fix:** Sync `createdBy` from `creatorId` for backward compatibility
+
+**Problem:** Projects created before Stage 24 had `created_by=null`, causing access errors
+
+**Solution:** Migration 0045 automatically syncs old data
+```sql
+UPDATE projects
+SET created_by = creator_id
+WHERE created_by IS NULL AND creator_id IS NOT NULL;
+```
+
+**Status:** ✅ Fixed (Migration 0045)
+
+---
 
 ### Legacy Survey System Removal (Nov 16, 2025) 🎯
 **Major Milestone:** Complete removal of legacy survey system, making VaultLogic a dedicated workflow automation platform
@@ -932,12 +1190,12 @@ Set environment variables in Railway dashboard:
 3. First 3-5 integrations (Zapier, Make, Slack)
 4. Advanced logic engine enhancements
 
-### Medium Term (Q3-Q4 2025)
-1. Workflow versioning
-2. Document automation (DOCX/PDF generation)
-3. Real-time collaboration
+### Medium Term (Q3-Q4 2025 / Q1 2026)
+1. **DataVault-Workflow Integration** - Use DataVault as data source in workflows
+2. Workflow versioning and rollback
+3. Real-time collaboration with presence
 4. Integration marketplace
-5. AI-powered workflow generation
+5. Advanced template system enhancements
 
 ---
 
@@ -1002,6 +1260,8 @@ Set environment variables in Railway dashboard:
 - [Transform Blocks Guide](./docs/api/TRANSFORM_BLOCKS.md)
 - [Authentication Guide](./docs/guides/AUTHENTICATION.md)
 - [Step Aliases Guide](./docs/guides/STEP_ALIASES.md)
+- [Changelog v1.6.0](./CHANGELOG_1.6.0.md) - Complete release notes 🆕
+- [Fee Waiver Demo](./FEE_WAIVER_DEMO_README.md) - Reference workflow guide 🆕
 
 ### External Links
 - [GitHub Repository](https://github.com/ShawnC-LaunchCode/VaultLogic)
@@ -1013,6 +1273,10 @@ Set environment variables in Railway dashboard:
 
 **Document Maintainer:** Development Team
 **Review Cycle:** Monthly
-**Next Review:** December 17, 2025
+**Next Review:** December 26, 2025
+**Version History:**
+- v1.6.0 (Nov 26, 2025) - DataVault v4 + Visibility Logic Builder
+- v1.5.0 (Nov 17, 2025) - Survey Removal + Navigation Overhaul
 
 **For questions or issues:** See troubleshooting section or create a GitHub issue
+- look at all tasks as a senior developer on a project with enough atonomy to make breaking changes for the long term health of the project.
