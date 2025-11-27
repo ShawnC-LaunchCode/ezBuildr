@@ -223,6 +223,60 @@ export const workflowAPI = {
 };
 
 // ============================================================================
+// Workflow Snapshots
+// ============================================================================
+
+export interface ApiSnapshot {
+  id: string;
+  workflowId: string;
+  name: string;
+  values: Record<string, {
+    value: any;
+    stepId: string;
+    stepUpdatedAt: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const snapshotAPI = {
+  list: (workflowId: string) =>
+    fetchAPI<ApiSnapshot[]>(`/api/workflows/${workflowId}/snapshots`),
+
+  get: (workflowId: string, snapshotId: string) =>
+    fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`),
+
+  create: (workflowId: string, name: string) =>
+    fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  rename: (workflowId: string, snapshotId: string, name: string) =>
+    fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    }),
+
+  delete: (workflowId: string, snapshotId: string) =>
+    fetchAPI<void>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`, {
+      method: "DELETE",
+    }),
+
+  saveFromRun: (workflowId: string, snapshotId: string, runId: string) =>
+    fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/save-from-run`, {
+      method: "POST",
+      body: JSON.stringify({ runId }),
+    }),
+
+  getValues: (workflowId: string, snapshotId: string) =>
+    fetchAPI<Record<string, any>>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/values`),
+
+  validate: (workflowId: string, snapshotId: string) =>
+    fetchAPI<{ isValid: boolean; outdatedSteps: string[] }>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/validate`),
+};
+
+// ============================================================================
 // Workflow Variables (Step Aliases)
 // ============================================================================
 
@@ -475,9 +529,19 @@ export interface ApiStepValue {
 
 // Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
-  create: (workflowId: string, data: { participantId?: string; metadata?: any }, queryParams?: Record<string, string>) => {
+  create: (
+    workflowId: string,
+    data: {
+      participantId?: string;
+      metadata?: any;
+      snapshotId?: string;  // Load from snapshot
+      randomize?: boolean;  // Generate random data
+      initialValues?: Record<string, any>;
+    },
+    queryParams?: Record<string, string>
+  ) => {
     const params = queryParams ? `?${new URLSearchParams(queryParams)}` : "";
-    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string } }>(`/api/workflows/${workflowId}/runs${params}`, {
+    return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentSectionId?: string } }>(`/api/workflows/${workflowId}/runs${params}`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -1074,4 +1138,24 @@ export const collectionsAPI = {
 
   countRecords: (tenantId: string, collectionId: string) =>
     fetchAPI<{ count: number }>(`/api/tenants/${tenantId}/collections/${collectionId}/records/count`),
+};
+
+// ============================================================================
+// AI Services
+// ============================================================================
+
+export interface AIStepData {
+  key: string;
+  type: string;
+  label?: string;
+  options?: string[];
+  description?: string;
+}
+
+export const aiAPI = {
+  suggestValues: (steps: AIStepData[], mode: 'full' | 'partial' = 'full') =>
+    fetchAPI<{ success: boolean; data: Record<string, any> }>(`/api/ai/suggest-values`, {
+      method: "POST",
+      body: JSON.stringify({ steps, mode }),
+    }).then(res => res.data),
 };

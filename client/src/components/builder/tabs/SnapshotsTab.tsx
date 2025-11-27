@@ -1,26 +1,27 @@
 /**
  * SnapshotsTab - Manage workflow test snapshots
- * PR8: Complete UI with JSON viewer
+ * Fully integrated with backend API for snapshot management
  */
 
 import { useState } from "react";
-import { Camera, Plus, Trash2, Eye } from "lucide-react";
+import { useLocation } from "wouter";
+import { Camera, Plus, Trash2, Eye, Play, Edit2, AlertCircle } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePreviewStore } from "@/store/preview";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-interface Snapshot {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  data: Record<string, any>;
-}
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  useSnapshots,
+  useRenameSnapshot,
+  useDeleteSnapshot,
+  type ApiSnapshot,
+} from "@/lib/vault-hooks";
+import { runAPI } from "@/lib/vault-api";
 
 interface SnapshotsTabProps {
   workflowId: string;
@@ -28,108 +29,245 @@ interface SnapshotsTabProps {
 
 export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
   const { toast } = useToast();
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([
-    {
-      id: "1",
-      name: "Test Run 1",
-      description: "Initial test with sample data",
-      createdAt: new Date().toISOString(),
-      data: { firstName: "John", lastName: "Doe", email: "john@example.com" },
-    },
-  ]);
+  const [, setLocation] = useLocation();
+  const setPreviewToken = usePreviewStore((s) => s.setToken);
 
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Fetch snapshots from API
+  const { data: snapshots, isLoading, error } = useSnapshots(workflowId);
+  const renameSnapshot = useRenameSnapshot();
+  const deleteSnapshot = useDeleteSnapshot();
+
+  // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [newName, setNewName] = useState("");
-  const [newDescription, setNewDescription] = useState("");
+  const [isCreatingRun, setIsCreatingRun] = useState(false);
 
-  const handleCreate = () => {
-    console.log("Creating snapshot:", { name: newName, description: newDescription });
-    toast({ title: "Snapshot Created", description: `"${newName}" saved successfully` });
-    setCreateDialogOpen(false);
-    setNewName("");
-    setNewDescription("");
+  // Handle rename snapshot
+  const handleRename = async () => {
+    if (!selectedSnapshot || !newName.trim()) return;
+
+    try {
+      await renameSnapshot.mutateAsync({
+        workflowId,
+        snapshotId: selectedSnapshot.id,
+        name: newName.trim(),
+      });
+      toast({ title: "Success", description: "Snapshot renamed" });
+      setRenameDialogOpen(false);
+      setSelectedSnapshot(null);
+      setNewName("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to rename snapshot",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleView = (snapshot: Snapshot) => {
+  // Handle delete snapshot
+  const handleDelete = async () => {
+    if (!selectedSnapshot) return;
+
+    try {
+      await deleteSnapshot.mutateAsync({
+        workflowId,
+        snapshotId: selectedSnapshot.id,
+      });
+      toast({ title: "Success", description: "Snapshot deleted" });
+      setDeleteDialogOpen(false);
+      setSelectedSnapshot(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete snapshot",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle preview with snapshot (creates run and navigates)
+  const handlePreview = async (snapshot: ApiSnapshot) => {
+    setIsCreatingRun(true);
+    try {
+      const result = await runAPI.create(workflowId, { snapshotId: snapshot.id });
+      const { runId, runToken } = result.data;
+
+      // Store run token for preview using preview store
+      setPreviewToken(runId, runToken);
+
+      toast({
+        title: "Preview Started",
+        description: `Running with snapshot "${snapshot.name}"`,
+      });
+
+      // Navigate to preview
+      setLocation(`/preview/${runId}`);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create preview run",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingRun(false);
+    }
+  };
+
+  // Handle view snapshot data
+  const handleView = (snapshot: ApiSnapshot) => {
     setSelectedSnapshot(snapshot);
     setViewDialogOpen(true);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    console.log("Deleting snapshot:", id);
-    toast({ title: "Snapshot Deleted", description: `"${name}" removed` });
-    setSnapshots(snapshots.filter(s => s.id !== id));
+  // Open rename dialog
+  const handleOpenRename = (snapshot: ApiSnapshot) => {
+    setSelectedSnapshot(snapshot);
+    setNewName(snapshot.name);
+    setRenameDialogOpen(true);
+  };
+
+  // Open delete confirmation
+  const handleOpenDelete = (snapshot: ApiSnapshot) => {
+    setSelectedSnapshot(snapshot);
+    setDeleteDialogOpen(true);
   };
 
   return (
     <BuilderLayout>
       <BuilderLayoutHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Test Snapshots</h2>
-            <p className="text-sm text-muted-foreground">
-              Save and manage workflow test data snapshots
-            </p>
-          </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Create Snapshot
-          </Button>
+        <div>
+          <h2 className="text-lg font-semibold">Test Snapshots</h2>
+          <p className="text-sm text-muted-foreground">
+            Preview and manage saved workflow test data. Create snapshots from the preview page.
+          </p>
         </div>
       </BuilderLayoutHeader>
 
       <BuilderLayoutContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {snapshots.map((snapshot) => (
-              <TableRow key={snapshot.id}>
-                <TableCell className="font-medium">{snapshot.name}</TableCell>
-                <TableCell>{snapshot.description}</TableCell>
-                <TableCell>{new Date(snapshot.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => handleView(snapshot)}>
-                    <Eye className="w-3 h-3 mr-1" />
-                    View
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDelete(snapshot.id, snapshot.name)}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load snapshots: {error.message}
+            </AlertDescription>
+          </Alert>
+        )}
 
-        {/* Create Dialog */}
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-muted-foreground">Loading snapshots...</div>
+          </div>
+        ) : snapshots && snapshots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Camera className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No snapshots yet</h3>
+            <p className="text-sm text-muted-foreground">
+              Create snapshots from the preview page to save test data for this workflow
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Values</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {snapshots?.map((snapshot) => {
+                const valueCount = Object.keys(snapshot.values).length;
+                return (
+                  <TableRow key={snapshot.id}>
+                    <TableCell className="font-medium">{snapshot.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {valueCount} {valueCount === 1 ? 'value' : 'values'}
+                    </TableCell>
+                    <TableCell>{new Date(snapshot.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handlePreview(snapshot)}
+                        disabled={isCreatingRun}
+                      >
+                        <Play className="w-3 h-3 mr-1" />
+                        Preview
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleView(snapshot)}>
+                        <Eye className="w-3 h-3 mr-1" />
+                        View
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleOpenRename(snapshot)}>
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleOpenDelete(snapshot)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {/* Rename Dialog */}
+        <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Snapshot</DialogTitle>
-              <DialogDescription>Save current workflow test data</DialogDescription>
+              <DialogTitle>Rename Snapshot</DialogTitle>
+              <DialogDescription>Change the name of this snapshot</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Snapshot Name</Label>
-                <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desc">Description</Label>
-                <Textarea id="desc" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={3} />
+                <Label htmlFor="rename">Snapshot Name</Label>
+                <Input
+                  id="rename"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRename()}
+                />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate}>Create</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRenameDialogOpen(false);
+                  setNewName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleRename} disabled={renameSnapshot.isPending || !newName.trim()}>
+                {renameSnapshot.isPending ? "Renaming..." : "Rename"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Snapshot</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{selectedSnapshot?.name}"? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleteSnapshot.isPending}>
+                {deleteSnapshot.isPending ? "Deleting..." : "Delete"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -139,11 +277,13 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{selectedSnapshot?.name}</DialogTitle>
-              <DialogDescription>{selectedSnapshot?.description}</DialogDescription>
+              <DialogDescription>
+                {Object.keys(selectedSnapshot?.values || {}).length} stored values
+              </DialogDescription>
             </DialogHeader>
             <div className="max-h-96 overflow-auto">
               <pre className="p-4 bg-muted rounded-lg text-xs">
-                {JSON.stringify(selectedSnapshot?.data, null, 2)}
+                {JSON.stringify(selectedSnapshot?.values, null, 2)}
               </pre>
             </div>
             <DialogFooter>

@@ -5,8 +5,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, Loader2, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { PreviewSidebar } from "@/components/runner/PreviewSidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -154,11 +155,26 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
 
   // Submit section mutation
   const submitMutation = useMutation({
-    mutationFn: (data: { sectionId: string; values: Array<{ stepId: string; value: any }> }) =>
-      api.post<{ success: boolean; errors?: string[] }>(
+    mutationFn: (data: { sectionId: string; values: Array<{ stepId: string; value: any }> }) => {
+      console.log('[PreviewRunner] Submitting section:', {
+        runId,
+        sectionId: data.sectionId,
+        values: data.values,
+        valuesCount: data.values.length
+      });
+      return api.post<{ success: boolean; errors?: string[] }>(
         `/api/runs/${runId}/sections/${data.sectionId}/submit`,
         { values: data.values }
-      ),
+      );
+    },
+    onError: (error) => {
+      console.error('[PreviewRunner] Submit section error:', error);
+      toast({
+        title: "Submission Error",
+        description: error instanceof Error ? error.message : "Failed to submit section",
+        variant: "destructive",
+      });
+    },
   });
 
   // Next section mutation
@@ -192,8 +208,12 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
       return;
     }
 
-    // Get steps for current section
-    const currentSectionSteps = allWorkflowSteps.filter(step => step.sectionId === currentSection.id);
+    // Get steps for current section (excluding virtual and system steps)
+    const currentSectionSteps = allWorkflowSteps.filter(
+      step => step.sectionId === currentSection.id &&
+              !step.isVirtual && // Exclude virtual steps (transform outputs)
+              step.type !== 'final_documents' // Exclude system steps
+    );
     const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
 
     // Collect values ONLY for steps in the current section
@@ -229,12 +249,24 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
       const isLastVisibleSection = currentVisibleIndex >= 0 && currentVisibleIndex === visibleSectionsAfterSubmit.length - 1;
 
       if (isLastVisibleSection) {
-        // Submit section values in background
-        submitMutation.mutate({
+        // IMPORTANT: Must await section submission before completing the run
+        const submitResult = await submitMutation.mutateAsync({
           sectionId: currentSection.id,
           values: sectionValues,
         });
 
+        // Check if submission had validation errors
+        if (!submitResult.success && submitResult.errors) {
+          setErrors(submitResult.errors || []);
+          toast({
+            title: "Validation Error",
+            description: submitResult.errors?.[0] || "Please check the form and try again",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Now safe to complete the run
         await completeMutation.mutateAsync();
         toast({ title: "Complete!", description: "Preview completed successfully" });
 
@@ -271,10 +303,11 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
               values: sectionValues,
             },
             {
-              onError: () => {
+              onError: (error) => {
+                console.error('[PreviewRunner] Background submit error:', error);
                 toast({
                   title: "Warning",
-                  description: "Failed to save section data. Please try again.",
+                  description: error instanceof Error ? error.message : "Failed to save section data. Please try again.",
                   variant: "destructive",
                 });
               },
@@ -400,14 +433,29 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={navigateToBuilder}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Builder
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              toast({
+                title: "Coming Soon",
+                description: "AI autofill will be available soon",
+              });
+            }}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Autofill this page
+          </Button>
+          <Button variant="outline" onClick={navigateToBuilder}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Builder
+          </Button>
+        </div>
       </div>
 
       {/* Runner Content */}
-      <div className="flex-1 container max-w-3xl mx-auto p-8">
+      <div className="flex-1 container max-w-3xl mx-auto p-8 pr-[400px]">
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
@@ -473,6 +521,15 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
           </Button>
         </div>
       </div>
+
+      {/* Preview Sidebar */}
+      <PreviewSidebar
+        workflowId={run.workflowId}
+        runId={runId}
+        runToken={runToken}
+        formValues={formValues}
+        allWorkflowSteps={allWorkflowSteps}
+      />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import type { PgTransaction } from 'drizzle-orm/pg-core';
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { requireAuth } from '../middleware/auth';
+import { hybridAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -33,7 +33,7 @@ const router = Router();
  */
 router.get(
   '/projects/:projectId/workflows',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -103,7 +103,7 @@ router.get(
  */
 router.post(
   '/projects/:projectId/workflows',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:create'),
   async (req: Request, res: Response) => {
@@ -195,7 +195,7 @@ router.post(
  */
 router.get(
   '/workflows/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -238,7 +238,7 @@ router.get(
  */
 router.patch(
   '/workflows/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:edit'),
   async (req: Request, res: Response) => {
@@ -330,7 +330,7 @@ router.patch(
  */
 router.post(
   '/workflows/:id/publish',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:publish'),
   async (req: Request, res: Response) => {
@@ -429,7 +429,7 @@ router.post(
  */
 router.get(
   '/workflows/:id/versions',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -500,7 +500,7 @@ router.get(
  */
 router.get(
   '/workflowVersions/:versionId',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -553,7 +553,7 @@ router.get(
  */
 router.post(
   '/workflows/validateExpression',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -637,7 +637,7 @@ router.post(
  */
 router.get(
   '/workflows/:id/availableVars/:nodeId',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:view'),
   async (req: Request, res: Response) => {
@@ -689,7 +689,7 @@ router.get(
  */
 router.get(
   '/engine/helpers',
-  requireAuth,
+  hybridAuth,
   async (req: Request, res: Response) => {
     try {
       // Build helper metadata

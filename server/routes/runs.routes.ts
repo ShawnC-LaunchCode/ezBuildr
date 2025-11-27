@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { insertWorkflowRunSchema, insertStepValueSchema } from "@shared/schema";
 import { runService } from "../services/RunService";
 import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
@@ -52,13 +52,18 @@ export function registerRunRoutes(app: Express): void {
    *
    * For authenticated: POST /api/workflows/:workflowId/runs (with session)
    * For anonymous: POST /api/workflows/:workflowId/runs?publicLink=<slug>
-   * Body: { initialValues?: Record<string, any>, ...runData } - Optional initial values and run data
+   * Body: {
+   *   initialValues?: Record<string, any>,
+   *   snapshotId?: string,  // Load values from snapshot
+   *   randomize?: boolean,  // Generate random test data via AI
+   *   ...runData
+   * }
    */
   app.post('/api/workflows/:workflowId/runs', async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const { publicLink } = req.query;
-      const { initialValues, ...runData } = req.body;
+      const { initialValues, snapshotId, randomize, ...runData } = req.body;
 
       // Check if this is an anonymous run request
       const isAnonymous = !!publicLink;
@@ -81,13 +86,20 @@ export function registerRunRoutes(app: Express): void {
           });
         }
 
-        const run = await runService.createRun(workflowId, userId, runData, initialValues);
+        const run = await runService.createRun(
+          workflowId,
+          userId,
+          runData,
+          initialValues,
+          { snapshotId, randomize }
+        );
 
         return res.status(201).json({
           success: true,
           data: {
             runId: run.id,
-            runToken: run.runToken
+            runToken: run.runToken,
+            currentSectionId: run.currentSectionId
           }
         });
       }
@@ -100,11 +112,26 @@ export function registerRunRoutes(app: Express): void {
         error: "Anonymous runs via publicLink not yet supported - service needs refactoring"
       });
     } catch (error) {
-      logger.error({ error }, "Error creating run");
+      // Log error with full details
+      if (error instanceof Error) {
+        logger.error({
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          workflowId: req.params.workflowId
+        }, "Error creating run");
+      } else {
+        logger.error({
+          error: String(error),
+          workflowId: req.params.workflowId
+        }, "Error creating run (non-Error object)");
+      }
+
       const message = error instanceof Error ? error.message : "Failed to create run";
       const status = message.includes("not found") ? 404 :
                      message.includes("Access denied") ? 403 :
-                     message.includes("not active") ? 403 : 500;
+                     message.includes("not active") ? 403 :
+                     message.includes("not configured") ? 503 : 500;
       res.status(status).json({ success: false, error: message });
     }
   });
@@ -226,7 +253,17 @@ export function registerRunRoutes(app: Express): void {
       const userId = req.user?.claims?.sub;
       const runAuth = req.runAuth;
 
+      logger.info({
+        runId,
+        sectionId,
+        valuesType: typeof values,
+        isArray: Array.isArray(values),
+        valuesLength: Array.isArray(values) ? values.length : 0,
+        bodyKeys: Object.keys(req.body)
+      }, "Section submit request received");
+
       if (!Array.isArray(values)) {
+        logger.warn({ runId, sectionId, values }, "values is not an array");
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
@@ -236,11 +273,9 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
         const result = await runService.submitSectionNoAuth(runId, sectionId, values);
-        if (result.success) {
-          return res.json({ success: true, message: "Section values saved" });
-        } else {
-          return res.status(400).json({ success: false, errors: result.errors });
-        }
+        // Return 200 for both success and validation errors
+        // (400 would cause fetch to throw, losing the error details)
+        return res.json(result);
       }
 
       // For session auth
@@ -252,10 +287,13 @@ export function registerRunRoutes(app: Express): void {
       const result = await runService.submitSection(runId, sectionId, userId, values);
 
       if (result.success) {
+        logger.info({ runId, sectionId }, "Section submitted successfully");
         res.json({ success: true, message: "Section values saved" });
       } else {
-        // Validation failed - return 400 with error messages
-        res.status(400).json({ success: false, errors: result.errors });
+        // Validation failed - return 200 with success: false and error messages
+        // (400 would cause fetch to throw, losing the error details)
+        logger.warn({ runId, sectionId, errors: result.errors }, "Section validation failed");
+        res.json({ success: false, errors: result.errors });
       }
     } catch (error) {
       const { runId, sectionId } = req.params;
@@ -392,6 +430,42 @@ export function registerRunRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : "Failed to list runs";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * GET /api/runs/:runId/documents
+   * Get generated documents for a workflow run
+   * Accepts creator session OR Bearer runToken
+   */
+  app.get('/api/runs/:runId/documents', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
+    try {
+      const { runId } = req.params;
+      const userId = req.user?.claims?.sub;
+      const runAuth = req.runAuth;
+
+      // For run token auth, verify the runId matches
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+        // Fetch documents without userId check
+        const documents = await runService.getGeneratedDocuments(runId);
+        return res.json({ success: true, documents });
+      }
+
+      // For session auth, we need userId
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const documents = await runService.getGeneratedDocuments(runId);
+      res.json({ success: true, documents });
+    } catch (error) {
+      logger.error({ error }, "Error fetching generated documents");
+      const message = error instanceof Error ? error.message : "Failed to fetch documents";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
     }
   });
 }

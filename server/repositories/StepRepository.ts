@@ -1,5 +1,5 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { steps, type Step, type InsertStep } from "@shared/schema";
+import { steps, sections, type Step, type InsertStep } from "@shared/schema";
 import { eq, asc, inArray, and } from "drizzle-orm";
 import { db } from "../db";
 
@@ -91,6 +91,35 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .where(eq(steps.id, stepId))
       .returning();
     return updated;
+  }
+
+  /**
+   * Find all steps for a workflow (by joining with sections)
+   * Includes aliases for easy reference
+   * By default, includes virtual steps
+   */
+  async findByWorkflowIdWithAliases(
+    workflowId: string,
+    tx?: DbTransaction,
+    includeVirtual = true
+  ): Promise<Step[]> {
+    const database = this.getDb(tx);
+
+    // Join steps with sections to filter by workflowId
+    const conditions = [eq(sections.workflowId, workflowId)];
+    if (!includeVirtual) {
+      conditions.push(eq(steps.isVirtual, false));
+    }
+
+    const result = await database
+      .select()
+      .from(steps)
+      .innerJoin(sections, eq(steps.sectionId, sections.id))
+      .where(and(...conditions))
+      .orderBy(asc(steps.order));
+
+    // Extract just the steps from the join result
+    return result.map(row => row.steps);
   }
 }
 

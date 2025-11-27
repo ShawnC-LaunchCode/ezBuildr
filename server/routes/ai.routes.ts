@@ -471,5 +471,84 @@ export function registerAiRoutes(app: Express): void {
     }
   );
 
+  /**
+   * POST /api/ai/suggest-values
+   * Generate random plausible values for workflow steps
+   *
+   * Body: {
+   *   workflowId?: string,  // Optional - for full workflow random data
+   *   steps: Array<{ key: string, type: string, label?: string, options?: string[], description?: string }>,
+   *   mode?: 'full' | 'partial'  // Default: 'full'
+   * }
+   */
+  app.post(
+    '/api/ai/suggest-values',
+    hybridAuth,
+    requireAuth,
+    aiWorkflowRateLimit,
+    async (req: Request, res: Response) => {
+      try {
+        const { workflowId, steps, mode = 'full' } = req.body;
+
+        if (!steps || !Array.isArray(steps) || steps.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Steps array is required and must not be empty',
+            error: 'invalid_request',
+          });
+        }
+
+        // Validate AI configuration
+        if (!process.env.AI_API_KEY) {
+          return res.status(503).json({
+            success: false,
+            message: 'AI service not configured',
+            error: 'service_unavailable',
+          });
+        }
+
+        aiLogger.info({
+          workflowId,
+          stepCount: steps.length,
+          mode,
+        }, 'AI value suggestion requested');
+
+        // Create AI service and generate values
+        const aiService = createAIServiceFromEnv();
+        const values = await aiService.suggestValues(steps, mode);
+
+        res.json({
+          success: true,
+          data: values,
+        });
+      } catch (error: any) {
+        aiLogger.error({ error }, 'Error generating value suggestions');
+
+        if (error.code === 'RATE_LIMIT') {
+          return res.status(429).json({
+            success: false,
+            message: 'Rate limit exceeded. Please try again later.',
+            error: 'rate_limit_exceeded',
+          });
+        }
+
+        if (error.code === 'TIMEOUT') {
+          return res.status(504).json({
+            success: false,
+            message: 'AI request timed out. Please try again.',
+            error: 'ai_timeout',
+          });
+        }
+
+        res.status(500).json({
+          success: false,
+          message: 'Failed to generate value suggestions',
+          error: 'internal_error',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+      }
+    }
+  );
+
   aiLogger.info('AI workflow generation routes registered');
 }

@@ -300,6 +300,133 @@ export class LogicService {
 
     return Math.min(100, Math.max(0, progress));
   }
+
+  /**
+   * Check if a section is visible based on logic rules and current data
+   *
+   * @param workflowId - Workflow ID
+   * @param sectionId - Section ID to check
+   * @param data - Current step values (key = stepId or alias, value = step value)
+   * @returns true if section is visible, false otherwise
+   */
+  async isSectionVisible(
+    workflowId: string,
+    sectionId: string,
+    data: Record<string, any>
+  ): Promise<boolean> {
+    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const evalResult = evaluateRules(logicRules, data);
+
+    // Check if explicitly shown
+    if (evalResult.visibleSections.has(sectionId)) {
+      return true;
+    }
+
+    // Check for hide rules
+    const hideRules = logicRules.filter(
+      (r) => r.targetType === "section" && r.targetSectionId === sectionId && r.action === "hide"
+    );
+
+    // If no hide rules, section is visible by default
+    if (hideRules.length === 0) {
+      return true;
+    }
+
+    // Check if any hide rules are triggered
+    const isHidden = hideRules.some((rule) => {
+      const actualValue = data[rule.conditionStepId];
+      return actualValue !== undefined;
+    });
+
+    return !isHidden;
+  }
+
+  /**
+   * Check if a step is visible based on logic rules and current data
+   *
+   * @param workflowId - Workflow ID
+   * @param stepId - Step ID to check
+   * @param data - Current step values (key = stepId or alias, value = step value)
+   * @returns true if step is visible, false otherwise
+   */
+  async isStepVisible(
+    workflowId: string,
+    stepId: string,
+    data: Record<string, any>
+  ): Promise<boolean> {
+    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const evalResult = evaluateRules(logicRules, data);
+
+    // Check if explicitly shown
+    if (evalResult.visibleSteps.has(stepId)) {
+      return true;
+    }
+
+    // Check for hide rules
+    const hideRules = logicRules.filter(
+      (r) => r.targetType === "step" && r.targetStepId === stepId && r.action === "hide"
+    );
+
+    // If no hide rules, step is visible by default
+    if (hideRules.length === 0) {
+      return true;
+    }
+
+    // Check if any hide rules are triggered
+    const isHidden = hideRules.some((rule) => {
+      const actualValue = data[rule.conditionStepId];
+      return actualValue !== undefined;
+    });
+
+    return !isHidden;
+  }
+
+  /**
+   * Check if a step is required based on logic rules and current data
+   *
+   * @param workflowId - Workflow ID
+   * @param stepId - Step ID to check
+   * @param data - Current step values (key = stepId or alias, value = step value)
+   * @returns true if step is required, false otherwise
+   */
+  async isStepRequired(
+    workflowId: string,
+    stepId: string,
+    data: Record<string, any>
+  ): Promise<boolean> {
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      return false;
+    }
+
+    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const evalResult = evaluateRules(logicRules, data);
+
+    // Check if explicitly marked as required by a rule
+    if (evalResult.requiredSteps.has(stepId)) {
+      return true;
+    }
+
+    // Check for make_optional rules
+    const makeOptionalRules = logicRules.filter(
+      (r) => r.targetType === "step" && r.targetStepId === stepId && r.action === "make_optional"
+    );
+
+    // If there are make_optional rules and any are triggered, step is optional
+    if (makeOptionalRules.length > 0) {
+      const isMadeOptional = makeOptionalRules.some((rule) => {
+        const actualValue = data[rule.conditionStepId];
+        return actualValue !== undefined;
+      });
+
+      if (isMadeOptional) {
+        return false;
+      }
+    }
+
+    // Default to the step's base required flag
+    return step.required || false;
+  }
 }
 
 // Singleton instance

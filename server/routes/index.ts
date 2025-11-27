@@ -15,6 +15,7 @@ import { registerSectionRoutes } from "./sections.routes";
 import { registerStepRoutes } from "./steps.routes";
 import { registerBlockRoutes } from "./blocks.routes";
 import { registerRunRoutes } from "./runs.routes";
+import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerTeamRoutes } from "./teams.routes";
@@ -89,6 +90,9 @@ export function registerAllRoutes(app: Express): void {
 
   // Workflow management routes
   registerWorkflowRoutes(app);
+
+  // Workflow snapshot routes (versioned test data)
+  registerSnapshotRoutes(app);
 
   // Workflow template mapping routes (Stage 21)
   registerWorkflowTemplateRoutes(app);

@@ -8,9 +8,10 @@ import { useState, useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff } from "lucide-react";
+import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import {
@@ -30,6 +31,7 @@ import { QuestionAddMenu } from "./QuestionAddMenu";
 import { LogicAddMenu } from "./LogicAddMenu";
 import { BlockCard } from "./BlockCard";
 import { QuestionCard } from "../questions/QuestionCard";
+import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
 import { UI_LABELS } from "@/lib/labels";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
 
@@ -48,12 +50,22 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
   const { selectSection, selectBlock, selectStep, selection } = useWorkflowBuilder();
   const { toast } = useToast();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(new Set());
   const [expandedBlockIds, setExpandedBlockIds] = useState<Set<string>>(new Set());
   const [autoFocusStepId, setAutoFocusStepId] = useState<string | null>(null);
   const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
   const prevSelectionRef = useRef<typeof selection>(null);
   const prevItemsLengthRef = useRef<number>(0);
+
+  // Check if this is a Final Documents section
+  const isFinalDocumentsSection = (page.config as any)?.finalBlock === true;
+
+  // For Final Documents sections, filter out all steps (they shouldn't exist, but if they do, hide them)
+  // The only step should be the system step of type 'final_documents' which is hidden anyway
+  const filteredSteps = isFinalDocumentsSection
+    ? steps.filter(s => s.type === 'final_documents')
+    : steps;
 
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
@@ -83,7 +95,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
 
   // Combine regular blocks and transform blocks
   const allPageBlocks = [...pageBlocks, ...pageTransformBlocks];
-  const items = combinePageItems(steps, allPageBlocks);
+  const items = combinePageItems(filteredSteps, allPageBlocks);
 
   // Auto-expand and focus newly selected items
   useEffect(() => {
@@ -224,6 +236,23 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </button>
 
+            {/* Collapse/Expand button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 mt-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCollapsed(!isCollapsed);
+              }}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+
           {/* Page title and description */}
           <div className="flex-1 space-y-1">
             <div className="flex items-center gap-2">
@@ -233,6 +262,12 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
                 className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
                 placeholder="Page title"
               />
+              {isFinalDocumentsSection && (
+                <Badge variant="secondary" className="text-xs px-2 py-1">
+                  <FileText className="h-3 w-3 mr-1" />
+                  Final Documents Block
+                </Badge>
+              )}
               <LogicIndicator
                 visibleIf={page.visibleIf}
                 variant="badge"
@@ -284,8 +319,11 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
         </div>
       </CardHeader>
 
+      {!isCollapsed && (
       <CardContent className="pt-0 space-y-3">
-        {items.length === 0 ? (
+        {isFinalDocumentsSection ? (
+          <FinalDocumentsSectionEditor section={page} workflowId={workflowId} />
+        ) : items.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             {UI_LABELS.NO_QUESTIONS}
           </div>
@@ -343,20 +381,23 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
           </SortableContext>
         )}
 
-        {/* Add buttons at the bottom */}
-        <div className="flex items-center gap-2 pt-2">
-          <QuestionAddMenu
-            sectionId={page.id}
-            nextOrder={nextOrder}
-            workflowId={workflowId}
-          />
-          <LogicAddMenu
-            workflowId={workflowId}
-            sectionId={page.id}
-            nextOrder={nextOrder}
-          />
-        </div>
+        {/* Add buttons at the bottom - hidden for Final Documents sections */}
+        {!isFinalDocumentsSection && (
+          <div className="flex items-center gap-2 pt-2">
+            <QuestionAddMenu
+              sectionId={page.id}
+              nextOrder={nextOrder}
+              workflowId={workflowId}
+            />
+            <LogicAddMenu
+              workflowId={workflowId}
+              sectionId={page.id}
+              nextOrder={nextOrder}
+            />
+          </div>
+        )}
       </CardContent>
+      )}
     </Card>
 
       {/* Section Logic Sheet */}

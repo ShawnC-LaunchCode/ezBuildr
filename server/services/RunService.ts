@@ -6,6 +6,7 @@ import {
   stepRepository,
   logicRuleRepository,
   projectRepository,
+  runGeneratedDocumentsRepository,
 } from "../repositories";
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
 import { workflowService } from "./WorkflowService";
@@ -17,6 +18,7 @@ import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
 import { randomUUID } from "crypto";
 import { captureRunLifecycle } from "./metrics";
 import { logger } from "../logger";
+import { documentGenerationService } from "./DocumentGenerationService";
 
 /**
  * Service layer for workflow run-related business logic
@@ -29,6 +31,7 @@ export class RunService {
   private stepRepo: typeof stepRepository;
   private logicRuleRepo: typeof logicRuleRepository;
   private projectRepo: typeof projectRepository;
+  private docsRepo: typeof runGeneratedDocumentsRepository;
   private workflowSvc: typeof workflowService;
   private logicSvc: typeof logicService;
 
@@ -40,6 +43,7 @@ export class RunService {
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
     projectRepo?: typeof projectRepository,
+    docsRepo?: typeof runGeneratedDocumentsRepository,
     workflowSvc?: typeof workflowService,
     logicSvc?: typeof logicService
   ) {
@@ -50,6 +54,7 @@ export class RunService {
     this.stepRepo = stepRepo || stepRepository;
     this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
     this.projectRepo = projectRepo || projectRepository;
+    this.docsRepo = docsRepo || runGeneratedDocumentsRepository;
     this.workflowSvc = workflowSvc || workflowService;
     this.logicSvc = logicSvc || logicService;
   }
@@ -151,7 +156,11 @@ export class RunService {
     idOrSlug: string,
     userId: string,
     data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken'>,
-    initialValues?: Record<string, any>
+    initialValues?: Record<string, any>,
+    options?: {
+      snapshotId?: string;
+      randomize?: boolean;
+    }
   ): Promise<WorkflowRun> {
     // Resolve slug to UUID and verify ownership
     const workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
@@ -161,6 +170,45 @@ export class RunService {
     const runToken = randomUUID();
     const startTime = Date.now();
 
+    // Load snapshot values if snapshotId provided
+    let snapshotValueMap: Record<string, { value: any; stepId: string; stepUpdatedAt: string }> | undefined;
+    if (options?.snapshotId) {
+      const { snapshotService } = await import('./SnapshotService');
+      const snapshot = await snapshotService.getSnapshotById(options.snapshotId);
+      if (!snapshot) {
+        throw new Error(`Snapshot not found: ${options.snapshotId}`);
+      }
+      const snapshotValues = await snapshotService.getSnapshotValues(options.snapshotId);
+      initialValues = { ...initialValues, ...snapshotValues };
+      snapshotValueMap = snapshot.values as any;
+    }
+
+    // Generate random values if randomize is true
+    if (options?.randomize) {
+      const { createAIServiceFromEnv } = await import('./AIService');
+
+      // Get all steps for the workflow
+      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const visibleSteps = allSteps.filter(s => !s.isVirtual);
+
+      // Build step data for AI
+      const stepData = visibleSteps.map(step => ({
+        key: step.alias || step.id,
+        type: step.type,
+        label: step.title,
+        options: step.config && typeof step.config === 'object' && 'options' in step.config
+          ? (step.config as any).options
+          : undefined,
+        description: step.description || undefined,
+      }));
+
+      // Call AI service to generate random values
+      const aiService = createAIServiceFromEnv();
+      const randomValues = await aiService.suggestValues(stepData, 'full');
+
+      initialValues = { ...initialValues, ...randomValues };
+    }
+
     // Create the run
     const run = await this.runRepo.create({
       ...data,
@@ -169,8 +217,16 @@ export class RunService {
       completed: false,
     } as any);
 
-    // Populate initial values (from URL params or step defaults)
+    // Populate initial values (from URL params, snapshot, or random data)
     await this.populateInitialValues(run.id, workflowId, initialValues);
+
+    // Determine start section with auto-advance logic
+    if (options?.snapshotId || options?.randomize) {
+      const startSectionId = await this.determineStartSection(run.id, workflowId, snapshotValueMap);
+      await this.runRepo.update(run.id, {
+        currentSectionId: startSectionId,
+      });
+    }
 
     // Capture run_started metric (Stage 11)
     const context = await this.getWorkflowContext(workflowId);
@@ -758,6 +814,14 @@ export class RunService {
         progress: 100,
       });
 
+      // Generate documents for Final Documents sections
+      try {
+        await documentGenerationService.generateDocumentsForRun(runId);
+      } catch (error) {
+        logger.error({ error, runId }, 'Document generation failed, but run marked complete');
+        // Don't fail the run completion if document generation fails
+      }
+
       // Capture run_succeeded metric (Stage 11)
       if (context) {
         await captureRunLifecycle.succeeded({
@@ -838,11 +902,21 @@ export class RunService {
     }
 
     // Mark run as complete with 100% progress
-    return await this.runRepo.update(runId, {
+    const completedRun = await this.runRepo.update(runId, {
       completed: true,
       completedAt: new Date(),
       progress: 100,
     });
+
+    // Generate documents for Final Documents sections
+    try {
+      await documentGenerationService.generateDocumentsForRun(runId);
+    } catch (error) {
+      logger.error({ error, runId }, 'Document generation failed, but run marked complete');
+      // Don't fail the run completion if document generation fails
+    }
+
+    return completedRun;
   }
 
   /**
@@ -939,6 +1013,149 @@ export class RunService {
   async listRuns(workflowId: string, userId: string): Promise<WorkflowRun[]> {
     await this.workflowSvc.verifyOwnership(workflowId, userId);
     return await this.runRepo.findByWorkflowId(workflowId);
+  }
+
+  /**
+   * Get generated documents for a run
+   * Returns all documents generated during workflow completion
+   */
+  async getGeneratedDocuments(runId: string) {
+    // Verify run exists
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    // Fetch all generated documents
+    const documents = await this.docsRepo.findByRunId(runId);
+
+    return documents;
+  }
+
+  /**
+   * Determine the appropriate start section for a run
+   * Used for auto-advance when creating runs from snapshots
+   *
+   * Rules:
+   * A) Skip invisible sections via existing logic
+   * B) For each required visible step:
+   *    - If no run value → stop here
+   *    - If snapshot version mismatch → stop here
+   * C) If all satisfied → jump to first visible final block
+   * D) Else fallback to workflow's first section
+   *
+   * @param runId - The run ID
+   * @param workflowId - The workflow ID
+   * @param snapshotValues - Optional snapshot value map for version checking
+   * @returns The section ID to start from
+   */
+  async determineStartSection(
+    runId: string,
+    workflowId: string,
+    snapshotValues?: Record<string, { value: any; stepId: string; stepUpdatedAt: string }>
+  ): Promise<string> {
+    // Get all sections for the workflow
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    if (sections.length === 0) {
+      throw new Error("Workflow has no sections");
+    }
+
+    // Sort sections by order
+    const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Get all step values for the run
+    const runValues = await this.valueRepo.findByRunId(runId);
+    const runValueMap = new Map(runValues.map(v => [v.stepId, v]));
+
+    // Get all steps for the workflow
+    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+    const stepMap = new Map(allSteps.map(s => [s.id, s]));
+
+    // Build data map for logic evaluation
+    const dataMap: Record<string, any> = {};
+    for (const value of runValues) {
+      const step = stepMap.get(value.stepId);
+      if (step) {
+        const key = step.alias || step.id;
+        dataMap[key] = value.value;
+      }
+    }
+
+    // Iterate through sections to find the first incomplete one
+    for (const section of sortedSections) {
+      // Check if section is visible using logic service
+      const sectionVisible = await this.logicSvc.isSectionVisible(
+        workflowId,
+        section.id,
+        dataMap
+      );
+
+      if (!sectionVisible) {
+        continue; // Skip invisible sections
+      }
+
+      // Get steps for this section
+      const sectionSteps = allSteps.filter(s => s.sectionId === section.id && !s.isVirtual);
+
+      // Check if all required steps have valid values
+      let allRequiredStepsSatisfied = true;
+
+      for (const step of sectionSteps) {
+        // Check if step is visible
+        const stepVisible = await this.logicSvc.isStepVisible(
+          workflowId,
+          step.id,
+          dataMap
+        );
+
+        if (!stepVisible) {
+          continue; // Skip invisible steps
+        }
+
+        // Check if step is required
+        const isRequired = await this.logicSvc.isStepRequired(
+          workflowId,
+          step.id,
+          dataMap
+        );
+
+        if (!isRequired) {
+          continue; // Skip optional steps
+        }
+
+        // Check if step has a value
+        const hasValue = runValueMap.has(step.id);
+
+        if (!hasValue) {
+          // Required step missing value - stop here
+          allRequiredStepsSatisfied = false;
+          break;
+        }
+
+        // If snapshot values provided, check for version mismatch
+        if (snapshotValues) {
+          const key = step.alias || step.id;
+          const snapshotData = snapshotValues[key];
+
+          if (snapshotData) {
+            const stepUpdatedAt = step.updatedAt?.toISOString() || new Date(0).toISOString();
+            if (stepUpdatedAt > snapshotData.stepUpdatedAt) {
+              // Step was updated after snapshot - treat as incomplete
+              allRequiredStepsSatisfied = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!allRequiredStepsSatisfied) {
+        // Found first incomplete section - return this section
+        return section.id;
+      }
+    }
+
+    // All sections complete - return the last section (or first if none)
+    return sortedSections[sortedSections.length - 1]?.id || sortedSections[0].id;
   }
 }
 

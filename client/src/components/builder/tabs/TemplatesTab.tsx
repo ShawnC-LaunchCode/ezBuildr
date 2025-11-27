@@ -3,8 +3,9 @@
  * PR4: Full UI implementation with stubs
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import axios from "axios";
 import { Upload, FileText, Trash2, RefreshCw, TestTube } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
@@ -45,51 +46,54 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [templateKey, setTemplateKey] = useState("");
 
-  // Stub: Fetch templates on mount
-  // TODO: Replace with actual API call
+  // Fetch workflow to get projectId, then fetch templates
   const fetchTemplates = async () => {
     try {
-      // Stub implementation
-      console.log("Fetching templates for workflow:", workflowId);
-      // const response = await fetch(`/api/workflows/${workflowId}/templates`);
-      // const data = await response.json();
-      // setTemplates(data);
+      // Get workflow to get projectId
+      const workflowResponse = await axios.get(`/api/workflows/${workflowId}`);
+      const workflow = workflowResponse.data;
+      const projectId = workflow.projectId;
 
-      // Mock data for development
-      setTemplates([
-        {
-          id: "1",
-          name: "Contract Template",
-          key: "contract_v1",
-          type: "docx",
-          lastUpdated: new Date().toISOString(),
-          fileSize: 45000,
-        },
-        {
-          id: "2",
-          name: "Invoice Template",
-          key: "invoice",
-          type: "pdf",
-          lastUpdated: new Date(Date.now() - 86400000).toISOString(),
-          fileSize: 32000,
-        },
-      ]);
+      if (!projectId) {
+        console.warn("Workflow has no projectId");
+        setTemplates([]);
+        return;
+      }
+
+      // Fetch templates for this project
+      const response = await axios.get(`/api/projects/${projectId}/templates`);
+      const data = response.data;
+
+      // Map API response to Template interface
+      // API returns { items, nextCursor, hasMore } (paginated response)
+      const mappedTemplates = (data.items || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        key: t.id, // Use id as key for now
+        type: t.type || "docx",
+        lastUpdated: t.updatedAt || t.createdAt,
+        fileSize: undefined, // API doesn't return file size
+      }));
+
+      setTemplates(mappedTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch templates",
+        description: axios.isAxiosError(error)
+          ? error.response?.data?.error?.message || error.response?.data?.message || error.message
+          : "Failed to fetch templates",
         variant: "destructive",
       });
     }
   };
 
-  // Stub: Upload template
+  // Upload template to project
   const handleUpload = async () => {
-    if (!selectedFile || !templateKey) {
+    if (!selectedFile) {
       toast({
         title: "Validation Error",
-        description: "Please select a file and provide a template key",
+        description: "Please select a file",
         variant: "destructive",
       });
       return;
@@ -98,17 +102,25 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     setIsUploading(true);
 
     try {
-      // Stub implementation
-      console.log("Uploading template:", { file: selectedFile, key: templateKey });
+      // Get workflow to get projectId
+      const workflowResponse = await axios.get(`/api/workflows/${workflowId}`);
+      const workflow = workflowResponse.data;
+      const projectId = workflow.projectId;
 
-      // TODO: Implement actual upload
-      // const formData = new FormData();
-      // formData.append('file', selectedFile);
-      // formData.append('key', templateKey);
-      // const response = await fetch(`/api/workflows/${workflowId}/templates`, {
-      //   method: 'POST',
-      //   body: formData,
-      // });
+      if (!projectId) {
+        throw new Error("Workflow has no projectId");
+      }
+
+      // Upload template
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('name', templateKey || selectedFile.name.replace(/\.[^/.]+$/, ""));
+
+      await axios.post(`/api/projects/${projectId}/templates`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       toast({
         title: "Success",
@@ -123,7 +135,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       console.error("Error uploading template:", error);
       toast({
         title: "Error",
-        description: "Failed to upload template",
+        description: axios.isAxiosError(error)
+          ? error.response?.data?.error?.message || error.response?.data?.message || error.message
+          : "Failed to upload template",
         variant: "destructive",
       });
     } finally {
@@ -131,16 +145,10 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     }
   };
 
-  // Stub: Delete template
+  // Delete template
   const handleDelete = async (templateId: string, templateName: string) => {
     try {
-      // Stub implementation
-      console.log("Deleting template:", templateId);
-
-      // TODO: Implement actual delete
-      // await fetch(`/api/workflows/${workflowId}/templates/${templateId}`, {
-      //   method: 'DELETE',
-      // });
+      await axios.delete(`/api/templates/${templateId}`);
 
       toast({
         title: "Success",
@@ -152,7 +160,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       console.error("Error deleting template:", error);
       toast({
         title: "Error",
-        description: "Failed to delete template",
+        description: axios.isAxiosError(error)
+          ? error.response?.data?.error?.message || error.response?.data?.message || error.message
+          : "Failed to delete template",
         variant: "destructive",
       });
     }
@@ -184,9 +194,10 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   };
 
   // Load templates on mount
-  useState(() => {
+  useEffect(() => {
     fetchTemplates();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId]);
 
   return (
     <BuilderLayout>

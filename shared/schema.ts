@@ -848,7 +848,8 @@ export const stepTypeEnum = pgEnum('step_type', [
   'file_upload',
   'loop_group',
   'js_question',
-  'repeater' // Stage 20 PR 4: Repeating groups
+  'repeater', // Stage 20 PR 4: Repeating groups
+  'final_documents' // Final Documents Block - system step for document generation
 ]);
 
 // Logic rule target type enum
@@ -972,6 +973,20 @@ export const workflowVersions = pgTable("workflow_versions", {
   index("workflow_versions_published_idx").on(table.published),
   index("workflow_versions_created_by_idx").on(table.createdBy),
   index("workflow_versions_checksum_idx").on(table.checksum),
+]);
+
+// Workflow snapshots table for versioned test data
+export const workflowSnapshots = pgTable("workflow_snapshots", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  name: text("name").notNull(),
+  values: jsonb("values").default(sql`'{}'::jsonb`).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_snapshots_workflow_idx").on(table.workflowId),
+  index("workflow_snapshots_created_at_idx").on(table.workflowId, table.createdAt),
+  uniqueIndex("workflow_snapshots_workflow_name_unique").on(table.workflowId, table.name),
 ]);
 
 // Templates table for document templates
@@ -1337,6 +1352,7 @@ export const sections = pgTable("sections", {
   title: varchar("title").notNull(),
   description: text("description"),
   order: integer("order").notNull(),
+  config: jsonb("config").default(sql`'{}'::jsonb`), // Section configuration (Final Documents, etc.)
   // Stage 20 PR 2: Page-level conditional logic
   visibleIf: jsonb("visible_if"), // Condition expression for visibility
   skipIf: jsonb("skip_if"), // Condition expression for skip logic
@@ -1422,6 +1438,21 @@ export const stepValues = pgTable("step_values", {
 }, (table) => [
   index("step_values_run_idx").on(table.runId),
   index("step_values_step_idx").on(table.stepId),
+]);
+
+// Run generated documents table (documents generated during workflow completion)
+export const runGeneratedDocuments = pgTable("run_generated_documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+  templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("run_generated_documents_run_idx").on(table.runId),
+  index("run_generated_documents_created_at_idx").on(table.createdAt),
 ]);
 
 // Block type enum
@@ -1668,6 +1699,7 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
   }),
   stepValues: many(stepValues),
   transformBlockRuns: many(transformBlockRuns),
+  generatedDocuments: many(runGeneratedDocuments),
 }));
 
 export const stepValuesRelations = relations(stepValues, ({ one }) => ({
@@ -1678,6 +1710,17 @@ export const stepValuesRelations = relations(stepValues, ({ one }) => ({
   step: one(steps, {
     fields: [stepValues.stepId],
     references: [steps.id],
+  }),
+}));
+
+export const runGeneratedDocumentsRelations = relations(runGeneratedDocuments, ({ one }) => ({
+  run: one(workflowRuns, {
+    fields: [runGeneratedDocuments.runId],
+    references: [workflowRuns.id],
+  }),
+  template: one(workflowTemplates, {
+    fields: [runGeneratedDocuments.templateId],
+    references: [workflowTemplates.id],
   }),
 }));
 
@@ -1743,6 +1786,7 @@ export const insertStepSchema = createInsertSchema(steps).omit({ id: true, creat
 export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true, runToken: true });
 export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments).omit({ id: true, createdAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Transform block language enum
@@ -2524,6 +2568,8 @@ export type WorkflowRun = typeof workflowRuns.$inferSelect;
 export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;
 export type StepValue = typeof stepValues.$inferSelect;
 export type InsertStepValue = typeof insertStepValueSchema._type;
+export type RunGeneratedDocument = typeof runGeneratedDocuments.$inferSelect;
+export type InsertRunGeneratedDocument = typeof insertRunGeneratedDocumentSchema._type;
 export type TransformBlock = typeof transformBlocks.$inferSelect;
 export type InsertTransformBlock = typeof insertTransformBlockSchema._type;
 export type TransformBlockRun = typeof transformBlockRuns.$inferSelect;

@@ -3,7 +3,7 @@ import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import path from 'path';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { requireAuth } from '../middleware/auth';
+import { hybridAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -35,7 +35,7 @@ const router = Router();
  */
 router.post(
   '/workflows/:id/run',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:run'),
   async (req: Request, res: Response) => {
@@ -191,7 +191,7 @@ router.post(
  */
 router.get(
   '/runs',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {
@@ -313,7 +313,7 @@ router.get(
  */
 router.get(
   '/runs/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {
@@ -359,7 +359,7 @@ router.get(
  */
 router.get(
   '/runs/:id/logs',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {
@@ -429,7 +429,7 @@ router.get(
  */
 router.get(
   '/runs/:id/download',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {
@@ -523,7 +523,7 @@ router.get(
  */
 router.post(
   '/runs/:id/rerun',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('workflow:run'),
   async (req: Request, res: Response) => {
@@ -670,7 +670,7 @@ router.post(
  */
 router.get(
   '/runs/export.csv',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {
@@ -795,7 +795,7 @@ router.get(
  */
 router.get(
   '/runs/compare',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('run:view'),
   async (req: Request, res: Response) => {

@@ -24,7 +24,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useSections, useBlocks, useReorderSections, useSteps, useUpdateStep, useReorderSteps } from "@/lib/vault-hooks";
+import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps } from "@/lib/vault-hooks";
 import { PageCard } from "./PageCard";
 import { UI_LABELS } from "@/lib/labels";
 import { QuestionCard } from "../questions/QuestionCard";
@@ -50,12 +50,9 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeDragData, setActiveDragData] = useState<DragData | null>(null);
 
-  // Fetch all steps for all sections
-  const allSteps: Record<string, ApiStep[]> = {};
-  pages.forEach(page => {
-    const { data: steps = [] } = useSteps(page.id);
-    allSteps[page.id] = steps;
-  });
+  // Fetch all steps for all sections using the proper useAllSteps hook
+  // This respects React's Rules of Hooks by using useQueries internally
+  const allSteps = useAllSteps(pages);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

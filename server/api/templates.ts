@@ -3,7 +3,7 @@ import { eq, and, desc, lt } from 'drizzle-orm';
 import multer, { type FileFilterCallback } from 'multer';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { requireAuth } from '../middleware/auth';
+import { hybridAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -59,7 +59,7 @@ const upload = multerInstance({
  */
 router.get(
   '/projects/:projectId/templates',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:view'),
   async (req: Request, res: Response) => {
@@ -118,7 +118,7 @@ router.get(
  */
 router.post(
   '/projects/:projectId/templates',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:create'),
   upload.single('file'),
@@ -183,7 +183,7 @@ router.post(
  */
 router.get(
   '/templates/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:view'),
   async (req: Request, res: Response) => {
@@ -225,7 +225,7 @@ router.get(
  */
 router.patch(
   '/templates/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:edit'),
   upload.single('file'),
@@ -296,7 +296,7 @@ router.patch(
  */
 router.delete(
   '/templates/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:delete'),
   async (req: Request, res: Response) => {
@@ -344,7 +344,7 @@ router.delete(
  */
 router.get(
   '/templates/:id/placeholders',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('template:view'),
   async (req: Request, res: Response) => {

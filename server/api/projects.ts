@@ -2,7 +2,7 @@ import { Router, type Request, Response } from 'express';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { db } from '../db';
 import * as schema from '@shared/schema';
-import { requireAuth } from '../middleware/auth';
+import { hybridAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -23,7 +23,7 @@ const router = Router();
  */
 router.get(
   '/',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('project:view'),
   async (req: Request, res: Response) => {
@@ -75,7 +75,7 @@ router.get(
  */
 router.post(
   '/',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('project:create'),
   async (req: Request, res: Response) => {
@@ -111,7 +111,7 @@ router.post(
  */
 router.get(
   '/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('project:view'),
   async (req: Request, res: Response) => {
@@ -151,7 +151,7 @@ router.get(
  */
 router.patch(
   '/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('project:edit'),
   async (req: Request, res: Response) => {
@@ -200,7 +200,7 @@ router.patch(
  */
 router.delete(
   '/:id',
-  requireAuth,
+  hybridAuth,
   requireTenant,
   requirePermission('project:delete'),
   async (req: Request, res: Response) => {

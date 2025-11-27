@@ -28,6 +28,8 @@ export { StepValueRepository, stepValueRepository } from "./StepValueRepository"
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";
+export { RunGeneratedDocumentsRepository, runGeneratedDocumentsRepository } from "./RunGeneratedDocumentsRepository";
+export { SnapshotRepository, snapshotRepository, type WorkflowSnapshot, type SnapshotValueMap } from "./SnapshotRepository";
 
 // Teams & ACL repositories
 export { TeamRepository, teamRepository, TeamMemberRepository, teamMemberRepository } from "./TeamRepository";

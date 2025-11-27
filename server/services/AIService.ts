@@ -551,6 +551,103 @@ Output ONLY the JSON object, no additional text or markdown.`;
     error.details = details;
     return error;
   }
+
+  /**
+   * Suggest random plausible values for workflow steps
+   * Used for testing and preview data generation
+   */
+  async suggestValues(
+    steps: Array<{
+      key: string;
+      type: string;
+      label?: string;
+      options?: string[];
+      description?: string;
+    }>,
+    mode: 'full' | 'partial' = 'full'
+  ): Promise<Record<string, any>> {
+    const startTime = Date.now();
+
+    try {
+      const prompt = this.buildValueSuggestionPrompt(steps, mode);
+      const response = await this.callLLM(prompt, 'value_suggestion' as any);
+
+      // Parse and return the response
+      const parsed = JSON.parse(response);
+
+      const duration = Date.now() - startTime;
+      logger.info({
+        duration,
+        stepCount: steps.length,
+        mode,
+      }, 'AI value suggestion succeeded');
+
+      return parsed.values || parsed;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error({ error, duration }, 'AI value suggestion failed');
+
+      if (error instanceof SyntaxError) {
+        throw this.createError(
+          'Failed to parse AI response as JSON',
+          'INVALID_RESPONSE',
+          { originalError: error.message },
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Build prompt for value suggestion
+   */
+  private buildValueSuggestionPrompt(
+    steps: Array<{
+      key: string;
+      type: string;
+      label?: string;
+      options?: string[];
+      description?: string;
+    }>,
+    mode: 'full' | 'partial'
+  ): string {
+    const stepDescriptions = steps.map(step => {
+      let desc = `- ${step.key} (${step.type})`;
+      if (step.label) desc += `: ${step.label}`;
+      if (step.description) desc += ` - ${step.description}`;
+      if (step.options && step.options.length > 0) {
+        desc += ` [Options: ${step.options.join(', ')}]`;
+      }
+      return desc;
+    }).join('\n');
+
+    return `You are a test data generator. Generate realistic, plausible values for the following workflow fields.
+
+Fields to populate:
+${stepDescriptions}
+
+Requirements:
+- Generate realistic values that make sense for each field type
+- For text fields, use natural language appropriate to the label
+- For radio/checkbox/select fields, choose from the provided options only
+- For yes_no fields, return boolean true or false
+- For date_time fields, return ISO 8601 date-time strings
+- For number fields, return numeric values
+- Make the data cohesive and realistic (e.g., if there's firstName and lastName, make them match a person)
+- ${mode === 'full' ? 'Generate values for ALL fields' : 'Generate values only for the fields listed'}
+
+Return ONLY a JSON object with this structure:
+{
+  "values": {
+    "key1": "value1",
+    "key2": "value2",
+    ...
+  }
+}
+
+Do not include any markdown formatting, code blocks, or additional text. Return raw JSON only.`;
+  }
 }
 
 /**

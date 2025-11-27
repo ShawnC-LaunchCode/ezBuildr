@@ -2,8 +2,8 @@
  * TanStack Query hooks for Vault-Logic API
  */
 
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
+import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import { projectAPI, workflowAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
@@ -17,6 +17,8 @@ export const queryKeys = {
   workflows: ["workflows"] as const,
   workflowsUnfiled: ["workflows", "unfiled"] as const,
   workflow: (id: string) => ["workflows", id] as const,
+  snapshots: (workflowId: string) => ["workflows", workflowId, "snapshots"] as const,
+  snapshot: (workflowId: string, snapshotId: string) => ["workflows", workflowId, "snapshots", snapshotId] as const,
   variables: (workflowId: string) => ["workflows", workflowId, "variables"] as const,
   sections: (workflowId: string) => ["sections", workflowId] as const,
   section: (id: string) => ["sections", "single", id] as const,
@@ -198,6 +200,72 @@ export function useMoveWorkflow() {
 }
 
 // ============================================================================
+// Workflow Snapshots
+// ============================================================================
+
+export function useSnapshots(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.snapshots(workflowId!),
+    queryFn: () => snapshotAPI.list(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useSnapshot(workflowId: string | undefined, snapshotId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.snapshot(workflowId!, snapshotId!),
+    queryFn: () => snapshotAPI.get(workflowId!, snapshotId!),
+    enabled: !!workflowId && !!snapshotId,
+  });
+}
+
+export function useCreateSnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, name }: { workflowId: string; name: string }) =>
+      snapshotAPI.create(workflowId, name),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshots(variables.workflowId) });
+    },
+  });
+}
+
+export function useRenameSnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, snapshotId, name }: { workflowId: string; snapshotId: string; name: string }) =>
+      snapshotAPI.rename(workflowId, snapshotId, name),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshot(variables.workflowId, variables.snapshotId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshots(variables.workflowId) });
+    },
+  });
+}
+
+export function useDeleteSnapshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, snapshotId }: { workflowId: string; snapshotId: string }) =>
+      snapshotAPI.delete(workflowId, snapshotId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshots(variables.workflowId) });
+    },
+  });
+}
+
+export function useSaveSnapshotFromRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, snapshotId, runId }: { workflowId: string; snapshotId: string; runId: string }) =>
+      snapshotAPI.saveFromRun(workflowId, snapshotId, runId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshot(variables.workflowId, variables.snapshotId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.snapshots(variables.workflowId) });
+    },
+  });
+}
+
+// ============================================================================
 // Workflow Variables
 // ============================================================================
 
@@ -333,6 +401,31 @@ export function useSteps(sectionId: string | undefined) {
     queryFn: () => stepAPI.list(sectionId!),
     enabled: !!sectionId,
   });
+}
+
+/**
+ * Fetch steps for multiple sections at once
+ * Returns a Record<sectionId, ApiStep[]>
+ *
+ * This hook respects React's Rules of Hooks by using useQueries
+ * which always calls the same number of hooks based on the sections array
+ */
+export function useAllSteps(sections: ApiSection[]): Record<string, ApiStep[]> {
+  const queries = useQueries({
+    queries: sections.map((section) => ({
+      queryKey: queryKeys.steps(section.id),
+      queryFn: () => stepAPI.list(section.id),
+      staleTime: 5000, // Cache for 5 seconds to avoid excessive refetches
+    })),
+  });
+
+  // Combine results into a Record<sectionId, steps[]>
+  const allSteps: Record<string, ApiStep[]> = {};
+  sections.forEach((section, index) => {
+    allSteps[section.id] = queries[index].data || [];
+  });
+
+  return allSteps;
 }
 
 export function useStep(stepId: string | undefined) {

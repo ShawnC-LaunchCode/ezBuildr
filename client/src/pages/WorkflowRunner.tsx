@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import type { LogicRule } from "@shared/schema";
 
 interface WorkflowRunnerProps {
@@ -219,16 +220,31 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
   const progress = ((currentSectionIndex + 1) / visibleSections.length) * 100;
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
 
+  // Check if current section is a Final Documents section
+  const isFinalDocumentsSection = (currentSection?.config as any)?.finalBlock === true;
+
   const handleNext = async () => {
     setErrors([]);
 
-    // Collect values for current section
+    // Get steps for current section (excluding virtual and system steps)
+    const currentSectionSteps = allSteps.filter(
+      step => step.sectionId === currentSection.id &&
+              !step.isVirtual && // Exclude virtual steps (transform outputs)
+              step.type !== 'final_documents' // Exclude system steps
+    );
+    const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
+
+    // Collect values ONLY for steps in the current section
     const sectionValues = Object.keys(formValues)
-      .filter((key) => {
-        // This is simplified - would need to check if step belongs to section
-        return true;
-      })
+      .filter((stepId) => currentSectionStepIds.has(stepId))
       .map((stepId) => ({ stepId, value: formValues[stepId] }));
+
+    console.log('[WorkflowRunner] Submitting section:', {
+      runId: actualRunId,
+      sectionId: currentSection.id,
+      values: sectionValues,
+      valuesCount: sectionValues.length
+    });
 
     try {
       // Submit section with validation
@@ -268,7 +284,9 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         setCurrentSectionIndex((prev) => Math.min(prev + 1, sections.length - 1));
       }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to proceed", variant: "destructive" });
+      console.error('[WorkflowRunner] Submit/next error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to proceed";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -291,36 +309,47 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         </div>
 
         {/* Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{currentSection.title}</CardTitle>
-            {currentSection.description && (
-              <CardDescription>{currentSection.description}</CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <SectionSteps
-              sectionId={currentSection.id}
-              values={formValues}
-              logicRules={logicRules || []}
-              onChange={(stepId, value) =>
-                setFormValues((prev) => ({ ...prev, [stepId]: value }))
-              }
-            />
+        {isFinalDocumentsSection ? (
+          <FinalDocumentsSection
+            runId={actualRunId!}
+            sectionConfig={(currentSection.config as any) || {
+              screenTitle: "Your Completed Documents",
+              markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
+              templates: []
+            }}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{currentSection.title}</CardTitle>
+              {currentSection.description && (
+                <CardDescription>{currentSection.description}</CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <SectionSteps
+                sectionId={currentSection.id}
+                values={formValues}
+                logicRules={logicRules || []}
+                onChange={(stepId, value) =>
+                  setFormValues((prev) => ({ ...prev, [stepId]: value }))
+                }
+              />
 
-            {errors.length > 0 && (
-              <div className="p-4 bg-destructive/10 border border-destructive rounded-md space-y-3">
-                {errors.map((error, i) => (
-                  <div key={i} className="text-sm text-destructive">
-                    <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto">
-                      {error}
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              {errors.length > 0 && (
+                <div className="p-4 bg-destructive/10 border border-destructive rounded-md space-y-3">
+                  {errors.map((error, i) => (
+                    <div key={i} className="text-sm text-destructive">
+                      <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto">
+                        {error}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-6">
