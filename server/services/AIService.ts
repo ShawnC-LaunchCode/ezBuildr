@@ -14,6 +14,7 @@
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
   AIProvider,
   AIProviderConfig,
@@ -40,6 +41,7 @@ const logger = createLogger({ module: 'ai-service' });
 export class AIService {
   private openaiClient: OpenAI | null = null;
   private anthropicClient: Anthropic | null = null;
+  private geminiClient: any | null = null;
   private config: AIProviderConfig;
 
   constructor(config: AIProviderConfig) {
@@ -49,6 +51,9 @@ export class AIService {
       this.openaiClient = new OpenAI({ apiKey: config.apiKey });
     } else if (config.provider === 'anthropic') {
       this.anthropicClient = new Anthropic({ apiKey: config.apiKey });
+    } else if (config.provider === 'gemini') {
+      const genAI = new GoogleGenerativeAI(config.apiKey);
+      this.geminiClient = genAI.getGenerativeModel({ model: config.model });
     } else {
       throw new Error(`Unsupported AI provider: ${config.provider}`);
     }
@@ -441,6 +446,24 @@ Output ONLY the JSON object, no additional text or markdown.`;
         }
 
         return text;
+      } else if (provider === 'gemini' && this.geminiClient) {
+        const result = await this.geminiClient.generateContent(prompt);
+        const response = result.response;
+        const content = response.text();
+
+        if (!content) {
+          throw this.createError('No content in Gemini response', 'INVALID_RESPONSE');
+        }
+
+        // Strip markdown code blocks if present
+        let text = content.trim();
+        if (text.startsWith('```json')) {
+          text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+        } else if (text.startsWith('```')) {
+          text = text.replace(/^```\n/, '').replace(/\n```$/, '');
+        }
+
+        return text;
       } else {
         throw this.createError(
           `Provider ${provider} not initialized`,
@@ -652,13 +675,28 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
 
 /**
  * Create an AI service instance from environment configuration
+ * Priority: GEMINI_API_KEY > AI_API_KEY
  */
 export function createAIServiceFromEnv(): AIService {
+  // Check for GEMINI_API_KEY first (preferred for VaultLogic features)
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    const config: AIProviderConfig = {
+      provider: 'gemini' as AIProvider,
+      apiKey: geminiKey,
+      model: 'gemini-2.0-flash-exp',
+      temperature: 0.7,
+      maxTokens: 4000,
+    };
+    return new AIService(config);
+  }
+
+  // Fall back to AI_API_KEY with AI_PROVIDER
   const provider = (process.env.AI_PROVIDER || 'openai') as AIProvider;
   const apiKey = process.env.AI_API_KEY;
 
   if (!apiKey) {
-    throw new Error('AI_API_KEY environment variable is required');
+    throw new Error('Either GEMINI_API_KEY or AI_API_KEY environment variable is required');
   }
 
   const modelWorkflow = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider);
@@ -683,6 +721,8 @@ function getDefaultModel(provider: AIProvider): string {
       return 'gpt-4-turbo-preview';
     case 'anthropic':
       return 'claude-3-5-sonnet-20241022';
+    case 'gemini':
+      return 'gemini-2.0-flash-exp';
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }

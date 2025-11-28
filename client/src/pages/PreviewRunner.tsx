@@ -8,6 +8,8 @@ import { useParams, useLocation } from "wouter";
 import { ArrowLeft, Eye, Loader2, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PreviewSidebar } from "@/components/runner/PreviewSidebar";
+import { FillPageWithRandomDataButton } from "@/components/runner/FillPageWithRandomDataButton";
+import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -368,6 +370,9 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
   // Get current section from the original sections array
   const currentSection = sections ? sections[currentSectionIndex] : null;
 
+  // Check if current section is a Final Documents section
+  const isFinalDocumentsSection = (currentSection?.config as any)?.finalBlock === true;
+
   // Auto-navigate if current section is hidden
   useEffect(() => {
     if (!sections || !currentSection || visibleSections.length === 0) return;
@@ -434,19 +439,21 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
+          <FillPageWithRandomDataButton
+            runId={runId}
+            currentSectionSteps={allWorkflowSteps?.filter(
+              step => step.sectionId === currentSection.id &&
+                      !step.isVirtual &&
+                      step.type !== 'final_documents'
+            ) || []}
+            onValuesFilled={(values) => {
+              setFormValues((prev) => ({ ...prev, ...values }));
               toast({
-                title: "Coming Soon",
-                description: "AI autofill will be available soon",
+                title: "Page Filled",
+                description: "AI has generated realistic test data for this section",
               });
             }}
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Autofill this page
-          </Button>
+          />
           <Button variant="outline" onClick={navigateToBuilder}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Builder
@@ -468,37 +475,49 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
         </div>
 
         {/* Section Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{currentSection.title}</CardTitle>
-            {currentSection.description && (
-              <CardDescription>{currentSection.description}</CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <SectionSteps
-              runId={runId}
-              runToken={runToken}
-              sectionId={currentSection.id}
-              values={formValues}
-              logicRules={logicRules || []}
-              allWorkflowSteps={allWorkflowSteps}
-              onChange={(stepId, value) =>
-                setFormValues((prev) => ({ ...prev, [stepId]: value }))
-              }
-            />
+        {isFinalDocumentsSection ? (
+          <FinalDocumentsSection
+            runId={runId}
+            runToken={runToken}
+            sectionConfig={(currentSection.config as any) || {
+              screenTitle: "Your Completed Documents",
+              markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
+              templates: []
+            }}
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{currentSection.title}</CardTitle>
+              {currentSection.description && (
+                <CardDescription>{currentSection.description}</CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <SectionSteps
+                runId={runId}
+                runToken={runToken}
+                sectionId={currentSection.id}
+                values={formValues}
+                logicRules={logicRules || []}
+                allWorkflowSteps={allWorkflowSteps}
+                onChange={(stepId, value) =>
+                  setFormValues((prev) => ({ ...prev, [stepId]: value }))
+                }
+              />
 
-            {errors.length > 0 && (
-              <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
-                <ul className="text-sm text-destructive list-disc list-inside">
-                  {errors.map((error, i) => (
-                    <li key={i}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              {errors.length > 0 && (
+                <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
+                  <ul className="text-sm text-destructive list-disc list-inside">
+                    {errors.map((error, i) => (
+                      <li key={i}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-6">

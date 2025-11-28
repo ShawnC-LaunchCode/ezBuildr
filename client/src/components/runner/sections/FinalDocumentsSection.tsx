@@ -13,6 +13,7 @@ import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
 
 interface FinalDocumentsSectionProps {
   runId: string;
+  runToken?: string; // Optional run token for preview mode
   sectionConfig: {
     screenTitle: string;
     markdownMessage: string;
@@ -29,14 +30,18 @@ interface GeneratedDocument {
   createdAt: string;
 }
 
-export function FinalDocumentsSection({ runId, sectionConfig }: FinalDocumentsSectionProps) {
+export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
   const { screenTitle, markdownMessage } = sectionConfig;
 
   // Fetch generated documents for this run
   const { data: documents = [], isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
     queryFn: async () => {
-      const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`);
+      const headers: Record<string, string> = {};
+      if (runToken) {
+        headers['Authorization'] = `Bearer ${runToken}`;
+      }
+      const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`, { headers });
       return response.data.documents;
     },
     refetchInterval: (data) => {
@@ -101,15 +106,27 @@ export function FinalDocumentsSection({ runId, sectionConfig }: FinalDocumentsSe
             <div className="text-center py-8 text-destructive">
               <p className="text-sm">Failed to load documents. Please try again.</p>
             </div>
-          ) : isLoading || documents.length === 0 ? (
+          ) : documents.length === 0 ? (
             <div className="text-center py-8 space-y-4">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Preparing your documents...
-              </p>
-              <p className="text-xs text-muted-foreground">
-                This may take a few moments
-              </p>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Generating your documents...
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This may take a few moments
+                  </p>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
+                  <p className="text-sm font-medium">Ready to generate your documents</p>
+                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                    Click the <strong>"Complete"</strong> button below to finish this workflow and generate your documents.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-3">

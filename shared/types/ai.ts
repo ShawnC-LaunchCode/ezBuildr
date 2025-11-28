@@ -182,7 +182,7 @@ export type AITemplateBindingsResponse = z.infer<typeof AITemplateBindingsRespon
 /**
  * AI provider configuration
  */
-export type AIProvider = 'openai' | 'anthropic';
+export type AIProvider = 'openai' | 'anthropic' | 'gemini';
 
 export interface AIProviderConfig {
   provider: AIProvider;

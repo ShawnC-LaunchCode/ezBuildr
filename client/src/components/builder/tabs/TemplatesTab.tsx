@@ -108,7 +108,13 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       const projectId = workflow.projectId;
 
       if (!projectId) {
-        throw new Error("Workflow has no projectId");
+        toast({
+          title: "Cannot Upload Template",
+          description: "This workflow is not associated with a project. Please create a new workflow within a project to use templates.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
       }
 
       // Upload template

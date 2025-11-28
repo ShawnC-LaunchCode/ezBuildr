@@ -223,6 +223,9 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
   // Check if current section is a Final Documents section
   const isFinalDocumentsSection = (currentSection?.config as any)?.finalBlock === true;
 
+  // Get run token from localStorage for Final Documents section
+  const runToken = actualRunId ? localStorage.getItem(`run_token_${actualRunId}`) : null;
+
   const handleNext = async () => {
     setErrors([]);
 
@@ -312,6 +315,7 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         {isFinalDocumentsSection ? (
           <FinalDocumentsSection
             runId={actualRunId!}
+            runToken={runToken || undefined}
             sectionConfig={(currentSection.config as any) || {
               screenTitle: "Your Completed Documents",
               markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",

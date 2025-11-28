@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Eye } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { FileText, Eye, HelpCircle, ExternalLink } from "lucide-react";
 import { useUpdateSection } from "@/lib/vault-hooks";
 import type { ApiSection } from "@/lib/vault-api";
 
@@ -156,8 +157,30 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
                   placeholder="# Thank You!&#10;&#10;Your documents are ready for download below."
                   className="font-mono text-sm"
                 />
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-1">
                   Supports Markdown formatting (headings, bold, italic, lists, etc.)
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <a
+                        href="https://www.markdownguide.org/cheat-sheet/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-sm">
+                        Learn about Markdown syntax and formatting options
+                      </p>
+                      <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                        <ExternalLink className="h-3 w-3" />
+                        <span>View Markdown cheat sheet</span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 </p>
               </TabsContent>
               <TabsContent value="preview" className="mt-2">

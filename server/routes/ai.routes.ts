@@ -498,11 +498,11 @@ export function registerAiRoutes(app: Express): void {
           });
         }
 
-        // Validate AI configuration
-        if (!process.env.AI_API_KEY) {
+        // Validate AI configuration (GEMINI_API_KEY or AI_API_KEY)
+        if (!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY) {
           return res.status(503).json({
             success: false,
-            message: 'AI service not configured',
+            message: 'AI service not configured - please set GEMINI_API_KEY or AI_API_KEY',
             error: 'service_unavailable',
           });
         }
