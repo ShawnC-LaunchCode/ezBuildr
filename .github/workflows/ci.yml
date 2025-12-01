@@ -115,95 +115,95 @@ jobs:
   # E2E Tests (Playwright) - Disabled in CI
   # Run e2e tests locally with: npm run test:e2e
   # Uncomment this job to enable e2e tests in CI
-  # test-e2e:
-  #   name: E2E Tests (Playwright)
-  #   runs-on: ubuntu-latest
+  test-e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
   #
-  #   env:
-  #     NODE_ENV: test
-  #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  #     GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-  #     VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-  #     SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+    env:
+      NODE_ENV: test
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
   #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20.x
-  #         cache: 'npm'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Install Playwright browsers
-  #       run: npx playwright install --with-deps
-  #
-  #     - name: Verify environment variables
-  #       run: |
-  #         echo "🔍 Checking environment variables..."
-  #         echo "DATABASE_URL set: $( [ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO' )"
-  #         echo "GOOGLE_CLIENT_ID set: $( [ -n "$GOOGLE_CLIENT_ID" ] && echo 'YES' || echo 'NO' )"
-  #         echo "SESSION_SECRET set: $( [ -n "$SESSION_SECRET" ] && echo 'YES' || echo 'NO' )"
-  #         echo "NODE_ENV: $NODE_ENV"
-  #
-  #     - name: Run E2E tests
-  #       id: playwright
-  #       continue-on-error: true
-  #       run: npm run test:e2e
-  #
-  #     - name: Copy Playwright JSON results
-  #       if: always()
-  #       run: |
-  #         # Playwright outputs JSON to test-results/results.json (configured in playwright.config.ts)
-  #         echo "📂 Checking for Playwright results..."
-  #         ls -la test-results/ || echo "No test-results directory"
-  #
-  #         if [ -f "test-results/results.json" ]; then
-  #           echo "✓ Found test-results/results.json"
-  #           echo "📊 Full Playwright JSON:"
-  #           cat test-results/results.json
-  #           echo ""
-  #
-  #           # Check if any tests actually ran
-  #           TEST_COUNT=$(jq -r '.stats.expected + .stats.unexpected + .stats.skipped' test-results/results.json)
-  #           echo "📊 Tests found: $TEST_COUNT"
-  #
-  #           cp test-results/results.json playwright-summary.json
-  #           echo "✓ Copied Playwright results to playwright-summary.json"
-  #
-  #           # Fail if no tests ran (indicates webserver or other startup failure)
-  #           if [ "$TEST_COUNT" -eq "0" ]; then
-  #             echo "❌ ERROR: Playwright ran but executed 0 tests"
-  #             echo "   This usually means the webserver failed to start"
-  #             jq -r '.errors[]?.message // "No error details"' test-results/results.json
-  #             exit 1
-  #           fi
-  #         else
-  #           # Fallback: create empty results if tests didn't run
-  #           echo '{"suites":[],"stats":{"expected":0,"unexpected":0,"skipped":0},"testDidNotRun":true}' > playwright-summary.json
-  #           echo "❌ ERROR: No Playwright results found - tests did not run at all"
-  #           exit 1
-  #         fi
-  #
-  #     - name: Upload Playwright report
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: playwright-report
-  #         path: playwright-report/
-  #         retention-days: 30
-  #
-  #     - name: Upload Playwright JSON summary
-  #       if: always()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-summary
-  #         path: playwright-summary.json
-  #         retention-days: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Verify environment variables
+        run: |
+          echo "🔍 Checking environment variables..."
+          echo "DATABASE_URL set: $( [ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO' )"
+          echo "GOOGLE_CLIENT_ID set: $( [ -n "$GOOGLE_CLIENT_ID" ] && echo 'YES' || echo 'NO' )"
+          echo "SESSION_SECRET set: $( [ -n "$SESSION_SECRET" ] && echo 'YES' || echo 'NO' )"
+          echo "NODE_ENV: $NODE_ENV"
+
+      - name: Run E2E tests
+        id: playwright
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Copy Playwright JSON results
+        if: always()
+        run: |
+          # Playwright outputs JSON to test-results/results.json (configured in playwright.config.ts)
+          echo "📂 Checking for Playwright results..."
+          ls -la test-results/ || echo "No test-results directory"
+
+          if [ -f "test-results/results.json" ]; then
+            echo "✓ Found test-results/results.json"
+            echo "📊 Full Playwright JSON:"
+            cat test-results/results.json
+            echo ""
+
+            # Check if any tests actually ran
+            TEST_COUNT=$(jq -r '.stats.expected + .stats.unexpected + .stats.skipped' test-results/results.json)
+            echo "📊 Tests found: $TEST_COUNT"
+
+            cp test-results/results.json playwright-summary.json
+            echo "✓ Copied Playwright results to playwright-summary.json"
+
+            # Fail if no tests ran (indicates webserver or other startup failure)
+            if [ "$TEST_COUNT" -eq "0" ]; then
+              echo "❌ ERROR: Playwright ran but executed 0 tests"
+              echo "   This usually means the webserver failed to start"
+              jq -r '.errors[]?.message // "No error details"' test-results/results.json
+              exit 1
+            fi
+          else
+            # Fallback: create empty results if tests didn't run
+            echo '{"suites":[],"stats":{"expected":0,"unexpected":0,"skipped":0},"testDidNotRun":true}' > playwright-summary.json
+            echo "❌ ERROR: No Playwright results found - tests did not run at all"
+            exit 1
+          fi
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload Playwright JSON summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-summary
+          path: playwright-summary.json
+          retention-days: 1
 
   notify-slack:
     name: Slack Notification Suite

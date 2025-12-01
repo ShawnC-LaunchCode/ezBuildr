@@ -1,0 +1,63 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+
+{"level":40,"time":1764611458902,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764611461627,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764611461627,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764611461633,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764611461633,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764611461633,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764611461633,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.runs.graph.test.ts [2m([22m[2m19 tests[22m[2m | [22m[33m19 skipped[39m[2m)[22m[33m 490[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+       [2m[90mΓåô[39m[22m should list all runs with pagination
+       [2m[90mΓåô[39m[22m should filter runs by status
+       [2m[90mΓåô[39m[22m should filter runs by workflow
+       [2m[90mΓåô[39m[22m should filter runs by project
+       [2m[90mΓåô[39m[22m should filter runs by date range
+       [2m[90mΓåô[39m[22m should search runs by query string
+       [2m[90mΓåô[39m[22m should get run by ID with all details
+       [2m[90mΓåô[39m[22m should return 404 for non-existent run
+       [2m[90mΓåô[39m[22m should get logs for a run
+       [2m[90mΓåô[39m[22m should re-run workflow with same inputs
+       [2m[90mΓåô[39m[22m should re-run workflow with override inputs
+       [2m[90mΓåô[39m[22m should return 404 for non-existent run
+       [2m[90mΓåô[39m[22m should export runs to CSV
+       [2m[90mΓåô[39m[22m should export runs with filters applied
+       [2m[90mΓåô[39m[22m should compare two runs
+       [2m[90mΓåô[39m[22m should identify changed input keys
+       [2m[90mΓåô[39m[22m should return 404 if run A not found
+ FAIL  tests/integration/api.runs.graph.test.ts > Stage 8: Runs API Integration Tests
+       [2m[90mΓåô[39m[22m should return 404 if run B not found
+error: null value in column "owner_id" of relation "projects" violates not-null constraint
+       [2m[90mΓåô[39m[22m should enforce tenant isolation on runs list
+ Γ¥» node_modules/@neondatabase/serverless/index.mjs:1345:74
+
+ Γ¥» NeonPreparedQuery.execute node_modules/drizzle-orm/neon-serverless/session.js:76:20
+ Γ¥» tests/integration/api.runs.graph.test.ts:67:23
+     65| 
+     66|     // Create project
+     67|     const [project] = await db.insert(schema.projects).values({
+       |                       ^
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+     68|       title: "Test Project for Runs",
+[2m      Tests [22m [33m19 skipped[39m[90m (19)[39m
+[2m   Start at [22m 11:50:57
+     69|       name: "Test Project for Runs",
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+[2m   Duration [22m 4.85s[2m (transform 1.72s, setup 67ms, collect 3.94s, tests 490ms, environment 0ms, prepare 13ms)[22m
+

@@ -114,6 +114,10 @@ export function registerAllRoutes(app: Express): void {
   // Connections routes (Stage 16 - Integrations Hub - replaces Stage 9)
   registerConnectionsV2Routes(app);
 
+  // Runs API (workflow execution, logs, download)
+  // Register BEFORE generic run routes to ensure API endpoints take precedence
+  registerApiRunRoutes(app);
+
   // Workflow run and execution routes
   registerRunRoutes(app);
 
@@ -140,7 +144,7 @@ export function registerAllRoutes(app: Express): void {
   registerRunOutputsRoutes(app);
 
   // Runs API (workflow execution, logs, download)
-  registerApiRunRoutes(app);
+  // registerApiRunRoutes(app); // Moved up to avoid conflict
 
   // ========================================================================
   // Stage 11: Workflow Analytics & SLIs

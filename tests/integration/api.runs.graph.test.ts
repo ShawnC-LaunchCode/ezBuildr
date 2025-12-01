@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../server/db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { createGraphWorkflow, createGraphRun } from "../factories/graphFactory";
 
 /**
  * Stage 8: Runs API Integration Tests
@@ -16,7 +17,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
   let app: Express;
   let server: Server;
   let baseURL: string;
-  let authToken: string;
+  let agent: any;
   let tenantId: string;
   let userId: string;
   let projectId: string;
@@ -24,6 +25,39 @@ describe("Stage 8: Runs API Integration Tests", () => {
   let workflowVersionId: string;
   let runId1: string;
   let runId2: string;
+
+  // Mock setupAuth to allow backdoor login
+  vi.mock("../../server/googleAuth", async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+      ...actual,
+      setupAuth: (app: Express) => {
+        app.use(actual.getSession());
+
+        // Debug middleware to log cookies and session AND restore req.user
+        app.use((req, res, next) => {
+          if (req.session && req.session.user) {
+            // Restore req.user from session (mimic passport)
+            req.user = req.session.user;
+            req.isAuthenticated = () => true;
+          } else {
+            req.isAuthenticated = () => false;
+          }
+          next();
+        });
+
+        app.post("/api/auth/google", (req, res) => {
+          // Backdoor login: accept user object directly
+          if (req.body.user) {
+            req.session.user = req.body.user;
+            req.user = req.body.user;
+            return res.json({ message: "Logged in via backdoor", user: req.body.user });
+          }
+          res.status(400).json({ error: "No user provided" });
+        });
+      },
+    };
+  });
 
   beforeAll(async () => {
     app = express();
@@ -41,6 +75,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     baseURL = `http://localhost:${port}`;
+    agent = request.agent(baseURL);
 
     // Setup tenant
     const [tenant] = await db.insert(schema.tenants).values({
@@ -51,49 +86,72 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
     // Setup user
     const email = `test-runs-stage8-${nanoid()}@example.com`;
-    const [user] = await db.insert(schema.users).values({
+    // Use fixed ID to avoid issues, or let it generate
+    userId = "test-user-runs-stage8";
+
+    await db.insert(schema.users).values({
+      id: userId,
       email,
       passwordHash: "hashed_password",
       tenantId,
       tenantRole: "builder",
-    }).returning();
-    userId = user.id;
+    }).onConflictDoUpdate({
+      target: schema.users.id,
+      set: {
+        tenantId: tenantId,
+        tenantRole: "builder",
+        email: email,
+      }
+    });
 
-    // Mock auth token (in real app this would come from auth flow)
-    authToken = `mock-token-${userId}`;
+    // Login to establish session via backdoor
+    await agent.post("/api/auth/google").send({
+      user: {
+        claims: {
+          sub: userId,
+          email: email,
+        },
+        id: userId,
+        email,
+        tenantId,
+        tenantRole: "builder",
+        role: "creator",
+      }
+    });
 
     // Create project
     const [project] = await db.insert(schema.projects).values({
+      title: "Test Project for Runs",
       name: "Test Project for Runs",
       tenantId,
-      createdBy: userId,
+      creatorId: userId,
+      ownerId: userId,
     }).returning();
     projectId = project.id;
 
-    // Create workflow
-    const [workflow] = await db.insert(schema.workflows).values({
-      name: "Test Workflow",
+    // Create workflow using Factory
+    const { workflow: wfData, version: vData } = createGraphWorkflow({
       projectId,
       createdBy: userId,
+      name: "Test Workflow",
       status: "active",
-      graphJson: { nodes: [], edges: [] },
-    }).returning();
+    });
+
+    const [workflow] = await db.insert(schema.workflows).values(wfData).returning();
     workflowId = workflow.id;
 
-    // Create and publish workflow version
     const [version] = await db.insert(schema.workflowVersions).values({
-      workflowId,
-      name: "v1.0",
-      graphJson: { nodes: [], edges: [] },
+      ...vData,
+      workflowId, // Ensure link
       published: true,
       publishedAt: new Date(),
       publishedBy: userId,
+      name: "v1.0",
     }).returning();
     workflowVersionId = version.id;
 
-    // Create test runs
-    const [run1] = await db.insert(schema.runs).values({
-      workflowVersionId,
+    // Create test runs using Factory
+    const run1Data = createGraphRun(workflowVersionId, {
       inputJson: { name: "Alice", age: 30 },
       outputRefs: { document: { fileRef: "test-output-1.docx" } },
       status: "success",
@@ -107,11 +165,11 @@ describe("Stage 8: Runs API Integration Tests", () => {
           timestamp: new Date().toISOString(),
         },
       ],
-    }).returning();
+    });
+    const [run1] = await db.insert(schema.runs).values(run1Data).returning();
     runId1 = run1.id;
 
-    const [run2] = await db.insert(schema.runs).values({
-      workflowVersionId,
+    const run2Data = createGraphRun(workflowVersionId, {
       inputJson: { name: "Bob", age: 25 },
       outputRefs: { document: { fileRef: "test-output-2.docx" } },
       status: "success",
@@ -125,18 +183,19 @@ describe("Stage 8: Runs API Integration Tests", () => {
           timestamp: new Date().toISOString(),
         },
       ],
-    }).returning();
+    });
+    const [run2] = await db.insert(schema.runs).values(run2Data).returning();
     runId2 = run2.id;
 
     // Create a failed run
-    await db.insert(schema.runs).values({
-      workflowVersionId,
+    const failedRunData = createGraphRun(workflowVersionId, {
       inputJson: { name: "Charlie", age: 40 },
       status: "error",
       error: "Test error message",
       durationMs: 500,
       createdBy: userId,
     });
+    await db.insert(schema.runs).values(failedRunData);
 
     // Create run logs
     await db.insert(schema.runLogs).values([
@@ -171,7 +230,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
       // Note: This test assumes auth middleware is mocked or bypassed in test environment
       // In production, you'd need to properly authenticate with Bearer token or session
 
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ limit: 10 })
         .expect(200);
@@ -182,7 +241,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should filter runs by status", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ status: "success", limit: 10 })
         .expect(200);
@@ -194,7 +253,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should filter runs by workflow", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ workflowId, limit: 10 })
         .expect(200);
@@ -206,7 +265,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should filter runs by project", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ projectId, limit: 10 })
         .expect(200);
@@ -221,7 +280,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
       const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // 24h ago
       const to = new Date().toISOString();
 
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ from, to, limit: 10 })
         .expect(200);
@@ -235,7 +294,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should search runs by query string", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ q: "Alice", limit: 10 })
         .expect(200);
@@ -251,7 +310,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   describe("GET /api/runs/:id", () => {
     it("should get run by ID with all details", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get(`/api/runs/${runId1}`)
         .expect(200);
 
@@ -266,7 +325,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
     it("should return 404 for non-existent run", async () => {
       const fakeId = "00000000-0000-0000-0000-000000000000";
-      await request(baseURL)
+      await agent
         .get(`/api/runs/${fakeId}`)
         .expect(404);
     });
@@ -274,7 +333,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   describe("GET /api/runs/:id/logs", () => {
     it("should get logs for a run", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get(`/api/runs/${runId1}/logs`)
         .query({ limit: 10 })
         .expect(200);
@@ -292,7 +351,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   describe("POST /api/runs/:id/rerun", () => {
     it("should re-run workflow with same inputs", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .post(`/api/runs/${runId1}/rerun`)
         .send({})
         .expect(201);
@@ -312,7 +371,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should re-run workflow with override inputs", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .post(`/api/runs/${runId1}/rerun`)
         .send({
           overrideInputJson: { age: 35 }, // Override age but keep name
@@ -333,7 +392,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
     it("should return 404 for non-existent run", async () => {
       const fakeId = "00000000-0000-0000-0000-000000000000";
-      await request(baseURL)
+      await agent
         .post(`/api/runs/${fakeId}/rerun`)
         .send({})
         .expect(404);
@@ -342,7 +401,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   describe("GET /api/runs/export.csv", () => {
     it("should export runs to CSV", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs/export.csv")
         .expect(200);
 
@@ -355,7 +414,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should export runs with filters applied", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs/export.csv")
         .query({ status: "success" })
         .expect(200);
@@ -368,7 +427,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   describe("GET /api/runs/compare", () => {
     it("should compare two runs", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs/compare")
         .query({ runA: runId1, runB: runId2 })
         .expect(200);
@@ -391,7 +450,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     });
 
     it("should identify changed input keys", async () => {
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs/compare")
         .query({ runA: runId1, runB: runId2 })
         .expect(200);
@@ -404,7 +463,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
     it("should return 404 if run A not found", async () => {
       const fakeId = "00000000-0000-0000-0000-000000000000";
-      await request(baseURL)
+      await agent
         .get("/api/runs/compare")
         .query({ runA: fakeId, runB: runId2 })
         .expect(404);
@@ -412,7 +471,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
     it("should return 404 if run B not found", async () => {
       const fakeId = "00000000-0000-0000-0000-000000000000";
-      await request(baseURL)
+      await agent
         .get("/api/runs/compare")
         .query({ runA: runId1, runB: fakeId })
         .expect(404);
@@ -437,15 +496,19 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
       // Create project and workflow in other tenant
       const [otherProject] = await db.insert(schema.projects).values({
+        title: "Other Project",
         name: "Other Project",
         tenantId: otherTenant.id,
-        createdBy: otherUser.id,
+        creatorId: otherUser.id,
+        ownerId: otherUser.id,
       }).returning();
 
       const [otherWorkflow] = await db.insert(schema.workflows).values({
         name: "Other Workflow",
+        title: "Other Workflow",
         projectId: otherProject.id,
-        createdBy: otherUser.id,
+        creatorId: otherUser.id,
+        ownerId: otherUser.id,
         status: "active",
         graphJson: { nodes: [], edges: [] },
       }).returning();
@@ -457,6 +520,8 @@ describe("Stage 8: Runs API Integration Tests", () => {
         published: true,
         publishedAt: new Date(),
         publishedBy: otherUser.id,
+        version: 1,
+        createdBy: otherUser.id,
       }).returning();
 
       // Create run in other tenant
@@ -468,7 +533,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
       });
 
       // List runs as original user (should not see other tenant's runs)
-      const response = await request(baseURL)
+      const response = await agent
         .get("/api/runs")
         .query({ limit: 100 })
         .expect(200);
@@ -480,6 +545,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
       expect(otherTenantRuns.length).toBe(0);
 
       // Cleanup
+      await db.delete(schema.workflows).where(eq(schema.workflows.creatorId, otherUser.id));
       await db.delete(schema.tenants).where(eq(schema.tenants.id, otherTenant.id));
     });
   });
