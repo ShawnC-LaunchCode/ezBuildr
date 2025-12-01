@@ -100,6 +100,10 @@ export const createError = {
     return new ApiError(ErrorCode.INVALID_INPUT, message, details, 400);
   },
 
+  badRequest(message: string, details?: any): ApiError {
+    return new ApiError(ErrorCode.INVALID_INPUT, message, details, 400);
+  },
+
   workflowNotDraft(message = 'Workflow must be in draft status to edit'): ApiError {
     return new ApiError(ErrorCode.WORKFLOW_NOT_DRAFT, message, undefined, 400);
   },

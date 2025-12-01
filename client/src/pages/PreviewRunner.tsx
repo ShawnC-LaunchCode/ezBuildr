@@ -72,6 +72,7 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<string[]>([]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Fetch run with values
   const { data: runData, isLoading: loadingRun } = useQuery({
@@ -213,8 +214,8 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
     // Get steps for current section (excluding virtual and system steps)
     const currentSectionSteps = allWorkflowSteps.filter(
       step => step.sectionId === currentSection.id &&
-              !step.isVirtual && // Exclude virtual steps (transform outputs)
-              step.type !== 'final_documents' // Exclude system steps
+        !step.isVirtual && // Exclude virtual steps (transform outputs)
+        step.type !== 'final_documents' // Exclude system steps
     );
     const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
 
@@ -443,8 +444,8 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
             runId={runId}
             currentSectionSteps={allWorkflowSteps?.filter(
               step => step.sectionId === currentSection.id &&
-                      !step.isVirtual &&
-                      step.type !== 'final_documents'
+                !step.isVirtual &&
+                step.type !== 'final_documents'
             ) || []}
             onValuesFilled={(values) => {
               setFormValues((prev) => ({ ...prev, ...values }));
@@ -462,7 +463,8 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
       </div>
 
       {/* Runner Content */}
-      <div className="flex-1 container max-w-3xl mx-auto p-8 pr-[400px]">
+      <div className={`flex-1 container mx-auto p-8 transition-all duration-300 ${isSidebarCollapsed ? 'pr-12' : 'pr-[400px]'
+        } max-w-3xl lg:max-w-6xl`}>
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
@@ -548,6 +550,8 @@ function PreviewContent({ runId, runToken }: PreviewContentProps) {
         runToken={runToken}
         formValues={formValues}
         allWorkflowSteps={allWorkflowSteps}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={setIsSidebarCollapsed}
       />
     </div>
   );

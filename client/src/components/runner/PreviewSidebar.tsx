@@ -159,6 +159,8 @@ interface PreviewSidebarProps {
   runToken: string;
   formValues: Record<string, any>;
   allWorkflowSteps: ApiStep[];
+  isCollapsed: boolean;
+  onToggleCollapse: (collapsed: boolean) => void;
 }
 
 export function PreviewSidebar({
@@ -167,9 +169,10 @@ export function PreviewSidebar({
   runToken,
   formValues,
   allWorkflowSteps,
+  isCollapsed,
+  onToggleCollapse,
 }: PreviewSidebarProps) {
   const { toast } = useToast();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [snapshotName, setSnapshotName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -243,12 +246,12 @@ export function PreviewSidebar({
 
   if (isCollapsed) {
     return (
-      <div className="fixed right-0 top-0 bottom-0 flex items-center">
+      <div className="fixed right-0 top-16 bottom-0 flex items-center z-20">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsCollapsed(false)}
-          className="rounded-l-md rounded-r-none h-24"
+          onClick={() => onToggleCollapse(false)}
+          className="rounded-l-md rounded-r-none h-24 bg-background border-l border-y shadow-sm"
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
@@ -257,14 +260,14 @@ export function PreviewSidebar({
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-96 bg-background border-l shadow-lg flex flex-col">
+    <div className="fixed right-0 top-16 bottom-0 w-96 bg-background border-l shadow-lg flex flex-col z-20">
       {/* Header with collapse button */}
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold">Preview Tools</h3>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setIsCollapsed(true)}
+          onClick={() => onToggleCollapse(true)}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>

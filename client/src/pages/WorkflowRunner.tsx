@@ -53,6 +53,29 @@ async function startRunFromSlug(
   return result.data;
 }
 
+// Helper to start a run from a workflow UUID
+async function startRunFromWorkflowId(
+  workflowId: string,
+  initialValues?: Record<string, any>
+): Promise<{ runId: string; runToken: string; workflowId: string }> {
+  const response = await fetch(`/api/workflows/${workflowId}/runs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include', // Include session cookies for authenticated users
+    body: JSON.stringify({ initialValues }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to start workflow');
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
 export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps) {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -82,8 +105,66 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         }
 
         if (isUUID(runId)) {
-          // It's already a run ID - use it directly
-          setActualRunId(runId);
+          // It's a UUID - could be a workflow ID or run ID
+          // First, try to fetch it as a run to see if we have access
+          const runToken = localStorage.getItem(`run_token_${runId}`);
+
+          // If we have a run token for this ID, treat it as a run
+          if (runToken) {
+            setActualRunId(runId);
+            localStorage.setItem('active_run_token', runToken);
+          } else {
+            // No run token - try to create a new run from this UUID as a workflow ID
+            try {
+              const runData = await startRunFromWorkflowId(
+                runId,
+                Object.keys(initialValues).length > 0 ? initialValues : undefined
+              );
+              setActualRunId(runData.runId);
+
+              // Store the run token in localStorage for bearer auth
+              localStorage.setItem(`run_token_${runData.runId}`, runData.runToken);
+              localStorage.setItem('active_run_token', runData.runToken);
+            } catch (createError) {
+              // If creating run fails, it might be an existing run ID we don't have access to
+              // Try to fetch the run to get its workflow ID, then create a new run
+              try {
+                const response = await fetch(`/api/runs/${runId}`, {
+                  credentials: 'include',
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  const workflowId = result.data?.workflowId;
+
+                  if (workflowId) {
+                    // Create a new run from the same workflow
+                    const newRunData = await startRunFromWorkflowId(
+                      workflowId,
+                      Object.keys(initialValues).length > 0 ? initialValues : undefined
+                    );
+                    setActualRunId(newRunData.runId);
+                    localStorage.setItem(`run_token_${newRunData.runId}`, newRunData.runToken);
+                    localStorage.setItem('active_run_token', newRunData.runToken);
+
+                    toast({
+                      title: "New session started",
+                      description: "Created a new run for this workflow",
+                    });
+                  } else {
+                    throw new Error("Could not determine workflow ID");
+                  }
+                } else {
+                  // Can't access the run at all - treat the UUID as a run ID anyway
+                  // This will likely fail but will show a proper error
+                  setActualRunId(runId);
+                }
+              } catch (fetchError) {
+                // Final fallback - just use the ID as-is
+                setActualRunId(runId);
+              }
+            }
+          }
         } else {
           // It's a slug - need to start a new run with initial values
           const runData = await startRunFromSlug(
@@ -112,8 +193,11 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
     initialize();
   }, [runId, toast]);
 
-  // Fetch run data - bearer token is automatically added by fetchAPI from localStorage
-  const { data: run } = useRunWithValues(actualRunId || '');
+  // Fetch run data - but only after initialization is complete
+  // This prevents trying to fetch a run we don't have access to
+  const { data: run } = useRunWithValues(actualRunId || '', {
+    enabled: !!actualRunId && !isInitializing,
+  });
   const { data: sections } = useSections(run?.workflowId);
 
   // Fetch logic rules for visibility evaluation
@@ -136,6 +220,44 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
   const submitMutation = useSubmitSection();
   const nextMutation = useNext();
   const completeMutation = useCompleteRun();
+
+  // Fetch all steps for alias resolution - MUST be before early returns
+  const { data: allSteps } = useQuery({
+    queryKey: ["workflow-all-steps", run?.workflowId],
+    queryFn: async () => {
+      if (!sections) return [];
+      const allStepPromises = sections.map(section =>
+        fetch(`/api/sections/${section.id}/steps`, {
+          credentials: "include",
+        }).then(res => res.json())
+      );
+      const allStepArrays = await Promise.all(allStepPromises);
+      return allStepArrays.flat();
+    },
+    enabled: !!run?.workflowId && !!sections,
+  });
+
+  // Memoize visible sections calculation with alias resolution - MUST be before early returns
+  const visibleSections = useMemo(() => {
+    if (!sections) return [];
+
+    // Create alias resolver for section visibility
+    const aliasResolver = (variableName: string): string | undefined => {
+      if (!allSteps) return undefined;
+      const step = allSteps.find((s: any) => s.alias === variableName);
+      return step?.id;
+    };
+
+    return sections.filter(section => {
+      if (!section.visibleIf) return true;
+      try {
+        return evaluateConditionExpression(section.visibleIf as any, formValues, aliasResolver);
+      } catch (error) {
+        console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
+        return true;
+      }
+    });
+  }, [sections, formValues, allSteps]);
 
   // Initialize form values from run.values
   useEffect(() => {
@@ -178,44 +300,6 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
     );
   }
 
-  // Fetch all steps for alias resolution
-  const { data: allSteps } = useQuery({
-    queryKey: ["workflow-all-steps", run?.workflowId],
-    queryFn: async () => {
-      if (!sections) return [];
-      const allStepPromises = sections.map(section =>
-        fetch(`/api/sections/${section.id}/steps`, {
-          credentials: "include",
-        }).then(res => res.json())
-      );
-      const allStepArrays = await Promise.all(allStepPromises);
-      return allStepArrays.flat();
-    },
-    enabled: !!run?.workflowId && !!sections,
-  });
-
-  // Memoize visible sections calculation with alias resolution
-  const visibleSections = useMemo(() => {
-    if (!sections) return [];
-
-    // Create alias resolver for section visibility
-    const aliasResolver = (variableName: string): string | undefined => {
-      if (!allSteps) return undefined;
-      const step = allSteps.find((s: any) => s.alias === variableName);
-      return step?.id;
-    };
-
-    return sections.filter(section => {
-      if (!section.visibleIf) return true;
-      try {
-        return evaluateConditionExpression(section.visibleIf as any, formValues, aliasResolver);
-      } catch (error) {
-        console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
-        return true;
-      }
-    });
-  }, [sections, formValues, allSteps]);
-
   const currentSection = visibleSections[currentSectionIndex] || sections[currentSectionIndex];
   const progress = ((currentSectionIndex + 1) / visibleSections.length) * 100;
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
@@ -228,6 +312,17 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
 
   const handleNext = async () => {
     setErrors([]);
+
+    // Defensive check: ensure allSteps is loaded
+    if (!allSteps || !Array.isArray(allSteps)) {
+      console.error('[WorkflowRunner] allSteps not loaded yet', { allSteps });
+      toast({
+        title: "Error",
+        description: "Workflow data is still loading. Please wait a moment and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // Get steps for current section (excluding virtual and system steps)
     const currentSectionSteps = allSteps.filter(
@@ -246,7 +341,9 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
       runId: actualRunId,
       sectionId: currentSection.id,
       values: sectionValues,
-      valuesCount: sectionValues.length
+      valuesCount: sectionValues.length,
+      valuesIsArray: Array.isArray(sectionValues),
+      allStepsCount: allSteps.length
     });
 
     try {
@@ -276,15 +373,29 @@ export function WorkflowRunner({ runId, isPreview = false }: WorkflowRunnerProps
         currentSectionId: currentSection.id,
       });
 
-      // Find next section index
+      console.log('[WorkflowRunner] Next result:', {
+        nextSectionId: nextResult.nextSectionId,
+        currentSectionIndex,
+        visibleSectionsCount: visibleSections.length,
+        visibleSectionIds: visibleSections.map(s => s.id),
+        allSectionsCount: sections?.length || 0,
+      });
+
+      // Find next section index in visibleSections (not all sections)
       if (nextResult.nextSectionId) {
-        const nextIndex = sections.findIndex((s) => s.id === nextResult.nextSectionId);
+        const nextIndex = visibleSections.findIndex((s) => s.id === nextResult.nextSectionId);
+        console.log('[WorkflowRunner] Found next section at index:', nextIndex);
         if (nextIndex >= 0) {
           setCurrentSectionIndex(nextIndex);
+          console.log('[WorkflowRunner] Set currentSectionIndex to:', nextIndex);
+        } else {
+          console.warn('[WorkflowRunner] Next section not found in visibleSections!', nextResult.nextSectionId);
         }
       } else {
         // Default: next in sequence
-        setCurrentSectionIndex((prev) => Math.min(prev + 1, sections.length - 1));
+        const newIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
+        console.log('[WorkflowRunner] No nextSectionId, advancing to:', newIndex);
+        setCurrentSectionIndex(newIndex);
       }
     } catch (error) {
       console.error('[WorkflowRunner] Submit/next error:', error);

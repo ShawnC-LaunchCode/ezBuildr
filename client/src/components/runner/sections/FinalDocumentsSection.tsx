@@ -3,7 +3,8 @@
  * Displays generated documents for download
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -32,6 +33,22 @@ interface GeneratedDocument {
 
 export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
   const { screenTitle, markdownMessage } = sectionConfig;
+
+  // Mutation to trigger document generation
+  const generateDocsMutation = useMutation({
+    mutationFn: async () => {
+      const headers: Record<string, string> = {};
+      if (runToken) {
+        headers['Authorization'] = `Bearer ${runToken}`;
+      }
+      await axios.post(`/api/runs/${runId}/generate-documents`, {}, { headers });
+    },
+  });
+
+  // Trigger document generation when component mounts
+  useEffect(() => {
+    generateDocsMutation.mutate();
+  }, [runId]); // Only run once when runId changes
 
   // Fetch generated documents for this run
   const { data: documents = [], isLoading, error } = useQuery({
@@ -108,25 +125,13 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-8 space-y-4">
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Generating your documents...
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    This may take a few moments
-                  </p>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
-                  <p className="text-sm font-medium">Ready to generate your documents</p>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                    Click the <strong>"Complete"</strong> button below to finish this workflow and generate your documents.
-                  </p>
-                </>
-              )}
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Generating your documents...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This may take a few moments. Your documents will appear below when ready.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">

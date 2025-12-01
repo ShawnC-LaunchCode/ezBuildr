@@ -41,14 +41,18 @@ export interface RenderResult2 {
  * Custom expression parser for docxtemplater
  * Enables angular-like syntax with helper functions
  */
-function createExpressionParser() {
+function createExpressionParser(tag: string) {
   return {
-    get(scope: any, context: string, meta: any) {
-      // Parse context which may include filters/helpers
+    get(scope: any, context: any) {
+      // Parse tag which may include filters/helpers
       // Example: "upper name" -> call upper(scope.name)
       // Example: "currency amount USD" -> call currency(scope.amount, "USD")
 
-      const parts = context.trim().split(/\s+/);
+      if (tag === '.') {
+        return scope;
+      }
+
+      const parts = tag.trim().split(/\s+/);
 
       // If first part is a helper function, call it
       if (parts.length > 1 && parts[0] in docxHelpers) {
@@ -74,7 +78,7 @@ function createExpressionParser() {
       }
 
       // Otherwise, just get the value
-      return getNestedValue(scope, context);
+      return getNestedValue(scope, tag);
     },
   };
 }
@@ -137,8 +141,9 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true, // Enable paragraph loops
       linebreaks: true, // Preserve line breaks
+      delimiters: { start: '{{', end: '}}' },
       nullGetter: () => '', // Return empty string for null/undefined values
-      parser: ((tag: string) => createExpressionParser()) as any, // Custom parser for helper functions
+      parser: ((tag: string) => createExpressionParser(tag)) as any, // Custom parser for helper functions
     });
 
     // Set data and render
@@ -296,6 +301,7 @@ export async function extractPlaceholders2(
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      delimiters: { start: '{{', end: '}}' },
     });
 
     // Get full text from document

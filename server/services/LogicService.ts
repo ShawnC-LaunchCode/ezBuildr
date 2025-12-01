@@ -11,6 +11,7 @@ import {
   validateRequiredSteps,
   getEffectiveRequiredSteps,
 } from "@shared/workflowLogic";
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { Section, Step, LogicRule } from "@shared/schema";
 
 /**
@@ -111,6 +112,18 @@ export class LogicService {
       steps
         .filter((step) => visibleSections.has(step.sectionId))
         .filter((step) => {
+          // 1. Check step-level visibleIf
+          if (step.visibleIf) {
+            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+            const isVisible = evaluateConditionExpression(
+              step.visibleIf as any,
+              data,
+              aliasResolver
+            );
+            if (!isVisible) return false;
+          }
+
+          // 2. Check logic rules
           // If explicitly shown by a rule, include it
           if (evalResult.visibleSteps.has(step.id)) return true;
           // If explicitly hidden by a rule, exclude it
@@ -219,6 +232,18 @@ export class LogicService {
     const visibleSteps = new Set(
       visibleStepsInVisibleSections
         .filter((step) => {
+          // 1. Check step-level visibleIf
+          if (step.visibleIf) {
+            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+            const isVisible = evaluateConditionExpression(
+              step.visibleIf as any,
+              data,
+              aliasResolver
+            );
+            if (!isVisible) return false;
+          }
+
+          // 2. Check logic rules
           if (evalResult.visibleSteps.has(step.id)) return true;
           const hideRules = logicRules.filter(
             (r) => r.targetType === "step" && r.targetStepId === step.id && r.action === "hide"
@@ -354,6 +379,23 @@ export class LogicService {
     stepId: string,
     data: Record<string, any>
   ): Promise<boolean> {
+    // Need to fetch step to check visibleIf
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) return false;
+
+    // Check step-level visibleIf
+    if (step.visibleIf) {
+      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const aliasResolver = (name: string) => allSteps.find((s) => s.alias === name)?.id;
+
+      const isVisible = evaluateConditionExpression(
+        step.visibleIf as any,
+        data,
+        aliasResolver
+      );
+      if (!isVisible) return false;
+    }
+
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
     const evalResult = evaluateRules(logicRules, data);
 
@@ -422,6 +464,19 @@ export class LogicService {
       if (isMadeOptional) {
         return false;
       }
+    }
+
+    // Check step-level visibleIf first (if step is hidden, it's not required)
+    if (step.visibleIf) {
+      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const aliasResolver = (name: string) => allSteps.find((s) => s.alias === name)?.id;
+
+      const isVisible = evaluateConditionExpression(
+        step.visibleIf as any,
+        data,
+        aliasResolver
+      );
+      if (!isVisible) return false;
     }
 
     // Default to the step's base required flag

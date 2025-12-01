@@ -22,6 +22,8 @@ import {
   projectIdParamsSchema,
   type ExtractPlaceholdersResponse,
 } from './validators/templates';
+import { templateScanner } from '../services/document/TemplateScanner';
+import { logger } from '../logger';
 
 const router = Router();
 
@@ -150,9 +152,34 @@ router.post(
       // Validate body
       const data = createTemplateSchema.parse(req.body);
 
+      // SCAN & FIX TEMPLATE
+      let fileBuffer = req.file.buffer;
+      let warnings: string[] = [];
+
+      try {
+        const scanResult = await templateScanner.scanAndFix(fileBuffer);
+
+        if (!scanResult.isValid) {
+          logger.error({ errors: scanResult.errors }, 'Template validation failed in API');
+          throw createError.validation(
+            `Invalid template: ${scanResult.errors?.join(', ')}`
+          );
+        }
+
+        if (scanResult.fixed) {
+          fileBuffer = scanResult.buffer;
+          warnings = scanResult.repairs;
+        }
+      } catch (error: any) {
+        // If it's already a validation error, rethrow
+        if (error.code === 'VALIDATION_ERROR') throw error;
+        // Otherwise wrap it
+        throw createError.validation(`Template validation failed: ${error.message}`);
+      }
+
       // Save file
       const fileRef = await saveTemplateFile(
-        req.file.buffer,
+        fileBuffer,
         req.file.originalname,
         req.file.mimetype
       );
@@ -169,49 +196,10 @@ router.post(
         })
         .returning();
 
-      res.status(201).json(template);
-    } catch (error) {
-      const formatted = formatErrorResponse(error);
-      res.status(formatted.status).json(formatted.body);
-    }
-  }
-);
-
-/**
- * GET /templates/:id
- * Get template by ID
- */
-router.get(
-  '/templates/:id',
-  hybridAuth,
-  requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
-    try {
-      const authReq = req as AuthRequest;
-      const tenantId = authReq.tenantId!;
-
-      // Validate params
-      const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
-      const template = await db.query.templates.findFirst({
-        where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+      res.status(201).json({
+        ...template,
+        warnings: warnings.length > 0 ? warnings : undefined
       });
-
-      if (!template) {
-        throw createError.notFound('Template', params.id);
-      }
-
-      // Verify tenant access
-      if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
-      }
-
-      res.json(template);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
@@ -259,10 +247,34 @@ router.patch(
 
       // Handle file replacement if provided
       let newFileRef: string | undefined;
+      let warnings: string[] = [];
+
       if (req.file) {
+        // SCAN & FIX TEMPLATE
+        let fileBuffer = req.file.buffer;
+
+        try {
+          const scanResult = await templateScanner.scanAndFix(fileBuffer);
+
+          if (!scanResult.isValid) {
+            logger.error({ errors: scanResult.errors }, 'Template validation failed in API (PATCH)');
+            throw createError.validation(
+              `Invalid template: ${scanResult.errors?.join(', ')}`
+            );
+          }
+
+          if (scanResult.fixed) {
+            fileBuffer = scanResult.buffer;
+            warnings = scanResult.repairs;
+          }
+        } catch (error: any) {
+          if (error.code === 'VALIDATION_ERROR') throw error;
+          throw createError.validation(`Template validation failed: ${error.message}`);
+        }
+
         // Save new file
         newFileRef = await saveTemplateFile(
-          req.file.buffer,
+          fileBuffer,
           req.file.originalname,
           req.file.mimetype
         );
@@ -282,7 +294,10 @@ router.patch(
         .where(eq(schema.templates.id, params.id))
         .returning();
 
-      res.json(updated);
+      res.json({
+        ...updated,
+        warnings: warnings.length > 0 ? warnings : undefined
+      });
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);

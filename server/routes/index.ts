@@ -68,9 +68,8 @@ export function registerAllRoutes(app: Express): void {
   // registerTemplateRoutes(app);
   // registerTemplateSharingRoutes(app);
 
-  // Legacy survey file routes - DISABLED (survey system removed Nov 2025)
-  // File upload for workflows will need to be reimplemented
-  // registerFileRoutes(app);
+  // File serving routes (generated documents, outputs)
+  registerFileRoutes(app);
 
   // AI-powered analytics routes
   registerAiRoutes(app);

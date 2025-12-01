@@ -3,7 +3,7 @@
  * Handles document generation for Final Documents sections
  */
 
-import { renderDocx } from './docxRenderer';
+import { documentEngine } from './document/DocumentEngine';
 import { getTemplateFilePath } from './templates';
 import {
   workflowRunRepository,
@@ -12,10 +12,16 @@ import {
   stepRepository,
   documentTemplateRepository,
   runGeneratedDocumentsRepository,
+  workflowRepository,
+  workflowTemplateRepository,
 } from '../repositories';
 import { createError } from '../utils/errors';
 import { logger } from '../logger';
 import path from 'path';
+import { type WorkflowRun } from '@shared/schema';
+
+const DEFAULT_TO_PDF = false;
+const PDF_STRATEGY = 'puppeteer';
 
 export class DocumentGenerationService {
   /**
@@ -39,11 +45,16 @@ export class DocumentGenerationService {
       // 3. Find Final Documents sections
       const finalDocsSections = sections.filter((section) => {
         const config = section.config as any;
+        // Log config for debugging
+        // logger.debug({ sectionId: section.id, config }, 'Checking section config');
         return config?.finalBlock === true;
       });
 
       if (finalDocsSections.length === 0) {
-        log.info('No Final Documents sections found, skipping generation');
+        log.warn({
+          allSections: sections.map(s => ({ id: s.id, config: s.config })),
+          runId
+        }, 'No Final Documents sections found, skipping generation. This might cause the frontend to hang.');
         return;
       }
 
@@ -51,7 +62,7 @@ export class DocumentGenerationService {
 
       // 4. Get step values for data interpolation
       const stepValues = await stepValueRepository.findByRunId(runId);
-      const allSteps = await stepRepository.findByWorkflowId(run.workflowId);
+      const allSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
 
       // Build data object with both stepId and alias keys
       const data: Record<string, any> = {};
@@ -86,7 +97,7 @@ export class DocumentGenerationService {
         // Generate each template
         for (const templateId of templateIds) {
           try {
-            await this.generateDocument(runId, templateId, data);
+            await this.generateDocument(run, templateId, data);
           } catch (error) {
             log.error(
               { error, templateId, sectionId: section.id },
@@ -99,7 +110,15 @@ export class DocumentGenerationService {
 
       log.info('Document generation completed successfully');
     } catch (error) {
-      log.error({ error }, 'Document generation failed');
+      log.error({
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name
+      }, 'Document generation failed');
       throw error;
     }
   }
@@ -108,17 +127,19 @@ export class DocumentGenerationService {
    * Generate a single document from a template
    */
   private async generateDocument(
-    runId: string,
+    run: WorkflowRun,
     templateId: string,
     data: Record<string, any>
   ): Promise<void> {
-    const log = logger.child({ runId, templateId, service: 'DocumentGenerationService' });
+    const log = logger.child({ runId: run.id, templateId, service: 'DocumentGenerationService' });
 
     try {
       // 1. Get template record
       const template = await documentTemplateRepository.findById(templateId);
       if (!template) {
-        throw createError.notFound('Template', templateId);
+        // Log warning instead of throwing, to avoid failing entire run for one missing template
+        log.warn('Template not found, skipping generation');
+        return;
       }
 
       log.info({ templateName: template.name }, 'Rendering template');
@@ -126,34 +147,68 @@ export class DocumentGenerationService {
       // 2. Get template file path
       const templatePath = await getTemplateFilePath(template.fileRef);
 
-      // 3. Render document
-      const result = await renderDocx({
+      // 3. Render document using new DocumentEngine
+      const result = await documentEngine.generate({
         templatePath,
         data,
-        outputName: `${template.name}-run-${runId}`,
-        toPdf: false, // Can be made configurable later
+        outputName: `${template.name}-run-${run.id}`,
+        toPdf: DEFAULT_TO_PDF, // Default to false for now, can be enabled via config later
+        pdfStrategy: PDF_STRATEGY
       });
 
       log.info({ docxPath: result.docxPath, size: result.size }, 'Document rendered successfully');
 
-      // 4. Determine public URL for the document
-      // For now, use relative path - in production, upload to S3 and get URL
+      // 4. Generate Secure Download URL
       const fileName = path.basename(result.docxPath);
-      const fileUrl = `/api/files/outputs/${fileName}`; // Adjust based on your file serving setup
+      const fileUrl = `/api/files/download/${fileName}`;
 
-      // 5. Save record to database
+      // 5. Resolve Workflow Template ID
+      // run_generated_documents requires a workflow_templates.id, not templates.id
+      let workflowTemplateId: string | null = null;
+      try {
+        const workflow = await workflowRepository.findById(run.workflowId);
+        if (workflow && workflow.currentVersionId) {
+          const workflowTemplate = await workflowTemplateRepository.findByWorkflowVersionAndTemplateId(
+            workflow.currentVersionId,
+            templateId
+          );
+          if (workflowTemplate) {
+            workflowTemplateId = workflowTemplate.id;
+          } else {
+            log.warn({ workflowVersionId: workflow.currentVersionId }, 'Workflow template mapping not found for template');
+          }
+        } else {
+          // This is expected for Draft runs (no version yet)
+          log.info('Workflow has no current version (Draft mode), skipping template link');
+        }
+      } catch (err) {
+        log.warn({ err }, 'Failed to resolve workflow template ID');
+      }
+
+      // 6. Save record to database
       await runGeneratedDocumentsRepository.createDocument({
-        runId,
+        runId: run.id,
         fileName: `${template.name}.docx`,
         fileUrl,
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         fileSize: result.size,
-        templateId,
+        templateId: workflowTemplateId as any, // Cast to any if type mismatch, but schema allows null?
+        // Schema says: templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
+        // So it is nullable.
       });
 
       log.info('Document record saved to database');
     } catch (error) {
-      log.error({ error }, 'Failed to generate document');
+      log.error({
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        templateId,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name
+      }, 'Failed to generate document');
       throw error;
     }
   }

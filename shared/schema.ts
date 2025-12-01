@@ -37,12 +37,12 @@ export const surveyStatusEnum = pgEnum('survey_status', ['draft', 'open', 'close
 
 // Question type enum
 export const questionTypeEnum = pgEnum('question_type', [
-  'short_text', 
-  'long_text', 
-  'multiple_choice', 
-  'radio', 
-  'yes_no', 
-  'date_time', 
+  'short_text',
+  'long_text',
+  'multiple_choice',
+  'radio',
+  'yes_no',
+  'date_time',
   'file_upload',
   'loop_group'
 ]);
@@ -116,6 +116,10 @@ export const userCredentials = pgTable("user_credentials", {
 
 // Anonymous access type enum
 export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disabled', 'unlimited', 'one_per_ip', 'one_per_session']);
+
+// =====================================================================
+// LEGACY POLL-VAULT SCHEMA (DEPRECATED)
+// =====================================================================
 
 // Surveys table
 export const surveys = pgTable("surveys", {
@@ -456,9 +460,9 @@ export const insertTemplateShareSchema = createInsertSchema(templateShares).omit
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ createdAt: true, updatedAt: true });
 
 // Analytics event validation schema with strict validation
-export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({ 
-  id: true, 
-  timestamp: true 
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  timestamp: true
 }).extend({
   event: z.enum(['page_view', 'page_leave', 'question_focus', 'question_blur', 'question_answer', 'question_skip', 'survey_start', 'survey_complete', 'survey_abandon']),
   responseId: z.string().uuid("Invalid response ID format"),
@@ -943,7 +947,7 @@ export const workflows = pgTable("workflows", {
   // Stage 13: Version management
   pinnedVersionId: uuid("pinned_version_id"),
   // Common fields
-  status: surveyStatusEnum("status").default('draft').notNull(), // Uses survey_status enum
+  status: workflowStatusEnum("status").default('draft').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1032,7 +1036,7 @@ export const runs = pgTable("runs", {
   status: runStatusEnum("status").default('pending').notNull(),
   error: text("error"), // Stage 8: Error message if failed
   durationMs: integer("duration_ms"),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1413,7 +1417,7 @@ export const workflowRuns = pgTable("workflow_runs", {
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   runToken: text("run_token").notNull().unique(), // UUID token for run-specific auth
   createdBy: text("created_by"), // "creator:<userId>" or "anon"
-  currentSectionId: uuid("current_section_id").references(() => sections.id), // Track current section in workflow execution
+  currentSectionId: uuid("current_section_id").references(() => sections.id, { onDelete: 'set null' }), // Track current section in workflow execution
   progress: integer("progress").default(0), // Progress percentage (0-100)
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),

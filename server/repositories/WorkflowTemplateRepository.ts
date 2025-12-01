@@ -54,6 +54,27 @@ export class WorkflowTemplateRepository extends BaseRepository<
   }
 
   /**
+   * Find template mapping by template ID
+   */
+  async findByWorkflowVersionAndTemplateId(
+    workflowVersionId: string,
+    templateId: string,
+    tx?: DbTransaction
+  ): Promise<WorkflowTemplate | undefined> {
+    const database = this.getDb(tx);
+    const [mapping] = await database
+      .select()
+      .from(workflowTemplates)
+      .where(
+        and(
+          eq(workflowTemplates.workflowVersionId, workflowVersionId),
+          eq(workflowTemplates.templateId, templateId)
+        )
+      );
+    return mapping;
+  }
+
+  /**
    * Find primary template for workflow version
    */
   async findPrimaryByWorkflowVersionId(
@@ -130,15 +151,15 @@ export class WorkflowTemplateRepository extends BaseRepository<
 
     const conditions = excludeId
       ? and(
-          eq(workflowTemplates.workflowVersionId, workflowVersionId),
-          eq(workflowTemplates.key, key),
-          // @ts-ignore - SQL comparison
-          sql`${workflowTemplates.id} != ${excludeId}`
-        )
+        eq(workflowTemplates.workflowVersionId, workflowVersionId),
+        eq(workflowTemplates.key, key),
+        // @ts-ignore - SQL comparison
+        sql`${workflowTemplates.id} != ${excludeId}`
+      )
       : and(
-          eq(workflowTemplates.workflowVersionId, workflowVersionId),
-          eq(workflowTemplates.key, key)
-        );
+        eq(workflowTemplates.workflowVersionId, workflowVersionId),
+        eq(workflowTemplates.key, key)
+      );
 
     const [result] = await database
       .select({ id: workflowTemplates.id })

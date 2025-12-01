@@ -154,7 +154,7 @@ export class RunService {
    */
   async createRun(
     idOrSlug: string,
-    userId: string,
+    userId: string | undefined,
     data: Omit<InsertWorkflowRun, 'workflowId' | 'runToken'>,
     initialValues?: Record<string, any>,
     options?: {
@@ -162,8 +162,35 @@ export class RunService {
       randomize?: boolean;
     }
   ): Promise<WorkflowRun> {
-    // Resolve slug to UUID and verify ownership
-    const workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
+    let workflow;
+
+    if (userId) {
+      // Authenticated: verify ownership/access
+      workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
+    } else {
+      // Anonymous: verify public access
+      // Try to find by ID first (if UUID provided)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+
+      if (isUuid) {
+        workflow = await this.workflowRepo.findById(idOrSlug);
+      } else {
+        workflow = await this.workflowRepo.findByPublicLink(idOrSlug);
+      }
+
+      if (!workflow) {
+        throw new Error('Workflow not found');
+      }
+
+      // Verify workflow is active and public
+      if (workflow.status !== 'active') {
+        throw new Error('Workflow is not active');
+      }
+      if (!workflow.isPublic) {
+        throw new Error('Workflow is not public');
+      }
+    }
+
     const workflowId = workflow.id; // Use the actual UUID
 
     // Generate a unique token for this run
@@ -196,8 +223,8 @@ export class RunService {
         key: step.alias || step.id,
         type: step.type,
         label: step.title,
-        options: step.config && typeof step.config === 'object' && 'options' in step.config
-          ? (step.config as any).options
+        options: (step as any).config && typeof (step as any).config === 'object' && 'options' in (step as any).config
+          ? ((step as any).config as any).options
           : undefined,
         description: step.description || undefined,
       }));
@@ -214,6 +241,7 @@ export class RunService {
       ...data,
       workflowId, // Always use UUID here
       runToken,
+      createdBy: userId || null,
       completed: false,
     } as any);
 
@@ -236,7 +264,7 @@ export class RunService {
         projectId: context.projectId,
         workflowId,
         runId: run.id,
-        createdBy: userId,
+        createdBy: userId || 'anon',
       });
     }
 
@@ -270,6 +298,10 @@ export class RunService {
 
   /**
    * Get run by ID
+   * Allows access if:
+   * - User created this specific run (createdBy contains their userId)
+   * - User owns the workflow (for viewing all runs)
+   * - Workflow is public and user is viewing their own anonymous run
    */
   async getRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.runRepo.findById(runId);
@@ -277,7 +309,16 @@ export class RunService {
       throw new Error("Run not found");
     }
 
-    // Verify ownership of the workflow
+    // Check if user created this specific run
+    const createdByUser = run.createdBy === `creator:${userId}` || run.createdBy === userId;
+
+    if (createdByUser) {
+      // User created this run, allow access
+      return run;
+    }
+
+    // Otherwise, verify ownership of the workflow
+    // This allows workflow owners to view all runs
     await this.workflowSvc.verifyOwnership(run.workflowId, userId);
 
     return run;
@@ -1030,6 +1071,35 @@ export class RunService {
     const documents = await this.docsRepo.findByRunId(runId);
 
     return documents;
+  }
+
+  /**
+   * Generate documents for a run (can be called before completion)
+   * Idempotent - checks if documents already exist before generating
+   * Used for Final Documents sections
+   */
+  async generateDocuments(runId: string): Promise<void> {
+    // Verify run exists
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    // Check if documents already exist
+    const existingDocuments = await this.docsRepo.findByRunId(runId);
+    if (existingDocuments.length > 0) {
+      logger.info({ runId, documentCount: existingDocuments.length }, 'Documents already exist, skipping generation');
+      return;
+    }
+
+    // Generate documents using the document generation service
+    try {
+      await documentGenerationService.generateDocumentsForRun(runId);
+      logger.info({ runId }, 'Documents generated successfully');
+    } catch (error) {
+      logger.error({ error, runId }, 'Document generation failed');
+      throw error;
+    }
   }
 
   /**

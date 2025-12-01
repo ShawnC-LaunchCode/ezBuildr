@@ -25,7 +25,7 @@ export function registerRunRoutes(app: Express): void {
       const { initialValues } = req.body;
 
       // Create anonymous run with optional initial values
-      const run = await runService.createAnonymousRun(publicLinkSlug, initialValues);
+      const run = await runService.createRun(publicLinkSlug, undefined, {}, initialValues);
 
       return res.status(201).json({
         success: true,
@@ -39,8 +39,8 @@ export function registerRunRoutes(app: Express): void {
       logger.error({ error, slug: req.params.publicLinkSlug }, "Error starting anonymous run");
       const message = error instanceof Error ? error.message : "Failed to start workflow";
       const status = message.includes("not found") ? 404 :
-                     message.includes("not active") ? 403 :
-                     message.includes("not public") ? 403 : 500;
+        message.includes("not active") ? 403 :
+          message.includes("not public") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
     }
   });
@@ -104,12 +104,22 @@ export function registerRunRoutes(app: Express): void {
         });
       }
 
-      // Anonymous run - no authentication required
-      // For anonymous runs, we'd need to pass empty userId, but RunService expects string
-      // This needs to be refactored to support anonymous runs properly
-      return res.status(400).json({
-        success: false,
-        error: "Anonymous runs via publicLink not yet supported - service needs refactoring"
+      // Anonymous run
+      const run = await runService.createRun(
+        workflowId,
+        undefined,
+        runData,
+        initialValues,
+        { snapshotId, randomize }
+      );
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          runId: run.id,
+          runToken: run.runToken,
+          currentSectionId: run.currentSectionId
+        }
       });
     } catch (error) {
       // Log error with full details
@@ -129,9 +139,9 @@ export function registerRunRoutes(app: Express): void {
 
       const message = error instanceof Error ? error.message : "Failed to create run";
       const status = message.includes("not found") ? 404 :
-                     message.includes("Access denied") ? 403 :
-                     message.includes("not active") ? 403 :
-                     message.includes("not configured") ? 503 : 500;
+        message.includes("Access denied") ? 403 :
+          message.includes("not active") ? 403 :
+            message.includes("not configured") ? 503 : 500;
       res.status(status).json({ success: false, error: message });
     }
   });
@@ -182,13 +192,25 @@ export function registerRunRoutes(app: Express): void {
 
       // For session auth, we need userId
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        logger.warn({
+          hasUser: !!req.user,
+          userStructure: req.user ? Object.keys(req.user) : null,
+          hasClaims: !!(req.user as any)?.claims,
+          claimsStructure: (req.user as any)?.claims ? Object.keys((req.user as any).claims) : null
+        }, "No userId found for session auth");
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID found in session" });
       }
 
       const run = await runService.getRunWithValues(runId, userId);
       res.json({ success: true, data: run });
     } catch (error) {
-      logger.error({ error }, "Error fetching run with values");
+      logger.error({
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        runId: req.params.runId,
+        hasUser: !!req.user,
+        hasRunAuth: !!req.runAuth,
+        userId: req.user?.claims?.sub
+      }, "Error fetching run with values");
       const message = error instanceof Error ? error.message : "Failed to fetch run";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -304,8 +326,8 @@ export function registerRunRoutes(app: Express): void {
       }, "Error submitting section values");
       const message = error instanceof Error ? error.message : "Failed to submit section values";
       const status = message.includes("not found") ? 404 :
-                      message.includes("Access denied") ? 403 :
-                      message.includes("already completed") ? 400 : 500;
+        message.includes("Access denied") ? 403 :
+          message.includes("already completed") ? 400 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
   });
@@ -464,6 +486,35 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching generated documents");
       const message = error instanceof Error ? error.message : "Failed to fetch documents";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * POST /api/runs/:runId/generate-documents
+   * Trigger document generation for a workflow run
+   * Can be called before run completion (for Final Documents sections)
+   * Idempotent - won't regenerate if documents already exist
+   * Accepts creator session OR Bearer runToken
+   */
+  app.post('/api/runs/:runId/generate-documents', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
+    try {
+      const { runId } = req.params;
+      const runAuth = req.runAuth;
+
+      // For run token auth, verify the runId matches
+      if (runAuth && runAuth.runId !== runId) {
+        return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+      }
+
+      // Trigger document generation
+      await runService.generateDocuments(runId);
+
+      return res.json({ success: true, message: "Documents generation triggered" });
+    } catch (error) {
+      logger.error({ error, runId: req.params.runId }, "Error generating documents");
+      const message = error instanceof Error ? error.message : "Failed to generate documents";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
     }

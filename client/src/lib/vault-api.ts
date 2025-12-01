@@ -307,6 +307,7 @@ export interface ApiSection {
   order: number;
   visibleIf?: any | null; // Condition expression for visibility
   skipIf?: any | null; // Condition expression for skip logic
+  config?: any;
   createdAt: string;
 }
 
@@ -338,6 +339,7 @@ export const sectionAPI = {
   delete: (id: string) =>
     fetchAPI<void>(`/api/sections/${id}`, {
       method: "DELETE",
+      body: JSON.stringify({}), // Some servers require body for DELETE
     }),
 };
 
@@ -345,7 +347,7 @@ export const sectionAPI = {
 // Steps
 // ============================================================================
 
-export type StepType = "short_text" | "long_text" | "multiple_choice" | "radio" | "yes_no" | "date_time" | "file_upload" | "js_question";
+export type StepType = "short_text" | "long_text" | "multiple_choice" | "radio" | "yes_no" | "date_time" | "file_upload" | "js_question" | "final_documents";
 
 export interface ApiStep {
   id: string;
@@ -358,7 +360,11 @@ export interface ApiStep {
   alias: string | null; // Optional variable name for logic/blocks
   visibleIf?: any | null; // Condition expression for visibility
   order: number;
+  isVirtual?: boolean;
+  defaultValue?: any;
+  repeaterConfig?: any;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export const stepAPI = {

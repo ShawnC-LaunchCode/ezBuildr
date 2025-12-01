@@ -51,7 +51,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   // Publishing Settings
   const [isPublic, setIsPublic] = useState(false);
   const [requireLogin, setRequireLogin] = useState(false);
-  const [shareableLink, setShareableLink] = useState(`https://vaultlogic.app/run/${workflowId}`);
+  const [shareableLink, setShareableLink] = useState(`${import.meta.env.VITE_BASE_URL}/run/${workflowId}`);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // PR3: Real projects data

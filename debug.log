@@ -1,0 +1,58 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> vault-logic@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+[dotenv@17.2.3] injecting env (16) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[18:47:22] [33mWARN[39m: [36mJWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production.[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "auth-service"
+[18:47:23] [32mINFO[39m: [36mAI workflow generation routes registered[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "ai-routes"
+[18:47:23] [32mINFO[39m: [36mInitializing WebSocket collaboration server[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "collab-server"
+[18:47:23] [33mWARN[39m: [36mREDIS_URL not configured, multi-instance collab will not work[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "collab-persistence"
+[18:47:23] [32mINFO[39m: [36mWebSocket collaboration server initialized[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "collab-server"
+[18:47:23] [32mINFO[39m: [36mReal-time collaboration server initialized[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "routes"
+[18:47:23] [32mINFO[39m: [36mStarting metrics rollup worker[39m
+    [35menv[39m: "development"
+    [35mintervalMs[39m: 60000
+[18:47:23] [32mINFO[39m: [36mMetrics rollup worker started[39m
+    [35menv[39m: "development"
+    [35mmodule[39m: "routes"
+[18:47:23] [32mINFO[39m: [36mLoading Vite for development...[39m
+    [35menv[39m: "development"
+[18:47:28] [32mINFO[39m: [36mVite module loaded, calling setupVite...[39m
+    [35menv[39m: "development"
+[18:47:28] [32mINFO[39m: [36mVite setup complete[39m
+    [35menv[39m: "development"
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 127.0.0.1:5000
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on WebSocketServer instance at:
+    at Server.emit (node:events:508:28)
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '127.0.0.1',
+  port: 5000
+}
+
+Node.js v24.11.1

@@ -717,11 +717,11 @@ export function useRun(id: string | undefined) {
   });
 }
 
-export function useRunWithValues(id: string | undefined) {
+export function useRunWithValues(id: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.runWithValues(id!),
     queryFn: () => runAPI.getWithValues(id!),
-    enabled: !!id,
+    enabled: options?.enabled !== undefined ? options.enabled : !!id,
   });
 }
 
@@ -752,16 +752,18 @@ export function useSubmitSection() {
   return useMutation({
     mutationFn: ({ runId, sectionId, values }: { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }) =>
       runAPI.submitSection(runId, sectionId, values),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.runWithValues(variables.runId) });
-    },
+    // Don't invalidate queries here - causes race condition with navigation state updates
+    // Values are already saved to backend; local formValues state is the source of truth for UI
   });
 }
 
 export function useNext() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ runId, currentSectionId }: { runId: string; currentSectionId: string }) =>
       runAPI.next(runId, currentSectionId),
+    // Don't invalidate queries here - navigation state is managed locally in WorkflowRunner
+    // Refetching causes race conditions that interfere with setCurrentSectionIndex updates
   });
 }
 
