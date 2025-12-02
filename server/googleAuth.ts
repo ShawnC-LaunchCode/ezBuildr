@@ -430,7 +430,7 @@ export async function setupAuth(app: Express) {
       res.status(statusCode).json({
         message: errorMessage,
         error: errorCode,
-        ...(process.env.NODE_ENV === 'development' && {
+        ...((process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') && {
           details: error instanceof Error ? error.message : String(error)
         })
       });

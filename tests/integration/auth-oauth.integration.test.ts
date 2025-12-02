@@ -32,7 +32,7 @@ describe("OAuth2 Integration Tests", () => {
     process.env.NODE_ENV = "test";
     process.env.GOOGLE_CLIENT_ID = "test-client-id";
     process.env.SESSION_SECRET = "test-secret-at-least-32-characters-long";
-    process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test";
+    process.env.SESSION_SECRET = "test-secret-at-least-32-characters-long";
 
     // Reset all modules to ensure clean state
     vi.resetModules();
@@ -66,6 +66,16 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     baseURL = `http://localhost:${port}`;
+
+    // Create a default tenant for Google Auth users
+    const { db } = await import("../../server/db");
+    const { tenants } = await import("../../shared/schema");
+
+    await db.insert(tenants).values({
+      name: "Default Test Tenant",
+      plan: "free",
+      billingEmail: "admin@example.com"
+    }).onConflictDoNothing();
   });
 
   afterAll(async () => {

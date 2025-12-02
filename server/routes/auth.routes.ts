@@ -107,6 +107,7 @@ export function registerAuthRoutes(app: Express): void {
       res.status(500).json({
         message: 'Registration failed',
         error: 'internal_error',
+        details: error instanceof Error ? error.message : String(error),
       });
     }
   });

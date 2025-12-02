@@ -23,7 +23,7 @@ export interface AuthRequest extends Request {
  * This middleware is separate from the session-based Google OAuth authentication.
  * Use this for API endpoints that need JWT-based authentication.
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
@@ -48,6 +48,21 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     authReq.tenantId = payload.tenantId || undefined;
     authReq.userRole = payload.role;
     authReq.jwtPayload = payload;
+
+    // If tenantId is missing in token (e.g. newly registered user who just created a tenant),
+    // try to fetch it from the database to avoid stale token issues
+    if (!authReq.tenantId && authReq.userId) {
+      try {
+        const user = await userRepository.findById(authReq.userId);
+        if (user?.tenantId) {
+          authReq.tenantId = user.tenantId;
+          authReq.userRole = user.tenantRole; // Also update role
+          logger.debug({ userId: authReq.userId, tenantId: authReq.tenantId }, 'Refreshed tenantId from database for JWT user');
+        }
+      } catch (dbError) {
+        logger.warn({ error: dbError, userId: authReq.userId }, 'Failed to refresh tenantId from database');
+      }
+    }
 
     logger.debug({ userId: payload.userId, path: req.path }, 'Authentication successful');
     next();
@@ -122,6 +137,21 @@ export async function hybridAuth(req: Request, res: Response, next: NextFunction
         authReq.tenantId = payload.tenantId || undefined;
         authReq.userRole = payload.role;
         authReq.jwtPayload = payload;
+
+        // If tenantId is missing in token (e.g. newly registered user who just created a tenant),
+        // try to fetch it from the database to avoid stale token issues
+        if (!authReq.tenantId && authReq.userId) {
+          try {
+            const user = await userRepository.findById(authReq.userId);
+            if (user?.tenantId) {
+              authReq.tenantId = user.tenantId;
+              authReq.userRole = user.tenantRole; // Also update role
+              logger.debug({ userId: authReq.userId, tenantId: authReq.tenantId }, 'Refreshed tenantId from database for JWT user (hybrid)');
+            }
+          } catch (dbError) {
+            logger.warn({ error: dbError, userId: authReq.userId }, 'Failed to refresh tenantId from database (hybrid)');
+          }
+        }
 
         logger.debug({ userId: payload.userId, path: req.path }, 'JWT authentication successful');
         next();
