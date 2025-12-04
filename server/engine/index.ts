@@ -108,7 +108,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
 
     // Initialize execution context
     const context: EvalContext = {
-      vars: { ...inputJson },
+      vars: { ...inputJson, input: inputJson },
       clock: options.clock || (() => new Date()),
     };
 

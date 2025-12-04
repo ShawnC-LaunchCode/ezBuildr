@@ -287,27 +287,28 @@ describeWithDb('WorkflowTemplateRepository', () => {
       await repo.setPrimary(mapping.id, testVersionId);
 
       const updated = await repo.findById(mapping.id);
-      expect(updated!.isPrimary).toBe(true);
-    });
-  });
-
-  describe('deleteByIdAndWorkflowVersion', () => {
-    it('should delete mapping by id and workflow version', async () => {
-      const mapping = await repo.create({
-        workflowVersionId: testVersionId,
-        templateId: testTemplateId1,
-        key: 'engagement_letter',
-        isPrimary: true,
-      });
 
       const deleted = await repo.deleteByIdAndWorkflowVersion(mapping.id, testVersionId);
 
       expect(deleted).toBe(true);
       const found = await repo.findById(mapping.id);
-      expect(found).toBeNull();
+      expect(found).toBeUndefined();
     });
 
     it('should not delete mapping if workflow version does not match', async () => {
+      // Create another version
+      const [anotherVersion] = await db
+        .insert(workflowVersions)
+        .values({
+          workflowId: testWorkflowId,
+          version: '1.0.1',
+          status: 'draft',
+          changelog: 'Another version',
+          createdBy: testUserId,
+          graphJson: {},
+        })
+        .returning();
+
       const mapping = await repo.create({
         workflowVersionId: testVersionId,
         templateId: testTemplateId1,
@@ -318,109 +319,108 @@ describeWithDb('WorkflowTemplateRepository', () => {
       // Try to delete with wrong version ID
       const deleted = await repo.deleteByIdAndWorkflowVersion(mapping.id, anotherVersion.id);
       expect(deleted).toBe(false);
+
+      // Mapping should still exist
+      const found = await repo.findById(mapping.id);
+      expect(found).toBeDefined();
+
+      // Cleanup
+      await db.delete(workflowVersions).where(eq(workflowVersions.id, anotherVersion.id));
     });
-
-    // Mapping should still exist
-    const found = await repo.findById(mapping.id);
-    expect(found).toBeDefined();
-
-    // Cleanup
-    await db.delete(workflowVersions).where(eq(workflowVersions.id, anotherVersion.id));
-  });
-});
-
-describe('existsByKey', () => {
-  it('should return true if key exists in workflow version', async () => {
-    await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId1,
-      key: 'engagement_letter',
-      isPrimary: true,
-    });
-
-    const exists = await repo.existsByKey(testVersionId, 'engagement_letter');
-    expect(exists).toBe(true);
   });
 
-  it('should return false if key does not exist', async () => {
-    const exists = await repo.existsByKey(testVersionId, 'nonexistent');
-    expect(exists).toBe(false);
-  });
+  describe('existsByKey', () => {
+    it('should return true if key exists in workflow version', async () => {
+      await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId1,
+        key: 'engagement_letter',
+        isPrimary: true,
+      });
 
-  it('should exclude specified id when checking existence', async () => {
-    const mapping = await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId1,
-      key: 'engagement_letter',
-      isPrimary: true,
+      const exists = await repo.existsByKey(testVersionId, 'engagement_letter');
+      expect(exists).toBe(true);
     });
 
-    // Should return false because we're excluding the only mapping with this key
-    const exists = await repo.existsByKey(testVersionId, 'engagement_letter', mapping.id);
-    expect(exists).toBe(false);
-  });
-
-  it('should return true if key exists on different mapping', async () => {
-    const first = await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId1,
-      key: 'first',
-      isPrimary: true,
+    it('should return false if key does not exist', async () => {
+      const exists = await repo.existsByKey(testVersionId, 'nonexistent');
+      expect(exists).toBe(false);
     });
 
-    const second = await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId2,
-      key: 'engagement_letter',
-      isPrimary: false,
+    it('should exclude specified id when checking existence', async () => {
+      const mapping = await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId1,
+        key: 'engagement_letter',
+        isPrimary: true,
+      });
+
+      // Should return false because we're excluding the only mapping with this key
+      const exists = await repo.existsByKey(testVersionId, 'engagement_letter', mapping.id);
+      expect(exists).toBe(false);
     });
 
-    // Check if 'engagement_letter' exists, excluding first mapping
-    const exists = await repo.existsByKey(testVersionId, 'engagement_letter', first.id);
-    expect(exists).toBe(true);
-  });
-});
+    it('should return true if key exists on different mapping', async () => {
+      const first = await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId1,
+        key: 'first',
+        isPrimary: true,
+      });
 
-describe('update', () => {
-  it('should update mapping fields', async () => {
-    const mapping = await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId1,
-      key: 'engagement_letter',
-      isPrimary: false,
+      const second = await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId2,
+        key: 'engagement_letter',
+        isPrimary: false,
+      });
+
+      // Check if 'engagement_letter' exists, excluding first mapping
+      const exists = await repo.existsByKey(testVersionId, 'engagement_letter', first.id);
+      expect(exists).toBe(true);
+    });
+  });
+
+  describe('update', () => {
+    it('should update mapping fields', async () => {
+      const mapping = await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId1,
+        key: 'engagement_letter',
+        isPrimary: false,
+      });
+
+      const updated = await repo.update(mapping.id, {
+        key: 'engagement_letter_v2',
+        isPrimary: true,
+      });
+
+      expect(updated).toBeDefined();
+      expect(updated!.key).toBe('engagement_letter_v2');
+      expect(updated!.isPrimary).toBe(true);
+      expect(updated!.updatedAt).toBeDefined();
+    });
+  });
+
+  describe('findById', () => {
+    it('should find mapping by id', async () => {
+      const created = await repo.create({
+        workflowVersionId: testVersionId,
+        templateId: testTemplateId1,
+        key: 'engagement_letter',
+        isPrimary: true,
+      });
+
+      const found = await repo.findById(created.id);
+
+      expect(found).toBeDefined();
+      expect(found!.id).toBe(created.id);
+      expect(found!.key).toBe('engagement_letter');
     });
 
-    const updated = await repo.update(mapping.id, {
-      key: 'engagement_letter_v2',
-      isPrimary: true,
+    it('should return undefined for non-existent id', async () => {
+      const found = await repo.findById('00000000-0000-0000-0000-000000000000');
+      expect(found).toBeUndefined();
     });
-
-    expect(updated).toBeDefined();
-    expect(updated!.key).toBe('engagement_letter_v2');
-    expect(updated!.isPrimary).toBe(true);
-    expect(updated!.updatedAt).toBeDefined();
   });
-});
-
-describe('findById', () => {
-  it('should find mapping by id', async () => {
-    const created = await repo.create({
-      workflowVersionId: testVersionId,
-      templateId: testTemplateId1,
-      key: 'engagement_letter',
-      isPrimary: true,
-    });
-
-    const found = await repo.findById(created.id);
-
-    expect(found).toBeDefined();
-    expect(found!.id).toBe(created.id);
-    expect(found!.key).toBe('engagement_letter');
-  });
-
-  it('should return undefined for non-existent id', async () => {
-    const found = await repo.findById('non-existent-id');
-    expect(found).toBeUndefined();
-  });
-});
 });

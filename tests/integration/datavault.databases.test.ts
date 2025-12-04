@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import express, { type Express } from 'express';
-import datavaultDatabasesRouter from '../../server/routes/datavaultDatabases';
+import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { db } from '../../server/db';
 import { datavaultDatabases, datavaultTables } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -39,7 +39,7 @@ describe('DataVault Databases API', () => {
       next();
     });
 
-    app.use('/api/datavault/databases', datavaultDatabasesRouter);
+    registerDatavaultRoutes(app);
 
     // In real tests, create test tenant and user:
     // const [tenant] = await db.insert(tenants).values({

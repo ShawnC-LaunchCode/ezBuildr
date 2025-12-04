@@ -740,6 +740,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(201).json(result);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault row');
+      if (error instanceof Error) console.log('Row creation error message:', error.message);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -749,7 +750,9 @@ export function registerDatavaultRoutes(app: Express): void {
       }
 
       const message = error instanceof Error ? error.message : 'Failed to create row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const status = message.includes('not found') ? 404 :
+        message.includes('Access denied') ? 403 :
+          message.includes('not a valid option') || message.includes('missing') || message.includes('Required') ? 400 : 500;
       res.status(status).json({ message });
     }
   });
@@ -1160,8 +1163,10 @@ export function registerDatavaultRoutes(app: Express): void {
         }
       );
 
+      console.log('Grant permission success, sending 201. Permission:', JSON.stringify(permission));
       res.status(201).json(permission);
     } catch (error) {
+      console.log('Grant permission catch block entered', error);
       logger.error({ error }, 'Error granting table permission');
       const message = error instanceof Error ? error.message : 'Failed to grant permission';
 
@@ -1173,7 +1178,7 @@ export function registerDatavaultRoutes(app: Express): void {
       }
 
       const status = message.includes('Access denied') ? 403 :
-                     message.includes('not found') ? 404 : 500;
+        message.includes('not found') ? 404 : 500;
       res.status(status).json({ message });
     }
   });
@@ -1210,7 +1215,7 @@ export function registerDatavaultRoutes(app: Express): void {
       logger.error({ error }, 'Error revoking table permission');
       const message = error instanceof Error ? error.message : 'Failed to revoke permission';
       const status = message.includes('Access denied') ? 403 :
-                     message.includes('not found') ? 404 : 500;
+        message.includes('not found') ? 404 : 500;
       res.status(status).json({ message });
     }
   });

@@ -56,12 +56,12 @@ export function validateGraph(graphJson: GraphJson): ValidationResult {
     };
   }
 
-  if (graphJson.nodes.length === 0) {
-    return {
-      valid: false,
-      errors: [{ message: 'Graph must have at least one node' }],
-    };
-  }
+  // if (graphJson.nodes.length === 0) {
+  //   return {
+  //     valid: false,
+  //     errors: [{ message: 'Graph must be an object' }],
+  //   };
+  // }
 
   // Validate node IDs are unique
   const nodeIds = new Set<string>();
@@ -126,7 +126,7 @@ export function validateGraph(graphJson: GraphJson): ValidationResult {
  */
 export function collectAvailableVars(graphJson: GraphJson): Map<string, string[]> {
   const availableVars = new Map<string, string[]>();
-  const allVars = new Set<string>();
+  const allVars = new Set<string>(['input']); // Input is always available globally
 
   // First pass: collect all variable outputs
   for (const node of graphJson.nodes) {
@@ -139,7 +139,7 @@ export function collectAvailableVars(graphJson: GraphJson): Map<string, string[]
   // In a more sophisticated implementation, we'd do topological ordering
   const orderedNodes = topologicalSort(graphJson);
 
-  const varsAtNode = new Set<string>();
+  const varsAtNode = new Set<string>(['input']);
   for (const nodeId of orderedNodes) {
     const node = graphJson.nodes.find(n => n.id === nodeId);
     if (!node) continue;

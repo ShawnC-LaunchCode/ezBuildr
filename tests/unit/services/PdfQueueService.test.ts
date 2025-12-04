@@ -2,7 +2,7 @@
  * Stage 21: PDF Queue Service Unit Tests
  *
  * Tests for queue-based PDF conversion with retry logic
- *
+ */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { db } from '../../../server/db';
@@ -11,6 +11,16 @@ import { PdfQueueService } from '../../../server/services/PdfQueueService';
 import { eq, and } from 'drizzle-orm';
 import { DbTransaction } from '../../../server/repositories';
 import fs from 'fs/promises';
+import { logger } from '../../../server/logger';
+
+// Mock logger
+vi.mock('../../../server/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 // Mock the docxRenderer2 module
 vi.mock('../../../server/services/docxRenderer2', () => ({
@@ -64,6 +74,16 @@ describeWithDb('PdfQueueService', () => {
       .returning();
     const testUserId = user.id;
 
+    // Create test tenant
+    const [tenant] = await db
+      .insert(tenants)
+      .values({
+        name: 'Test Tenant',
+        slug: 'test-tenant',
+      })
+      .returning();
+    testTenantId = tenant.id;
+
     // Create test project
     const [project] = await db
       .insert(projects)
@@ -84,8 +104,11 @@ describeWithDb('PdfQueueService', () => {
       .values({
         projectId: testProjectId,
         title: 'Test Workflow',
+        name: 'Test Workflow',
         description: 'Test workflow',
         status: 'draft',
+        creatorId: testUserId,
+        ownerId: testUserId,
       })
       .returning();
     testWorkflowId = workflow.id;
@@ -98,6 +121,9 @@ describeWithDb('PdfQueueService', () => {
         version: '1.0.0',
         status: 'draft',
         changelog: 'Initial version',
+        definition: {},
+        graphJson: {},
+        createdBy: testUserId,
       })
       .returning();
     testVersionId = version.id;
@@ -107,7 +133,8 @@ describeWithDb('PdfQueueService', () => {
       .insert(runs)
       .values({
         workflowVersionId: testVersionId,
-        status: 'in_progress',
+        status: 'pending',
+        createdBy: testUserId,
       })
       .returning();
     testRunId = run.id;
@@ -186,7 +213,7 @@ describeWithDb('PdfQueueService', () => {
     });
 
     it('should return null for non-existent job', async () => {
-      const status = await service.getJobStatus('non-existent-id');
+      const status = await service.getJobStatus('00000000-0000-0000-0000-000000000000');
       expect(status).toBeNull();
     });
 
@@ -299,13 +326,11 @@ describeWithDb('PdfQueueService', () => {
 
     it('should not start if already running', () => {
       service.start();
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       service.start(); // Try to start again
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith('PDF queue processor is already running');
+      expect(logger.warn).toHaveBeenCalledWith('PDF queue processor is already running');
 
-      consoleWarnSpy.mockRestore();
       service.stop();
     });
 
@@ -336,6 +361,7 @@ describeWithDb('PdfQueueService', () => {
       );
 
       // Process queue manually (bypass polling)
+      service['isRunning'] = true;
       await service['processQueue']();
 
       // Give it a moment to process
@@ -377,6 +403,7 @@ describeWithDb('PdfQueueService', () => {
       );
 
       // Process queue
+      service['isRunning'] = true;
       await service['processQueue']();
 
       // Give it time to process

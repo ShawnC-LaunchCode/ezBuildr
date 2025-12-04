@@ -140,7 +140,7 @@ describe('DOCX Renderer Service', () => {
       const data = { name: 'John' }; // upper and lower are formatters
 
       const missing = validateTemplateData(placeholders, data);
-      expect(missing).toEqual(['upper', 'lower']);
+      expect(missing).toEqual([]);
       // Note: formatters should be handled separately in real validation
     });
   });

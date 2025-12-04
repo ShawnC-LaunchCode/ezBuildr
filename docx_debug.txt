@@ -1,38 +1,8 @@
 npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
 
-> vault-logic@1.0.0 test:unit
-> vitest run tests/unit tests/unit/docxRenderer.test.ts
-
-
 [1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
 
-[90mstdout[2m | tests/unit/services/docxHelpers.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts[2m > [22m[2mDatavaultColumnsService[2m > [22m[2mgetColumns[2m > [22m[2mshould throw 404 if table not found
-[22m[39m[DEBUG] Table not found: 660e8400-e29b-41d4-a716-446655440001
-
-[90mstdout[2m | tests/unit/services/docxHelpers.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/docxHelpers.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 43[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DatavaultColumnsService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 129[2mms[22m[39m
 [90mstdout[2m | tests/unit/docxRenderer.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/ai.service.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/intakeNavigation.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/intakeQuestionVisibility.test.ts
 [22m[39m≡ƒº¬ Setting up test environment...
 
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mextractPlaceholdersFromDocx[2m > [22m[2mshould extract placeholders from a template
@@ -151,49 +121,8 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
   ]
 }
 
-[90mstdout[2m | tests/unit/utils/encryption.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-{"level":30,"time":1764680986175,"env":"test","module":"ai-service","duration":4,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-{"level":50,"time":1764680986191,"env":"test","module":"intake-navigation","error":{},"pageId":"page1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating visibleIf condition"}
-[90mstdout[2m | tests/unit/services/intakeNavigation.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-{"level":50,"time":1764680986202,"env":"test","module":"intake-navigation","error":{},"pageId":"page1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating skipIf condition"}
- [32mΓ£ô[39m tests/unit/services/intakeNavigation.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 29[2mms[22m[39m
-{"level":50,"time":1764680986193,"env":"test","module":"intake-question-visibility","error":{},"questionId":"q1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating visibleIf condition"}
-[90mstdout[2m | tests/unit/services/intakeQuestionVisibility.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/utils/encryption.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/intakeQuestionVisibility.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 35[2mms[22m[39m
- [32mΓ£ô[39m tests/unit/utils/encryption.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 22[2mms[22m[39m
-[90mstdout[2m | tests/unit/ai.service.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-{"level":50,"time":1764680986206,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":1,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680986209,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":0,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680986213,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":1,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680986217,"env":"test","module":"ai-service","error":{"code":"RATE_LIMIT","details":{"originalError":"Rate limit exceeded"}},"duration":0,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680986219,"env":"test","module":"ai-service","error":{},"duration":0,"msg":"AI workflow generation failed"}
-{"level":30,"time":1764680986223,"env":"test","module":"ai-service","duration":0,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-{"level":30,"time":1764680986226,"env":"test","module":"ai-service","duration":1,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-{"level":30,"time":1764680986228,"env":"test","module":"ai-service","duration":0,"suggestionsCount":1,"msg":"AI binding suggestion succeeded"}
- [32mΓ£ô[39m tests/unit/ai.service.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 67[2mms[22m[39m
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould render a template with simple data
-[22m[39mDocument XML: <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
-      <w:r>
-        <w:t>Hello {{client_name}}</w:t>
-      </w:r>
-    </w:p>
-  </w:body>
-</w:document>
-{
+[22m[39m{
   "error": [
     {
       "name": "TemplateError",
@@ -225,17 +154,7 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
 }
 
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould use formatters in templates
-[22m[39mDocument XML: <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
-      <w:r>
-        <w:t>Name: {{name}} | Date: {{date}} | Status: {{status}}</w:t>
-      </w:r>
-    </w:p>
-  </w:body>
-</w:document>
-{
+[22m[39m{
   "error": [
     {
       "name": "TemplateError",
@@ -319,17 +238,7 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
 }
 
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould handle missing data gracefully
-[22m[39mDocument XML: <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
-      <w:r>
-        <w:t>Hello {{client_name}}</w:t>
-      </w:r>
-    </w:p>
-  </w:body>
-</w:document>
-{
+[22m[39m{
   "error": [
     {
       "name": "TemplateError",
@@ -361,17 +270,7 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
 }
 
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould use custom output name
-[22m[39mDocument XML: <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
-      <w:r>
-        <w:t>Hello {{client_name}}</w:t>
-      </w:r>
-    </w:p>
-  </w:body>
-</w:document>
-{
+[22m[39m{
   "error": [
     {
       "name": "TemplateError",
@@ -403,17 +302,7 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
 }
 
 [90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mPDF conversion[2m > [22m[2mshould attempt PDF conversion when requested
-[22m[39mDocument XML: <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p>
-      <w:r>
-        <w:t>Hello {{client_name}}</w:t>
-      </w:r>
-    </w:p>
-  </w:body>
-</w:document>
-{
+[22m[39m{
   "error": [
     {
       "name": "TemplateError",
@@ -447,356 +336,21 @@ npm warn Unknown project config "puppeteer_skip_download". This will stop workin
 [90mstdout[2m | tests/unit/docxRenderer.test.ts
 [22m[39m≡ƒº╣ Cleaning up test environment...
 
- [31mΓ¥»[39m tests/unit/docxRenderer.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[32m 288[2mms[22m[39m
-[31m       [31m├ù[31m should extract placeholders from a template[39m[32m 29[2mms[22m[39m
-[31m       [31m├ù[31m should extract placeholders including formatters[39m[32m 12[2mms[22m[39m
-       [32mΓ£ô[39m should throw error if template does not exist[32m 14[2mms[22m[39m
-       [32mΓ£ô[39m should validate complete data[32m 4[2mms[22m[39m
+ [31mΓ¥»[39m tests/unit/docxRenderer.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[32m 64[2mms[22m[39m
+[31m       [31m├ù[31m should extract placeholders from a template[39m[32m 17[2mms[22m[39m
+[31m       [31m├ù[31m should extract placeholders including formatters[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should throw error if template does not exist[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should validate complete data[32m 1[2mms[22m[39m
        [32mΓ£ô[39m should detect missing data[32m 1[2mms[22m[39m
-[31m       [31m├ù[31m should allow formatters as valid placeholders[39m[32m 13[2mms[22m[39m
-[31m       [31m├ù[31m should render a template with simple data[39m[32m 82[2mms[22m[39m
-[31m       [31m├ù[31m should use formatters in templates[39m[32m 57[2mms[22m[39m
-[31m       [31m├ù[31m should handle missing data gracefully[39m[32m 32[2mms[22m[39m
-       [32mΓ£ô[39m should throw error if template does not exist[32m 4[2mms[22m[39m
-[31m       [31m├ù[31m should use custom output name[39m[32m 6[2mms[22m[39m
-[31m       [31m├ù[31m should attempt PDF conversion when requested[39m[32m 6[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultRowsRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DatavaultRowsRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DatavaultRowsRepository.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 29[2mms[22m[39m
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
-
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
-
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/schema/collections.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/schema/collections.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/schema/collections.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/workflows/conditionTruthTable.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/workflows/conditionTruthTable.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/workflows/conditionTruthTable.test.ts [2m([22m[2m51 tests[22m[2m)[22m[32m 24[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/TemplateAnalysisService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/TemplateAnalysisService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/TemplateAnalysisService.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 28[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/docxRenderer2.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/docxRenderer2.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/docxRenderer2.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 19[2mms[22m[39m
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/pagination.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/pagination.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/pagination.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 20[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/BrandingService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/schema/documentEngine.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/BrandingService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/services/EmailTemplateMetadataService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/schema/documentEngine.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/BrandingService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 23[2mms[22m[39m
- [32mΓ£ô[39m tests/unit/schema/documentEngine.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 21[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/EmailTemplateMetadataService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
-
- [32mΓ£ô[39m tests/unit/services/EmailTemplateMetadataService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/RecordService.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 24[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/CollectionFieldService.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 30[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/StepService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32mΓ£ô[39m tests/unit/services/WorkflowService.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 26[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/captcha.service.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/captcha.service.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/services/repeater.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
- [32mΓ£ô[39m tests/unit/captcha.service.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 15[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/repeater.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/repeater.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 18[2mms[22m[39m
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/auth/googleAuth.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 72[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/variableResolver.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/variableResolver.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/variableResolver.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 12[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DocumentTemplateService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/conditionalLogic.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/utils/conditionalLogic-simple.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/utils/conditionalLogic-simple.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DocumentTemplateRepository.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 24[2mms[22m[39m
- [32mΓ£ô[39m tests/unit/utils/conditionalLogic-simple.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/conditionalLogic.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/conditionalLogic.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 13[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
-
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
-
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DatavaultReferenceColumns.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 669[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DatavaultTablesService.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 18[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DatavaultTablesRepository.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 17[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/CollectionService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 20[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DatavaultColumnsRepository.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 12[2mms[22m[39m
-{"level":50,"time":1764680993097,"env":"test","error":{"error":{"code":"INTERNAL_ERROR","message":""}},"msg":"Failed to render template"}
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/engine/templateNode.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 14276[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve template by key from workflowTemplates mapping [33m 1146[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should throw error if template key not found [33m 815[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should store output in runOutputs table [33m 943[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve template by templateId directly [33m 807[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should throw error if templateId not found [33m 798[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should use docxRenderer2 by default (v2 engine) [33m 837[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should use legacy engine when engine="legacy" [33m 794[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should generate PDF when toPdf=true [33m 924[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should default to DOCX when toPdf=false [33m 906[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should skip execution when condition evaluates to false [33m 749[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should execute when condition evaluates to true [33m 798[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve simple bindings [33m 785[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should handle binding resolution errors gracefully [33m 739[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should record failed output in runOutputs table [33m 889[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should not throw errors (should return error in result) [33m 813[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should deny access to templates from different tenant [33m 799[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should require either templateKey or templateId [33m 730[2mms[22m[39m
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 4 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
-
- FAIL  tests/unit/repositories/WorkflowTemplateRepository.test.ts [ tests/unit/repositories/WorkflowTemplateRepository.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/repositories/WorkflowTemplateRepository.test.ts:324:18: ERROR: "await" can only be used inside an "async" function
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/repositories/WorkflowTemplateRepository.test.ts:324:18
-  
-  "await" can only be used inside an "async" function
-  322 |  
-  323 |      // Mapping should still exist
-  324 |      const found = await repo.findById(mapping.id);
-      |                    ^
-  325 |      expect(found).toBeDefined();
-  326 |  
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/12]ΓÄ»
-
- FAIL  tests/unit/services/DatavaultRowsService.test.ts [ tests/unit/services/DatavaultRowsService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/DatavaultRowsService.test.ts:133:19: ERROR: Expected identifier but found "'createRow'"
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/DatavaultRowsService.test.ts:133:19
-  
-  Expected identifier but found "'createRow'"
-  131 |            type: 'text' as const,
-  132 |            required: true,
-  133 |            describe('createRow', () => {
-      |                     ^
-  134 |          it('should create row with validated values', async () => {
-  135 |            const mockTable = {
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/12]ΓÄ»
-
- FAIL  tests/unit/services/PdfQueueService.test.ts [ tests/unit/services/PdfQueueService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/PdfQueueService.test.ts:463:0: ERROR: Expected "*/" to terminate multi-line comment
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/PdfQueueService.test.ts:463:0
-  
-  Expected "*/" to terminate multi-line comment
-  461 |    });
-  462 |  });
-  463 |  
-      |  ^
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/12]ΓÄ»
-
- FAIL  tests/unit/services/WorkflowTemplateService.test.ts [ tests/unit/services/WorkflowTemplateService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/WorkflowTemplateService.test.ts:80:2: ERROR: Unexpected "}"
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/WorkflowTemplateService.test.ts:80:2
-  
-  Unexpected "}"
-  78 |    expect(secondUpdated.isPrimary).toBe(true);
-  79 |  });
-  80 |    });
-     |    ^
-  81 |  
-  82 |  describe('listTemplates', () => {
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/12]ΓÄ»
-
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 8 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+       [32mΓ£ô[39m should allow formatters as valid placeholders[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should render a template with simple data[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should use formatters in templates[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should handle missing data gracefully[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should throw error if template does not exist[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should use custom output name[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should attempt PDF conversion when requested[39m[32m 5[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 7 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > extractPlaceholdersFromDocx > should extract placeholders from a template
 ApiError: Failed to extract placeholders: Multi error
@@ -807,10 +361,10 @@ ApiError: Failed to extract placeholders: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:247:23
+ Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:241:23
  Γ¥» tests/unit/docxRenderer.test.ts:97:28
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > extractPlaceholdersFromDocx > should extract placeholders including formatters
 ApiError: Failed to extract placeholders: Multi error
@@ -821,32 +375,10 @@ ApiError: Failed to extract placeholders: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:247:23
+ Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:241:23
  Γ¥» tests/unit/docxRenderer.test.ts:106:28
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > validateTemplateData > should allow formatters as valid placeholders
-AssertionError: expected [] to deeply equal [ 'upper', 'lower' ]
-
-- Expected
-+ Received
-
-- [
--   "upper",
--   "lower",
-- ]
-+ []
-
- Γ¥» tests/unit/docxRenderer.test.ts:143:23
-    141| 
-    142|       const missing = validateTemplateData(placeholders, data);
-    143|       expect(missing).toEqual(['upper', 'lower']);
-       |                       ^
-    144|       // Note: formatters should be handled separately in real validatΓÇª
-    145|     });
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should render a template with simple data
 ApiError: Failed to render template: Multi error
@@ -857,10 +389,10 @@ ApiError: Failed to render template: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:140:23
+ Γ¥» renderDocx server/services/docxRenderer.ts:134:23
  Γ¥» tests/unit/docxRenderer.test.ts:156:22
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should use formatters in templates
 ApiError: Failed to render template: Multi error
@@ -871,10 +403,10 @@ ApiError: Failed to render template: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:140:23
+ Γ¥» renderDocx server/services/docxRenderer.ts:134:23
  Γ¥» tests/unit/docxRenderer.test.ts:193:22
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should handle missing data gracefully
 ApiError: Failed to render template: Multi error
@@ -885,10 +417,10 @@ ApiError: Failed to render template: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:140:23
+ Γ¥» renderDocx server/services/docxRenderer.ts:134:23
  Γ¥» tests/unit/docxRenderer.test.ts:221:22
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should use custom output name
 ApiError: Failed to render template: Multi error
@@ -899,10 +431,10 @@ ApiError: Failed to render template: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:140:23
+ Γ¥» renderDocx server/services/docxRenderer.ts:134:23
  Γ¥» tests/unit/docxRenderer.test.ts:246:22
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/7]ΓÄ»
 
  FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > PDF conversion > should attempt PDF conversion when requested
 ApiError: Failed to render template: Multi error
@@ -913,14 +445,14 @@ ApiError: Failed to render template: Multi error
        |            ^
     121|   },
     122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:140:23
+ Γ¥» renderDocx server/services/docxRenderer.ts:134:23
  Γ¥» tests/unit/docxRenderer.test.ts:265:22
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/7]ΓÄ»
 
 
-[2m Test Files [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m33 passed[39m[22m[90m (38)[39m
-[2m      Tests [22m [1m[31m8 failed[39m[22m[2m | [22m[1m[32m666 passed[39m[22m[90m (674)[39m
-[2m   Start at [22m 07:09:44
-[2m   Duration [22m 16.67s[2m (transform 10.89s, setup 1.62s, collect 29.69s, tests 16.13s, environment 9ms, prepare 932ms)[22m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 10:08:13
+[2m   Duration [22m 566ms[2m (transform 88ms, setup 45ms, collect 143ms, tests 64ms, environment 0ms, prepare 11ms)[22m
 

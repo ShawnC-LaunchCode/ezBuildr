@@ -1,0 +1,1214 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> vault-logic@1.0.0 test:integration
+> vitest run tests/integration
+
+
+[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth-oauth.integration.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":40,"time":1764805055532,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/routes/US-A-001-login.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.expression-validation.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.runs.docx.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/auth-oauth.integration.test.ts[2m > [22m[2mOAuth2 Integration Tests
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":40,"time":1764805056748,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056749,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056750,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056752,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056761,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056761,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056765,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056765,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056768,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056774,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056776,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764805056770,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805058954,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058954,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058954,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058954,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058954,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058955,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058959,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058959,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058958,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058960,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058968,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":30,"time":1764805058975,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+{"level":50,"time":1764805059627,"env":"test","error":{},"msg":"Error fetching DataVault table"}
+{"level":50,"time":1764805060017,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":50,"time":1764805060186,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":50,"time":1764805060362,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/collections.e2e.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 3791[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create multiple records [33m 419[2mms[22m[39m
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts[2m > [22m[2mDataVault Autonumber Integration Tests[2m > [22m[2mshould generate basic autonumber without prefix
+[22m[39mRow 1 Basic Autonumber: 0001
+Row 2 Basic Autonumber: 0002
+
+{"level":50,"time":1764805060526,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+{"level":50,"time":1764805060686,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+{"level":50,"time":1764805061024,"env":"test","error":{},"msg":"Error fetching table permissions"}
+{"level":50,"time":1764805061185,"env":"test","error":{},"msg":"Error fetching table permissions"}
+{"level":40,"time":1764805061190,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":30,"time":1764805061205,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+[90mstdout[2m | tests/integration/auth.integration.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805061206,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061216,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061216,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061216,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061216,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/routes/US-A-001-login.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805061224,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061225,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061225,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+[90mstdout[2m | tests/integration/api.expression-validation.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805061235,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+[90mstdout[2m | tests/integration/api.runs.docx.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805061239,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061238,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061242,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061242,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061243,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061225,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061237,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061237,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061237,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061237,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061244,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061257,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061257,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061257,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061257,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061225,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061236,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061236,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061237,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061237,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061225,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061236,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061236,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061237,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061237,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061243,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061252,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061253,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061253,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061253,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061294,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061295,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805061236,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061247,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061247,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061248,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061248,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805061317,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061319,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764805061239,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061249,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061250,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061250,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061250,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061243,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061253,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061253,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061254,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061254,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":40,"time":1764805061341,"env":"test","module":"auth-middleware","path":"/api/auth/user","msg":"No valid authentication found"}
+{"level":30,"time":1764805061238,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061248,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061248,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061248,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061248,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061317,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061325,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061325,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061325,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061325,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061320,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764805061330,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764805061330,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764805061330,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764805061330,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764805061375,"env":"test","module":"auth","hasToken":false,"ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805061375,"env":"test","module":"auth","msg":"OAuth2 login failed: No token provided"}
+{"level":30,"time":1764805061383,"env":"test","module":"auth","hasToken":true,"origin":"https://malicious-site.com","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805061383,"env":"test","module":"auth","origin":"https://malicious-site.com","msg":"OAuth2 login failed: Invalid origin"}
+{"level":30,"time":1764805061389,"env":"test","module":"auth","hasToken":true,"ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805061390,"env":"test","module":"auth","msg":"OAuth2 login failed: Invalid origin"}
+{"level":40,"time":1764805061396,"env":"test","module":"auth-middleware","path":"/api/auth/user","msg":"No valid authentication found"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to grant permissions
+[22m[39mupsert result: {"id":"63d568d9-cb51-493c-bfc9-a5f223b9ff50","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"ca628328-360c-4ace-a7b9-9f4971a0f23e","role":"read","createdAt":"2025-12-03T23:37:43.182Z"}
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to grant permissions
+[22m[39mGrant permission success, sending 201. Permission: {"id":"63d568d9-cb51-493c-bfc9-a5f223b9ff50","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"ca628328-360c-4ace-a7b9-9f4971a0f23e","role":"read","createdAt":"2025-12-03T23:37:43.182Z"}
+
+{"level":30,"time":1764805061500,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061501,"env":"test","module":"auth","email":"success@example.com","msg":"Token verified successfully"}
+[90mstdout[2m | tests/integration/auth.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/auth.integration.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 411[2mms[22m[39m
+{"level":30,"time":1764805061649,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764805061667,"env":"test","module":"auth","userId":"google-user-success","msg":"User upserted successfully"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to update existing permission (upsert)
+[22m[39mupsert result: {"id":"1af3695f-90f2-432a-94ab-796980faed75","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"25545f69-51f8-4f54-9127-961b6de02f43","role":"write","createdAt":"2025-12-03T23:37:40.637Z"}
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to update existing permission (upsert)
+[22m[39mGrant permission success, sending 201. Permission: {"id":"1af3695f-90f2-432a-94ab-796980faed75","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"25545f69-51f8-4f54-9127-961b6de02f43","role":"write","createdAt":"2025-12-03T23:37:40.637Z"}
+
+{"level":30,"time":1764805061758,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805061774,"env":"test","module":"auth","email":"success@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805061775,"env":"test","module":"auth","hasToken":false,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061776,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805061775,"env":"test","module":"auth","msg":"OAuth2 login failed: No token provided"}
+{"level":30,"time":1764805061777,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805061778,"env":"test","module":"user-credentials-repository","userId":"PiUvT-Y9QyuhJwunqSTk-","msg":"User credentials created"}
+{"level":30,"time":1764805061784,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061784,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805061785,"env":"test","module":"user-credentials-repository","userId":"U0BwG9h1YnOx-3VFJUu6Z","msg":"User credentials created"}
+{"level":30,"time":1764805061781,"env":"test","module":"auth-routes","userId":"PiUvT-Y9QyuhJwunqSTk-","email":"test-aRCZMJ8CEg1WNS2HIuRsS@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805061789,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061790,"env":"test","module":"auth","email":"tokenfield@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805061789,"env":"test","module":"auth-routes","userId":"U0BwG9h1YnOx-3VFJUu6Z","email":"test-expr-ARG_Nx2Tw6BbJB_SsGxTR@example.com","msg":"User registered successfully"}
+[90mstdout[2m | tests/integration/datavault.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+
+{"level":30,"time":1764805061803,"env":"test","module":"user-credentials-repository","userId":"r1Jd6oENvLCTrbTvHHTnd","msg":"User credentials created"}
+{"level":30,"time":1764805061804,"env":"test","module":"user-credentials-repository","userId":"Ch0kFXlkr27kOr4JBYDfe","msg":"User credentials created"}
+{"level":30,"time":1764805061808,"env":"test","module":"user-credentials-repository","userId":"2kxzY8IM6vgoInzj3dbJm","msg":"User credentials created"}
+{"level":30,"time":1764805061806,"env":"test","module":"auth-routes","userId":"r1Jd6oENvLCTrbTvHHTnd","email":"test-templates-buRwBWUWaUWCZNsMFLsSs@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805061807,"env":"test","module":"auth-routes","userId":"Ch0kFXlkr27kOr4JBYDfe","email":"test-projects-JsJ_80cC-C03HIXJVOthz@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805061815,"env":"test","module":"user-credentials-repository","userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"User credentials created"}
+{"level":30,"time":1764805061812,"env":"test","module":"auth-routes","userId":"2kxzY8IM6vgoInzj3dbJm","email":"test-docx-H51QDGiPW_lbOixMRcpC6@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805061818,"env":"test","module":"auth-routes","userId":"ueXIi7NtPKH8VUfWjvQjV","email":"test-workflows-Rcq0n9QyWzYVUwm9BZx94@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805061830,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to update existing permission (upsert)
+[22m[39mupsert result: {"id":"1af3695f-90f2-432a-94ab-796980faed75","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"25545f69-51f8-4f54-9127-961b6de02f43","role":"read","createdAt":"2025-12-03T23:37:40.637Z"}
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould allow owner to update existing permission (upsert)
+[22m[39mGrant permission success, sending 201. Permission: {"id":"1af3695f-90f2-432a-94ab-796980faed75","tableId":"40ed8d06-1ba9-406d-a51a-92ed6e2a63e8","userId":"25545f69-51f8-4f54-9127-961b6de02f43","role":"read","createdAt":"2025-12-03T23:37:40.637Z"}
+
+{"level":40,"time":1764805061907,"env":"test","module":"rbac-middleware","userId":"U0BwG9h1YnOx-3VFJUu6Z","userRole":"builder","permission":"project:create","path":"/","msg":"Permission denied"}
+{"level":30,"time":1764805061938,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805061939,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764805061946,"env":"test","module":"auth","userId":"google-user-token-field","msg":"User upserted successfully"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests
+[22m[39mLogin Status: [33m200[39m
+Login Body: {
+  "message": "Authentication successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJnb29nbGUtdXNlci1pZCIsImVtYWlsIjoidGVzdHVzZXJAZXhhbXBsZS5jb20iLCJ0ZW5hbnRJZCI6IjBkMDJiNTJiLTA4NDktNDEzYS1hYzViLTIzN2Y4NTU5NzBmZiIsInJvbGUiOiJvd25lciIsImlhdCI6MTc2NDgwNTA2MSwiZXhwIjoxNzY1NDA5ODYxfQ.DqBEUZ0-p21ZdfTkU_J9b2DvnVtpKwxoh8SFuPHyWlg",
+  "user": {
+    "id": "google-user-id",
+    "email": "testuser@example.com",
+    "firstName": "Test",
+    "lastName": "User",
+    "profileImageUrl": "https://example.com/avatar.jpg",
+    "tenantId": "0d02b52b-0849-413a-ac5b-237f855970ff",
+    "tenantRole": "owner"
+  }
+}
+
+{"level":30,"time":1764805061952,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805061952,"env":"test","module":"auth","email":"other@example.com","msg":"Token verified successfully"}
+{"level":40,"time":1764805061987,"env":"test","module":"auth-middleware","path":"/","msg":"No valid authentication found"}
+[90mstdout[2m | tests/integration/api.workflows.test.ts[2m > [22m[2mWorkflows API Integration Tests
+[22m[39mProject creation response: [33m201[39m {"id":"295a10ab-3da8-4d66-9406-d9bbfd26ea09","title":"Test Project for Workflows","name":"Test Project for Workflows","description":null,"creatorId":"ueXIi7NtPKH8VUfWjvQjV","tenantId":"6a782691-fdb4-4640-9639-deb745ef2137","createdBy":"ueXIi7NtPKH8VUfWjvQjV","ownerId":"ueXIi7NtPKH8VUfWjvQjV","status":"active","archived":false,"createdAt":"2025-12-03T23:37:43.771Z","updatedAt":"2025-12-03T23:37:43.771Z"}
+
+{"level":30,"time":1764805062005,"env":"test","module":"auth","userId":"other-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764805062025,"env":"test","module":"user-credentials-repository","userId":"ycZ1y4cNlu95F3z3uZmzY","msg":"User credentials created"}
+{"level":30,"time":1764805062026,"env":"test","module":"auth-routes","userId":"ycZ1y4cNlu95F3z3uZmzY","email":"test-AsBF-QJvsdbvUKdJr2y2G@example.com","msg":"User registered successfully"}
+[90mstdout[2m | tests/integration/api.expression-validation.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.expression-validation.test.ts [2m([22m[2m13 tests[22m[2m | [22m[33m13 skipped[39m[2m)[22m[33m 801[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should validate a correct expression
+       [2m[90mΓåô[39m[22m should reject expression with unknown variable
+       [2m[90mΓåô[39m[22m should validate expression with helper function
+       [2m[90mΓåô[39m[22m should reject invalid syntax
+       [2m[90mΓåô[39m[22m should reject without authentication
+       [2m[90mΓåô[39m[22m should reject missing required fields
+       [2m[90mΓåô[39m[22m should return available variables for a node
+       [2m[90mΓåô[39m[22m should return empty array for first node
+       [2m[90mΓåô[39m[22m should reject without authentication
+       [2m[90mΓåô[39m[22m should reject non-existent workflow
+       [2m[90mΓåô[39m[22m should return list of helper functions
+       [2m[90mΓåô[39m[22m should reject without authentication
+       [2m[90mΓåô[39m[22m should validate expressions with variables from multiple upstream nodes
+{"level":30,"time":1764805062048,"env":"test","headers":{"host":"localhost:64707","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIya3h6WThJTTZ2Z29JbnpqM2RiSm0iLCJlbWFpbCI6InRlc3QtZG9jeC1INTFRREdpUFdfbGJPaXhNUmNwQzZAZXhhbXBsZS5jb20iLCJ0ZW5hbnRJZCI6bnVsbCwicm9sZSI6bnVsbCwiaWF0IjoxNzY0ODA1MDYxLCJleHAiOjE3NjU0MDk4NjF9.Qzq46tinycBBYkWhzvb26yRM2DUxCI-DuwARX1bvVEc","content-type":"multipart/form-data; boundary=--------------------------a8ed59ef2e73d83362a419df","content-length":"1773","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"invoice-template.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4,10,0,0,0,0,0,180,140,131,91,215,121,132,234,184,1,0,0,184,1,0,0,19,0,0,0,91,67,111,110,116,101,110,116,95,84,121,112,101,115,93,46,120,109,108,60,63,120,109,108,32,118,101,114,115,105,111,110,61,34,49,46,48,34,32,101,110,99,111,100,105,110,103,61,34,85,84,70,45,56,34,32,115,116,97,110,100,97,108,111,110,101,61,34,121,101,115,34,63,62,10,60,84,121,112,101,115,32,120,109,108,110,115,61,34,104,116,116,112,58,47,47,115,99,104,101,109,97,115,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,46,111,114,103,47,112,97,99,107,97,103,101,47,50,48,48,54,47,99,111,110,116,101,110,116,45,116,121,112,101,115,34,62,10,32,32,60,68,101,102,97,117,108,116,32,69,120,116,101,110,115,105,111,110,61,34,114,101,108,115,34,32,67,111,110,116,101,110,116,84,121,112,101,61,34,97,112,112,108,105,99,97,116,105,111,110,47,118,110,100,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,45,112,97,99,107,97,103,101,46,114,101,108,97,116,105,111,110,115,104,105,112,115,43,120,109,108,34,47,62,10,32,32,60,68,101,102,97,117,108,116,32,69,120,116,101,110,115,105,111,110,61,34,120,109,108,34,32,67,111,110,116,101,110,116,84,121,112,101,61,34,97,112,112,108,105,99,97,116,105,111,110,47,120,109,108,34,47,62,10,32,32,60,79,118,101,114,114,105,100,101,32,80,97,114,116,78,97,109,101,61,34,47,119,111,114,100,47,100,111,99,117,109,101,110,116,46,120,109,108,34,32,67,111,110,116,101,110,116,84,121,112,101,61,34,97,112,112,108,105,99,97,116,105,111,110,47,118,110,100,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,45,111,102,102,105,99,101,100,111,99,117,109,101,110,116,46,119,111,114,100,112,114,111,99,101,115,115,105,110,103,109,108,46,100,111,99,117,109,101,110,116,46,109,97,105,110,43,120,109,108,34,47,62,10,60,47,84,121,112,101,115,62,80,75,3,4,10,0,0,0,0,0,180,140,131,91,32,27,134,234,46,1,0,0,46,1,0,0,11,0,0,0,95,114,101,108,115,47,46,114,101,108,115,60,63,120,109,108,32,118,101,114,115,105,111,110,61,34,49,46,48,34,32,101,110,99,111,100,105,110,103,61,34,85,84,70,45,56,34,32,115,116,97,110,100,97,108,111,110,101,61,34,121,101,115,34,63,62,10,60,82,101,108,97,116,105,111,110,115,104,105,112,115,32,120,109,108,110,115,61,34,104,116,116,112,58,47,47,115,99,104,101,109,97,115,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,46,111,114,103,47,112,97,99,107,97,103,101,47,50,48,48,54,47,114,101,108,97,116,105,111,110,115,104,105,112,115,34,62,10,32,32,60,82,101,108,97,116,105,111,110,115,104,105,112,32,73,100,61,34,114,73,100,49,34,32,84,121,112,101,61,34,104,116,116,112,58,47,47,115,99,104,101,109,97,115,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,46,111,114,103,47,111,102,102,105,99,101,68,111,99,117,109,101,110,116,47,50,48,48,54,47,114,101,108,97,116,105,111,110,115,104,105,112,115,47,111,102,102,105,99,101,68,111,99,117,109,101,110,116,34,32,84,97,114,103,101,116,61,34,119,111,114,100,47,100,111,99,117,109,101,110,116,46,120,109,108,34,47,62,10,60,47,82,101,108,97,116,105,111,110,115,104,105,112,115,62,80,75,3,4,10,0,0,0,0,0,180,140,131,91,130,254,28,189,32,1,0,0,32,1,0,0,17,0,0,0,119,111,114,100,47,100,111,99,117,109,101,110,116,46,120,109,108,60,63,120,109,108,32,118,101,114,115,105,111,110,61,34,49,46,48,34,32,101,110,99,111,100,105,110,103,61,34,85,84,70,45,56,34,32,115,116,97,110,100,97,108,111,110,101,61,34,121,101,115,34,63,62,10,60,119,58,100,111,99,117,109,101,110,116,32,120,109,108,110,115,58,119,61,34,104,116,116,112,58,47,47,115,99,104,101,109,97,115,46,111,112,101,110,120,109,108,102,111,114,109,97,116,115,46,111,114,103,47,119,111,114,100,112,114,111,99,101,115,115,105,110,103,109,108,47,50,48,48,54,47,109,97,105,110,34,62,10,32,32,60,119,58,98,111,100,121,62,10,32,32,32,32,60,119,58,112,62,10,32,32,32,32,32,32,60,119,58,114,62,10,32,32,32,32,32,32,32,32,60,119,58,116,62,73,110,118,111,105,99,101,32,102,111,114,32,123,123,99,108,105,101,110,116,95,110,97,109,101,125,125,58,32,65,109,111,117,110,116,32,123,123,97,109,111,117,110,116,125,125,60,47,119,58,116,62,10,32,32,32,32,32,32,60,47,119,58,114,62,10,32,32,32,32,60,47,119,58,112,62,10,32,32,60,47,119,58,98,111,100,121,62,10,60,47,119,58,100,111,99,117,109,101,110,116,62,80,75,1,2,20,0,10,0,0,0,0,0,180,140,131,91,215,121,132,234,184,1,0,0,184,1,0,0,19,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,91,67,111,110,116,101,110,116,95,84,121,112,101,115,93,46,120,109,108,80,75,1,2,20,0,10,0,0,0,0,0,180,140,131,91,32,27,134,234,46,1,0,0,46,1,0,0,11,0,0,0,0,0,0,0,0,0,0,0,0,0,233,1,0,0,95,114,101,108,115,47,46,114,101,108,115,80,75,1,2,20,0,10,0,0,0,0,0,180,140,131,91,130,254,28,189,32,1,0,0,32,1,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,64,3,0,0,119,111,114,100,47,100,111,99,117,109,101,110,116,46,120,109,108,80,75,5,6,0,0,0,0,3,0,3,0,185,0,0,0,143,4,0,0,0,0]},"size":1374},"body":{"name":"Invoice Template"},"msg":"Debug Template Upload"}
+{"level":30,"time":1764805062054,"env":"test","module":"auth","email":"tokenfield@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805062054,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805062063,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805062063,"env":"test","module":"auth","email":"tokenfield@example.com","msg":"Token verified successfully"}
+{"level":50,"time":1764805062071,"env":"test","error":{},"msg":"Error granting table permission"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould deny writer from granting permissions
+[22m[39mGrant permission catch block entered Error: Access denied - owner permission required
+    at DatavaultTablePermissionsService.requirePermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:108:13)
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at DatavaultTablePermissionsService.grantPermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:138:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/datavault.routes.ts:1155:26
+
+{"level":30,"time":1764805062119,"env":"test","module":"auth","email":"other@example.com","msg":"OAuth2 login successful"}
+stderr | tests/integration/api.runs.docx.test.ts > Runs API - DOCX Generation Integration Tests
+Deprecated method ".compile", view upgrade guide : https://docxtemplater.com/docs/api/#upgrade-guide, stack : Error: 
+    at deprecatedMethod (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:184:167)
+    at Docxtemplater.compile (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:475:7)
+    at TemplateScanner.validateBuffer (C:/Users/scoot/poll/VaultLogic/server/services/document/TemplateScanner.ts:190:13)
+    at TemplateScanner.scanAndFix (C:/Users/scoot/poll/VaultLogic/server/services/document/TemplateScanner.ts:69:22)
+    at C:/Users/scoot/poll/VaultLogic/server/api/templates.ts:201:50
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":40,"time":1764805062177,"env":"test","module":"auth-middleware","path":"/api/auth/user","msg":"No valid authentication found"}
+{"level":30,"time":1764805062183,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805062184,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":40,"time":1764805062193,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":30,"time":1764805062224,"env":"test","module":"auth","userId":"google-user-token-field","msg":"User upserted successfully"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mPOST /api/datavault/tables/:tableId/permissions[2m > [22m[2mshould prevent modifying table owner permissions
+[22m[39mGrant permission catch block entered Error: Cannot modify permissions for table owner
+    at DatavaultTablePermissionsService.grantPermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:148:13)
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at C:/Users/scoot/poll/VaultLogic/server/routes/datavault.routes.ts:1155:26
+
+{"level":50,"time":1764805062239,"env":"test","error":{},"msg":"Error granting table permission"}
+{"level":30,"time":1764805062309,"env":"test","module":"user-credentials-repository","userId":"kD4sRY24eJOBXnNiruvtp","msg":"User credentials created"}
+{"level":30,"time":1764805062309,"env":"test","module":"auth-routes","userId":"kD4sRY24eJOBXnNiruvtp","email":"test-login-VXeuCr73EgzVHG75T37K8@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805062326,"env":"test","module":"auth","email":"tokenfield@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805062332,"env":"test","module":"auth","hasToken":true,"ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805062333,"env":"test","module":"auth","msg":"OAuth2 login failed: Invalid origin"}
+{"level":30,"time":1764805062338,"env":"test","module":"auth","hasToken":true,"origin":"https://malicious-site.com","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805062338,"env":"test","module":"auth","origin":"https://malicious-site.com","msg":"OAuth2 login failed: Invalid origin"}
+{"level":30,"time":1764805062338,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764805062344,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805062344,"env":"test","module":"auth","email":"localhost@example.com","msg":"Token verified successfully"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mDELETE /api/datavault/permissions/:permissionId[2m > [22m[2mshould allow owner to revoke permissions
+[22m[39mrevokePermission called for permission: 2668eec2-994b-40ad-8b5d-0a437920cfbe
+
+{"level":30,"time":1764805062354,"env":"test","module":"user-credentials-repository","userId":"2YG9n8yH4qhhDhqDYEVv6","msg":"User credentials created"}
+{"level":30,"time":1764805062354,"env":"test","module":"auth-routes","userId":"2YG9n8yH4qhhDhqDYEVv6","email":"viewer-AF3pKuMnaw5mpAclFCpX8@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805062445,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805062452,"env":"test","module":"auth","email":"testuser@example.com","msg":"User logged out"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/api.snapshots.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1147[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should maintain immutability of runs across versions [33m 621[2mms[22m[39m
+{"level":40,"time":1764805062459,"env":"test","module":"auth-middleware","path":"/api/auth/user","msg":"No valid authentication found"}
+{"level":30,"time":1764805062465,"env":"test","module":"auth","msg":"User logged out"}
+[90mstdout[2m | tests/integration/routes/US-A-001-login.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":40,"time":1764805062469,"env":"test","module":"rbac-middleware","userId":"2YG9n8yH4qhhDhqDYEVv6","userRole":"viewer","permission":"workflow:create","path":"/projects/295a10ab-3da8-4d66-9406-d9bbfd26ea09/workflows","msg":"Permission denied"}
+ [32mΓ£ô[39m tests/integration/routes/US-A-001-login.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1250[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should successfully log in with valid Google ID token [33m 530[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should return current user if authenticated [33m 395[2mms[22m[39m
+{"level":30,"time":1764805062482,"env":"test","module":"auth-routes","userId":"kD4sRY24eJOBXnNiruvtp","email":"test-login-VXeuCr73EgzVHG75T37K8@example.com","msg":"User logged in successfully"}
+{"level":30,"time":1764805062499,"env":"test","module":"auth","userId":"google-user-localhost","msg":"User upserted successfully"}
+{"level":30,"time":1764805062601,"env":"test","module":"auth","email":"localhost@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805062611,"env":"test","module":"auth","hasToken":true,"origin":"http://127.0.0.1:3000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805062611,"env":"test","module":"auth","email":"localhost@example.com","msg":"Token verified successfully"}
+{"level":40,"time":1764805062658,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)[2m > [22m[2mDELETE /api/datavault/permissions/:permissionId[2m > [22m[2mshould deny writer from revoking permissions
+[22m[39mrevokePermission called for permission: 1af3695f-90f2-432a-94ab-796980faed75
+
+{"level":30,"time":1764805062768,"env":"test","module":"auth","userId":"google-user-localhost","msg":"User upserted successfully"}
+{"level":30,"time":1764805062823,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------9d0682be75b28f33b518749b","content-length":"388","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"Test Template"},"msg":"Debug Template Upload"}
+{"level":50,"time":1764805062841,"env":"test","error":{},"msg":"Error revoking table permission"}
+[90mstdout[2m | tests/integration/api.ai.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.ai.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/api.ai.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+{"level":30,"time":1764805062877,"env":"test","module":"auth","email":"localhost@example.com","msg":"OAuth2 login successful"}
+[90mstdout[2m | tests/integration/datavault.row-notes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+{"level":30,"time":1764805062882,"env":"test","module":"auth","hasToken":true,"origin":"http://0.0.0.0:8080","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805062883,"env":"test","module":"auth","email":"localhost@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805062956,"env":"test","module":"user-credentials-repository","userId":"NKEXR2kdnKcWsiAn8MsLK","msg":"User credentials created"}
+{"level":30,"time":1764805062957,"env":"test","module":"auth-routes","userId":"NKEXR2kdnKcWsiAn8MsLK","email":"test-me-5pg79-PtTHQszjWyXUTht@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764805063055,"env":"test","module":"auth","userId":"google-user-localhost","msg":"User upserted successfully"}
+{"level":30,"time":1764805063066,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------8ed51d944b50dfa5709b361f","content-length":"172","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"body":{"name":"Test Template"},"msg":"Debug Template Upload"}
+{"level":40,"time":1764805063078,"env":"test","module":"auth-middleware","path":"/api/auth/me","msg":"No valid authentication found"}
+{"level":40,"time":1764805063083,"env":"test","module":"auth-middleware","path":"/api/auth/me","msg":"No valid authentication found"}
+{"level":30,"time":1764805063088,"env":"test","module":"auth","msg":"User logged out"}
+{"level":50,"time":1764805063118,"env":"test","error":{"error":{"code":"VALIDATION_ERROR","message":""}},"body":{"name":"Test Template"},"params":{"projectId":"6364843c-df5c-4a98-b222-928cbd432699"},"msg":"Error creating template"}
+{"level":30,"time":1764805063162,"env":"test","module":"auth","email":"localhost@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805063170,"env":"test","module":"auth","hasToken":true,"ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805063170,"env":"test","module":"auth","email":"referer@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805063176,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------cfdd022323bb02765dd7f4d4","content-length":"406","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"List Test JKWJ9DbiXfNZcpr6gVpe_"},"msg":"Debug Template Upload"}
+[90mstdout[2m | tests/integration/intake.portal.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/intake.portal.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/intake.portal.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+{"level":40,"time":1764805063281,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+stderr | tests/integration/api.runs.docx.test.ts > Runs API - DOCX Generation Integration Tests > POST /api/workflows/:id/run - Template Node Execution > should execute workflow with template node and generate DOCX
+Deprecated method ".setData", view upgrade guide : https://docxtemplater.com/docs/api/#upgrade-guide, stack : Error: 
+    at deprecatedMethod (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:184:167)
+    at Docxtemplater.setData (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:694:7)
+    at renderDocx2 (C:/Users/scoot/poll/VaultLogic/server/services/docxRenderer2.ts:150:9)
+    at executeTemplateNode (C:/Users/scoot/poll/VaultLogic/server/engine/nodes/template.ts:155:28)
+    at executeNode (C:/Users/scoot/poll/VaultLogic/server/engine/registry.ts:140:14)
+    at runGraph (C:/Users/scoot/poll/VaultLogic/server/engine/index.ts:141:28)
+    at C:/Users/scoot/poll/VaultLogic/server/api/runs.ts:112:24
+
+{"level":30,"time":1764805063328,"env":"test","module":"auth","userId":"google-user-referer","msg":"User upserted successfully"}
+{"level":30,"time":1764805063329,"env":"test","module":"user-credentials-repository","userId":"549Kya1QXH-J0lY_AL9Vm","msg":"User credentials created"}
+{"level":30,"time":1764805063329,"env":"test","module":"auth-routes","userId":"549Kya1QXH-J0lY_AL9Vm","email":"owner-XUjsvatXNUF4JMM-LVxUx@example.com","msg":"User registered successfully"}
+[90mstdout[2m | tests/integration/datavault.api-tokens.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/integration/datavault.routes.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.routes.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+{"level":30,"time":1764805063437,"env":"test","module":"auth","email":"referer@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805063444,"env":"test","module":"auth","hasToken":true,"origin":"https://app.example.com","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805063444,"env":"test","module":"auth","email":"allowed@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805063501,"env":"test","module":"tenant-routes","tenantId":"e7f71ab1-691b-46fa-8602-4b8cd28f7143","userId":"549Kya1QXH-J0lY_AL9Vm","msg":"Tenant created"}
+{"level":30,"time":1764805063536,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------be45759067135a9a6d4a6481","content-length":"383","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"Get Test"},"msg":"Debug Template Upload"}
+[90mstdout[2m | tests/integration/datavault.api-tokens.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.api-tokens.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.api-tokens.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+{"level":30,"time":1764805063606,"env":"test","module":"auth","userId":"google-user-allowed","msg":"User upserted successfully"}
+{"level":50,"time":1764805063615,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":30,"time":1764805063704,"env":"test","module":"auth","email":"allowed@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805063711,"env":"test","module":"auth","hasToken":false,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":40,"time":1764805063711,"env":"test","module":"auth","msg":"OAuth2 login failed: No token provided"}
+{"level":30,"time":1764805063716,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":50,"time":1764805063716,"env":"test","module":"auth","err":{"type":"Error","message":"Token used too late, exp=1234567890","stack":"Error: Token used too late, exp=1234567890\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:310:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"msg":"Google token verification failed"}
+{"level":50,"time":1764805063717,"env":"test","module":"auth","err":{"type":"Error","message":"Token used too late, exp=1234567890","stack":"Error: Token used too late, exp=1234567890\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:310:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"errorCode":"token_expired","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063723,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":50,"time":1764805063723,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid token signature","stack":"Error: Invalid token signature\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:325:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"msg":"Google token verification failed"}
+{"level":50,"time":1764805063723,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid token signature","stack":"Error: Invalid token signature\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:325:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"errorCode":"invalid_token_signature","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063728,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":50,"time":1764805063728,"env":"test","module":"auth","err":{"type":"Error","message":"Wrong number of segments in token: abc","stack":"Error: Wrong number of segments in token: abc\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:339:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"msg":"Google token verification failed"}
+{"level":50,"time":1764805063729,"env":"test","module":"auth","err":{"type":"Error","message":"Wrong number of segments in token: abc","stack":"Error: Wrong number of segments in token: abc\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:339:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"errorCode":"malformed_token","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063733,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":50,"time":1764805063733,"env":"test","module":"auth","err":{"type":"Error","message":"Token audience mismatch","stack":"Error: Token audience mismatch\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:353:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"hint":"Token audience mismatch - check GOOGLE_CLIENT_ID configuration","msg":"Google token verification failed"}
+{"level":50,"time":1764805063734,"env":"test","module":"auth","err":{"type":"Error","message":"Token audience mismatch","stack":"Error: Token audience mismatch\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:353:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"errorCode":"audience_mismatch","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063738,"env":"test","module":"user-credentials-repository","userId":"00Rk9ws367hfx8tUQ_A3z","msg":"User credentials created"}
+{"level":30,"time":1764805063738,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805063739,"env":"test","module":"auth-routes","userId":"00Rk9ws367hfx8tUQ_A3z","email":"builder-6W4D6YefettoZ1-8cbKsH@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764805063739,"env":"test","module":"auth","email":"unverified@example.com","msg":"Email not verified by Google"}
+{"level":50,"time":1764805063739,"env":"test","module":"auth","err":{"type":"Error","message":"Email not verified by Google","stack":"Error: Email not verified by Google\n    at verifyGoogleToken (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:169:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:296:23"},"msg":"Google token verification failed"}
+{"level":50,"time":1764805063739,"env":"test","module":"auth","err":{"type":"Error","message":"Email not verified by Google","stack":"Error: Email not verified by Google\n    at verifyGoogleToken (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:169:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:296:23"},"errorCode":"email_not_verified","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063743,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":50,"time":1764805063744,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid issuer","stack":"Error: Invalid issuer\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:392:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"hint":"Invalid issuer - token may not be from Google","msg":"Google token verification failed"}
+{"level":50,"time":1764805063744,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid issuer","stack":"Error: Invalid issuer\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth-oauth.integration.test.ts:392:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:157:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:753:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1636:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1602:10)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1309:12)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runSuite (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1468:8)\n    at runFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1526:3)\n    at startTests (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1559:3)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:76:64\n    at withEnv (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:57:3)\n    at run (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/base.RFExFinv.js:72:144)"},"errorCode":"invalid_issuer","origin":"http://localhost:5000","msg":"Google authentication failed"}
+{"level":30,"time":1764805063749,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805063749,"env":"test","module":"auth","email":"session@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764805063826,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------478a55bb0467ec5f819ba680","content-length":"391","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"Placeholder Test"},"msg":"Debug Template Upload"}
+{"level":30,"time":1764805063832,"env":"test","module":"user-credentials-repository","userId":"JxCU5yRSzSxBYoufxWy4z","msg":"User credentials created"}
+{"level":30,"time":1764805063832,"env":"test","module":"auth-routes","userId":"JxCU5yRSzSxBYoufxWy4z","email":"other-oxwMsL2vIBV4AcgQ7Cl_D@example.com","msg":"User registered successfully"}
+stderr | tests/integration/api.runs.docx.test.ts > Runs API - DOCX Generation Integration Tests > POST /api/workflows/:id/run - Template Node Execution > should handle missing template data gracefully
+Deprecated method ".setData", view upgrade guide : https://docxtemplater.com/docs/api/#upgrade-guide, stack : Error: 
+    at deprecatedMethod (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:184:167)
+    at Docxtemplater.setData (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:694:7)
+    at renderDocx2 (C:/Users/scoot/poll/VaultLogic/server/services/docxRenderer2.ts:150:9)
+    at executeTemplateNode (C:/Users/scoot/poll/VaultLogic/server/engine/nodes/template.ts:155:28)
+    at executeNode (C:/Users/scoot/poll/VaultLogic/server/engine/registry.ts:140:14)
+    at runGraph (C:/Users/scoot/poll/VaultLogic/server/engine/index.ts:141:28)
+    at C:/Users/scoot/poll/VaultLogic/server/api/runs.ts:112:24
+
+{"level":30,"time":1764805063903,"env":"test","module":"auth","userId":"google-user-session","msg":"User upserted successfully"}
+{"level":30,"time":1764805063962,"env":"test","module":"user-credentials-repository","userId":"ur-Dwf8vDwSWTxmfFu8vh","msg":"User credentials created"}
+{"level":30,"time":1764805063963,"env":"test","module":"auth-routes","userId":"ur-Dwf8vDwSWTxmfFu8vh","email":"viewer-d5u9qb9B4E6L02mOGMnqY@example.com","msg":"User registered successfully"}
+[90mstdout[2m | tests/integration/branding.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+{"level":40,"time":1764805063966,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":30,"time":1764805064003,"env":"test","module":"auth","email":"session@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805064008,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805064008,"env":"test","module":"auth","email":"protected@example.com","msg":"Token verified successfully"}
+{"level":50,"time":1764805064011,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":30,"time":1764805064122,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------92c9b483cd8fd030ff19f666","content-length":"386","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"Update Test"},"msg":"Debug Template Upload"}
+[90mstdout[2m | tests/integration/branding.routes.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/branding.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/branding.routes.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+{"level":30,"time":1764805064163,"env":"test","module":"auth","userId":"google-user-protected","msg":"User upserted successfully"}
+{"level":40,"time":1764805064198,"env":"test","module":"rbac-middleware","userId":"00Rk9ws367hfx8tUQ_A3z","userRole":"builder","requiredRoles":["owner"],"path":"/api/tenants/e7f71ab1-691b-46fa-8602-4b8cd28f7143","msg":"Role check failed"}
+{"level":40,"time":1764805064200,"env":"test","module":"rbac-middleware","userId":"ur-Dwf8vDwSWTxmfFu8vh","userRole":"viewer","requiredRoles":["owner"],"path":"/api/tenants/e7f71ab1-691b-46fa-8602-4b8cd28f7143","msg":"Role check failed"}
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/api.projects.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 2977[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should soft-delete project [33m 322[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not allow cross-tenant access [33m 543[2mms[22m[39m
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.permissions.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 5961[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow owner to update existing permission (upsert) [33m 436[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow owner to revoke permissions [33m 382[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should enforce owner includes write and read [33m 374[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should enforce write includes read but not owner [33m 399[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should enforce read is read-only [33m 396[2mms[22m[39m
+stderr | tests/integration/api.runs.docx.test.ts > Runs API - DOCX Generation Integration Tests > GET /api/runs/:id/download - Download Generated DOCX
+Deprecated method ".setData", view upgrade guide : https://docxtemplater.com/docs/api/#upgrade-guide, stack : Error: 
+    at deprecatedMethod (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:184:167)
+    at Docxtemplater.setData (C:\Users\scoot\poll\VaultLogic\node_modules\docxtemplater\js\docxtemplater.js:694:7)
+    at renderDocx2 (C:/Users/scoot/poll/VaultLogic/server/services/docxRenderer2.ts:150:9)
+    at executeTemplateNode (C:/Users/scoot/poll/VaultLogic/server/engine/nodes/template.ts:155:28)
+    at executeNode (C:/Users/scoot/poll/VaultLogic/server/engine/registry.ts:140:14)
+    at runGraph (C:/Users/scoot/poll/VaultLogic/server/engine/index.ts:141:28)
+    at C:/Users/scoot/poll/VaultLogic/server/api/runs.ts:112:24
+
+{"level":30,"time":1764805064266,"env":"test","module":"auth","email":"protected@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805064312,"env":"test","module":"tenant-routes","tenantId":"e7f71ab1-691b-46fa-8602-4b8cd28f7143","msg":"Tenant updated"}
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/auth-jwt.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 3097[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should register a new user with email and password [33m 548[2mms[22m[39m
+{"level":30,"time":1764805064380,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805064381,"env":"test","module":"auth","email":"multiple@example.com","msg":"Token verified successfully"}
+[90mstdout[2m | tests/integration/datavault.row-notes.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764805064471,"env":"test","headers":{"host":"localhost:64705","accept-encoding":"gzip, deflate","authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJyMUpkNm9FTnZMQ1RyYlR2SEhUbmQiLCJlbWFpbCI6InRlc3QtdGVtcGxhdGVzLWJ1UndCV1VXYVVXQ1pOc01GTHNTc0BleGFtcGxlLmNvbSIsInRlbmFudElkIjpudWxsLCJyb2xlIjpudWxsLCJpYXQiOjE3NjQ4MDUwNjEsImV4cCI6MTc2NTQwOTg2MX0.frySDEdQ_82RArjw_C-9HKh4hwUcq-PFjSRXmZso8Nk","content-type":"multipart/form-data; boundary=--------------------------bd55744a27fb53fd8b2d4d4b","content-length":"386","connection":"close"},"multerInstanceType":"function","multerKeys":["diskStorage","memoryStorage","MulterError"],"hasMemoryStorage":true,"file":{"fieldname":"file","originalname":"test.docx","encoding":"7bit","mimetype":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","buffer":{"type":"Buffer","data":[80,75,3,4]},"size":4},"body":{"name":"Delete Test"},"msg":"Debug Template Upload"}
+[90mstdout[2m | tests/integration/datavault.row-notes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.row-notes.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+{"level":30,"time":1764805064535,"env":"test","module":"auth","userId":"google-user-multiple","msg":"User upserted successfully"}
+[90mstdout[2m | tests/integration/datavault.databases.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+{"level":50,"time":1764805064544,"env":"test","error":{},"msg":"Error creating DataVault row"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mSelect/Multiselect Columns[2m > [22m[2mshould validate select value against options
+[22m[39mRow creation error message: Column 'Status' value must be one of: active, inactive
+
+{"level":30,"time":1764805064642,"env":"test","module":"auth","email":"multiple@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805064957,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805064957,"env":"test","module":"auth","email":"logout@example.com","msg":"Token verified successfully"}
+{"level":50,"time":1764805065023,"env":"test","error":{"length":359,"name":"error","severity":"ERROR","code":"23503","detail":"Key (workflow_version_id)=(e85fd3b9-6ae5-4602-a20a-70ed49ac9ce5) is not present in table \"workflow_versions\".","schema":"public","table":"runs","constraint":"runs_workflow_version_id_workflow_versions_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"msg":"Failed to create run"}
+{"level":30,"time":1764805065114,"env":"test","module":"auth","userId":"google-user-logout","msg":"User upserted successfully"}
+{"level":30,"time":1764805065216,"env":"test","module":"auth","email":"logout@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805065221,"env":"test","module":"auth","email":"logout@example.com","msg":"User logged out"}
+{"level":40,"time":1764805065228,"env":"test","module":"auth-middleware","path":"/api/auth/user","msg":"No valid authentication found"}
+{"level":40,"time":1764805065232,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"User does not have an associated tenant"}
+{"level":30,"time":1764805065234,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764805065234,"env":"test","module":"auth","email":"cookieclear@example.com","msg":"Token verified successfully"}
+[90mstdout[2m | tests/integration/api.runs.docx.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/api.runs.docx.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 4055[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should execute workflow with template node and generate DOCX [33m 585[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle missing template data gracefully [33m 385[2mms[22m[39m
+{"level":50,"time":1764805065344,"env":"test","error":{},"msg":"Error creating DataVault row"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mSelect/Multiselect Columns[2m > [22m[2mshould validate multiselect values as array
+[22m[39mRow creation error message: Table not found
+
+{"level":40,"time":1764805065347,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/projects/295a10ab-3da8-4d66-9406-d9bbfd26ea09/workflows","msg":"User does not have an associated tenant"}
+{"level":30,"time":1764805065382,"env":"test","module":"auth","userId":"google-user-cookie-clear","msg":"User upserted successfully"}
+{"level":40,"time":1764805065403,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/workflows/undefined/publish","msg":"User does not have an associated tenant"}
+{"level":30,"time":1764805065453,"env":"test","module":"user-credentials-repository","userId":"zGm7Bo-iOuN8J0toPDV-L","msg":"User credentials created"}
+{"level":30,"time":1764805065453,"env":"test","module":"auth-routes","userId":"zGm7Bo-iOuN8J0toPDV-L","email":"viewer-2lWwar8uKJFFyfYcEcbtm@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764805065461,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/projects/295a10ab-3da8-4d66-9406-d9bbfd26ea09/workflows","msg":"User does not have an associated tenant"}
+{"level":30,"time":1764805065483,"env":"test","module":"auth","email":"cookieclear@example.com","msg":"OAuth2 login successful"}
+{"level":30,"time":1764805065486,"env":"test","module":"auth","email":"cookieclear@example.com","msg":"User logged out"}
+[90mstdout[2m | tests/integration/auth-oauth.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/auth-oauth.integration.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 10830[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should successfully authenticate with valid Google token and origin [33m 312[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should accept both 'token' and 'idToken' field names [33m 544[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should accept requests from localhost variants [33m 825[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow accessing protected routes after authentication [33m 372[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should maintain session across multiple requests [33m 577[2mms[22m[39m
+{"level":40,"time":1764805065518,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/workflows/undefined/publish","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065554,"env":"test","module":"rbac-middleware","userId":"zGm7Bo-iOuN8J0toPDV-L","userRole":"viewer","permission":"workflow:run","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"Permission denied"}
+{"level":40,"time":1764805065556,"env":"test","module":"tenant-middleware","userId":"test-user-runs-stage8","path":"/runs","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065575,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/projects/295a10ab-3da8-4d66-9406-d9bbfd26ea09/workflows","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065609,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065628,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/workflows/undefined/publish","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065660,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/runs","msg":"User does not have an associated tenant"}
+[90mstdout[2m | tests/integration/datavault.databases.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.databases.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.databases.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+{"level":40,"time":1764805065682,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/workflows/undefined/versions","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065716,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065779,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/runs","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065829,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065881,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/runs/undefined","msg":"User does not have an associated tenant"}
+{"level":50,"time":1764805065889,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805065935,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/workflows/0aaca896-5dbb-42ef-8835-59763afec7ce/run","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805065944,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+[90mstdout[2m | tests/integration/api.runs.graph.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":40,"time":1764805065988,"env":"test","module":"tenant-middleware","userId":"r1Jd6oENvLCTrbTvHHTnd","path":"/runs/undefined/logs","msg":"User does not have an associated tenant"}
+ [31mΓ¥»[39m tests/integration/api.runs.graph.test.ts [2m([22m[2m19 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 4677[2mms[22m[39m
+       [32mΓ£ô[39m should list all runs with pagination[32m 131[2mms[22m[39m
+       [32mΓ£ô[39m should filter runs by status[32m 122[2mms[22m[39m
+       [32mΓ£ô[39m should filter runs by workflow[32m 119[2mms[22m[39m
+       [32mΓ£ô[39m should filter runs by project[32m 122[2mms[22m[39m
+       [32mΓ£ô[39m should filter runs by date range[32m 120[2mms[22m[39m
+       [32mΓ£ô[39m should search runs by query string[32m 130[2mms[22m[39m
+       [32mΓ£ô[39m should get run by ID with all details[32m 175[2mms[22m[39m
+       [32mΓ£ô[39m should return 404 for non-existent run[32m 112[2mms[22m[39m
+       [32mΓ£ô[39m should get logs for a run[32m 222[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should re-run workflow with same inputs [33m 396[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should re-run workflow with override inputs [33m 384[2mms[22m[39m
+       [32mΓ£ô[39m should return 404 for non-existent run[32m 122[2mms[22m[39m
+       [32mΓ£ô[39m should export runs to CSV[32m 123[2mms[22m[39m
+       [32mΓ£ô[39m should export runs with filters applied[32m 115[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should compare two runs [33m 325[2mms[22m[39m
+       [32mΓ£ô[39m should identify changed input keys[32m 175[2mms[22m[39m
+       [32mΓ£ô[39m should return 404 if run A not found[32m 112[2mms[22m[39m
+       [32mΓ£ô[39m should return 404 if run B not found[32m 113[2mms[22m[39m
+[31m       [31m├ù[31m should enforce tenant isolation on runs list[39m[33m 389[2mms[22m[39m
+{"level":50,"time":1764805066000,"env":"test","error":{"issues":[{"code":"invalid_type","expected":"string","received":"undefined","path":["projectId"],"message":"Required"}],"name":"ZodError"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error moving workflow"}
+{"level":50,"time":1764805066221,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805066279,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.templates-runs.test.ts [2m([22m[2m15 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 5059[2mms[22m[39m
+         [32mΓ£ô[39m should create template with file upload[32m 243[2mms[22m[39m
+         [32mΓ£ô[39m should reject non-docx files[32m 14[2mms[22m[39m
+         [32mΓ£ô[39m should reject without file[32m 111[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should list templates [33m 353[2mms[22m[39m
+         [32mΓ£ô[39m should get template by ID[32m 296[2mms[22m[39m
+         [32mΓ£ô[39m should extract placeholders[32m 296[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should update template name [33m 347[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should delete template [33m 448[2mms[22m[39m
+[31m         [31m├ù[31m should execute workflow[39m[32m 165[2mms[22m[39m
+[31m         [31m├ù[31m should include logs in debug mode[39m[32m 208[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should reject without required permission [33m 321[2mms[22m[39m
+[31m         [31m├ù[31m should list runs[39m[32m 106[2mms[22m[39m
+[31m         [31m├ù[31m should filter by workflowId[39m[32m 118[2mms[22m[39m
+[31m         [31m├ù[31m should get run by ID[39m[32m 103[2mms[22m[39m
+[31m         [31m├ù[31m should get run logs[39m[32m 108[2mms[22m[39m
+{"level":50,"time":1764805066333,"env":"test","error":{"issues":[{"code":"invalid_type","expected":"string","received":"undefined","path":["projectId"],"message":"Required"}],"name":"ZodError"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error moving workflow"}
+{"level":50,"time":1764805066443,"env":"test","error":{"length":141,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $1 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","projectId":null,"msg":"Error moving workflow"}
+{"level":50,"time":1764805066814,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805066869,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":50,"time":1764805066978,"env":"test","error":{"length":141,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $1 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","projectId":"00000000-0000-0000-0000-000000000000","msg":"Error moving workflow"}
+{"level":50,"time":1764805067333,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805067390,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805067393,"env":"test","module":"auth-middleware","path":"/api/workflows/undefined/move","msg":"No valid authentication found"}
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts[2m > [22m[2mDataVault Autonumber Integration Tests
+[22m[39mError cleaning up table: Error: Table not found
+    at DatavaultTablesService.verifyTenantOwnership (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablesService.ts:150:13)
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at DatavaultTablesService.deleteTable (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablesService.ts:290:5)
+    at C:/Users/scoot/poll/VaultLogic/tests/integration/datavault.autonumber.test.ts:90:9
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault.autonumber.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 10773[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should generate basic autonumber without prefix [33m 1187[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should generate autonumber with prefix [33m 1182[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should generate autonumber with yearly reset format [33m 1207[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should be atomic and prevent race conditions [33m 2969[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should prevent manual updates to autonumber values [33m 1526[2mms[22m[39m
+{"level":50,"time":1764805067599,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805067651,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805067655,"env":"test","module":"auth-middleware","path":"/api/workflows/undefined/move","msg":"No valid authentication found"}
+{"level":50,"time":1764805067859,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805067921,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":50,"time":1764805067977,"env":"test","error":{"issues":[{"validation":"uuid","code":"invalid_string","message":"Invalid uuid","path":["projectId"]}],"name":"ZodError"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","projectId":"invalid-uuid","msg":"Error moving workflow"}
+{"level":50,"time":1764805068182,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805068237,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":50,"time":1764805068296,"env":"test","error":{"issues":[{"code":"invalid_type","expected":"string","received":"undefined","path":["projectId"],"message":"Required"}],"name":"ZodError"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error moving workflow"}
+{"level":50,"time":1764805068501,"env":"test","error":{"length":301,"name":"error","severity":"ERROR","code":"23503","detail":"Key (creator_id)=(ueXIi7NtPKH8VUfWjvQjV) is not present in table \"users\".","schema":"public","table":"workflows","constraint":"workflows_creator_id_users_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error creating workflow"}
+{"level":40,"time":1764805068548,"env":"test","module":"tenant-middleware","userId":"ueXIi7NtPKH8VUfWjvQjV","path":"/","msg":"User does not have an associated tenant"}
+{"level":40,"time":1764805068555,"env":"test","module":"auth-middleware","path":"/","msg":"No valid authentication found"}
+{"level":50,"time":1764805068610,"env":"test","error":{"issues":[{"code":"invalid_type","expected":"string","received":"undefined","path":["projectId"],"message":"Required"}],"name":"ZodError"},"workflowId":"undefined","userId":"ueXIi7NtPKH8VUfWjvQjV","msg":"Error moving workflow"}
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.workflows.test.ts [2m([22m[2m17 tests[22m[2m | [22m[31m10 failed[39m[2m)[22m[33m 7720[2mms[22m[39m
+[31m       [31m├ù[31m should create a new draft workflow[39m[32m 127[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject without permission [33m 342[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should list workflows [33m 574[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should filter by status [33m 572[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should search by name [33m 945[2mms[22m[39m
+[31m       [31m├ù[31m should update draft workflow[39m[33m 724[2mms[22m[39m
+[31m       [31m├ù[31m should not allow editing published workflow[39m[32m 117[2mms[22m[39m
+[31m       [31m├ù[31m should publish workflow[39m[32m 116[2mms[22m[39m
+[31m       [31m├ù[31m should list workflow versions[39m[32m 164[2mms[22m[39m
+[31m       [31m├ù[31m should move workflow to a project[39m[33m 320[2mms[22m[39m
+[31m       [31m├ù[31m should move workflow to Main Folder (projectId = null)[39m[33m 442[2mms[22m[39m
+[31m       [31m├ù[31m should reject move to non-existent project[39m[33m 535[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject move without authentication [33m 414[2mms[22m[39m
+[31m       [31m├ù[31m should reject move of workflow user does not own[39m[32m 263[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject move with invalid projectId format [33m 322[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject move without projectId in body [33m 320[2mms[22m[39m
+[31m       [31m├ù[31m should reject move to project user does not have access to[39m[33m 314[2mms[22m[39m
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/datavault-v4-regression.test.ts [2m([22m[2m27 tests[22m[2m | [22m[31m20 failed[39m[2m | [22m[33m4 skipped[39m[2m)[22m[33m 9192[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a select column with options [33m 484[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a multiselect column with options [33m 500[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate select value against options [33m 1440[2mms[22m[39m
+[31m       [31m├ù[31m should validate multiselect values as array[39m[33m 802[2mms[22m[39m
+[31m       [31m├ù[31m should create an autonumber column with sequence[39m[32m 103[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should auto-increment autonumber on row creation
+[31m       [31m├ù[31m should format autonumber with prefix[39m[32m 257[2mms[22m[39m
+[31m       [31m├ù[31m should create a note for a row[39m[32m 282[2mms[22m[39m
+[31m       [31m├ù[31m should get all notes for a row[39m[32m 265[2mms[22m[39m
+[31m       [31m├ù[31m should delete a note[39m[32m 257[2mms[22m[39m
+[31m       [31m├ù[31m should not allow deleting notes by other users[39m[32m 263[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should track row creation in history
+       [2m[90mΓåô[39m[22m should track value changes in history
+[31m       [31m├ù[31m should create an API token[39m[32m 269[2mms[22m[39m
+[31m       [31m├ù[31m should validate API token scopes[39m[32m 269[2mms[22m[39m
+[31m       [31m├ù[31m should revoke (delete) an API token[39m[32m 279[2mms[22m[39m
+[31m       [31m├ù[31m should deny access with expired token[39m[32m 265[2mms[22m[39m
+[31m       [31m├ù[31m should grant table permission[39m[32m 278[2mms[22m[39m
+[31m       [31m├ù[31m should list table permissions[39m[32m 255[2mms[22m[39m
+[31m       [31m├ù[31m should update table permission role[39m[32m 262[2mms[22m[39m
+[31m       [31m├ù[31m should revoke table permission[39m[32m 264[2mms[22m[39m
+[31m       [31m├ù[31m should enforce RBAC - only owners can manage permissions[39m[32m 259[2mms[22m[39m
+[31m       [31m├ù[31m should paginate rows efficiently[39m[32m 260[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should handle sorting efficiently
+[31m       [31m├ù[31m should return user-friendly error for invalid column type[39m[32m 255[2mms[22m[39m
+[31m       [31m├ù[31m should return user-friendly error for missing required fields[39m[32m 262[2mms[22m[39m
+[31m       [31m├ù[31m should handle network errors gracefully[39m[32m 258[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.expression-validation.test.ts > Expression Validation API Integration Tests
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.expression-validation.test.ts:101:8
+     99|         },
+    100|       })
+    101|       .expect(201);
+       |        ^
+    102| 
+    103|     workflowId = workflowResponse.body.id;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/38]ΓÄ»
+
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 37 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.runs.graph.test.ts > Stage 8: Runs API Integration Tests > RBAC and Tenant Isolation > should enforce tenant isolation on runs list
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.runs.graph.test.ts:547:10
+    545|         .get("/api/runs")
+    546|         .query({ limit: 100 })
+    547|         .expect(200);
+       |          ^
+    548| 
+    549|       const otherTenantRuns = response.body.items.filter((run: any) =>
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > POST /api/workflows/:id/run > should execute workflow
+Error: expected 201 "Created", got 500 "Internal Server Error"
+ Γ¥» tests/integration/api.templates-runs.test.ts:318:12
+    316|             inputJson: { customer_name: "Test Customer" },
+    317|           })
+    318|           .expect(201);
+       |            ^
+    319| 
+    320|         expect(response.body).toHaveProperty("runId");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > POST /api/workflows/:id/run > should include logs in debug mode
+Error: expected 201 "Created", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:333:12
+    331|             options: { debug: true },
+    332|           })
+    333|           .expect(201);
+       |            ^
+    334| 
+    335|         expect(response.body).toHaveProperty("logs");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs > should list runs
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:371:12
+    369|           .get("/api/runs")
+    370|           .set("Authorization", `Bearer ${authToken}`)
+    371|           .expect(200);
+       |            ^
+    372| 
+    373|         expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs > should filter by workflowId
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:381:12
+    379|           .get(`/api/runs?workflowId=${workflowId}`)
+    380|           .set("Authorization", `Bearer ${authToken}`)
+    381|           .expect(200);
+       |            ^
+    382| 
+    383|         expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs/:id > should get run by ID
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:402:12
+    400|           .get(`/api/runs/${runId}`)
+    401|           .set("Authorization", `Bearer ${authToken}`)
+    402|           .expect(200);
+       |            ^
+    403| 
+    404|         expect(response.body).toHaveProperty("id", runId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/38]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs/:id/logs > should get run logs
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:424:12
+    422|           .get(`/api/runs/${runId}/logs`)
+    423|           .set("Authorization", `Bearer ${authToken}`)
+    424|           .expect(200);
+       |            ^
+    425| 
+    426|         expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > POST /api/projects/:projectId/workflows > should create a new draft workflow
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.workflows.test.ts:98:10
+     96|           graphJson: { nodes: [], edges: [] },
+     97|         })
+     98|         .expect(201);
+       |          ^
+     99| 
+    100|       expect(response.body).toHaveProperty("id");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PATCH /api/workflows/:id > should update draft workflow
+AssertionError: expected '' to have property "name" with value 'Updated Name'
+
+- Expected: 
+"Updated Name"
+
++ Received: 
+undefined
+
+ Γ¥» tests/integration/api.workflows.test.ts:189:29
+    187|         .expect(200);
+    188| 
+    189|       expect(response.body).toHaveProperty("name", "Updated Name");
+       |                             ^
+    190|     });
+    191| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PATCH /api/workflows/:id > should not allow editing published workflow
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.workflows.test.ts:197:10
+    195|         .post(`/api/workflows/${workflowId}/publish`)
+    196|         .set("Authorization", `Bearer ${authToken}`)
+    197|         .expect(200);
+       |          ^
+    198| 
+    199|       // Try to edit
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > POST /api/workflows/:id/publish > should publish workflow
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.workflows.test.ts:223:10
+    221|         .post(`/api/workflows/${workflowId}/publish`)
+    222|         .set("Authorization", `Bearer ${authToken}`)
+    223|         .expect(200);
+       |          ^
+    224| 
+    225|       expect(response.body).toHaveProperty("status", "published");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > GET /api/workflows/:id/versions > should list workflow versions
+Error: expected 200 "OK", got 403 "Forbidden"
+ Γ¥» tests/integration/api.workflows.test.ts:251:10
+    249|         .get(`/api/workflows/${workflowId}/versions`)
+    250|         .set("Authorization", `Bearer ${authToken}`)
+    251|         .expect(200);
+       |          ^
+    252| 
+    253|       expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[13/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should move workflow to a project
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.workflows.test.ts:290:10
+    288|         .set("Authorization", `Bearer ${authToken}`)
+    289|         .send({ projectId: targetProjectId })
+    290|         .expect(200);
+       |          ^
+    291| 
+    292|       expect(response.body).toHaveProperty("id", workflowId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[14/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should move workflow to Main Folder (projectId = null)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/api.workflows.test.ts:316:10
+    314|         .set("Authorization", `Bearer ${authToken}`)
+    315|         .send({ projectId: null })
+    316|         .expect(200);
+       |          ^
+    317| 
+    318|       expect(response.body).toHaveProperty("id", workflowId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[15/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move to non-existent project
+Error: expected 404 "Not Found", got 500 "Internal Server Error"
+ Γ¥» tests/integration/api.workflows.test.ts:337:10
+    335|         .set("Authorization", `Bearer ${authToken}`)
+    336|         .send({ projectId: fakeProjectId })
+    337|         .expect(404);
+       |          ^
+    338| 
+    339|       expect(response.body).toHaveProperty("message");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[16/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move of workflow user does not own
+Error: expected 403 "Forbidden", got 401 "Unauthorized"
+ Γ¥» tests/integration/api.workflows.test.ts:369:10
+    367|         .set("Authorization", `Bearer ${authToken2}`)
+    368|         .send({ projectId: targetProjectId })
+    369|         .expect(403);
+       |          ^
+    370| 
+    371|       expect(response.body).toHaveProperty("message");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[17/38]ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move to project user does not have access to
+Error: expected 403 "Forbidden", got 400 "Bad Request"
+ Γ¥» tests/integration/api.workflows.test.ts:425:10
+    423|         .set("Authorization", `Bearer ${authToken}`)
+    424|         .send({ projectId: user2ProjectId })
+    425|         .expect(403);
+       |          ^
+    426| 
+    427|       expect(response.body).toHaveProperty("message");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[18/38]ΓÄ»
+
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Select/Multiselect Columns > should validate multiselect values as array
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ Γ¥» tests/integration/datavault-v4-regression.test.ts:401:36
+    399|         });
+    400| 
+    401|       expect(validResponse.status).toBe(201);
+       |                                    ^
+    402|       expect(validResponse.body.values[testColumnId]).toEqual(['urgentΓÇª
+    403|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[19/38]ΓÄ»
+
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Autonumber Columns > should create an autonumber column with sequence
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Autonumber Columns > should format autonumber with prefix
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Row Notes > should create a note for a row
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Row Notes > should get all notes for a row
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Row Notes > should delete a note
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Row Notes > should not allow deleting notes by other users
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > API Tokens > should create an API token
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > API Tokens > should validate API token scopes
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > API Tokens > should revoke (delete) an API token
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > API Tokens > should deny access with expired token
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should grant table permission
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should list table permissions
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should update table permission role
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should revoke table permission
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should enforce RBAC - only owners can manage permissions
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Grid Performance > should paginate rows efficiently
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Error Handling > should return user-friendly error for invalid column type
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Error Handling > should return user-friendly error for missing required fields
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Error Handling > should handle network errors gracefully
+error: insert or update on table "datavault_tables" violates foreign key constraint "datavault_tables_owner_user_id_users_id_fk"
+ Γ¥» node_modules/@neondatabase/serverless/index.mjs:1345:74
+ Γ¥» NeonPreparedQuery.execute node_modules/drizzle-orm/neon-serverless/session.js:76:20
+ Γ¥» tests/integration/datavault-v4-regression.test.ts:271:21
+    269|     testDatabaseId = database.id;
+    270| 
+    271|     const [table] = await db.insert(datavaultTables).values({
+       |                     ^
+    272|       name: 'Test Table',
+    273|       slug: 'test-table-' + uniqueSuffix,
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[20/38]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[31m37 failed[39m[22m[2m | [22m[1m[32m291 passed[39m[22m[2m | [22m[33m17 skipped[39m[90m (345)[39m
+[2m   Start at [22m 17:37:33
+[2m   Duration [22m 17.21s[2m (transform 24.55s, setup 1.51s, collect 99.19s, tests 71.82s, environment 6ms, prepare 634ms)[22m
+

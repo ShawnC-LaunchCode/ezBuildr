@@ -1,0 +1,472 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> vault-logic@1.0.0 test
+> vitest run --coverage tests/integration/auth-jwt.integration.test.ts tests/integration/api.templates-runs.test.ts tests/integration/api.projects.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+{"level":40,"time":1764711653426,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764711653427,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":40,"time":1764711653427,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764711656681,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764711656682,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764711656683,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764711656683,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764711656690,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764711656690,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764711656691,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764711656691,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764711656683,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764711656690,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764711656690,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764711656691,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764711656691,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764711656682,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764711656690,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764711656690,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764711656690,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764711656690,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764711657107,"env":"test","module":"user-credentials-repository","userId":"g7k1nxamIPYeJfSXcC2zo","msg":"User credentials created"}
+{"level":30,"time":1764711657110,"env":"test","module":"auth-routes","userId":"g7k1nxamIPYeJfSXcC2zo","email":"test-GnQ1e2y5nBBWwMy5GMZVs@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764711657164,"env":"test","module":"user-credentials-repository","userId":"88ouV74LOaYcX25h8hfrm","msg":"User credentials created"}
+{"level":30,"time":1764711657167,"env":"test","module":"auth-routes","userId":"88ouV74LOaYcX25h8hfrm","email":"test-projects-Q40wPikv2RZjThmTzB0ll@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764711657174,"env":"test","module":"user-credentials-repository","userId":"-XHM72OyB_9_lRFSjUwI0","msg":"User credentials created"}
+{"level":30,"time":1764711657177,"env":"test","module":"auth-routes","userId":"-XHM72OyB_9_lRFSjUwI0","email":"test-templates-RDG51pjAqNLaiZzFClftu@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764711657336,"env":"test","module":"user-credentials-repository","userId":"8xKyzpDs_iAsLt5HZ0Kkm","msg":"User credentials created"}
+{"level":30,"time":1764711657337,"env":"test","module":"auth-routes","userId":"8xKyzpDs_iAsLt5HZ0Kkm","email":"test-MwmgH641DQbU-XWoamwlQ@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764711657392,"env":"test","module":"auth-middleware","path":"/api/projects","msg":"No valid authentication found"}
+{"level":30,"time":1764711657607,"env":"test","module":"user-credentials-repository","userId":"IHM-T6aYPq4AbFHlYLwn0","msg":"User credentials created"}
+{"level":30,"time":1764711657608,"env":"test","module":"auth-routes","userId":"IHM-T6aYPq4AbFHlYLwn0","email":"test-login-dLVONlM80OfWNK-ne06D5@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764711657770,"env":"test","module":"auth-routes","userId":"IHM-T6aYPq4AbFHlYLwn0","email":"test-login-dLVONlM80OfWNK-ne06D5@example.com","msg":"User logged in successfully"}
+{"level":30,"time":1764711658200,"env":"test","module":"user-credentials-repository","userId":"tgRtOx-SRJMGq5tZtV3sY","msg":"User credentials created"}
+{"level":30,"time":1764711658200,"env":"test","module":"auth-routes","userId":"tgRtOx-SRJMGq5tZtV3sY","email":"test-me-75IXqvi3Tn61fqsq0qmp5@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764711658312,"env":"test","module":"auth-middleware","path":"/api/auth/me","msg":"No valid authentication found"}
+{"level":40,"time":1764711658316,"env":"test","module":"auth-middleware","path":"/api/auth/me","msg":"No valid authentication found"}
+{"level":30,"time":1764711658320,"env":"test","module":"auth","msg":"User logged out"}
+{"level":30,"time":1764711658529,"env":"test","module":"user-credentials-repository","userId":"2uVLV_B6TW3KT5rMfKAN2","msg":"User credentials created"}
+{"level":30,"time":1764711658530,"env":"test","module":"auth-routes","userId":"2uVLV_B6TW3KT5rMfKAN2","email":"owner-NtulepeNVkFrf8DcnGC2h@example.com","msg":"User registered successfully"}
+{"level":50,"time":1764711658679,"env":"test","error":{},"msg":"Error fetching project"}
+{"level":30,"time":1764711658698,"env":"test","module":"tenant-routes","tenantId":"f54805d3-74f7-4a77-828e-2794ea326cd8","userId":"2uVLV_B6TW3KT5rMfKAN2","msg":"Tenant created"}
+{"level":40,"time":1764711658809,"env":"test","module":"acl-auth","ip":"::1","msg":"Authentication required"}
+{"level":30,"time":1764711658912,"env":"test","module":"user-credentials-repository","userId":"NTcIOsiFijL5oAcgbc8Ym","msg":"User credentials created"}
+{"level":30,"time":1764711658912,"env":"test","module":"auth-routes","userId":"NTcIOsiFijL5oAcgbc8Ym","email":"builder-HrqltAklwqdPUGUwNE6Vj@example.com","msg":"User registered successfully"}
+{"level":30,"time":1764711659125,"env":"test","module":"user-credentials-repository","userId":"htDFRcsT32d-epPeLU0vx","msg":"User credentials created"}
+{"level":30,"time":1764711659126,"env":"test","module":"auth-routes","userId":"htDFRcsT32d-epPeLU0vx","email":"viewer-FsAAKZ6n1yJoG9nJAgqrG@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764711659348,"env":"test","module":"rbac-middleware","userId":"NTcIOsiFijL5oAcgbc8Ym","userRole":"builder","requiredRoles":["owner"],"path":"/api/tenants/f54805d3-74f7-4a77-828e-2794ea326cd8","msg":"Role check failed"}
+{"level":40,"time":1764711659351,"env":"test","module":"rbac-middleware","userId":"htDFRcsT32d-epPeLU0vx","userRole":"viewer","requiredRoles":["owner"],"path":"/api/tenants/f54805d3-74f7-4a77-828e-2794ea326cd8","msg":"Role check failed"}
+{"level":30,"time":1764711659457,"env":"test","module":"tenant-routes","tenantId":"f54805d3-74f7-4a77-828e-2794ea326cd8","msg":"Tenant updated"}
+[90mstdout[2m | tests/integration/auth-jwt.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1764711659537,"env":"test","module":"user-credentials-repository","userId":"LLqhQF9rb_AeNaEFU5uIK","msg":"User credentials created"}
+{"level":30,"time":1764711659538,"env":"test","module":"auth-routes","userId":"LLqhQF9rb_AeNaEFU5uIK","email":"other-4qquj5Xt7UsiyIC-HCmoQ@example.com","msg":"User registered successfully"}
+ [32mΓ£ô[39m tests/integration/auth-jwt.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 2784[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should register a new user with email and password [33m 426[2mms[22m[39m
+{"level":40,"time":1764711659647,"env":"test","module":"rbac-middleware","userId":"-XHM72OyB_9_lRFSjUwI0","userRole":"builder","permission":"template:delete","path":"/templates/undefined","msg":"Permission denied"}
+{"level":50,"time":1764711659856,"env":"test","error":{},"msg":"Error fetching project"}
+[90mstdout[2m | tests/integration/api.projects.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.projects.test.ts [2m([22m[2m10 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 3298[2mms[22m[39m
+       [32mΓ£ô[39m should create a new project[32m 167[2mms[22m[39m
+       [32mΓ£ô[39m should reject without authentication[32m 6[2mms[22m[39m
+[31m       [31m├ù[31m should reject with invalid data[39m[32m 160[2mms[22m[39m
+[31m       [31m├ù[31m should list projects for tenant[39m[32m 277[2mms[22m[39m
+[31m       [31m├ù[31m should support pagination[39m[32m 260[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should get project by ID [33m 320[2mms[22m[39m
+       [32mΓ£ô[39m should return 404 for non-existent project[32m 267[2mms[22m[39m
+[31m       [31m├ù[31m should update project[39m[32m 217[2mms[22m[39m
+[31m       [31m├ù[31m should soft-delete project[39m[33m 370[2mms[22m[39m
+[31m       [31m├ù[31m should not allow cross-tenant access[39m[33m 589[2mms[22m[39m
+{"level":30,"time":1764711660188,"env":"test","module":"user-credentials-repository","userId":"VSkD4h7MO--5SSdYkb8HN","msg":"User credentials created"}
+{"level":30,"time":1764711660189,"env":"test","module":"auth-routes","userId":"VSkD4h7MO--5SSdYkb8HN","email":"viewer-aa54grpCCJ3Nheuyo2nU-@example.com","msg":"User registered successfully"}
+{"level":40,"time":1764711660409,"env":"test","module":"rbac-middleware","userId":"VSkD4h7MO--5SSdYkb8HN","userRole":"viewer","permission":"workflow:run","path":"/workflows/undefined/run","msg":"Permission denied"}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.templates-runs.test.ts [2m([22m[2m15 tests[22m[2m | [22m[31m12 failed[39m[2m)[22m[33m 4963[2mms[22m[39m
+[31m         [31m├ù[31m should create template with file upload[39m[32m 176[2mms[22m[39m
+[31m         [31m├ù[31m should reject non-docx files[39m[32m 166[2mms[22m[39m
+         [32mΓ£ô[39m should reject without file[32m 160[2mms[22m[39m
+[31m         [31m├ù[31m should list templates[39m[33m 385[2mms[22m[39m
+[31m         [31m├ù[31m should get template by ID[39m[32m 218[2mms[22m[39m
+[31m         [31m├ù[31m should extract placeholders[39m[32m 279[2mms[22m[39m
+[31m         [31m├ù[31m should update template name[39m[32m 276[2mms[22m[39m
+[31m         [31m├ù[31m should delete template[39m[32m 282[2mms[22m[39m
+[31m         [31m├ù[31m should execute workflow[39m[32m 166[2mms[22m[39m
+[31m         [31m├ù[31m should include logs in debug mode[39m[32m 161[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should reject without required permission [33m 434[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should list runs [33m 358[2mms[22m[39m
+[31m         [31m├ù[31m should filter by workflowId[39m[32m 269[2mms[22m[39m
+[31m         [31m├ù[31m should get run by ID[39m[32m 269[2mms[22m[39m
+[31m         [31m├ù[31m should get run logs[39m[32m 273[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 18 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > POST /api/projects > should reject with invalid data
+Error: expected 400 "Bad Request", got 201 "Created"
+ Γ¥» tests/integration/api.projects.test.ts:114:10
+    112|         .set("Authorization", `Bearer ${authToken}`)
+    113|         .send({ name: "" }) // Empty name
+    114|         .expect(400);
+       |          ^
+    115| 
+    116|       expect(response.body).toHaveProperty("error");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:847:12
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/18]ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > GET /api/projects > should list projects for tenant
+AssertionError: expected [ { ΓÇª(12) }, { ΓÇª(12) }, { ΓÇª(12) } ] to have property "items"
+ Γ¥» tests/integration/api.projects.test.ts:138:29
+    136|         .expect(200);
+    137| 
+    138|       expect(response.body).toHaveProperty("items");
+       |                             ^
+    139|       expect(Array.isArray(response.body.items)).toBe(true);
+    140|       expect(response.body.items.length).toBeGreaterThan(0);
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/18]ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > GET /api/projects > should support pagination
+TypeError: Cannot read properties of undefined (reading 'length')
+ Γ¥» tests/integration/api.projects.test.ts:151:34
+    149|         .expect(200);
+    150| 
+    151|       expect(response.body.items.length).toBeLessThanOrEqual(1);
+       |                                  ^
+    152|     });
+    153|   });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/18]ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > PATCH /api/projects/:id > should update project
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/api.projects.test.ts:201:10
+    199|         .set("Authorization", `Bearer ${authToken}`)
+    200|         .send({ name: "Updated Name" })
+    201|         .expect(200);
+       |          ^
+    202| 
+    203|       expect(response.body).toHaveProperty("name", "Updated Name");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/index.js:1102:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/18]ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > DELETE /api/projects/:id > should soft-delete project
+TypeError: Cannot read properties of undefined (reading 'archived')
+ Γ¥» tests/integration/api.projects.test.ts:230:22
+    228|         .where(eq(schema.projects.id, projectId));
+    229| 
+    230|       expect(project.archived).toBe(true);
+       |                      ^
+    231|     });
+    232|   });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/18]ΓÄ»
+
+ FAIL  tests/integration/api.projects.test.ts > Projects API Integration Tests > Tenant Isolation > should not allow cross-tenant access
+Error: expected 404 "Not Found", got 403 "Forbidden"
+ Γ¥» tests/integration/api.projects.test.ts:281:10
+    279|         .get(`/api/projects/${projectId}`)
+    280|         .set("Authorization", `Bearer ${otherAuthToken}`)
+    281|         .expect(404);
+       |          ^
+    282|     });
+    283|   });
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > POST /api/projects/:projectId/templates > should create template with file upload
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:104:12
+    102|           .field("name", "Test Template")
+    103|           .attach("file", mockDocx, "test.docx")
+    104|           .expect(201);
+       |            ^
+    105| 
+    106|         expect(response.body).toHaveProperty("id");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > POST /api/projects/:projectId/templates > should reject non-docx files
+Error: expected 500 "Internal Server Error", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:120:12
+    118|           .field("name", "Test Template")
+    119|           .attach("file", mockPdf, "test.pdf")
+    120|           .expect(500); // Multer rejects before handler
+       |            ^
+    121|       });
+    122| 
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > GET /api/projects/:projectId/templates > should list templates
+AssertionError: expected 0 to be greater than 0
+ Γ¥» tests/integration/api.templates-runs.test.ts:150:44
+    148|         expect(response.body).toHaveProperty("items");
+    149|         expect(Array.isArray(response.body.items)).toBe(true);
+    150|         expect(response.body.items.length).toBeGreaterThan(0);
+       |                                            ^
+    151|       });
+    152|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > GET /api/templates/:id > should get template by ID
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/api.templates-runs.test.ts:171:12
+    169|           .get(`/api/templates/${templateId}`)
+    170|           .set("Authorization", `Bearer ${authToken}`)
+    171|           .expect(200);
+       |            ^
+    172| 
+    173|         expect(response.body).toHaveProperty("id", templateId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > GET /api/templates/:id/placeholders > should extract placeholders
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:194:12
+    192|           .get(`/api/templates/${templateId}/placeholders`)
+    193|           .set("Authorization", `Bearer ${authToken}`)
+    194|           .expect(200);
+       |            ^
+    195| 
+    196|         expect(response.body).toHaveProperty("templateId", templateId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > PATCH /api/templates/:id > should update template name
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:220:12
+    218|           .set("Authorization", `Bearer ${authToken}`)
+    219|           .field("name", "Updated Name")
+    220|           .expect(200);
+       |            ^
+    221| 
+    222|         expect(response.body).toHaveProperty("name", "Updated Name");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Templates API > DELETE /api/templates/:id > should delete template
+Error: expected 204 "No Content", got 403 "Forbidden"
+ Γ¥» tests/integration/api.templates-runs.test.ts:243:12
+    241|           .delete(`/api/templates/${templateId}`)
+    242|           .set("Authorization", `Bearer ${authToken}`)
+    243|           .expect(204);
+       |            ^
+    244| 
+    245|         // Verify deletion
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[13/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > POST /api/workflows/:id/run > should execute workflow
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:263:12
+    261|             inputJson: { customer_name: "Test Customer" },
+    262|           })
+    263|           .expect(201);
+       |            ^
+    264| 
+    265|         expect(response.body).toHaveProperty("runId");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[14/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > POST /api/workflows/:id/run > should include logs in debug mode
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:278:12
+    276|             options: { debug: true },
+    277|           })
+    278|           .expect(201);
+       |            ^
+    279| 
+    280|         expect(response.body).toHaveProperty("logs");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[15/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs > should filter by workflowId
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:326:12
+    324|           .get(`/api/runs?workflowId=${workflowId}`)
+    325|           .set("Authorization", `Bearer ${authToken}`)
+    326|           .expect(200);
+       |            ^
+    327| 
+    328|         expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[16/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs/:id > should get run by ID
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:347:12
+    345|           .get(`/api/runs/${runId}`)
+    346|           .set("Authorization", `Bearer ${authToken}`)
+    347|           .expect(200);
+       |            ^
+    348| 
+    349|         expect(response.body).toHaveProperty("id", runId);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[17/18]ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > GET /api/runs/:id/logs > should get run logs
+Error: expected 200 "OK", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:369:12
+    367|           .get(`/api/runs/${runId}/logs`)
+    368|           .set("Authorization", `Bearer ${authToken}`)
+    369|           .expect(200);
+       |            ^
+    370| 
+    371|         expect(response.body).toHaveProperty("items");
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[18/18]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m18 failed[39m[22m[2m | [22m[1m[32m24 passed[39m[22m[90m (42)[39m
+[2m   Start at [22m 15:40:50
+[2m   Duration [22m 13.78s[2m (transform 5.45s, setup 191ms, collect 15.14s, tests 11.04s, environment 1ms, prepare 126ms)[22m
+

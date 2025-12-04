@@ -232,7 +232,7 @@ describe("JWT Authentication Integration Tests", () => {
         .expect("Content-Type", /json/)
         .expect(401);
 
-      expect(response.body).toHaveProperty("error", "missing_token");
+      expect(response.body).toHaveProperty("error", "unauthorized");
     });
 
     it("should reject request with invalid token", async () => {
@@ -242,7 +242,7 @@ describe("JWT Authentication Integration Tests", () => {
         .expect("Content-Type", /json/)
         .expect(401);
 
-      expect(response.body).toHaveProperty("error", "invalid_token");
+      expect(response.body).toHaveProperty("error", "unauthorized");
     });
   });
 

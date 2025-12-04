@@ -187,7 +187,7 @@ export class DatavaultRowsService {
 
     // Check required columns (excluding auto_number columns)
     for (const column of columns) {
-      if (column.required && column.type !== 'auto_number' && !(column.id in values)) {
+      if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber' && !(column.id in values)) {
         throw new Error(`Required column '${column.name}' is missing`);
       }
     }
@@ -200,30 +200,38 @@ export class DatavaultRowsService {
     }
     const tenantId = table.tenantId;
 
-    for (const column of columns) {
-      // Handle legacy auto_number type
-      if (column.type === 'auto_number' && !(column.id in values)) {
-        const startValue = column.autoNumberStart ?? 1;
-        const nextNumber = await this.rowsRepo.getNextAutoNumber(tableId, column.id, startValue, tx);
-        values[column.id] = nextNumber;
-      }
+    try {
+      for (const column of columns) {
+        // Handle legacy auto_number type
+        if (column.type === 'auto_number' && !(column.id in values)) {
+          const startValue = column.autoNumberStart ?? 1;
+          const nextNumber = await this.rowsRepo.getNextAutoNumber(tableId, column.id, startValue, tx);
+          values[column.id] = nextNumber;
+        }
 
-      // Handle new autonumber type with prefix, padding, and yearly reset
-      if (column.type === 'autonumber' && !(column.id in values)) {
-        const prefix = column.autonumberPrefix ?? null;
-        const padding = column.autonumberPadding ?? 4;
-        const resetPolicy = column.autonumberResetPolicy ?? 'never';
-        const nextValue = await this.rowsRepo.getNextAutonumber(
-          tenantId,
-          tableId,
-          column.id,
-          prefix,
-          padding,
-          resetPolicy,
-          tx
-        );
-        values[column.id] = nextValue;
+        // Handle new autonumber type with prefix, padding, and yearly reset
+        if (column.type === 'autonumber' && !(column.id in values)) {
+          const prefix = column.autonumberPrefix ?? null;
+          const padding = column.autonumberPadding ?? 4;
+          const resetPolicy = column.autonumberResetPolicy ?? 'never';
+          const options = column.options as any;
+          const format = options?.format ?? null;
+
+          const nextValue = await this.rowsRepo.getNextAutonumber(
+            tenantId,
+            tableId,
+            column.id,
+            prefix,
+            padding,
+            resetPolicy,
+            format,
+            tx
+          );
+          values[column.id] = nextValue;
+        }
       }
+    } catch (error) {
+      throw error;
     }
 
     // Validate and coerce each value

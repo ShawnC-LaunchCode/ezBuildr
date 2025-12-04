@@ -1,1007 +1,153 @@
 npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
 
-> vault-logic@1.0.0 test:unit
-> vitest run tests/unit tests/unit/docxRenderer.test.ts
-
-
 [1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
 
-[90mstdout[2m | tests/unit/services/docxHelpers.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/docxHelpers.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/docxHelpers.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 40[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts[2m > [22m[2mDatavaultColumnsService[2m > [22m[2mgetColumns[2m > [22m[2mshould throw 404 if table not found
-[22m[39m[DEBUG] Table not found: 660e8400-e29b-41d4-a716-446655440001
-
-[90mstdout[2m | tests/unit/services/DatavaultColumnsService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DatavaultColumnsService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 52[2mms[22m[39m
-[90mstdout[2m | tests/unit/docxRenderer.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/ai.service.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/docxRenderer2.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mextractPlaceholdersFromDocx[2m > [22m[2mshould extract placeholders from a template
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{clie",
-        "id": "duplicate_open_tag",
-        "context": "{{clie",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{clie\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 19,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{amou",
-        "id": "duplicate_open_tag",
-        "context": "{{amou",
-        "offset": 45,
-        "explanation": "The tag beginning with \"{{amou\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "ount}}",
-        "id": "duplicate_close_tag",
-        "context": "ount}}",
-        "offset": 53,
-        "explanation": "The tag ending with \"ount}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/services/docxRenderer2.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/docxRenderer2.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mextractPlaceholdersFromDocx[2m > [22m[2mshould extract placeholders including formatters
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{name",
-        "id": "duplicate_open_tag",
-        "context": "{{name",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{name\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 12,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{date",
-        "id": "duplicate_open_tag",
-        "context": "{{date",
-        "offset": 23,
-        "explanation": "The tag beginning with \"{{date\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "date}}",
-        "id": "duplicate_close_tag",
-        "context": "date}}",
-        "offset": 29,
-        "explanation": "The tag ending with \"date}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{stat",
-        "id": "duplicate_open_tag",
-        "context": "{{stat",
-        "offset": 42,
-        "explanation": "The tag beginning with \"{{stat\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "atus}}",
-        "id": "duplicate_close_tag",
-        "context": "atus}}",
-        "offset": 50,
-        "explanation": "The tag ending with \"atus}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould render a template with simple data
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{clie",
-        "id": "duplicate_open_tag",
-        "context": "{{clie",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{clie\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 19,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{amou",
-        "id": "duplicate_open_tag",
-        "context": "{{amou",
-        "offset": 45,
-        "explanation": "The tag beginning with \"{{amou\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "ount}}",
-        "id": "duplicate_close_tag",
-        "context": "ount}}",
-        "offset": 53,
-        "explanation": "The tag ending with \"ount}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-{"level":30,"time":1764680489908,"env":"test","module":"ai-service","duration":3,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould use formatters in templates
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{name",
-        "id": "duplicate_open_tag",
-        "context": "{{name",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{name\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 12,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{date",
-        "id": "duplicate_open_tag",
-        "context": "{{date",
-        "offset": 23,
-        "explanation": "The tag beginning with \"{{date\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "date}}",
-        "id": "duplicate_close_tag",
-        "context": "date}}",
-        "offset": 29,
-        "explanation": "The tag ending with \"date}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{stat",
-        "id": "duplicate_open_tag",
-        "context": "{{stat",
-        "offset": 42,
-        "explanation": "The tag beginning with \"{{stat\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "atus}}",
-        "id": "duplicate_close_tag",
-        "context": "atus}}",
-        "offset": 50,
-        "explanation": "The tag ending with \"atus}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould handle missing data gracefully
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{clie",
-        "id": "duplicate_open_tag",
-        "context": "{{clie",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{clie\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 19,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{amou",
-        "id": "duplicate_open_tag",
-        "context": "{{amou",
-        "offset": 45,
-        "explanation": "The tag beginning with \"{{amou\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "ount}}",
-        "id": "duplicate_close_tag",
-        "context": "ount}}",
-        "offset": 53,
-        "explanation": "The tag ending with \"ount}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mrenderDocx[2m > [22m[2mshould use custom output name
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{clie",
-        "id": "duplicate_open_tag",
-        "context": "{{clie",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{clie\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 19,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{amou",
-        "id": "duplicate_open_tag",
-        "context": "{{amou",
-        "offset": 45,
-        "explanation": "The tag beginning with \"{{amou\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "ount}}",
-        "id": "duplicate_close_tag",
-        "context": "ount}}",
-        "offset": 53,
-        "explanation": "The tag ending with \"ount}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/ai.service.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-{"level":50,"time":1764680490000,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":2,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680490005,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":1,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680490009,"env":"test","module":"ai-service","error":{"code":"VALIDATION_ERROR"},"duration":1,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680490012,"env":"test","module":"ai-service","error":{"code":"RATE_LIMIT","details":{"originalError":"Rate limit exceeded"}},"duration":0,"msg":"AI workflow generation failed"}
-{"level":50,"time":1764680490014,"env":"test","module":"ai-service","error":{},"duration":0,"msg":"AI workflow generation failed"}
-{"level":30,"time":1764680490022,"env":"test","module":"ai-service","duration":1,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-{"level":30,"time":1764680490024,"env":"test","module":"ai-service","duration":0,"sectionsCount":1,"rulesCount":0,"blocksCount":0,"msg":"AI workflow generation succeeded"}
-{"level":30,"time":1764680490028,"env":"test","module":"ai-service","duration":0,"suggestionsCount":1,"msg":"AI binding suggestion succeeded"}
- [32mΓ£ô[39m tests/unit/ai.service.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 133[2mms[22m[39m
-[90mstdout[2m | tests/unit/docxRenderer.test.ts[2m > [22m[2mDOCX Renderer Service[2m > [22m[2mPDF conversion[2m > [22m[2mshould attempt PDF conversion when requested
-[22m[39m{
-  "error": [
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{clie",
-        "id": "duplicate_open_tag",
-        "context": "{{clie",
-        "offset": 6,
-        "explanation": "The tag beginning with \"{{clie\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "name}}",
-        "id": "duplicate_close_tag",
-        "context": "name}}",
-        "offset": 19,
-        "explanation": "The tag ending with \"name}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate open tag, expected one open tag",
-      "stack": "Error: Duplicate open tag, expected one open tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateOpenTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:83:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:136:23\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "{{amou",
-        "id": "duplicate_open_tag",
-        "context": "{{amou",
-        "offset": 45,
-        "explanation": "The tag beginning with \"{{amou\" has duplicate open tags",
-        "file": "word/document.xml"
-      }
-    },
-    {
-      "name": "TemplateError",
-      "message": "Duplicate close tag, expected one close tag",
-      "stack": "Error: Duplicate close tag, expected one close tag\n    at new XTTemplateError (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:21:16)\n    at getDuplicateCloseTagException (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\errors.js:95:13)\n    at C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:166:21\n    at Array.reduce (<anonymous>)\n    at getDelimiterErrors (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:126:46)\n    at parseDelimiters (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:333:29)\n    at Object.parse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\lexer.js:424:28)\n    at XmlTemplater.preparse (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\xml-templater.js:124:32)\n    at Docxtemplater.precompileFile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:409:19)\n    at Docxtemplater.compile (C:\\Users\\scoot\\poll\\VaultLogic\\node_modules\\docxtemplater\\js\\docxtemplater.js:511:16)",
-      "properties": {
-        "xtag": "ount}}",
-        "id": "duplicate_close_tag",
-        "context": "ount}}",
-        "offset": 53,
-        "explanation": "The tag ending with \"ount}}\" has duplicate close tags",
-        "file": "word/document.xml"
-      }
-    }
-  ]
-}
-
-[90mstdout[2m | tests/unit/docxRenderer.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [31mΓ¥»[39m tests/unit/docxRenderer.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[32m 152[2mms[22m[39m
-[31m       [31m├ù[31m should extract placeholders from a template[39m[32m 33[2mms[22m[39m
-[31m       [31m├ù[31m should extract placeholders including formatters[39m[32m 10[2mms[22m[39m
-       [32mΓ£ô[39m should throw error if template does not exist[32m 2[2mms[22m[39m
-       [32mΓ£ô[39m should validate complete data[32m 1[2mms[22m[39m
-       [32mΓ£ô[39m should detect missing data[32m 1[2mms[22m[39m
-[31m       [31m├ù[31m should allow formatters as valid placeholders[39m[32m 6[2mms[22m[39m
-[31m       [31m├ù[31m should render a template with simple data[39m[32m 10[2mms[22m[39m
-[31m       [31m├ù[31m should use formatters in templates[39m[32m 21[2mms[22m[39m
-[31m       [31m├ù[31m should handle missing data gracefully[39m[32m 8[2mms[22m[39m
-       [32mΓ£ô[39m should throw error if template does not exist[32m 3[2mms[22m[39m
-[31m       [31m├ù[31m should use custom output name[39m[32m 8[2mms[22m[39m
-[31m       [31m├ù[31m should attempt PDF conversion when requested[39m[32m 8[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/TemplateAnalysisService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/TemplateAnalysisService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/TemplateAnalysisService.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 28[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultRowsRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DatavaultRowsRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DatavaultRowsRepository.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 32[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/intakeNavigation.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-{"level":50,"time":1764680490513,"env":"test","module":"intake-navigation","error":{},"pageId":"page1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating visibleIf condition"}
-[90mstdout[2m | tests/unit/services/intakeNavigation.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/intakeNavigation.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 55[2mms[22m[39m
-{"level":50,"time":1764680490549,"env":"test","module":"intake-navigation","error":{},"pageId":"page1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating skipIf condition"}
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
-
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/intakeQuestionVisibility.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-{"level":50,"time":1764680490755,"env":"test","module":"intake-question-visibility","error":{},"questionId":"q1","condition":{"op":"invalid","left":null,"right":null},"msg":"Error evaluating visibleIf condition"}
-[90mstdout[2m | tests/unit/services/intakeQuestionVisibility.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/intakeQuestionVisibility.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 31[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/EmailTemplateMetadataService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
-
-[90mstdout[2m | tests/unit/services/EmailTemplateMetadataService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/EmailTemplateMetadataService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 26[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/utils/encryption.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/encryption.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/encryption.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
-
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
-
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/pagination.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DocumentTemplateService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DocumentTemplateService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 25[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/pagination.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/pagination.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 21[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
-
-[90mstdout[2m | tests/unit/schema/documentEngine.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/workflows/conditionTruthTable.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/schema/documentEngine.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/schema/documentEngine.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 23[2mms[22m[39m
-[90mstdout[2m | tests/unit/workflows/conditionTruthTable.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/workflows/conditionTruthTable.test.ts [2m([22m[2m51 tests[22m[2m)[22m[32m 24[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DocumentTemplateRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DocumentTemplateRepository.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 30[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/RecordService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
-[90mstdout[2m | tests/unit/services/CollectionFieldService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/CollectionFieldService.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 29[2mms[22m[39m
- [32mΓ£ô[39m tests/unit/services/RecordService.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 28[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/StepService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/StepService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 24[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/WorkflowService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/WorkflowService.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 30[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/repeater.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/repeater.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/repeater.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 14[2mms[22m[39m
-[90mstdout[2m | tests/unit/schema/collections.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/BrandingService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/schema/collections.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/schema/collections.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 24[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/BrandingService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/BrandingService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 30[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/conditionalLogic.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/conditionalLogic.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/conditionalLogic.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 14[2mms[22m[39m
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
-
-[90mstdout[2m | tests/unit/utils/variableResolver.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/auth/googleAuth.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/auth/googleAuth.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 73[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/variableResolver.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/variableResolver.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 14[2mms[22m[39m
-[90mstdout[2m | tests/unit/utils/conditionalLogic-simple.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/utils/conditionalLogic-simple.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/utils/conditionalLogic-simple.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
-[90mstdout[2m | tests/unit/captcha.service.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/captcha.service.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/captcha.service.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 15[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/services/CollectionService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/CollectionService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 18[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
-
-[90mstdout[2m | tests/unit/services/DatavaultReferenceColumns.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/services/DatavaultReferenceColumns.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 693[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should validate that reference value is a valid UUID [33m 336[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/unit/repositories/DatavaultTablesRepository.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/repositories/DatavaultTablesRepository.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 18[2mms[22m[39m
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
 [22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
 
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
+{"level":40,"time":1764701309389,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
 [22m[39m≡ƒº¬ Setting up test environment...
 
-[90mstdout[2m | tests/unit/repositories/DatavaultColumnsRepository.test.ts
+{"level":30,"time":1764701312882,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764701312882,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764701312889,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764701312889,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764701312890,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764701312890,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764701313240,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764701313241,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764701313291,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764701313394,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests
+[22m[39mLogin Status: [33m200[39m
+Login Body: {
+  "message": "Authentication successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJnb29nbGUtdXNlci1pZCIsImVtYWlsIjoidGVzdHVzZXJAZXhhbXBsZS5jb20iLCJ0ZW5hbnRJZCI6ImYzYWQ0ZDliLWFhMjYtNDI2NC1hODRkLWNkMDUwNGUwY2ZlNyIsInJvbGUiOiJvd25lciIsImlhdCI6MTc2NDcwMTMxMywiZXhwIjoxNzY1MzA2MTEzfQ.f8eh4r62qy4hYJsLUKMw4oBWp7o5h1Ei6W_IYgyMlk8",
+  "user": {
+    "id": "google-user-id",
+    "email": "testuser@example.com",
+    "firstName": "Test",
+    "lastName": "User",
+    "profileImageUrl": "https://example.com/avatar.jpg",
+    "tenantId": "f3ad4d9b-aa26-4264-a84d-cd0504e0cfe7",
+    "tenantRole": "owner"
+  }
+}
+
+{"level":30,"time":1764701313404,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764701313404,"env":"test","module":"auth","email":"other@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764701313458,"env":"test","module":"auth","userId":"other-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764701313560,"env":"test","module":"auth","email":"other@example.com","msg":"OAuth2 login successful"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould grant table permission
+[22m[39mPOST permissions route entered for table: 48aa9087-14c9-4fb3-a2b2-2378bae214d3
+Request body: {"userId":"other-user-id","role":"read"}
+grantPermission called for table: 48aa9087-14c9-4fb3-a2b2-2378bae214d3 user: other-user-id data: {"tableId":"48aa9087-14c9-4fb3-a2b2-2378bae214d3","userId":"other-user-id","role":"read"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould grant table permission
+[22m[39mupsert result: {"id":"725d6042-37fb-43a4-aad6-8d292e4c1cc0","tableId":"48aa9087-14c9-4fb3-a2b2-2378bae214d3","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.056Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould grant table permission
+[22m[39mGrant permission success, sending 201. Permission: {"id":"725d6042-37fb-43a4-aad6-8d292e4c1cc0","tableId":"48aa9087-14c9-4fb3-a2b2-2378bae214d3","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.056Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mPOST permissions route entered for table: ee47e571-a9d5-4b1e-852d-ccb327fcc8e7
+Request body: {"userId":"other-user-id","role":"read"}
+grantPermission called for table: ee47e571-a9d5-4b1e-852d-ccb327fcc8e7 user: other-user-id data: {"tableId":"ee47e571-a9d5-4b1e-852d-ccb327fcc8e7","userId":"other-user-id","role":"read"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mupsert result: {"id":"c565c48d-c638-4b71-aac5-74da045b11ce","tableId":"ee47e571-a9d5-4b1e-852d-ccb327fcc8e7","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.627Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mGrant permission success, sending 201. Permission: {"id":"c565c48d-c638-4b71-aac5-74da045b11ce","tableId":"ee47e571-a9d5-4b1e-852d-ccb327fcc8e7","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.627Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mUpdate permission failed: {}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mPOST permissions route entered for table: 399fc880-56ba-4acd-a545-e8bed3d6c649
+Request body: {"userId":"other-user-id","role":"read"}
+grantPermission called for table: 399fc880-56ba-4acd-a545-e8bed3d6c649 user: other-user-id data: {"tableId":"399fc880-56ba-4acd-a545-e8bed3d6c649","userId":"other-user-id","role":"read"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mupsert result: {"id":"fbe10e7e-743a-44da-9c7f-2d3dfa6f2a9f","tableId":"399fc880-56ba-4acd-a545-e8bed3d6c649","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.952Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mGrant permission success, sending 201. Permission: {"id":"fbe10e7e-743a-44da-9c7f-2d3dfa6f2a9f","tableId":"399fc880-56ba-4acd-a545-e8bed3d6c649","userId":"other-user-id","role":"read","createdAt":"2025-12-02T18:48:37.952Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mrevokePermission called for permission: fbe10e7e-743a-44da-9c7f-2d3dfa6f2a9f
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould enforce RBAC - only owners can manage permissions
+[22m[39mPOST permissions route entered for table: e8b98823-20fc-4f54-a0e5-3799d6957f5e
+Request body: {"userId":"some-user-id","role":"read"}
+grantPermission called for table: e8b98823-20fc-4f54-a0e5-3799d6957f5e user: some-user-id data: {"tableId":"e8b98823-20fc-4f54-a0e5-3799d6957f5e","userId":"some-user-id","role":"read"}
+
+{"level":50,"time":1764701315280,"env":"test","error":{},"msg":"Error granting table permission"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould enforce RBAC - only owners can manage permissions
+[22m[39mGrant permission catch block entered Error: Access denied - owner permission required
+    at DatavaultTablePermissionsService.requirePermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:108:13)
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at DatavaultTablePermissionsService.grantPermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:139:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/datavault.routes.ts:1154:26
+Grant permission error: Access denied - owner permission required Status: [33m403[39m
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
 [22m[39m≡ƒº╣ Cleaning up test environment...
 
- [32mΓ£ô[39m tests/unit/repositories/DatavaultColumnsRepository.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 16[2mms[22m[39m
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
+ [31mΓ¥»[39m tests/integration/datavault-v4-regression.test.ts [2m([22m[2m27 tests[22m[2m | [22m[31m1 failed[39m[2m | [22m[33m22 skipped[39m[2m)[22m[33m 2454[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should create a select column with options
+       [2m[90mΓåô[39m[22m should create a multiselect column with options
+       [2m[90mΓåô[39m[22m should validate select value against options
+       [2m[90mΓåô[39m[22m should validate multiselect values as array
+       [2m[90mΓåô[39m[22m should create an autonumber column with sequence
+       [2m[90mΓåô[39m[22m should auto-increment autonumber on row creation
+       [2m[90mΓåô[39m[22m should format autonumber with prefix
+       [2m[90mΓåô[39m[22m should create a note for a row
+       [2m[90mΓåô[39m[22m should get all notes for a row
+       [2m[90mΓåô[39m[22m should delete a note
+       [2m[90mΓåô[39m[22m should not allow deleting notes by other users
+       [2m[90mΓåô[39m[22m should track row creation in history
+       [2m[90mΓåô[39m[22m should track value changes in history
+       [2m[90mΓåô[39m[22m should create an API token
+       [2m[90mΓåô[39m[22m should validate API token scopes
+       [2m[90mΓåô[39m[22m should revoke (delete) an API token
+       [2m[90mΓåô[39m[22m should deny access with expired token
+       [33m[2mΓ£ô[22m[39m should grant table permission [33m 320[2mms[22m[39m
+       [32mΓ£ô[39m should list table permissions[32m 263[2mms[22m[39m
+[31m       [31m├ù[31m should update table permission role[39m[33m 314[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke table permission [33m 621[2mms[22m[39m
+       [32mΓ£ô[39m should enforce RBAC - only owners can manage permissions[32m 202[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should paginate rows efficiently
+       [2m[90mΓåô[39m[22m should handle sorting efficiently
+       [2m[90mΓåô[39m[22m should return user-friendly error for invalid column type
+       [2m[90mΓåô[39m[22m should return user-friendly error for missing required fields
+       [2m[90mΓåô[39m[22m should handle network errors gracefully
 
-[90mstdout[2m | tests/unit/services/DatavaultTablesService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
 
- [32mΓ£ô[39m tests/unit/services/DatavaultTablesService.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 21[2mms[22m[39m
-{"level":50,"time":1764680496942,"env":"test","error":{"error":{"code":"INTERNAL_ERROR","message":""}},"msg":"Failed to render template"}
-[90mstdout[2m | tests/unit/engine/templateNode.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [32mΓ£ô[39m tests/unit/engine/templateNode.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 14513[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve template by key from workflowTemplates mapping [33m 1125[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should throw error if template key not found [33m 815[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should store output in runOutputs table [33m 938[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve template by templateId directly [33m 810[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should throw error if templateId not found [33m 802[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should use docxRenderer2 by default (v2 engine) [33m 860[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should use legacy engine when engine="legacy" [33m 802[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should generate PDF when toPdf=true [33m 937[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should default to DOCX when toPdf=false [33m 951[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should skip execution when condition evaluates to false [33m 760[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should execute when condition evaluates to true [33m 799[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should resolve simple bindings [33m 817[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should handle binding resolution errors gracefully [33m 730[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should record failed output in runOutputs table [33m 974[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should not throw errors (should return error in result) [33m 820[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should deny access to templates from different tenant [33m 808[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should require either templateKey or templateId [33m 764[2mms[22m[39m
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 4 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
-
- FAIL  tests/unit/repositories/WorkflowTemplateRepository.test.ts [ tests/unit/repositories/WorkflowTemplateRepository.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/repositories/WorkflowTemplateRepository.test.ts:308:17: ERROR: Expected ";" but found ":"
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/repositories/WorkflowTemplateRepository.test.ts:308:17
-  
-  Expected ";" but found ":"
-  306 |  
-  307 |        createdBy: testUserId,
-  308 |          graphJson: { },
-      |                   ^
-  309 |      })
-  310 |        .returning();
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/12]ΓÄ»
-
- FAIL  tests/unit/services/DatavaultRowsService.test.ts [ tests/unit/services/DatavaultRowsService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/DatavaultRowsService.test.ts:133:19: ERROR: Expected identifier but found "'createRow'"
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/DatavaultRowsService.test.ts:133:19
-  
-  Expected identifier but found "'createRow'"
-  131 |            type: 'text' as const,
-  132 |            required: true,
-  133 |            describe('createRow', () => {
-      |                     ^
-  134 |          it('should create row with validated values', async () => {
-  135 |            const mockTable = {
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/12]ΓÄ»
-
- FAIL  tests/unit/services/PdfQueueService.test.ts [ tests/unit/services/PdfQueueService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/PdfQueueService.test.ts:463:0: ERROR: Expected "*/" to terminate multi-line comment
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/PdfQueueService.test.ts:463:0
-  
-  Expected "*/" to terminate multi-line comment
-  461 |    });
-  462 |  });
-  463 |  
-      |  ^
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/12]ΓÄ»
-
- FAIL  tests/unit/services/WorkflowTemplateService.test.ts [ tests/unit/services/WorkflowTemplateService.test.ts ]
-Error: Transform failed with 1 error:
-C:/Users/scoot/poll/VaultLogic/tests/unit/services/WorkflowTemplateService.test.ts:80:2: ERROR: Unexpected "}"
-  Plugin: vite:esbuild
-  File: C:/Users/scoot/poll/VaultLogic/tests/unit/services/WorkflowTemplateService.test.ts:80:2
-  
-  Unexpected "}"
-  78 |    expect(secondUpdated.isPrimary).toBe(true);
-  79 |  });
-  80 |    });
-     |    ^
-  81 |  
-  82 |  describe('listTemplates', () => {
-  
- Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
- Γ¥» node_modules/esbuild/lib/main.js:736:50
- Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
- Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
- Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/12]ΓÄ»
-
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 8 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > extractPlaceholdersFromDocx > should extract placeholders from a template
-ApiError: Failed to extract placeholders: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:244:23
- Γ¥» tests/unit/docxRenderer.test.ts:97:28
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > extractPlaceholdersFromDocx > should extract placeholders including formatters
-ApiError: Failed to extract placeholders: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» extractPlaceholdersFromDocx server/services/docxRenderer.ts:244:23
- Γ¥» tests/unit/docxRenderer.test.ts:106:28
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > validateTemplateData > should allow formatters as valid placeholders
-AssertionError: expected [] to deeply equal [ 'upper', 'lower' ]
+ FAIL  tests/integration/datavault-v4-regression.test.ts > DataVault v4 Regression Tests > Table Permissions > should update table permission role
+AssertionError: expected 404 to be 200 // Object.is equality
 
 - Expected
 + Received
 
-- [
--   "upper",
--   "lower",
-- ]
-+ []
+- 200
++ 404
 
- Γ¥» tests/unit/docxRenderer.test.ts:143:23
-    141| 
-    142|       const missing = validateTemplateData(placeholders, data);
-    143|       expect(missing).toEqual(['upper', 'lower']);
-       |                       ^
-    144|       // Note: formatters should be handled separately in real validatΓÇª
-    145|     });
+ Γ¥» tests/integration/datavault-v4-regression.test.ts:707:37
+    705|         console.log('Update permission failed:', updateResponse.body);
+    706|       }
+    707|       expect(updateResponse.status).toBe(200);
+       |                                     ^
+    708|       expect(updateResponse.body.role).toBe('write');
+    709|     });
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should render a template with simple data
-ApiError: Failed to render template: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:137:23
- Γ¥» tests/unit/docxRenderer.test.ts:156:22
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should use formatters in templates
-ApiError: Failed to render template: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:137:23
- Γ¥» tests/unit/docxRenderer.test.ts:193:22
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should handle missing data gracefully
-ApiError: Failed to render template: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:137:23
- Γ¥» tests/unit/docxRenderer.test.ts:221:22
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > renderDocx > should use custom output name
-ApiError: Failed to render template: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:137:23
- Γ¥» tests/unit/docxRenderer.test.ts:246:22
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/12]ΓÄ»
-
- FAIL  tests/unit/docxRenderer.test.ts > DOCX Renderer Service > PDF conversion > should attempt PDF conversion when requested
-ApiError: Failed to render template: Multi error
- Γ¥» Object.internal server/utils/errors.ts:120:12
-    118| 
-    119|   internal(message = 'Internal server error', details?: any): ApiErrorΓÇª
-    120|     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 50ΓÇª
-       |            ^
-    121|   },
-    122| 
- Γ¥» renderDocx server/services/docxRenderer.ts:137:23
- Γ¥» tests/unit/docxRenderer.test.ts:265:22
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/12]ΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
 
 
-[2m Test Files [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m33 passed[39m[22m[90m (38)[39m
-[2m      Tests [22m [1m[31m8 failed[39m[22m[2m | [22m[1m[32m666 passed[39m[22m[90m (674)[39m
-[2m   Start at [22m 07:01:28
-[2m   Duration [22m 17.21s[2m (transform 11.95s, setup 1.65s, collect 31.97s, tests 16.30s, environment 9ms, prepare 1.00s)[22m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[2m | [22m[33m22 skipped[39m[90m (27)[39m
+[2m   Start at [22m 12:48:27
+[2m   Duration [22m 7.84s[2m (transform 2.14s, setup 63ms, collect 4.87s, tests 2.45s, environment 0ms, prepare 16ms)[22m
 

@@ -1,6 +1,6 @@
 import { Router, type Request, Response } from 'express';
 import { eq, and, desc, lt } from 'drizzle-orm';
-import multer, { type FileFilterCallback } from 'multer';
+import { type FileFilterCallback } from 'multer';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { hybridAuth } from '../middleware/auth';
@@ -27,12 +27,35 @@ import { logger } from '../logger';
 
 const router = Router();
 
-// Handle CommonJS/ESM compatibility for multer
-// In Vitest/ESM mode, multer might be wrapped in { default: multer }
-// @ts-ignore - multer types don't account for ESM/CommonJS differences
-const multerInstance = (multer as any).default || multer;
+// @ts-ignore
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const multer = require('multer');
+const multerInstance = multer;
 
 // Configure multer for file uploads (memory storage is default in v2)
+// Configure multer for file uploads (memory storage is default in v2)
+const debugStorage = {
+  _handleFile: function _handleFile(req: any, file: any, cb: any) {
+    logger.info({ filename: file.originalname, mimetype: file.mimetype }, "Multer _handleFile called");
+    if (multerInstance.memoryStorage) {
+      const storage = multerInstance.memoryStorage();
+      storage._handleFile(req, file, cb);
+    } else {
+      // Fallback if memoryStorage is not available on the instance
+      cb(new Error("Memory storage not available"));
+    }
+  },
+  _removeFile: function _removeFile(req: any, file: any, cb: any) {
+    if (multerInstance.memoryStorage) {
+      const storage = multerInstance.memoryStorage();
+      storage._removeFile(req, file, cb);
+    } else {
+      cb(null);
+    }
+  }
+};
+
 const upload = multerInstance({
   storage: multerInstance.memoryStorage ? multerInstance.memoryStorage() : undefined,
   limits: {
@@ -54,6 +77,15 @@ const upload = multerInstance({
     }
   },
 });
+
+logger.info({
+  multerImportKeys: Object.keys(multer),
+  multerInstanceKeys: Object.keys(multerInstance),
+  multerInstanceType: typeof multerInstance,
+  uploadKeys: Object.keys(upload),
+  uploadType: typeof upload,
+  uploadPrototype: Object.getPrototypeOf(upload)
+}, "Debug Multer Import");
 
 /**
  * GET /projects/:projectId/templates
@@ -120,14 +152,23 @@ router.get(
  */
 router.post(
   '/projects/:projectId/templates',
+  upload.single('file'),
   hybridAuth,
   requireTenant,
   requirePermission('template:create'),
-  upload.single('file'),
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+
+      logger.info({
+        headers: req.headers,
+        multerInstanceType: typeof multerInstance,
+        multerKeys: Object.keys(multerInstance),
+        hasMemoryStorage: !!multerInstance.memoryStorage,
+        file: req.file,
+        body: req.body
+      }, "Debug Template Upload");
 
       // Validate params
       const params = projectIdParamsSchema.parse(req.params);
@@ -160,7 +201,6 @@ router.post(
         const scanResult = await templateScanner.scanAndFix(fileBuffer);
 
         if (!scanResult.isValid) {
-          logger.error({ errors: scanResult.errors }, 'Template validation failed in API');
           throw createError.validation(
             `Invalid template: ${scanResult.errors?.join(', ')}`
           );
@@ -200,6 +240,49 @@ router.post(
         ...template,
         warnings: warnings.length > 0 ? warnings : undefined
       });
+    } catch (error) {
+      logger.error({ error, body: req.body, params: req.params, file: req.file }, "Error creating template");
+      const formatted = formatErrorResponse(error);
+      res.status(formatted.status).json(formatted.body);
+    }
+  }
+);
+
+/**
+ * GET /templates/:id
+ * Get template by ID
+ */
+router.get(
+  '/templates/:id',
+  hybridAuth,
+  requireTenant,
+  requirePermission('template:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthRequest;
+      const tenantId = authReq.tenantId!;
+
+      // Validate params
+      const params = templateParamsSchema.parse(req.params);
+
+      // Fetch template with project
+      const template = await db.query.templates.findFirst({
+        where: eq(schema.templates.id, params.id),
+        with: {
+          project: true,
+        },
+      });
+
+      if (!template) {
+        throw createError.notFound('Template', params.id);
+      }
+
+      // Verify tenant access
+      if (template.project.tenantId !== tenantId) {
+        throw createError.forbidden('Access denied to this template');
+      }
+
+      res.json(template);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);

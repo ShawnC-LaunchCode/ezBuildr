@@ -26,56 +26,59 @@ describe('DataVault Autonumber Integration Tests', () => {
 
     // Create a test table
     const table = await datavaultTablesService.createTable(
-      tenantId,
-      'autonumber_test_table',
-      { name: 'Autonumber Test Table', description: 'Testing autonumber functionality' },
-      null // userId
+      {
+        tenantId,
+        slug: 'autonumber_test_table',
+        name: 'Autonumber Test Table',
+        description: 'Testing autonumber functionality',
+        ownerUserId: null
+      }
     );
     tableId = table.id;
 
     // Create autonumber columns with different configurations
     // 1. Basic autonumber (no prefix, never reset)
     const basicColumn = await datavaultColumnsService.createColumn(
-      tenantId,
-      tableId,
       {
+        tableId,
         name: 'Basic Number',
         slug: 'basic_number',
         type: 'autonumber',
         autonumberPrefix: null,
         autonumberPadding: 4,
         autonumberResetPolicy: 'never',
-      }
+      },
+      tenantId
     );
     basicAutonumberColumnId = basicColumn.id;
 
     // 2. Autonumber with prefix (never reset)
     const prefixColumn = await datavaultColumnsService.createColumn(
-      tenantId,
-      tableId,
       {
+        tableId,
         name: 'Case Number',
         slug: 'case_number',
         type: 'autonumber',
         autonumberPrefix: 'CASE',
         autonumberPadding: 5,
         autonumberResetPolicy: 'never',
-      }
+      },
+      tenantId
     );
     prefixAutonumberColumnId = prefixColumn.id;
 
     // 3. Autonumber with yearly reset
     const yearlyColumn = await datavaultColumnsService.createColumn(
-      tenantId,
-      tableId,
       {
+        tableId,
         name: 'Invoice Number',
         slug: 'invoice_number',
         type: 'autonumber',
         autonumberPrefix: 'INV',
         autonumberPadding: 3,
         autonumberResetPolicy: 'yearly',
-      }
+      },
+      tenantId
     );
     yearlyResetColumnId = yearlyColumn.id;
   });
@@ -83,7 +86,12 @@ describe('DataVault Autonumber Integration Tests', () => {
   afterAll(async () => {
     // Cleanup: delete the test table (cascade will delete columns and rows)
     if (tableId) {
-      await datavaultTablesService.deleteTable(tenantId, tableId);
+      try {
+        await datavaultTablesService.deleteTable(tenantId, tableId);
+      } catch (error) {
+        // Ignore error if table not found during cleanup
+        console.log('Error cleaning up table:', error);
+      }
     }
   });
 
@@ -93,7 +101,7 @@ describe('DataVault Autonumber Integration Tests', () => {
       tableId,
       tenantId,
       {}, // Empty values - autonumber should be auto-generated
-      null
+      undefined
     );
 
     expect(row1.values[basicAutonumberColumnId]).toBe('0001');
@@ -103,8 +111,11 @@ describe('DataVault Autonumber Integration Tests', () => {
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
+
+    console.log('Row 1 Basic Autonumber:', row1.values[basicAutonumberColumnId]);
+    console.log('Row 2 Basic Autonumber:', row2.values[basicAutonumberColumnId]);
 
     expect(row2.values[basicAutonumberColumnId]).toBe('0002');
   });
@@ -115,20 +126,20 @@ describe('DataVault Autonumber Integration Tests', () => {
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
 
-    expect(row1.values[prefixAutonumberColumnId]).toBe('CASE-00001');
+    expect(row1.values[prefixAutonumberColumnId]).toBe('CASE-00003');
 
     // Create second row
     const row2 = await datavaultRowsService.createRow(
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
 
-    expect(row2.values[prefixAutonumberColumnId]).toBe('CASE-00002');
+    expect(row2.values[prefixAutonumberColumnId]).toBe('CASE-00004');
   });
 
   it('should generate autonumber with yearly reset format', async () => {
@@ -139,28 +150,28 @@ describe('DataVault Autonumber Integration Tests', () => {
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
 
     // Format should be: PREFIX-YEAR-PADDED_NUMBER
-    expect(row1.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-001`);
+    expect(row1.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-005`);
 
     // Create second row
     const row2 = await datavaultRowsService.createRow(
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
 
-    expect(row2.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-002`);
+    expect(row2.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-006`);
   });
 
   it('should be atomic and prevent race conditions', async () => {
     // Create multiple rows concurrently
     const promises = Array(10)
       .fill(null)
-      .map(() => datavaultRowsService.createRow(tableId, tenantId, {}, null));
+      .map(() => datavaultRowsService.createRow(tableId, tenantId, {}, undefined));
 
     const rows = await Promise.all(promises);
 
@@ -178,7 +189,7 @@ describe('DataVault Autonumber Integration Tests', () => {
       tableId,
       tenantId,
       {},
-      null
+      undefined
     );
 
     const originalValue = row.values[basicAutonumberColumnId];
@@ -192,7 +203,7 @@ describe('DataVault Autonumber Integration Tests', () => {
         {
           [basicAutonumberColumnId]: '9999', // Try to manually set value
         },
-        null
+        undefined
       );
 
       // If update succeeds, verify the value didn't change

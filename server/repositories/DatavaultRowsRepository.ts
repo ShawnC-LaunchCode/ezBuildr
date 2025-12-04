@@ -214,7 +214,13 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
 
     // Create the row
-    const row = await this.create(rowData, tx);
+    let row;
+    try {
+      row = await this.create(rowData, tx);
+    } catch (error) {
+      console.log('Error creating row in repository:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      throw error;
+    }
 
     // Create values if provided
     const createdValues: DatavaultValue[] = [];
@@ -386,9 +392,10 @@ export class DatavaultRowsRepository extends BaseRepository<
 
     // Use PostgreSQL function to get next value from sequence
     // This is atomic and prevents race conditions
-    const [result] = await database.execute(
+    const res = await database.execute(
       sql`SELECT datavault_get_next_auto_number(${tableId}::UUID, ${columnId}::UUID, ${startValue}::INTEGER) as next_value`
-    ) as unknown as { next_value: number }[];
+    );
+    const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
 
     return result?.next_value ?? startValue;
   }
@@ -418,23 +425,26 @@ export class DatavaultRowsRepository extends BaseRepository<
     prefix: string | null = null,
     padding: number = 4,
     resetPolicy: 'never' | 'yearly' = 'never',
+    format: string | null = null,
     tx?: DbTransaction
   ): Promise<string> {
     const database = this.getDb(tx);
 
     // Call the database function with all parameters
-    const result = await database.execute(
+    const res = await database.execute(
       sql`SELECT datavault_get_next_autonumber(
         ${tenantId}::UUID,
         ${tableId}::UUID,
         ${columnId}::UUID,
         ${prefix}::TEXT,
         ${padding}::INTEGER,
-        ${resetPolicy}::TEXT
+        ${resetPolicy}::TEXT,
+        ${format}::TEXT
       ) as next_value`
-    ) as unknown as { next_value: string }[];
+    );
 
-    const nextValue = (result as any)?.[0]?.next_value;
+    const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
+    const nextValue = result?.next_value;
     if (!nextValue) {
       throw new Error('Failed to generate autonumber value');
     }

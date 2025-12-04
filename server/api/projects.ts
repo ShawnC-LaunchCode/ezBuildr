@@ -15,6 +15,8 @@ import {
   projectParamsSchema,
 } from './validators/projects';
 
+
+
 const router = Router();
 
 /**
@@ -82,6 +84,7 @@ router.post(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       // Validate request body
       const data = createProjectSchema.parse(req.body);
@@ -91,8 +94,12 @@ router.post(
         .insert(schema.projects)
         .values({
           name: data.name,
+          title: data.name, // Legacy field
           description: data.description || null,
           tenantId,
+          creatorId: userId,
+          ownerId: userId,
+          createdBy: userId,
           archived: false,
         })
         .returning();

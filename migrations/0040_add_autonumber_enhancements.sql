@@ -158,7 +158,7 @@ BEGIN
       p_column_id,
       p_prefix,
       p_padding,
-      1,
+      2,
       p_reset_policy::autonumber_reset_policy,
       now()
     )

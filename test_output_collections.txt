@@ -1,0 +1,59 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/collections.e2e.test.ts [2m([22m[2m22 tests[22m[2m | [22m[33m22 skipped[39m[2m)[22m[33m 617[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should create a collection
+       [2m[90mΓåô[39m[22m should list collections
+       [2m[90mΓåô[39m[22m should get a collection by ID
+       [2m[90mΓåô[39m[22m should update a collection
+       [2m[90mΓåô[39m[22m should create text field
+       [2m[90mΓåô[39m[22m should create email field
+       [2m[90mΓåô[39m[22m should create number field
+       [2m[90mΓåô[39m[22m should create select field with options
+       [2m[90mΓåô[39m[22m should create boolean field
+       [2m[90mΓåô[39m[22m should list all fields
+       [2m[90mΓåô[39m[22m should update field
+       [2m[90mΓåô[39m[22m should create a record
+       [2m[90mΓåô[39m[22m should create multiple records
+       [2m[90mΓåô[39m[22m should list records with pagination
+       [2m[90mΓåô[39m[22m should get a single record
+       [2m[90mΓåô[39m[22m should update a record
+       [2m[90mΓåô[39m[22m should find records by filters
+       [2m[90mΓåô[39m[22m should delete a record
+       [2m[90mΓåô[39m[22m should list collections with stats
+       [2m[90mΓåô[39m[22m should enforce required fields
+       [2m[90mΓåô[39m[22m should validate field types
+       [2m[90mΓåô[39m[22m should delete collection (cascade fields and records)
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/collections.e2e.test.ts > Collections System E2E Tests
+error: null value in column "creator_id" of relation "projects" violates not-null constraint
+ Γ¥» node_modules/@neondatabase/serverless/index.mjs:1345:74
+ Γ¥» NeonPreparedQuery.execute node_modules/drizzle-orm/neon-serverless/session.js:76:20
+ Γ¥» tests/integration/collections.e2e.test.ts:41:23
+     39| 
+     40|     // Create test project
+     41|     const [project] = await db.insert(projects).values({
+       |                       ^
+     42|       name: 'E2E Test Project',
+     43|       title: 'E2E Test Project',
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m22 skipped[39m[90m (22)[39m
+[2m   Start at [22m 14:09:06
+[2m   Duration [22m 1.96s[2m (transform 419ms, setup 63ms, collect 856ms, tests 617ms, environment 0ms, prepare 21ms)[22m
+

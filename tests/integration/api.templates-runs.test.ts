@@ -9,6 +9,35 @@ import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";
+import { vi } from "vitest";
+import { templateScanner } from "../../server/services/document/TemplateScanner";
+
+// Mock template scanner to avoid parsing invalid zip files
+vi.mock("../../server/services/document/TemplateScanner", () => ({
+  templateScanner: {
+    scan: vi.fn().mockResolvedValue({
+      placeholders: ["{{name}}", "{{date}}"],
+      isValid: true
+    }),
+    scanAndFix: vi.fn().mockResolvedValue({
+      placeholders: ["{{name}}", "{{date}}"],
+      isValid: true,
+      fixed: false,
+      buffer: Buffer.from("PK\x03\x04"),
+      repairs: []
+    }),
+    extractPlaceholders: vi.fn().mockResolvedValue(["{{name}}", "{{date}}"])
+  }
+}));
+
+// Mock services/templates to avoid parsing invalid docx files
+vi.mock("../../server/services/templates", async () => {
+  const actual = await vi.importActual<typeof import("../../server/services/templates")>("../../server/services/templates");
+  return {
+    ...actual,
+    extractPlaceholders: vi.fn().mockResolvedValue(["{{name}}", "{{date}}"]),
+  };
+});
 
 /**
  * Templates and Runs API Integration Tests
@@ -57,30 +86,56 @@ describe("Templates and Runs API Integration Tests", () => {
     userId = registerResponse.body.user.id;
 
     await db.update(schema.users)
-      .set({ tenantId, tenantRole: "builder" })
+      .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
 
     // Create project
     const projectResponse = await request(baseURL)
       .post("/api/projects")
       .set("Authorization", `Bearer ${authToken}`)
-      .send({ name: "Test Project" });
+      .send({ name: "Test Project" })
+      .expect(201);
     projectId = projectResponse.body.id;
 
     // Create and publish workflow
     const workflowResponse = await request(baseURL)
       .post(`/api/projects/${projectId}/workflows`)
       .set("Authorization", `Bearer ${authToken}`)
-      .send({ name: "Test Workflow", graphJson: {} });
+      .send({
+        name: "Test Workflow",
+        graphJson: {
+          nodes: [
+            {
+              id: "node-1",
+              type: "question",
+              config: {
+                key: "name",
+                questionText: "What is your name?",
+                questionType: "text"
+              }
+            }
+          ],
+          edges: [],
+          startNodeId: "node-1"
+        }
+      })
+      .expect(201);
     workflowId = workflowResponse.body.id;
 
     await request(baseURL)
       .post(`/api/workflows/${workflowId}/publish`)
-      .set("Authorization", `Bearer ${authToken}`);
+      .set("Authorization", `Bearer ${authToken}`)
+      .expect(200);
   });
 
   afterAll(async () => {
     if (tenantId) {
+      // Clean up all data to avoid FK constraints
+      await db.delete(schema.runs);
+      await db.delete(schema.workflowVersions);
+      await db.delete(schema.workflows);
+      await db.delete(schema.templates);
+      await db.delete(schema.projects);
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
@@ -99,8 +154,8 @@ describe("Templates and Runs API Integration Tests", () => {
         const response = await request(baseURL)
           .post(`/api/projects/${projectId}/templates`)
           .set("Authorization", `Bearer ${authToken}`)
-          .field("name", "Test Template")
           .attach("file", mockDocx, "test.docx")
+          .field("name", "Test Template")
           .expect(201);
 
         expect(response.body).toHaveProperty("id");

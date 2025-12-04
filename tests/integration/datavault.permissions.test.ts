@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { app } from '../../server/app';
+import express, { type Express } from 'express';
+import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { db } from '../../server/db';
 import { users, tenants, datavaultTables, datavaultTablePermissions } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -16,8 +17,50 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
   let writerId: string;
   let readerId: string;
   let nonMemberId: string;
+  let app: Express;
 
   beforeAll(async () => {
+    app = express();
+    app.use(express.json());
+    // Mock cookie parser or session if needed, but registerDatavaultRoutes expects app
+    // We might need to mock auth middleware if it's not bypassed
+
+    // Add middleware to mock authentication based on cookies
+    app.use((req, res, next) => {
+      const cookie = req.headers.cookie;
+      if (cookie) {
+        if (cookie.includes('test-session-owner=')) {
+          const userId = cookie.split('test-session-owner=')[1].split(';')[0];
+          // @ts-ignore
+          req.user = { claims: { sub: userId, email: 'owner@test.com' } };
+          // @ts-ignore
+          req.session = { user: { claims: { sub: userId, email: 'owner@test.com' } } };
+        } else if (cookie.includes('test-session-writer=')) {
+          const userId = cookie.split('test-session-writer=')[1].split(';')[0];
+          // @ts-ignore
+          req.user = { claims: { sub: userId, email: 'writer@test.com' } };
+          // @ts-ignore
+          req.session = { user: { claims: { sub: userId, email: 'writer@test.com' } } };
+        } else if (cookie.includes('test-session-reader=')) {
+          const userId = cookie.split('test-session-reader=')[1].split(';')[0];
+          // @ts-ignore
+          req.user = { claims: { sub: userId, email: 'reader@test.com' } };
+          // @ts-ignore
+          req.session = { user: { claims: { sub: userId, email: 'reader@test.com' } } };
+        } else if (cookie.includes('test-session-nonmember=')) {
+          const userId = cookie.split('test-session-nonmember=')[1].split(';')[0];
+          // @ts-ignore
+          req.user = { claims: { sub: userId, email: 'nonmember@test.com' } };
+          // @ts-ignore
+          req.session = { user: { claims: { sub: userId, email: 'nonmember@test.com' } } };
+        }
+      }
+      next();
+    });
+
+    // For now, let's register routes
+    registerDatavaultRoutes(app);
+
     // Create test tenant
     const [tenant] = await db
       .insert(tenants)

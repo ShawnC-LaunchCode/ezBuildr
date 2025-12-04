@@ -148,7 +148,9 @@ export class DatavaultTablePermissionsService {
       throw new Error("Cannot modify permissions for table owner");
     }
 
-    return await this.permissionsRepo.upsert(data, tx);
+    const result = await this.permissionsRepo.upsert(data, tx);
+    console.log('upsert result:', JSON.stringify(result));
+    return result;
   }
 
   /**
@@ -162,6 +164,7 @@ export class DatavaultTablePermissionsService {
     tx?: DbTransaction
   ): Promise<void> {
     // Only owners can revoke permissions
+    console.log('revokePermission called for permission:', permissionId);
     await this.requirePermission(actorUserId, tableId, tenantId, "owner", tx);
 
     // Get the permission to verify it exists and belongs to the table

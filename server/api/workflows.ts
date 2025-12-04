@@ -202,6 +202,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       // Validate params
       const params = workflowParamsSchema.parse(req.params);
@@ -220,7 +221,11 @@ router.get(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 
@@ -265,7 +270,11 @@ router.patch(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 
@@ -357,7 +366,11 @@ router.post(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 
@@ -436,6 +449,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       // Validate params and query
       const params = workflowParamsSchema.parse(req.params);
@@ -453,7 +467,11 @@ router.get(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 
@@ -507,6 +525,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       // Validate params
       const params = versionIdParamsSchema.parse(req.params);
@@ -535,7 +554,11 @@ router.get(
       }
 
       // Verify tenant access
-      if (version.workflow.project.tenantId !== tenantId) {
+      if (version.workflow.project) {
+        if (version.workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this version');
+        }
+      } else if (version.workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this version');
       }
 
@@ -560,6 +583,7 @@ router.post(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       const { workflowId, nodeId, expression } = req.body;
 
@@ -588,7 +612,11 @@ router.post(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 
@@ -644,6 +672,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
 
       const { id: workflowId, nodeId } = req.params;
 
@@ -661,7 +690,11 @@ router.get(
       }
 
       // Verify tenant access
-      if (workflow.project.tenantId !== tenantId) {
+      if (workflow.project) {
+        if (workflow.project.tenantId !== tenantId) {
+          throw createError.forbidden('Access denied to this workflow');
+        }
+      } else if (workflow.ownerId !== userId) {
         throw createError.forbidden('Access denied to this workflow');
       }
 

@@ -204,11 +204,11 @@ export class CollectionFieldService {
   ): Promise<CollectionField> {
     await this.verifyFieldOwnership(fieldId, collectionId, tx);
 
-    // If name changed, regenerate slug
-    if (data.name && !data.slug) {
-      const baseSlug = this.generateSlug(data.name);
-      data.slug = await this.ensureUniqueSlug(collectionId, baseSlug, fieldId, tx);
-    }
+    // If name changed, regenerate slug - DISABLED: Changing name shouldn't change slug automatically
+    // if (data.name && !data.slug) {
+    //   const baseSlug = this.generateSlug(data.name);
+    //   data.slug = await this.ensureUniqueSlug(collectionId, baseSlug, fieldId, tx);
+    // }
 
     // If slug provided, ensure it's unique
     if (data.slug) {

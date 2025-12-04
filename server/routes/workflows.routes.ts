@@ -228,9 +228,17 @@ export function registerWorkflowRoutes(app: Express): void {
       }).parse(req.body);
 
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
-      res.json(workflow);
-    } catch (error) {
+      return res.status(200).json(workflow);
+    } catch (error: any) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, projectId: req.body.projectId }, "Error moving workflow");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid input",
+          details: error.errors,
+        });
+      }
+
       const message = error instanceof Error ? error.message : "Failed to move workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
@@ -290,8 +298,8 @@ export function registerWorkflowRoutes(app: Express): void {
 
       const message = error instanceof Error ? error.message : "Failed to set workflow mode";
       const status = message.includes("not found") ? 404 :
-                     message.includes("Access denied") ? 403 :
-                     message.includes("Invalid") ? 400 : 500;
+        message.includes("Access denied") ? 403 :
+          message.includes("Invalid") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
     }
   });

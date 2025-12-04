@@ -15,28 +15,19 @@ describe('DataVault Reference Columns', () => {
       };
       mockColumnsRepo = {
         findByTableId: vi.fn(),
-        findByTableAndSlug: vi.fn(),
         getMaxOrderIndex: vi.fn(),
+        findByTableAndSlug: vi.fn(),
         create: vi.fn(),
-        update: vi.fn(),
-        slugExists: vi.fn(),
+        slugExists: vi.fn().mockResolvedValue(false),
       };
-      columnsService = new DatavaultColumnsService(
-        mockColumnsRepo,
-        mockTablesRepo,
-        undefined as any
-      );
+      columnsService = new DatavaultColumnsService(mockColumnsRepo, mockTablesRepo);
     });
 
-    it('should require referenceTableId when type is reference', async () => {
+    it('should throw error if referenceTableId is missing for reference column', async () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
 
-      mockTablesRepo.findById.mockResolvedValue({
-        id: tableId,
-        tenantId,
-        name: 'Test Table',
-      });
+      mockTablesRepo.findById.mockResolvedValue({ id: tableId, tenantId });
 
       await expect(
         columnsService.createColumn(
@@ -48,7 +39,6 @@ describe('DataVault Reference Columns', () => {
             isPrimaryKey: false,
             isUnique: false,
             orderIndex: 0,
-            // Missing referenceTableId
           },
           tenantId
         )

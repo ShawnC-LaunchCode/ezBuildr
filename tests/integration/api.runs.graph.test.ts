@@ -216,6 +216,14 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   afterAll(async () => {
     if (tenantId) {
+      // Clean up in reverse order of dependencies
+      await db.delete(schema.runLogs);
+      await db.delete(schema.runs);
+      await db.delete(schema.workflowVersions);
+      await db.delete(schema.surveys); // Delete surveys before users
+      await db.delete(schema.workflows);
+      await db.delete(schema.projects);
+      await db.delete(schema.users);
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {

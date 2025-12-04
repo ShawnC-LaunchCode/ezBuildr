@@ -1,0 +1,140 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[44m DEV [49m[22m [34mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+{"level":40,"time":1764869817070,"env":"test","module":"auth-service","msg":"JWT_SECRET not set - falling back to SESSION_SECRET. This is acceptable for development but should be fixed for production."}
+{"level":30,"time":1764869818476,"env":"test","multerImportKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceKeys":["diskStorage","memoryStorage","MulterError"],"multerInstanceType":"function","uploadKeys":["storage","limits","preservePath","fileFilter"],"uploadType":"object","uploadPrototype":{},"msg":"Debug Multer Import"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+{"level":30,"time":1764869819767,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1764869819768,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1764869819775,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1764869819775,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1764869819775,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1764869819775,"env":"test","module":"routes","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1764869820148,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764869820149,"env":"test","module":"auth","email":"testuser@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764869820191,"env":"test","module":"auth","userId":"google-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764869820279,"env":"test","module":"auth","email":"testuser@example.com","msg":"OAuth2 login successful"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests
+[22m[39mLogin Status: [33m200[39m
+Login Body: {
+  "message": "Authentication successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJnb29nbGUtdXNlci1pZCIsImVtYWlsIjoidGVzdHVzZXJAZXhhbXBsZS5jb20iLCJ0ZW5hbnRJZCI6IjcyYmE3MzNkLTJhNTUtNDM3MS1iYjRkLTVjMjdkYzFmMWMwMCIsInJvbGUiOiJvd25lciIsImlhdCI6MTc2NDg2OTgyMCwiZXhwIjoxNzY1NDc0NjIwfQ.ISnQBWCksafMyjK3wKNLSxc0ezOXxuhj4PnoX730fNM",
+  "user": {
+    "id": "google-user-id",
+    "email": "testuser@example.com",
+    "firstName": "Test",
+    "lastName": "User",
+    "profileImageUrl": "https://example.com/avatar.jpg",
+    "tenantId": "72ba733d-2a55-4371-bb4d-5c27dc1f1c00",
+    "tenantRole": "owner"
+  }
+}
+
+{"level":30,"time":1764869820294,"env":"test","module":"auth","hasToken":true,"origin":"http://localhost:5000","ip":"::ffff:127.0.0.1","msg":"OAuth2 login attempt"}
+{"level":30,"time":1764869820294,"env":"test","module":"auth","email":"other@example.com","msg":"Token verified successfully"}
+{"level":30,"time":1764869820335,"env":"test","module":"auth","userId":"other-user-id","msg":"User upserted successfully"}
+{"level":30,"time":1764869820417,"env":"test","module":"auth","email":"other@example.com","msg":"OAuth2 login successful"}
+{"level":50,"time":1764869822262,"env":"test","error":{},"msg":"Error creating DataVault row"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mSelect/Multiselect Columns[2m > [22m[2mshould validate select value against options
+[22m[39mRow creation error message: Column 'Status' value must be one of: active, inactive
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mRow Notes[2m > [22m[2mshould create a note for a row
+[22m[39mCreated note: 0f9c0863-c212-4fd1-a857-e357a0e117d6 tenantId: 72ba733d-2a55-4371-bb4d-5c27dc1f1c00 userId: google-user-id
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mRow Notes[2m > [22m[2mshould get all notes for a row
+[22m[39mCreated note: 243ba221-5eaa-47b7-899c-1304d08f8d76 tenantId: 72ba733d-2a55-4371-bb4d-5c27dc1f1c00 userId: google-user-id
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mRow Notes[2m > [22m[2mshould get all notes for a row
+[22m[39mCreated note: 2f552e1d-22c8-4fe4-b853-daf2e086f8e4 tenantId: 72ba733d-2a55-4371-bb4d-5c27dc1f1c00 userId: google-user-id
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mRow Notes[2m > [22m[2mshould delete a note
+[22m[39mCreated note: 811c822a-8add-4e0a-b167-a049f1f9c4e2 tenantId: 72ba733d-2a55-4371-bb4d-5c27dc1f1c00 userId: google-user-id
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mRow Notes[2m > [22m[2mshould not allow deleting notes by other users
+[22m[39mCreated note: c2d30ab4-6a4d-426e-99a7-60b3a589e6eb tenantId: 72ba733d-2a55-4371-bb4d-5c27dc1f1c00 userId: google-user-id
+
+{"level":50,"time":1764869826821,"env":"test","error":{},"msg":"Error deleting row note"}
+{"level":40,"time":1764869827936,"env":"test","module":"auth-middleware","path":"/datavault/databases/a0ef0f61-48d5-4371-87f7-40107451b616/tables","msg":"No valid authentication found"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould grant table permission
+[22m[39mupsert result: {"id":"47253b8d-f313-40c3-b291-bcf6c0c55aa2","tableId":"299d475c-1f9b-45e2-b999-c19568f95808","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:09.607Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould grant table permission
+[22m[39mGrant permission success, sending 201. Permission: {"id":"47253b8d-f313-40c3-b291-bcf6c0c55aa2","tableId":"299d475c-1f9b-45e2-b999-c19568f95808","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:09.607Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mupsert result: {"id":"d83b5e82-73c1-4b51-afe8-3a107b46785d","tableId":"606adfaf-87c3-47e2-8829-b2897ce523f5","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:10.142Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mGrant permission success, sending 201. Permission: {"id":"d83b5e82-73c1-4b51-afe8-3a107b46785d","tableId":"606adfaf-87c3-47e2-8829-b2897ce523f5","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:10.142Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mupsert result: {"id":"d83b5e82-73c1-4b51-afe8-3a107b46785d","tableId":"606adfaf-87c3-47e2-8829-b2897ce523f5","userId":"other-user-id","role":"write","createdAt":"2025-12-04T17:37:10.142Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mGrant permission success, sending 201. Permission: {"id":"d83b5e82-73c1-4b51-afe8-3a107b46785d","tableId":"606adfaf-87c3-47e2-8829-b2897ce523f5","userId":"other-user-id","role":"write","createdAt":"2025-12-04T17:37:10.142Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould update table permission role
+[22m[39mUpdate permission failed: {
+  id: [32m'd83b5e82-73c1-4b51-afe8-3a107b46785d'[39m,
+  tableId: [32m'606adfaf-87c3-47e2-8829-b2897ce523f5'[39m,
+  userId: [32m'other-user-id'[39m,
+  role: [32m'write'[39m,
+  createdAt: [32m'2025-12-04T17:37:10.142Z'[39m
+}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mupsert result: {"id":"384f6b01-edea-4eec-88a0-cc7df326bf02","tableId":"83d8dd2d-66bb-4bf7-9e9d-d6f741f02700","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:10.631Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mGrant permission success, sending 201. Permission: {"id":"384f6b01-edea-4eec-88a0-cc7df326bf02","tableId":"83d8dd2d-66bb-4bf7-9e9d-d6f741f02700","userId":"other-user-id","role":"read","createdAt":"2025-12-04T17:37:10.631Z"}
+
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould revoke table permission
+[22m[39mrevokePermission called for permission: 384f6b01-edea-4eec-88a0-cc7df326bf02
+
+{"level":50,"time":1764869829770,"env":"test","error":{},"msg":"Error granting table permission"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mTable Permissions[2m > [22m[2mshould enforce RBAC - only owners can manage permissions
+[22m[39mGrant permission catch block entered Error: Access denied - owner permission required
+    at DatavaultTablePermissionsService.requirePermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:108:13)
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at DatavaultTablePermissionsService.grantPermission (C:/Users/scoot/poll/VaultLogic/server/services/DatavaultTablePermissionsService.ts:138:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/datavault.routes.ts:1155:26
+
+{"level":50,"time":1764869830968,"env":"test","error":{"issues":[{"received":"invalid_type","code":"invalid_enum_value","options":["text","number","boolean","date","datetime","email","phone","url","json","auto_number","autonumber","reference","select","multiselect"],"path":["type"],"message":"Invalid enum value. Expected 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'email' | 'phone' | 'url' | 'json' | 'auto_number' | 'autonumber' | 'reference' | 'select' | 'multiselect', received 'invalid_type'"}],"name":"ZodError"},"msg":"Error creating DataVault column"}
+{"level":50,"time":1764869831641,"env":"test","error":{},"msg":"Error creating DataVault row"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts[2m > [22m[2mDataVault v4 Regression Tests[2m > [22m[2mError Handling[2m > [22m[2mshould return user-friendly error for missing required fields
+[22m[39mRow creation error message: Required column 'Required Field' is missing
+
+{"level":50,"time":1764869831851,"env":"test","error":{"length":144,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $1 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"msg":"Error fetching DataVault rows"}
+[90mstdout[2m | tests/integration/datavault-v4-regression.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/integration/datavault-v4-regression.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 12133[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a select column with options [33m 396[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a multiselect column with options [33m 370[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate select value against options [33m 1079[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate multiselect values as array [33m 781[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create an autonumber column with sequence [33m 372[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should format autonumber with prefix [33m 811[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a note for a row [33m 580[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should get all notes for a row [33m 776[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should delete a note [33m 658[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not allow deleting notes by other users [33m 580[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke (delete) an API token [33m 536[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should update table permission role [33m 490[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke table permission [33m 566[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should paginate rows efficiently [33m 996[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should return user-friendly error for missing required fields [33m 672[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m23 passed[39m[22m[90m (23)[39m
+[2m   Start at [22m 11:36:54
+[2m   Duration [22m 17.50s[2m (transform 2.06s, setup 670ms, collect 4.09s, tests 12.13s, environment 0ms, prepare 18ms)[22m
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m

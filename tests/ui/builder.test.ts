@@ -15,29 +15,28 @@ describe('Visual Workflow Builder Store', () => {
   });
 
   it('should add a question node', () => {
-    const store = useBuilderStore.getState();
-    store.addNode('question', { x: 100, y: 100 });
+    useBuilderStore.getState().addNode('question', { x: 100, y: 100 });
 
+    const store = useBuilderStore.getState();
     expect(store.nodes.length).toBe(1);
     expect(store.nodes[0].type).toBe('question');
     expect(store.nodes[0].data.config.key).toMatch(/^q_/);
   });
 
   it('should add a compute node', () => {
-    const store = useBuilderStore.getState();
-    store.addNode('compute', { x: 200, y: 200 });
+    useBuilderStore.getState().addNode('compute', { x: 200, y: 200 });
 
+    const store = useBuilderStore.getState();
     expect(store.nodes.length).toBe(1);
     expect(store.nodes[0].type).toBe('compute');
     expect(store.nodes[0].data.config.outputKey).toMatch(/^c_/);
   });
 
   it('should export graph in correct format', () => {
-    const store = useBuilderStore.getState();
-    store.addNode('question', { x: 100, y: 100 });
-    store.addNode('compute', { x: 200, y: 200 });
+    useBuilderStore.getState().addNode('question', { x: 100, y: 100 });
+    useBuilderStore.getState().addNode('compute', { x: 200, y: 200 });
 
-    const exported = store.exportGraph();
+    const exported = useBuilderStore.getState().exportGraph();
 
     expect(exported).toHaveProperty('nodes');
     expect(exported).toHaveProperty('edges');
@@ -46,8 +45,6 @@ describe('Visual Workflow Builder Store', () => {
   });
 
   it('should load graph from API format', () => {
-    const store = useBuilderStore.getState();
-
     const graphJson = {
       nodes: [
         {
@@ -60,8 +57,9 @@ describe('Visual Workflow Builder Store', () => {
       startNodeId: 'node1',
     };
 
-    store.loadGraph(graphJson);
+    useBuilderStore.getState().loadGraph(graphJson);
 
+    const store = useBuilderStore.getState();
     expect(store.nodes.length).toBe(1);
     expect(store.nodes[0].id).toBe('node1');
     expect(store.nodes[0].type).toBe('question');

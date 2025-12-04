@@ -101,7 +101,6 @@ export class DatavaultRowNotesService {
       throw new Error("Note text cannot be empty");
     }
 
-    // Create note
     const note = await this.notesRepo.createNote(
       {
         rowId,
@@ -111,6 +110,7 @@ export class DatavaultRowNotesService {
       },
       tx
     );
+    console.log('Created note:', note.id, 'tenantId:', note.tenantId, 'userId:', note.userId);
 
     return note;
   }
@@ -129,6 +129,7 @@ export class DatavaultRowNotesService {
     const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, tx);
 
     if (!note) {
+      console.log('Delete note failed: Note not found. noteId:', noteId, 'tenantId:', tenantId);
       throw new Error("Note not found");
     }
 

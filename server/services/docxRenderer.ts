@@ -63,6 +63,7 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      delimiters: { start: '{{', end: '}}' },
       nullGetter: () => '', // Return empty string for null/undefined values
     });
 
@@ -78,17 +79,14 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
     try {
       doc.render();
     } catch (error: any) {
-      // Provide detailed error information for rendering failures
       if (error.properties && error.properties.errors) {
-        const errorDetails = error.properties.errors
-          .map((err: any) => `${err.name}: ${err.message}`)
+        console.error('Docxtemplater MultiError:', JSON.stringify(error.properties.errors, null, 2));
+        const errorMessages = error.properties.errors
+          .map((e: any) => e.message)
           .join(', ');
-        console.error('DOCX Render Error Details:', JSON.stringify(error.properties.errors, null, 2));
-        throw createError.internal(`DOCX rendering failed: ${errorDetails}`);
+        throw createError.internal(`Failed to render template: ${errorMessages}`);
       }
-      throw createError.internal(
-        `DOCX rendering failed: ${error.message || 'Unknown error'}`
-      );
+      throw createError.internal('Failed to render template', error);
     }
 
     // Generate output filename
@@ -216,6 +214,7 @@ export async function extractPlaceholdersFromDocx(
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      delimiters: { start: '{{', end: '}}' },
     });
 
     // Get full text from document

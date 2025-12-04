@@ -43,6 +43,23 @@ import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
  * This is the main aggregator that wires up all domain-specific route modules
  */
 export function registerAllRoutes(app: Express): void {
+  // ========================================================================
+  // Stage 4: REST API Endpoints (Projects, Workflows, Templates, Runs)
+  // Register these FIRST to ensure they take precedence over legacy routes
+  // ========================================================================
+
+  // Projects API (tenant-scoped)
+  registerApiProjectRoutes(app);
+
+  // Workflows API (versioning, publishing)
+  registerApiWorkflowRoutes(app);
+
+  // Templates API (file upload, placeholders)
+  registerApiTemplateRoutes(app);
+
+  // Runs API (workflow execution, logs, download)
+  registerApiRunRoutes(app);
+
   // Authentication routes
   registerAuthRoutes(app);
 
@@ -126,25 +143,14 @@ export function registerAllRoutes(app: Express): void {
 
   // ========================================================================
   // Stage 4: REST API Endpoints (Projects, Workflows, Templates, Runs)
+  // MOVED TO TOP to ensure precedence
   // ========================================================================
-
-  // Projects API (tenant-scoped)
-  registerApiProjectRoutes(app);
-
-  // Workflows API (versioning, publishing)
-  registerApiWorkflowRoutes(app);
-
-  // Templates API (file upload, placeholders)
-  registerApiTemplateRoutes(app);
 
   // Template Analysis API (Stage 21 - analyze, validate, sample data)
   registerTemplateAnalysisRoutes(app);
 
   // Run Outputs API (Stage 21 - view, download generated documents)
   registerRunOutputsRoutes(app);
-
-  // Runs API (workflow execution, logs, download)
-  // registerApiRunRoutes(app); // Moved up to avoid conflict
 
   // ========================================================================
   // Stage 11: Workflow Analytics & SLIs

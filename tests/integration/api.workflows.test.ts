@@ -57,7 +57,7 @@ describe("Workflows API Integration Tests", () => {
     userId = registerResponse.body.user.id;
 
     await db.update(schema.users)
-      .set({ tenantId, tenantRole: "builder" })
+      .set({ tenantId, tenantRole: "owner" })
       .where(eq(schema.users.id, userId));
 
     // Create project
@@ -65,11 +65,18 @@ describe("Workflows API Integration Tests", () => {
       .post("/api/projects")
       .set("Authorization", `Bearer ${authToken}`)
       .send({ name: "Test Project for Workflows" });
+    console.log('Project creation response:', projectResponse.status, JSON.stringify(projectResponse.body));
     projectId = projectResponse.body.id;
   });
 
   afterAll(async () => {
     if (tenantId) {
+      // Clean up in reverse order of dependencies
+      await db.delete(schema.workflowVersions);
+      await db.delete(schema.surveys); // Delete surveys before users
+      await db.delete(schema.workflows);
+      await db.delete(schema.projects);
+      await db.delete(schema.users);
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
@@ -168,7 +175,10 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(baseURL)
         .post(`/api/projects/${projectId}/workflows`)
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ name: "Edit Test" });
+        .send({
+          name: "Edit Test",
+          graphJson: { nodes: [], edges: [] }
+        });
       workflowId = response.body.id;
     });
 
@@ -187,6 +197,7 @@ describe("Workflows API Integration Tests", () => {
       await request(baseURL)
         .post(`/api/workflows/${workflowId}/publish`)
         .set("Authorization", `Bearer ${authToken}`)
+        .send({})
         .expect(200);
 
       // Try to edit
@@ -205,7 +216,10 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(baseURL)
         .post(`/api/projects/${projectId}/workflows`)
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ name: "Publish Test" });
+        .send({
+          name: "Publish Test",
+          graphJson: { nodes: [], edges: [] }
+        });
       workflowId = response.body.id;
     });
 
@@ -213,9 +227,10 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(baseURL)
         .post(`/api/workflows/${workflowId}/publish`)
         .set("Authorization", `Bearer ${authToken}`)
+        .send({})
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", "published");
+      expect(response.body).toHaveProperty("status", "active");
       expect(response.body.currentVersion).toHaveProperty("published", true);
       expect(response.body.currentVersion).toHaveProperty("publishedAt");
     });
@@ -228,13 +243,17 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(baseURL)
         .post(`/api/projects/${projectId}/workflows`)
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ name: "Versions Test" });
+        .send({
+          name: "Versions Test",
+          graphJson: { nodes: [], edges: [] }
+        });
       workflowId = response.body.id;
 
       // Publish to create a version
       await request(baseURL)
         .post(`/api/workflows/${workflowId}/publish`)
-        .set("Authorization", `Bearer ${authToken}`);
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({});
     });
 
     it("should list workflow versions", async () => {
@@ -262,6 +281,10 @@ describe("Workflows API Integration Tests", () => {
           title: "Move Test Workflow",
           description: "Test workflow for move operations",
         });
+
+      if (workflowResponse.status !== 201) {
+        throw new Error(`Failed to create workflow: ${workflowResponse.status}`);
+      }
       workflowId = workflowResponse.body.id;
 
       // Create a second project as move target
@@ -340,6 +363,8 @@ describe("Workflows API Integration Tests", () => {
         .expect(401);
     });
 
+
+
     it("should reject move of workflow user does not own", async () => {
       // Create a second user
       const email2 = `test-workflows-${nanoid()}@example.com`;
@@ -347,7 +372,7 @@ describe("Workflows API Integration Tests", () => {
         .post("/api/auth/register")
         .send({
           email: email2,
-          password: "password123",
+          password: "TestPassword123",
           fullName: "Test User 2",
           tenantId,
         });
@@ -392,17 +417,31 @@ describe("Workflows API Integration Tests", () => {
         .post("/api/auth/register")
         .send({
           email: email2,
-          password: "password123",
+          password: "TestPassword123",
           fullName: "Test User 2",
           tenantId,
         });
 
       const authToken2 = registerResponse2.body.token;
+      const user2Id = registerResponse2.body.user.id;
+
+      await db.update(schema.users)
+        .set({ tenantId, tenantRole: "owner" })
+        .where(eq(schema.users.id, user2Id));
+
+      // Re-login to get updated token
+      const loginResponse2 = await request(baseURL)
+        .post("/api/auth/login")
+        .send({
+          email: email2,
+          password: "TestPassword123"
+        });
+      const updatedAuthToken2 = loginResponse2.body.token;
 
       // Create a project owned by user 2
       const projectResponse2 = await request(baseURL)
         .post("/api/projects")
-        .set("Authorization", `Bearer ${authToken2}`)
+        .set("Authorization", `Bearer ${updatedAuthToken2}`)
         .send({
           name: "User 2 Project",
           description: "Project owned by user 2",

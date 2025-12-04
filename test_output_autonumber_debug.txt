@@ -1,0 +1,1132 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (11) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts[2m > [22m[2mDataVault Autonumber Integration Tests
+[22m[39m[DEBUG] BaseRepository.findById database: {
+  name: [32m'Basic Number'[39m,
+  slug: [32m'basic_number'[39m,
+  type: [32m'autonumber'[39m,
+  autonumberPrefix: [1mnull[22m,
+  autonumberPadding: [33m4[39m,
+  autonumberResetPolicy: [32m'never'[39m
+}
+[DEBUG] BaseRepository.findById dbInstance: [90mundefined[39m
+[DEBUG] BaseRepository.findById imported db: NeonDatabase {
+  query: {
+    sessions: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    users: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    userCredentials: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    surveys: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    surveyPages: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    questions: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    loopGroupSubquestions: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    conditionalRules: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    responses: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    answers: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    files: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    analyticsEvents: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    anonymousResponseTracking: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    systemStats: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    userPreferences: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    surveyTemplates: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    templateShares: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    tenants: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    tenantDomains: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    emailTemplateMetadata: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    projects: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflows: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflowVersions: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflowSnapshots: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    templates: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflowTemplates: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    runs: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    runOutputs: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    secrets: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    externalConnections: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    connections: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    collections: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    collectionFields: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    records: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    auditEvents: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    apiKeys: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    runLogs: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    reviewTasks: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    signatureRequests: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    signatureEvents: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    sections: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    steps: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    logicRules: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflowRuns: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    stepValues: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    runGeneratedDocuments: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    blocks: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    transformBlocks: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    transformBlockRuns: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    teams: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    teamMembers: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    projectAccess: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    workflowAccess: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    collabDocs: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    collabUpdates: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    collabSnapshots: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    metricsEvents: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    metricsRollups: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    sliConfigs: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    sliWindows: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultDatabases: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultTables: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultColumns: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultRows: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultValues: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultNumberSequences: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultRowNotes: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultApiTokens: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    },
+    datavaultTablePermissions: RelationalQueryBuilder {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m,
+      table: [36m[PgTable][39m,
+      tableConfig: [36m[Object][39m,
+      dialect: [36m[PgDialect][39m,
+      session: [36m[NeonSession][39m
+    }
+  },
+  [32m'$with'[39m: [36m[Function: $with][39m,
+  authToken: [90mundefined[39m,
+  dialect: PgDialect {
+    casing: CasingCache {
+      cache: {},
+      cachedTables: {},
+      convert: [36m[Function: noopCase][39m
+    }
+  },
+  session: NeonSession {
+    dialect: PgDialect { casing: [36m[CasingCache][39m },
+    logger: NoopLogger {},
+    client: NeonPool {
+      _events: [Object: null prototype] {},
+      _eventsCount: [33m0[39m,
+      _maxListeners: [90mundefined[39m,
+      options: [36m[Object][39m,
+      log: [36m[Function (anonymous)][39m,
+      Client: [36m[class NeonClient extends Client][39m,
+      Promise: [36m[Function: Promise][39m,
+      _clients: [36m[Array][39m,
+      _idle: [36m[Array][39m,
+      _expired: [36m[WeakSet][39m,
+      _pendingQueue: [],
+      _endCallback: [90mundefined[39m,
+      ending: [33mfalse[39m,
+      ended: [33mfalse[39m,
+      hasFetchUnsupportedListeners: [33mfalse[39m
+    },
+    schema: {
+      fullSchema: [36m[Object: null prototype] [Module][39m,
+      schema: [36m[Object][39m,
+      tableNamesMap: [36m[Object][39m
+    },
+    options: { logger: [90mundefined[39m }
+  },
+  _: {
+    schema: {
+      sessions: [36m[Object][39m,
+      users: [36m[Object][39m,
+      userCredentials: [36m[Object][39m,
+      surveys: [36m[Object][39m,
+      surveyPages: [36m[Object][39m,
+      questions: [36m[Object][39m,
+      loopGroupSubquestions: [36m[Object][39m,
+      conditionalRules: [36m[Object][39m,
+      responses: [36m[Object][39m,
+      answers: [36m[Object][39m,
+      files: [36m[Object][39m,
+      analyticsEvents: [36m[Object][39m,
+      anonymousResponseTracking: [36m[Object][39m,
+      systemStats: [36m[Object][39m,
+      userPreferences: [36m[Object][39m,
+      surveyTemplates: [36m[Object][39m,
+      templateShares: [36m[Object][39m,
+      tenants: [36m[Object][39m,
+      tenantDomains: [36m[Object][39m,
+      emailTemplateMetadata: [36m[Object][39m,
+      projects: [36m[Object][39m,
+      workflows: [36m[Object][39m,
+      workflowVersions: [36m[Object][39m,
+      workflowSnapshots: [36m[Object][39m,
+      templates: [36m[Object][39m,
+      workflowTemplates: [36m[Object][39m,
+      runs: [36m[Object][39m,
+      runOutputs: [36m[Object][39m,
+      secrets: [36m[Object][39m,
+      externalConnections: [36m[Object][39m,
+      connections: [36m[Object][39m,
+      collections: [36m[Object][39m,
+      collectionFields: [36m[Object][39m,
+      records: [36m[Object][39m,
+      auditEvents: [36m[Object][39m,
+      apiKeys: [36m[Object][39m,
+      runLogs: [36m[Object][39m,
+      reviewTasks: [36m[Object][39m,
+      signatureRequests: [36m[Object][39m,
+      signatureEvents: [36m[Object][39m,
+      sections: [36m[Object][39m,
+      steps: [36m[Object][39m,
+      logicRules: [36m[Object][39m,
+      workflowRuns: [36m[Object][39m,
+      stepValues: [36m[Object][39m,
+      runGeneratedDocuments: [36m[Object][39m,
+      blocks: [36m[Object][39m,
+      transformBlocks: [36m[Object][39m,
+      transformBlockRuns: [36m[Object][39m,
+      teams: [36m[Object][39m,
+      teamMembers: [36m[Object][39m,
+      projectAccess: [36m[Object][39m,
+      workflowAccess: [36m[Object][39m,
+      collabDocs: [36m[Object][39m,
+      collabUpdates: [36m[Object][39m,
+      collabSnapshots: [36m[Object][39m,
+      metricsEvents: [36m[Object][39m,
+      metricsRollups: [36m[Object][39m,
+      sliConfigs: [36m[Object][39m,
+      sliWindows: [36m[Object][39m,
+      datavaultDatabases: [36m[Object][39m,
+      datavaultTables: [36m[Object][39m,
+      datavaultColumns: [36m[Object][39m,
+      datavaultRows: [36m[Object][39m,
+      datavaultValues: [36m[Object][39m,
+      datavaultNumberSequences: [36m[Object][39m,
+      datavaultRowNotes: [36m[Object][39m,
+      datavaultApiTokens: [36m[Object][39m,
+      datavaultTablePermissions: [36m[Object][39m
+    },
+    fullSchema: [Object: null prototype] [Module] {
+      sessions: [36m[Getter][39m,
+      userRoleEnum: [36m[Getter][39m,
+      surveyStatusEnum: [36m[Getter][39m,
+      questionTypeEnum: [36m[Getter][39m,
+      conditionOperatorEnum: [36m[Getter][39m,
+      conditionalActionEnum: [36m[Getter][39m,
+      tenantPlanEnum: [36m[Getter][39m,
+      userTenantRoleEnum: [36m[Getter][39m,
+      authProviderEnum: [36m[Getter][39m,
+      users: [36m[Getter][39m,
+      userCredentials: [36m[Getter][39m,
+      anonymousAccessTypeEnum: [36m[Getter][39m,
+      surveys: [36m[Getter][39m,
+      surveyPages: [36m[Getter][39m,
+      questions: [36m[Getter][39m,
+      loopGroupSubquestions: [36m[Getter][39m,
+      conditionalRules: [36m[Getter][39m,
+      responses: [36m[Getter][39m,
+      answers: [36m[Getter][39m,
+      files: [36m[Getter][39m,
+      analyticsEvents: [36m[Getter][39m,
+      anonymousResponseTracking: [36m[Getter][39m,
+      systemStats: [36m[Getter][39m,
+      userPreferences: [36m[Getter][39m,
+      surveyTemplates: [36m[Getter][39m,
+      templateAccessEnum: [36m[Getter][39m,
+      templateShares: [36m[Getter][39m,
+      usersRelations: [36m[Getter][39m,
+      userCredentialsRelations: [36m[Getter][39m,
+      userPreferencesRelations: [36m[Getter][39m,
+      surveysRelations: [36m[Getter][39m,
+      surveyPagesRelations: [36m[Getter][39m,
+      questionsRelations: [36m[Getter][39m,
+      loopGroupSubquestionsRelations: [36m[Getter][39m,
+      responsesRelations: [36m[Getter][39m,
+      anonymousResponseTrackingRelations: [36m[Getter][39m,
+      answersRelations: [36m[Getter][39m,
+      surveyTemplatesRelations: [36m[Getter][39m,
+      templateSharesRelations: [36m[Getter][39m,
+      insertUserSchema: [36m[Getter][39m,
+      insertUserCredentialsSchema: [36m[Getter][39m,
+      insertSurveySchema: [36m[Getter][39m,
+      insertSurveyPageSchema: [36m[Getter][39m,
+      insertQuestionSchema: [36m[Getter][39m,
+      insertLoopGroupSubquestionSchema: [36m[Getter][39m,
+      insertConditionalRuleSchema: [36m[Getter][39m,
+      insertResponseSchema: [36m[Getter][39m,
+      insertAnswerSchema: [36m[Getter][39m,
+      insertAnonymousResponseTrackingSchema: [36m[Getter][39m,
+      insertFileSchema: [36m[Getter][39m,
+      insertSurveyTemplateSchema: [36m[Getter][39m,
+      insertTemplateShareSchema: [36m[Getter][39m,
+      insertUserPreferencesSchema: [36m[Getter][39m,
+      insertAnalyticsEventSchema: [36m[Getter][39m,
+      tenants: [36m[Getter][39m,
+      tenantDomains: [36m[Getter][39m,
+      emailTemplateMetadata: [36m[Getter][39m,
+      projectStatusEnum: [36m[Getter][39m,
+      workflowStatusEnum: [36m[Getter][39m,
+      versionStatusEnum: [36m[Getter][39m,
+      templateTypeEnum: [36m[Getter][39m,
+      runStatusEnum: [36m[Getter][39m,
+      logLevelEnum: [36m[Getter][39m,
+      reviewTaskStatusEnum: [36m[Getter][39m,
+      signatureRequestStatusEnum: [36m[Getter][39m,
+      signatureProviderEnum: [36m[Getter][39m,
+      signatureEventTypeEnum: [36m[Getter][39m,
+      outputStatusEnum: [36m[Getter][39m,
+      outputFileTypeEnum: [36m[Getter][39m,
+      stepTypeEnum: [36m[Getter][39m,
+      logicRuleTargetTypeEnum: [36m[Getter][39m,
+      datavaultColumnTypeEnum: [36m[Getter][39m,
+      autonumberResetPolicyEnum: [36m[Getter][39m,
+      datavaultScopeTypeEnum: [36m[Getter][39m,
+      datavaultTableRoleEnum: [36m[Getter][39m,
+      projects: [36m[Getter][39m,
+      workflows: [36m[Getter][39m,
+      workflowVersions: [36m[Getter][39m,
+      workflowSnapshots: [36m[Getter][39m,
+      templates: [36m[Getter][39m,
+      workflowTemplates: [36m[Getter][39m,
+      runs: [36m[Getter][39m,
+      runOutputs: [36m[Getter][39m,
+      secretTypeEnum: [36m[Getter][39m,
+      connectionTypeEnum: [36m[Getter][39m,
+      collectionFieldTypeEnum: [36m[Getter][39m,
+      secrets: [36m[Getter][39m,
+      externalConnections: [36m[Getter][39m,
+      connections: [36m[Getter][39m,
+      collections: [36m[Getter][39m,
+      collectionFields: [36m[Getter][39m,
+      records: [36m[Getter][39m,
+      auditEvents: [36m[Getter][39m,
+      apiKeys: [36m[Getter][39m,
+      runLogs: [36m[Getter][39m,
+      reviewTasks: [36m[Getter][39m,
+      signatureRequests: [36m[Getter][39m,
+      signatureEvents: [36m[Getter][39m,
+      sections: [36m[Getter][39m,
+      steps: [36m[Getter][39m,
+      logicRules: [36m[Getter][39m,
+      workflowRuns: [36m[Getter][39m,
+      stepValues: [36m[Getter][39m,
+      runGeneratedDocuments: [36m[Getter][39m,
+      blockTypeEnum: [36m[Getter][39m,
+      blockPhaseEnum: [36m[Getter][39m,
+      blocks: [36m[Getter][39m,
+      tenantsRelations: [36m[Getter][39m,
+      tenantDomainsRelations: [36m[Getter][39m,
+      projectsRelations: [36m[Getter][39m,
+      collectionsRelations: [36m[Getter][39m,
+      collectionFieldsRelations: [36m[Getter][39m,
+      recordsRelations: [36m[Getter][39m,
+      workflowsRelations: [36m[Getter][39m,
+      workflowVersionsRelations: [36m[Getter][39m,
+      templatesRelations: [36m[Getter][39m,
+      workflowTemplatesRelations: [36m[Getter][39m,
+      runsRelations: [36m[Getter][39m,
+      runOutputsRelations: [36m[Getter][39m,
+      secretsRelations: [36m[Getter][39m,
+      externalConnectionsRelations: [36m[Getter][39m,
+      auditEventsRelations: [36m[Getter][39m,
+      apiKeysRelations: [36m[Getter][39m,
+      runLogsRelations: [36m[Getter][39m,
+      sectionsRelations: [36m[Getter][39m,
+      stepsRelations: [36m[Getter][39m,
+      workflowRunsRelations: [36m[Getter][39m,
+      stepValuesRelations: [36m[Getter][39m,
+      runGeneratedDocumentsRelations: [36m[Getter][39m,
+      logicRulesRelations: [36m[Getter][39m,
+      blocksRelations: [36m[Getter][39m,
+      insertTenantSchema: [36m[Getter][39m,
+      insertTenantDomainSchema: [36m[Getter][39m,
+      insertEmailTemplateMetadataSchema: [36m[Getter][39m,
+      insertProjectSchema: [36m[Getter][39m,
+      insertWorkflowSchema: [36m[Getter][39m,
+      insertWorkflowVersionSchema: [36m[Getter][39m,
+      insertTemplateSchema: [36m[Getter][39m,
+      insertWorkflowTemplateSchema: [36m[Getter][39m,
+      insertRunSchema: [36m[Getter][39m,
+      insertRunOutputSchema: [36m[Getter][39m,
+      insertSecretSchema: [36m[Getter][39m,
+      insertExternalConnectionSchema: [36m[Getter][39m,
+      insertAuditEventSchema: [36m[Getter][39m,
+      insertApiKeySchema: [36m[Getter][39m,
+      insertRunLogSchema: [36m[Getter][39m,
+      insertReviewTaskSchema: [36m[Getter][39m,
+      insertSignatureRequestSchema: [36m[Getter][39m,
+      insertSignatureEventSchema: [36m[Getter][39m,
+      insertCollectionSchema: [36m[Getter][39m,
+      insertCollectionFieldSchema: [36m[Getter][39m,
+      insertRecordSchema: [36m[Getter][39m,
+      insertSectionSchema: [36m[Getter][39m,
+      insertStepSchema: [36m[Getter][39m,
+      insertLogicRuleSchema: [36m[Getter][39m,
+      insertWorkflowRunSchema: [36m[Getter][39m,
+      insertStepValueSchema: [36m[Getter][39m,
+      insertRunGeneratedDocumentSchema: [36m[Getter][39m,
+      insertBlockSchema: [36m[Getter][39m,
+      transformBlockLanguageEnum: [36m[Getter][39m,
+      transformBlockRunStatusEnum: [36m[Getter][39m,
+      transformBlocks: [36m[Getter][39m,
+      transformBlockRuns: [36m[Getter][39m,
+      transformBlocksRelations: [36m[Getter][39m,
+      transformBlockRunsRelations: [36m[Getter][39m,
+      insertTransformBlockSchema: [36m[Getter][39m,
+      insertTransformBlockRunSchema: [36m[Getter][39m,
+      teams: [36m[Getter][39m,
+      teamMembers: [36m[Getter][39m,
+      projectAccess: [36m[Getter][39m,
+      workflowAccess: [36m[Getter][39m,
+      teamsRelations: [36m[Getter][39m,
+      teamMembersRelations: [36m[Getter][39m,
+      projectAccessRelations: [36m[Getter][39m,
+      workflowAccessRelations: [36m[Getter][39m,
+      insertTeamSchema: [36m[Getter][39m,
+      insertTeamMemberSchema: [36m[Getter][39m,
+      insertProjectAccessSchema: [36m[Getter][39m,
+      insertWorkflowAccessSchema: [36m[Getter][39m,
+      collabDocs: [36m[Getter][39m,
+      collabUpdates: [36m[Getter][39m,
+      collabSnapshots: [36m[Getter][39m,
+      collabDocsRelations: [36m[Getter][39m,
+      collabUpdatesRelations: [36m[Getter][39m,
+      collabSnapshotsRelations: [36m[Getter][39m,
+      insertCollabDocSchema: [36m[Getter][39m,
+      insertCollabUpdateSchema: [36m[Getter][39m,
+      insertCollabSnapshotSchema: [36m[Getter][39m,
+      metricsEventTypeEnum: [36m[Getter][39m,
+      rollupBucketEnum: [36m[Getter][39m,
+      sliWindowEnum: [36m[Getter][39m,
+      metricsEvents: [36m[Getter][39m,
+      metricsRollups: [36m[Getter][39m,
+      sliConfigs: [36m[Getter][39m,
+      sliWindows: [36m[Getter][39m,
+      datavaultDatabases: [36m[Getter][39m,
+      datavaultTables: [36m[Getter][39m,
+      datavaultColumns: [36m[Getter][39m,
+      datavaultRows: [36m[Getter][39m,
+      datavaultValues: [36m[Getter][39m,
+      datavaultNumberSequences: [36m[Getter][39m,
+      datavaultRowNotes: [36m[Getter][39m,
+      datavaultApiTokens: [36m[Getter][39m,
+      datavaultTablePermissions: [36m[Getter][39m,
+      metricsEventsRelations: [36m[Getter][39m,
+      metricsRollupsRelations: [36m[Getter][39m,
+      sliConfigsRelations: [36m[Getter][39m,
+      sliWindowsRelations: [36m[Getter][39m,
+      datavaultDatabasesRelations: [36m[Getter][39m,
+      datavaultTablesRelations: [36m[Getter][39m,
+      datavaultColumnsRelations: [36m[Getter][39m,
+      datavaultRowsRelations: [36m[Getter][39m,
+      datavaultValuesRelations: [36m[Getter][39m,
+      datavaultApiTokensRelations: [36m[Getter][39m,
+      insertMetricsEventSchema: [36m[Getter][39m,
+      insertMetricsRollupSchema: [36m[Getter][39m,
+      insertSliConfigSchema: [36m[Getter][39m,
+      insertSliWindowSchema: [36m[Getter][39m,
+      insertDatavaultDatabaseSchema: [36m[Getter][39m,
+      insertDatavaultTableSchema: [36m[Getter][39m,
+      insertDatavaultColumnSchema: [36m[Getter][39m,
+      insertDatavaultRowSchema: [36m[Getter][39m,
+      insertDatavaultValueSchema: [36m[Getter][39m,
+      insertDatavaultRowNoteSchema: [36m[Getter][39m,
+      insertDatavaultApiTokenSchema: [36m[Getter][39m,
+      insertDatavaultTablePermissionSchema: [36m[Getter][39m
+    },
+    tableNamesMap: {
+      [32m'public.sessions'[39m: [32m'sessions'[39m,
+      [32m'public.users'[39m: [32m'users'[39m,
+      [32m'public.user_credentials'[39m: [32m'userCredentials'[39m,
+      [32m'public.surveys'[39m: [32m'surveys'[39m,
+      [32m'public.survey_pages'[39m: [32m'surveyPages'[39m,
+      [32m'public.questions'[39m: [32m'questions'[39m,
+      [32m'public.loop_group_subquestions'[39m: [32m'loopGroupSubquestions'[39m,
+      [32m'public.conditional_rules'[39m: [32m'conditionalRules'[39m,
+      [32m'public.responses'[39m: [32m'responses'[39m,
+      [32m'public.answers'[39m: [32m'answers'[39m,
+      [32m'public.files'[39m: [32m'files'[39m,
+      [32m'public.analytics_events'[39m: [32m'analyticsEvents'[39m,
+      [32m'public.anonymous_response_tracking'[39m: [32m'anonymousResponseTracking'[39m,
+      [32m'public.system_stats'[39m: [32m'systemStats'[39m,
+      [32m'public.user_preferences'[39m: [32m'userPreferences'[39m,
+      [32m'public.survey_templates'[39m: [32m'surveyTemplates'[39m,
+      [32m'public.template_shares'[39m: [32m'templateShares'[39m,
+      [32m'public.tenants'[39m: [32m'tenants'[39m,
+      [32m'public.tenant_domains'[39m: [32m'tenantDomains'[39m,
+      [32m'public.email_template_metadata'[39m: [32m'emailTemplateMetadata'[39m,
+      [32m'public.projects'[39m: [32m'projects'[39m,
+      [32m'public.workflows'[39m: [32m'workflows'[39m,
+      [32m'public.workflow_versions'[39m: [32m'workflowVersions'[39m,
+      [32m'public.workflow_snapshots'[39m: [32m'workflowSnapshots'[39m,
+      [32m'public.templates'[39m: [32m'templates'[39m,
+      [32m'public.workflow_templates'[39m: [32m'workflowTemplates'[39m,
+      [32m'public.runs'[39m: [32m'runs'[39m,
+      [32m'public.run_outputs'[39m: [32m'runOutputs'[39m,
+      [32m'public.secrets'[39m: [32m'secrets'[39m,
+      [32m'public.external_connections'[39m: [32m'externalConnections'[39m,
+      [32m'public.connections'[39m: [32m'connections'[39m,
+      [32m'public.collections'[39m: [32m'collections'[39m,
+      [32m'public.collection_fields'[39m: [32m'collectionFields'[39m,
+      [32m'public.records'[39m: [32m'records'[39m,
+      [32m'public.audit_events'[39m: [32m'auditEvents'[39m,
+      [32m'public.api_keys'[39m: [32m'apiKeys'[39m,
+      [32m'public.run_logs'[39m: [32m'runLogs'[39m,
+      [32m'public.review_tasks'[39m: [32m'reviewTasks'[39m,
+      [32m'public.signature_requests'[39m: [32m'signatureRequests'[39m,
+      [32m'public.signature_events'[39m: [32m'signatureEvents'[39m,
+      [32m'public.sections'[39m: [32m'sections'[39m,
+      [32m'public.steps'[39m: [32m'steps'[39m,
+      [32m'public.logic_rules'[39m: [32m'logicRules'[39m,
+      [32m'public.workflow_runs'[39m: [32m'workflowRuns'[39m,
+      [32m'public.step_values'[39m: [32m'stepValues'[39m,
+      [32m'public.run_generated_documents'[39m: [32m'runGeneratedDocuments'[39m,
+      [32m'public.blocks'[39m: [32m'blocks'[39m,
+      [32m'public.transform_blocks'[39m: [32m'transformBlocks'[39m,
+      [32m'public.transform_block_runs'[39m: [32m'transformBlockRuns'[39m,
+      [32m'public.teams'[39m: [32m'teams'[39m,
+      [32m'public.team_members'[39m: [32m'teamMembers'[39m,
+      [32m'public.project_access'[39m: [32m'projectAccess'[39m,
+      [32m'public.workflow_access'[39m: [32m'workflowAccess'[39m,
+      [32m'public.collab_docs'[39m: [32m'collabDocs'[39m,
+      [32m'public.collab_updates'[39m: [32m'collabUpdates'[39m,
+      [32m'public.collab_snapshots'[39m: [32m'collabSnapshots'[39m,
+      [32m'public.metrics_events'[39m: [32m'metricsEvents'[39m,
+      [32m'public.metrics_rollups'[39m: [32m'metricsRollups'[39m,
+      [32m'public.sli_configs'[39m: [32m'sliConfigs'[39m,
+      [32m'public.sli_windows'[39m: [32m'sliWindows'[39m,
+      [32m'public.datavault_databases'[39m: [32m'datavaultDatabases'[39m,
+      [32m'public.datavault_tables'[39m: [32m'datavaultTables'[39m,
+      [32m'public.datavault_columns'[39m: [32m'datavaultColumns'[39m,
+      [32m'public.datavault_rows'[39m: [32m'datavaultRows'[39m,
+      [32m'public.datavault_values'[39m: [32m'datavaultValues'[39m,
+      [32m'public.datavault_number_sequences'[39m: [32m'datavaultNumberSequences'[39m,
+      [32m'public.datavault_row_notes'[39m: [32m'datavaultRowNotes'[39m,
+      [32m'public.datavault_api_tokens'[39m: [32m'datavaultApiTokens'[39m,
+      [32m'public.datavault_table_permissions'[39m: [32m'datavaultTablePermissions'[39m
+    },
+    session: NeonSession {
+      dialect: [36m[PgDialect][39m,
+      logger: NoopLogger {},
+      client: [36m[NeonPool][39m,
+      schema: [36m[Object][39m,
+      options: [36m[Object][39m
+    }
+  },
+  [32m'$client'[39m: NeonPool {
+    _events: [Object: null prototype] {},
+    _eventsCount: [33m0[39m,
+    _maxListeners: [90mundefined[39m,
+    options: {
+      connectionString: [32m'postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'[39m,
+      max: [33m10[39m,
+      maxUses: [33mInfinity[39m,
+      allowExitOnIdle: [33mfalse[39m,
+      maxLifetimeSeconds: [33m0[39m,
+      idleTimeoutMillis: [33m10000[39m
+    },
+    log: [36m[Function (anonymous)][39m,
+    Client: [36m[class NeonClient extends Client][39m,
+    Promise: [36m[Function: Promise][39m,
+    _clients: [ [36m[NeonClient][39m ],
+    _idle: [ [36m[IdleItem][39m ],
+    _expired: WeakSet { [36m<items unknown>[39m },
+    _pendingQueue: [],
+    _endCallback: [90mundefined[39m,
+    ending: [33mfalse[39m,
+    ended: [33mfalse[39m,
+    hasFetchUnsupportedListeners: [33mfalse[39m
+  }
+}
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/datavault.autonumber.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m5 skipped[39m[2m)[22m[33m 613[2mms[22m[39m
+     [2m[90mΓåô[39m[22m should generate basic autonumber without prefix
+     [2m[90mΓåô[39m[22m should generate autonumber with prefix
+     [2m[90mΓåô[39m[22m should generate autonumber with yearly reset format
+     [2m[90mΓåô[39m[22m should be atomic and prevent race conditions
+     [2m[90mΓåô[39m[22m should prevent manual updates to autonumber values
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/datavault.autonumber.test.ts > DataVault Autonumber Integration Tests
+TypeError: database.select is not a function
+ Γ¥» DatavaultTablesRepository.findById server/repositories/BaseRepository.ts:58:8
+     56| 
+     57|     const [record] = await database
+     58|       .select()
+       |        ^
+     59|       .from(this.table)
+     60|       .where(eq(idColumn, id));
+ Γ¥» DatavaultColumnsService.verifyTableOwnership server/services/DatavaultColumnsService.ts:68:41
+ Γ¥» DatavaultColumnsService.createColumn server/services/DatavaultColumnsService.ts:269:16
+ Γ¥» tests/integration/datavault.autonumber.test.ts:41:55
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ FAIL  tests/integration/datavault.autonumber.test.ts > DataVault Autonumber Integration Tests
+Error: Table not found
+ Γ¥» DatavaultTablesService.verifyTenantOwnership server/services/DatavaultTablesService.ts:150:13
+    148| 
+    149|     if (!table) {
+    150|       throw new Error("Table not found");
+       |             ^
+    151|     }
+    152| 
+ Γ¥» DatavaultTablesService.deleteTable server/services/DatavaultTablesService.ts:290:5
+ Γ¥» tests/integration/datavault.autonumber.test.ts:89:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m5 skipped[39m[90m (5)[39m
+[2m   Start at [22m 14:05:27
+[2m   Duration [22m 2.06s[2m (transform 411ms, setup 54ms, collect 896ms, tests 613ms, environment 0ms, prepare 18ms)[22m
+
