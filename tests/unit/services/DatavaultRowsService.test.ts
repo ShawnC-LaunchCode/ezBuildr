@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 
+// Mock the db module
+vi.mock('../../../server/db', () => ({
+  db: {
+    transaction: vi.fn((callback) => callback('mock-tx')),
+  },
+}));
+
 /**
  * DataVault Phase 1 PR 9: DatavaultRowsService Tests
  *
@@ -79,13 +86,8 @@ describe('DatavaultRowsService', () => {
             createdAt: new Date(),
             updatedAt: new Date(),
           },
-          value: {
-            id: 'val-1',
-            rowId: mockRowId,
-            columnId: mockColumnId,
-            value: { data: 'John Doe' },
-            createdAt: new Date(),
-            updatedAt: new Date(),
+          values: {
+            [mockColumnId]: { data: 'John Doe' },
           },
         },
       ];
@@ -98,7 +100,7 @@ describe('DatavaultRowsService', () => {
       const result = await service.listRows(mockTableId, mockTenantId, { limit: 25, offset: 0 });
 
       expect(result).toHaveLength(1);
-      expect(result[0].value.value).toEqual({ data: 'John Doe' });
+      expect(result[0].values[mockColumnId]).toEqual({ data: 'John Doe' });
     });
   });
 
@@ -345,7 +347,7 @@ describe('DatavaultRowsService', () => {
 
         mockTablesRepo.findById.mockResolvedValue(mockTable);
         mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-        mockRowsRepo.createRowWithValues.mockImplementation((rowData, valueArr) => {
+        mockRowsRepo.createRowWithValues.mockImplementation((rowData: any, valueArr: any[]) => {
           // Check that the value was coerced to a number
           expect(valueArr[0].value).toBe(25);
           return Promise.resolve({
@@ -404,7 +406,7 @@ describe('DatavaultRowsService', () => {
 
           mockTablesRepo.findById.mockResolvedValue(mockTable);
           mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-          mockRowsRepo.createRowWithValues.mockImplementation((rowData, valueArr) => {
+          mockRowsRepo.createRowWithValues.mockImplementation((rowData: any, valueArr: any[]) => {
             expect(valueArr[0].value).toBe(testCase.expected);
             return Promise.resolve({
               row: {
