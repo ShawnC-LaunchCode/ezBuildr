@@ -218,14 +218,10 @@ describe("Stage 8: Runs API Integration Tests", () => {
 
   afterAll(async () => {
     if (tenantId) {
-      // Clean up in reverse order of dependencies
-      await db.delete(schema.runLogs);
-      await db.delete(schema.runs);
-      await db.delete(schema.workflowVersions);
-      await db.delete(schema.surveys); // Delete surveys before users
-      await db.delete(schema.workflows);
-      await db.delete(schema.projects);
-      await db.delete(schema.users);
+      // Clean up workflows first (cascades to workflow_versions and runs)
+      await db.delete(schema.workflows).where(eq(schema.workflows.tenantId, tenantId));
+
+      // Delete tenant (cascades to projects, users, etc.)
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
