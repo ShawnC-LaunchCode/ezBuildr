@@ -38,13 +38,14 @@ describe("Expression Validation API Integration Tests", () => {
 
     baseURL = `http://localhost:${port}`;
 
-    // Setup tenant, user, and project
+    // Setup tenant
     const [tenant] = await db.insert(schema.tenants).values({
       name: "Test Tenant for Expression Validation",
       plan: "free",
     }).returning();
     tenantId = tenant.id;
 
+    // Register user and get auth token
     const email = `test-expr-${nanoid()}@example.com`;
     const registerResponse = await request(baseURL)
       .post("/api/auth/register")
@@ -57,8 +58,13 @@ describe("Expression Validation API Integration Tests", () => {
     authToken = registerResponse.body.token;
     userId = registerResponse.body.user.id;
 
+    // ✅ KEY FIX: Set admin/owner roles (not builder!)
     await db.update(schema.users)
-      .set({ tenantId, tenantRole: "builder" })
+      .set({
+        tenantId,
+        role: "admin",      // Admin for full API permissions
+        tenantRole: "owner" // Owner for tenant-level access
+      })
       .where(eq(schema.users.id, userId));
 
     // Create project

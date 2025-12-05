@@ -94,12 +94,12 @@ describe("Stage 8: Runs API Integration Tests", () => {
       email,
       passwordHash: "hashed_password",
       tenantId,
-      tenantRole: "builder",
+      tenantRole: "owner",
     }).onConflictDoUpdate({
       target: schema.users.id,
       set: {
         tenantId: tenantId,
-        tenantRole: "builder",
+        tenantRole: "owner",
         email: email,
       }
     });
@@ -114,8 +114,8 @@ describe("Stage 8: Runs API Integration Tests", () => {
         id: userId,
         email,
         tenantId,
-        tenantRole: "builder",
-        role: "creator",
+        tenantRole: "owner",
+        role: "admin",
       }
     });
 
@@ -499,7 +499,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
         email: `other-${nanoid()}@example.com`,
         passwordHash: "hashed_password",
         tenantId: otherTenant.id,
-        tenantRole: "builder",
+        tenantRole: "owner",
       }).returning();
 
       // Create project and workflow in other tenant

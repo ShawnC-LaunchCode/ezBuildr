@@ -86,14 +86,14 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             email: email,
             fullName: "Test User",
             tenantId: tenantId,
-            tenantRole: "builder",
+            tenantRole: "owner",
             createdAt: new Date(),
             updatedAt: new Date(),
         }).onConflictDoUpdate({
             target: schema.users.id,
             set: {
                 tenantId: tenantId,
-                tenantRole: "builder",
+                tenantRole: "owner",
                 email: email,
             }
         });
@@ -108,8 +108,8 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 id: userId,
                 email,
                 tenantId,
-                tenantRole: "builder",
-                role: "creator",
+                tenantRole: "owner",
+                role: "admin",
             }
         });
 

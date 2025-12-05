@@ -20,11 +20,28 @@ function generateSlug(prefix: string): string {
  * Provides helper functions to create test entities with proper foreign key relationships.
  * All IDs are generated using generateId() to avoid collisions between tests.
  *
- * Usage:
+ * RECOMMENDED USAGE (with transaction):
+ * ```typescript
+ * import { runInTransaction } from './testTransaction';
+ * import { TestFactory } from './testFactory';
+ *
+ * it('should do something', async () => {
+ *   await runInTransaction(async (tx) => {
+ *     const factory = new TestFactory(tx);
+ *     const { tenant, user, project } = await factory.createTenant();
+ *     const workflow = await factory.createWorkflow(project.id, user.id);
+ *     // Test logic here
+ *     // Automatic rollback!
+ *   });
+ * });
+ * ```
+ *
+ * ALTERNATIVE USAGE (without transaction):
  * ```typescript
  * const factory = new TestFactory();
  * const { tenant, user, project } = await factory.createTenant();
- * const workflow = await factory.createWorkflow(project.id, user.id);
+ * // Remember to cleanup!
+ * await factory.cleanup({ tenantIds: [tenant.id] });
  * ```
  */
 
@@ -50,8 +67,13 @@ export interface TestRun {
 export class TestFactory {
   private db: any;
 
-  constructor() {
-    this.db = getDb();
+  /**
+   * Create a new TestFactory
+   * @param txOrDb - Optional transaction or database instance. If not provided, uses global db.
+   *                 Pass a transaction for automatic rollback (recommended).
+   */
+  constructor(txOrDb?: any) {
+    this.db = txOrDb || getDb();
   }
 
   /**
@@ -75,7 +97,7 @@ export class TestFactory {
       })
       .returning();
 
-    // Create user
+    // Create user with admin/owner role for test permissions
     const [user] = await this.db
       .insert(schema.users)
       .values({
@@ -85,15 +107,15 @@ export class TestFactory {
         firstName: 'Test',
         lastName: 'User',
         fullName: 'Test User',
-        role: 'creator',
-        tenantRole: 'owner',
+        role: 'admin',         // ✅ Admin role for full permissions
+        tenantRole: 'owner',   // ✅ Owner for tenant-level access
         authProvider: 'local',
         defaultMode: 'easy',
         ...overrides?.user,
       })
       .returning();
 
-    // Create project
+    // Create project with all required ownership fields
     const [project] = await this.db
       .insert(schema.projects)
       .values({
@@ -103,8 +125,8 @@ export class TestFactory {
         title: 'Test Project', // Required field
         description: 'Test project for integration tests',
         createdBy: user.id,
-        creatorId: user.id,
-        ownerId: user.id,
+        creatorId: user.id,  // Backward compatibility
+        ownerId: user.id,    // Owner for access control
         ...overrides?.project,
       })
       .returning();
