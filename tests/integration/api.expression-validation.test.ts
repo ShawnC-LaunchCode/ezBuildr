@@ -22,9 +22,9 @@ describe("Expression Validation API Integration Tests", () => {
     });
 
     // Create workflow with some nodes
-    const workflowResponse = await request(ctx.ctx.baseURL)
+    const workflowResponse = await request(ctx.baseURL)
       .post(`/api/projects/${ctx.projectId}/workflows`)
-      .set("Authorization", `Bearer ${ctx.ctx.authToken}`)
+      .set("Authorization", `Bearer ${ctx.authToken}`)
       .send({
         name: "Test Workflow for Expressions",
         graphJson: {
@@ -63,9 +63,9 @@ describe("Expression Validation API Integration Tests", () => {
 
   describe("POST /api/workflows/validateExpression", () => {
     it("should validate a correct expression", async () => {
-      const response = await request(ctx.ctx.baseURL)
+      const response = await request(ctx.baseURL)
         .post("/api/workflows/validateExpression")
-        .set("Authorization", `Bearer ${ctx.ctx.authToken}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
         .send({
           workflowId,
           nodeId: "node_2",
@@ -77,9 +77,9 @@ describe("Expression Validation API Integration Tests", () => {
     });
 
     it("should reject expression with unknown variable", async () => {
-      const response = await request(ctx.ctx.baseURL)
+      const response = await request(ctx.baseURL)
         .post("/api/workflows/validateExpression")
-        .set("Authorization", `Bearer ${ctx.ctx.authToken}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
         .send({
           workflowId,
           nodeId: "node_2",

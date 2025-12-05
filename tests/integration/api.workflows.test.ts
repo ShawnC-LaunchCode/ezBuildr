@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import request from "supertest";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+import { nanoid } from "nanoid";
+import { db } from "../../server/db";
+import * as schema from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Workflows API Integration Tests
@@ -51,7 +55,7 @@ describe("Workflows API Integration Tests", () => {
         .expect(201);
 
       await db.update(schema.users)
-        .set({ tenantId, tenantRole: "viewer" })
+        .set({ tenantId: ctx.tenantId, tenantRole: "viewer" })
         .where(eq(schema.users.id, viewerResponse.body.user.id));
 
       await request(ctx.baseURL)
@@ -240,11 +244,11 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: targetProjectId })
+        .send({ projectId: targetProjectId })
         .expect(200);
 
       expect(response.body).toHaveProperty("id", workflowId);
-      expect(response.body).toHaveProperty("ctx.projectId", targetProjectId);
+      expect(response.body).toHaveProperty("projectId", targetProjectId);
 
       // Verify the workflow was actually moved
       const verifyResponse = await request(ctx.baseURL)
@@ -252,25 +256,25 @@ describe("Workflows API Integration Tests", () => {
         .set("Authorization", `Bearer ${ctx.authToken}`)
         .expect(200);
 
-      expect(verifyResponse.body).toHaveProperty("ctx.projectId", targetProjectId);
+      expect(verifyResponse.body).toHaveProperty("projectId", targetProjectId);
     });
 
-    it("should move workflow to Main Folder (ctx.projectId = null)", async () => {
+    it("should move workflow to Main Folder (projectId = null)", async () => {
       // First move to a project
       await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: targetProjectId });
+        .send({ projectId: targetProjectId });
 
       // Then move back to Main Folder
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: null })
+        .send({ projectId: null })
         .expect(200);
 
       expect(response.body).toHaveProperty("id", workflowId);
-      expect(response.body.ctx.projectId).toBeNull();
+      expect(response.body.projectId).toBeNull();
 
       // Verify the workflow was actually moved to Main Folder
       const verifyResponse = await request(ctx.baseURL)
@@ -278,7 +282,7 @@ describe("Workflows API Integration Tests", () => {
         .set("Authorization", `Bearer ${ctx.authToken}`)
         .expect(200);
 
-      expect(verifyResponse.body.ctx.projectId).toBeNull();
+      expect(verifyResponse.body.projectId).toBeNull();
     });
 
     it("should reject move to non-existent project", async () => {
@@ -287,7 +291,7 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: fakeProjectId })
+        .send({ projectId: fakeProjectId })
         .expect(404);
 
       expect(response.body).toHaveProperty("message");
@@ -297,7 +301,7 @@ describe("Workflows API Integration Tests", () => {
     it("should reject move without authentication", async () => {
       await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
-        .send({ ctx.projectId: targetProjectId })
+        .send({ projectId: targetProjectId })
         .expect(401);
     });
 
@@ -312,33 +316,33 @@ describe("Workflows API Integration Tests", () => {
           email: email2,
           password: "TestPassword123",
           fullName: "Test User 2",
-          tenantId,
+          tenantId: ctx.tenantId,
         });
 
-      const ctx.authToken2 = registerResponse2.body.token;
+      const authToken2 = registerResponse2.body.token;
 
       // Try to move the first user's workflow as the second user
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
-        .set("Authorization", `Bearer ${ctx.authToken2}`)
-        .send({ ctx.projectId: targetProjectId })
+        .set("Authorization", `Bearer ${authToken2}`)
+        .send({ projectId: targetProjectId })
         .expect(403);
 
       expect(response.body).toHaveProperty("message");
       expect(response.body.message).toContain("Access denied");
     });
 
-    it("should reject move with invalid ctx.projectId format", async () => {
+    it("should reject move with invalid projectId format", async () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: "invalid-uuid" })
+        .send({ projectId: "invalid-uuid" })
         .expect(400);
 
       expect(response.body).toHaveProperty("message");
     });
 
-    it("should reject move without ctx.projectId in body", async () => {
+    it("should reject move without projectId in body", async () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -357,14 +361,14 @@ describe("Workflows API Integration Tests", () => {
           email: email2,
           password: "TestPassword123",
           fullName: "Test User 2",
-          tenantId,
+          tenantId: ctx.tenantId,
         });
 
-      const ctx.authToken2 = registerResponse2.body.token;
+      const authToken2 = registerResponse2.body.token;
       const user2Id = registerResponse2.body.user.id;
 
       await db.update(schema.users)
-        .set({ tenantId, tenantRole: "owner" })
+        .set({ tenantId: ctx.tenantId, tenantRole: "owner" })
         .where(eq(schema.users.id, user2Id));
 
       // Re-login to get updated token
@@ -391,7 +395,7 @@ describe("Workflows API Integration Tests", () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ ctx.projectId: user2ProjectId })
+        .send({ projectId: user2ProjectId })
         .expect(403);
 
       expect(response.body).toHaveProperty("message");

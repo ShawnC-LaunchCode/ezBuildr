@@ -132,9 +132,21 @@ export async function setupIntegrationTest(
 
   // Cleanup function
   const cleanup = async () => {
-    // Delete tenant (cascades to users, projects, workflows, etc.)
-    if (tenantId) {
-      await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+    try {
+      // Delete workflows first (cascades to workflow_versions)
+      // This prevents FK constraint violations when deleting users
+      if (tenantId) {
+        await db.delete(schema.workflows)
+          .where(eq(schema.workflows.tenantId, tenantId));
+      }
+
+      // Delete tenant (cascades to users, projects, etc.)
+      if (tenantId) {
+        await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      }
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      // Don't fail the test if cleanup fails
     }
 
     // Close server

@@ -56,9 +56,9 @@ describe("Templates and Runs API Integration Tests", () => {
     });
 
     // Create and publish workflow
-    const workflowResponse = await request(ctx.ctx.baseURL)
+    const workflowResponse = await request(ctx.baseURL)
       .post(`/api/projects/${ctx.ctx.projectId}/workflows`)
-      .set("Authorization", `Bearer ${ctx.ctx.authToken}`)
+      .set("Authorization", `Bearer ${ctx.authToken}`)
       .send({
         name: "Test Workflow",
         graphJson: {
@@ -80,9 +80,9 @@ describe("Templates and Runs API Integration Tests", () => {
       .expect(201);
     workflowId = workflowResponse.body.id;
 
-    await request(ctx.ctx.baseURL)
+    await request(ctx.baseURL)
       .post(`/api/workflows/${workflowId}/publish`)
-      .set("Authorization", `Bearer ${ctx.ctx.authToken}`)
+      .set("Authorization", `Bearer ${ctx.authToken}`)
       .expect(200);
   });
 
