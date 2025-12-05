@@ -346,7 +346,7 @@ describe("JWT Authentication Integration Tests", () => {
           firstName: "Builder",
           lastName: "User",
           tenantId,
-          tenantRole: "owner",
+          tenantRole: "builder",
         })
         .expect(201);
 

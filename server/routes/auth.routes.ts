@@ -239,12 +239,19 @@ export function registerAuthRoutes(app: Express): void {
       req.session.destroy((err) => {
         if (err) {
           logger.error({ err }, 'Session destruction failed');
+          return res.status(500).json({
+            message: 'Logout failed',
+            error: 'session_destruction_failed'
+          });
         }
+        logger.info({ email: (req.session as any)?.passport?.user?.email }, 'User logged out');
+        res.json({ message: 'Logout successful' });
       });
+    } else {
+      // No session to destroy (JWT or not logged in)
+      logger.info('User logged out (no session)');
+      res.json({ message: 'Logout successful' });
     }
-
-    logger.info('User logged out');
-    res.json({ message: 'Logout successful' });
   });
 
   // =====================================================================
