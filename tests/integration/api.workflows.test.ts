@@ -10,8 +10,9 @@ import { eq } from "drizzle-orm";
  * Workflows API Integration Tests
  *
  * Refactored to use integrationTestHelper for consistent setup/teardown
+ * Using describe.sequential because tests share project/tenant setup
  */
-describe("Workflows API Integration Tests", () => {
+describe.sequential("Workflows API Integration Tests", () => {
   let ctx: IntegrationTestContext;
 
   beforeAll(async () => {

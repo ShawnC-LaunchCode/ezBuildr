@@ -10,8 +10,10 @@ import { eq } from "drizzle-orm";
 
 /**
  * Projects API Integration Tests
+ *
+ * Using describe.sequential because tests share tenant/server setup
  */
-describe("Projects API Integration Tests", () => {
+describe.sequential("Projects API Integration Tests", () => {
   let app: Express;
   let server: Server;
   let baseURL: string;
