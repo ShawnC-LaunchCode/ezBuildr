@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
-        if: success() && secrets.CODECOV_TOKEN != ''
+        if: success() && secrets.CODECOV_TOKEN
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
