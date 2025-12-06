@@ -20,9 +20,11 @@ import { uniqueTestId, uniqueTestEmail } from "../helpers/testUtils";
  *
  * These tests use mocked Google OAuth2Client to simulate various authentication
  * scenarios without requiring actual Google credentials.
+ *
+ * Using describe.sequential because tests share Google client mock setup
  */
 
-describe("OAuth2 Integration Tests", () => {
+describe.sequential("OAuth2 Integration Tests", () => {
   let app: Express;
   let server: Server;
   let baseURL: string;
@@ -245,9 +247,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should accept Referer header when Origin is missing", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("referer");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-referer",
-        email: "referer@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -265,16 +270,19 @@ describe("OAuth2 Integration Tests", () => {
         .send({ idToken: "referer-token" })
         .expect(200);
 
-      expect(response.body.user.email).toBe("referer@example.com");
+      expect(response.body.user.email).toBe(email);
     });
 
     it("should accept requests from ALLOWED_ORIGIN environment variable", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("allowed");
+
       const originalAllowedOrigin = process.env.ALLOWED_ORIGIN;
       process.env.ALLOWED_ORIGIN = "app.example.com,api.example.com";
 
       const mockPayload: TokenPayload = {
-        sub: "google-user-allowed",
-        email: "allowed@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -292,7 +300,7 @@ describe("OAuth2 Integration Tests", () => {
         .send({ idToken: "allowed-origin-token" })
         .expect(200);
 
-      expect(response.body.user.email).toBe("allowed@example.com");
+      expect(response.body.user.email).toBe(email);
 
       // Restore original value
       if (originalAllowedOrigin) {
@@ -374,9 +382,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should reject unverified email", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("unverified");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-unverified",
-        email: "unverified@example.com",
+        sub: userId,
+        email: email,
         email_verified: false, // Not verified
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -414,9 +425,12 @@ describe("OAuth2 Integration Tests", () => {
 
   describe("POST /api/auth/google - Session Management", () => {
     it("should regenerate session ID on login (session fixation protection)", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("session");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-session",
-        email: "session@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -445,9 +459,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should allow accessing protected routes after authentication", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("protected");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-protected",
-        email: "protected@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -474,13 +491,16 @@ describe("OAuth2 Integration Tests", () => {
         .set("Cookie", cookies!)
         .expect(200);
 
-      expect(userResponse.body.email).toBe("protected@example.com");
+      expect(userResponse.body.email).toBe(email);
     });
 
     it("should maintain session across multiple requests", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("multiple");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-multiple",
-        email: "multiple@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -508,7 +528,7 @@ describe("OAuth2 Integration Tests", () => {
           .set("Cookie", cookies!)
           .expect(200);
 
-        expect(response.body.id).toBe("google-user-multiple");
+        expect(response.body.id).toBe(userId);
       }
     });
   });
@@ -559,9 +579,12 @@ describe("OAuth2 Integration Tests", () => {
      * - Manual testing with browser dev tools
      */
     it.skip("should successfully logout and destroy session", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("logout");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-logout",
-        email: "logout@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -596,9 +619,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should clear session cookie on logout", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("cookieclear");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-cookie-clear",
-        email: "cookieclear@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
