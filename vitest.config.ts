@@ -46,18 +46,14 @@ export default defineConfig({
     pool: "forks", // Use forks to isolate tests
     poolOptions: {
       forks: {
-        singleFork: false, // Enable parallel execution (3-5x faster!)
+        // Use environment variable to control parallelization
+        // Unit tests: parallel (safe)
+        // Integration tests: sequential (DB conflicts)
+        singleFork: process.env.VITEST_INTEGRATION === 'true',
         minForks: 1,
-        maxForks: 4, // Limit to 4 parallel forks for CI
+        maxForks: process.env.CI ? 4 : 8, // More forks locally
       }
     },
-    // Sequence integration tests to avoid DB conflicts, parallelize unit tests
-    sequence: {
-      shuffle: false, // Keep deterministic order
-      concurrent: true, // Enable file-level concurrency
-    },
-    // File-level concurrency (run test files in parallel)
-    fileParallelism: true,
   },
   resolve: {
     alias: {

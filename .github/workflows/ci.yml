@@ -62,8 +62,11 @@ jobs:
       - name: Run type checking
         run: npm run check
 
-      - name: Run all tests (parallel)
-        run: npm test -- --reporter=verbose --max-concurrency=4
+      - name: Run unit tests (parallel)
+        run: npm run test:unit
+
+      - name: Run integration tests (sequential)
+        run: npm run test:integration
 
       - name: Build project
         run: npm run build

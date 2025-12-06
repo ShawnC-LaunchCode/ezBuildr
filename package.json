@@ -25,7 +25,7 @@
     "slack:test": "node scripts/slackNotifier.js",
     "test": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "cross-env VITEST_INTEGRATION=true vitest run tests/integration",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:watch": "vitest watch",
