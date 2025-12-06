@@ -13,7 +13,7 @@
 import express, { type Express } from 'express';
 import { type Server } from 'http';
 import { registerRoutes } from '../../server/routes';
-import { db } from '../../server/db';
+import { db, dbInitPromise } from '../../server/db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -60,6 +60,9 @@ export async function setupIntegrationTest(
     userRole = 'admin',
     tenantRole = 'owner',
   } = options;
+
+  // Ensure database is initialized before proceeding
+  await dbInitPromise;
 
   // Setup Express app
   const app = express();
@@ -133,14 +136,10 @@ export async function setupIntegrationTest(
   // Cleanup function
   const cleanup = async () => {
     try {
-      // Delete workflows first (cascades to workflow_versions)
-      // This prevents FK constraint violations when deleting users
-      if (tenantId) {
-        await db.delete(schema.workflows)
-          .where(eq(schema.workflows.tenantId, tenantId));
-      }
-
-      // Delete tenant (cascades to users, projects, etc.)
+      // Delete tenant (cascades to projects -> workflows -> workflow_versions, etc.)
+      // The cascade is configured in the schema:
+      // - tenants -> projects (onDelete: cascade)
+      // - projects -> workflows (onDelete: cascade)
       if (tenantId) {
         await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
