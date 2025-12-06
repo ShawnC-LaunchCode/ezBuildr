@@ -46,9 +46,18 @@ export default defineConfig({
     pool: "forks", // Use forks to isolate tests
     poolOptions: {
       forks: {
-        singleFork: true // Run tests in a single fork for better DB isolation
+        singleFork: false, // Enable parallel execution (3-5x faster!)
+        minForks: 1,
+        maxForks: 4, // Limit to 4 parallel forks for CI
       }
     },
+    // Sequence integration tests to avoid DB conflicts, parallelize unit tests
+    sequence: {
+      shuffle: false, // Keep deterministic order
+      concurrent: true, // Enable file-level concurrency
+    },
+    // File-level concurrency (run test files in parallel)
+    fileParallelism: true,
   },
   resolve: {
     alias: {
