@@ -3,6 +3,7 @@ import request from "supertest";
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import type { TokenPayload } from "google-auth-library";
+import { uniqueTestId, uniqueTestEmail } from "../helpers/testUtils";
 
 /**
  * OAuth2 Integration Tests
@@ -96,9 +97,12 @@ describe("OAuth2 Integration Tests", () => {
 
   describe("POST /api/auth/google - Successful Authentication", () => {
     it("should successfully authenticate with valid Google token and origin", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("success");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-success",
-        email: "success@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         given_name: "Success",
         family_name: "Test",
@@ -124,8 +128,8 @@ describe("OAuth2 Integration Tests", () => {
       expect(response.body).toHaveProperty("message", "Authentication successful");
       expect(response.body).toHaveProperty("user");
       expect(response.body.user).toMatchObject({
-        id: "google-user-success",
-        email: "success@example.com",
+        id: userId,
+        email: email,
         firstName: "Success",
         lastName: "Test",
       });
@@ -141,9 +145,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should accept both 'token' and 'idToken' field names", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("tokenfield");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-token-field",
-        email: "tokenfield@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
@@ -162,7 +169,7 @@ describe("OAuth2 Integration Tests", () => {
         .send({ token: "valid-token-1" })
         .expect(200);
 
-      expect(response1.body.user.id).toBe("google-user-token-field");
+      expect(response1.body.user.id).toBe(userId);
 
       // Test with 'idToken' field
       const response2 = await request(baseURL)
@@ -171,7 +178,7 @@ describe("OAuth2 Integration Tests", () => {
         .send({ idToken: "valid-token-2" })
         .expect(200);
 
-      expect(response2.body.user.id).toBe("google-user-token-field");
+      expect(response2.body.user.id).toBe(userId);
     });
   });
 
@@ -198,9 +205,12 @@ describe("OAuth2 Integration Tests", () => {
     });
 
     it("should accept requests from localhost variants", async () => {
+      const userId = uniqueTestId("google-user");
+      const email = uniqueTestEmail("localhost");
+
       const mockPayload: TokenPayload = {
-        sub: "google-user-localhost",
-        email: "localhost@example.com",
+        sub: userId,
+        email: email,
         email_verified: true,
         aud: "test-client-id",
         iss: "https://accounts.google.com",
