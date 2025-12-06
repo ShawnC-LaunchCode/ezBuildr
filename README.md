@@ -483,9 +483,8 @@ Originally inspired by Poll-Vault, rebuilt for next-generation workflow automati
 
 VaultLogic has comprehensive documentation organized by topic:
 
-- **[Architecture & Current State](./claude.md)** - Complete architecture overview and current state
-- **[Changelog v1.6.0](./CHANGELOG_1.6.0.md)** - Complete release notes for latest version 🆕
-- **[Fee Waiver Demo](./FEE_WAIVER_DEMO_README.md)** - Reference workflow showcasing all features 🆕
+- **[Architecture & Current State](./CLAUDE.md)** - Streamlined architecture overview for technical teams
+- **[Changelog v1.6.0](./CHANGELOG_1.6.0.md)** - Complete release notes for latest version
 - **[Documentation Index](./docs/INDEX.md)** - Complete documentation map
 - **[API Reference](./docs/api/API.md)** - Complete Workflow API documentation
 - **[Developer Reference](./docs/reference/DEVELOPER_REFERENCE.md)** - Comprehensive technical guide
@@ -544,5 +543,5 @@ For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting 
 
 ---
 
-**Last Updated:** 2025-11-26
+**Last Updated:** December 6, 2025
 **Version:** 1.6.0 (DataVault v4 + Visibility Logic Builder)
