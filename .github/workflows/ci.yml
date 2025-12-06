@@ -82,8 +82,14 @@ jobs:
       - name: Extract coverage summary
         if: always()
         run: |
-          npx c8 report --reporter=text-summary > coverage-summary.txt 2>&1 || echo "Coverage: N/A" > coverage-summary.txt
-          cat coverage-summary.txt
+          # Vitest generates coverage-summary.json automatically with v8 provider
+          # Just verify it exists and display a summary
+          if [ -f "coverage/coverage-summary.json" ]; then
+            echo "✓ Coverage file generated"
+            cat coverage/coverage-summary.json | head -20
+          else
+            echo "⚠️  No coverage file found"
+          fi
 
       - name: Upload coverage summary artifact
         if: always()
