@@ -57,7 +57,17 @@ export type ComparisonOperator =
   | "includes"
   | "not_includes"
   | "includes_all"
-  | "includes_any";
+  | "includes_any"
+  // Date Difference
+  | "diff_days"
+  | "diff_weeks"
+  | "diff_months"
+  | "diff_years"
+  // Date Helpers
+  | "before"
+  | "after"
+  | "on_or_before"
+  | "on_or_after";
 
 /**
  * Logical operators for combining conditions
@@ -228,6 +238,16 @@ export function getOperatorConfig(
 // =====================================================================
 
 /**
+ * A condition evaluating a JavaScript script
+ */
+export interface ScriptCondition {
+  type: "script";
+  id: string;
+  code: string;
+  description?: string;
+}
+
+/**
  * A single condition comparing a variable to a value
  */
 export interface Condition {
@@ -247,7 +267,8 @@ export interface ConditionGroup {
   type: "group";
   id: string; // Unique ID for React keys and reordering
   operator: LogicalOperator;
-  conditions: Array<Condition | ConditionGroup>; // Recursive for nesting
+  not?: boolean; // Negate the entire group result
+  conditions: Array<Condition | ConditionGroup | ScriptCondition>; // Recursive for nesting
 }
 
 /**
@@ -280,6 +301,14 @@ export const comparisonOperatorSchema = z.enum([
   "not_includes",
   "includes_all",
   "includes_any",
+  "diff_days",
+  "diff_weeks",
+  "diff_months",
+  "diff_years",
+  "before",
+  "after",
+  "on_or_before",
+  "on_or_after",
 ]);
 
 export const logicalOperatorSchema = z.enum(["AND", "OR"]);
@@ -296,13 +325,21 @@ export const conditionSchema: z.ZodType<Condition> = z.object({
   valueType: valueTypeSchema,
 });
 
+export const scriptConditionSchema: z.ZodType<ScriptCondition> = z.object({
+  type: z.literal("script"),
+  id: z.string(),
+  code: z.string().min(1, "Script code is required"),
+  description: z.string().optional(),
+});
+
 // Recursive schema for condition groups
 export const conditionGroupSchema: z.ZodType<ConditionGroup> = z.lazy(() =>
   z.object({
     type: z.literal("group"),
     id: z.string(),
     operator: logicalOperatorSchema,
-    conditions: z.array(z.union([conditionSchema, conditionGroupSchema])),
+    not: z.boolean().optional(),
+    conditions: z.array(z.union([conditionSchema, conditionGroupSchema, scriptConditionSchema])),
   })
 );
 
@@ -365,6 +402,9 @@ export function hasValidConditions(expression: ConditionExpression): boolean {
       if (item.type === "condition") {
         return item.variable && item.variable.length > 0;
       }
+      if (item.type === "script") {
+        return item.code && item.code.length > 0;
+      }
       return checkGroup(item);
     });
   }
@@ -380,7 +420,7 @@ export function countConditions(expression: ConditionExpression): number {
 
   function countInGroup(group: ConditionGroup): number {
     return group.conditions.reduce((count, item) => {
-      if (item.type === "condition") {
+      if (item.type === "condition" || item.type === "script") {
         return count + 1;
       }
       return count + countInGroup(item);

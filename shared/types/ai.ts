@@ -205,3 +205,142 @@ export class AIServiceError extends Error {
     this.name = 'AIServiceError';
   }
 }
+
+/**
+ * AI Workflow Revision Types
+ */
+
+export const WorkflowChangeSchema = z.object({
+  type: z.enum(['add', 'remove', 'update', 'move']).describe('Type of change'),
+  target: z.string().describe('Path to the target element (e.g., sections[0].steps[1])'),
+  before: z.any().optional().describe('Value before change (for updates/removes)'),
+  after: z.any().optional().describe('Value after change (for updates/adds)'),
+  explanation: z.string().describe('Human-readable explanation of this specific change'),
+});
+
+export type WorkflowChange = z.infer<typeof WorkflowChangeSchema>;
+
+export const WorkflowDiffSchema = z.object({
+  changes: z.array(WorkflowChangeSchema).describe('List of changes applied'),
+});
+
+export type WorkflowDiff = z.infer<typeof WorkflowDiffSchema>;
+
+export const AIWorkflowRevisionRequestSchema = z.object({
+  workflowId: z.string().uuid().describe('ID of the workflow being revised'),
+  currentWorkflow: AIGeneratedWorkflowSchema.describe('Current state of the workflow JSON'),
+  userInstruction: z.string().min(1).describe('User instruction for revision'),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string()
+  })).optional().describe('Previous conversation context'),
+  mode: z.enum(['easy', 'advanced']).default('easy').describe('Current builder mode'),
+});
+
+export type AIWorkflowRevisionRequest = z.infer<typeof AIWorkflowRevisionRequestSchema>;
+
+export const AIWorkflowRevisionResponseSchema = z.object({
+  updatedWorkflow: AIGeneratedWorkflowSchema.describe('The revised workflow JSON'),
+  diff: WorkflowDiffSchema.describe('Structured diff of changes'),
+  explanation: z.array(z.string()).describe('High-level explanation of what was done'),
+  suggestions: z.array(z.string()).optional().describe('Follow-up suggestions'),
+});
+
+export type AIWorkflowRevisionResponse = z.infer<typeof AIWorkflowRevisionResponseSchema>;
+
+/**
+ * AI Logic Generation Types
+ */
+
+export const AIConnectLogicRequestSchema = z.object({
+  workflowId: z.string().uuid(),
+  currentWorkflow: AIGeneratedWorkflowSchema,
+  description: z.string().min(1).describe("Description of the logic rules to generate"),
+  mode: z.enum(['easy', 'advanced']).default('easy'),
+});
+
+export type AIConnectLogicRequest = z.infer<typeof AIConnectLogicRequestSchema>;
+
+export const AIConnectLogicResponseSchema = z.object({
+  updatedWorkflow: AIGeneratedWorkflowSchema,
+  diff: WorkflowDiffSchema,
+  explanation: z.array(z.string()),
+  suggestions: z.array(z.string()).optional(),
+});
+
+export type AIConnectLogicResponse = z.infer<typeof AIConnectLogicResponseSchema>;
+
+/**
+ * AI Logic Debugging Types
+ */
+
+export const LogicIssueSchema = z.object({
+  id: z.string(),
+  type: z.enum(['contradiction', 'unreachable', 'cycle', 'unused_variable', 'dead_block', 'redundant', 'ambiguous']),
+  severity: z.enum(['error', 'warning', 'info']),
+  message: z.string(),
+  locations: z.array(z.string()).describe('IDs of elements involved'),
+});
+
+export type LogicIssue = z.infer<typeof LogicIssueSchema>;
+
+export const LogicFixSchema = z.object({
+  id: z.string(),
+  issueId: z.string(),
+  description: z.string(),
+  action: z.string(), // Description of action
+  // In a real implementation this might include specific patch data
+});
+
+export type LogicFix = z.infer<typeof LogicFixSchema>;
+
+export const LogicGraphNodeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  type: z.enum(['section', 'step', 'start', 'end']),
+  unreachable: z.boolean().optional(),
+});
+
+export const LogicGraphEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+  label: z.string().optional(),
+  condition: z.string().optional(), // Stringified condition
+  contradictory: z.boolean().optional(),
+});
+
+export const LogicGraphSchema = z.object({
+  nodes: z.array(LogicGraphNodeSchema),
+  edges: z.array(LogicGraphEdgeSchema),
+});
+
+export type LogicGraph = z.infer<typeof LogicGraphSchema>;
+
+export const AIDebugLogicRequestSchema = z.object({
+  workflowId: z.string().uuid(),
+  currentWorkflow: AIGeneratedWorkflowSchema,
+});
+
+export type AIDebugLogicRequest = z.infer<typeof AIDebugLogicRequestSchema>;
+
+export const AIDebugLogicResponseSchema = z.object({
+  issues: z.array(LogicIssueSchema),
+  recommendedFixes: z.array(LogicFixSchema),
+  visualization: LogicGraphSchema,
+});
+
+export type AIDebugLogicResponse = z.infer<typeof AIDebugLogicResponseSchema>;
+
+export const AIVisualizeLogicRequestSchema = z.object({
+  workflowId: z.string().uuid(),
+  currentWorkflow: AIGeneratedWorkflowSchema,
+});
+
+export type AIVisualizeLogicRequest = z.infer<typeof AIVisualizeLogicRequestSchema>;
+
+export const AIVisualizeLogicResponseSchema = z.object({
+  graph: LogicGraphSchema,
+});
+
+export type AIVisualizeLogicResponse = z.infer<typeof AIVisualizeLogicResponseSchema>;

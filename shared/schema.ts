@@ -1,4 +1,4 @@
-﻿import { sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   index,
   uniqueIndex,
@@ -16,6 +16,10 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { type InferSelectModel } from 'drizzle-orm';
+
+export type UserPersonalizationSettings = InferSelectModel<typeof userPersonalizationSettings>;
+export type WorkflowPersonalizationSettings = InferSelectModel<typeof workflowPersonalizationSettings>;
 
 // Session storage table for Google Auth
 export const sessions = pgTable(
@@ -69,6 +73,98 @@ export const conditionalActionEnum = pgEnum('conditional_action', [
   'skip_to'  // Skip to a specific section (workflow navigation)
 ]);
 
+// Public Access Mode (Platform Expansion)
+export const publicAccessModeEnum = pgEnum('public_access_mode', ['open', 'link_only', 'domain_restricted']);
+
+// ===================================================================
+// ENTERPRISE MULTI-TENANCY (Prompts 21+)
+// ===================================================================
+
+// Organizations table
+export const organizations = pgTable("organizations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  slug: varchar("slug").unique().notNull(),
+  domain: varchar("domain"), // Optional domain verification for Enterprise
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workspaces table (The core tenant unit)
+export const workspaces = pgTable("workspaces", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  slug: varchar("slug").notNull(),
+  settings: jsonb("settings").default({}), // Feature flags, branding
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("workspace_org_slug_idx").on(table.organizationId, table.slug),
+]);
+
+// Workspace Member Roles
+export const workspaceRoleEnum = pgEnum('workspace_role', ['owner', 'admin', 'editor', 'contributor', 'viewer']);
+
+// Workspace Members (Users <-> Workspaces)
+export const workspaceMembers = pgTable("workspace_members", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: workspaceRoleEnum("role").default('viewer').notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  invitedBy: varchar("invited_by").references(() => users.id),
+}, (table) => [
+  uniqueIndex("workspace_member_idx").on(table.workspaceId, table.userId),
+]);
+
+// Workspace Invitations
+export const workspaceInvitations = pgTable("workspace_invitations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  email: varchar("email").notNull(),
+  role: workspaceRoleEnum("role").default('viewer').notNull(),
+  token: varchar("token").notNull(), // Crypto token
+  expiresAt: timestamp("expires_at").notNull(),
+  invitedBy: varchar("invited_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("invitation_token_idx").on(table.token),
+  index("invitation_ws_email_idx").on(table.workspaceId, table.email),
+]);
+
+// Audit Logs
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Nullable for system actions or deleted users
+  action: varchar("action").notNull(), // e.g. 'workflow.create', 'member.add'
+  resourceType: varchar("resource_type").notNull(), // 'workflow', 'user', 'settings'
+  resourceId: varchar("resource_id"),
+  changes: jsonb("changes"), // { before: {}, after: {} }
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("audit_ws_ts_idx").on(table.workspaceId, table.timestamp),
+  index("audit_resource_idx").on(table.resourceType, table.resourceId),
+]);
+
+// Granular Resource Permissions (Overriding roles)
+export const resourcePermissions = pgTable("resource_permissions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  resourceType: varchar("resource_type").notNull(), // 'workflow', 'project'
+  resourceId: varchar("resource_id").notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  action: varchar("action").notNull(), // 'view', 'edit', 'admin' (or specific capability)
+  allowed: boolean("allowed").default(true).notNull(), // Can explicit deny
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("resource_perm_idx").on(table.resourceId, table.userId, table.action),
+]);
+
 // ===================================================================
 // MULTI-TENANT ENUMS (must be defined before users table)
 // ===================================================================
@@ -117,6 +213,84 @@ export const userCredentials = pgTable("user_credentials", {
 // Anonymous access type enum
 export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disabled', 'unlimited', 'one_per_ip', 'one_per_session']);
 
+// ===================================================================
+// BILLING & MONETIZATION (Prompt 22)
+// ===================================================================
+
+// Billing Plans (Free, Pro, Team, Enterprise)
+export const billingPlans = pgTable("billing_plans", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(), // 'free', 'pro', 'team', 'enterprise'
+  priceMonthly: integer("price_monthly").default(0).notNull(), // in cents
+  priceYearly: integer("price_yearly").default(0).notNull(), // in cents
+  features: jsonb("features").default({}).notNull(), // { scripting: true, advanced_blocks: false }
+  limits: jsonb("limits").default({}).notNull(), // { workflows: 2, runs: 50, seats: 1 }
+  stripeProductId: varchar("stripe_product_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Subscription Status Enum
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'past_due', 'canceled', 'trialing', 'incomplete', 'incomplete_expired', 'unpaid']);
+
+// Organization Subscriptions
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  planId: uuid("plan_id").references(() => billingPlans.id).notNull(),
+  status: subscriptionStatusEnum("status").default('active').notNull(),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  canceledAt: timestamp("canceled_at"),
+  trialStart: timestamp("trial_start"),
+  trialEnd: timestamp("trial_end"),
+  seatQuantity: integer("seat_quantity").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("sub_org_idx").on(table.organizationId), // One active subscription per org for now
+]);
+
+// Subscription Seats (for per-seat billing)
+export const subscriptionSeats = pgTable("subscription_seats", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: uuid("subscription_id").references(() => subscriptions.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("seat_sub_user_idx").on(table.subscriptionId, table.userId),
+]);
+
+// Customer Billing Info (Stripe Mapping)
+export const customerBillingInfo = pgTable("customer_billing_info", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  stripeCustomerId: varchar("stripe_customer_id").notNull(),
+  billingEmail: varchar("billing_email"),
+  defaultPaymentMethodId: varchar("default_payment_method_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("billing_info_org_idx").on(table.organizationId),
+  uniqueIndex("billing_info_stripe_idx").on(table.stripeCustomerId),
+]);
+
+// Usage Records (Metering)
+export const usageRecords = pgTable("usage_records", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  metric: varchar("metric").notNull(), // 'workflow_run', 'doc_gen', 'storage_bytes'
+  quantity: integer("quantity").default(1).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id), // Optional: track per workflow
+  metadata: jsonb("metadata"),
+  recordedAt: timestamp("recorded_at").defaultNow(),
+}, (table) => [
+  index("usage_org_metric_date_idx").on(table.organizationId, table.metric, table.recordedAt),
+]);
+
 // =====================================================================
 // LEGACY POLL-VAULT SCHEMA (DEPRECATED)
 // =====================================================================
@@ -127,17 +301,26 @@ export const surveys = pgTable("surveys", {
   title: varchar("title").notNull(),
   description: text("description"),
   creatorId: varchar("creator_id").references(() => users.id).notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id), // Added for Enterprise
   status: surveyStatusEnum("status").default('draft').notNull(),
   // Anonymous survey configuration
   allowAnonymous: boolean("allow_anonymous").default(false),
   anonymousAccessType: anonymousAccessTypeEnum("anonymous_access_type").default('unlimited'),
-  publicLink: varchar("public_link").unique(), // Generated public UUID for anonymous access
+  publicLink: varchar("public_link").unique(), // Generated public UUID for anonymous access (Legacy)
   anonymousConfig: jsonb("anonymous_config"), // Additional anonymous survey settings
+
+  // Platform Expansion Fields (Prompt 23)
+  isPublic: boolean("is_public").default(false),
+  publicAccessMode: publicAccessModeEnum("public_access_mode").default('link_only'),
+  publicSlug: varchar("public_slug").unique(), // Human readable slug
+  allowedDomains: jsonb("allowed_domains"), // Array of strings
+  publicSettings: jsonb("public_settings"), // Branding, theme, etc
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   // Unique index on publicLink for database-level UUID collision prevention
   index("surveys_public_link_unique_idx").on(table.publicLink),
+  index("surveys_workspace_idx").on(table.workspaceId), // Fast lookup by workspace
 ]);
 
 // Survey pages table
@@ -268,6 +451,93 @@ export const anonymousResponseTracking = pgTable("anonymous_response_tracking", 
   index("anonymous_tracking_survey_session_idx").on(table.surveyId, table.sessionId),
 ]);
 
+// =====================================================================
+// WORKFLOW ANALYTICS SCHEMA
+// =====================================================================
+
+// High-fidelity event log for every action in a run
+export const workflowRunEvents = pgTable("workflow_run_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  // Context
+  blockId: varchar("block_id"), // Optional: some events are page-level or global
+  pageId: uuid("page_id"), // Optional: if event happened on a specific page
+  // Event details
+  type: varchar("type").notNull(), // 'block.start', 'block.end', 'page.view', 'validation.error', etc.
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  payload: jsonb("payload"), // Redacted metadata
+  isPreview: boolean("is_preview").default(false).notNull(),
+}, (table) => [
+  index("wre_run_idx").on(table.runId),
+  index("wre_workflow_ts_idx").on(table.workflowId, table.timestamp),
+  index("wre_version_idx").on(table.versionId),
+]);
+
+// Aggregated metrics per run (computed after run completion)
+export const workflowRunMetrics = pgTable("workflow_run_metrics", {
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).primaryKey(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+
+  // High-level stats
+  totalTimeMs: integer("total_time_ms"), // Computed from start to complete/abandon
+  pagesVisited: integer("pages_visited").default(0),
+  blocksVisited: integer("blocks_visited").default(0),
+
+  // Errors & Quality
+  validationErrors: integer("validation_errors").default(0),
+  scriptErrors: integer("script_errors").default(0),
+
+  // Outcome
+  completed: boolean("completed").default(false),
+  completedAt: timestamp("completed_at"),
+
+  isPreview: boolean("is_preview").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("wrm_workflow_created_idx").on(table.workflowId, table.createdAt),
+  index("wrm_version_idx").on(table.versionId),
+]);
+
+// Nightly/Periodic snapshots for fast dashboard loading
+export const workflowAnalyticsSnapshots = pgTable("workflow_analytics_snapshots", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+
+  date: timestamp("date").notNull(), // The day this snapshot represents
+
+  // pre-computed JSON blobs for the dashboard charts
+  summary: jsonb("summary").notNull(), // { totalRuns, completionRate, avgTime }
+  dropoff: jsonb("dropoff").notNull(), // Funnel data
+  branching: jsonb("branching").notNull(), // Tree data
+  heatmap: jsonb("heatmap").notNull(), // Block performance data
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("was_workflow_version_date_idx").on(table.workflowId, table.versionId, table.date),
+]);
+
+// Block-level aggregated metrics (optional, for heatmap)
+export const blockMetrics = pgTable("block_metrics", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+  blockId: varchar("block_id").notNull(),
+
+  // Aggregates
+  totalVisits: integer("total_visits").default(0),
+  avgTimeMs: integer("avg_time_ms").default(0),
+  dropoffCount: integer("dropoff_count").default(0),
+  validationErrorCount: integer("validation_error_count").default(0),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("bm_version_block_idx").on(table.versionId, table.blockId),
+]);
+
 // System statistics table for tracking historical totals
 export const systemStats = pgTable("system_stats", {
   id: integer("id").primaryKey().default(1), // Single row table
@@ -286,6 +556,33 @@ export const userPreferences = pgTable("user_preferences", {
     darkMode: "system",
     aiHints: true,
   }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User personalization settings table
+export const userPersonalizationSettings = pgTable("user_personalization_settings", {
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
+  readingLevel: varchar("reading_level", { enum: ["simple", "standard", "professional"] }).default("standard").notNull(),
+  tone: varchar("tone", { enum: ["friendly", "neutral", "formal"] }).default("neutral").notNull(),
+  verbosity: varchar("verbosity", { enum: ["brief", "standard", "detailed"] }).default("standard").notNull(),
+  language: varchar("language").default("en").notNull(),
+  allowAdaptivePrompts: boolean("allow_adaptive_prompts").default(true).notNull(),
+  allowAIClarification: boolean("allow_ai_clarification").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workflow personalization settings table
+export const workflowPersonalizationSettings = pgTable("workflow_personalization_settings", {
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).primaryKey(),
+  enabled: boolean("enabled").default(true).notNull(),
+  allowDynamicPrompts: boolean("allow_dynamic_prompts").default(true).notNull(),
+  allowDynamicHelp: boolean("allow_dynamic_help").default(true).notNull(),
+  allowDynamicTone: boolean("allow_dynamic_tone").default(true).notNull(),
+  defaultTone: varchar("default_tone", { enum: ["friendly", "neutral", "formal"] }).default("neutral").notNull(),
+  defaultReadingLevel: varchar("default_reading_level", { enum: ["simple", "standard", "professional"] }).default("standard").notNull(),
+  defaultVerbosity: varchar("default_verbosity", { enum: ["brief", "standard", "detailed"] }).default("standard").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -326,6 +623,31 @@ export const templateShares = pgTable("template_shares", {
 ]);
 
 // Relations
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  workspaces: many(workspaces),
+}));
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [workspaces.organizationId],
+    references: [organizations.id],
+  }),
+  members: many(workspaceMembers),
+  surveys: many(surveys),
+  auditLogs: many(auditLogs),
+}));
+
+export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [workspaceMembers.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [workspaceMembers.userId],
+    references: [users.id],
+  }),
+}));
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   surveys: many(surveys),
   surveyTemplates: many(surveyTemplates),
@@ -337,6 +659,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [userCredentials.userId],
   }),
+  workspaceMemberships: many(workspaceMembers),
 }));
 
 export const userCredentialsRelations = relations(userCredentials, ({ one }) => ({
@@ -350,6 +673,20 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
   user: one(users, {
     fields: [userPreferences.userId],
     references: [users.id],
+  }),
+}));
+
+export const userPersonalizationSettingsRelations = relations(userPersonalizationSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [userPersonalizationSettings.userId],
+    references: [users.id],
+  }),
+}));
+
+export const workflowPersonalizationSettingsRelations = relations(workflowPersonalizationSettings, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowPersonalizationSettings.workflowId],
+    references: [workflows.id],
   }),
 }));
 
@@ -395,6 +732,44 @@ export const responsesRelations = relations(responses, ({ one, many }) => ({
   answers: many(answers),
   analyticsEvents: many(analyticsEvents),
   anonymousTracking: many(anonymousResponseTracking),
+}));
+
+export const billingPlansRelations = relations(billingPlans, ({ many }) => ({
+  subscriptions: many(subscriptions),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [subscriptions.organizationId],
+    references: [organizations.id],
+  }),
+  plan: one(billingPlans, {
+    fields: [subscriptions.planId],
+    references: [billingPlans.id],
+  }),
+  seats: many(subscriptionSeats),
+}));
+
+export const subscriptionSeatsRelations = relations(subscriptionSeats, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [subscriptionSeats.subscriptionId],
+    references: [subscriptions.id],
+  }),
+  user: one(users, {
+    fields: [subscriptionSeats.userId],
+    references: [users.id],
+  }),
+}));
+
+export const usageRecordsRelations = relations(usageRecords, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [usageRecords.organizationId],
+    references: [organizations.id],
+  }),
+  workflow: one(workflows, {
+    fields: [usageRecords.workflowId],
+    references: [workflows.id],
+  }),
 }));
 
 export const anonymousResponseTrackingRelations = relations(anonymousResponseTracking, ({ one }) => ({
@@ -458,6 +833,12 @@ export const insertFileSchema = createInsertSchema(files).omit({ id: true, uploa
 export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTemplateShareSchema = createInsertSchema(templateShares).omit({ id: true, invitedAt: true, acceptedAt: true });
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ createdAt: true, updatedAt: true });
+export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPersonalizationSettings).omit({ createdAt: true, updatedAt: true });
+export const insertWorkflowPersonalizationSettingsSchema = createInsertSchema(workflowPersonalizationSettings).omit({ createdAt: true, updatedAt: true });
+
+// Analytics Insert Schemas (Strict validation not required here as mostly internal)
+export const insertWorkflowRunEventSchema = createInsertSchema(workflowRunEvents).omit({ id: true, timestamp: true });
+export const insertWorkflowRunMetricsSchema = createInsertSchema(workflowRunMetrics).omit({ createdAt: true });
 
 // Analytics event validation schema with strict validation
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
@@ -473,7 +854,32 @@ export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).om
   data: z.record(z.any()).optional()
 });
 
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkspaceSchema = createInsertSchema(workspaces).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers).omit({ id: true, joinedAt: true });
+export const insertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations).omit({ id: true, createdAt: true });
+
+
+export const insertBillingPlanSchema = createInsertSchema(billingPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSubscriptionSeatSchema = createInsertSchema(subscriptionSeats).omit({ id: true, assignedAt: true });
+export const insertCustomerBillingInfoSchema = createInsertSchema(customerBillingInfo).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUsageRecordSchema = createInsertSchema(usageRecords).omit({ id: true, recordedAt: true });
+
 // Types
+export type BillingPlan = typeof billingPlans.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type SubscriptionSeat = typeof subscriptionSeats.$inferSelect;
+export type CustomerBillingInfo = typeof customerBillingInfo.$inferSelect;
+export type UsageRecord = typeof usageRecords.$inferSelect;
+
+export type Organization = typeof organizations.$inferSelect;
+export type Workspace = typeof workspaces.$inferSelect;
+export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
+export type WorkspaceInvitation = typeof workspaceInvitations.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type ResourcePermission = typeof resourcePermissions.$inferSelect;
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type UserCredentials = typeof userCredentials.$inferSelect;
@@ -702,23 +1108,6 @@ export interface QuestionAggregate {
 export interface QuestionAggregatesResponse {
   surveyId: string;
   questions: QuestionAggregate[];
-}
-
-// File metadata type
-export interface FileMetadata {
-  id: string;
-  answerId: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  uploadedAt: Date;
-}
-
-// File upload response type
-export interface FileUploadResponse {
-  success: boolean;
-  files: FileMetadata[];
   errors?: string[];
 }
 
@@ -842,18 +1231,48 @@ export const outputFileTypeEnum = pgEnum('output_file_type', ['docx', 'pdf']);
 
 // Step (question) type enum - reuse question types
 export const stepTypeEnum = pgEnum('step_type', [
-  'short_text',
-  'long_text',
-  'multiple_choice',
-  'radio',
-  'yes_no',
-  'computed', // Virtual steps created by transform blocks
-  'date_time',
-  'file_upload',
-  'loop_group',
-  'js_question',
-  'repeater', // Stage 20 PR 4: Repeating groups
-  'final_documents' // Final Documents Block - system step for document generation
+  // ===== LEGACY / EXISTING TYPES =====
+  'short_text',        // Legacy: Short text input
+  'long_text',         // Legacy: Long text/textarea
+  'multiple_choice',   // Legacy: Multiple choice (checkboxes)
+  'radio',             // Legacy: Radio buttons
+  'yes_no',            // Legacy: Yes/No toggle
+  'date_time',         // Legacy: Date/time picker
+  'file_upload',       // Legacy: File upload
+  'loop_group',        // Legacy: Loop/repeating group
+  'computed',          // Virtual steps created by transform blocks
+  'js_question',       // JS code execution block
+  'repeater',          // Stage 20 PR 4: Repeating groups
+  'final_documents',   // Final Documents Block - system step for document generation
+  'signature_block',   // E-Signature Block - document signing with DocuSign/HelloSign/Native
+
+  // ===== EASY MODE TYPES (New Block System) =====
+  'true_false',        // True/False toggle (boolean with T/F labels)
+  'phone',             // Phone number input with formatting
+  'date',              // Date-only picker
+  'time',              // Time-only picker
+  'datetime',          // Combined date and time picker
+  'email',             // Email input with validation
+  'number',            // Number input (integer/decimal)
+  'currency',          // Currency input with formatting
+  'scale',             // Scale/rating (slider or stars)
+  'website',           // URL/website input with validation
+  'display',           // Display-only content (markdown)
+  'address',           // US address input (street, city, state, zip)
+
+  // ===== ADVANCED MODE TYPES (Consolidated with Config) =====
+  'text',              // Unified text input (config determines short/long)
+  'boolean',           // Boolean with customizable labels
+  'phone_advanced',    // Advanced phone with international support
+  'datetime_unified',  // Unified date/time (config determines date/time/datetime)
+  'choice',            // Unified choice (config determines radio/dropdown/multiple)
+  'email_advanced',    // Advanced email with additional validation
+  'number_advanced',   // Advanced number (config determines number/currency/decimal)
+  'scale_advanced',    // Advanced scale (config determines slider/stars)
+  'website_advanced',  // Advanced URL with protocol/domain validation
+  'address_advanced',  // Advanced address with international support
+  'multi_field',       // Multi-field groups (first/last name, contact info, date ranges)
+  'display_advanced'   // Advanced display with rich formatting options
 ]);
 
 // Logic rule target type enum
@@ -962,18 +1381,26 @@ export const workflows = pgTable("workflows", {
 export const workflowVersions = pgTable("workflow_versions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-  graphJson: jsonb("graph_json").notNull(),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
-  published: boolean("published").default(false).notNull(),
-  publishedAt: timestamp("published_at"),
-  // Stage 13: Version management metadata
-  notes: text("notes"),
+  baseId: uuid("base_id").references(() => workflows.id, { onDelete: 'cascade' }), // Redundant but explicit FK to base
+  versionNumber: integer("version_number").default(1).notNull(),
+  isDraft: boolean("is_draft").default(false).notNull(),
+  // Definition
+  graphJson: jsonb("graph_json").notNull(), // Conceptual 'schema'
+  // Migration & History
+  migrationInfo: jsonb("migration_info"), // Log of migrations applied
   changelog: jsonb("changelog"),
+  notes: text("notes"),
   checksum: text("checksum"),
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  published: boolean("published").default(false).notNull(), // Deprecated in favor of !isDraft? Or keep as distinct status? Keeping for now.
+  publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflow_versions_workflow_idx").on(table.workflowId),
+  index("workflow_versions_version_number_idx").on(table.workflowId, table.versionNumber),
+  index("workflow_versions_is_draft_idx").on(table.isDraft),
   index("workflow_versions_published_idx").on(table.published),
   index("workflow_versions_created_by_idx").on(table.createdBy),
   index("workflow_versions_checksum_idx").on(table.checksum),
@@ -985,11 +1412,13 @@ export const workflowSnapshots = pgTable("workflow_snapshots", {
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
   name: text("name").notNull(),
   values: jsonb("values").default(sql`'{}'::jsonb`).notNull(),
+  versionHash: text("version_hash"), // Hash of workflow structure at snapshot creation
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflow_snapshots_workflow_idx").on(table.workflowId),
   index("workflow_snapshots_created_at_idx").on(table.workflowId, table.createdAt),
+  index("workflow_snapshots_version_hash_idx").on(table.versionHash),
   uniqueIndex("workflow_snapshots_workflow_name_unique").on(table.workflowId, table.name),
 ]);
 
@@ -1415,6 +1844,7 @@ export const logicRules = pgTable("logic_rules", {
 export const workflowRuns = pgTable("workflow_runs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }), // Nullable for legacy runs, but should be populated for new ones
   runToken: text("run_token").notNull().unique(), // UUID token for run-specific auth
   createdBy: text("created_by"), // "creator:<userId>" or "anon"
   currentSectionId: uuid("current_section_id").references(() => sections.id, { onDelete: 'set null' }), // Track current section in workflow execution
@@ -1426,6 +1856,7 @@ export const workflowRuns = pgTable("workflow_runs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("workflow_runs_workflow_idx").on(table.workflowId),
+  index("workflow_runs_version_idx").on(table.workflowVersionId),
   index("workflow_runs_completed_idx").on(table.completed),
   index("workflow_runs_run_token_idx").on(table.runToken),
   index("workflow_runs_current_section_idx").on(table.currentSectionId),
@@ -1793,7 +2224,17 @@ export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: t
 export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments).omit({ id: true, createdAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
 
-// Transform block language enum
+// Transform block types
+export const transformBlockTypeEnum = pgEnum('transform_block_type', [
+  'map',
+  'rename',
+  'compute',
+  'conditional',
+  'loop',
+  'script'
+]);
+
+// Transform block language enum (for script type)
 export const transformBlockLanguageEnum = pgEnum('transform_block_language', ['javascript', 'python']);
 
 // Transform block run status enum
@@ -1806,13 +2247,13 @@ export const transformBlocks = pgTable("transform_blocks", {
   sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }), // nullable - can be workflow-scoped
   name: varchar("name").notNull(),
   language: transformBlockLanguageEnum("language").notNull(),
+  code: text("code").notNull(),
+  inputKeys: text("input_keys").array().notNull().default(sql`'{}'::text[]`),
+  outputKey: varchar("output_key").notNull(),
+  virtualStepId: uuid("virtual_step_id").references(() => steps.id, { onDelete: 'set null' }), // Maps output to a virtual step/variable
   phase: blockPhaseEnum("phase").notNull().default('onSectionSubmit'), // Execution phase
-  code: text("code").notNull(), // User-supplied function body or script
-  inputKeys: text("input_keys").array().notNull(), // Whitelisted keys read from data
-  outputKey: varchar("output_key").notNull(), // Single key to write back to data
-  virtualStepId: uuid("virtual_step_id").references(() => steps.id, { onDelete: 'set null' }), // Link to virtual step that stores output
   enabled: boolean("enabled").default(true).notNull(),
-  order: integer("order").notNull(),
+  order: integer("order").notNull().default(0),
   timeoutMs: integer("timeout_ms").default(1000), // Default 1000ms
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1863,85 +2304,185 @@ export const insertTransformBlockSchema = createInsertSchema(transformBlocks).om
 export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns).omit({ id: true, startedAt: true });
 
 // ===================================================================
-// TEAMS & SHARING (Epic 4)
+// LIFECYCLE HOOKS & SCRIPTING SYSTEM
 // ===================================================================
 
-// Teams table
-export const teams = pgTable("teams", {
+// Lifecycle hook phase enum
+export const lifecycleHookPhaseEnum = pgEnum('lifecycle_hook_phase', [
+  'beforePage',
+  'afterPage',
+  'beforeFinalBlock',
+  'afterDocumentsGenerated'
+]);
+
+// Lifecycle hooks table
+export const lifecycleHooks = pgTable("lifecycle_hooks", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }), // nullable for workflow-level hooks
+  name: varchar("name", { length: 255 }).notNull(),
+  phase: lifecycleHookPhaseEnum("phase").notNull(),
+  language: transformBlockLanguageEnum("language").notNull(),
+  code: text("code").notNull(),
+  inputKeys: text("input_keys").array().notNull().default(sql`'{}'::text[]`),
+  outputKeys: text("output_keys").array().notNull().default(sql`'{}'::text[]`),
+  virtualStepIds: uuid("virtual_step_ids").array().default(sql`'{}'::uuid[]`),
+  enabled: boolean("enabled").notNull().default(true),
+  order: integer("order").notNull().default(0),
+  timeoutMs: integer("timeout_ms").default(1000),
+  mutationMode: boolean("mutation_mode").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("teams_created_by_idx").on(table.createdBy),
+  index("lifecycle_hooks_workflow_idx").on(table.workflowId),
+  index("lifecycle_hooks_phase_idx").on(table.workflowId, table.phase),
+  index("lifecycle_hooks_section_idx").on(table.sectionId),
+  index("lifecycle_hooks_enabled_idx").on(table.workflowId, table.enabled),
 ]);
 
-// Team members table
+// Document hook phase enum
+export const documentHookPhaseEnum = pgEnum('document_hook_phase', ['beforeGeneration', 'afterGeneration']);
+
+// Document hooks table
+export const documentHooks = pgTable("document_hooks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  finalBlockDocumentId: varchar("final_block_document_id", { length: 255 }), // Maps to FinalBlockConfig.documents[].documentId
+  name: varchar("name", { length: 255 }).notNull(),
+  phase: documentHookPhaseEnum("phase").notNull(),
+  language: transformBlockLanguageEnum("language").notNull(),
+  code: text("code").notNull(),
+  inputKeys: text("input_keys").array().notNull().default(sql`'{}'::text[]`),
+  outputKeys: text("output_keys").array().notNull().default(sql`'{}'::text[]`),
+  enabled: boolean("enabled").notNull().default(true),
+  order: integer("order").notNull().default(0),
+  timeoutMs: integer("timeout_ms").default(3000),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("document_hooks_workflow_idx").on(table.workflowId),
+  index("document_hooks_phase_idx").on(table.workflowId, table.phase),
+  index("document_hooks_enabled_idx").on(table.workflowId, table.enabled),
+  index("document_hooks_document_idx").on(table.workflowId, table.finalBlockDocumentId),
+]);
+
+// Script execution status enum
+export const scriptExecutionStatusEnum = pgEnum('script_execution_status', ['success', 'error', 'timeout']);
+
+// Script execution log table
+export const scriptExecutionLog = pgTable("script_execution_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+  scriptType: varchar("script_type", { length: 50 }).notNull(), // 'transform_block' | 'lifecycle_hook' | 'document_hook'
+  scriptId: uuid("script_id").notNull(),
+  scriptName: varchar("script_name", { length: 255 }),
+  phase: varchar("phase", { length: 50 }),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  status: scriptExecutionStatusEnum("status").notNull(),
+  errorMessage: text("error_message"),
+  consoleOutput: jsonb("console_output"),
+  inputSample: jsonb("input_sample"),
+  outputSample: jsonb("output_sample"),
+  durationMs: integer("duration_ms"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("script_execution_log_run_idx").on(table.runId),
+  index("script_execution_log_script_idx").on(table.scriptType, table.scriptId),
+  index("script_execution_log_status_idx").on(table.status),
+  index("script_execution_log_created_idx").on(table.createdAt),
+]);
+
+// Lifecycle Hooks Relations
+export const lifecycleHooksRelations = relations(lifecycleHooks, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [lifecycleHooks.workflowId],
+    references: [workflows.id],
+  }),
+  section: one(sections, {
+    fields: [lifecycleHooks.sectionId],
+    references: [sections.id],
+  }),
+}));
+
+// Document Hooks Relations
+export const documentHooksRelations = relations(documentHooks, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [documentHooks.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+// Script Execution Log Relations
+export const scriptExecutionLogRelations = relations(scriptExecutionLog, ({ one }) => ({
+  run: one(workflowRuns, {
+    fields: [scriptExecutionLog.runId],
+    references: [workflowRuns.id],
+  }),
+}));
+
+// Scripting System Insert Schemas
+export const insertLifecycleHookSchema = createInsertSchema(lifecycleHooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentHookSchema = createInsertSchema(documentHooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog).omit({ id: true, createdAt: true });
+
+// Scripting System TypeScript Types
+export type LifecycleHook = typeof lifecycleHooks.$inferSelect;
+export type InsertLifecycleHook = typeof lifecycleHooks.$inferInsert;
+export type DocumentHook = typeof documentHooks.$inferSelect;
+export type InsertDocumentHook = typeof documentHooks.$inferInsert;
+export type ScriptExecutionLog = typeof scriptExecutionLog.$inferSelect;
+export type InsertScriptExecutionLog = typeof scriptExecutionLog.$inferInsert;
+
+// ===================================================================
+// TEAMS & SHARING (Epic 4)
+// ===================================================================
+
+export const teams = pgTable("teams", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("teams_tenant_idx").on(table.tenantId),
+]);
+
 export const teamMembers = pgTable("team_members", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   teamId: uuid("team_id").references(() => teams.id, { onDelete: 'cascade' }).notNull(),
   userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  role: text("role").notNull().default("member"), // 'member' | 'admin'
-  createdAt: timestamp("created_at").defaultNow(),
+  role: varchar("role", { length: 50 }).default('member').notNull(), // 'member', 'admin'
+  joinedAt: timestamp("joined_at").defaultNow(),
 }, (table) => [
-  index("team_members_team_idx").on(table.teamId),
-  index("team_members_user_idx").on(table.userId),
-  index("team_members_team_user_idx").on(table.teamId, table.userId),
+  uniqueIndex("team_members_idx").on(table.teamId, table.userId),
 ]);
 
-// Project access (ACL) table
 export const projectAccess = pgTable("project_access", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
-  principalType: text("principal_type").notNull(), // 'user' | 'team'
-  principalId: uuid("principal_id").notNull(), // users.id or teams.id
-  role: text("role").notNull(), // 'view' | 'edit' | 'owner'
+  // Type: 'user' or 'team'
+  principalType: varchar("principal_type", { length: 20 }).notNull(),
+  principalId: varchar("principal_id").notNull(), // userId or teamId
+  role: varchar("role", { length: 20 }).notNull(), // 'view', 'edit', 'owner'
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("project_access_project_idx").on(table.projectId),
-  index("project_access_principal_idx").on(table.principalType, table.principalId),
+  uniqueIndex("project_access_principal_idx").on(table.projectId, table.principalType, table.principalId),
 ]);
 
-// Workflow access (ACL) table
 export const workflowAccess = pgTable("workflow_access", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-  principalType: text("principal_type").notNull(), // 'user' | 'team'
-  principalId: uuid("principal_id").notNull(), // users.id or teams.id
-  role: text("role").notNull(), // 'view' | 'edit' | 'owner'
+  principalType: varchar("principal_type", { length: 20 }).notNull(),
+  principalId: varchar("principal_id").notNull(),
+  role: varchar("role", { length: 20 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("workflow_access_workflow_idx").on(table.workflowId),
-  index("workflow_access_principal_idx").on(table.principalType, table.principalId),
+  uniqueIndex("workflow_access_principal_idx").on(table.workflowId, table.principalType, table.principalId),
 ]);
-
-// Teams Relations
-export const teamsRelations = relations(teams, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [teams.createdBy],
-    references: [users.id],
-  }),
-  members: many(teamMembers),
-}));
-
-export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
-  team: one(teams, {
-    fields: [teamMembers.teamId],
-    references: [teams.id],
-  }),
-  user: one(users, {
-    fields: [teamMembers.userId],
-    references: [users.id],
-  }),
-}));
-
-export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectAccess.projectId],
-    references: [projects.id],
-  }),
-}));
 
 export const workflowAccessRelations = relations(workflowAccess, ({ one }) => ({
   workflow: one(workflows, {
@@ -2605,4 +3146,126 @@ export interface WorkflowVariable {
   sectionId: string;
   sectionTitle: string;  // section title for grouping
   stepId: string;
+}
+
+// ===================================================================
+// PLATFORM EXPANSION (Prompt 23)
+// ===================================================================
+
+// OAuth Applications
+export const oauthApps = pgTable("oauth_apps", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  clientId: varchar("client_id").unique().notNull(),
+  clientSecretHash: varchar("client_secret_hash").notNull(), // Hashed
+  redirectUris: jsonb("redirect_uris").notNull(), // Array of strings
+  scopes: jsonb("scopes").notNull(), // Array of strings
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("oauth_apps_client_id_idx").on(table.clientId),
+  index("oauth_apps_workspace_idx").on(table.workspaceId),
+]);
+
+// OAuth Auth Codes
+export const oauthAuthCodes = pgTable("oauth_auth_codes", {
+  code: varchar("code").primaryKey(),
+  clientId: varchar("client_id").references(() => oauthApps.clientId, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  scope: jsonb("scope"),
+  redirectUri: varchar("redirect_uri").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// OAuth Access Tokens
+export const oauthAccessTokens = pgTable("oauth_access_tokens", {
+  accessToken: varchar("access_token").primaryKey(),
+  refreshToken: varchar("refresh_token").unique(),
+  clientId: varchar("client_id").references(() => oauthApps.clientId, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable for client_credentials
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  scope: jsonb("scope"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+
+// Webhook Events Enum
+export const webhookEventEnum = pgEnum('webhook_event', [
+  'workflow_run.started',
+  'workflow_run.page_completed',
+  'workflow_run.completed',
+  'document.generated',
+  'signature.completed',
+  'signature.declined'
+]);
+
+// Webhook Subscriptions
+export const webhookSubscriptions = pgTable("webhook_subscriptions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  targetUrl: varchar("target_url").notNull(),
+  events: jsonb("events").notNull(), // Array of webhookEventEnum
+  secret: varchar("secret").notNull(), // HMAC secret
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("webhook_subs_workspace_idx").on(table.workspaceId),
+]);
+
+// Webhook Delivery Events
+export const webhookEvents = pgTable("webhook_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: uuid("subscription_id").references(() => webhookSubscriptions.id, { onDelete: 'cascade' }).notNull(),
+  event: varchar("event").notNull(),
+  payload: jsonb("payload").notNull(),
+  status: varchar("status").notNull(), // 'success', 'failed', 'retrying'
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("webhook_events_sub_idx").on(table.subscriptionId),
+]);
+
+// =====================================================================
+// TRANSFORM ENGINE TYPES
+// =====================================================================
+
+export interface TransformBlock extends InferSelectModel<typeof transformBlocks> {
+  // Enhanced typing for config based on type
+  config: Record<string, any>;
+}
+
+export type InsertTransformBlock = InferSelectModel<typeof transformBlocks>;
+
+export interface TransformIssue {
+  id: string;
+  type: 'missing_var' | 'cycle' | 'type_mismatch' | 'invalid_path' | 'order_conflict' | 'overwrite' | 'inefficient';
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  blockId?: string;
+  details?: Record<string, any>;
+}
+
+export interface TransformFix {
+  issueId: string;
+  description: string;
+  blocks: InsertTransformBlock[]; // Replacements
+  confidence: number;
+}
+
+export interface TransformDiff {
+  added: string[];
+  removed: string[];
+  modified: string[];
+  details: Record<string, { before: any, after: any }>;
+}
+
+export interface TransformResult {
+  updatedTransforms: TransformBlock[];
+  diff: TransformDiff;
+  explanation: string[];
 }
