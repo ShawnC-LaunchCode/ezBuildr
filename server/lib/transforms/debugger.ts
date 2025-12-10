@@ -22,7 +22,8 @@ export class TransformDebugger {
         // 2. Detect Missing Variables (Simplified check)
         // In a real implementation, this would check against variable schema
         transforms.forEach(t => {
-            if (t.inputPaths && t.inputPaths.length === 0 && t.type !== 'script') {
+            const block = t as any;
+            if (block.inputPaths && block.inputPaths.length === 0 && block.type !== 'script') {
                 issues.push({
                     id: `missing_inputs_${t.id}`,
                     type: 'missing_var',
@@ -37,10 +38,11 @@ export class TransformDebugger {
         // Assuming output path maps to a variable name, and input paths read from variables
         const edges: Record<string, string[]> = {};
         transforms.forEach(t => {
-            if (t.outputPath) {
+            const block = t as any;
+            if (block.outputPath) {
                 // This transform produces 't.outputPath'
                 // It consumes 't.inputPaths'
-                if (!edges[t.outputPath]) edges[t.outputPath] = [];
+                if (!edges[block.outputPath]) edges[block.outputPath] = [];
                 // We track what PRODUCES this item -> depends on inputs
                 // A cycle exists if A depends on B, and B depends on A.
                 // Standard graph cycle detection would be better here.
@@ -49,7 +51,8 @@ export class TransformDebugger {
 
         // 4. Type Mismatches (Basic)
         transforms.forEach(t => {
-            if (t.type === 'compute' && t.config.operation === 'math' && !t.inputPaths[0]) {
+            const block = t as any;
+            if (block.type === 'compute' && block.config.operation === 'math' && !block.inputPaths[0]) {
                 // Example check
             }
         });

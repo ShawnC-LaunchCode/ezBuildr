@@ -23,7 +23,7 @@ export class WebhookDispatcher {
             });
 
             // Filter relevant subs
-            const relevantSubs = subs.filter(sub => {
+            const relevantSubs = subs.filter((sub: any) => {
                 const events = sub.events as string[];
                 return events.includes(event) || events.includes('*');
             });

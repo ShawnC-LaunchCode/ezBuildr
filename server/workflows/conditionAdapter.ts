@@ -37,6 +37,7 @@ import type {
   Condition as NewCondition,
   ConditionGroup as NewConditionGroup,
   ComparisonOperator as NewOperator,
+  ScriptCondition,
 } from "@shared/types/conditions";
 
 import { logger } from "../logger";
@@ -50,7 +51,7 @@ import { logger } from "../logger";
  */
 export function isNewFormat(expression: any): expression is NewConditionGroup {
   if (!expression || typeof expression !== "object") return false;
-  return expression.type === "group" || expression.type === "condition";
+  return expression.type === "group" || expression.type === "condition" || expression.type === "script";
 }
 
 export function isExistingFormat(expression: any): expression is ExistingConditionExpression {
@@ -96,6 +97,18 @@ const operatorMap: Record<NewOperator, string | null> = {
   not_includes: "notContains",
   includes_all: null, // Handle specially
   includes_any: null, // Handle specially
+
+  // Date Difference
+  diff_days: null,
+  diff_weeks: null,
+  diff_months: null,
+  diff_years: null,
+
+  // Date Helpers
+  before: null,
+  after: null,
+  on_or_before: null,
+  on_or_after: null,
 };
 
 // ========================================================================
@@ -106,12 +119,15 @@ const operatorMap: Record<NewOperator, string | null> = {
  * Converts new format condition to existing format
  */
 export function convertNewToExisting(
-  expression: NewConditionGroup | NewCondition
+  expression: NewConditionGroup | NewCondition | { type: "script" }
 ): ExistingConditionExpression | null {
   if (expression.type === "group") {
-    return convertGroup(expression);
+    return convertGroup(expression as NewConditionGroup);
+  } else if (expression.type === "condition") {
+    return convertCondition(expression as NewCondition);
   } else {
-    return convertCondition(expression);
+    // Script conditions not supported in existing backend format
+    return null;
   }
 }
 

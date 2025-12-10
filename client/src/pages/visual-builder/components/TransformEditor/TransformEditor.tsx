@@ -3,7 +3,7 @@ import { TransformList } from './TransformList';
 import { GraphView } from './GraphView';
 import { AIAssistPanel } from './AIAssistPanel';
 import { TransformPlayground } from './TransformPlayground';
-import { useWorkflowAPI } from '../../hooks/useWorkflowAPI'; // Generic hook placeholder
+import { useWorkflowGraph } from '@/hooks/useWorkflowGraph';
 
 export const TransformEditor: React.FC = () => {
     const [viewMode, setViewMode] = useState<'list' | 'graph' | 'playground'>('list');

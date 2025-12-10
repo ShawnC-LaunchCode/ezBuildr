@@ -1,0 +1,9 @@
+
+> vault-logic@1.0.0 check
+> tsc
+
+client/src/components/logic/ConditionGroup.tsx(166,25): error TS2345: Argument of type 'ConditionGroup | Condition | ScriptCondition' is not assignable to parameter of type 'ConditionGroup | Condition'.
+  Type 'ScriptCondition' is not assignable to type 'ConditionGroup | Condition'.
+    Type 'ScriptCondition' is missing the following properties from type 'Condition': variable, operator, valueType
+client/src/hooks/useWorkflowGraph.ts(5,13): error TS2339: Property 'data' does not exist on type 'WorkflowBuilderState'.
+client/src/pages/visual-builder/components/TransformEditor/TransformEditor.tsx(6,34): error TS2307: Cannot find module '../../hooks/useWorkflowGraph' or its corresponding type declarations.

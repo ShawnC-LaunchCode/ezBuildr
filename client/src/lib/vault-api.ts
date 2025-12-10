@@ -392,7 +392,43 @@ export const sectionAPI = {
 // Steps
 // ============================================================================
 
-export type StepType = "short_text" | "long_text" | "multiple_choice" | "radio" | "yes_no" | "date_time" | "file_upload" | "js_question" | "final_documents";
+export type StepType =
+  // Input Types
+  | "short_text"
+  | "long_text"
+  | "text" // Alias for short_text
+  | "number"
+  | "currency"
+  | "scale"
+  | "email"
+  | "phone"
+  | "website"
+  | "address"
+  | "date"
+  | "time"
+  | "date_time"
+
+  // Choice Types
+  | "multiple_choice"
+  | "radio"
+  | "yes_no"
+  | "boolean" // Alias for yes_no
+  | "choice" // Generic alias
+
+  // Advanced Types
+  | "file_upload"
+  | "signature"
+  | "signature_block"
+  | "multi_field"
+
+  // Display/Logic Types
+  | "display"
+  | "js_question"
+  | "computed"
+  | "final"
+  | "display_advanced"
+  | "final_documents"
+  | "true_false";
 
 export interface ApiStep {
   id: string;
@@ -408,6 +444,7 @@ export interface ApiStep {
   isVirtual?: boolean;
   defaultValue?: any;
   repeaterConfig?: any;
+  config: any; // Step-specific configuration (JSON)
   createdAt: string;
   updatedAt?: string;
 }

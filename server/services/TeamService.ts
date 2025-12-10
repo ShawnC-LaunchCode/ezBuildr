@@ -28,10 +28,16 @@ export class TeamService {
    * Create a new team (creator automatically becomes admin)
    */
   async createTeam(data: { name: string }, creatorId: string, tx?: DbTransaction): Promise<Team> {
+    // Get creator's tenant context
+    const creator = await this.userRepo.findById(creatorId, tx);
+    if (!creator || !creator.tenantId) {
+      throw new Error("Creator does not belong to a tenant");
+    }
+
     const team = await this.teamRepo.create(
       {
         name: data.name,
-        createdBy: creatorId,
+        tenantId: creator.tenantId,
       },
       tx
     );

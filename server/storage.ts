@@ -41,7 +41,7 @@ import {
   type BulkOperationRequest,
   type BulkOperationResult,
   type SurveyDuplication,
-  type FileMetadata,
+  type File as FileMetadata,
   type QuestionAnalytics,
   type PageAnalytics,
   type CompletionFunnelData,

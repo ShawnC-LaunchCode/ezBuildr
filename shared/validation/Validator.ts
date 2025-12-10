@@ -171,9 +171,7 @@ async function validateRule(
             console.warn("Script validation rule skipped on client");
             break;
 
-        case "custom":
-            // Legacy custom function if we had it
-            break;
+
     }
 
     return null;

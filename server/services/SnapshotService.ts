@@ -63,7 +63,7 @@ export class SnapshotService {
     }
 
     // Get all workflow steps to generate version hash
-    const allSteps = await this.stepRepo.findByWorkflowId(workflowId);
+    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
     const versionHash = generateWorkflowVersionHash(allSteps);
 
     // Create snapshot with empty values and version hash
@@ -151,7 +151,7 @@ export class SnapshotService {
     }
 
     // Get all workflow steps to regenerate version hash
-    const allSteps = await this.stepRepo.findByWorkflowId(snapshot.workflowId);
+    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(snapshot.workflowId);
     const versionHash = generateWorkflowVersionHash(allSteps);
 
     // Update snapshot with new values and version hash
@@ -202,7 +202,7 @@ export class SnapshotService {
     }
 
     // Get all current workflow steps
-    const allSteps = await this.stepRepo.findByWorkflowId(snapshot.workflowId);
+    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(snapshot.workflowId);
     const currentHash = generateWorkflowVersionHash(allSteps);
 
     // Check if version hash matches

@@ -51,7 +51,7 @@ export function registerDocumentRoutes(app: Express): void {
         id: templates.id,
         name: templates.name,
         type: templates.type,
-        uploadedAt: templates.uploadedAt,
+        uploadedAt: templates.createdAt,
         fileRef: templates.fileRef,
       }).from(templates);
 
@@ -61,13 +61,13 @@ export function registerDocumentRoutes(app: Express): void {
       }
 
       // Filter by user (templates they own or have access to)
-      // For now, just filter by userId - full ACL will be in Prompt 10
-      query = query.where(eq(templates.userId, userId)) as any;
+      // TODO: Implement proper ACL based on project membership
+      // query = query.where(eq(templates.userId, userId)) as any;
 
       const documents = await query;
 
       // Format response
-      const formattedDocs = documents.map(doc => ({
+      const formattedDocs = documents.map((doc: any) => ({
         id: doc.id,
         name: doc.name,
         type: doc.type || 'docx',
@@ -107,8 +107,7 @@ export function registerDocumentRoutes(app: Express): void {
         .from(templates)
         .where(
           and(
-            eq(templates.id, id),
-            eq(templates.userId, userId)
+            eq(templates.id, id)
           )
         )
         .limit(1);

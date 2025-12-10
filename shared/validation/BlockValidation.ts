@@ -1,4 +1,5 @@
-import { ValidationSchema, ValidationRule } from "./ValidationSchema";
+import { ValidationSchema } from "./ValidationSchema";
+import { ValidationRule } from "./ValidationRule";
 import {
     StepConfig,
     TextAdvancedConfig,

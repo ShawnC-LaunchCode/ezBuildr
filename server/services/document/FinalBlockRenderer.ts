@@ -132,16 +132,16 @@ export class FinalBlockRenderer {
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
 
-    logger.info('Rendering Final Block', {
+    logger.info({
       workflowId,
       runId,
       documentCount: finalBlockConfig.documents.length,
       toPdf,
-    });
+    }, 'Rendering Final Block');
 
     // Validate configuration
     if (!finalBlockConfig.documents || finalBlockConfig.documents.length === 0) {
-      throw createError('NO_DOCUMENTS', 'Final Block has no documents configured');
+      throw createError.validation('Final Block has no documents configured');
     }
 
     // Step 1: Resolve all template paths
@@ -150,9 +150,9 @@ export class FinalBlockRenderer {
       resolveTemplate
     );
 
-    logger.debug('Template paths resolved', {
+    logger.debug({
       count: documentsWithPaths.length,
-    });
+    }, 'Template paths resolved');
 
     // Step 1.5: Execute beforeGeneration document hooks
     let enhancedStepValues = stepValues;
@@ -167,12 +167,12 @@ export class FinalBlockRenderer {
       enhancedStepValues = beforeHooksResult.data;
 
       if (beforeHooksResult.errors && beforeHooksResult.errors.length > 0) {
-        logger.warn('Document hooks (beforeGeneration) had errors', {
+        logger.warn({
           errors: beforeHooksResult.errors,
-        });
+        }, 'Document hooks (beforeGeneration) had errors');
       }
     } catch (error) {
-      logger.error('Failed to execute beforeGeneration hooks', { error });
+      logger.error({ error }, 'Failed to execute beforeGeneration hooks');
       // Non-breaking: continue with original stepValues
     }
 
@@ -185,11 +185,11 @@ export class FinalBlockRenderer {
       pdfStrategy,
     });
 
-    logger.info('Document generation complete', {
+    logger.info({
       generated: generationResult.totalGenerated,
       skipped: generationResult.skipped.length,
       failed: generationResult.failed.length,
-    });
+    }, 'Document generation complete');
 
     // Step 2.5: Execute afterGeneration document hooks
     try {
@@ -201,12 +201,12 @@ export class FinalBlockRenderer {
       });
 
       if (afterHooksResult.errors && afterHooksResult.errors.length > 0) {
-        logger.warn('Document hooks (afterGeneration) had errors', {
+        logger.warn({
           errors: afterHooksResult.errors,
-        });
+        }, 'Document hooks (afterGeneration) had errors');
       }
     } catch (error) {
-      logger.error('Failed to execute afterGeneration hooks', { error });
+      logger.error({ error }, 'Failed to execute afterGeneration hooks');
       // Non-breaking: continue with document processing
     }
 
@@ -230,12 +230,12 @@ export class FinalBlockRenderer {
           toPdf
         );
 
-        logger.info('ZIP archive created', {
+        logger.info({
           filename: archive.filename,
           size: archive.size,
-        });
+        }, 'ZIP archive created');
       } catch (error) {
-        logger.error('Failed to create ZIP archive', { error });
+        logger.error({ error }, 'Failed to create ZIP archive');
         // Continue without archive - individual files still available
       }
     }
@@ -251,7 +251,7 @@ export class FinalBlockRenderer {
       isArchived,
     };
 
-    logger.info('Final Block rendering complete', response);
+    logger.info(response, 'Final Block rendering complete');
 
     return response;
   }
@@ -286,14 +286,14 @@ export class FinalBlockRenderer {
           conditions: doc.conditions,
         });
       } catch (error) {
-        logger.error('Failed to resolve template', {
+        logger.error({
           documentId: doc.documentId,
           alias: doc.alias,
           error,
-        });
-        throw createError(
-          'TEMPLATE_NOT_FOUND',
-          `Template not found for document: ${doc.alias}`,
+        }, 'Failed to resolve template');
+        throw createError.notFound(
+          'Template',
+          doc.alias,
           { documentId: doc.documentId }
         );
       }
@@ -428,7 +428,7 @@ export function createTemplateResolver(
     const template = await getTemplateById(documentId);
 
     if (!template) {
-      throw createError('TEMPLATE_NOT_FOUND', `Template not found: ${documentId}`);
+      throw createError.notFound('Template', documentId);
     }
 
     // Construct full path to template file
@@ -455,9 +455,9 @@ export async function scheduleCleanup(
     for (const filePath of filePaths) {
       try {
         await fs.unlink(filePath);
-        logger.debug('Cleaned up temporary file', { filePath });
+        logger.debug({ filePath }, 'Cleaned up temporary file');
       } catch (error) {
-        logger.warn('Failed to cleanup file', { filePath, error });
+        logger.warn({ filePath, error }, 'Failed to cleanup file');
       }
     }
   }, delayMs);

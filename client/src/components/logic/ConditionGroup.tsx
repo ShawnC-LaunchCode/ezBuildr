@@ -89,7 +89,7 @@ export function ConditionGroup({
           key={item.id}
           condition={item}
           variables={variables}
-          onChange={(updated) => handleConditionChange(index, updated)}
+          onChange={(updated: any) => handleConditionChange(index, updated)}
           onDelete={() => handleConditionDelete(index)}
           canDelete={group.conditions.length > 1}
         />
@@ -100,7 +100,7 @@ export function ConditionGroup({
           key={item.id}
           group={item}
           variables={variables}
-          onChange={(updated) => handleConditionChange(index, updated)}
+          onChange={(updated: any) => handleConditionChange(index, updated)}
           onDelete={() => handleConditionDelete(index)}
           depth={depth + 1}
         />
@@ -163,7 +163,7 @@ export function ConditionGroup({
         {group.conditions.map((item, index) => (
           <div key={item.id}>
             {/* Render the condition or nested group */}
-            {renderItem(item, index)}
+            {renderItem(item as any, index)}
 
             {/* Operator divider between conditions */}
             {index < group.conditions.length - 1 && (

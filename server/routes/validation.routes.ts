@@ -27,7 +27,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", async (req, re
         // 1. Fetch steps for the section
         const sectionSteps = await db.query.steps.findMany({
             where: eq(steps.sectionId, sectionId),
-            orderBy: (steps, { asc }) => [asc(steps.order)],
+            orderBy: (steps: any, { asc }: any) => [asc(steps.order)],
         });
 
         if (!sectionSteps || sectionSteps.length === 0) {
@@ -39,7 +39,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", async (req, re
 
         // Server-side visibility check attempt
         // If allValues not provided, we might over-validate or skip visibility check
-        const stepsToValidate = sectionSteps.filter(step => {
+        const stepsToValidate = sectionSteps.filter((step: any) => {
             if (!step.visibleIf) return true;
             if (!allValues) return true; // Validate if we can't be sure
             try {
@@ -51,7 +51,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", async (req, re
             }
         });
 
-        stepsToValidate.forEach(step => {
+        stepsToValidate.forEach((step: any) => {
             schemas[step.id] = getValidationSchema({
                 id: step.id,
                 type: step.type,

@@ -85,11 +85,11 @@ export async function createZipArchive(
     throw new Error(`Total archive size exceeds limit of ${MAX_TOTAL_SIZE / (1024 * 1024)}MB`);
   }
 
-  logger.info('Creating ZIP archive', {
+  logger.info({
     archiveName,
     fileCount: documents.length,
     totalSize,
-  });
+  }, 'Creating ZIP archive');
 
   try {
     const zip = new PizZip();
@@ -119,7 +119,7 @@ export async function createZipArchive(
       zip.file(sanitizedFilename, doc.buffer, {
         compression: 'DEFLATE',
         compressionOptions: {
-          level: opts.compressionLevel,
+          level: opts.compressionLevel as any,
         },
       });
     }
@@ -132,19 +132,19 @@ export async function createZipArchive(
       zip.file('manifest.txt', manifestContent, {
         compression: 'DEFLATE',
         compressionOptions: {
-          level: opts.compressionLevel,
+          level: opts.compressionLevel as any,
         },
       });
     }
 
     // Generate ZIP buffer
     const zipBuffer = zip.generate({
-      type: 'nodebuffer',
+      type: 'nodebuffer' as any,
       compression: 'DEFLATE',
       compressionOptions: {
-        level: opts.compressionLevel,
+        level: opts.compressionLevel as any,
       },
-    }) as Buffer;
+    }) as unknown as Buffer;
 
     const result: ZipResult = {
       filename: `${sanitizeFilename(archiveName, false)}.zip`,
@@ -156,7 +156,7 @@ export async function createZipArchive(
 
     return result;
   } catch (error) {
-    logger.error('Failed to create ZIP archive', { error, archiveName });
+    logger.error({ error, archiveName }, 'Failed to create ZIP archive');
     throw new Error(`ZIP creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -184,7 +184,7 @@ export async function createZipFromPaths(
         size: stats.size,
       });
     } catch (error) {
-      logger.error('Failed to read file for ZIP', { filePath, error });
+      logger.error({ filePath, error }, 'Failed to read file for ZIP');
       throw new Error(`Failed to read file: ${path.basename(filePath)}`);
     }
   }
@@ -217,7 +217,7 @@ export async function saveZipToDisk(
     await fs.writeFile(fullPath, zipResult.buffer);
     return fullPath;
   } catch (error) {
-    logger.error('Failed to save ZIP to disk', { error, outputPath });
+    logger.error({ error, outputPath }, 'Failed to save ZIP to disk');
     throw new Error(`Failed to save ZIP: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

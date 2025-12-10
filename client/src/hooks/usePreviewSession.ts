@@ -53,7 +53,7 @@ export function usePreviewSession(options: PreviewSessionOptions | null) {
 export function usePreviewSessionValues(session: PreviewSession | null) {
   const subscribe = useCallback(
     (callback: () => void) => {
-      if (!session) return () => {};
+      if (!session) return () => { };
       return session.subscribe(callback);
     },
     [session]
@@ -80,7 +80,7 @@ export function usePreviewSessionValue(
   stepId: string
 ): [any, (value: any) => void] {
   const values = usePreviewSessionValues(session);
-  const value = values[stepId];
+  const value = (values as any)[stepId];
 
   const setValue = useCallback(
     (newValue: any) => {

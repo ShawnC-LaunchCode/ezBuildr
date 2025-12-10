@@ -54,8 +54,8 @@ export function NumberCardEditor({ stepId, sectionId, step }: NumberCardEditorPr
 
   const [localConfig, setLocalConfig] = useState({
     mode: getInitialMode(),
-    min: config?.min,
-    max: config?.max,
+    min: (config as any)?.min,
+    max: (config as any)?.max,
     step: (config as NumberConfig)?.step || 1,
     allowDecimal: (config as NumberConfig | CurrencyConfig)?.allowDecimal ?? false,
     formatOnInput: (config as NumberAdvancedConfig)?.formatOnInput ?? false,
@@ -64,8 +64,8 @@ export function NumberCardEditor({ stepId, sectionId, step }: NumberCardEditorPr
   useEffect(() => {
     setLocalConfig({
       mode: getInitialMode(),
-      min: config?.min,
-      max: config?.max,
+      min: (config as any)?.min,
+      max: (config as any)?.max,
       step: (config as NumberConfig)?.step || 1,
       allowDecimal: (config as NumberConfig | CurrencyConfig)?.allowDecimal ?? false,
       formatOnInput: (config as NumberAdvancedConfig)?.formatOnInput ?? false,

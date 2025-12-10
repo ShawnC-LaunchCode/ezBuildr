@@ -85,7 +85,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`, { headers });
       return response.data.documents;
     },
-    enabled: isValidRunId, // Only fetch if runId is valid
+    enabled: !!isValidRunId, // Only fetch if runId is valid
     refetchInterval: (query) => {
       // Only refetch if runId is valid
       if (!isValidRunId) return false;

@@ -76,7 +76,7 @@ async function requestAIRandomValues(
         .map(step => ({
           alias: step.alias || step.id,
           type: step.type,
-          label: step.label || '',
+          label: step.title || '',
           config: step.config,
         })),
     };

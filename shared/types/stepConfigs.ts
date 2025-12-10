@@ -631,9 +631,9 @@ export function isNumberConfig(config: any): config is NumberConfig | NumberAdva
     config &&
     typeof config === 'object' &&
     (typeof config.min === 'number' ||
-     typeof config.max === 'number' ||
-     typeof config.step === 'number' ||
-     typeof config.mode === 'string')
+      typeof config.max === 'number' ||
+      typeof config.step === 'number' ||
+      typeof config.mode === 'string')
   );
 }
 
@@ -645,9 +645,9 @@ export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig |
     config &&
     typeof config === 'object' &&
     (typeof config.kind === 'string' ||
-     typeof config.minDate === 'string' ||
-     typeof config.maxDate === 'string' ||
-     typeof config.showDate === 'boolean')
+      typeof config.minDate === 'string' ||
+      typeof config.maxDate === 'string' ||
+      typeof config.showDate === 'boolean')
   );
 }
 
@@ -686,7 +686,7 @@ export interface AddressValue {
  * Stored in stepValues for multi-field blocks
  */
 export interface MultiFieldValue {
-  [key: string]: string | number | boolean | null;
+  [key: string]: string | number | boolean | null | string[];
 }
 
 /**
@@ -721,12 +721,4 @@ export interface FileUploadValue {
 // EXPORTS
 // ============================================================================
 
-export type {
-  TextValidation,
-  NumberValidation,
-  ChoiceOption,
-  AddressValue,
-  MultiFieldValue,
-  ChoiceValue,
-  FileUploadValue,
-};
+

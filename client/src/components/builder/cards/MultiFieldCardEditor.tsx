@@ -39,16 +39,16 @@ interface MultiFieldCardEditorProps {
 // Layout presets
 const LAYOUT_PRESETS: Record<string, Array<{ key: string; label: string; type: string; required: boolean }>> = {
   first_last: [
-    { key: "first", label: "First Name", type: "text", required: true },
-    { key: "last", label: "Last Name", type: "text", required: true },
+    { key: "first", label: "First Name", type: "text" as const, required: true },
+    { key: "last", label: "Last Name", type: "text" as const, required: true },
   ],
   contact: [
-    { key: "email", label: "Email", type: "email", required: true },
-    { key: "phone", label: "Phone", type: "phone", required: false },
+    { key: "email", label: "Email", type: "email" as const, required: true },
+    { key: "phone", label: "Phone", type: "phone" as const, required: false },
   ],
   date_range: [
-    { key: "start", label: "Start Date", type: "date", required: true },
-    { key: "end", label: "End Date", type: "date", required: true },
+    { key: "start", label: "Start Date", type: "date" as const, required: true },
+    { key: "end", label: "End Date", type: "date" as const, required: true },
   ],
 };
 
@@ -78,7 +78,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, step }: MultiFieldCard
 
     const configToSave: MultiFieldConfig = {
       layout: newConfig.layout,
-      fields: newConfig.fields,
+      fields: newConfig.fields as any,
       storeAs: newConfig.storeAs,
     };
 

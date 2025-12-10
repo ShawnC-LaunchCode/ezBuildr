@@ -50,6 +50,7 @@ export class WorkflowBundleService {
         targetProjectId: string
     ): Promise<string> {
         const zip = new AdmZip(buffer);
+        // @ts-ignore - getEntry exists in adm-zip but types are missing
         const manifestEntry = zip.getEntry("manifest.json");
 
         if (!manifestEntry) {

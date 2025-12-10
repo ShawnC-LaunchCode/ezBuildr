@@ -9,7 +9,7 @@
  */
 
 import crypto from 'crypto';
-import type { Step } from '../repositories';
+import { Step } from "@shared/schema";
 
 /**
  * Generates a version hash from workflow steps

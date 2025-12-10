@@ -1259,6 +1259,7 @@ export const stepTypeEnum = pgEnum('step_type', [
   'website',           // URL/website input with validation
   'display',           // Display-only content (markdown)
   'address',           // US address input (street, city, state, zip)
+  'final',             // Final Block (Document Generation)
 
   // ===== ADVANCED MODE TYPES (Consolidated with Config) =====
   'text',              // Unified text input (config determines short/long)
@@ -1465,6 +1466,7 @@ export const runs = pgTable("runs", {
   status: runStatusEnum("status").default('pending').notNull(),
   error: text("error"), // Stage 8: Error message if failed
   durationMs: integer("duration_ms"),
+  runToken: varchar("run_token").unique(), // Unique token for resuming run / anonymous access
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1680,6 +1682,7 @@ export const auditEvents = pgTable("audit_events", {
 export const apiKeys = pgTable("api_keys", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  prefix: varchar("prefix", { length: 50 }).notNull(), // Add prefix column for lookup
   keyHash: varchar("key_hash", { length: 255 }).notNull().unique(),
   scopes: text("scopes").array().notNull(),
   lastUsedAt: timestamp("last_used_at"),
@@ -2219,7 +2222,7 @@ export const insertRecordSchema = createInsertSchema(records).omit({ id: true, c
 export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
 export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
 export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
-export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true, runToken: true });
+export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments).omit({ id: true, createdAt: true });
 export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
@@ -2493,7 +2496,7 @@ export const workflowAccessRelations = relations(workflowAccess, ({ one }) => ({
 
 // Teams & ACL Insert Schemas
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, createdAt: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
 export const insertProjectAccessSchema = createInsertSchema(projectAccess).omit({ id: true, createdAt: true });
 export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess).omit({ id: true, createdAt: true });
 
@@ -3234,12 +3237,7 @@ export const webhookEvents = pgTable("webhook_events", {
 // TRANSFORM ENGINE TYPES
 // =====================================================================
 
-export interface TransformBlock extends InferSelectModel<typeof transformBlocks> {
-  // Enhanced typing for config based on type
-  config: Record<string, any>;
-}
 
-export type InsertTransformBlock = InferSelectModel<typeof transformBlocks>;
 
 export interface TransformIssue {
   id: string;

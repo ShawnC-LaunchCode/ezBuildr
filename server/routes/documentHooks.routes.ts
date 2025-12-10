@@ -2,7 +2,7 @@ import express from "express";
 import { documentHookService } from "../services/scripting/DocumentHookService";
 import { hybridAuth } from "../middleware/auth";
 import { z } from "zod";
-import type { AuthRequest } from "../types/express";
+import type { AuthRequest } from "../middleware/auth";
 
 const router = express.Router();
 

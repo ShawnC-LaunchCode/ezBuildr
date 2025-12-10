@@ -1,0 +1,49 @@
+
+> vault-logic@1.0.0 check
+> tsc
+
+client/src/components/builder/cards/MultiFieldCardEditor.tsx(81,7): error TS2322: Type '{ key: string; label: string; type: string; required: boolean; }[]' is not assignable to type '{ key: string; label: string; type: "number" | "text" | "date" | "email" | "phone"; required: boolean; placeholder?: string | undefined; validation?: TextValidation | NumberValidation | undefined; }[]'.
+  Type '{ key: string; label: string; type: string; required: boolean; }' is not assignable to type '{ key: string; label: string; type: "number" | "text" | "date" | "email" | "phone"; required: boolean; placeholder?: string | undefined; validation?: TextValidation | NumberValidation | undefined; }'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"number" | "text" | "date" | "email" | "phone"'.
+client/src/components/builder/cards/NumberCardEditor.tsx(57,18): error TS2339: Property 'min' does not exist on type 'NumberAdvancedConfig | NumberConfig | CurrencyConfig'.
+  Property 'min' does not exist on type 'NumberAdvancedConfig'.
+client/src/components/builder/cards/NumberCardEditor.tsx(58,18): error TS2339: Property 'max' does not exist on type 'NumberAdvancedConfig | NumberConfig | CurrencyConfig'.
+  Property 'max' does not exist on type 'NumberAdvancedConfig'.
+client/src/components/builder/cards/NumberCardEditor.tsx(67,20): error TS2339: Property 'min' does not exist on type 'NumberAdvancedConfig | NumberConfig | CurrencyConfig'.
+  Property 'min' does not exist on type 'NumberAdvancedConfig'.
+client/src/components/builder/cards/NumberCardEditor.tsx(68,20): error TS2339: Property 'max' does not exist on type 'NumberAdvancedConfig | NumberConfig | CurrencyConfig'.
+  Property 'max' does not exist on type 'NumberAdvancedConfig'.
+client/src/components/builder/pages/QuestionAddMenu.tsx(52,9): error TS2322: Type 'string' is not assignable to type 'StepType'.
+client/src/components/builder/SidebarTree.tsx(79,42): error TS2345: Argument of type '{ sectionId: string; type: "final_documents"; title: string; description: null; required: false; alias: string; options: null; order: number; }' is not assignable to parameter of type 'Omit<ApiStep, "id" | "createdAt"> & { sectionId: string; }'.
+  Property 'config' is missing in type '{ sectionId: string; type: "final_documents"; title: string; description: null; required: false; alias: string; options: null; order: number; }' but required in type 'Omit<ApiStep, "id" | "createdAt">'.
+client/src/components/builder/SidebarTree.tsx(222,42): error TS2345: Argument of type '{ sectionId: any; type: "short_text"; title: string; description: null; required: false; alias: null; options: null; order: number; }' is not assignable to parameter of type 'Omit<ApiStep, "id" | "createdAt"> & { sectionId: string; }'.
+  Property 'config' is missing in type '{ sectionId: any; type: "short_text"; title: string; description: null; required: false; alias: null; options: null; order: number; }' but required in type 'Omit<ApiStep, "id" | "createdAt">'.
+client/src/components/logic/ConditionGroup.tsx(166,25): error TS2345: Argument of type 'ConditionGroup | ScriptCondition | Condition' is not assignable to parameter of type 'ConditionGroup | Condition'.
+  Type 'ScriptCondition' is not assignable to type 'ConditionGroup | Condition'.
+    Type 'ScriptCondition' is missing the following properties from type 'Condition': variable, operator, valueType
+client/src/components/runner/blocks/BlockRenderer.tsx(91,12): error TS2678: Type '"true_false"' is not comparable to type 'StepType'.
+client/src/components/runner/blocks/BooleanBlock.tsx(41,14): error TS2367: This comparison appears to be unintentional because the types '"number" | "boolean" | "short_text" | "long_text" | "text" | "currency" | "scale" | "email" | "phone" | "website" | "address" | "date" | "time" | "date_time" | "multiple_choice" | ... 10 more ... | "final_documents"' and '"true_false"' have no overlap.
+client/src/hooks/usePreviewSession.ts(83,17): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'.
+client/src/lib/blockRegistry.tsx(258,17): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/blockRegistry.tsx(258,29): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/blockRegistry.tsx(258,41): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/blockRegistry.tsx(269,17): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/blockRegistry.tsx(269,29): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/blockRegistry.tsx(269,41): error TS2322: Type 'string' is not assignable to type '{ id: string; label: string; }'.
+client/src/lib/randomizer/aiRandomFill.ts(79,23): error TS2339: Property 'label' does not exist on type 'ApiStep'.
+client/src/lib/randomizer/aiRandomFill.ts(136,12): error TS2678: Type '"true_false"' is not comparable to type 'StepType'.
+client/src/lib/randomizer/randomFill.ts(319,45): error TS7006: Parameter '_' implicitly has an 'any' type.
+client/src/lib/randomizer/randomFill.ts(319,48): error TS7006: Parameter 'i' implicitly has an 'any' type.
+client/src/lib/randomizer/randomFill.ts(350,45): error TS7006: Parameter '_' implicitly has an 'any' type.
+client/src/lib/randomizer/randomFill.ts(350,48): error TS7006: Parameter 'i' implicitly has an 'any' type.
+client/src/lib/randomizer/randomFill.ts(513,35): error TS2367: This comparison appears to be unintentional because the types '"number" | "boolean" | "currency" | "scale" | "email" | "phone" | "website" | "address" | "date" | "time" | "date_time" | "multiple_choice" | "radio" | "choice" | "file_upload" | ... 4 more ... | "final_documents"' and '"true_false"' have no overlap.
+client/src/pages/PreviewRunner.tsx(619,16): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/PreviewRunner.tsx(619,36): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/visual-builder/components/TransformEditor/TransformEditor.tsx(6,10): error TS2724: '"../../hooks/useWorkflowAPI"' has no exported member named 'useWorkflowAPI'. Did you mean 'useWorkflowGraph'?
+client/src/pages/WorkflowRunner.tsx(794,63): error TS2345: Argument of type '{ createdAt: Date | null; updatedAt: Date | null; alias: string | null; description: string | null; visibleIf: any; defaultValue: any; isVirtual: boolean; repeaterConfig: any; ... 7 more ...; config: any; }[]' is not assignable to parameter of type '{ sectionId: string; id: string; createdAt: Date | null; type: "number" | "boolean" | "address" | "time" | "text" | "display" | "scale" | "short_text" | "long_text" | "yes_no" | ... 27 more ... | "display_advanced"; ... 10 more ...; updatedAt: Date | null; }[]'.
+  Type '{ createdAt: Date | null; updatedAt: Date | null; alias: string | null; description: string | null; visibleIf: any; defaultValue: any; isVirtual: boolean; repeaterConfig: any; ... 7 more ...; config: any; }' is not assignable to type '{ sectionId: string; id: string; createdAt: Date | null; type: "number" | "boolean" | "address" | "time" | "text" | "display" | "scale" | "short_text" | "long_text" | "yes_no" | ... 27 more ... | "display_advanced"; ... 10 more ...; updatedAt: Date | null; }'.
+    Types of property 'type' are incompatible.
+      Type 'StepType' is not assignable to type '"number" | "boolean" | "address" | "time" | "text" | "display" | "scale" | "short_text" | "long_text" | "yes_no" | "true_false" | "phone" | "email" | "website" | "currency" | "radio" | ... 21 more ... | "display_advanced"'.
+        Type '"signature"' is not assignable to type '"number" | "boolean" | "address" | "time" | "text" | "display" | "scale" | "short_text" | "long_text" | "yes_no" | "true_false" | "phone" | "email" | "website" | "currency" | "radio" | ... 21 more ... | "display_advanced"'.

@@ -85,6 +85,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       alias: "final_documents",
       options: null,
       order: 0,
+      config: {},
     });
   };
 
@@ -228,6 +229,7 @@ function SectionItem({
       alias: null,
       options: null,
       order,
+      config: {},
     });
     if (!isExpanded) onToggle();
   };

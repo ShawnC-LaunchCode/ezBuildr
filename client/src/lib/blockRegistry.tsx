@@ -255,7 +255,11 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     category: "choice",
     modes: { easy: true, advanced: false },
     createDefaultConfig: () => ({
-      options: ["Option 1", "Option 2", "Option 3"],
+      options: [
+        { id: "1", label: "Option 1" },
+        { id: "2", label: "Option 2" },
+        { id: "3", label: "Option 3" }
+      ],
     }),
   },
   {
@@ -266,7 +270,11 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     category: "choice",
     modes: { easy: true, advanced: false },
     createDefaultConfig: () => ({
-      options: ["Option 1", "Option 2", "Option 3"],
+      options: [
+        { id: "1", label: "Option 1" },
+        { id: "2", label: "Option 2" },
+        { id: "3", label: "Option 3" }
+      ],
     }),
   },
   {

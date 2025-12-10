@@ -13,16 +13,7 @@ export class TeamRepository extends BaseRepository<typeof teams, Team, InsertTea
     super(teams, dbInstance);
   }
 
-  /**
-   * Find all teams created by a user
-   */
-  async findByCreator(creatorId: string, tx?: DbTransaction): Promise<Team[]> {
-    const database = this.getDb(tx);
-    return await database
-      .select()
-      .from(teams)
-      .where(eq(teams.createdBy, creatorId));
-  }
+
 
   /**
    * Find all teams a user is a member of (including as creator)
@@ -34,7 +25,7 @@ export class TeamRepository extends BaseRepository<typeof teams, Team, InsertTea
       .select({
         id: teams.id,
         name: teams.name,
-        createdBy: teams.createdBy,
+        tenantId: teams.tenantId, // Add tenantId instead of createdBy
         createdAt: teams.createdAt,
         updatedAt: teams.updatedAt,
         memberRole: teamMembers.role,

@@ -5,7 +5,7 @@
  * against the current workflow structure.
  */
 
-import type { Step } from '../repositories';
+import type { Step } from '@shared/schema';
 
 /**
  * Information about a missing or invalid snapshot value
@@ -86,7 +86,7 @@ export function findMissingValues(
         alias: step.alias,
         reason: 'invalid_format',
       });
-    } else if (step.type === 'choice_multi' && !Array.isArray(value)) {
+    } else if (step.type === 'multiple_choice' && !Array.isArray(value)) {
       missingValues.push({
         stepId: step.id,
         alias: step.alias,
@@ -183,7 +183,7 @@ export function isValueComplete(stepType: string, value: any): boolean {
     case 'multi_field':
       return typeof value === 'object' && Object.keys(value).length > 0;
 
-    case 'choice_multi':
+    case 'multiple_choice':
       return Array.isArray(value) && value.length > 0;
 
     default:

@@ -428,14 +428,16 @@ export default function WorkflowPreview() {
       </div>
 
       {/* Runner Content */}
-      <div className="flex-1 relative">
-        <WorkflowRunner
-          runId={previewRunId || undefined}
-          previewEnvironment={env}
-          onPreviewComplete={handlePreviewComplete}
-        />
+      <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 h-full overflow-auto relative">
+          <WorkflowRunner
+            runId={previewRunId || undefined}
+            previewEnvironment={env}
+            onPreviewComplete={handlePreviewComplete}
+          />
+        </div>
 
-        {/* DevTools Overlay */}
+        {/* DevTools Sidebar */}
         <DevToolsPanel
           env={env}
           isOpen={showDevTools}

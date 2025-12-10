@@ -38,16 +38,16 @@ export function AddressCardEditor({ stepId, sectionId, step }: AddressCardEditor
   // Parse config
   const config = step.config as AddressConfig | undefined;
   const [localConfig, setLocalConfig] = useState({
-    country: (config?.country || "US") as const,
-    fields: (config?.fields || ["street", "city", "state", "zip"]) as const,
+    country: (config?.country || "US"),
+    fields: (config?.fields || ["street", "city", "state", "zip"]),
     requireAll: config?.requireAll !== undefined ? config.requireAll : true,
   });
 
   useEffect(() => {
     const config = step.config as AddressConfig | undefined;
     setLocalConfig({
-      country: (config?.country || "US") as const,
-      fields: (config?.fields || ["street", "city", "state", "zip"]) as const,
+      country: (config?.country || "US"),
+      fields: (config?.fields || ["street", "city", "state", "zip"]),
       requireAll: config?.requireAll !== undefined ? config.requireAll : true,
     });
   }, [step.config]);

@@ -49,12 +49,13 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
       // Create the step
       const step = await createStepMutation.mutateAsync({
         sectionId,
-        type: block.type,
+        type: block.type as any, // Cast to any to avoid strict StepType mismatch until registry is fully typed
         title: `New ${block.label}`,
         description: null,
         required: false,
         alias: null,
         options: config || null,
+        config: config || {},
         order: nextOrder,
       });
 

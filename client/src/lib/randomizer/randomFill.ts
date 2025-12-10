@@ -316,7 +316,7 @@ function generateChoiceValue(step: ApiStep): string | string[] {
       );
 
       const selected: string[] = [];
-      const availableIndices = options.map((_, i) => i);
+      const availableIndices = options.map((_: any, i: number) => i);
 
       for (let i = 0; i < count; i++) {
         const randomIndex = Math.floor(Math.random() * availableIndices.length);
@@ -347,7 +347,7 @@ function generateChoiceValue(step: ApiStep): string | string[] {
       );
 
       const selected: string[] = [];
-      const availableIndices = options.map((_, i) => i);
+      const availableIndices = options.map((_: any, i: number) => i);
 
       for (let i = 0; i < count; i++) {
         const randomIndex = Math.floor(Math.random() * availableIndices.length);

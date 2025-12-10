@@ -25,13 +25,13 @@ export function enforce(action: string, getResourceId?: (req: Request) => string
             return res.status(400).json({ error: "Context Error: Missing Workspace ID" });
         }
 
-        const userId = req.user.id;
+        const userId = req.user.id as string;
         const resourceId = getResourceId ? getResourceId(req) : undefined;
         // In a real implementation we might infer resourceType from the route or arguments
         const resourceType = resourceId ? 'workflow' : undefined; // Simplified default
 
         try {
-            const hasPermission = await checkPermission(userId, workspaceId, action, resourceType, resourceId);
+            const hasPermission = await checkPermission(userId, workspaceId as string, action, resourceType, resourceId);
             if (!hasPermission) {
                 return res.status(403).json({ error: "Forbidden: Insufficient Permissions" });
             }

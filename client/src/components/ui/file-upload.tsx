@@ -6,7 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, X, File, Image, FileText, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatFileSize } from "@/lib/formatting";
-import type { FileUploadConfig, FileMetadata } from "@shared/schema";
+import type { FileUploadConfig } from "@shared/schema";
+// Define FileMetadata locally if not exported from schema
+interface FileMetadata {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
 
 interface FileUploadProps {
   config?: FileUploadConfig;
@@ -47,11 +55,11 @@ export function FileUpload({
           const [category] = type.split('/');
           return file.type.startsWith(category + '/');
         }
-        
+
         if (type.startsWith('.')) {
           return file.name.toLowerCase().endsWith(type.toLowerCase());
         }
-        
+
         return file.type === type;
       });
 
@@ -108,7 +116,7 @@ export function FileUpload({
       const formData = new FormData();
       validFiles.forEach(file => formData.append('files', file));
       formData.append('answerId', answerId);
-      
+
       if (config) {
         formData.append('questionConfig', JSON.stringify(config));
       }
@@ -123,12 +131,12 @@ export function FileUpload({
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.files) {
         const newFiles = [...uploadedFiles, ...result.files];
         setUploadedFiles(newFiles);
         onFilesUploaded?.(result.files);
-        
+
         toast({
           title: "Upload Successful",
           description: `${result.files.length} file(s) uploaded successfully`,
@@ -193,7 +201,7 @@ export function FileUpload({
       if (response.ok) {
         setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
         onFileRemoved?.(fileId);
-        
+
         toast({
           title: "File Removed",
           description: "File has been removed successfully",
@@ -225,11 +233,10 @@ export function FileUpload({
       {/* Upload Area */}
       {canUploadMore && (
         <Card
-          className={`border-2 border-dashed transition-colors cursor-pointer ${
-            dragOver
+          className={`border-2 border-dashed transition-colors cursor-pointer ${dragOver
               ? 'border-primary bg-primary/10'
               : 'border-muted-foreground/25 hover:border-primary/50'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -243,7 +250,7 @@ export function FileUpload({
                 {dragOver ? 'Drop files here' : 'Click to upload or drag and drop'}
               </p>
               <p className="text-xs text-muted-foreground">
-                {config?.acceptedTypes?.length 
+                {config?.acceptedTypes?.length
                   ? `Accepted: ${config.acceptedTypes.join(', ')}`
                   : 'All file types accepted'
                 }
@@ -289,7 +296,7 @@ export function FileUpload({
               Uploaded Files ({uploadedFiles.length}/{maxFiles})
             </h4>
           </div>
-          
+
           <div className="space-y-2">
             {uploadedFiles.map((file) => (
               <div
@@ -308,7 +315,7 @@ export function FileUpload({
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <Button
                     variant="ghost"
@@ -318,7 +325,7 @@ export function FileUpload({
                   >
                     <Download className="h-4 w-4" />
                   </Button>
-                  
+
                   {!disabled && (
                     <Button
                       variant="ghost"

@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { fetchWorkflow } from "@/lib/api";
+import { workflowAPI } from "@/lib/vault-api";
 // Assuming fetchWorkflow exists or I'll implement fetch logic inline or from a hook
 
 export default function OptimizationWizard() {
@@ -43,9 +43,7 @@ export default function OptimizationWizard() {
         queryKey: [`/api/workflows/${workflowId}`],
         // Fallback if fetchWorkflow isn't readily available as explicit import
         queryFn: async () => {
-            const res = await fetch(`/api/workflows/${workflowId}`);
-            if (!res.ok) throw new Error("Failed to fetch workflow");
-            return res.json();
+            return workflowAPI.get(workflowId!);
         },
         enabled: !!workflowId
     });
@@ -107,10 +105,10 @@ export default function OptimizationWizard() {
                         <div
                             key={step.id}
                             className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${activeStep === index
-                                    ? "bg-primary text-primary-foreground font-medium"
-                                    : index < activeStep
-                                        ? "text-muted-foreground hover:bg-muted"
-                                        : "text-muted-foreground opacity-50"
+                                ? "bg-primary text-primary-foreground font-medium"
+                                : index < activeStep
+                                    ? "text-muted-foreground hover:bg-muted"
+                                    : "text-muted-foreground opacity-50"
                                 }`}
                             onClick={() => {
                                 // Allow clicking back, or clicking next if analyzed

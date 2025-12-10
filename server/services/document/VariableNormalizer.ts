@@ -44,7 +44,7 @@ export interface NormalizationOptions {
 /**
  * Normalized data structure (flat key-value pairs)
  */
-export type NormalizedData = Record<string, string | number | boolean>;
+export type NormalizedData = Record<string, string | number | boolean | string[]>;
 
 // ============================================================================
 // MAIN FUNCTION

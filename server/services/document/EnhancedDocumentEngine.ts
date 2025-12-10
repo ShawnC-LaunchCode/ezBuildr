@@ -166,21 +166,21 @@ export class EnhancedDocumentEngine {
       ...baseOptions
     } = options;
 
-    logger.info('Generating document with mapping', {
+    logger.info({
       outputName: baseOptions.outputName,
       hasMapping: !!mapping,
       normalize,
-    });
+    }, 'Generating document with mapping');
 
     // Step 1: Normalize variables
     const normalizedData = normalize
       ? normalizeVariables(rawData, normalizationOptions)
       : (rawData as NormalizedData);
 
-    logger.debug('Variables normalized', {
+    logger.debug({
       originalKeys: Object.keys(rawData).length,
       normalizedKeys: Object.keys(normalizedData).length,
-    });
+    }, 'Variables normalized');
 
     // Step 2: Apply mapping (if provided)
     let mappingResult: MappingResult | undefined;
@@ -190,17 +190,17 @@ export class EnhancedDocumentEngine {
       mappingResult = applyMapping(normalizedData, mapping);
       finalData = mappingResult.data;
 
-      logger.debug('Mapping applied', {
+      logger.debug({
         mapped: mappingResult.mapped.length,
         missing: mappingResult.missing.length,
         unused: mappingResult.unused.length,
-      });
+      }, 'Mapping applied');
 
       // Log warnings for missing source variables
       if (mappingResult.missing.length > 0) {
-        logger.warn('Mapping references missing variables', {
+        logger.warn({
           missing: mappingResult.missing,
-        });
+        }, 'Mapping references missing variables');
       }
     }
 
@@ -260,19 +260,19 @@ export class EnhancedDocumentEngine {
       normalizationOptions = {},
     } = options;
 
-    logger.info('Rendering Final Block documents', {
+    logger.info({
       documentCount: documents.length,
       toPdf,
       pdfStrategy,
-    });
+    }, 'Rendering Final Block documents');
 
     // Pre-normalize step values once (reused for all documents)
     const normalizedStepValues = normalizeVariables(stepValues, normalizationOptions);
 
-    logger.debug('Step values normalized', {
+    logger.debug({
       originalKeys: Object.keys(stepValues).length,
       normalizedKeys: Object.keys(normalizedStepValues).length,
-    });
+    }, 'Step values normalized');
 
     const results: EnhancedGenerationResult[] = [];
     const skipped: FinalBlockRenderResult['skipped'] = [];
@@ -290,7 +290,7 @@ export class EnhancedDocumentEngine {
               alias: doc.alias,
               reason: 'Conditions not met',
             });
-            logger.info('Document skipped (conditions not met)', { alias: doc.alias });
+            logger.info({ alias: doc.alias }, 'Document skipped (conditions not met)');
             continue;
           }
         }
@@ -313,21 +313,21 @@ export class EnhancedDocumentEngine {
           alias: doc.alias,
         });
 
-        logger.info('Document generated successfully', {
+        logger.info({
           alias: doc.alias,
           docxPath: result.docxPath,
           pdfPath: result.pdfPath,
-        });
+        }, 'Document generated successfully');
       } catch (error) {
         failed.push({
           alias: doc.alias,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
 
-        logger.error('Document generation failed', {
+        logger.error({
           alias: doc.alias,
           error,
-        });
+        }, 'Document generation failed');
       }
     }
 
@@ -339,12 +339,12 @@ export class EnhancedDocumentEngine {
       totalGenerated: results.length,
     };
 
-    logger.info('Final Block rendering complete', {
+    logger.info({
       totalAttempted: finalResult.totalAttempted,
       generated: finalResult.totalGenerated,
       skipped: skipped.length,
       failed: failed.length,
-    });
+    }, 'Final Block rendering complete');
 
     return finalResult;
   }

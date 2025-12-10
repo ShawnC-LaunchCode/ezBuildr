@@ -791,7 +791,7 @@ function SectionSteps({
   }, [rawSteps]);
 
   // Use visibility hook to evaluate which steps should be shown
-  const { isStepVisible } = useWorkflowVisibility(logicRules, steps, values);
+  const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
 
   if (!steps || steps.length === 0) {
     return <p className="text-muted-foreground text-sm">No steps in this section</p>;

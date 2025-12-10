@@ -59,19 +59,19 @@ export class WorkflowOptimizationService {
             try {
                 switch (fix.type) {
                     case "split_page":
-                        this.applySplitPage(updatedWorkflow, fix.payload);
+                        this.applySplitPage(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "merge_pages":
-                        this.applyMergePages(updatedWorkflow, fix.payload);
+                        this.applyMergePages(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "delete_block":
-                        this.applyDeleteBlock(updatedWorkflow, fix.payload);
+                        this.applyDeleteBlock(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "move_block":
-                        this.applyMoveBlock(updatedWorkflow, fix.payload);
+                        this.applyMoveBlock(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     // Add other fix types here

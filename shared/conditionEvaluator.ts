@@ -81,7 +81,11 @@ export function evaluateConditionExpressionWithDetails(
         evaluatedCount++;
         return evaluateSingleCondition(item, data, aliasResolver);
       }
-      return evaluateGroupDetailed(item);
+      if (item.type === "group") {
+        return evaluateGroupDetailed(item);
+      }
+      // Script conditions - not yet implemented
+      return false;
     });
 
     if (group.operator === "AND") {
@@ -121,8 +125,12 @@ function evaluateGroup(
     if (item.type === "condition") {
       return evaluateSingleCondition(item, data, aliasResolver);
     }
-    // Recursively evaluate nested group
-    return evaluateGroup(item, data, aliasResolver);
+    if (item.type === "group") {
+      // Recursively evaluate nested group
+      return evaluateGroup(item, data, aliasResolver);
+    }
+    // Script conditions - not yet implemented, equivalent to false/hidden for safety
+    return false;
   });
 
   if (group.operator === "AND") {
@@ -466,8 +474,11 @@ function describeGroup(
     if (item.type === "condition") {
       return describeCondition(item, variableLabels);
     }
-    const nested = describeGroup(item, variableLabels, depth + 1);
-    return depth > 0 ? `(${nested})` : nested;
+    if (item.type === "group") {
+      const nested = describeGroup(item, variableLabels, depth + 1);
+      return depth > 0 ? `(${nested})` : nested;
+    }
+    return "Script Expression";
   });
 
   const connector = group.operator === "AND" ? " AND " : " OR ";
@@ -525,6 +536,14 @@ function getOperatorLabel(operator: ComparisonOperator): string {
     not_includes: "doesn't include",
     includes_all: "includes all of",
     includes_any: "includes any of",
+    diff_days: "difference in days",
+    diff_weeks: "difference in weeks",
+    diff_months: "difference in months",
+    diff_years: "difference in years",
+    before: "is before",
+    after: "is after",
+    on_or_before: "is on or before",
+    on_or_after: "is on or after",
   };
   return labels[operator] || operator;
 }

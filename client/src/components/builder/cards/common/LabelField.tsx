@@ -11,6 +11,7 @@ interface LabelFieldProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  description?: string;
 }
 
 export function LabelField({ value, onChange, placeholder = "Enter question text..." }: LabelFieldProps) {
@@ -29,6 +30,7 @@ export function LabelField({ value, onChange, placeholder = "Enter question text
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">Question Text</Label>
+      {/* description prop is currently unused in UI but exists for compatibility */}
       <Input
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}

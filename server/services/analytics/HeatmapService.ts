@@ -27,7 +27,7 @@ class HeatmapService {
                 )
             );
 
-        return metrics.map(m => {
+        return metrics.map((m: any) => {
             const visits = m.totalVisits || 0;
             const errors = m.validationErrorCount || 0;
             const errorRate = visits > 0 ? (errors / visits) * 100 : 0;
