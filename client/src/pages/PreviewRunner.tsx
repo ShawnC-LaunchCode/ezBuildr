@@ -10,14 +10,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PreviewSidebar } from "@/components/runner/PreviewSidebar";
 import { FillPageWithRandomDataButton } from "@/components/runner/FillPageWithRandomDataButton";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
+import { BlockRenderer } from "@/components/runner/blocks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePreviewStore } from "@/store/preview";
 import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
@@ -644,6 +640,12 @@ function SectionSteps({ runId, runToken, sectionId, values, logicRules, allWorkf
   );
 }
 
+/**
+ * StepField - Thin wrapper around BlockRenderer
+ *
+ * Now uses the new comprehensive BlockRenderer system that supports
+ * all block types with proper validation and nested data handling.
+ */
 interface StepFieldProps {
   step: ApiStep;
   value: any;
@@ -651,98 +653,13 @@ interface StepFieldProps {
 }
 
 function StepField({ step, value, onChange }: StepFieldProps) {
-  const renderInput = () => {
-    switch (step.type) {
-      case "short_text":
-        return (
-          <Input
-            value={value || ""}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Your answer..."
-          />
-        );
-
-      case "long_text":
-        return (
-          <Textarea
-            value={value || ""}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Your answer..."
-            rows={4}
-          />
-        );
-
-      case "radio":
-        return (
-          <RadioGroup value={value || ""} onValueChange={onChange}>
-            {step.options?.options?.map((option: string, i: number) => (
-              <div key={i} className="flex items-center space-x-2">
-                <RadioGroupItem value={option} id={`${step.id}-${i}`} />
-                <Label htmlFor={`${step.id}-${i}`}>{option}</Label>
-              </div>
-            ))}
-          </RadioGroup>
-        );
-
-      case "multiple_choice":
-        const currentValues = Array.isArray(value) ? value : [];
-        return (
-          <div className="space-y-2">
-            {step.options?.options?.map((option: string, i: number) => (
-              <div key={i} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`${step.id}-${i}`}
-                  checked={currentValues.includes(option)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      onChange([...currentValues, option]);
-                    } else {
-                      onChange(currentValues.filter((v: string) => v !== option));
-                    }
-                  }}
-                />
-                <Label htmlFor={`${step.id}-${i}`}>{option}</Label>
-              </div>
-            ))}
-          </div>
-        );
-
-      case "yes_no":
-        return (
-          <RadioGroup
-            value={value?.toString() || ""}
-            onValueChange={(v) => onChange(v === "true")}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="true" id={`${step.id}-yes`} />
-              <Label htmlFor={`${step.id}-yes`}>Yes</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="false" id={`${step.id}-no`} />
-              <Label htmlFor={`${step.id}-no`}>No</Label>
-            </div>
-          </RadioGroup>
-        );
-
-      case "date_time":
-        const dateTimeType = step.options?.dateTimeType || "datetime";
-        const inputType =
-          dateTimeType === "date" ? "date" : dateTimeType === "time" ? "time" : "datetime-local";
-        return <Input type={inputType} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
-
-      default:
-        return <Input value={value || ""} onChange={(e) => onChange(e.target.value)} />;
-    }
-  };
-
   return (
-    <div className="space-y-2">
-      <Label>
-        {step.title}
-        {step.required && <span className="text-destructive ml-1">*</span>}
-      </Label>
-      {step.description && <p className="text-sm text-muted-foreground">{step.description}</p>}
-      {renderInput()}
-    </div>
+    <BlockRenderer
+      step={step}
+      value={value}
+      onChange={onChange}
+      required={step.required}
+      readOnly={false}
+    />
   );
 }

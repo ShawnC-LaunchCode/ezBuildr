@@ -17,7 +17,23 @@ import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { useDeleteStep, useDeleteBlock, useDeleteTransformBlock, useUpdateStep, useUpdateTransformBlock } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
+import { getBlockByType } from "@/lib/blockRegistry";
 import type { PageItem } from "@/lib/dnd";
+import {
+  TextCardEditor,
+  BooleanCardEditor,
+  PhoneCardEditor,
+  EmailCardEditor,
+  WebsiteCardEditor,
+  NumberCardEditor,
+  ChoiceCardEditor,
+  AddressCardEditor,
+  MultiFieldCardEditor,
+  ScaleCardEditor,
+  DisplayCardEditor,
+  FinalBlockEditor,
+  SignatureBlockEditor,
+} from "@/components/builder/cards";
 
 interface BlockCardProps {
   item: PageItem;
@@ -27,16 +43,6 @@ interface BlockCardProps {
   onToggleExpand?: () => void;
   onEnterNext?: () => void;
 }
-
-const STEP_TYPE_LABELS: Record<string, string> = {
-  short_text: "Short Text",
-  long_text: "Long Text",
-  radio: "Radio",
-  multiple_choice: "Multiple Choice",
-  yes_no: "Yes/No",
-  date_time: "Date/Time",
-  file_upload: "File Upload",
-};
 
 const BLOCK_TYPE_ICONS: Record<string, any> = {
   prefill: Database,
@@ -204,6 +210,84 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
     }
   };
 
+  const renderStepEditor = (step: any, workflowId: string, sectionId: string) => {
+    const stepType = step.type;
+
+    // Text blocks
+    if (stepType === "short_text" || stepType === "long_text" || stepType === "text") {
+      return <TextCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Boolean blocks
+    if (stepType === "yes_no" || stepType === "true_false" || stepType === "boolean") {
+      return <BooleanCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Phone block
+    if (stepType === "phone") {
+      return <PhoneCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Email block
+    if (stepType === "email") {
+      return <EmailCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Website block
+    if (stepType === "website") {
+      return <WebsiteCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Number/Currency blocks
+    if (stepType === "number" || stepType === "currency") {
+      return <NumberCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Choice blocks (radio, multiple_choice, choice)
+    if (stepType === "radio" || stepType === "multiple_choice" || stepType === "choice") {
+      return <ChoiceCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Address block
+    if (stepType === "address") {
+      return <AddressCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Multi-field block
+    if (stepType === "multi_field") {
+      return <MultiFieldCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Scale block
+    if (stepType === "scale") {
+      return <ScaleCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Display block
+    if (stepType === "display") {
+      return <DisplayCardEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Final block
+    if (stepType === "final_documents") {
+      return <FinalBlockEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Signature block
+    if (stepType === "signature_block") {
+      return <SignatureBlockEditor stepId={step.id} sectionId={sectionId} step={step} />;
+    }
+
+    // Default fallback - show a message
+    return (
+      <div className="p-4 border-t bg-muted/30">
+        <p className="text-sm text-muted-foreground">
+          Editor for {stepType} blocks is not yet implemented.
+        </p>
+      </div>
+    );
+  };
+
   return (
     <div ref={setNodeRef} style={style}>
       <Card
@@ -287,7 +371,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
                   )}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">
-                      {STEP_TYPE_LABELS[item.data.type] || item.data.type}
+                      {getBlockByType(item.data.type)?.label || item.data.type}
                     </Badge>
                     {editingAlias && isSelected ? (
                       <Input
@@ -373,7 +457,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
             </Button>
           </div>
 
-          {/* Expanded Content - JS Block Editor */}
+          {/* Expanded Content - Block Editors */}
           {isExpanded && item.kind === "block" && item.data.type === "js" && (
             <div className="mt-3 pt-3 border-t">
               <JSBlockEditor
@@ -381,6 +465,13 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
                 onChange={handleJSBlockChange}
                 workflowId={workflowId}
               />
+            </div>
+          )}
+
+          {/* Expanded Content - Step Card Editors */}
+          {isExpanded && item.kind === "step" && (
+            <div className="mt-0">
+              {renderStepEditor(item.data, workflowId, sectionId)}
             </div>
           )}
         </CardContent>

@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Camera, Plus, Trash2, Eye, Play, Edit2, AlertCircle } from "lucide-react";
+import { Camera, Plus, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,32 +88,15 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
     }
   };
 
-  // Handle preview with snapshot (creates run and navigates)
+  // Handle preview with snapshot (navigate to new WorkflowPreview with snapshot parameter)
   const handlePreview = async (snapshot: ApiSnapshot) => {
-    setIsCreatingRun(true);
-    try {
-      const result = await runAPI.create(workflowId, { snapshotId: snapshot.id });
-      const { runId, runToken } = result.data;
+    toast({
+      title: "Preview Started",
+      description: `Running with snapshot "${snapshot.name}"`,
+    });
 
-      // Store run token for preview using preview store
-      setPreviewToken(runId, runToken);
-
-      toast({
-        title: "Preview Started",
-        description: `Running with snapshot "${snapshot.name}"`,
-      });
-
-      // Navigate to preview
-      setLocation(`/preview/${runId}`);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create preview run",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingRun(false);
-    }
+    // Navigate to workflow preview with snapshot ID
+    setLocation(`/workflows/${workflowId}/preview?snapshotId=${snapshot.id}`);
   };
 
   // Handle view snapshot data
@@ -181,9 +164,25 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
             <TableBody>
               {snapshots?.map((snapshot) => {
                 const valueCount = Object.keys(snapshot.values).length;
+                // Show outdated indicator if no versionHash (old snapshot) or hash missing
+                const isOutdated = !snapshot.versionHash;
+
                 return (
                   <TableRow key={snapshot.id}>
-                    <TableCell className="font-medium">{snapshot.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {snapshot.name}
+                        {isOutdated && (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
+                            title="Snapshot may be outdated - created before versioning was enabled"
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            <span className="hidden sm:inline">May be outdated</span>
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {valueCount} {valueCount === 1 ? 'value' : 'values'}
                     </TableCell>
@@ -193,7 +192,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
                         size="sm"
                         variant="default"
                         onClick={() => handlePreview(snapshot)}
-                        disabled={isCreatingRun}
                       >
                         <Play className="w-3 h-3 mr-1" />
                         Preview

@@ -1,3 +1,4 @@
+
 /**
  * Stage 21: Template Management Panel
  *
@@ -7,7 +8,7 @@
  * - Attach/detach templates
  * - Set template keys
  * - Mark primary template
- * - Upload new templates
+ * - Upload new templates (AI Wizard)
  * - Configure template bindings
  */
 
@@ -34,6 +35,8 @@ import {
 import { Badge } from '../../../components/ui/badge';
 import { FileText, Plus, Upload, Trash2, Star, StarOff, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { DocumentTemplateEditor } from './DocumentTemplateEditor';
+import { TemplateUploadWizard } from './TemplateUploadWizard';
 
 interface WorkflowTemplate {
   id: string;
@@ -78,6 +81,8 @@ export function TemplateManagementPanel({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [templateKey, setTemplateKey] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
+  const [editingTemplateContentId, setEditingTemplateContentId] = useState<string | null>(null);
+  const [isUploadWizardOpen, setIsUploadWizardOpen] = useState(false);
 
   // Fetch attached templates
   const { data: attachedTemplates, isLoading: loadingAttached } = useQuery({
@@ -103,7 +108,7 @@ export function TemplateManagementPanel({
   const { data: projectTemplates, isLoading: loadingProject } = useQuery({
     queryKey: ['project-templates', projectId],
     queryFn: async () => {
-      const response = await fetch(`/api/templates?projectId=${projectId}`, {
+      const response = await fetch(`/api/projects/${projectId}/templates`, {
         credentials: 'include',
       });
 
@@ -244,79 +249,96 @@ export function TemplateManagementPanel({
           Templates
         </h2>
 
-        <Dialog open={isAttachDialogOpen} onOpenChange={setIsAttachDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1" />
-              Attach
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setIsUploadWizardOpen(true)}>
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Dialog open={isAttachDialogOpen} onOpenChange={setIsAttachDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Plus className="h-4 w-4 mr-1" />
+                Attach
+              </Button>
+            </DialogTrigger>
 
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Attach Template to Workflow</DialogTitle>
-            </DialogHeader>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Attach Template to Workflow</DialogTitle>
+              </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="template">Template</Label>
-                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                  <SelectTrigger id="template">
-                    <SelectValue placeholder="Select a template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTemplates?.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {loadingProject && <p className="text-sm text-gray-500">Loading templates...</p>}
-                {availableTemplates?.length === 0 && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="template">Template</Label>
+                  <Select
+                    value={selectedTemplateId}
+                    onValueChange={(value) => {
+                      setSelectedTemplateId(value);
+                      // Auto-fill the display name with the template name
+                      const template = availableTemplates?.find((t) => t.id === value);
+                      if (template && !templateKey) {
+                        setTemplateKey(template.name);
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="template">
+                      <SelectValue placeholder="Select a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTemplates?.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {loadingProject && <p className="text-sm text-gray-500">Loading templates...</p>}
+                  {availableTemplates?.length === 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 mb-2">
+                        No available templates. Upload templates to your project first.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="key">Display Name</Label>
+                  <Input
+                    id="key"
+                    placeholder="e.g., engagement_letter, schedule_a"
+                    value={templateKey}
+                    onChange={(e) => setTemplateKey(e.target.value)}
+                  />
                   <p className="text-sm text-gray-500">
-                    No available templates. Upload templates to your project first.
+                    Unique identifier for this template (used in Template nodes)
                   </p>
-                )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="primary"
+                    checked={isPrimary}
+                    onChange={(e) => setIsPrimary(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="primary" className="cursor-pointer">
+                    Set as primary template
+                  </Label>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="key">Template Key</Label>
-                <Input
-                  id="key"
-                  placeholder="e.g., engagement_letter, schedule_a"
-                  value={templateKey}
-                  onChange={(e) => setTemplateKey(e.target.value)}
-                />
-                <p className="text-sm text-gray-500">
-                  Unique identifier for this template (used in Template nodes)
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="primary"
-                  checked={isPrimary}
-                  onChange={(e) => setIsPrimary(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="primary" className="cursor-pointer">
-                  Set as primary template
-                </Label>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAttachDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAttach} disabled={attachMutation.isPending}>
-                {attachMutation.isPending ? 'Attaching...' : 'Attach Template'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAttachDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAttach} disabled={attachMutation.isPending}>
+                  {attachMutation.isPending ? 'Attaching...' : 'Attach Template'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {loadingAttached ? (
@@ -372,6 +394,14 @@ export function TemplateManagementPanel({
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingTemplateContentId(mapping.templateId)}
+                    title="AI Assist & Edit"
+                  >
+                    <Settings className="h-4 w-4 text-purple-500" />
+                  </Button>
                 </div>
               </div>
 
@@ -393,6 +423,21 @@ export function TemplateManagementPanel({
           templates. The primary template will be used by default.
         </p>
       </div>
+
+      {editingTemplateContentId && (
+        <DocumentTemplateEditor
+          templateId={editingTemplateContentId}
+          isOpen={!!editingTemplateContentId}
+          onClose={() => setEditingTemplateContentId(null)}
+          workflowVariables={[]} // TODO: Pass actual workflow variables
+        />
+      )}
+
+      <TemplateUploadWizard
+        projectId={projectId}
+        open={isUploadWizardOpen}
+        onOpenChange={setIsUploadWizardOpen}
+      />
     </div>
   );
 }

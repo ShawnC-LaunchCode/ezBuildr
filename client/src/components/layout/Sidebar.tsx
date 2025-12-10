@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 import logo from "@/assets/images/logo.jpg";
+import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -37,16 +39,18 @@ export default function Sidebar() {
   const isAdmin = (user as any)?.role === 'admin';
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: "fas fa-home" },
-    { name: "Workflows", href: "/workflows", icon: "fas fa-list-ul" },
-    { name: "DataVault", href: "/datavault", icon: "fas fa-database" },
-    { name: "Settings", href: "/settings", icon: "fas fa-cog" },
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Workflows", href: "/workflows", icon: Workflow },
+    { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
+    { name: "Billing", href: "/billing", icon: CreditCard },
+    { name: "DataVault", href: "/datavault", icon: Folder },
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
   const adminNavigation = [
-    { name: "Admin Dashboard", href: "/admin", icon: "fas fa-shield-alt" },
-    { name: "Manage Users", href: "/admin/users", icon: "fas fa-users-cog" },
-    { name: "Activity Logs", href: "/admin/logs", icon: "fas fa-clipboard-list" },
+    { name: "Admin Dashboard", href: "/admin", icon: Shield },
+    { name: "Manage Users", href: "/admin/users", icon: Users },
+    { name: "Activity Logs", href: "/admin/logs", icon: List },
   ];
 
   const isActive = (href: string) => {
@@ -80,14 +84,13 @@ export default function Sidebar() {
         {navigation.map((item) => (
           <Link key={item.name} href={item.href}>
             <div
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-                isActive(item.href)
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
+              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
               data-testid={`link-${item.name.toLowerCase().replace(' ', '-')}`}
             >
-              <i className={`${item.icon} w-5`}></i>
+              <item.icon className="w-5 h-5" />
               <span className="font-medium text-sm sm:text-base">{item.name}</span>
             </div>
           </Link>
@@ -104,14 +107,13 @@ export default function Sidebar() {
             {adminNavigation.map((item) => (
               <Link key={item.name} href={item.href}>
                 <div
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-                    isActive(item.href)
-                      ? "bg-purple-600 text-white"
-                      : "text-muted-foreground hover:text-foreground hover:bg-purple-50"
-                  }`}
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
+                    ? "bg-purple-600 text-white"
+                    : "text-muted-foreground hover:text-foreground hover:bg-purple-50"
+                    }`}
                   data-testid={`link-${item.name.toLowerCase().replace(' ', '-')}`}
                 >
-                  <i className={`${item.icon} w-5`}></i>
+                  <item.icon className="w-5 h-5" />
                   <span className="font-medium text-sm sm:text-base">{item.name}</span>
                 </div>
               </Link>
@@ -133,12 +135,11 @@ export default function Sidebar() {
               />
             ) : (
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <i className="fas fa-user text-primary"></i>
+                <i className="fas fa-user-circle text-primary text-xl"></i>
               </div>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
-                <i className="fas fa-user-circle text-primary text-sm"></i>
                 <p className="text-sm font-medium text-foreground truncate" data-testid="text-user-name">
                   {user?.firstName || user?.lastName
                     ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
@@ -146,7 +147,7 @@ export default function Sidebar() {
                   }
                 </p>
               </div>
-              <p className="text-xs text-muted-foreground truncate ml-6" data-testid="text-user-email">
+              <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
                 {user?.email || ""}
               </p>
             </div>
@@ -158,7 +159,6 @@ export default function Sidebar() {
             data-testid="button-logout"
             className="w-full flex items-center justify-center space-x-2 h-9"
           >
-            <i className="fas fa-sign-out-alt text-sm"></i>
             <span className="text-xs sm:text-sm">Logout</span>
           </Button>
         </div>

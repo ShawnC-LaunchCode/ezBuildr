@@ -6,11 +6,12 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import axios from "axios";
-import { Upload, FileText, Trash2, RefreshCw, TestTube } from "lucide-react";
+import { Upload, FileText, Trash2, RefreshCw, TestTube, AlertCircle } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -45,6 +46,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [templateKey, setTemplateKey] = useState("");
+  const [workflowProjectId, setWorkflowProjectId] = useState<string | null>(null);
 
   // Fetch workflow to get projectId, then fetch templates
   const fetchTemplates = async () => {
@@ -53,6 +55,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       const workflowResponse = await axios.get(`/api/workflows/${workflowId}`);
       const workflow = workflowResponse.data;
       const projectId = workflow.projectId;
+
+      // Store projectId in state to show warning banner if null
+      setWorkflowProjectId(projectId || null);
 
       if (!projectId) {
         console.warn("Workflow has no projectId");
@@ -211,14 +216,14 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Document Templates</h2>
-            <p className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               Upload and manage document templates for this workflow
-            </p>
+            </div>
           </div>
 
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button disabled={workflowProjectId === null}>
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Template
               </Button>
@@ -238,21 +243,29 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                     id="file"
                     type="file"
                     accept=".docx,.pdf"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setSelectedFile(file);
+                      // Auto-fill the display name with the filename (without extension)
+                      if (file && !templateKey) {
+                        const filename = file.name.replace(/\.[^/.]+$/, '');
+                        setTemplateKey(filename);
+                      }
+                    }}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="key">Template Key</Label>
+                  <Label htmlFor="key">Display Name</Label>
                   <Input
                     id="key"
                     placeholder="e.g., contract_v1, invoice"
                     value={templateKey}
                     onChange={(e) => setTemplateKey(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     Unique identifier for referencing this template
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -270,19 +283,42 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       </BuilderLayoutHeader>
 
       <BuilderLayoutContent>
-        {templates.length === 0 ? (
+        {/* Warning banner when workflow is not in a project */}
+        {workflowProjectId === null && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Project Required</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                This workflow is not associated with a project. Templates must be uploaded to a project.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/workflows/${workflowId}/builder?tab=settings`)}
+                className="ml-4"
+              >
+                Go to Settings
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {templates.length === 0 && workflowProjectId !== null && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No templates yet</h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+            <div className="text-sm text-muted-foreground mb-4 max-w-sm">
               Upload your first document template to start generating documents from workflow data
-            </p>
+            </div>
             <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />
               Upload Template
             </Button>
           </div>
-        ) : (
+        )}
+
+        {templates.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((template) => (
               <Card key={template.id}>

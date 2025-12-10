@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck } from "lucide-react";
+import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles } from "lucide-react";
 import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { LogicIndicator } from "@/components/logic";
 import { BlocksPanel } from "./BlocksPanel";
 import { TransformBlocksPanel } from "./TransformBlocksPanel";
+import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import {
   DndContext,
   closestCenter,
@@ -48,6 +49,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showBlocksDialog, setShowBlocksDialog] = useState(false);
   const [showTransformDialog, setShowTransformDialog] = useState(false);
+  const [showAiDialog, setShowAiDialog] = useState(false);
 
   const handleCreateSection = async () => {
     const order = sections?.length || 0;
@@ -132,6 +134,17 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
             </Button>
           </div>
         )}
+
+        {/* AI Assistant Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
+          onClick={() => setShowAiDialog(true)}
+        >
+          <Sparkles className="w-3 h-3 mr-2" />
+          AI Assistant
+        </Button>
       </div>
 
       <ScrollArea className="flex-1">
@@ -167,6 +180,12 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           <TransformBlocksPanel workflowId={workflowId} />
         </DialogContent>
       </Dialog>
+
+      <AiAssistantDialog
+        workflowId={workflowId}
+        open={showAiDialog}
+        onOpenChange={setShowAiDialog}
+      />
     </div>
   );
 }

@@ -44,7 +44,7 @@ export function TemplateUploadDialog({
 
   const uploadMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await fetch(`/api/templates?projectId=${projectId}`, {
+      const response = await fetch(`/api/projects/${projectId}/templates`, {
         method: 'POST',
         credentials: 'include',
         body: data,

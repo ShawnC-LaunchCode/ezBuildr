@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
+import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
@@ -17,6 +17,7 @@ export const queryKeys = {
   workflows: ["workflows"] as const,
   workflowsUnfiled: ["workflows", "unfiled"] as const,
   workflow: (id: string) => ["workflows", id] as const,
+  versions: (workflowId: string) => ["workflows", workflowId, "versions"] as const,
   snapshots: (workflowId: string) => ["workflows", workflowId, "snapshots"] as const,
   snapshot: (workflowId: string, snapshotId: string) => ["workflows", workflowId, "snapshots", snapshotId] as const,
   variables: (workflowId: string) => ["workflows", workflowId, "variables"] as const,
@@ -181,6 +182,75 @@ export function useDeleteWorkflow() {
   });
 }
 
+export function useReviseWorkflow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      workflowId: string;
+      currentWorkflow: any;
+      userInstruction: string;
+      conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      mode?: 'easy' | 'advanced';
+    }) =>
+      fetch('/api/ai/workflows/revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to revise workflow');
+        }
+        return res.json();
+      }),
+    onSuccess: (data) => {
+      // User must review and apply manually
+    },
+  });
+}
+
+export function useConnectLogic() {
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch('/api/ai/workflows/generate-logic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+        return res.json();
+      }),
+  });
+}
+
+export function useDebugLogic() {
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch('/api/ai/workflows/debug-logic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+        return res.json();
+      }),
+  });
+}
+
+export function useVisualizeLogic() {
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch('/api/ai/workflows/visualize-logic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+        return res.json();
+      }),
+  });
+}
+
 export function useMoveWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -195,6 +265,42 @@ export function useMoveWorkflow() {
         queryClient.invalidateQueries({ queryKey: queryKeys.project(data.projectId) });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useVersions(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.versions(workflowId!),
+    queryFn: () => versionAPI.list(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function usePublishWorkflow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, notes }: { workflowId: string; notes?: string }) =>
+      versionAPI.publish(workflowId, notes),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.versions(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+    },
+  });
+}
+
+export function useRestoreVersion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workflowId, versionId }: { workflowId: string; versionId: string }) =>
+      versionAPI.restore(workflowId, versionId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.versions(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+      // Invalidate everything basically
+      queryClient.invalidateQueries({ queryKey: ["workflows", variables.workflowId] });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -281,11 +387,11 @@ export function useWorkflowVariables(workflowId: string | undefined) {
 // Sections
 // ============================================================================
 
-export function useSections(workflowId: string | undefined) {
+export function useSections(workflowId: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.sections(workflowId!),
     queryFn: () => sectionAPI.list(workflowId!),
-    enabled: !!workflowId,
+    enabled: options?.enabled !== undefined ? options.enabled : !!workflowId,
   });
 }
 
@@ -395,11 +501,12 @@ export function useDeleteSection() {
 // Steps
 // ============================================================================
 
-export function useSteps(sectionId: string | undefined) {
+export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">) {
   return useQuery({
     queryKey: queryKeys.steps(sectionId!),
     queryFn: () => stepAPI.list(sectionId!),
     enabled: !!sectionId,
+    ...options,
   });
 }
 

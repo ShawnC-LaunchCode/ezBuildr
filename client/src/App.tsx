@@ -1,3 +1,4 @@
+
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminLogs from "@/pages/AdminLogs";
 import TemplatesPage from "@/pages/TemplatesPage";
+import Marketplace from "@/pages/Marketplace";
 import SettingsPage from "@/pages/SettingsPage";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import WorkflowDashboard from "@/pages/WorkflowDashboard";
@@ -20,7 +22,10 @@ import WorkflowBuilder from "@/pages/WorkflowBuilder";
 import VisualWorkflowBuilder from "@/pages/VisualWorkflowBuilder";
 import NewWorkflow from "@/pages/NewWorkflow";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
-import PreviewRunner from "@/pages/PreviewRunner";
+import { WorkflowAnalytics } from "@/pages/WorkflowAnalytics";
+import OptimizationWizard from "@/pages/optimization/OptimizationWizard";
+import WorkflowPreview from "@/pages/WorkflowPreview";
+import PreviewRunner from "@/pages/PreviewRunner"; // Legacy - to be deprecated
 import ProjectView from "@/pages/ProjectView";
 import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
 import RunDetails from "@/pages/RunDetails"; // Stage 8
@@ -40,6 +45,10 @@ import DataVaultDatabasesPage from "@/pages/datavault/databases"; // DataVault P
 import DatabaseDetailPage from "@/pages/datavault/[databaseId]"; // DataVault Phase 2
 import DatabaseSettingsPage from "@/pages/datavault/DatabaseSettingsPage"; // DataVault Phase 2: PR 13
 import UrlParametersDoc from "@/pages/docs/UrlParametersDoc"; // Documentation
+import BillingDashboard from "@/pages/billing/BillingDashboard";
+import PricingPage from "@/pages/billing/PricingPage";
+import PublicRunner from "@/pages/public/PublicRunner";
+import OAuthApps from "@/pages/developer/OAuthApps";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,13 +56,21 @@ function Router() {
   return (
     <>
       <Switch>
+        {/* Public Workflow Runner */}
+        <Route path="/w/:slug" component={PublicRunner} />
+
         {/* Workflow runner - available to everyone */}
         <Route path="/run/:id">
           {(params) => <WorkflowRunner runId={params.id} />}
         </Route>
 
-        {/* Preview runner - available to everyone (uses bearer token) */}
+        {/* Legacy preview runner (database-backed) - for backward compatibility */}
         <Route path="/preview/:id" component={PreviewRunner} />
+
+        {/* New preview mode (in-memory, no database) - authenticated only */}
+        {isAuthenticated && (
+          <Route path="/workflows/:workflowId/preview" component={WorkflowPreview} />
+        )}
 
         {/* Intake preview - public branded intake portal preview */}
         <Route path="/intake/preview" component={IntakePreviewPage} />
@@ -77,6 +94,8 @@ function Router() {
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
+            <Route path="/workflows/:id/analytics" component={WorkflowAnalytics} />
+            <Route path="/workflows/:workflowId/optimize" component={OptimizationWizard} />
             {/* Template Test Runner - PR1 */}
             <Route path="/workflows/:workflowId/builder/templates/test/:templateId">
               {(params) => <TemplateTestRunner />}
@@ -90,6 +109,7 @@ function Router() {
             <Route path="/runs/compare" component={RunsCompare} />
             <Route path="/runs/:id" component={RunDetails} />
 
+            <Route path="/marketplace" component={Marketplace} />
             <Route path="/templates" component={TemplatesPage} />
             <Route path="/settings" component={SettingsPage} />
             {/* Stage 17: Branding Settings */}
@@ -112,7 +132,14 @@ function Router() {
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/logs" component={AdminLogs} />
-            {/* 404 for authenticated users only */}
+
+            {/* Billing Routes */}
+            <Route path="/billing" component={BillingDashboard} />
+            <Route path="/billing/plans" component={PricingPage} />
+
+            {/* Developer Settings */}
+            <Route path="/developer/oauth" component={OAuthApps} />
+
             <Route component={NotFound} />
           </>
         )}

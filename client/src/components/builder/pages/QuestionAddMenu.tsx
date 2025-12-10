@@ -1,6 +1,10 @@
 /**
  * Question Add Menu Component
  * Dropdown menu for adding different question types to a page
+ *
+ * Uses the centralized Block Registry for block types and mode filtering
+ *
+ * @version 2.0.0 - Block System Overhaul
  */
 
 import { Plus } from "lucide-react";
@@ -9,12 +13,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import type { ApiStep } from "@/lib/vault-api";
+import {
+  getBlocksByCategory,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  type BlockRegistryEntry,
+} from "@/lib/blockRegistry";
 
 interface QuestionAddMenuProps {
   sectionId: string;
@@ -22,51 +33,28 @@ interface QuestionAddMenuProps {
   workflowId: string;
 }
 
-const QUESTION_TYPES = [
-  { value: "short_text", label: "Short Text", icon: "T", advancedOnly: false },
-  { value: "long_text", label: "Long Text", icon: "¶", advancedOnly: false },
-  { value: "radio", label: "Radio (Single Choice)", icon: "◉", advancedOnly: false },
-  { value: "multiple_choice", label: "Multiple Choice", icon: "☑", advancedOnly: false },
-  { value: "yes_no", label: "Yes/No", icon: "?", advancedOnly: false },
-  { value: "date_time", label: "Date/Time", icon: "📅", advancedOnly: false },
-  { value: "file_upload", label: "File Upload", icon: "📎", advancedOnly: false },
-  { value: "js_question", label: "JS Question", icon: "⚡", advancedOnly: true },
-] as const;
-
 export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAddMenuProps) {
   const createStepMutation = useCreateStep();
   const { toast } = useToast();
   const { selectStep } = useWorkflowBuilder();
   const { data: workflowMode } = useWorkflowMode(workflowId);
 
-  const mode = workflowMode?.mode || 'easy';
+  const mode = workflowMode?.mode || "easy";
 
-  const handleAddQuestion = async (type: ApiStep["type"]) => {
+  const handleAddQuestion = async (block: BlockRegistryEntry) => {
     try {
-      let options = null;
+      // Generate default config
+      const config = block.createDefaultConfig();
 
-      // Set type-specific options
-      if (type === "radio" || type === "multiple_choice") {
-        options = { options: ["Option 1", "Option 2", "Option 3"] };
-      } else if (type === "js_question") {
-        options = {
-          display: "hidden",
-          code: "return input;",
-          inputKeys: [],
-          outputKey: "computed_value",
-          timeoutMs: 1000,
-          helpText: "",
-        };
-      }
-
+      // Create the step
       const step = await createStepMutation.mutateAsync({
         sectionId,
-        type,
-        title: `New ${QUESTION_TYPES.find((t) => t.value === type)?.label || "Question"}`,
+        type: block.type,
+        title: `New ${block.label}`,
         description: null,
         required: false,
         alias: null,
-        options,
+        options: config || null,
         order: nextOrder,
       });
 
@@ -75,9 +63,10 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
 
       toast({
         title: "Question added",
-        description: `${QUESTION_TYPES.find((t) => t.value === type)?.label} question created`,
+        description: `${block.label} question created`,
       });
     } catch (error) {
+      console.error("Failed to create question:", error);
       toast({
         title: "Error",
         description: "Failed to create question",
@@ -86,9 +75,12 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
     }
   };
 
-  // Filter question types based on mode
-  const availableTypes = QUESTION_TYPES.filter(
-    (type) => !type.advancedOnly || mode === 'advanced'
+  // Get blocks grouped by category for the current mode
+  const blocksByCategory = getBlocksByCategory(mode);
+
+  // Filter out empty categories and sort by defined order
+  const orderedCategories = CATEGORY_ORDER.filter(
+    (category) => blocksByCategory[category]?.length > 0
   );
 
   return (
@@ -99,15 +91,34 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
           Add Question
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        {availableTypes.map((type) => (
-          <DropdownMenuItem
-            key={type.value}
-            onClick={() => handleAddQuestion(type.value)}
-          >
-            <span className="mr-2 text-lg">{type.icon}</span>
-            {type.label}
-          </DropdownMenuItem>
+      <DropdownMenuContent align="start" className="w-64 max-h-[600px] overflow-y-auto">
+        {orderedCategories.map((category, categoryIndex) => (
+          <div key={category}>
+            {categoryIndex > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS[category]}
+            </DropdownMenuLabel>
+            {blocksByCategory[category].map((block) => {
+              const Icon = block.icon;
+              return (
+                <DropdownMenuItem
+                  key={block.type}
+                  onClick={() => handleAddQuestion(block)}
+                  className="cursor-pointer"
+                >
+                  <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col">
+                    <span>{block.label}</span>
+                    {block.description && (
+                      <span className="text-xs text-muted-foreground">
+                        {block.description}
+                      </span>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

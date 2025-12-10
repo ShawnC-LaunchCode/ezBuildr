@@ -52,6 +52,11 @@ async function fetchAPI<T>(
     window.dispatchEvent(new CustomEvent('workflow-auto-reverted'));
   }
 
+  // Handle 204 No Content - don't try to parse JSON from empty response
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json();
 }
 
@@ -135,9 +140,14 @@ export interface ApiProjectWithWorkflows extends ApiProject {
 }
 
 export const projectAPI = {
-  list: (activeOnly?: boolean) => {
+  list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
     const query = activeOnly ? '?active=true' : '';
-    return fetchAPI<ApiProject[]>(`/api/projects${query}`);
+    const response = await fetchAPI<ApiProject[] | { items: ApiProject[], nextCursor: string | null, hasMore: boolean }>(`/api/projects${query}`);
+    // Handle both paginated and non-paginated responses
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response.items || [];
   },
 
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
@@ -223,6 +233,44 @@ export const workflowAPI = {
 };
 
 // ============================================================================
+// Workflow Versions
+// ============================================================================
+
+export interface ApiWorkflowVersion {
+  id: string;
+  workflowId: string;
+  versionNumber: number;
+  isDraft: boolean;
+  notes?: string;
+  createdAt: string;
+  publishedAt?: string;
+  createdBy: string;
+}
+
+export const versionAPI = {
+  list: async (workflowId: string) => {
+    const response = await fetchAPI<{ success: boolean; data: ApiWorkflowVersion[] }>(
+      `/api/workflows/${workflowId}/versions`
+    );
+    return response.data || [];
+  },
+
+  publish: (workflowId: string, notes?: string) =>
+    fetchAPI<ApiWorkflowVersion>(`/api/workflows/${workflowId}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ notes }),
+    }),
+
+  restore: (workflowId: string, versionId: string) =>
+    fetchAPI<void>(`/api/workflows/${workflowId}/versions/${versionId}/restore`, {
+      method: "POST",
+    }),
+
+  diff: (workflowId: string, versionId1: string, versionId2: string) =>
+    fetchAPI<any>(`/api/workflows/${workflowId}/diff?v1=${versionId1}&v2=${versionId2}`),
+};
+
+// ============================================================================
 // Workflow Snapshots
 // ============================================================================
 
@@ -230,11 +278,8 @@ export interface ApiSnapshot {
   id: string;
   workflowId: string;
   name: string;
-  values: Record<string, {
-    value: any;
-    stepId: string;
-    stepUpdatedAt: string;
-  }>;
+  values: Record<string, any>;  // Simple key-value pairs (alias -> value)
+  versionHash?: string;  // Hash of workflow structure at snapshot creation
   createdAt: string;
   updatedAt: string;
 }
@@ -516,6 +561,7 @@ export const transformBlockAPI = {
 export interface ApiRun {
   id: string;
   workflowId: string;
+  versionId: string;
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;

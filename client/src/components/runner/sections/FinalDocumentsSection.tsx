@@ -4,10 +4,11 @@
  */
 
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import DOMPurify from "isomorphic-dompurify";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
@@ -34,26 +35,49 @@ interface GeneratedDocument {
 export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
   const { screenTitle, markdownMessage } = sectionConfig;
 
+  // Validate runId - don't proceed if it's null/undefined/empty
+  const isValidRunId = runId && runId !== 'null' && runId !== 'undefined';
+
   // Mutation to trigger document generation
   const generateDocsMutation = useMutation({
     mutationFn: async () => {
+      if (!isValidRunId) {
+        throw new Error('Invalid run ID');
+      }
+      console.log('[FinalDocumentsSection] Triggering document generation for runId:', runId);
       const headers: Record<string, string> = {};
       if (runToken) {
         headers['Authorization'] = `Bearer ${runToken}`;
       }
-      await axios.post(`/api/runs/${runId}/generate-documents`, {}, { headers });
+      const response = await axios.post(`/api/runs/${runId}/generate-documents`, {}, { headers });
+      console.log('[FinalDocumentsSection] Document generation response:', response.data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('[FinalDocumentsSection] Document generation succeeded:', data);
+    },
+    onError: (error) => {
+      console.error('[FinalDocumentsSection] Document generation failed:', error);
     },
   });
 
-  // Trigger document generation when component mounts
+  // Trigger document generation when component mounts - only if runId is valid
   useEffect(() => {
-    generateDocsMutation.mutate();
+    if (isValidRunId) {
+      console.log('[FinalDocumentsSection] Mounting with runId:', runId, 'runToken:', runToken ? 'present' : 'missing');
+      generateDocsMutation.mutate();
+    } else {
+      console.warn('[FinalDocumentsSection] Invalid runId:', runId);
+    }
   }, [runId]); // Only run once when runId changes
 
-  // Fetch generated documents for this run
+  // Fetch generated documents for this run - only if runId is valid
   const { data: documents = [], isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
     queryFn: async () => {
+      if (!isValidRunId) {
+        throw new Error('Invalid run ID');
+      }
       const headers: Record<string, string> = {};
       if (runToken) {
         headers['Authorization'] = `Bearer ${runToken}`;
@@ -61,7 +85,11 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`, { headers });
       return response.data.documents;
     },
+    enabled: isValidRunId, // Only fetch if runId is valid
     refetchInterval: (query) => {
+      // Only refetch if runId is valid
+      if (!isValidRunId) return false;
+
       // If no documents yet, refetch every 2 seconds until they're ready
       const docs = query.state.data as GeneratedDocument[] | undefined;
       if (!docs || docs.length === 0) {
@@ -90,6 +118,27 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     return '📎';
   };
 
+  // Show error if runId is invalid
+  if (!isValidRunId) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-destructive">Unable to Load Documents</CardTitle>
+            <CardDescription>
+              The workflow run could not be identified. Please ensure you're accessing this page from a valid workflow run.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Run ID: <code className="px-2 py-1 bg-muted rounded">{runId || 'Not provided'}</code>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       {/* Screen Title */}
@@ -101,8 +150,16 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       <Card>
         <CardContent className="pt-6">
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {markdownMessage}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              urlTransform={(url) => {
+                if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("mailto:")) {
+                  return url;
+                }
+                return "#";
+              }}
+            >
+              {DOMPurify.sanitize(markdownMessage, { ALLOWED_TAGS: [] })}
             </ReactMarkdown>
           </div>
         </CardContent>
@@ -123,6 +180,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           {error ? (
             <div className="text-center py-8 text-destructive">
               <p className="text-sm">Failed to load documents. Please try again.</p>
+              <p className="text-xs text-muted-foreground mt-2">{error instanceof Error ? error.message : 'Unknown error'}</p>
             </div>
           ) : documents.length === 0 ? (
             <div className="text-center py-8 space-y-4">
