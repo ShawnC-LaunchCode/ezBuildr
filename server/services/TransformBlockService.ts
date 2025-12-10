@@ -52,7 +52,7 @@ export class TransformBlockService {
     data: Omit<InsertTransformBlock, "workflowId">
   ): Promise<TransformBlock> {
     // Verify ownership
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Validate code size
     if (data.code.length > 32 * 1024) {
@@ -112,7 +112,7 @@ export class TransformBlockService {
    * List all transform blocks for a workflow
    */
   async listBlocks(workflowId: string, userId: string): Promise<TransformBlock[]> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
     return await this.blockRepo.findByWorkflowId(workflowId);
   }
 
@@ -126,7 +126,7 @@ export class TransformBlockService {
     }
 
     // Verify ownership of the workflow
-    await this.workflowSvc.verifyOwnership(block.workflowId, userId);
+    await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
     return block;
   }
