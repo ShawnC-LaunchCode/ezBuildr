@@ -27,7 +27,7 @@ export class VariableService {
    */
   async listVariables(workflowId: string, userId: string): Promise<WorkflowVariable[]> {
     // Verify ownership
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Get all sections for the workflow
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);

@@ -5,6 +5,7 @@ import { computeChecksum, verifyChecksum } from "../utils/checksum";
 import { computeVersionDiff, type VersionDiff } from "../utils/diff";
 import { createLogger } from "../logger";
 import type { WorkflowVersion } from "@shared/schema";
+import { aclService } from "./AclService";
 
 const logger = createLogger({ module: "version-service" });
 
@@ -25,7 +26,20 @@ export class VersionService {
   /**
    * List all versions for a workflow
    */
-  async listVersions(workflowId: string): Promise<WorkflowVersion[]> {
+  async listVersions(workflowId: string, userId?: string): Promise<WorkflowVersion[]> {
+    // If userId is provided, verify user has access to the workflow
+    console.log(`[VersionService] listVersions called with workflowId: ${workflowId}, userId: ${userId}, userId type: ${typeof userId}`);
+    if (userId) {
+      console.log(`[VersionService] Checking access for user ${userId} on workflow ${workflowId}`);
+      const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
+      console.log(`[VersionService] hasAccess result: ${hasAccess}`);
+      if (!hasAccess) {
+        console.log(`[VersionService] Access DENIED for user ${userId} on workflow ${workflowId}`);
+        throw new Error("Access denied - insufficient permissions for this workflow");
+      }
+      console.log(`[VersionService] Access GRANTED for user ${userId} on workflow ${workflowId}`);
+    }
+
     const versions = await db
       .select()
       .from(workflowVersions)

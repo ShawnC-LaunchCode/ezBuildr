@@ -31,7 +31,7 @@ export class SectionService {
     userId: string,
     data: Omit<InsertSection, 'workflowId'>
   ): Promise<Section> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Get current sections to determine next order
     const existingSections = await this.sectionRepo.findByWorkflowId(workflowId);
@@ -55,7 +55,7 @@ export class SectionService {
     userId: string,
     data: Partial<InsertSection>
   ): Promise<Section> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
@@ -69,7 +69,7 @@ export class SectionService {
    * Delete section
    */
   async deleteSection(sectionId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
@@ -87,7 +87,7 @@ export class SectionService {
     userId: string,
     sectionOrders: Array<{ id: string; order: number }>
   ): Promise<void> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Update each section's order
     for (const { id, order } of sectionOrders) {
@@ -99,7 +99,7 @@ export class SectionService {
    * Get sections for a workflow
    */
   async getSections(workflowId: string, userId: string): Promise<Section[]> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
     return await this.sectionRepo.findByWorkflowId(workflowId);
   }
 
@@ -115,7 +115,7 @@ export class SectionService {
    * Get section with steps
    */
   async getSectionWithSteps(sectionId: string, workflowId: string, userId: string) {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
@@ -143,7 +143,7 @@ export class SectionService {
       throw new Error("Section not found");
     }
 
-    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+    await this.workflowSvc.verifyAccess(section.workflowId, userId);
     return await this.sectionRepo.update(sectionId, data);
   }
 
@@ -156,7 +156,7 @@ export class SectionService {
       throw new Error("Section not found");
     }
 
-    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+    await this.workflowSvc.verifyAccess(section.workflowId, userId);
     await this.sectionRepo.delete(sectionId);
   }
 }

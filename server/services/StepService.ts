@@ -61,7 +61,7 @@ export class StepService {
     userId: string,
     data: Omit<InsertStep, 'sectionId'>
   ): Promise<Step> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
@@ -96,7 +96,7 @@ export class StepService {
     userId: string,
     data: Partial<InsertStep>
   ): Promise<Step> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
@@ -129,7 +129,7 @@ export class StepService {
    * Delete step
    */
   async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
@@ -154,7 +154,7 @@ export class StepService {
     userId: string,
     stepOrders: Array<{ id: string; order: number }>
   ): Promise<void> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
@@ -172,7 +172,7 @@ export class StepService {
    * Get steps for a section
    */
   async getSteps(workflowId: string, sectionId: string, userId: string): Promise<Step[]> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
@@ -318,7 +318,7 @@ export class StepService {
     }
 
     // Verify ownership
-    await this.workflowSvc.verifyOwnership(section.workflowId, userId);
+    await this.workflowSvc.verifyAccess(section.workflowId, userId);
 
     return step;
   }

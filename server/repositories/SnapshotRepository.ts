@@ -60,16 +60,32 @@ export class SnapshotRepository extends BaseRepository<
    */
   async updateValues(
     snapshotId: string,
-    values: SnapshotValueMap,
+    values: Record<string, any>,
+    versionHash?: string,
     tx?: DbTransaction
   ): Promise<WorkflowSnapshot | null> {
+    // Validate inputs
+    if (!snapshotId || typeof snapshotId !== 'string') {
+      throw new Error('Invalid snapshotId: must be a non-empty string');
+    }
+    if (!values || typeof values !== 'object') {
+      throw new Error('Invalid values: must be an object');
+    }
+
     const database = this.getDb(tx);
+    const updateData: Partial<WorkflowSnapshot> = {
+      values: values,
+      updatedAt: new Date(),
+    };
+
+    // Only set versionHash if it's a non-empty string
+    if (versionHash && versionHash.trim().length > 0) {
+      updateData.versionHash = versionHash;
+    }
+
     const [updated] = await database
       .update(workflowSnapshots)
-      .set({
-        values: values as any,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(workflowSnapshots.id, snapshotId))
       .returning();
     return updated || null;
@@ -83,11 +99,19 @@ export class SnapshotRepository extends BaseRepository<
     name: string,
     tx?: DbTransaction
   ): Promise<WorkflowSnapshot | null> {
+    // Validate inputs
+    if (!snapshotId || typeof snapshotId !== 'string') {
+      throw new Error('Invalid snapshotId: must be a non-empty string');
+    }
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      throw new Error('Invalid name: must be a non-empty string');
+    }
+
     const database = this.getDb(tx);
     const [updated] = await database
       .update(workflowSnapshots)
       .set({
-        name,
+        name: name.trim(),
         updatedAt: new Date(),
       })
       .where(eq(workflowSnapshots.id, snapshotId))

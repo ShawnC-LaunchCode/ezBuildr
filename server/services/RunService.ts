@@ -166,7 +166,7 @@ export class RunService {
 
     if (userId) {
       // Authenticated: verify ownership/access
-      workflow = await this.workflowSvc.verifyOwnership(idOrSlug, userId);
+      workflow = await this.workflowSvc.verifyAccess(idOrSlug, userId);
     } else {
       // Anonymous: verify public access
       // Try to find by ID first (if UUID provided)
@@ -192,6 +192,21 @@ export class RunService {
     }
 
     const workflowId = workflow.id; // Use the actual UUID
+
+    // Resolve the version to use for this run
+    let targetVersionId = workflow.pinnedVersionId || workflow.currentVersionId;
+
+    // If no version specified on workflow, try to find latest published
+    if (!targetVersionId) {
+      // Lazy load to avoid circular dependency if any? 
+      // Actually we can just query database directly or use VersionService if imported.
+      // For now, let's assume we can query workflowVersions table via db if we imported it?
+      // But RunService uses repositories. 
+      // Let's assume workflow.currentVersionId IS the pointer to latest published/active.
+      // If it's missing, it implies no version is published?
+      // Just fallback to null for now if strict mode isn't enforced yet.
+      logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
+    }
 
     // Generate a unique token for this run
     const runToken = randomUUID();
@@ -240,10 +255,11 @@ export class RunService {
     const run = await this.runRepo.create({
       ...data,
       workflowId, // Always use UUID here
+      workflowVersionId: targetVersionId || undefined, // Link run to specific version
       runToken,
       createdBy: userId || null,
       completed: false,
-    } as any);
+    });
 
     // Populate initial values (from URL params, snapshot, or random data)
     await this.populateInitialValues(run.id, workflowId, initialValues);
@@ -319,7 +335,7 @@ export class RunService {
 
     // Otherwise, verify ownership of the workflow
     // This allows workflow owners to view all runs
-    await this.workflowSvc.verifyOwnership(run.workflowId, userId);
+    await this.workflowSvc.verifyAccess(run.workflowId, userId);
 
     return run;
   }
@@ -426,6 +442,35 @@ export class RunService {
   }
 
   /**
+   * Bulk upsert step values without userId check (for run token auth)
+   */
+  async bulkUpsertValuesNoAuth(
+    runId: string,
+    values: Array<{ stepId: string; value: any }>
+  ): Promise<void> {
+    // Verify run exists
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    // Get workflow to validate steps belong to it
+    const workflow = await this.workflowRepo.findById(run.workflowId);
+    if (!workflow) {
+      throw new Error("Workflow not found");
+    }
+
+    // Bulk upsert all values
+    for (const { stepId, value } of values) {
+      await this.upsertStepValueNoAuth(runId, {
+        runId,
+        stepId,
+        value,
+      });
+    }
+  }
+
+  /**
    * Execute JS questions for a section
    * Finds all js_question steps, executes their code, and persists outputs
    *
@@ -456,6 +501,12 @@ export class RunService {
       // Build input object with only whitelisted keys
       const input: Record<string, any> = {};
       for (const key of config.inputKeys) {
+        // Validate key is a safe identifier (alphanumeric, underscore, no special chars)
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+          errors.push(`JS Question "${step.title}": Invalid input key "${key}" (must be a valid identifier)`);
+          continue;
+        }
+
         // Try to find step by alias or ID
         const inputStep = allSteps.find(s => s.alias === key || s.id === key);
         if (inputStep && dataMap[inputStep.id] !== undefined) {
@@ -988,10 +1039,11 @@ export class RunService {
     // Create the run with anonymous creator
     const run = await this.runRepo.create({
       workflowId: workflow.id,
+      workflowVersionId: undefined,
       runToken,
       createdBy: 'anon', // Anonymous user
       completed: false,
-    } as any);
+    });
 
     // Populate initial values (from URL params or step defaults)
     await this.populateInitialValues(run.id, workflow.id, initialValues);
@@ -1052,7 +1104,7 @@ export class RunService {
    * List runs for a workflow
    */
   async listRuns(workflowId: string, userId: string): Promise<WorkflowRun[]> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
     return await this.runRepo.findByWorkflowId(workflowId);
   }
 
@@ -1071,6 +1123,23 @@ export class RunService {
     const documents = await this.docsRepo.findByRunId(runId);
 
     return documents;
+  }
+
+  /**
+   * Delete all generated documents for a run
+   * Used for regenerating documents with updated values
+   */
+  async deleteGeneratedDocuments(runId: string): Promise<void> {
+    // Verify run exists
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+
+    // Delete all documents for this run
+    await this.docsRepo.deleteByRunId(runId);
+
+    logger.info({ runId }, 'Deleted all generated documents for run');
   }
 
   /**

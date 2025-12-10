@@ -3,6 +3,7 @@ import { transformBlockService } from "./TransformBlockService";
 import { collectionService } from "./CollectionService";
 import { recordService } from "./RecordService";
 import { workflowService } from "./WorkflowService";
+import { lifecycleHookService } from "./scripting/LifecycleHookService";
 import { db } from "../db";
 import type {
   BlockPhase,
@@ -20,8 +21,37 @@ import type {
   ComparisonOperator,
   AssertionOperator,
 } from "@shared/types/blocks";
+import type { LifecycleHookPhase } from "@shared/types/scripting";
 import type { Block } from "@shared/schema";
 import { logger } from "../logger";
+
+// Security: limit regex pattern size to prevent ReDoS
+const MAX_REGEX_PATTERN_LENGTH = 100;
+
+/**
+ * Redact sensitive PII from logs
+ */
+function redact(data: any): any {
+  if (!data) return data;
+  if (typeof data !== 'object') return data;
+
+  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'ssn', 'social', 'credit', 'card', 'cvv', 'email', 'phone', 'address', 'dob', 'birth'];
+
+  if (Array.isArray(data)) {
+    return data.map(item => redact(item));
+  }
+
+  const result: any = { ...data };
+  for (const key of Object.keys(result)) {
+    const lowerKey = key.toLowerCase();
+    if (sensitiveKeys.some(s => lowerKey.includes(s))) {
+      result[key] = '[REDACTED]';
+    } else if (typeof result[key] === 'object') {
+      result[key] = redact(result[key]);
+    }
+  }
+  return result;
+}
 
 /**
  * BlockRunner Service
@@ -42,15 +72,74 @@ export class BlockRunner {
 
   /**
    * Run all blocks for a given phase
-   * Executes transform blocks (JS/Python) first, then generic blocks (prefill, validate, branch)
+   * Execution order: lifecycle hooks → transform blocks → generic blocks
    * Returns combined result from all blocks
+   *
+   * TODO: Add transaction boundary support
+   * Currently, this method performs multiple database operations without a transaction wrapper.
+   * If any operation fails midway, previous changes are already committed, leading to
+   * inconsistent state. Consider refactoring to accept an optional transaction parameter
+   * and propagate it through all repository calls.
    */
   async runPhase(context: BlockContext): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
     let nextSectionId: string | undefined;
 
-    // 1. Execute transform blocks first (if runId is provided)
+    // 0. Execute lifecycle hooks BEFORE other blocks (if runId is provided)
+    if (context.runId) {
+      // Map block phases to lifecycle hook phases
+      const lifecyclePhaseMap: Record<BlockPhase, LifecycleHookPhase | null> = {
+        onRunStart: null, // No lifecycle hook phase for onRunStart (could add if needed)
+        onSectionEnter: "beforePage",
+        onSectionSubmit: "afterPage",
+        onNext: null, // No lifecycle hook phase for onNext
+        onRunComplete: null, // No lifecycle hook phase for onRunComplete (could add beforeFinalBlock later)
+      };
+
+      const lifecyclePhase = lifecyclePhaseMap[context.phase];
+
+      if (lifecyclePhase) {
+        try {
+          const lifecycleResult = await lifecycleHookService.executeHooksForPhase({
+            workflowId: context.workflowId,
+            runId: context.runId,
+            phase: lifecyclePhase,
+            sectionId: context.sectionId,
+            data: currentData,
+            userId: context.queryParams?.userId, // Optional user ID from context
+          });
+
+          // Merge lifecycle hook outputs into data
+          currentData = { ...currentData, ...lifecycleResult.data };
+
+          // Collect any lifecycle hook errors (non-breaking)
+          if (lifecycleResult.errors) {
+            for (const error of lifecycleResult.errors) {
+              allErrors.push(`Lifecycle hook "${error.hookName}": ${error.error}`);
+            }
+          }
+
+          // Log console output from lifecycle hooks (debug)
+          if (lifecycleResult.consoleOutput && lifecycleResult.consoleOutput.length > 0) {
+            logger.debug(
+              {
+                phase: lifecyclePhase,
+                hookCount: lifecycleResult.consoleOutput.length,
+              },
+              "Lifecycle hooks produced console output"
+            );
+          }
+        } catch (error) {
+          logger.error({ error }, "Error executing lifecycle hooks in phase");
+          allErrors.push(
+            `Lifecycle hook execution failed: ${error instanceof Error ? error.message : "unknown error"}`
+          );
+        }
+      }
+    }
+
+    // 1. Execute transform blocks (if runId is provided)
     if (context.runId) {
       try {
         const transformResult = await this.transformSvc.executeAllForPhase({
@@ -388,6 +477,7 @@ export class BlockRunner {
 
   /**
    * Check if value matches regex pattern
+   * Security: Enforces max pattern length
    */
   private matchesRegex(value: any, pattern: any): boolean {
     if (typeof value !== "string") {
@@ -395,7 +485,12 @@ export class BlockRunner {
     }
 
     try {
-      const regex = new RegExp(pattern);
+      const patternStr = String(pattern);
+      if (patternStr.length > MAX_REGEX_PATTERN_LENGTH) {
+        logger.warn(`Regex pattern too long (DoS prevention): ${patternStr.slice(0, 50)}...`);
+        return false;
+      }
+      const regex = new RegExp(patternStr);
       return regex.test(value);
     } catch (error) {
       logger.warn(`Invalid regex pattern: ${pattern}`);
@@ -408,16 +503,17 @@ export class BlockRunner {
    */
   private async getTenantIdFromWorkflow(workflowId: string): Promise<string | null> {
     try {
-      const workflow = await (workflowService as any).getWorkflow(workflowId);
+      // Import at top level to avoid circular dependency issues
+      const { workflowRepository } = await import('../repositories');
+      const workflow = await workflowRepository.findById(workflowId);
       if (!workflow || !workflow.projectId) {
         logger.warn({ workflowId }, "Workflow not found or has no projectId");
         return null;
       }
 
       // Fetch project to get tenantId
-      const project = await db.query.projects.findFirst({
-        where: (projects: any, { eq }: any) => eq(projects.id, workflow.projectId!),
-      });
+      const { projectRepository } = await import('../repositories');
+      const project = await projectRepository.findById(workflow.projectId);
 
       if (!project) {
         logger.warn({ projectId: workflow.projectId }, "Project not found");
@@ -458,7 +554,7 @@ export class BlockRunner {
         }
       }
 
-      logger.info({ tenantId, collectionId: config.collectionId, recordData }, "Creating record via block");
+      logger.info({ tenantId, collectionId: config.collectionId, recordData: redact(recordData) }, "Creating record via block");
 
       // Create the record
       const record = await recordService.createRecord({
@@ -520,7 +616,7 @@ export class BlockRunner {
         }
       }
 
-      logger.info({ tenantId, collectionId: config.collectionId, recordId, updateData }, "Updating record via block");
+      logger.info({ tenantId, collectionId: config.collectionId, recordId, updateData: redact(updateData) }, "Updating record via block");
 
       // Update the record
       await recordService.updateRecord(recordId, tenantId, updateData);

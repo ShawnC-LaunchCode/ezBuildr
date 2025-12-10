@@ -7,6 +7,8 @@ import {
   type SnapshotValueMap,
 } from "../repositories";
 import { logger } from "../logger";
+import { generateWorkflowVersionHash, isVersionHashMatch } from "../utils/workflowVersionHash";
+import { findMissingValues, normalizeSnapshotValues, type MissingValue } from "../utils/snapshotHelpers";
 
 /**
  * Service layer for workflow snapshot-related business logic
@@ -60,18 +62,23 @@ export class SnapshotService {
       throw new Error(`Snapshot with name "${name}" already exists for this workflow`);
     }
 
-    // Create snapshot with empty values
+    // Get all workflow steps to generate version hash
+    const allSteps = await this.stepRepo.findByWorkflowId(workflowId);
+    const versionHash = generateWorkflowVersionHash(allSteps);
+
+    // Create snapshot with empty values and version hash
     const snapshot = await this.snapshotRepo.create({
       workflowId,
       name,
       values: {},
+      versionHash,
     });
 
     if (!snapshot) {
       throw new Error("Failed to create snapshot");
     }
 
-    logger.info({ workflowId, snapshotId: snapshot.id, name }, "Created snapshot");
+    logger.info({ workflowId, snapshotId: snapshot.id, name, versionHash }, "Created snapshot");
     return snapshot;
   }
 
@@ -113,9 +120,8 @@ export class SnapshotService {
   }
 
   /**
-   * Save current run values to a snapshot (versioned)
-   * For each run value, stores { value, stepId, stepUpdatedAt }
-   * This allows us to detect if a step has changed since the snapshot was saved
+   * Save current run values to a snapshot
+   * Stores simple key-value pairs (alias -> value) and updates version hash
    */
   async saveFromRun(snapshotId: string, runId: string): Promise<WorkflowSnapshot> {
     const snapshot = await this.snapshotRepo.findById(snapshotId);
@@ -126,8 +132,8 @@ export class SnapshotService {
     // Get all step values for the run
     const runValues = await this.stepValueRepo.findByRunId(runId);
 
-    // Build the snapshot value map
-    const valueMap: SnapshotValueMap = {};
+    // Build the snapshot value map (simple format: alias -> value)
+    const valueMap: Record<string, any> = {};
 
     for (const runValue of runValues) {
       // Get step details
@@ -140,27 +146,34 @@ export class SnapshotService {
       // Use step alias as key if available, otherwise use stepId
       const key = step.alias || step.id;
 
-      // Store versioned value
-      valueMap[key] = {
-        value: runValue.value,
-        stepId: step.id,
-        stepUpdatedAt: step.updatedAt?.toISOString() || new Date().toISOString(),
-      };
+      // Store value directly (no wrapper)
+      valueMap[key] = runValue.value;
     }
 
-    // Update snapshot with new values
-    const updated = await this.snapshotRepo.updateValues(snapshotId, valueMap);
+    // Get all workflow steps to regenerate version hash
+    const allSteps = await this.stepRepo.findByWorkflowId(snapshot.workflowId);
+    const versionHash = generateWorkflowVersionHash(allSteps);
+
+    // Update snapshot with new values and version hash
+    const updated = await this.snapshotRepo.updateValues(snapshotId, valueMap, versionHash);
     if (!updated) {
       throw new Error("Failed to update snapshot values");
     }
 
-    logger.info({ snapshotId, runId, valueCount: Object.keys(valueMap).length }, "Saved run values to snapshot");
+    logger.info({ snapshotId, runId, valueCount: Object.keys(valueMap).length, versionHash }, "Saved run values to snapshot");
     return updated;
   }
 
   /**
    * Get snapshot values as a simple key-value map
    * Useful for populating run initial values
+   *
+   * TODO: Add concurrency control for snapshot access
+   * Currently, multiple concurrent reads could cause race conditions if the snapshot
+   * is being updated simultaneously. Consider adding:
+   * - Row-level locking with FOR SHARE clause
+   * - Optimistic concurrency control with version field
+   * - Read-through cache with TTL
    */
   async getSnapshotValues(snapshotId: string): Promise<Record<string, any>> {
     const snapshot = await this.snapshotRepo.findById(snapshotId);
@@ -168,49 +181,44 @@ export class SnapshotService {
       throw new Error(`Snapshot not found: ${snapshotId}`);
     }
 
-    const values = snapshot.values as SnapshotValueMap;
-    const result: Record<string, any> = {};
-
-    for (const [key, data] of Object.entries(values)) {
-      result[key] = data.value;
-    }
-
-    return result;
+    // Normalize values (handles both old and new format)
+    const values = normalizeSnapshotValues(snapshot.values);
+    return values;
   }
 
   /**
    * Check if a snapshot's values are still valid for the current workflow
-   * Returns { isValid: boolean, outdatedSteps: string[] }
+   * Returns validation details including missing values and hash status
    */
-  async validateSnapshot(snapshotId: string): Promise<{ isValid: boolean; outdatedSteps: string[] }> {
+  async validateSnapshot(snapshotId: string): Promise<{
+    isValid: boolean;
+    missingValues: MissingValue[];
+    outdatedHash: boolean;
+    currentHash: string;
+  }> {
     const snapshot = await this.snapshotRepo.findById(snapshotId);
     if (!snapshot) {
       throw new Error(`Snapshot not found: ${snapshotId}`);
     }
 
-    const values = snapshot.values as SnapshotValueMap;
-    const outdatedSteps: string[] = [];
+    // Get all current workflow steps
+    const allSteps = await this.stepRepo.findByWorkflowId(snapshot.workflowId);
+    const currentHash = generateWorkflowVersionHash(allSteps);
 
-    for (const [key, data] of Object.entries(values)) {
-      // Get current step details
-      const step = await this.stepRepo.findById(data.stepId);
+    // Check if version hash matches
+    const outdatedHash = !isVersionHashMatch(snapshot.versionHash || null, currentHash);
 
-      if (!step) {
-        // Step was deleted
-        outdatedSteps.push(key);
-        continue;
-      }
+    // Normalize snapshot values
+    const normalizedValues = normalizeSnapshotValues(snapshot.values);
 
-      // Check if step was updated after snapshot value was saved
-      const stepUpdatedAt = step.updatedAt?.toISOString() || new Date(0).toISOString();
-      if (stepUpdatedAt > data.stepUpdatedAt) {
-        outdatedSteps.push(key);
-      }
-    }
+    // Find missing values
+    const missingValues = findMissingValues(normalizedValues, allSteps);
 
     return {
-      isValid: outdatedSteps.length === 0,
-      outdatedSteps,
+      isValid: !outdatedHash && missingValues.length === 0,
+      missingValues,
+      outdatedHash,
+      currentHash,
     };
   }
 }

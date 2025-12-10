@@ -25,11 +25,23 @@ import type {
   AITemplateBindingsResponse,
   AITemplateBindingsRequest,
   AIServiceError,
+  AIWorkflowRevisionRequest,
+  AIWorkflowRevisionResponse,
 } from '../../shared/types/ai';
 import {
   AIGeneratedWorkflowSchema,
   AIWorkflowSuggestionSchema,
   AITemplateBindingsResponseSchema,
+  AIWorkflowRevisionResponseSchema,
+  AIConnectLogicRequest,
+  AIConnectLogicResponse,
+  AIConnectLogicResponseSchema,
+  AIDebugLogicRequest,
+  AIDebugLogicResponse,
+  AIDebugLogicResponseSchema,
+  AIVisualizeLogicRequest,
+  AIVisualizeLogicResponse,
+  AIVisualizeLogicResponseSchema,
 } from '../../shared/types/ai';
 import { createLogger } from '../logger';
 
@@ -41,7 +53,7 @@ const logger = createLogger({ module: 'ai-service' });
 export class AIService {
   private openaiClient: OpenAI | null = null;
   private anthropicClient: Anthropic | null = null;
-  private geminiClient: any | null = null;
+  private geminiClient: ReturnType<GoogleGenerativeAI['getGenerativeModel']> | null = null;
   private config: AIProviderConfig;
 
   constructor(config: AIProviderConfig) {
@@ -671,12 +683,197 @@ Return ONLY a JSON object with this structure:
 
 Do not include any markdown formatting, code blocks, or additional text. Return raw JSON only.`;
   }
+
+  /**
+   * Revise an existing workflow based on user instructions
+   */
+  async reviseWorkflow(
+    request: AIWorkflowRevisionRequest,
+  ): Promise<AIWorkflowRevisionResponse> {
+    const startTime = Date.now();
+
+    try {
+      const prompt = this.buildWorkflowRevisionPrompt(request);
+      const response = await this.callLLM(prompt, 'workflow_revision' as any);
+
+      // Parse and validate
+      const parsed = JSON.parse(response);
+      const validated = AIWorkflowRevisionResponseSchema.parse(parsed);
+
+      // Validate structure of generated workflow
+      this.validateWorkflowStructure(validated.updatedWorkflow);
+
+      const duration = Date.now() - startTime;
+      logger.info({
+        duration,
+        workflowId: request.workflowId,
+        changeCount: validated.diff.changes.length,
+      }, 'AI workflow revision succeeded');
+
+      return validated;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error({ error, duration }, 'AI workflow revision failed');
+
+      if (error instanceof SyntaxError) {
+        throw this.createError(
+          'Failed to parse AI response as JSON',
+          'INVALID_RESPONSE',
+          { originalError: error.message },
+        );
+      }
+
+      if (error instanceof Error && error.name === 'ZodError') {
+        throw this.createError(
+          'AI response does not match expected schema',
+          'VALIDATION_ERROR',
+          { originalError: error },
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Build prompt for workflow revision
+   */
+  private buildWorkflowRevisionPrompt(
+    request: AIWorkflowRevisionRequest,
+  ): string {
+    return `You are a VaultLogic Workflow Revision Engine.
+Your task is to modify the Current Workflow based on the User Instruction and Conversation History.
+
+Current Workflow JSON:
+${JSON.stringify(request.currentWorkflow, null, 2)}
+
+User Instruction: "${request.userInstruction}"
+
+Conversation History:
+${request.conversationHistory ? request.conversationHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n') : 'None'}
+
+Mode: ${request.mode} (Respect constraints of this mode)
+
+Output a JSON object with this exact structure:
+{
+  "updatedWorkflow": { ...complete workflow JSON... },
+  "diff": {
+    "changes": [
+      {
+        "type": "add|remove|update|move",
+        "target": "path.to.element", // e.g. "sections[0].steps[1]"
+        "before": null, // value before change
+        "after": { ... }, // value after change
+        "explanation": "Added a new specific question"
+      }
+    ]
+  },
+  "explanation": ["Point 1 about what changed", "Point 2"],
+  "suggestions": ["Follow-up suggestion 1"]
 }
 
-/**
- * Create an AI service instance from environment configuration
- * Priority: GEMINI_API_KEY > AI_API_KEY
- */
+Guidelines:
+1. Ground Truth: The "updatedWorkflow" MUST be the complete, valid new state.
+2. Minimal Changes: Only change what is requested. Preserve existing IDs and config unless explicitly asked to change.
+3. Integrity: Ensure all IDs remain unique. Ensure logic rules reference valid aliases.
+4. Revision Types:
+   - "Add question": Insert new step.
+   - "Make conditional": Add a logicRule.
+   - "Delete": Remove section/step/rule.
+   - "Refine": Update text/labels.
+5. Smart Defaults: If the user says "Add a phone number", determine the best step type (short_text) and validation logic automatically.
+
+Output ONLY the JSON object, no additional text or markdown.`;
+  }
+  /**
+   * Generate logic connections based on natural language description
+   */
+  async generateLogic(
+    request: AIConnectLogicRequest,
+  ): Promise<AIConnectLogicResponse> {
+    const startTime = Date.now();
+
+    try {
+      const prompt = this.buildLogicGenerationPrompt(request);
+      const response = await this.callLLM(prompt, 'logic_generation' as any);
+
+      const parsed = JSON.parse(response);
+      const validated = AIConnectLogicResponseSchema.parse(parsed);
+
+      const duration = Date.now() - startTime;
+      logger.info({
+        duration,
+        workflowId: request.workflowId,
+        changeCount: validated.diff.changes.length,
+      }, 'AI logic generation succeeded');
+
+      return validated;
+    } catch (error) {
+      if (error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError')) {
+        throw this.createError('Invalid AI Response', 'VALIDATION_ERROR', { originalError: error });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Debug logic for contradictions and issues
+   */
+  async debugLogic(
+    request: AIDebugLogicRequest,
+  ): Promise<AIDebugLogicResponse> {
+    const prompt = this.buildLogicDebugPrompt(request);
+    const response = await this.callLLM(prompt, 'logic_debug' as any);
+    const parsed = JSON.parse(response);
+    return parsed as AIDebugLogicResponse; // TODO: Schema validation
+  }
+
+  /**
+   * Visualize logic as a graph
+   */
+  async visualizeLogic(
+    request: AIVisualizeLogicRequest,
+  ): Promise<AIVisualizeLogicResponse> {
+    // For now, simpler implementation or mock
+    // In a real implementation, this might ask LLM to generate Mermaid or JSON graph
+    // or we compute it deterministically.
+    // For this task, we'll ask LLM to analyze and return graph structure.
+    const prompt = this.buildLogicVisualizationPrompt(request);
+    const response = await this.callLLM(prompt, 'logic_visualization' as any);
+    const parsed = JSON.parse(response);
+    return parsed as AIVisualizeLogicResponse;
+  }
+
+  private buildLogicGenerationPrompt(request: AIConnectLogicRequest): string {
+    return `You are a Logic Architect for VaultLogic.
+Task: Generate logical conditions (logicRules) to connect steps based on the user's description.
+Workflow Context:
+${JSON.stringify(request.currentWorkflow, null, 2)}
+User Request: "${request.description}"
+
+Output JSON exactly matching AIConnectLogicResponse schema:
+{
+  "updatedWorkflow": { ... },
+  "diff": { "changes": [...] },
+  "explanation": ["..."],
+  "suggestions": ["..."]
+}
+Only return JSON.`;
+  }
+
+  private buildLogicDebugPrompt(request: AIDebugLogicRequest): string {
+    return `Analyze this workflow's logic for infinite loops, contradictions, or unreachable branches.
+Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}
+Output JSON matching AIDebugLogicResponse.`;
+  }
+
+  private buildLogicVisualizationPrompt(request: AIVisualizeLogicRequest): string {
+    return `Generate a node-edge graph representation of this workflow's logic flow.
+Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}
+Output JSON matching AIVisualizeLogicResponse with "graph": { "nodes": [], "edges": [] }.`;
+  }
+
+}
 export function createAIServiceFromEnv(): AIService {
   // Check for GEMINI_API_KEY first (preferred for VaultLogic features)
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -724,6 +921,6 @@ function getDefaultModel(provider: AIProvider): string {
     case 'gemini':
       return 'gemini-2.0-flash-exp';
     default:
-      throw new Error(`Unknown provider: ${provider}`);
+      throw new Error(`Unknown provider: ${provider} `);
   }
 }

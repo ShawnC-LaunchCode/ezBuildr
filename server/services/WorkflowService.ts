@@ -8,7 +8,9 @@ import {
   projectRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType } from "@shared/schema";
+import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { aclService } from "./AclService";
+import { logger } from "../logger";
 
 /**
  * Service layer for workflow-related business logic
@@ -39,6 +41,7 @@ export class WorkflowService {
 
   /**
    * Verify user owns the workflow (accepts UUID or slug)
+   * @deprecated Use verifyAccess instead - this method only checks creatorId
    */
   async verifyOwnership(idOrSlug: string, userId: string): Promise<Workflow> {
     const workflow = await this.workflowRepo.findByIdOrSlug(idOrSlug);
@@ -49,6 +52,33 @@ export class WorkflowService {
 
     if (workflow.creatorId !== userId) {
       throw new Error("Access denied - you do not own this workflow");
+    }
+
+    return workflow;
+  }
+
+  /**
+   * Verify user has required access level to workflow (uses ACL system)
+   * @param idOrSlug - Workflow ID or slug
+   * @param userId - User ID to check access for
+   * @param minRole - Minimum required role ('view', 'edit', or 'owner')
+   */
+  async verifyAccess(
+    idOrSlug: string,
+    userId: string,
+    minRole: Exclude<AccessRole, 'none'> = 'view'
+  ): Promise<Workflow> {
+    const workflow = await this.workflowRepo.findByIdOrSlug(idOrSlug);
+
+    if (!workflow) {
+      throw new Error("Workflow not found");
+    }
+
+    // Use ACL service to check if user has required role
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflow.id, minRole);
+
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
     }
 
     return workflow;
@@ -88,11 +118,20 @@ export class WorkflowService {
    * Get workflow by ID with full details (sections, steps, rules)
    */
   async getWorkflowWithDetails(workflowId: string, userId: string) {
-    const workflow = await this.verifyOwnership(workflowId, userId);
+    const workflow = await this.verifyAccess(workflowId, userId, 'view');
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);
     const sectionIds = sections.map((s) => s.id);
     const steps = await this.stepRepo.findBySectionIds(sectionIds);
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+
+    // Debug logging for preview issue
+    logger.info({
+      workflowId,
+      userId,
+      sectionsCount: sections.length,
+      stepsCount: steps.length,
+      logicRulesCount: logicRules.length
+    }, 'getWorkflowWithDetails called');
 
     // Group steps by section
     const sectionsWithSteps = sections.map((section) => ({
@@ -122,7 +161,7 @@ export class WorkflowService {
     userId: string,
     data: Partial<InsertWorkflow>
   ): Promise<Workflow> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'edit');
     return await this.workflowRepo.update(workflowId, data);
   }
 
@@ -130,7 +169,7 @@ export class WorkflowService {
    * Delete workflow
    */
   async deleteWorkflow(workflowId: string, userId: string): Promise<void> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'owner');
     await this.workflowRepo.delete(workflowId);
   }
 
@@ -142,7 +181,7 @@ export class WorkflowService {
     userId: string,
     status: 'draft' | 'active' | 'archived'
   ): Promise<Workflow> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'edit');
     return await this.workflowRepo.update(workflowId, { status });
   }
 
@@ -155,7 +194,7 @@ export class WorkflowService {
     workflowId: string,
     userId: string
   ): Promise<boolean> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'edit');
     const workflow = await this.workflowRepo.findById(workflowId);
 
     if (!workflow) {
@@ -183,8 +222,8 @@ export class WorkflowService {
     userId: string,
     projectId: string | null
   ): Promise<Workflow> {
-    // Verify user owns the workflow
-    await this.verifyOwnership(workflowId, userId);
+    // Verify user has owner access to the workflow
+    await this.verifyAccess(workflowId, userId, 'owner');
 
     // If moving to a project (not unfiled), verify user has access to target project
     if (projectId !== null) {
@@ -194,8 +233,9 @@ export class WorkflowService {
         throw new Error("Target project not found");
       }
 
-      // Verify user owns or has access to the target project
-      if (project.createdBy !== userId && project.ownerId !== userId) {
+      // Verify user owns or has access to the target project (use ACL)
+      const hasProjectAccess = await aclService.hasProjectRole(userId, projectId, 'edit');
+      if (!hasProjectAccess) {
         throw new Error("Access denied - you do not have access to the target project");
       }
     }
@@ -217,7 +257,7 @@ export class WorkflowService {
     workflowId: string,
     userId: string
   ): Promise<{ mode: 'easy' | 'advanced', source: 'workflow' | 'user' }> {
-    const workflow = await this.verifyOwnership(workflowId, userId);
+    const workflow = await this.verifyAccess(workflowId, userId, 'view');
     const user = await userRepository.findById(userId);
 
     if (!user) {
@@ -247,7 +287,7 @@ export class WorkflowService {
     userId: string,
     modeOverride: 'easy' | 'advanced' | null
   ): Promise<Workflow> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'edit');
 
     // Validate mode value if not null
     if (modeOverride !== null && !['easy', 'advanced'].includes(modeOverride)) {
@@ -265,7 +305,7 @@ export class WorkflowService {
    * Get all ACL entries for a workflow
    */
   async getWorkflowAccess(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowAccess[]> {
-    await this.verifyOwnership(workflowId, userId);
+    await this.verifyAccess(workflowId, userId, 'view');
     return await this.workflowAccessRepo.findByWorkflowId(workflowId, tx);
   }
 
@@ -279,7 +319,7 @@ export class WorkflowService {
     entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
     tx?: DbTransaction
   ): Promise<WorkflowAccess[]> {
-    const workflow = await this.verifyOwnership(workflowId, requestorId);
+    const workflow = await this.verifyAccess(workflowId, requestorId, 'owner');
 
     const results: WorkflowAccess[] = [];
 
@@ -311,7 +351,7 @@ export class WorkflowService {
     entries: Array<{ principalType: PrincipalType; principalId: string }>,
     tx?: DbTransaction
   ): Promise<void> {
-    await this.verifyOwnership(workflowId, requestorId);
+    await this.verifyAccess(workflowId, requestorId, 'owner');
 
     for (const entry of entries) {
       await this.workflowAccessRepo.deleteByPrincipal(
@@ -333,8 +373,9 @@ export class WorkflowService {
     newOwnerId: string,
     tx?: DbTransaction
   ): Promise<Workflow> {
-    const workflow = await this.verifyOwnership(workflowId, currentOwnerId);
+    const workflow = await this.verifyAccess(workflowId, currentOwnerId, 'owner');
 
+    // Additionally verify this user is the actual owner (not just has 'owner' role via ACL)
     if (workflow.ownerId !== currentOwnerId) {
       throw new Error("Only the current owner can transfer ownership");
     }
@@ -350,7 +391,7 @@ export class WorkflowService {
 
   /**
    * Update workflow intake configuration (Stage 12.5)
-   * Owner and builders can update intake config
+   * Owner and edit access can update intake config
    */
   async updateIntakeConfig(
     workflowId: string,
@@ -358,8 +399,8 @@ export class WorkflowService {
     intakeConfig: Record<string, any>,
     tx?: DbTransaction
   ): Promise<Workflow> {
-    // Verify user has owner or builder access
-    const workflow = await (this as any).verifyAccess(workflowId, userId, ['owner', 'builder']);
+    // Verify user has edit access
+    await this.verifyAccess(workflowId, userId, 'edit');
 
     return await this.workflowRepo.update(
       workflowId,
@@ -375,7 +416,7 @@ export class WorkflowService {
    * Creates a unique slug-based link if one doesn't exist
    */
   async getOrGeneratePublicLink(workflowId: string, userId: string): Promise<string> {
-    const workflow = await this.verifyOwnership(workflowId, userId);
+    const workflow = await this.verifyAccess(workflowId, userId, 'edit');
 
     // If publicLink already exists, return it
     if (workflow.publicLink) {

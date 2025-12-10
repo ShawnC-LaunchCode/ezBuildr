@@ -129,10 +129,15 @@ export class AclService {
     // 1. Check if user is the owner
     const workflow = await this.workflowRepo.findById(workflowId, tx);
     if (!workflow) {
+      console.log(`[ACL Debug] Workflow ${workflowId} not found`);
       return "none";
     }
 
+    console.log(`[ACL Debug] Checking workflow ${workflowId} for user ${userId}`);
+    console.log(`[ACL Debug] Workflow ownerId: ${workflow.ownerId}, userId: ${userId}, match: ${workflow.ownerId === userId}`);
+
     if (workflow.ownerId === userId) {
+      console.log(`[ACL Debug] User is owner, returning 'owner'`);
       return "owner";
     }
 
@@ -170,13 +175,16 @@ export class AclService {
     // 4. If no workflow-specific ACL found and workflow belongs to a project,
     //    fallback to project ACL
     if (highestRole === "none" && workflow.projectId) {
+      console.log(`[ACL Debug] No workflow ACL found, checking project ${workflow.projectId}`);
       highestRole = await this.resolveRoleForProject(
         userId,
         workflow.projectId,
         tx
       );
+      console.log(`[ACL Debug] Project role resolved to: ${highestRole}`);
     }
 
+    console.log(`[ACL Debug] Final role for workflow ${workflowId}: ${highestRole}`);
     return highestRole;
   }
 

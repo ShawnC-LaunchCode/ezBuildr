@@ -38,7 +38,7 @@ export class WorkflowExportService {
    * Export workflow runs as JSON
    */
   async exportJSON(workflowId: string, userId: string): Promise<any[]> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const runs = await this.runRepo.findByWorkflowId(workflowId);
     const workflow = await this.workflowRepo.findById(workflowId);
@@ -81,7 +81,7 @@ export class WorkflowExportService {
    * Export workflow runs as CSV
    */
   async exportCSV(workflowId: string, userId: string): Promise<string> {
-    await this.workflowSvc.verifyOwnership(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const runs = await this.runRepo.findByWorkflowId(workflowId);
     const workflow = await this.workflowRepo.findById(workflowId);
