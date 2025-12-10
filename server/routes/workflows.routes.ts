@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { creatorOrRunTokenAuth } from '../middleware/runTokenAuth';
 import { insertWorkflowSchema } from "@shared/schema";
 import { workflowService } from "../services/WorkflowService";
 import { variableService } from "../services/VariableService";
@@ -353,9 +352,8 @@ export function registerWorkflowRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/logic-rules
    * Get all logic rules for a workflow
-   * Supports both session auth (builder) and run token (preview runner)
    */
-  app.get('/api/workflows/:workflowId/logic-rules', creatorOrRunTokenAuth, async (req: Request, res: Response) => {
+  app.get('/api/workflows/:workflowId/logic-rules', hybridAuth, async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const logicRules = await logicRuleRepository.findByWorkflowId(workflowId);

@@ -1,4 +1,5 @@
-﻿import type { Express } from "express";
+﻿
+import type { Express } from "express";
 import { registerAuthRoutes } from "./auth.routes";
 import { registerAccountRoutes } from "./account.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
@@ -6,9 +7,6 @@ import { registerFileRoutes } from "./files.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
 import { registerAdminRoutes } from "./admin.routes";
 import { registerAiRoutes } from "./ai.routes";
-// Legacy survey templates - DISABLED (survey system removed Nov 2025)
-// import { registerTemplateRoutes } from "./templates.routes";
-// import { registerTemplateSharingRoutes } from "./templateSharing.routes";
 import { registerProjectRoutes } from "./projects.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerSectionRoutes } from "./sections.routes";
@@ -18,6 +16,8 @@ import { registerRunRoutes } from "./runs.routes";
 import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
+import lifecycleHooksRoutes from "./lifecycleHooks.routes";
+import documentHooksRoutes from "./documentHooks.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTenantRoutes } from "./tenant.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
@@ -37,156 +37,116 @@ import { registerWorkflowTemplateRoutes } from "./workflowTemplates.routes";
 import { registerRunOutputsRoutes } from "./runOutputs.routes";
 import { registerDatavaultRoutes } from "./datavault.routes";
 import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
+import { registerDocumentRoutes } from "./documents.routes";
+import { registerFinalBlockRoutes } from "./finalBlock.routes";
+import { registerEsignRoutes } from "./esign.routes";
+import { validationRouter } from "./validation.routes";
+import marketplaceRouter from "./marketplace";
+import sharingRouter from "./sharing";
+import enterpriseAdminRouter from "./admin";
+import { registerBillingRoutes } from "./billing.routes";
+import { apiLimiter } from "../lib/rateLimit";
+import publicRouter from "./public.routes";
+import externalRouter from "./external.routes";
+import oauthRouter from "./oauth.routes";
+import webhookRouter from "./webhooks.routes";
+
+import aiDocRouter from "./ai.doc.routes";
+import aiPersonalizationRouter from "./api.ai.personalization.routes";
+import aiOptimizationRouter from "./api.ai.optimization.routes";
+import aiTransformRouter from "./api.ai.transform.routes";
+import { registerDebugRoutes } from "./debug.routes";
 
 /**
  * Register all modular routes
  * This is the main aggregator that wires up all domain-specific route modules
  */
 export function registerAllRoutes(app: Express): void {
-  // ========================================================================
-  // Stage 4: REST API Endpoints (Projects, Workflows, Templates, Runs)
-  // Register these FIRST to ensure they take precedence over legacy routes
-  // ========================================================================
+  // Public Access Routes (Platform Expansion)
+  app.use("/public", publicRouter);
 
-  // Projects API (tenant-scoped)
-  registerApiProjectRoutes(app);
+  // External API Routes (Platform Expansion)
+  app.use("/api/external", apiLimiter, externalRouter);
 
-  // Workflows API (versioning, publishing)
-  registerApiWorkflowRoutes(app);
+  // OAuth 2.1 Provider
+  app.use("/oauth", oauthRouter);
 
-  // Templates API (file upload, placeholders)
-  registerApiTemplateRoutes(app);
+  // Webhook Management
+  app.use("/api/webhooks", webhookRouter);
 
-  // Runs API (workflow execution, logs, download)
-  registerApiRunRoutes(app);
+  // AI Document Assist
+  app.use("/api/ai/doc", aiDocRouter);
 
-  // Authentication routes
-  registerAuthRoutes(app);
+  // AI Personalization
+  app.use("/api/ai/personalize", aiPersonalizationRouter);
 
-  // Tenant routes (multi-tenancy and RBAC)
-  registerTenantRoutes(app);
+  // AI Optimization
+  app.use("/api/ai/workflows/optimize", aiOptimizationRouter);
 
-  // Branding routes (Stage 17)
-  registerBrandingRoutes(app);
+  // AI Transforms
+  app.use("/api/ai/transform", aiTransformRouter);
 
-  // Email template metadata routes (Stage 17)
-  registerEmailTemplateRoutes(app);
+  // Debug Routes (temporary)
+  if (process.env.NODE_ENV === 'development') {
+    registerDebugRoutes(app);
+  }
 
-  // Account routes (mode preferences)
-  registerAccountRoutes(app);
-
-  // User preferences routes
-  registerUserPreferencesRoutes(app);
-
-  // Dashboard routes (using legacy survey data for now)
-  registerDashboardRoutes(app);
-
-  // Legacy survey template routes - DISABLED (survey system removed Nov 2025)
-  // registerTemplateRoutes(app);
-  // registerTemplateSharingRoutes(app);
-
-  // File serving routes (generated documents, outputs)
-  registerFileRoutes(app);
-
-  // AI-powered analytics routes
-  registerAiRoutes(app);
-
-  // Admin routes (must be after auth routes)
-  registerAdminRoutes(app);
-
-  // ========================================================================
-  // Vault-Logic Workflow Routes
-  // ========================================================================
-
-  // Team management routes (collaboration)
-  registerTeamRoutes(app);
-
-  // Project management routes (workflow organization)
-  registerProjectRoutes(app);
-
-  // Workflow management routes
+  // Legacy Workflow Routes (MUST come before new API routes to avoid shadowing)
   registerWorkflowRoutes(app);
-
-  // Workflow snapshot routes (versioned test data)
-  registerSnapshotRoutes(app);
-
-  // Workflow template mapping routes (Stage 21)
-  registerWorkflowTemplateRoutes(app);
-
-  // Section management routes
   registerSectionRoutes(app);
-
-  // Step management routes
   registerStepRoutes(app);
-
-  // Block management routes
   registerBlockRoutes(app);
-
-  // Transform block routes (custom logic execution)
   registerTransformBlockRoutes(app);
 
-  // Secrets management routes (Stage 9)
-  registerSecretsRoutes(app);
-
-  // Connections routes (Stage 16 - Integrations Hub - replaces Stage 9)
-  registerConnectionsV2Routes(app);
-
-  // Runs API (workflow execution, logs, download)
-  // Register BEFORE generic run routes to ensure API endpoints take precedence
+  // REST API Endpoints (New graph-based workflow system)
+  registerApiProjectRoutes(app);
+  registerApiWorkflowRoutes(app);
+  registerApiTemplateRoutes(app);
   registerApiRunRoutes(app);
 
-  // Workflow run and execution routes
+  // Authentication & Core
+  registerAuthRoutes(app);
+  registerTenantRoutes(app);
+  registerAccountRoutes(app);
+  registerUserPreferencesRoutes(app);
+  registerTeamRoutes(app);
+
+  // Validation
+  app.use(validationRouter);
+
+  // Features
+  registerBrandingRoutes(app);
+  registerEmailTemplateRoutes(app);
+  registerDashboardRoutes(app);
+  registerFileRoutes(app);
+  registerAiRoutes(app);
+  registerAdminRoutes(app);
+  registerProjectRoutes(app);
+  registerSnapshotRoutes(app);
+  registerWorkflowTemplateRoutes(app);
+
+  app.use("/api", lifecycleHooksRoutes);
+  app.use("/api", documentHooksRoutes);
+
+  registerSecretsRoutes(app);
+  registerConnectionsV2Routes(app);
   registerRunRoutes(app);
-
-  // Workflow export routes (JSON and CSV)
   registerWorkflowExportRoutes(app);
-
-  // ========================================================================
-  // Stage 4: REST API Endpoints (Projects, Workflows, Templates, Runs)
-  // MOVED TO TOP to ensure precedence
-  // ========================================================================
-
-  // Template Analysis API (Stage 21 - analyze, validate, sample data)
   registerTemplateAnalysisRoutes(app);
-
-  // Run Outputs API (Stage 21 - view, download generated documents)
   registerRunOutputsRoutes(app);
-
-  // ========================================================================
-  // Stage 11: Workflow Analytics & SLIs
-  // ========================================================================
-
-  // Workflow analytics routes (metrics, rollups, SLI)
+  registerDocumentRoutes(app);
+  registerFinalBlockRoutes(app);
+  registerEsignRoutes(app);
   registerWorkflowAnalyticsRoutes(app);
-
-  // ========================================================================
-  // Stage 12: Intake Portal (Public Workflow Runner)
-  // ========================================================================
-
-  // Intake portal routes (public workflow execution)
   registerIntakeRoutes(app);
-
-  // ========================================================================
-  // Stage 13: Publishing, Snapshots & Rollback
-  // ========================================================================
-
-  // Version management routes (publish, rollback, diff)
   registerVersionRoutes(app);
-
-  // ========================================================================
-  // Stage 19: Collections / Datastore System
-  // ========================================================================
-
-  // Collections/Datastore routes (tenant-scoped tables, fields, records)
   registerCollectionsRoutes(app);
-
-  // ========================================================================
-  // DataVault Phase 1: Built-in Data Tables
-  // ========================================================================
-
-  // DataVault routes (tenant-scoped custom tables, columns, rows)
   registerDatavaultRoutes(app);
-
-  // DataVault API token routes (v4 Micro-Phase 5: API token management)
   registerDatavaultApiTokenRoutes(app);
+  app.use("/api", marketplaceRouter);
+
+  // Enterprise Routes
+  app.use("/api/sharing", sharingRouter);
+  app.use("/api/enterprise/admin", enterpriseAdminRouter);
+  registerBillingRoutes(app);
 }

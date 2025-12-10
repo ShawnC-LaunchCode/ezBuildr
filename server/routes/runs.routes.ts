@@ -384,12 +384,25 @@ export function registerRunRoutes(app: Express): void {
       const { values } = req.body;
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
-      if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
-      }
+      const runAuth = req.runAuth;
 
       if (!Array.isArray(values)) {
         return res.status(400).json({ success: false, error: "values must be an array" });
+      }
+
+      // For run token auth
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+        // Bulk upsert without userId check (run token auth)
+        await runService.bulkUpsertValuesNoAuth(runId, values);
+        return res.status(200).json({ success: true, message: "Step values saved" });
+      }
+
+      // For session auth
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
 
       await runService.bulkUpsertValues(runId, userId, values);
@@ -471,6 +484,15 @@ export function registerRunRoutes(app: Express): void {
   app.get('/api/runs/:runId/documents', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
     try {
       const { runId } = req.params;
+
+      // Validate runId
+      if (!runId || runId === 'null' || runId === 'undefined') {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid run ID - runId cannot be null or undefined"
+        });
+      }
+
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       const runAuth = req.runAuth;
@@ -493,7 +515,7 @@ export function registerRunRoutes(app: Express): void {
       const documents = await runService.getGeneratedDocuments(runId);
       res.json({ success: true, documents });
     } catch (error) {
-      logger.error({ error }, "Error fetching generated documents");
+      logger.error({ error, runId: req.params.runId }, "Error fetching generated documents");
       const message = error instanceof Error ? error.message : "Failed to fetch documents";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
@@ -510,6 +532,15 @@ export function registerRunRoutes(app: Express): void {
   app.post('/api/runs/:runId/generate-documents', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
     try {
       const { runId } = req.params;
+
+      // Validate runId
+      if (!runId || runId === 'null' || runId === 'undefined') {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid run ID - runId cannot be null or undefined"
+        });
+      }
+
       const runAuth = req.runAuth;
 
       // For run token auth, verify the runId matches
@@ -524,6 +555,42 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error generating documents");
       const message = error instanceof Error ? error.message : "Failed to generate documents";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * DELETE /api/runs/:runId/documents
+   * Delete all generated documents for a run (for regeneration)
+   * Accepts creator session OR Bearer runToken
+   */
+  app.delete('/api/runs/:runId/documents', creatorOrRunTokenAuth, async (req: RunAuthRequest, res) => {
+    try {
+      const { runId } = req.params;
+
+      // Validate runId
+      if (!runId || runId === 'null' || runId === 'undefined') {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid run ID - runId cannot be null or undefined"
+        });
+      }
+
+      const runAuth = req.runAuth;
+
+      // For run token auth, verify the runId matches
+      if (runAuth && runAuth.runId !== runId) {
+        return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+      }
+
+      // Delete all documents for this run
+      await runService.deleteGeneratedDocuments(runId);
+
+      return res.json({ success: true, message: "Documents deleted successfully" });
+    } catch (error) {
+      logger.error({ error, runId: req.params.runId }, "Error deleting documents");
+      const message = error instanceof Error ? error.message : "Failed to delete documents";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
     }

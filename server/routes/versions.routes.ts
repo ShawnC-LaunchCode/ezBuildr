@@ -33,8 +33,13 @@ export function registerVersionRoutes(app: Express): void {
   app.get('/api/workflows/:id/versions', hybridAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const userId = (req as AuthRequest).userId;
 
-      const versions = await versionService.listVersions(id);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const versions = await versionService.listVersions(id, userId);
 
       res.json({
         success: true,
@@ -43,7 +48,8 @@ export function registerVersionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error listing versions");
       const message = error instanceof Error ? error.message : "Failed to list versions";
-      res.status(500).json({ success: false, error: message });
+      const status = message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
     }
   });
 

@@ -5,7 +5,6 @@ import { sectionService } from "../services/SectionService";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { z } from "zod";
 import { createLogger } from "../logger";
-import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 
 const logger = createLogger({ module: "sections-routes" });
@@ -72,27 +71,10 @@ export function registerSectionRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/sections
    * Get all sections for a workflow
-   * Accepts creator session OR Bearer runToken
    */
-  app.get('/api/workflows/:workflowId/sections', creatorOrRunTokenAuth, async (req: RunAuthRequest, res: Response) => {
+  app.get('/api/workflows/:workflowId/sections', hybridAuth, async (req: Request, res: Response) => {
     try {
-      // Get userId from either session auth or bearer token auth
-      const authReq = req as AuthRequest;
-      const userId = authReq.userId;
-      const runAuth = req.runAuth;
-
-      // For run token auth, we need to verify the workflowId matches
-      if (runAuth) {
-        const { workflowId } = req.params;
-        if (runAuth.workflowId !== workflowId) {
-          return res.status(403).json({ message: "Access denied - workflow mismatch" });
-        }
-        // For preview runs, we can fetch sections without userId check
-        const sections = await sectionService.getSectionsByWorkflowId(workflowId);
-        return res.json(sections);
-      }
-
-      // For session auth, we need userId
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }

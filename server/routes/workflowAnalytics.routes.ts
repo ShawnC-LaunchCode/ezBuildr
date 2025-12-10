@@ -1,7 +1,7 @@
 /**
- * Workflow Analytics API Routes (Stage 11)
+ * Workflow Analytics API Routes (Stage 11 + Stage 15)
  *
- * Endpoints for accessing metrics, rollups, and SLI data
+ * Endpoints for accessing metrics, rollups, SLI data, and new event-based analytics.
  */
 
 import type { Express } from 'express';
@@ -12,12 +12,16 @@ import { db } from '../db';
 import {
   metricsEvents,
   metricsRollups,
-  sliConfigs,
-  sliWindows,
 } from '../../shared/schema';
-import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import sli from '../services/sli';
 import logger from '../logger';
+
+// New Analytics Services
+import { analyticsService } from '../services/analytics/AnalyticsService';
+import { dropoffService } from '../services/analytics/DropoffService';
+import { heatmapService } from '../services/analytics/HeatmapService';
+import { branchingService } from '../services/analytics/BranchingService';
 
 const router = express.Router();
 
@@ -55,7 +59,7 @@ const sliConfigCreateSchema = z.object({
 });
 
 // ===================================================================
-// ROUTES
+// LEGACY ROUTES (Metrics Events)
 // ===================================================================
 
 /**
@@ -315,6 +319,96 @@ router.put('/sli-config/:id', requireAuth, async (req, res) => {
   } catch (error) {
     logger.error({ error }, 'Failed to update SLI config');
     res.status(500).json({ error: 'Failed to update SLI config' });
+  }
+});
+
+// ===================================================================
+// NEW ANALYTICS ROUTES (Workflow Run Events)
+// ===================================================================
+
+/**
+ * POST /api/workflow-analytics/events
+ * Record a new analytics event
+ */
+router.post('/events', async (req, res) => {
+  try {
+    // We'll trust the body for now, but validation is critical
+    await analyticsService.recordEvent(req.body);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error({ error }, 'Failed to record event');
+    res.status(500).json({ error: 'Failed to record event' });
+  }
+});
+
+/**
+ * GET /api/workflow-analytics/:workflowId/dropoff
+ */
+router.get('/:workflowId/dropoff', requireAuth, async (req, res) => {
+  try {
+    const { workflowId } = req.params;
+    const { versionId } = req.query;
+    if (!versionId || typeof versionId !== 'string') {
+      return res.status(400).json({ error: "versionId required" });
+    }
+
+    const funnel = await dropoffService.getDropoffFunnel(workflowId, versionId);
+    res.json({ success: true, data: funnel });
+  } catch (error) {
+    logger.error({ error, ...req.params }, "Failed to get dropoff");
+    res.status(500).json({ error: "Internal Error" });
+  }
+});
+
+/**
+ * GET /api/workflow-analytics/:workflowId/heatmap
+ */
+router.get('/:workflowId/heatmap', requireAuth, async (req, res) => {
+  try {
+    const { workflowId } = req.params;
+    const { versionId } = req.query;
+    if (!versionId || typeof versionId !== 'string') {
+      return res.status(400).json({ error: "versionId required" });
+    }
+
+    const data = await heatmapService.getBlockHeatmap(workflowId, versionId);
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error({ error, ...req.params }, "Failed to get heatmap");
+    res.status(500).json({ error: "Internal Error" });
+  }
+});
+
+/**
+ * GET /api/workflow-analytics/:workflowId/branching
+ */
+router.get('/:workflowId/branching', requireAuth, async (req, res) => {
+  try {
+    const { workflowId } = req.params;
+    const { versionId } = req.query;
+    if (!versionId || typeof versionId !== 'string') {
+      return res.status(400).json({ error: "versionId required" });
+    }
+
+    const graph = await branchingService.getBranchingGraph(workflowId, versionId);
+    res.json({ success: true, data: graph });
+  } catch (error) {
+    logger.error({ error, ...req.params }, "Failed to get branching");
+    res.status(500).json({ error: "Internal Error" });
+  }
+});
+
+/**
+ * GET /api/workflow-analytics/run/:runId/timeline
+ */
+router.get('/run/:runId/timeline', requireAuth, async (req, res) => {
+  try {
+    const { runId } = req.params;
+    const timeline = await analyticsService.getRunTimeline(runId);
+    res.json({ success: true, data: timeline });
+  } catch (error) {
+    logger.error({ error, runId: req.params.runId }, "Failed to get timeline");
+    res.status(500).json({ error: "Internal Error" });
   }
 });
 

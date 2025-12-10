@@ -6,7 +6,6 @@ import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { z } from "zod";
 import { createLogger } from "../logger";
-import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 
 const logger = createLogger({ module: "steps-routes" });
@@ -164,30 +163,15 @@ export function registerStepRoutes(app: Express): void {
   /**
    * GET /api/sections/:sectionId/steps
    * Get all steps for a section (workflow looked up automatically)
-   * Accepts creator session OR Bearer runToken
    */
-  app.get('/api/sections/:sectionId/steps', creatorOrRunTokenAuth, async (req: RunAuthRequest, res: Response) => {
+  app.get('/api/sections/:sectionId/steps', hybridAuth, async (req: Request, res: Response) => {
     try {
-      // Get userId from either session auth or bearer token auth
-      const authReq = req as AuthRequest;
-      const userId = authReq.userId;
-      const runAuth = req.runAuth;
-
-      const { sectionId } = req.params;
-
-      // For run token auth, fetch steps without userId check
-      if (runAuth) {
-        const steps = await stepService.getStepsBySectionIdNoAuth(sectionId, runAuth.workflowId);
-        res.json(steps);
-        return;
-      }
-
-      // For session auth, we need userId
+      const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
 
-      // Look up the section to get its workflowId
+      const { sectionId } = req.params;
       const steps = await stepService.getStepsBySectionId(sectionId, userId);
       res.json(steps);
     } catch (error) {

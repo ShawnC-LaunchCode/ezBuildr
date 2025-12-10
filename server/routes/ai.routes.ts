@@ -1,20 +1,23 @@
 import type { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, requireAuth } from '../middleware/auth';
+import type { AuthRequest } from '../middleware/auth';
 import { geminiService } from "../services/geminiService";
 import { logger } from "../logger";
 import { createLogger } from "../logger";
 import { requireBuilder } from "../middleware/rbac";
-import { requireAuth } from "../middleware";
+import { createAIServiceFromEnv } from "../services/AIService";
+import { workflowService } from "../services/WorkflowService";
+import { variableService } from "../services/VariableService";
 import {
   AIWorkflowGenerationRequestSchema,
   AIWorkflowSuggestionRequestSchema,
   AITemplateBindingsRequestSchema,
+  AIWorkflowRevisionRequestSchema,
+  AIConnectLogicRequestSchema,
+  AIDebugLogicRequestSchema,
+  AIVisualizeLogicRequestSchema,
 } from "../../shared/types/ai";
-import { createAIServiceFromEnv } from "../services/AIService";
-import { workflowService } from "../services/WorkflowService";
-import { variableService } from "../services/VariableService";
-import type { AuthRequest } from "../middleware/auth";
 
 const aiLogger = createLogger({ module: 'ai-routes' });
 
@@ -472,6 +475,97 @@ export function registerAiRoutes(app: Express): void {
   );
 
   /**
+   * POST /api/ai/workflows/revise
+   * Iteratively revise a workflow using natural language
+   * 
+   * Rate Limited: 10 requests per minute per user
+   * RBAC: builder or owner only
+   */
+  app.post(
+    '/api/ai/workflows/revise',
+    requireAuth,
+    requireBuilder,
+    aiWorkflowRateLimit,
+    async (req: Request, res: Response) => {
+      const startTime = Date.now();
+      const authReq = req as AuthRequest;
+      const userId = authReq.userId!;
+
+      try {
+        // Validate request body
+        const requestData = AIWorkflowRevisionRequestSchema.parse(req.body);
+
+        aiLogger.info({
+          userId,
+          workflowId: requestData.workflowId,
+          instructionLength: requestData.userInstruction.length,
+          historyCount: requestData.conversationHistory?.length || 0
+        }, 'AI workflow revision requested');
+
+        // Verify ownership/access to the workflow
+        await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
+
+        // Create AI service
+        const aiService = createAIServiceFromEnv();
+
+        // Perform revision
+        const revisionResult = await aiService.reviseWorkflow(requestData);
+
+        const duration = Date.now() - startTime;
+
+        res.status(200).json({
+          success: true,
+          ...revisionResult,
+          metadata: {
+            duration,
+            changeCount: revisionResult.diff.changes.length
+          }
+        });
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        aiLogger.error({
+          error,
+          userId,
+          duration
+        }, 'AI workflow revision failed');
+
+        if (error.code === 'RATE_LIMIT') {
+          return res.status(429).json({
+            success: false,
+            message: 'AI API rate limit exceeded. Please try again later.',
+            error: 'ai_rate_limit',
+          });
+        }
+
+        if (error.code === 'TIMEOUT') {
+          return res.status(504).json({
+            success: false,
+            message: 'AI request timed out. Please try again.',
+            error: 'ai_timeout',
+          });
+        }
+
+        if (error.name === 'ZodError') {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid request data',
+            error: 'validation_error',
+            details: error.errors,
+          });
+        }
+
+        res.status(500).json({
+          success: false,
+          message: 'Failed to revise workflow',
+          error: 'internal_error',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+      }
+    }
+  );
+
+  /**
    * POST /api/ai/suggest-values
    * Generate random plausible values for workflow steps
    *
@@ -546,6 +640,107 @@ export function registerAiRoutes(app: Express): void {
           error: 'internal_error',
           details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         });
+      }
+    }
+  );
+
+  /**
+   * POST /api/ai/workflows/generate-logic
+   * Connect workflow nodes with logic rules
+   */
+  app.post(
+    '/api/ai/workflows/generate-logic',
+    requireAuth,
+    requireBuilder,
+    aiWorkflowRateLimit,
+    async (req: Request, res: Response) => {
+      const startTime = Date.now();
+      const authReq = req as AuthRequest;
+      const userId = authReq.userId!;
+
+      try {
+        const requestData = AIConnectLogicRequestSchema.parse(req.body);
+
+        aiLogger.info({
+          userId,
+          workflowId: requestData.workflowId,
+          descriptionLength: requestData.description.length,
+        }, 'AI logic generation requested');
+
+        await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
+
+        const aiService = createAIServiceFromEnv();
+        const result = await aiService.generateLogic(requestData);
+
+        const duration = Date.now() - startTime;
+        aiLogger.info({
+          userId,
+          workflowId: requestData.workflowId,
+          duration,
+          changeCount: result.diff.changes.length
+        }, 'AI logic generation succeeded');
+
+        res.status(200).json({
+          success: true,
+          ...result,
+          metadata: {
+            duration,
+            changeCount: result.diff.changes.length
+          }
+        });
+
+      } catch (error: any) {
+        aiLogger.error({ error }, 'AI logic generation failed');
+        // Standard error handling (rate limit, etc) - simplified for now
+        res.status(500).json({
+          success: false,
+          message: 'Failed to generate logic',
+          error: 'internal_error'
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/ai/workflows/debug-logic
+   * Analyze logic for issues
+   */
+  app.post(
+    '/api/ai/workflows/debug-logic',
+    requireAuth,
+    requireBuilder,
+    aiWorkflowRateLimit,
+    async (req: Request, res: Response) => {
+      try {
+        const requestData = AIDebugLogicRequestSchema.parse(req.body);
+        const aiService = createAIServiceFromEnv();
+        const result = await aiService.debugLogic(requestData);
+        res.status(200).json({ success: true, ...result });
+      } catch (error: any) {
+        aiLogger.error({ error }, 'AI debug logic failed');
+        res.status(500).json({ success: false, message: 'Failed to debug logic' });
+      }
+    }
+  );
+
+  /**
+   * POST /api/ai/workflows/visualize-logic
+   * Generate graph representation of logic
+   */
+  app.post(
+    '/api/ai/workflows/visualize-logic',
+    requireAuth,
+    requireBuilder,
+    aiWorkflowRateLimit,
+    async (req: Request, res: Response) => {
+      try {
+        const requestData = AIVisualizeLogicRequestSchema.parse(req.body);
+        const aiService = createAIServiceFromEnv();
+        const result = await aiService.visualizeLogic(requestData);
+        res.status(200).json({ success: true, ...result });
+      } catch (error: any) {
+        aiLogger.error({ error }, 'AI visualize logic failed');
+        res.status(500).json({ success: false, message: 'Failed to visualize logic' });
       }
     }
   );
