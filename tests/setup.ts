@@ -1,5 +1,6 @@
 ﻿import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
-import { dbInitPromise, initializeDatabase } from "../server/db";
+import { dbInitPromise, initializeDatabase, db } from "../server/db";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 /**
  * Global test setup file
@@ -27,12 +28,16 @@ beforeAll(async () => {
     await initializeDatabase();
     await dbInitPromise;
     console.log("✅ Database initialized for tests");
-  } catch (error) {
-    console.warn("⚠️ Database initialization failed (this is expected if no DATABASE_URL is set):", error);
-  }
 
-  // TODO: Run database migrations for test DB
-  // await db.migrate.latest();
+    // Run database migrations for test DB to ensure functions like datavault_get_next_autonumber exist
+    if (process.env.DATABASE_URL) {
+      console.log("🔄 Running test migrations...");
+      await migrate(db, { migrationsFolder: "./migrations" });
+      console.log("✅ Test migrations applied");
+    }
+  } catch (error) {
+    console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);
+  }
 });
 
 afterAll(async () => {
