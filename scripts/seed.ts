@@ -94,6 +94,7 @@ async function seed() {
         title: 'Employee Onboarding Form',
         name: 'Employee Onboarding Form',
         projectId: project.id,
+        creatorId: user.id,
         status: 'draft',
       })
       .returning();
