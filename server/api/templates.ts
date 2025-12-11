@@ -27,37 +27,11 @@ import { logger } from '../logger';
 
 const router = Router();
 
-// @ts-ignore
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const multer = require('multer');
-const multerInstance = multer;
+import multer from 'multer';
 
 // Configure multer for file uploads (memory storage is default in v2)
-// Configure multer for file uploads (memory storage is default in v2)
-const debugStorage = {
-  _handleFile: function _handleFile(req: any, file: any, cb: any) {
-    logger.info({ filename: file.originalname, mimetype: file.mimetype }, "Multer _handleFile called");
-    if (multerInstance.memoryStorage) {
-      const storage = multerInstance.memoryStorage();
-      storage._handleFile(req, file, cb);
-    } else {
-      // Fallback if memoryStorage is not available on the instance
-      cb(new Error("Memory storage not available"));
-    }
-  },
-  _removeFile: function _removeFile(req: any, file: any, cb: any) {
-    if (multerInstance.memoryStorage) {
-      const storage = multerInstance.memoryStorage();
-      storage._removeFile(req, file, cb);
-    } else {
-      cb(null);
-    }
-  }
-};
-
-const upload = multerInstance({
-  storage: multerInstance.memoryStorage ? multerInstance.memoryStorage() : undefined,
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max file size
   },
@@ -78,14 +52,7 @@ const upload = multerInstance({
   },
 });
 
-logger.info({
-  multerImportKeys: Object.keys(multer),
-  multerInstanceKeys: Object.keys(multerInstance),
-  multerInstanceType: typeof multerInstance,
-  uploadKeys: Object.keys(upload),
-  uploadType: typeof upload,
-  uploadPrototype: Object.getPrototypeOf(upload)
-}, "Debug Multer Import");
+
 
 /**
  * GET /projects/:projectId/templates
@@ -161,14 +128,7 @@ router.post(
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
 
-      logger.info({
-        headers: req.headers,
-        multerInstanceType: typeof multerInstance,
-        multerKeys: Object.keys(multerInstance),
-        hasMemoryStorage: !!multerInstance.memoryStorage,
-        file: req.file,
-        body: req.body
-      }, "Debug Template Upload");
+
 
       // Validate params
       const params = projectIdParamsSchema.parse(req.params);

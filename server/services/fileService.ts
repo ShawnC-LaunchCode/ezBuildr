@@ -8,19 +8,17 @@ import { logger } from '../logger';
 const unlinkAsync = promisify(fs.unlink);
 const mkdirAsync = promisify(fs.mkdir);
 
-// Handle CommonJS/ESM compatibility for multer
-// In Vitest/ESM mode, multer might be wrapped in { default: multer }
-// @ts-ignore - multer types don't account for ESM/CommonJS differences
-const multerInstance = (multer as any).default || multer;
+// Standard ESM import for multer v2
+const multerInstance = multer;
 
 // File upload configuration
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-export const MAX_FILE_SIZE = process.env.MAX_FILE_SIZE ? 
-  parseInt(process.env.MAX_FILE_SIZE, 10) : 
+export const MAX_FILE_SIZE = process.env.MAX_FILE_SIZE ?
+  parseInt(process.env.MAX_FILE_SIZE, 10) :
   10 * 1024 * 1024; // 10MB default
 export const ALLOWED_FILE_TYPES = [
   'image/jpeg',
-  'image/png', 
+  'image/png',
   'image/gif',
   'application/pdf',
   'application/msword',
@@ -60,7 +58,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
     return cb(new Error(`File type ${file.mimetype} is not allowed`));
   }
-  
+
   cb(null, true);
 };
 
@@ -77,21 +75,21 @@ export const upload = multerInstance({
 // Validate file upload configuration
 export function validateFileUploadConfig(config: any) {
   if (!config) return true; // No restrictions
-  
+
   const errors: string[] = [];
-  
+
   if (config.maxFileSize && typeof config.maxFileSize !== 'number') {
     errors.push('maxFileSize must be a number');
   }
-  
+
   if (config.maxFiles && typeof config.maxFiles !== 'number') {
     errors.push('maxFiles must be a number');
   }
-  
+
   if (config.acceptedTypes && !Array.isArray(config.acceptedTypes)) {
     errors.push('acceptedTypes must be an array');
   }
-  
+
   return errors.length === 0 ? true : errors.join(', ');
 }
 
@@ -100,14 +98,14 @@ export function isFileTypeAccepted(mimeType: string, acceptedTypes?: string[]): 
   if (!acceptedTypes || acceptedTypes.length === 0) {
     return ALLOWED_FILE_TYPES.includes(mimeType);
   }
-  
+
   return acceptedTypes.some(type => {
     if (type.includes('*')) {
       // Handle wildcards like 'image/*'
       const [category] = type.split('/');
       return mimeType.startsWith(category + '/');
     }
-    
+
     if (type.startsWith('.')) {
       // Handle extensions like '.pdf'
       const extension = type;
@@ -125,7 +123,7 @@ export function isFileTypeAccepted(mimeType: string, acceptedTypes?: string[]): 
       };
       return mimeTypeMap[extension] === mimeType;
     }
-    
+
     return type === mimeType;
   });
 }

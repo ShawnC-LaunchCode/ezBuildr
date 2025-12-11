@@ -14,6 +14,22 @@ jobs:
       matrix:
         node-version: [20.x]
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespw
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v3
     
@@ -35,11 +51,19 @@ jobs:
     - name: Unit Tests (Config & Logic)
       run: npm run test:unit
       
+    - name: Setup Database
+      run: |
+        npm run db:migrate
+        npm run db:seed
+      env:
+        NODE_ENV: test
+        DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+
     - name: Integration Tests (Critical Paths)
       run: npm run test:integration
       env:
         NODE_ENV: test
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_db" # Needs a service container in real life
+        DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
         SESSION_SECRET: "test-secret"
         
     - name: Migration Safety Dry Run
