@@ -23,7 +23,7 @@ BEGIN
 
   -- Get or create sequence row with row-level lock
   -- Note: SELECT INTO ... FOR UPDATE is not supported in PL/pgSQL
-  PERFORM *
+  PERFORM 1
   FROM "datavault_number_sequences"
   WHERE "tenant_id" = p_tenant_id
     AND "table_id" = p_table_id

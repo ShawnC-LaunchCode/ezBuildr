@@ -21,7 +21,7 @@ BEGIN
   v_current_year := EXTRACT(YEAR FROM now());
 
   -- Get or create sequence row with row-level lock
-  PERFORM *
+  PERFORM 1
   FROM "datavault_number_sequences"
   WHERE "tenant_id" = p_tenant_id
     AND "table_id" = p_table_id
