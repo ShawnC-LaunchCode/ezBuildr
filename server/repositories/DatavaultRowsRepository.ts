@@ -438,23 +438,13 @@ export class DatavaultRowsRepository extends BaseRepository<
         ${tableId}::UUID,
         ${columnId}::UUID,
         'default'::TEXT,
-        ${padding}::INTEGER,
-        ${prefix}::TEXT,
+        ${padding || 4}::INTEGER,
+        ${prefix || ''}::TEXT,
         ${resetPolicy === 'yearly' ? 'YYYY' : (format || null)}::TEXT
       ) as next_value`
     );
 
     const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
-    // Debug logging for CI failure
-    if (!result || !result.next_value) {
-      console.log('🚨 getNextAutonumber Debug:', {
-        resKeys: Object.keys(res || {}),
-        result,
-        resRows: (res as any)?.rows,
-        nextValue: result?.next_value
-      });
-    }
-
     const nextValue = result?.next_value;
     if (!nextValue) {
       throw new Error('Failed to generate autonumber value');
