@@ -431,15 +431,16 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
 
     // Call the database function with all parameters
+    // SQL Signature: (tenant, table, column, context_key, min_digits, prefix, format)
     const res = await database.execute(
       sql`SELECT public.datavault_get_next_autonumber(
         ${tenantId}::UUID,
         ${tableId}::UUID,
         ${columnId}::UUID,
-        ${prefix}::TEXT,
+        'default'::TEXT,
         ${padding}::INTEGER,
-        ${resetPolicy}::TEXT,
-        ${format}::TEXT
+        ${prefix}::TEXT,
+        ${resetPolicy === 'yearly' ? 'YYYY' : (format || null)}::TEXT
       ) as next_value`
     );
 

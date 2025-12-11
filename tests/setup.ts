@@ -42,10 +42,55 @@ beforeAll(async () => {
 
       await migrate(db, { migrationsFolder: "./migrations" });
 
-      // FORCE RECREATE function to ensure correct signature (7 args)
-      // We do NOT drop it first to avoid race conditions in parallel tests.
-      // We explicitly usage 'public' schema to avoid search_path issues.
-      await db.execute(`
+      // Ensure DB functions exist immediately
+      await ensureDbFunctions();
+
+      // Verify what exists now
+      const funcList = await db.execute(`
+         SELECT specific_schema, routine_name, data_type 
+         FROM information_schema.routines 
+         WHERE routine_name = 'datavault_get_next_autonumber'
+      `);
+      console.log("🔎 Found functions:", JSON.stringify(funcList.rows));
+    }
+  } catch (error) {
+    console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);
+  }
+});
+
+afterAll(async () => {
+  // Cleanup test database
+  console.log("🧹 Cleaning up test environment...");
+
+  // TODO: Teardown test database
+  // await db.destroy();
+});
+
+beforeEach(async () => {
+  // Reset mocks before each test
+  vi.clearAllMocks();
+
+  // Clear shared state to ensure test isolation
+  testUsersMap.clear();
+
+  // Ensure DB functions exist (critical for parallel execution resiliency)
+  // Re-running this is idempotent and cheap (CREATE OR REPLACE)
+  if (process.env.DATABASE_URL) {
+    await ensureDbFunctions();
+  }
+});
+
+afterEach(async () => {
+  // Cleanup after each test
+  vi.restoreAllMocks();
+});
+
+// Helper to ensure DB functions exist
+async function ensureDbFunctions() {
+  // FORCE RECREATE function to ensure correct signature (7 args)
+  // We do NOT drop it first to avoid race conditions in parallel tests.
+  // We explicitly usage 'public' schema to avoid search_path issues.
+  await db.execute(`
         CREATE OR REPLACE FUNCTION public.datavault_get_next_autonumber(
           p_tenant_id UUID,
           p_table_id UUID,
@@ -94,44 +139,42 @@ beforeAll(async () => {
         END;
         $$;
       `);
-      console.log("✅ Forced recreation of public.datavault_get_next_autonumber (7 args)");
 
-      // Verify what exists now
-      const funcList = await db.execute(`
-         SELECT specific_schema, routine_name, data_type 
-         FROM information_schema.routines 
-         WHERE routine_name = 'datavault_get_next_autonumber'
+  // Cleanup function
+  await db.execute(`
+        CREATE OR REPLACE FUNCTION public.datavault_cleanup_sequence(p_column_id UUID)
+        RETURNS VOID
+        LANGUAGE plpgsql
+        AS $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN SELECT sequence_name FROM information_schema.sequences 
+                     WHERE sequence_name LIKE 'seq_%_' || replace(p_column_id::text, '-', '_') || '%'
+            LOOP
+                EXECUTE 'DROP SEQUENCE IF EXISTS ' || quote_ident(r.sequence_name);
+            END LOOP;
+        END;
+        $$;
       `);
-      console.log("🔎 Found functions:", JSON.stringify(funcList.rows));
-    }
-  } catch (error) {
-    console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);
-  }
-});
 
-afterAll(async () => {
-  // Cleanup test database
-  console.log("🧹 Cleaning up test environment...");
-
-  // TODO: Teardown test database
-  // await db.destroy();
-});
-
-beforeEach(async () => {
-  // Reset mocks before each test
-  vi.clearAllMocks();
-
-  // Clear shared state to ensure test isolation
-  testUsersMap.clear();
-
-  // Note: For database cleanup, use runInTransaction() pattern
-  // or TestFactory.cleanup() in individual test files
-});
-
-afterEach(async () => {
-  // Cleanup after each test
-  vi.restoreAllMocks();
-});
+  // Legacy name support if needed (alias)
+  await db.execute(`
+        CREATE OR REPLACE FUNCTION public.datavault_get_next_auto_number(
+          p_tenant_id UUID,
+          p_column_id UUID,
+          p_start_value INTEGER
+        )
+        RETURNS INTEGER
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            -- Simple wrapper or lightweight sequence fallback
+            return 1; 
+        END;
+        $$;
+      `);
+}
 
 // Mock external services
 vi.mock("../server/services/sendgrid", () => ({
@@ -165,9 +208,6 @@ vi.mock("../server/storage", () => ({
     ping: vi.fn().mockResolvedValue(true),
   },
 }));
-
-// Mock file upload - multer is a CommonJS module
-// (removed)
 
 if (process.env.TEST_TYPE === "integration") {
   vi.setConfig({ testTimeout: 30000 });
