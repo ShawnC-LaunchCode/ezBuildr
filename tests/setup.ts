@@ -23,49 +23,59 @@ if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
 
+// Helper to check if we should connect to real DB
+const shouldConnectToDb = () => {
+  // Don't connect if we are explicitly in unit tests (which interpret "db" as a mock)
+  // or if NO database URL was provided at all
+  if (process.env.TEST_TYPE === 'unit') return false;
+
+  // If we are in unit tests generally (inferred), try to avoid heavy DB unless forced
+  return !!process.env.DATABASE_URL;
+};
+
 // Global test hooks
 beforeAll(async () => {
-  // Helper: Reset db module state if possible (hard with ESM, but we delay import so it should get fresh env)
-  // Dynamically import server/db to ensure it picks up the mutated env vars
-  const dbModule = await import("../server/db");
-  db = dbModule.db;
-  initializeDatabase = dbModule.initializeDatabase;
-  dbInitPromise = dbModule.dbInitPromise;
+  // Only attempt DB setup if we expect a real DB connection
+  if (shouldConnectToDb()) {
+    try {
+      // Dynamically import server/db to ensure it picks up the mutated env vars
+      const dbModule = await import("../server/db");
 
-  // Setup test database
-  console.log("🧪 Setting up test environment...");
+      // Check if the module is valid (not a partial mock missing exports)
+      // This prevents crashing unit tests that partially mock server/db without exporting 'db' or 'initializeDatabase'
+      if (dbModule.db && dbModule.initializeDatabase) {
+        db = dbModule.db;
+        initializeDatabase = dbModule.initializeDatabase;
+        dbInitPromise = dbModule.dbInitPromise;
 
-  // Wait for database initialization
-  try {
-    await initializeDatabase();
-    await dbInitPromise;
-    console.log("✅ Database initialized for tests");
+        // Setup test database
+        console.log("🧪 Setting up test environment...");
+        await initializeDatabase();
+        await dbInitPromise;
+        console.log("✅ Database initialized for tests");
 
-    // Run database migrations for test DB to ensure functions like datavault_get_next_autonumber exist
-    if (process.env.DATABASE_URL) {
-      console.log("🔄 Running test migrations...");
+        // Run database migrations for test DB
+        console.log("🔄 Running test migrations...");
+        await migrate(db, { migrationsFolder: "./migrations" });
 
-      // DEBUG: Check connection context
-      const contextRes = await db.execute(`
-        SELECT current_database(), current_schema(), current_user;
-      `);
-      console.log("🔍 DB Context:", contextRes.rows[0]);
+        // Ensure DB functions exist (with concurrency retry)
+        await ensureDbFunctionsWithRetry();
 
-      await migrate(db, { migrationsFolder: "./migrations" });
-
-      // Ensure DB functions exist immediately
-      await ensureDbFunctions();
-
-      // Verify what exists now
-      const funcList = await db.execute(`
-         SELECT specific_schema, routine_name, data_type 
-         FROM information_schema.routines 
-         WHERE routine_name = 'datavault_get_next_autonumber'
-      `);
-      console.log("🔎 Found functions:", JSON.stringify(funcList.rows));
+        // Verify what exists now (debug)
+        /*
+        const funcList = await db.execute(`
+           SELECT specific_schema, routine_name, data_type 
+           FROM information_schema.routines 
+           WHERE routine_name = 'datavault_get_next_autonumber'
+        `);
+        console.log("🔎 Found functions:", JSON.stringify(funcList.rows));
+        */
+      } else {
+        console.log("⚠️ DB module loaded but appears to be a mock. Skipping real DB setup.");
+      }
+    } catch (error) {
+      console.warn("⚠️ Database initialization failed (ignoring for unit tests or mock scenarios):", error);
     }
-  } catch (error) {
-    console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);
   }
 });
 
@@ -79,25 +89,41 @@ beforeEach(async () => {
   // Reset mocks before each test
   vi.clearAllMocks();
 
-  // Clear shared state to ensure test isolation
+  // Clear shared state
   testUsersMap.clear();
 
-  // Ensure DB functions exist (critical for parallel execution resiliency)
-  if (process.env.DATABASE_URL && db) {
-    await ensureDbFunctions();
-  }
+  // We do NOT run ensureDbFunctions here anymore to reduce "tuple concurrently updated" errors.
+  // It is sufficient to run it in beforeAll.
 });
 
 afterEach(async () => {
-  // Cleanup after each test
   vi.restoreAllMocks();
 });
+
+// Helper to ensure DB functions exist with retry logic for concurrency
+async function ensureDbFunctionsWithRetry(retries = 3) {
+  // Only proceed if db is actually connected to a real DB-like object
+  if (!db || !db.execute) return;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      await ensureDbFunctions();
+      return; // Success
+    } catch (err: any) {
+      // Check for "tuple concurrently updated" (Postgres error 40001 or similar)
+      if (err.message && (err.message.includes('tuple concurrently updated') || err.message.includes('deadlock detected'))) {
+        console.log(`⚠️ Concurrency conflict creating DB functions (attempt ${i + 1}/${retries}). Retrying...`);
+        await new Promise(r => setTimeout(r, 300 * (i + 1))); // Exponential backoff
+        continue;
+      }
+      throw err; // Rethrow other errors
+    }
+  }
+}
 
 // Helper to ensure DB functions exist
 async function ensureDbFunctions() {
   // FORCE RECREATE function to ensure correct signature (7 args)
-  // We do NOT drop it first to avoid race conditions in parallel tests.
-  // We explicitly usage 'public' schema to avoid search_path issues.
   await db.execute(`
         CREATE OR REPLACE FUNCTION public.datavault_get_next_autonumber(
           p_tenant_id UUID,
