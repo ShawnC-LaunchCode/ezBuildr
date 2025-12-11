@@ -34,6 +34,18 @@ beforeAll(async () => {
       console.log("🔄 Running test migrations...");
       await migrate(db, { migrationsFolder: "./migrations" });
       console.log("✅ Test migrations applied");
+
+      // Verify if the function was actually created
+      const funcCheck = await db.execute(
+        `SELECT routine_name FROM information_schema.routines WHERE routine_name = 'datavault_get_next_autonumber'`
+      );
+      if (funcCheck.rows.length === 0) {
+        console.error("❌ CRITICAL: datavault_get_next_autonumber function MISSING after migration!");
+        // We could throw here, or try to manually apply it if needed
+        // For now, let's log loudly so we see it in CI logs
+      } else {
+        console.log("✅ Verified datavault_get_next_autonumber exists");
+      }
     }
   } catch (error) {
     console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);

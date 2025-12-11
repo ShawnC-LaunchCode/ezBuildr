@@ -88,7 +88,13 @@ describe("Templates and Runs API Integration Tests", () => {
           .set("Authorization", `Bearer ${ctx.authToken}`)
           .attach("file", mockDocx, "test.docx")
           .field("name", "Test Template")
-          .expect(201);
+          .expect(201)
+          .catch(err => {
+            if (err.response && err.response.body) {
+              console.error("DEBUG: Template upload failed:", JSON.stringify(err.response.body, null, 2));
+            }
+            throw err;
+          });
 
         expect(response.body).toHaveProperty("id");
         expect(response.body).toHaveProperty("name", "Test Template");
