@@ -80,6 +80,10 @@ describe('AI Routes Integration', () => {
                 .post('/api/ai/workflows/revise')
                 .send(payload);
 
+            if (res.status !== 200) {
+                console.error('Revise Test Failed:', JSON.stringify(res.body, null, 2));
+                if (!res.body || Object.keys(res.body).length === 0) console.error('Response Text:', res.text);
+            }
             expect(res.status).toBe(200);
             expect(mockReviseWorkflow).toHaveBeenCalledTimes(1);
 

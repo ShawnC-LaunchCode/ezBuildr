@@ -33,7 +33,13 @@ vi.mock("../../server/services/templates", async () => {
   const actual = await vi.importActual<typeof import("../../server/services/templates")>("../../server/services/templates");
   return {
     ...actual,
+    saveTemplateFile: vi.fn().mockImplementation(async () => {
+      return `test-file-${Math.random().toString(36).substring(7)}.docx`;
+    }),
+    deleteTemplateFile: vi.fn().mockResolvedValue(undefined),
+    templateFileExists: vi.fn().mockResolvedValue(true),
     extractPlaceholders: vi.fn().mockResolvedValue(["{{name}}", "{{date}}"]),
+    validateTemplate: vi.fn().mockResolvedValue({ valid: true, missingVars: [], extraVars: [] }),
   };
 });
 
