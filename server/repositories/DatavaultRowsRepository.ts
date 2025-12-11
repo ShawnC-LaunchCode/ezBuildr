@@ -445,6 +445,16 @@ export class DatavaultRowsRepository extends BaseRepository<
     );
 
     const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
+    // Debug logging for CI failure
+    if (!result || !result.next_value) {
+      console.log('🚨 getNextAutonumber Debug:', {
+        resKeys: Object.keys(res || {}),
+        result,
+        resRows: (res as any)?.rows,
+        nextValue: result?.next_value
+      });
+    }
+
     const nextValue = result?.next_value;
     if (!nextValue) {
       throw new Error('Failed to generate autonumber value');
