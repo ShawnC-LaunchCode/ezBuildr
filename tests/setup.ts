@@ -33,16 +33,20 @@ beforeAll(async () => {
     // Run database migrations for test DB to ensure functions like datavault_get_next_autonumber exist
     if (process.env.DATABASE_URL) {
       console.log("🔄 Running test migrations...");
+
+      // DEBUG: Check connection context
+      const contextRes = await db.execute(`
+        SELECT current_database(), current_schema(), current_user;
+      `);
+      console.log("🔍 DB Context:", contextRes.rows[0]);
+
       await migrate(db, { migrationsFolder: "./migrations" });
+
       // FORCE RECREATE function to ensure correct signature (7 args)
-      // We drop it first to avoid signature mismatch errors if an old version exists
-      await db.execute(`DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid, uuid, uuid, text, integer, text, text);`);
-
-      // Also drop the old 6-arg version if it exists to be safe
-      await db.execute(`DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid, uuid, uuid, text, integer, text);`);
-
+      // We do NOT drop it first to avoid race conditions in parallel tests.
+      // We explicitly usage 'public' schema to avoid search_path issues.
       await db.execute(`
-        CREATE OR REPLACE FUNCTION datavault_get_next_autonumber(
+        CREATE OR REPLACE FUNCTION public.datavault_get_next_autonumber(
           p_tenant_id UUID,
           p_table_id UUID,
           p_column_id UUID,
@@ -90,7 +94,15 @@ beforeAll(async () => {
         END;
         $$;
       `);
-      console.log("✅ Forced recreation of datavault_get_next_autonumber (7 args)");
+      console.log("✅ Forced recreation of public.datavault_get_next_autonumber (7 args)");
+
+      // Verify what exists now
+      const funcList = await db.execute(`
+         SELECT specific_schema, routine_name, data_type 
+         FROM information_schema.routines 
+         WHERE routine_name = 'datavault_get_next_autonumber'
+      `);
+      console.log("🔎 Found functions:", JSON.stringify(funcList.rows));
     }
   } catch (error) {
     console.warn("⚠️ Database initialization/migration failed (this is expected if no DATABASE_URL is set):", error);
