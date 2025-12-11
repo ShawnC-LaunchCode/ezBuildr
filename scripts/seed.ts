@@ -70,6 +70,7 @@ async function seed() {
     const [project] = await db
       .insert(schema.projects)
       .values({
+        title: 'Document Automation Project',
         name: 'Document Automation Project',
         description: 'A sample project for testing document automation workflows',
         tenantId: tenant.id,
@@ -87,6 +88,7 @@ async function seed() {
     const [workflow] = await db
       .insert(schema.workflows)
       .values({
+        title: 'Employee Onboarding Form',
         name: 'Employee Onboarding Form',
         projectId: project.id,
         status: 'draft',
