@@ -18,7 +18,8 @@ vi.mock('../server/services/AIService', () => ({
 vi.mock('../server/services/WorkflowService', () => ({
     workflowService: {
         verifyOwnership: vi.fn().mockResolvedValue(true),
-        getWorkflowWithDetails: vi.fn().mockResolvedValue({ sections: [] })
+        getWorkflowWithDetails: vi.fn().mockResolvedValue({ sections: [] }),
+        verifyAccess: vi.fn().mockResolvedValue(true)
     }
 }));
 
@@ -81,8 +82,8 @@ describe('AI Routes Integration', () => {
                 .send(payload);
 
             if (res.status !== 200) {
-                console.error('Revise Test Failed:', JSON.stringify(res.body, null, 2));
-                if (!res.body || Object.keys(res.body).length === 0) console.error('Response Text:', res.text);
+                console.log('Revise Test Failed:', JSON.stringify(res.body, null, 2));
+                if (!res.body || Object.keys(res.body).length === 0) console.log('Response Text:', res.text);
             }
             expect(res.status).toBe(200);
             expect(mockReviseWorkflow).toHaveBeenCalledTimes(1);
