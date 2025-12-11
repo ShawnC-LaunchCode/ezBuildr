@@ -21,12 +21,18 @@ BEGIN
   v_current_year := EXTRACT(YEAR FROM now());
 
   -- Get or create sequence row with row-level lock
-  SELECT * INTO v_sequence_row
+  PERFORM *
   FROM "datavault_number_sequences"
   WHERE "tenant_id" = p_tenant_id
     AND "table_id" = p_table_id
     AND "column_id" = p_column_id
   FOR UPDATE;
+
+  SELECT * INTO v_sequence_row
+  FROM "datavault_number_sequences"
+  WHERE "tenant_id" = p_tenant_id
+    AND "table_id" = p_table_id
+    AND "column_id" = p_column_id;
 
   -- If sequence doesn't exist, create it
   IF NOT FOUND THEN

@@ -156,7 +156,7 @@ $$;
 
 -- Optional: Create a scheduled job to run cleanup (requires pg_cron extension)
 -- This is commented out by default - enable if pg_cron is available
--- SELECT cron.schedule('cleanup-script-logs', '0 2 * * *', 'SELECT cleanup_old_script_logs();');
+-- (Cron scheduling commented out)
 
 COMMENT ON FUNCTION cleanup_old_script_logs IS 'Deletes script execution logs older than 30 days to prevent unbounded table growth';
 
