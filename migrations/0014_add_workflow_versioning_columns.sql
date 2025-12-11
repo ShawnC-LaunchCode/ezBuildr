@@ -12,18 +12,16 @@ ALTER TABLE "workflows"
 ADD COLUMN IF NOT EXISTS "pinned_version_id" uuid;
 
 -- Add foreign key constraint for pinnedVersionId
+-- Using exception handling to add constraint only if it doesn't exist
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'workflows_pinned_version_fk'
-  ) THEN
-    ALTER TABLE workflows
-    ADD CONSTRAINT workflows_pinned_version_fk
-    FOREIGN KEY (pinned_version_id)
-    REFERENCES workflow_versions(id)
-    ON DELETE SET NULL;
-  END IF;
+  ALTER TABLE workflows
+  ADD CONSTRAINT workflows_pinned_version_fk
+  FOREIGN KEY (pinned_version_id)
+  REFERENCES workflow_versions(id)
+  ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Create index on checksum for integrity checks

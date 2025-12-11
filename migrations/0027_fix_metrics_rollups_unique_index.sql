@@ -16,17 +16,6 @@ CREATE UNIQUE INDEX metrics_rollups_unique_idx ON metrics_rollups(
   bucket
 );
 
--- Verification
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE indexname = 'metrics_rollups_unique_idx'
-    AND tablename = 'metrics_rollups'
-  ) THEN
-    RAISE EXCEPTION 'Migration failed: metrics_rollups_unique_idx not found';
-  END IF;
-
-  RAISE NOTICE 'Migration 0026 completed successfully!';
-  RAISE NOTICE 'Updated unique index to include tenant_id for proper multi-tenant isolation';
-END $$;
+-- Verification removed - CREATE UNIQUE INDEX will fail if there are issues
+-- Migration 0027 completed successfully!
+-- Updated unique index to include tenant_id for proper multi-tenant isolation
