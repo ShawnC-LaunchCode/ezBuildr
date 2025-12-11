@@ -14,21 +14,11 @@ ALTER TABLE "workflows"
 ADD COLUMN IF NOT EXISTS "require_login" boolean DEFAULT false NOT NULL;
 
 -- Create unique index on (tenant_id, slug) to ensure slug uniqueness per tenant
--- Only create if not already exists
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'workflows'
-    AND indexname = 'workflows_tenant_slug_unique_idx'
-  ) THEN
-    -- First, we need to handle existing NULL slugs and ensure tenantId is available
-    -- For workflows without projectId (legacy), we'll need to skip the constraint
-    CREATE UNIQUE INDEX workflows_tenant_slug_unique_idx
-    ON workflows(project_id, slug)
-    WHERE slug IS NOT NULL AND project_id IS NOT NULL;
-  END IF;
-END $$;
+-- First, we need to handle existing NULL slugs and ensure tenantId is available
+-- For workflows without projectId (legacy), we'll need to skip the constraint
+CREATE UNIQUE INDEX IF NOT EXISTS workflows_tenant_slug_unique_idx
+ON workflows(project_id, slug)
+WHERE slug IS NOT NULL AND project_id IS NOT NULL;
 
 -- Create index on isPublic for faster queries
 CREATE INDEX IF NOT EXISTS workflows_is_public_idx ON workflows(is_public);
