@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkflowService } from '@server/services/WorkflowService';
+import { aclService } from '@server/services/AclService';
+
+vi.mock('@server/services/AclService', () => ({
+  aclService: {
+    hasWorkflowRole: vi.fn().mockResolvedValue(true),
+    hasProjectRole: vi.fn().mockResolvedValue(true),
+  },
+}));
 
 /**
  * Unit Tests for WorkflowService
@@ -68,6 +76,9 @@ describe('WorkflowService (Unit)', () => {
       mockWorkflowAccessRepo,
       mockProjectRepo
     );
+
+    vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(true);
+    vi.mocked(aclService.hasProjectRole).mockResolvedValue(true);
   });
 
   describe('verifyOwnership', () => {
@@ -341,6 +352,7 @@ describe('WorkflowService (Unit)', () => {
       };
 
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(mockWorkflow);
+      vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
 
       // Act & Assert
       await expect(service.getWorkflowWithDetails(workflowId, userId)).rejects.toThrow(
