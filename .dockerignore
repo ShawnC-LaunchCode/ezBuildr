@@ -1,0 +1,28 @@
+# Defaults
+.git
+.gitignore
+.env
+.env.*
+*.md
+LICENSE
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build
+dist
+tmp
+
+# Tests
+tests
+coverage
+test-results
+
+# Custom
+scripts
+custom-scripts
+uploads
+*.test.ts
+*.spec.ts

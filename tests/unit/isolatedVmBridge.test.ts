@@ -1,0 +1,114 @@
+
+import { describe, it, expect } from 'vitest';
+import { executeCodeWithHelpers } from '../../server/utils/enhancedSandboxExecutor';
+import { helperLibrary } from '../../server/services/scripting/HelperLibrary';
+
+describe('isolated-vm Bridge Verification', () => {
+
+    it('should execute JS and use simple helpers (string)', async () => {
+        const code = `
+            const u = helpers.string.upper(input.text);
+            return u;
+        `;
+        const result = await executeCodeWithHelpers({
+            language: 'javascript',
+            code,
+            input: { text: "hello" },
+            context: { phase: "test" } as any,
+            helpers: helperLibrary,
+            timeoutMs: 1000
+        });
+
+        if (!result.ok) throw new Error("TEST FAILURE: " + result.error);
+        expect(result.ok).toBe(true);
+        expect(result.output).toBe("HELLO");
+    });
+
+    it('should execute JS and use complex helpers (math.sum)', async () => {
+        const code = `
+            const s = helpers.math.sum(input.nums);
+            return s;
+        `;
+        const result = await executeCodeWithHelpers({
+            language: 'javascript',
+            code,
+            input: { nums: [1, 2, 3] },
+            context: { phase: "test" } as any,
+            helpers: helperLibrary,
+            timeoutMs: 1000
+        });
+
+        if (!result.ok) {
+            const fs = await import('fs');
+            fs.writeFileSync('test_math_fail.json', JSON.stringify(result, null, 2));
+            throw new Error("TEST FAILURE: " + result.error);
+        }
+        expect(result.ok).toBe(true);
+        expect(result.output).toBe(6);
+    });
+
+    it('should execute JS and capture console logs', async () => {
+        const code = `
+            helpers.console.log("hello log");
+            helpers.console.warn("hello warn");
+            return "done";
+        `;
+        // enable console
+        const result = await executeCodeWithHelpers({
+            language: 'javascript',
+            code,
+            input: {},
+            context: { phase: "test" } as any,
+            helpers: undefined, // let it use default with console
+            timeoutMs: 1000,
+            consoleEnabled: true
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.consoleLogs).toBeDefined();
+        // @ts-ignore
+        expect(result.consoleLogs[0]).toEqual(["hello log"]);
+        // @ts-ignore
+        expect(result.consoleLogs[1]).toEqual(["[WARN]", "hello warn"]);
+    });
+
+    it('should access context data', async () => {
+        const code = `
+            return context.workflow.id;
+        `;
+        const result = await executeCodeWithHelpers({
+            language: 'javascript',
+            code,
+            input: {},
+            context: { workflow: { id: "wf-123" } } as any,
+            helpers: helperLibrary,
+            timeoutMs: 1000
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.output).toBe("wf-123");
+    });
+
+    it('should fail on missing helper', async () => {
+        const code = `
+            return helpers.nonexistent.method();
+        `;
+        const result = await executeCodeWithHelpers({
+            language: 'javascript',
+            code,
+            input: {},
+            context: {} as any,
+            helpers: helperLibrary,
+            timeoutMs: 1000
+        });
+
+        expect(result.ok).toBe(false);
+        // Error message might vary depending on where it fails (in bridge or sandbox)
+        // With current bridge, helpers.nonexistent is undefined, so method() throws "undefined is not a function" 
+        // OR our bridge throws if we tried to access it before.
+        // Actually, our bridge only builds what exists in structure.
+        // So helpers.nonexistent is undefined.
+        // helpers.nonexistent.method -> throws
+        expect(result.error).toContain("Cannot read properties of undefined");
+    });
+});

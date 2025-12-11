@@ -30,13 +30,13 @@ export default function WorkflowPreview() {
   const { data: workflow, isLoading: loadingWorkflow, error: workflowError } = useQuery({
     queryKey: ["preview-workflow", workflowId],
     queryFn: async () => {
-      console.log('[WorkflowPreview] Fetching workflow:', workflowId);
+      // console.log('[WorkflowPreview] Fetching workflow:', workflowId);
       const response = await fetch(`/api/workflows/${workflowId}`, {
         credentials: "include",
         cache: "no-cache", // Disable HTTP caching
       });
 
-      console.log('[WorkflowPreview] Response status:', response.status);
+      // console.log('[WorkflowPreview] Response status:', response.status);
 
       if (!response.ok) {
         const error = await response.json();
@@ -45,14 +45,14 @@ export default function WorkflowPreview() {
       }
 
       const data = await response.json();
-      console.log('[WorkflowPreview] RAW API Response:', data);
-      console.log('[WorkflowPreview] data.sections type:', typeof data.sections);
-      console.log('[WorkflowPreview] data.sections value:', data.sections);
-      console.log('[WorkflowPreview] Workflow data received:', {
-        id: data.id,
-        sectionsCount: data.sections?.length || 0,
-        hasLogicRules: !!data.logicRules
-      });
+      // console.log('[WorkflowPreview] RAW API Response:', data);
+      // console.log('[WorkflowPreview] data.sections type:', typeof data.sections);
+      // console.log('[WorkflowPreview] data.sections value:', data.sections);
+      // console.log('[WorkflowPreview] Workflow data received:', {
+      //   id: data.id,
+      //   sectionsCount: data.sections?.length || 0,
+      //   hasLogicRules: !!data.logicRules
+      // });
       return data;
     },
     enabled: !!workflowId,
@@ -93,7 +93,7 @@ export default function WorkflowPreview() {
 
     async function createPreviewRun() {
       try {
-        console.log('[WorkflowPreview] Creating preview run for document generation');
+        // console.log('[WorkflowPreview] Creating preview run for document generation');
         const response = await fetch(`/api/workflows/${workflowId}/runs`, {
           method: 'POST',
           headers: {
@@ -107,7 +107,7 @@ export default function WorkflowPreview() {
         }
 
         const result = await response.json();
-        console.log('[WorkflowPreview] Preview run created:', result.data);
+        // console.log('[WorkflowPreview] Preview run created:', result.data);
 
         setPreviewRunId(result.data.runId);
         setPreviewRunToken(result.data.runToken);
@@ -138,6 +138,7 @@ export default function WorkflowPreview() {
 
   // Initialize Preview Environment
   useEffect(() => {
+    /*
     console.log('[WorkflowPreview] Environment initialization check:', {
       hasWorkflow: !!workflow,
       hasAllSteps: !!allSteps,
@@ -147,6 +148,7 @@ export default function WorkflowPreview() {
       snapshotId,
       loadingSnapshot,
     });
+    */
 
     if (workflow && allSteps && workflow.sections) {
       // Guard: Don't recreate if we already have an environment for this workflow
@@ -177,12 +179,14 @@ export default function WorkflowPreview() {
         });
       }
 
+      /*
       console.log('[WorkflowPreview] Creating preview environment with:', {
         workflowId: workflow.id,
         sectionsCount: workflow.sections.length,
         stepsCount: allSteps.length,
         initialValuesCount: Object.keys(initialValues).length,
       });
+      */
 
       const newEnv = new PreviewEnvironment({
         workflowId: workflow.id,
@@ -192,7 +196,7 @@ export default function WorkflowPreview() {
       });
 
       setEnv(newEnv);
-      console.log('[WorkflowPreview] Preview environment created successfully');
+      // console.log('[WorkflowPreview] Preview environment created successfully');
     }
   }, [workflow?.id, allSteps?.length, snapshotId, loadingSnapshot, toast]);
 

@@ -30,104 +30,198 @@ interface ExecuteCodeWithHelpersParams {
 /**
  * Execute JavaScript code with helpers and context injection
  */
+/**
+ * Execute JavaScript code with helpers and context injection using isolated-vm
+ */
 async function runJsWithHelpers(
   code: string,
   input: Record<string, unknown>,
   context: ScriptContextAPI,
-  helpers: Record<string, any>,
+  helpers: Record<string, any> | undefined,
   timeoutMs: number,
   consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
+  const helperLib = createHelperLibrary({ consoleEnabled });
+  // Use provided helpers or default library
+  // Use provided helpers or default library
+  // If helpers provided, use them. If not, use internal helperLib.
+  // Note: If helpers provided, we cannot capture logs unless they are compatible HelperLibraryAPI
+  // and we have access to their log store. Here, we only support logs if we created the library.
+  const actualHelpers = helpers || helperLib.helpers;
+
+  let ivm: any;
   try {
-    // Enforce timeout limits
-    const actualTimeout = Math.min(Math.max(timeoutMs, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
+    ivm = await import("isolated-vm");
+  } catch (error) {
+    logger.error({ error }, "Failed to load isolated-vm");
+    return {
+      ok: false,
+      error: "SandboxEnvironmentError: isolated-vm is not available",
+    };
+  }
 
-    // Validate code size
-    if (code.length > MAX_CODE_SIZE) {
-      return {
-        ok: false,
-        error: `Code size exceeds ${MAX_CODE_SIZE / 1024}KB limit`,
-      };
-    }
+  // Enforce timeout limits
+  const actualTimeout = Math.min(Math.max(timeoutMs, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
 
-    // Validate input size
+  // Validate code size
+  if (code.length > MAX_CODE_SIZE) {
+    return { ok: false, error: `Code size exceeds ${MAX_CODE_SIZE / 1024}KB limit` };
+  }
+
+  // Validate input size
+  try {
     const inputJson = JSON.stringify(input);
     if (inputJson.length > MAX_INPUT_SIZE) {
-      return {
-        ok: false,
-        error: `Input size exceeds ${MAX_INPUT_SIZE / 1024}KB limit`,
-      };
+      return { ok: false, error: `Input size exceeds ${MAX_INPUT_SIZE / 1024}KB limit` };
     }
+  } catch (e) {
+    return { ok: false, error: "InputSerializationError: Input must be JSON serializable" };
+  }
 
-    // Create helper library with optional console capture
-    const helperLib = createHelperLibrary({ consoleEnabled });
-    const actualHelpers = helpers || helperLib.helpers;
+  // Import fs for debugging
+  // let fs: any;
+  // try {
+  //   fs = await import("fs");
+  // } catch (e) { /* ignore */ }
+  // const debugLog = (msg: string) => {
+  //   if (fs) try { fs.appendFileSync("debug_bridge.log", msg + "\n"); } catch (e) { }
+  // };
 
-    // Dynamically import vm2
-    let VM2: any;
-    try {
-      const vm2Module = await import("vm2");
-      VM2 = vm2Module.VM;
-    } catch (importError) {
-      logger.error({ error: importError }, "Failed to initialize vm2 sandbox in enhanced executor");
-      return {
-        ok: false,
-        error: "SandboxInitializationError: Secure sandbox engine (vm2) is not available. Execution aborted for security.",
-      };
-    }
+  let isolate: any;
+  try {
+    // 1. Create Isolate
+    isolate = new ivm.Isolate({ memoryLimit: 128 });
+    const ctx = await isolate.createContext();
+    const jail = ctx.global;
 
-    // Create VM2 sandbox with restricted globals + helpers + context
-    const vm = new VM2({
-      timeout: actualTimeout,
-      sandbox: {
-        input,
-        context,
-        helpers: actualHelpers,
-      },
-      eval: false,
-      wasm: false,
-    });
+    // 2. Setup Global Scope
+    await jail.set("global", jail.derefInto());
 
-    // Wrap code in a function and execute it
-    const wrappedCode = `
+    // 3. Transfer Input (Data)
+    await jail.set("input", new ivm.ExternalCopy(input).copyInto());
+
+    // 4. Transfer Context (Data - confirmed purely JSON)
+    await jail.set("context", new ivm.ExternalCopy(context).copyInto());
+
+    // 5. Setup Helpers Bridge
+    // We can't transfer functions directly. We create a structure map and a generic caller.
+
+    // Helper to get structure
+    const getStructure = (obj: any): any => {
+      if (typeof obj === 'function') return '__fn__';
+      if (typeof obj === 'object' && obj !== null) {
+        const struct: any = {};
+        for (const k of Object.keys(obj)) {
+          struct[k] = getStructure(obj[k]);
+        }
+        return struct;
+      }
+      return '__val__'; // Primitive value (we don't support passing values this way currently, only functions or nested objects)
+    };
+
+    const helpersStructure = getStructure(actualHelpers);
+    await jail.set("_helpersStructure", new ivm.ExternalCopy(helpersStructure).copyInto());
+
+
+
+    // We MUST allow the callback to be async (returns Promise) if target is async?
+    // But isolated-vm 'applySync' cannot wait for Promise.
+    // If target is async, we MUST use 'apply' in sandbox.
+    // However, HelperLibrary functions are synchronous.
+    // So we can use a synchronous callback for them.
+    // But 'callHostParams' is async?
+    // Let's make it sync if we can.
+    // Wait, 'ExternalCopy' is synchronous.
+    // If all helpers are synchronous, we can define the callback as synchronous?
+    // ivm.Reference function wrapper is ... depends on how we define it.
+    // Let's rely on ivm handling.
+    // If we define:
+    // jail.setSync("callHost", new ivm.Reference( (path, ...args) => ... ));
+
+    await jail.set("callHost", new ivm.Reference(function (path: string[], ...args: any[]) {
+      // With { arguments: { copy: true } }, path and args are copied by value (not References)
+
+      let target: any = actualHelpers;
+      // Debug log
+      // console.log(`[Bridge Path] ${path.join('.')}`);
+
+      for (const key of path) {
+        if (!target) {
+          throw new Error(`Helper not found: ${path.join('.')}`);
+        }
+        target = target[key];
+      }
+
+      const fn = target as Function;
+
+      // Args are already copies
+      const res = fn(...args);
+
+      // Handle void return (undefined)
+      if (res === undefined) return undefined;
+
+      return new ivm.ExternalCopy(res).copyInto();
+    }));
+
+    // Bootstrap Script to rebuild helpers object
+    const bootstrapCode = `
+      function buildHelpers(struct, path = []) {
+        if (struct === '__fn__') {
+          return function(...args) {
+            // Force copy of arguments to avoid Reference issues
+            return callHost.applySync(undefined, [path, ...args], { arguments: { copy: true } });
+          };
+        }
+        if (typeof struct === 'object') {
+           const obj = {};
+           for (const k in struct) {
+             obj[k] = buildHelpers(struct[k], [...path, k]);
+           }
+           return obj;
+        }
+        return undefined;
+      }
+      
+      const helpers = buildHelpers(_helpersStructure);
+      
+      // Wrap user code
       (function(input, context, helpers) {
-        ${code}
+         ${code}
       })(input, context, helpers);
     `;
 
+    // 6. Compile & Run
+    const script = await isolate.compileScript(bootstrapCode);
     const startTime = Date.now();
 
-    // Execute code and capture return value
-    const result = vm.run(wrappedCode);
+    const resultRef = await script.run(ctx, {
+      timeout: actualTimeout,
+      copy: true
+    });
 
     const durationMs = Date.now() - startTime;
 
-    return {
-      ok: true,
-      output: result as any,
-      consoleLogs: helperLib.getConsoleLogs ? helperLib.getConsoleLogs() : undefined,
-      durationMs,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      // Check for timeout
-      if (error.message.includes("timeout") || error.message.includes("timed out")) {
-        return {
-          ok: false,
-          error: "TimeoutError: Execution exceeded time limit",
-        };
-      }
-
-      return {
-        ok: false,
-        error: `SandboxError: ${error.message}`,
-      };
+    // Unpack result if needed (same as runJsIsolatedVm)
+    let output = resultRef;
+    if (typeof resultRef === 'object' && resultRef !== null && typeof resultRef.copy === 'function') {
+      output = await resultRef.copy();
     }
 
     return {
-      ok: false,
-      error: "Unknown execution error",
+      ok: true,
+      output: output as any,
+      consoleLogs: helperLib.getConsoleLogs ? helperLib.getConsoleLogs() : undefined,
+      durationMs,
     };
+
+  } catch (error: any) {
+    const msg = error.message || String(error);
+    if (msg.includes("timed out") || msg.includes("timeout")) {
+      return { ok: false, error: "TimeoutError: Execution exceeded time limit" };
+    }
+    return { ok: false, error: `SandboxError: ${msg}` };
+  } finally {
+    if (isolate) isolate.dispose();
   }
 }
 
@@ -524,7 +618,7 @@ export async function executeCodeWithHelpers(
       code,
       input,
       context,
-      helpers || createHelperLibrary({ consoleEnabled }).helpers,
+      helpers,
       timeoutMs,
       consoleEnabled
     );

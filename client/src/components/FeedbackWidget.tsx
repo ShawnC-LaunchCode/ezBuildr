@@ -18,45 +18,28 @@ export default function FeedbackWidget() {
   }, [submitted, fire]);
 
   // Listen for postMessage from iframe if survey sends completion event
-  useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (e.data === "surveySubmitted") {
-        setOpen(false);
-        setSubmitted(true);
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, []);
+
 
   return (
     <>
       <div className="fixed bottom-6 right-6 z-50">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <button
-              aria-label="Give Feedback"
-              className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-indigo-300"
-            >
-              <MessageSquare className="w-6 h-6" />
-            </button>
-          </DialogTrigger>
-
-          <DialogContent
-            className="max-w-lg w-[90vw] h-[80vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700 p-0"
-          >
-            <iframe
-              src={
-                import.meta.env.DEV
-                  ? "http://localhost:5000/survey/b121d194-29b2-48d2-a2b0-7f50504bc3d8"
-                  : "https://vault-logic-production.up.railway.app/survey/b121d194-29b2-48d2-a2b0-7f50504bc3d8"
-              }
-              className="w-full h-full"
-              title="Feedback Survey"
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+        <DialogContent
+          className="sm:max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 p-8 text-center"
+        >
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-full">
+              <MessageSquare className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-fuchsia-600">
+              Feedback Coming Soon
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              We are preparing a new feedback survey to better capture your thoughts. Stay tuned!
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div >
 
       <AnimatePresence>
         {submitted && (

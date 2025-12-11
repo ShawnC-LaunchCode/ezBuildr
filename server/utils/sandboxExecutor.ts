@@ -91,24 +91,43 @@ function getFromCache(key: string): any | undefined {
  * @param timeoutMs - Execution timeout in milliseconds (max 3000ms)
  * @returns Execution result with output or error
  */
-export async function runJsVm2(
+// Dynamically import isolated-vm to avoid build-time errors if not present in all envs (optional, but good practice)
+// However, since we installed it as a dep, we can define it at top level if we want, but dynamic is safer for the "refactor" step 
+// to match the existing pattern logic (which had dynamic vm2).
+// Actually, let's keep it clean.
+
+// We need to import it at the top or dynamically.
+// Let's assume it's available.
+
+export async function runJsIsolatedVm(
   code: string,
   input: Record<string, unknown>,
   timeoutMs: number = 1000
 ): Promise<ExecutionResult> {
+  let ivm: any;
   try {
-    // Enforce timeout limits
-    const actualTimeout = Math.min(Math.max(timeoutMs, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
+    ivm = await import("isolated-vm");
+  } catch (error) {
+    logger.error({ error }, "Failed to load isolated-vm");
+    return {
+      ok: false,
+      error: "SandboxEnvironmentError: isolated-vm is not available",
+    };
+  }
 
-    // Validate code size
-    if (code.length > MAX_CODE_SIZE) {
-      return {
-        ok: false,
-        error: `Code size exceeds ${MAX_CODE_SIZE / 1024}KB limit`,
-      };
-    }
+  // Enforce timeout limits
+  const actualTimeout = Math.min(Math.max(timeoutMs, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
 
-    // Validate input size
+  // Validate code size
+  if (code.length > MAX_CODE_SIZE) {
+    return {
+      ok: false,
+      error: `Code size exceeds ${MAX_CODE_SIZE / 1024}KB limit`,
+    };
+  }
+
+  // Validate input size
+  try {
     const inputJson = JSON.stringify(input);
     if (inputJson.length > MAX_INPUT_SIZE) {
       return {
@@ -116,120 +135,92 @@ export async function runJsVm2(
         error: `Input size exceeds ${MAX_INPUT_SIZE / 1024}KB limit`,
       };
     }
+  } catch (e) {
+    return { ok: false, error: "InputSerializationError: Input must be JSON serializable" };
+  }
 
-    // Dynamically import vm2
-    let VM2: any;
-    let VMScript: any;
-    try {
-      const vm2Module = await import("vm2");
-      VM2 = vm2Module.VM;
-      VMScript = vm2Module.VMScript;
-    } catch (importError) {
-      // CRITICAL: Do not fallback to insecure vm module
-      logger.error({ error: importError }, "Failed to initialize vm2 sandbox");
-      return {
-        ok: false,
-        error: "SandboxInitializationError: Secure sandbox engine (vm2) is not available. Execution aborted for security.",
-      };
-    }
+  let isolate: any;
+  try {
+    // 1. Create Isolate
+    // 128MB limit is usually sufficient for simple scripts
+    isolate = new ivm.Isolate({ memoryLimit: 128 });
 
-    try {
-      // Wrap code in a function
-      const wrappedCode = `
-        (function(input) {
-          ${code}
-        })(input);
-      `;
+    // 2. Create Context
+    const context = await isolate.createContext();
+    const jail = context.global;
 
-      // Check cache (LRU)
-      let script = getFromCache(wrappedCode);
-      if (!script) {
-        try {
-          script = new VMScript(wrappedCode);
-          addToCache(wrappedCode, script);
-        } catch (compileError: any) {
-          return {
-            ok: false,
-            error: `CompilationError: ${compileError.message}`
-          };
-        }
-      }
+    // 3. Setup Global Environment
+    // Make 'global' available as a reference to itself (common in JS envs)
+    await jail.set("global", jail.derefInto());
 
-      // Create VM2 sandbox with restricted globals
-      const vm = new VM2({
-        timeout: actualTimeout,
-        sandbox: {
-          input,
-        },
-        eval: false,
-        wasm: false,
-      });
+    // 4. Transfer Input
+    // Use ExternalCopy for safe, copy-by-value transfer of the input object
+    // This is much safer than proxies
+    const inputCopy = new ivm.ExternalCopy(input);
+    await jail.set("input", inputCopy.copyInto());
 
-      // Execute cached script
-      const result = vm.run(script);
+    // 5. Wrap user code
+    // We wrap it to ensure it returns a value and handles the 'input' variable scope effectively
+    // 'input' is already in global scope from step 4, but let's encourage "return" style
+    const wrappedCode = `
+      (function() {
+        ${code}
+      })()
+    `;
 
-      return {
-        ok: true,
-        output: result as Record<string, unknown> | string | number | boolean | null,
-      };
-    } catch (error: any) {
-      if (error.message && (error.message.includes("timeout") || error.message.includes("timed out") || error.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT')) {
-        throw new Error("TimeoutError: Execution exceeded time limit");
-      }
-      throw error;
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      // Check for timeout
-      if (error.message.includes("timeout") || error.message.includes("timed out")) {
-        return {
-          ok: false,
-          error: "TimeoutError: Execution exceeded time limit",
-          errorDetails: {
-            message: error.message,
-            name: error.name,
-            stack: error.stack,
-          },
-        };
-      }
+    // 6. Compile Script
+    const script = await isolate.compileScript(wrappedCode);
 
-      // Parse stack trace to extract line and column numbers
-      const stackLines = error.stack?.split('\n') || [];
-      let line: number | undefined;
-      let column: number | undefined;
+    // 7. Execute
+    const resultRef = await script.run(context, {
+      timeout: actualTimeout,
+      copy: true // Copy the result back automatically if primitive
+    });
 
-      // Look for line numbers in stack trace
-      // VM2 stack format: "    at <anonymous>:X:Y" where X is line, Y is column
-      for (const stackLine of stackLines) {
-        const match = stackLine.match(/:(\d+):(\d+)/);
-        if (match) {
-          line = parseInt(match[1], 10);
-          column = parseInt(match[2], 10);
-          // Adjust line number to account for wrapper function (subtract 2 lines)
-          if (line > 2) {
-            line = line - 2;
-          }
-          break;
-        }
-      }
+    // 8. Process Result
+    // If the result is an object/array, 'copy: true' might return a Reference if using 'promise' or complex types unless handled.
+    // For simple JSON objects, ExternalCopy output is best.
 
-      return {
-        ok: false,
-        error: `SandboxError: ${error.message}`,
-        errorDetails: {
-          message: error.message,
-          name: error.name,
-          stack: error.stack,
-          line,
-          column,
-        },
-      };
+    // Actually, run({ copy: true }) tries to copy deeply.
+    // Let's be safe: if it's a reference, try to copy it out.
+
+    let output = resultRef;
+    if (typeof resultRef === 'object' && resultRef !== null && typeof resultRef.copy === 'function') {
+      output = await resultRef.copy();
     }
 
     return {
-      ok: false,
-      error: `Unknown execution error: ${error}`,
+      ok: true,
+      output: output as Record<string, unknown> | string | number | boolean | null,
     };
+
+  } catch (error: any) {
+    // Handle specific ivm errors
+    const msg = error.message || String(error);
+
+    if (msg.includes("timed out") || msg.includes("timeout")) {
+      return {
+        ok: false,
+        error: "TimeoutError: Execution exceeded time limit",
+      };
+    }
+
+    // Parse stack trace if possible (ivm stack traces are strings in error.stack)
+    // We can try to extract line numbers similar to before
+
+    return {
+      ok: false,
+      error: `SandboxError: ${msg}`,
+      errorDetails: {
+        message: msg,
+        stack: error.stack
+      }
+    };
+  } finally {
+    // 9. Cleanup
+    if (isolate) {
+      isolate.dispose();
+    }
   }
 }
 
@@ -489,7 +480,7 @@ export async function executeCode(
   timeoutMs: number = 1000
 ): Promise<ExecutionResult> {
   if (language === "javascript") {
-    return runJsVm2(code, input, timeoutMs);
+    return runJsIsolatedVm(code, input, timeoutMs);
   } else if (language === "python") {
     return runPythonSubprocess(code, input, timeoutMs);
   } else {

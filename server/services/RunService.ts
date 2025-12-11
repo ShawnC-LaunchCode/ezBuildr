@@ -13,7 +13,7 @@ import { workflowService } from "./WorkflowService";
 import { logicService, type NavigationResult } from "./LogicService";
 import { blockRunner } from "./BlockRunner";
 import { evaluateRules, validateRequiredSteps, getEffectiveRequiredSteps } from "@shared/workflowLogic";
-import { runJsVm2 } from "../utils/sandboxExecutor";
+import { runJsIsolatedVm } from "../utils/sandboxExecutor";
 import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
 import { randomUUID } from "crypto";
 import { captureRunLifecycle } from "./metrics";
@@ -516,7 +516,7 @@ export class RunService {
 
       try {
         // Execute the code
-        const result = await runJsVm2(
+        const result = await runJsIsolatedVm(
           config.code,
           input,
           config.timeoutMs || 1000

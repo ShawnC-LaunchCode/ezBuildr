@@ -25,7 +25,6 @@ import { WorkflowRunner } from "@/pages/WorkflowRunner";
 import { WorkflowAnalytics } from "@/pages/WorkflowAnalytics";
 import OptimizationWizard from "@/pages/optimization/OptimizationWizard";
 import WorkflowPreview from "@/pages/WorkflowPreview";
-import PreviewRunner from "@/pages/PreviewRunner"; // Legacy - to be deprecated
 import ProjectView from "@/pages/ProjectView";
 import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
 import RunDetails from "@/pages/RunDetails"; // Stage 8
@@ -64,8 +63,6 @@ function Router() {
           {(params) => <WorkflowRunner runId={params.id} />}
         </Route>
 
-        {/* Legacy preview runner (database-backed) - for backward compatibility */}
-        <Route path="/preview/:id" component={PreviewRunner} />
 
         {/* New preview mode (in-memory, no database) - authenticated only */}
         {isAuthenticated && (

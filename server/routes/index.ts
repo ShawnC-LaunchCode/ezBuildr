@@ -56,6 +56,7 @@ import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
 import { registerDebugRoutes } from "./debug.routes";
+import { placesRouter } from "./places.routes";
 
 /**
  * Register all modular routes
@@ -144,6 +145,9 @@ export function registerAllRoutes(app: Express): void {
   registerDatavaultRoutes(app);
   registerDatavaultApiTokenRoutes(app);
   app.use("/api", marketplaceRouter);
+
+  // Google Places
+  app.use("/api/places", placesRouter);
 
   // Enterprise Routes
   app.use("/api/sharing", sharingRouter);

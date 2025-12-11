@@ -684,6 +684,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
             </CardHeader>
             <CardContent className="space-y-6">
               <SectionSteps
+                key={currentSection.id} // FORCE RE-RENDER on section change
                 sectionId={currentSection.id}
                 steps={allSteps?.filter((s: ApiStep) => s.sectionId === currentSection.id)}
                 values={effectiveValues}
@@ -788,7 +789,17 @@ function SectionSteps({
       isVirtual: step.isVirtual || false,
       repeaterConfig: step.repeaterConfig || null,
     }));
-  }, [rawSteps]);
+  }, [sourceSteps]); // Depend on sourceSteps, not rawSteps
+
+  // Debug logs
+  /*
+  console.log('[WorkflowRunner:SectionSteps] Rendering:', {
+    sectionId,
+    stepsCount: steps.length,
+    firstStepId: steps[0]?.id,
+    valuesCount: Object.keys(values).length
+  });
+  */
 
   // Use visibility hook to evaluate which steps should be shown
   const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
