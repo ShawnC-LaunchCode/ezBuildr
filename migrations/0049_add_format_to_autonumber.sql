@@ -24,7 +24,6 @@ BEGIN
   -- Get or create sequence row with row-level lock
   -- Get or create sequence row with row-level lock
   -- Approach: Use a dummy UPDATE to lock the row and return its current state
-  -- This avoids PL/pgSQL limitations with SELECT ... INTO ... FOR UPDATE
   UPDATE "datavault_number_sequences"
   SET "updated_at" = now() -- Minimal side-effect to support locking
   WHERE "tenant_id" = p_tenant_id
