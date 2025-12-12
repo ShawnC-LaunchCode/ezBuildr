@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useStep, useUpdateStep } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
@@ -259,31 +260,71 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Input
-          id="defaultValue"
-          value={
-            step.defaultValue === null || step.defaultValue === undefined
-              ? ""
-              : typeof step.defaultValue === "object"
-              ? JSON.stringify(step.defaultValue)
-              : String(step.defaultValue)
-          }
-          onChange={(e) => handleDefaultValueChange(e.target.value)}
-          placeholder={
-            step.type === "yes_no"
-              ? "yes or no"
-              : step.type === "multiple_choice"
-              ? '["Option 1", "Option 2"]'
-              : step.type === "radio"
-              ? "Option text"
-              : step.type === "date_time"
-              ? "YYYY-MM-DD or YYYY-MM-DDTHH:mm"
-              : "Enter default value..."
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          This value will be pre-filled when the workflow runs. Can be overridden by URL parameters.
-        </p>
+
+        {step.type === "yes_no" || step.type === "true_false" ? (
+          <Select
+            value={
+              step.defaultValue === null || step.defaultValue === undefined
+                ? "no_default"
+                : String(step.defaultValue)
+            }
+            onValueChange={(val) => {
+              let finalVal: boolean | null = null;
+              if (val === "true") finalVal = true;
+              else if (val === "false") finalVal = false;
+
+              updateStepMutation.mutate({
+                id: stepId,
+                sectionId,
+                defaultValue: finalVal
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select default..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no_default">No Default</SelectItem>
+              {step.type === "yes_no" ? (
+                <>
+                  <SelectItem value="true">Yes</SelectItem>
+                  <SelectItem value="false">No</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="true">True</SelectItem>
+                  <SelectItem value="false">False</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        ) : (
+          <>
+            <Input
+              id="defaultValue"
+              value={
+                step.defaultValue === null || step.defaultValue === undefined
+                  ? ""
+                  : typeof step.defaultValue === "object"
+                    ? JSON.stringify(step.defaultValue)
+                    : String(step.defaultValue)
+              }
+              onChange={(e) => handleDefaultValueChange(e.target.value)}
+              placeholder={
+                step.type === "multiple_choice"
+                  ? '["Option 1", "Option 2"]'
+                  : step.type === "radio"
+                    ? "Option text"
+                    : step.type === "date_time"
+                      ? "YYYY-MM-DD or YYYY-MM-DDTHH:mm"
+                      : "Enter default value..."
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              This value will be pre-filled when the workflow runs. Can be overridden by URL parameters.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Text Type Toggle (for short_text and long_text) */}
@@ -420,9 +461,8 @@ function OptionItem({ id, option, index, onChange, onBlur, onRemove }: OptionIte
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 p-2 rounded-md border bg-background ${
-        isDragging ? "opacity-50" : ""
-      }`}
+      className={`flex items-center gap-2 p-2 rounded-md border bg-background ${isDragging ? "opacity-50" : ""
+        }`}
     >
       <button
         className="cursor-grab active:cursor-grabbing p-1"

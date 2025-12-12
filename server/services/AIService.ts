@@ -405,109 +405,145 @@ Output ONLY the JSON object, no additional text or markdown.`;
   /**
    * Call the configured LLM provider
    */
+  /**
+   * Call the configured LLM provider with retry logic
+   */
   private async callLLM(
     prompt: string,
     taskType: 'workflow_generation' | 'workflow_suggestion' | 'binding_suggestion',
   ): Promise<string> {
     const { provider, model, temperature = 0.7, maxTokens = 4000 } = this.config;
+    const maxRetries = 3;
+    let attempt = 0;
 
-    try {
-      if (provider === 'openai' && this.openaiClient) {
-        const response = await this.openaiClient.chat.completions.create({
-          model,
-          messages: [
+    // Helper to extract retry delay from error if available
+    const getRetryAfter = (error: any): number | null => {
+      // Check for Google's "Please retry in X s"
+      if (typeof error.message === 'string') {
+        const match = error.message.match(/retry in ([0-9.]+)s/);
+        if (match) return Math.ceil(parseFloat(match[1]) * 1000);
+      }
+      return null;
+    };
+
+    while (attempt <= maxRetries) {
+      try {
+        if (provider === 'openai' && this.openaiClient) {
+          const response = await this.openaiClient.chat.completions.create({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting.',
+              },
+              { role: 'user', content: prompt },
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: 'json_object' },
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (!content) {
+            throw this.createError('No content in OpenAI response', 'INVALID_RESPONSE');
+          }
+          return content;
+        } else if (provider === 'anthropic' && this.anthropicClient) {
+          const response = await this.anthropicClient.messages.create({
+            model,
+            max_tokens: maxTokens,
+            temperature,
+            messages: [{ role: 'user', content: prompt }],
+            system:
+              'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw this.createError('Unexpected Anthropic response type', 'INVALID_RESPONSE');
+          }
+
+          // Strip markdown code blocks
+          let text = content.text.trim();
+          if (text.startsWith('```json')) {
+            text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+          } else if (text.startsWith('```')) {
+            text = text.replace(/^```\n/, '').replace(/\n```$/, '');
+          }
+          return text;
+        } else if (provider === 'gemini' && this.geminiClient) {
+          const result = await this.geminiClient.generateContent(prompt);
+          const response = result.response;
+          const content = response.text();
+
+          if (!content) {
+            throw this.createError('No content in Gemini response', 'INVALID_RESPONSE');
+          }
+
+          // Strip markdown code blocks
+          let text = content.trim();
+          if (text.startsWith('```json')) {
+            text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+          } else if (text.startsWith('```')) {
+            text = text.replace(/^```\n/, '').replace(/\n```$/, '');
+          }
+          return text;
+        } else {
+          throw this.createError(`Provider ${provider} not initialized`, 'API_ERROR');
+        }
+      } catch (error: any) {
+        // Handle rate limiting specifically
+        const isRateLimit = error.status === 429 || error.code === 'rate_limit_exceeded' ||
+          (error.message && error.message.includes('429')) ||
+          (error.message && error.message.includes('Quota exceeded'));
+
+        if (isRateLimit) {
+          const retryAfterMs = getRetryAfter(error);
+
+          // If we have retries left and the wait is reasonable (< 15 seconds)
+          if (attempt < maxRetries) {
+            const waitMs = retryAfterMs || (Math.pow(2, attempt) * 1000); // Exponential backoff fallback
+
+            if (waitMs <= 15000) {
+              logger.warn({ attempt, waitMs }, 'Rate limit hit, retrying...');
+              await new Promise(resolve => setTimeout(resolve, waitMs));
+              attempt++;
+              continue;
+            }
+          }
+
+          // Otherwise, throw explicit rate limit error
+          throw this.createError(
+            'AI API rate limit exceeded. Please try again later.',
+            'RATE_LIMIT',
             {
-              role: 'system',
-              content:
-                'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature,
-          max_tokens: maxTokens,
-          response_format: { type: 'json_object' },
-        });
-
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-          throw this.createError('No content in OpenAI response', 'INVALID_RESPONSE');
+              originalError: error.message,
+              retryAfterSeconds: retryAfterMs ? Math.ceil(retryAfterMs / 1000) : 60
+            }
+          );
         }
 
-        return content;
-      } else if (provider === 'anthropic' && this.anthropicClient) {
-        const response = await this.anthropicClient.messages.create({
-          model,
-          max_tokens: maxTokens,
-          temperature,
-          messages: [{ role: 'user', content: prompt }],
-          system:
-            'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
-        });
-
-        const content = response.content[0];
-        if (content.type !== 'text') {
-          throw this.createError('Unexpected Anthropic response type', 'INVALID_RESPONSE');
+        // Handle timeouts (retryable?)
+        if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempt++;
+            continue;
+          }
+          throw this.createError('AI API request timed out', 'TIMEOUT', { originalError: error.message });
         }
 
-        // Strip markdown code blocks if present (despite instructions)
-        let text = content.text.trim();
-        if (text.startsWith('```json')) {
-          text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
-        } else if (text.startsWith('```')) {
-          text = text.replace(/^```\n/, '').replace(/\n```$/, '');
-        }
-
-        return text;
-      } else if (provider === 'gemini' && this.geminiClient) {
-        const result = await this.geminiClient.generateContent(prompt);
-        const response = result.response;
-        const content = response.text();
-
-        if (!content) {
-          throw this.createError('No content in Gemini response', 'INVALID_RESPONSE');
-        }
-
-        // Strip markdown code blocks if present
-        let text = content.trim();
-        if (text.startsWith('```json')) {
-          text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
-        } else if (text.startsWith('```')) {
-          text = text.replace(/^```\n/, '').replace(/\n```$/, '');
-        }
-
-        return text;
-      } else {
+        // Generic API error - do not retry
         throw this.createError(
-          `Provider ${provider} not initialized`,
+          `AI API error: ${error.message}`,
           'API_ERROR',
+          { originalError: error }
         );
       }
-    } catch (error: any) {
-      // Handle rate limiting
-      if (error.status === 429 || error.code === 'rate_limit_exceeded') {
-        throw this.createError(
-          'AI API rate limit exceeded',
-          'RATE_LIMIT',
-          { originalError: error.message },
-        );
-      }
-
-      // Handle timeouts
-      if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
-        throw this.createError(
-          'AI API request timed out',
-          'TIMEOUT',
-          { originalError: error.message },
-        );
-      }
-
-      // Generic API error
-      throw this.createError(
-        `AI API error: ${error.message}`,
-        'API_ERROR',
-        { originalError: error },
-      );
     }
+
+    throw new Error('Unexpected retry loop exit');
   }
 
   /**

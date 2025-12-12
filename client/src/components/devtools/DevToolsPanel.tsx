@@ -5,6 +5,7 @@ import { UnifiedDevPanel } from "@/components/devpanel/UnifiedDevPanel";
 import { RuntimeVariableList } from "@/components/devpanel/RuntimeVariableList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiWorkflowVariable } from "@/lib/vault-api";
+import { JsonViewer } from "./JsonViewer";
 
 interface DevToolsPanelProps {
     env: PreviewEnvironment | null;
@@ -45,6 +46,26 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
     // We'll use local state to toggle between collapsed and expanded sidebar,
     // assuming 'isOpen' from props means "Dev Tools Enabled/Visible at all".
 
+    const contextValues = useMemo(() => {
+        if (!state || !env) return {};
+        const values = { ...state.values };
+        const steps = env.getSteps();
+
+        const contextAwareValues: Record<string, any> = {};
+
+        Object.entries(values).forEach(([stepId, value]) => {
+            // Filter out null/undefined values to keep JSON view clean
+            if (value === undefined || value === null) return;
+
+            const step = steps.find(s => s.id === stepId);
+            // Use alias if available, otherwise fall back to stepId
+            const key = step?.alias || stepId;
+            contextAwareValues[key] = value;
+        });
+
+        return contextAwareValues;
+    }, [state, env]);
+
     return (
         <div className="h-full flex flex-col pointer-events-auto">
             <UnifiedDevPanel
@@ -69,12 +90,11 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
                         />
                     </TabsContent>
 
-                    <TabsContent value="json" className="flex-1 mt-0 overflow-hidden relative">
-                        <div className="absolute inset-0 overflow-auto p-4">
-                            <pre className="text-xs font-mono whitespace-pre-wrap break-all text-foreground bg-card p-2 rounded border">
-                                {JSON.stringify(state.values, null, 2)}
-                            </pre>
-                        </div>
+                    <TabsContent value="json" className="flex-1 mt-0 p-0 overflow-hidden">
+                        <JsonViewer
+                            data={contextValues}
+                            className="w-full h-full"
+                        />
                     </TabsContent>
                 </Tabs>
             </UnifiedDevPanel>

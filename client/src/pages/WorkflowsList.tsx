@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useWorkflows, useDeleteWorkflow, useProjects, useDeleteProject } from "@/lib/vault-hooks";
+import { useWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject } from "@/lib/vault-hooks";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -52,29 +52,9 @@ export default function WorkflowsList() {
   const deleteWorkflowMutation = useDeleteWorkflow();
   const deleteProjectMutation = useDeleteProject();
 
-  const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
-      return apiRequest("POST", "/api/projects", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({
-        title: "Success",
-        description: "Project created successfully",
-      });
-      setIsProjectDialogOpen(false);
-      setNewProjectName("");
-      setNewProjectDescription("");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create project",
-        variant: "destructive",
-      });
-    },
-  });
+  const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
 
+  // Wrap the shared mutation to handle toast/reset logic locally
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
       toast({
@@ -85,8 +65,25 @@ export default function WorkflowsList() {
       return;
     }
     createProjectMutation.mutate({
-      name: newProjectName,
+      title: newProjectName,
       description: newProjectDescription || undefined,
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Project created successfully",
+        });
+        setIsProjectDialogOpen(false);
+        setNewProjectName("");
+        setNewProjectDescription("");
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create project",
+          variant: "destructive",
+        });
+      },
     });
   };
 

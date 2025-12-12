@@ -1,15 +1,32 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+// Custom API Error class to carry status and details
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
 }
 
-/**
- * Check if an error is retryable (network error or 5xx server error)
- */
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const json = await res.json().catch(() => ({}));
+      throw new ApiError(json.message || res.statusText, res.status, json.code, json.details);
+    }
+    const text = (await res.text()) || res.statusText;
+    throw new ApiError(text, res.status);
+  }
+}
+
+// ... existing isRetryableError, getRetryDelay, sleep ...
+
 function isRetryableError(error: unknown, status?: number): boolean {
   // Network errors (fetch failed, timeout, etc.)
   if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -21,9 +38,16 @@ function isRetryableError(error: unknown, status?: number): boolean {
     return true;
   }
 
+  // 429 Rate Limit is retryable locally via simple delay if we want,
+  // but usually requires longer wait, so we might want to bubble it up
+  // unless we want to retry here too. For now let's bubble 429 up
+  // since we handled short-delay retries in the backend service layer.
+
   // 4xx client errors are NOT retryable
   return false;
 }
+
+// ...
 
 /**
  * Calculate exponential backoff delay
@@ -57,48 +81,35 @@ export async function apiRequest(
         credentials: "include",
       });
 
-      // If response is not ok, check if it's retryable
+      // If response is not ok, throw ApiError or generic Error
       if (!res.ok) {
-        const text = (await res.text()) || res.statusText;
-        const error = new Error(`${res.status}: ${text}`);
-
-        // Don't retry on 4xx client errors
-        if (!isRetryableError(error, res.status)) {
-          throw error;
-        }
-
-        // If we have retries left, continue to retry logic
-        if (attempt < maxRetries) {
-          lastError = error;
-          const delay = getRetryDelay(attempt);
-          console.log(`Request failed with ${res.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
-          await sleep(delay);
-          continue;
-        }
-
-        throw error;
+        await throwIfResNotOk(res);
       }
 
       return res;
     } catch (error) {
-      // Network errors or other fetch failures
-      if (error instanceof Error) {
-        // Check if this is retryable
-        if (!isRetryableError(error)) {
-          throw error;
+      // If it's an API error (from throwIfResNotOk), check if retryable (e.g. 500)
+      if (error instanceof ApiError) {
+        if (!isRetryableError(error, error.status)) {
+          throw error; // Fail fast for 400, 401, 403, 429 (bubble up 429)
         }
+      }
 
-        // If we have retries left, retry
-        if (attempt < maxRetries) {
-          lastError = error;
+      // Network errors (TypeError) are retryable
+
+      // If we have retries left, continue to retry logic
+      if (attempt < maxRetries) {
+        // Verify retryability again
+        const status = (error instanceof ApiError) ? error.status : undefined;
+        if (isRetryableError(error, status) || (error instanceof TypeError)) {
+          lastError = error as Error;
           const delay = getRetryDelay(attempt);
-          console.log(`Network error, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries}):`, error.message);
+          console.log(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`, error);
           await sleep(delay);
           continue;
         }
       }
 
-      // No more retries, throw the last error
       throw error;
     }
   }
@@ -112,18 +123,18 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
+    async ({ queryKey }) => {
+      const res = await fetch(queryKey.join("/") as string, {
+        credentials: "include",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
 
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+      await throwIfResNotOk(res);
+      return await res.json();
+    };
 
 export const queryClient = new QueryClient({
   defaultOptions: {

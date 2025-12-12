@@ -156,13 +156,61 @@ export class WorkflowService {
   /**
    * Update workflow
    */
+  /**
+   * Update workflow
+   */
   async updateWorkflow(
     workflowId: string,
     userId: string,
     data: Partial<InsertWorkflow>
   ): Promise<Workflow> {
     await this.verifyAccess(workflowId, userId, 'edit');
+
+    // If slug is being updated, ensure it's unique
+    if (data.slug) {
+      data.slug = await this.ensureUniqueSlug(data.slug, workflowId);
+    }
+
     return await this.workflowRepo.update(workflowId, data);
+  }
+
+  // ... (keep existing methods)
+
+  /**
+   * Ensure slug is unique by appending counter if necessary
+   */
+  async ensureUniqueSlug(slug: string, workflowId: string): Promise<string> {
+    // 1. Sanitize the base slug
+    let baseSlug = slug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // Ensure it's not empty
+    if (!baseSlug) baseSlug = 'workflow';
+
+    // 2. Check strict existence of the requested slug
+    let candidate = baseSlug;
+    let counter = 2;
+
+    while (true) {
+      const existing = await this.workflowRepo.findBySlug(candidate);
+
+      // If no workflow has this slug, OR the one that has it is THIS workflow, it's safe
+      if (!existing || existing.id === workflowId) {
+        return candidate;
+      }
+
+      // Conflict found - try next counter
+      candidate = `${baseSlug}-${counter}`;
+      counter++;
+
+      // Safety break to prevent infinite loops (unlikely but good practice)
+      if (counter > 100) {
+        // Fallback to random ID suffix if 100 collisions
+        return `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+      }
+    }
   }
 
   /**
@@ -244,7 +292,7 @@ export class WorkflowService {
   }
 
   /**
-   * Get unfiled workflows (workflows with no project) for a user
+   * Get unfiled workflows (workflows with no project) for a creator
    */
   async listUnfiledWorkflows(creatorId: string): Promise<Workflow[]> {
     return await this.workflowRepo.findUnfiledByCreatorId(creatorId);
@@ -423,8 +471,8 @@ export class WorkflowService {
       return this.constructPublicUrl(workflow.publicLink);
     }
 
-    // Generate a unique slug (using workflow ID for uniqueness)
-    const slug = this.generateSlug(workflow.title, workflowId);
+    // Generate a unique slug (using robust logic now)
+    const slug = await this.ensureUniqueSlug(workflow.title, workflowId);
 
     // Update workflow with new publicLink
     await this.workflowRepo.update(workflowId, {
@@ -437,6 +485,7 @@ export class WorkflowService {
 
   /**
    * Generate a URL-friendly slug from workflow title and ID
+   * @deprecated logic moved to ensureUniqueSlug
    */
   private generateSlug(title: string, workflowId: string): string {
     // Take first 6 characters of workflow ID for uniqueness

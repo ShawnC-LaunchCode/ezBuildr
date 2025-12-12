@@ -52,12 +52,25 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             });
             onOpenChange(false);
         },
-        onError: (error) => {
-            toast({
-                title: "AI Error",
-                description: "Failed to generate suggestions.",
-                variant: "destructive",
-            });
+        onError: (error: any) => {
+            // Check for Rate Limit specifically
+            const isRateLimit =
+                error?.code === 'RATE_LIMIT' ||
+                (error?.message && (error.message.includes('429') || error.message.includes('Quota exceeded')));
+
+            if (isRateLimit) {
+                toast({
+                    title: "AI Usage Limit Reached",
+                    description: "You've hit the rate limit for the free tier. Please wait a moment before trying again.",
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "AI Error",
+                    description: error?.message || "Failed to generate suggestions.",
+                    variant: "destructive",
+                });
+            }
         },
     });
 

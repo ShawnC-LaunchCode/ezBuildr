@@ -6,7 +6,7 @@
  * PR4: Loading states and enhanced UX
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, Link as LinkIcon, Palette, Settings as SettingsIcon, Eye, Copy, Check } from "lucide-react";
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
-import { useWorkflow, useProjects, useMoveWorkflow } from "@/lib/vault-hooks";
+import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow } from "@/lib/vault-hooks";
+import type { ApiWorkflow } from "@/lib/vault-api";
 
 interface SettingsTabProps {
   workflowId: string;
@@ -33,9 +34,9 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const moveWorkflowMutation = useMoveWorkflow();
 
   // General Settings
-  const [name, setName] = useState("My Workflow");
-  const [description, setDescription] = useState("Description of my workflow");
-  const [slug, setSlug] = useState("my-workflow");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [slug, setSlug] = useState("");
 
   // Branding Settings
   const [brandingEnabled, setBrandingEnabled] = useState(false);
@@ -51,26 +52,65 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   // Publishing Settings
   const [isPublic, setIsPublic] = useState(false);
   const [requireLogin, setRequireLogin] = useState(false);
-  const [shareableLink, setShareableLink] = useState(`${import.meta.env.VITE_BASE_URL}/run/${workflowId}`);
+  const [shareableLink, setShareableLink] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Sync state with loaded workflow data
+  useEffect(() => {
+    if (workflow) {
+      setName(workflow.title || "");
+      setDescription(workflow.description || "");
+      setSlug(workflow.slug || "");
+
+      // Branding
+      // Note: backend support for branding config might vary, check type definition
+      // Assuming branding is stored in config or separate fields?
+      // Based on previous files, branding might be tenant level or workflow config
+      // For now, let's look for known fields or leave defaults if not present
+
+      // Behavior
+      setAllowSaveAndResume(true); // Default
+
+      // Publishing
+      setIsPublic(workflow.status === 'active' || !!workflow.publicLink);
+      if (workflow.publicLink) {
+        const baseUrl = window.location.origin; // Or use env var
+        setShareableLink(`${baseUrl}/run/${workflow.publicLink}`);
+      }
+    }
+  }, [workflow]);
 
   // PR3: Real projects data
   const projects = projectsData?.map(p => ({ id: p.id, name: p.title })) || [];
   const currentProjectId = workflow?.projectId || null;
   const currentProjectName = projectsData?.find(p => p.id === currentProjectId)?.title;
 
-  // Stub: Save all settings
-  const handleSaveSettings = () => {
-    console.log("Saving settings:", {
-      general: { name, description, slug },
-      branding: { enabled: brandingEnabled, logoUrl, primaryColor, secondaryColor },
-      behavior: { completionMessage, redirectUrl, allowSaveAndResume },
-      publishing: { isPublic, requireLogin },
-    });
+  const updateWorkflowMutation = useUpdateWorkflow();
 
-    toast({
-      title: "Settings Saved",
-      description: "Workflow settings have been updated successfully",
+  const handleSaveSettings = () => {
+    updateWorkflowMutation.mutate({
+      id: workflowId,
+      title: name,
+      description,
+      slug: slug || undefined,
+      // status: isPublic ? 'active' : 'draft', // Careful changing status here?
+      // Other fields handled by mutation...
+    }, {
+      onSuccess: (updated: ApiWorkflow) => {
+        toast({
+          title: "Settings Saved",
+          description: "Workflow settings have been updated successfully",
+        });
+        // Update slug in UI if it changed (sanitization/uniqueness)
+        if (updated.slug) setSlug(updated.slug);
+      },
+      onError: (error: Error) => {
+        toast({
+          title: "Error Saving Settings",
+          description: error.message || "Failed to save workflow settings",
+          variant: "destructive"
+        });
+      }
     });
   };
 

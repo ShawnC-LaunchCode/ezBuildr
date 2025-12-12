@@ -79,12 +79,20 @@ export function ProjectAssignmentSection({
   };
 
   // Determine the current location display
-  const currentLocation = currentProjectId === null
+  let locationDisplay = currentProjectId === null
     ? "Main Folder (no project)"
     : currentProjectName || "Default Workflow Folder";
 
+  // Hide "Other Project" name from UI
+  if (locationDisplay === "Other Project") {
+    locationDisplay = "Main Folder (no project)";
+  }
+
   // Determine the select value (use "main-folder" as a sentinel for null)
   const selectValue = currentProjectId === null ? "main-folder" : currentProjectId;
+
+  // Filter out internal "Other Project" and ensure we only show valid projects
+  const visibleProjects = projects.filter(p => p.name !== "Other Project");
 
   // Determine target name for modal
   const targetName = pendingProjectId === null
@@ -135,7 +143,7 @@ export function ProjectAssignmentSection({
           <div className="space-y-2">
             <Label htmlFor="project-assignment">Current Location</Label>
             <div className="text-sm font-medium text-muted-foreground mb-2">
-              {currentLocation}
+              {locationDisplay}
             </div>
           </div>
 
@@ -157,23 +165,25 @@ export function ProjectAssignmentSection({
                   </SelectItem>
                 </SelectGroup>
 
-                {projects.length > 0 && (
-                  <>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Projects</SelectLabel>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </>
-                )}
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Projects</SelectLabel>
+                  {visibleProjects.length > 0 ? (
+                    visibleProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-projects" disabled>
+                      (no Projects have been created)
+                    </SelectItem>
+                  )}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {projects.length === 0
+              {visibleProjects.length === 0
                 ? "No projects available. Create a project to organize your workflows."
                 : "Select a project to organize your workflow, or choose Main Folder to keep it unfiled"}
             </p>

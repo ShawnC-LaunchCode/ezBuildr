@@ -191,11 +191,16 @@ export interface ApiWorkflow {
   id: string;
   title: string;
   description: string | null;
+  slug?: string; // Stage 12
+  isPublic?: boolean; // Stage 17
+  publicLink?: string | null; // Stage 17
   creatorId: string;
   projectId: string | null;
   status: "draft" | "active" | "archived";
   createdAt: string;
   updatedAt: string;
+  modeOverride?: 'easy' | 'advanced' | null;
+  intakeConfig?: any;
 }
 
 export const workflowAPI = {

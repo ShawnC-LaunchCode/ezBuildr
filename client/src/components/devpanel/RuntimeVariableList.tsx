@@ -125,34 +125,52 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                     <div
                                                         key={variable.stepId}
                                                         className={cn(
-                                                            "group flex flex-col gap-1 p-2 rounded-md hover:bg-accent transition-colors border border-transparent hover:border-border",
+                                                            "group p-1.5 rounded-md hover:bg-accent transition-colors border border-transparent hover:border-border",
                                                             pinned && "bg-accent/50"
                                                         )}
                                                     >
-                                                        <div className="flex items-start justify-between">
-                                                            {/* Variable Name */}
-                                                            <div className="flex-1 min-w-0 mr-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-mono text-sm font-bold text-primary truncate" title={displayKey}>
-                                                                        {displayKey}
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            {/* Variable Name + Value Inline */}
+                                                            <div className="flex-1 min-w-0 flex items-center justify-between overflow-hidden">
+                                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                    <span className="font-mono text-xs font-bold text-primary truncate" title={displayKey}>
+                                                                        {variable.alias || variable.key}
                                                                     </span>
-                                                                    {variable.alias && variable.key !== variable.alias && (
-                                                                        <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[100px]" title={variable.key}>
-                                                                            ({variable.key})
-                                                                        </span>
-                                                                    )}
+                                                                    {/* Tooltip handling only */}
                                                                 </div>
-                                                                <div className="text-xs text-muted-foreground truncate" title={variable.label}>
-                                                                    {variable.label}
+
+                                                                {/* Runtime Value - Inline, Bold, Variable Color? */}
+                                                                <div className={cn(
+                                                                    "ml-2 font-mono text-xs font-bold",
+                                                                    isUndefined ? "text-muted-foreground/50 italic" : "text-foreground",
+                                                                    // For address, allow wrapping and full width. For others, truncate.
+                                                                    variable.type === 'address' ? "whitespace-normal break-words w-full" : "truncate max-w-[50%]"
+                                                                )} title={isUndefined ? "undefined" : String(currentValue)}>
+                                                                    {variable.type === 'address' && !isUndefined && typeof currentValue === 'object' ? (
+                                                                        // Address specific formatting: alias.field: value
+                                                                        <span className="text-[10px] leading-tight block">
+                                                                            {Object.entries(currentValue as Record<string, any>)
+                                                                                .filter(([_, v]) => v) // Only show fields with values? "show all of the values" implies all present in object
+                                                                                .map(([field, val], i, arr) => (
+                                                                                    <span key={field}>
+                                                                                        <span className="text-muted-foreground">{variable.alias || variable.key}.{field}:</span>
+                                                                                        <span className="text-foreground ml-0.5">{String(val)}</span>
+                                                                                        {i < arr.length - 1 && <span className="mr-1">,</span>}
+                                                                                    </span>
+                                                                                ))}
+                                                                        </span>
+                                                                    ) : (
+                                                                        formatValue(currentValue)
+                                                                    )}
                                                                 </div>
                                                             </div>
 
-                                                            {/* Actions */}
-                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {/* Actions (Hover only, tight) */}
+                                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                                                 <Button
                                                                     size="icon"
                                                                     variant="ghost"
-                                                                    className="h-6 w-6"
+                                                                    className="h-5 w-5"
                                                                     onClick={() => handleCopy(JSON.stringify(currentValue))}
                                                                     disabled={isUndefined}
                                                                     title="Copy value"
@@ -163,7 +181,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                                     size="icon"
                                                                     variant="ghost"
                                                                     className={cn(
-                                                                        "h-6 w-6",
+                                                                        "h-5 w-5",
                                                                         pinned && "text-primary opacity-100"
                                                                     )}
                                                                     onClick={() => handlePin(displayKey)}
@@ -174,12 +192,13 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                             </div>
                                                         </div>
 
-                                                        {/* Runtime Value */}
-                                                        <div className={cn(
-                                                            "mt-1 p-1.5 rounded bg-muted/50 font-mono text-xs break-all",
-                                                            isUndefined && "text-muted-foreground italic"
-                                                        )}>
-                                                            {formatValue(currentValue)}
+                                                        {/* Optional: Label on second line if needed, or tooltip? 
+                                                            User said "make card shorter", so single line is best if possible.
+                                                            Let's show label very small below if we have space, otherwise tooltip.
+                                                            Actually, putting label below makes it taller. Let's try to keep it very tight.
+                                                        */}
+                                                        <div className="text-[10px] text-muted-foreground truncate -mt-0.5" title={variable.label}>
+                                                            {variable.label}
                                                         </div>
                                                     </div>
                                                 );
