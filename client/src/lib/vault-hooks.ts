@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields } from "./vault-api";
+import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
@@ -38,6 +38,9 @@ export const queryKeys = {
   collectionFields: (tenantId: string, collectionId: string) => ["collections", tenantId, collectionId, "fields"] as const,
   collectionRecords: (tenantId: string, collectionId: string) => ["collections", tenantId, collectionId, "records"] as const,
   collectionRecord: (tenantId: string, collectionId: string, recordId: string) => ["collections", tenantId, collectionId, "records", recordId] as const,
+  dataSources: ["dataSources"] as const,
+  workflowDataSources: (workflowId: string) => ["workflows", workflowId, "dataSources"] as const,
+  dataSource: (id: string) => ["dataSources", id] as const,
 };
 
 // ============================================================================
@@ -1076,6 +1079,47 @@ export function useDeleteCollectionRecord() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
+    },
+  });
+}
+
+// ============================================================================
+// Data Sources
+// ============================================================================
+
+export function useDataSources() {
+  return useQuery({
+    queryKey: queryKeys.dataSources,
+    queryFn: dataSourceAPI.list,
+  });
+}
+
+export function useWorkflowDataSources(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workflowDataSources(workflowId!),
+    queryFn: () => dataSourceAPI.listForWorkflow(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useLinkDataSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
+      dataSourceAPI.linkToWorkflow(id, workflowId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowDataSources(variables.workflowId) });
+    },
+  });
+}
+
+export function useUnlinkDataSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
+      dataSourceAPI.unlinkFromWorkflow(id, workflowId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowDataSources(variables.workflowId) });
     },
   });
 }

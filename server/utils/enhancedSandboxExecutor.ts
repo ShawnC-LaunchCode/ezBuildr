@@ -25,6 +25,9 @@ interface ExecuteCodeWithHelpersParams {
   helpers?: Record<string, any>;
   timeoutMs?: number;
   consoleEnabled?: boolean;
+  // Performance optimizations
+  isolate?: any; // Re-use existing Isolate
+  scriptCache?: Map<string, any>; // Cache compiled scripts
 }
 
 /**
@@ -39,14 +42,11 @@ async function runJsWithHelpers(
   context: ScriptContextAPI,
   helpers: Record<string, any> | undefined,
   timeoutMs: number,
-  consoleEnabled: boolean
+  consoleEnabled: boolean,
+  existingIsolate?: any,
+  scriptCache?: Map<string, any>
 ): Promise<ScriptExecutionResult> {
   const helperLib = createHelperLibrary({ consoleEnabled });
-  // Use provided helpers or default library
-  // Use provided helpers or default library
-  // If helpers provided, use them. If not, use internal helperLib.
-  // Note: If helpers provided, we cannot capture logs unless they are compatible HelperLibraryAPI
-  // and we have access to their log store. Here, we only support logs if we created the library.
   const actualHelpers = helpers || helperLib.helpers;
 
   let ivm: any;
@@ -60,6 +60,11 @@ async function runJsWithHelpers(
     };
   }
 
+  // Create or reuse Isolate
+  const isolate = existingIsolate || new ivm.Isolate({ memoryLimit: 128 });
+  const disposeIsolate = !existingIsolate; // Only dispose if we created it
+
+
   // Enforce timeout limits
   const actualTimeout = Math.min(Math.max(timeoutMs, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
 
@@ -72,25 +77,15 @@ async function runJsWithHelpers(
   try {
     const inputJson = JSON.stringify(input);
     if (inputJson.length > MAX_INPUT_SIZE) {
+      if (disposeIsolate) isolate.dispose();
       return { ok: false, error: `Input size exceeds ${MAX_INPUT_SIZE / 1024}KB limit` };
     }
   } catch (e) {
+    if (disposeIsolate) isolate.dispose();
     return { ok: false, error: "InputSerializationError: Input must be JSON serializable" };
   }
 
-  // Import fs for debugging
-  // let fs: any;
-  // try {
-  //   fs = await import("fs");
-  // } catch (e) { /* ignore */ }
-  // const debugLog = (msg: string) => {
-  //   if (fs) try { fs.appendFileSync("debug_bridge.log", msg + "\n"); } catch (e) { }
-  // };
-
-  let isolate: any;
   try {
-    // 1. Create Isolate
-    isolate = new ivm.Isolate({ memoryLimit: 128 });
     const ctx = await isolate.createContext();
     const jail = ctx.global;
 
@@ -191,7 +186,21 @@ async function runJsWithHelpers(
     `;
 
     // 6. Compile & Run
-    const script = await isolate.compileScript(bootstrapCode);
+    // 6. Compile & Run
+    // Check cache
+    // Simple hash: code string itself (could use SHA-256 for large code)
+    const cacheKey = code;
+    let script: any;
+
+    if (scriptCache && scriptCache.has(cacheKey)) {
+      script = scriptCache.get(cacheKey);
+    } else {
+      script = await isolate.compileScript(bootstrapCode);
+      if (scriptCache) {
+        scriptCache.set(cacheKey, script);
+      }
+    }
+
     const startTime = Date.now();
 
     const resultRef = await script.run(ctx, {
@@ -207,6 +216,9 @@ async function runJsWithHelpers(
       output = await resultRef.copy();
     }
 
+    // Explicitly dispose context (script is cached or disposed by isolate)
+    ctx.release();
+
     return {
       ok: true,
       output: output as any,
@@ -221,7 +233,9 @@ async function runJsWithHelpers(
     }
     return { ok: false, error: `SandboxError: ${msg}` };
   } finally {
-    if (isolate) isolate.dispose();
+    if (disposeIsolate && isolate) {
+      isolate.dispose();
+    }
   }
 }
 
@@ -620,7 +634,9 @@ export async function executeCodeWithHelpers(
       context,
       helpers,
       timeoutMs,
-      consoleEnabled
+      consoleEnabled,
+      params.isolate,
+      params.scriptCache
     );
   } else if (language === "python") {
     return runPythonWithHelpers(code, input, context, timeoutMs, consoleEnabled);

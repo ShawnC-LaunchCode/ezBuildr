@@ -22,10 +22,10 @@ export function resolveMode(
  */
 export const FEATURES = {
   // Block types available in easy mode
-  EASY_BLOCK_TYPES: ['prefill', 'validate', 'branch'] as const,
+  EASY_BLOCK_TYPES: ['prefill', 'validate', 'branch', 'query', 'write', 'external_send'] as const,
 
   // All block types (advanced mode)
-  ALL_BLOCK_TYPES: ['prefill', 'validate', 'branch', 'js'] as const,
+  ALL_BLOCK_TYPES: ['prefill', 'validate', 'branch', 'js', 'query', 'write', 'external_send'] as const,
 
   // Logic operators available in easy mode
   EASY_OPERATORS: ['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty'] as const,

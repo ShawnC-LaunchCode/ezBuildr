@@ -133,6 +133,15 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
   const startTime = Date.now();
 
   try {
+    // IDEMPOTENCY GUARD
+    if (context.executedSideEffects && context.executedSideEffects.has(nodeId)) {
+      return {
+        status: 'skipped',
+        skipReason: 'already executed (idempotency guard)',
+        durationMs: 0
+      };
+    }
+
     // Check condition if present
     if (config.condition) {
       const conditionResult = evaluateExpression(config.condition, context);
@@ -241,6 +250,11 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
         }, 'Webhook fire-and-forget failed');
       });
 
+      // MARK EXECUTED (Fire-and-forget)
+      if (context.executedSideEffects) {
+        context.executedSideEffects.add(nodeId);
+      }
+
       return {
         status: 'executed',
         durationMs: Date.now() - startTime,
@@ -255,6 +269,11 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
         attempts,
         backoffMs,
       });
+
+      // MARK EXECUTED (Blocking)
+      if (context.executedSideEffects) {
+        context.executedSideEffects.add(nodeId);
+      }
 
       return {
         status: 'executed',

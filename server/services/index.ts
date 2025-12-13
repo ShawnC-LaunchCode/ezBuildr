@@ -11,7 +11,7 @@
 // Workflow services
 export { ProjectService, projectService } from "./ProjectService";
 export { WorkflowService, workflowService } from "./WorkflowService";
-export { SnapshotService, snapshotService } from "./SnapshotService";
+export { SnapshotService, snapshotService } from "./snapshotService";
 // AnalyticsService removed - was 100% legacy survey code (Nov 2025)
 
 // Stage 14: Review & E-Signature services

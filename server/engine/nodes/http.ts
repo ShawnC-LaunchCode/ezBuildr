@@ -92,6 +92,15 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
   const startTime = Date.now();
 
   try {
+    // IDEMPOTENCY GUARD
+    if (context.executedSideEffects && context.executedSideEffects.has(nodeId)) {
+      return {
+        status: 'skipped',
+        skipReason: 'already executed (idempotency guard)',
+        durationMs: 0
+      };
+    }
+
     // Check condition if present
     if (config.condition) {
       const conditionResult = evaluateExpression(config.condition, context);
@@ -140,6 +149,38 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
       }
     }
 
+    // Mock requests in preview mode
+    if (context.executionMode === 'preview') {
+      // Mock response
+      const mockResponse = {
+        status: 200,
+        headers: {},
+        data: { message: 'Mocked response in preview mode' },
+        cached: false,
+      };
+
+      // Map mock response to variables
+      const variables = mapResponse(mockResponse.data, config.map);
+      for (const [key, value] of Object.entries(variables)) {
+        context.vars[key] = value;
+      }
+
+      logger.info({
+        url,
+        method: config.method,
+        body,
+        headers,
+      }, 'External send skipped in preview mode');
+
+      return {
+        status: 'executed',
+        variables,
+        response: mockResponse,
+        skipReason: 'Preview mode - external send mocked',
+        durationMs: 0,
+      };
+    }
+
     // Execute HTTP request with retries
     const response = await executeWithRetries({
       url,
@@ -161,6 +202,11 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
     const variables = mapResponse(response.data, config.map);
     for (const [key, value] of Object.entries(variables)) {
       context.vars[key] = value;
+    }
+
+    // MARK EXECUTED
+    if (context.executedSideEffects) {
+      context.executedSideEffects.add(nodeId);
     }
 
     return {

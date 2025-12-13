@@ -47,13 +47,29 @@ import {
   type WebhookNodeInput,
   type WebhookNodeOutput,
 } from './nodes/webhook';
+import {
+  executeQueryNode,
+  executeWriteNode,
+  type QueryNodeConfig,
+  type WriteNodeConfig,
+  type QueryNodeOutput,
+  type WriteNodeOutput,
+  type QueryNodeInput,
+  type WriteNodeInput,
+} from './nodes/data';
+import {
+  executeFinalNode,
+  type FinalBlockConfig,
+  type FinalBlockInput,
+  type FinalBlockOutput,
+} from './nodes/final';
 
 /**
  * Node Executor Registry
  * Central registry for all node type executors
  */
 
-export type NodeType = 'question' | 'compute' | 'branch' | 'template' | 'http' | 'review' | 'esign' | 'webhook';
+export type NodeType = 'question' | 'compute' | 'branch' | 'template' | 'http' | 'review' | 'esign' | 'webhook' | 'query' | 'write' | 'final';
 
 export type NodeConfig =
   | QuestionNodeConfig
@@ -63,7 +79,11 @@ export type NodeConfig =
   | HttpNodeConfig
   | ReviewNodeConfig
   | EsignNodeConfig
-  | WebhookNodeConfig;
+  | WebhookNodeConfig
+  | QueryNodeConfig
+  | QueryNodeConfig
+  | WriteNodeConfig
+  | FinalBlockConfig;
 
 export type NodeOutput =
   | QuestionNodeOutput
@@ -73,7 +93,11 @@ export type NodeOutput =
   | HttpNodeOutput
   | ReviewNodeOutput
   | EsignNodeOutput
-  | WebhookNodeOutput;
+  | WebhookNodeOutput
+  | QueryNodeOutput
+  | QueryNodeOutput
+  | WriteNodeOutput
+  | FinalBlockOutput;
 
 export interface Node {
   id: string;
@@ -100,7 +124,6 @@ export interface ExecuteNodeInput {
  */
 export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> {
   const { node, context, tenantId, userInputs } = input;
-
   switch (node.type) {
     case 'question': {
       const questionInput: QuestionNodeInput = {
@@ -196,6 +219,38 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
       return await executeWebhookNode(webhookInput);
     }
 
+    case 'query': {
+      const queryInput: QueryNodeInput = {
+        nodeId: node.id,
+        config: node.config as QueryNodeConfig,
+        context,
+        tenantId,
+      };
+      return await executeQueryNode(queryInput);
+    }
+
+    case 'write': {
+      const writeInput: WriteNodeInput = {
+        nodeId: node.id,
+        config: node.config as WriteNodeConfig,
+        context,
+        tenantId,
+      };
+      return await executeWriteNode(writeInput);
+    }
+
+    case 'final': {
+      const finalInput: FinalBlockInput = {
+        nodeId: node.id,
+        config: node.config as FinalBlockConfig,
+        context,
+        tenantId,
+        runId: input.runId,
+        workflowVersionId: input.workflowId, // Assuming input.workflowId is distinct from version, but likely close enough for now or need to check call site
+      };
+      return await executeFinalNode(finalInput);
+    }
+
     default:
       throw new Error(`Unknown node type: ${(node as any).type}`);
   }
@@ -205,7 +260,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
  * Get all supported node types
  */
 export function getSupportedNodeTypes(): NodeType[] {
-  return ['question', 'compute', 'branch', 'template', 'http', 'review', 'esign', 'webhook'];
+  return ['question', 'compute', 'branch', 'template', 'http', 'review', 'esign', 'webhook', 'query', 'write', 'final'];
 }
 
 /**

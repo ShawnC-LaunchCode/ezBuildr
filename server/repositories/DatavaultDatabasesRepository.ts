@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { datavaultDatabases, datavaultTables } from '../../shared/schema';
+import { datavaultDatabases, datavaultTables, workflowDataSources } from '../../shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { DatavaultDatabase, InsertDatavaultDatabase, DatavaultScopeType } from '../../shared/schema';
 import type { DbTransaction } from './BaseRepository';
@@ -154,6 +154,52 @@ export class DatavaultDatabasesRepository {
       .where(eq(datavaultTables.databaseId, databaseId));
 
     return Number(result[0]?.count || 0);
+  }
+  /**
+   * Find data sources linked to a workflow
+   */
+  async findByWorkflowId(workflowId: string): Promise<DatavaultDatabase[]> {
+    return db
+      .select({
+        id: datavaultDatabases.id,
+        tenantId: datavaultDatabases.tenantId,
+        name: datavaultDatabases.name,
+        description: datavaultDatabases.description,
+        type: datavaultDatabases.type,
+        config: datavaultDatabases.config,
+        scopeType: datavaultDatabases.scopeType,
+        scopeId: datavaultDatabases.scopeId,
+        createdAt: datavaultDatabases.createdAt,
+        updatedAt: datavaultDatabases.updatedAt,
+      })
+      .from(datavaultDatabases)
+      .innerJoin(workflowDataSources, eq(workflowDataSources.dataSourceId, datavaultDatabases.id))
+      .where(eq(workflowDataSources.workflowId, workflowId))
+      .orderBy(desc(datavaultDatabases.updatedAt));
+  }
+
+  /**
+   * Link a data source to a workflow
+   */
+  async linkToWorkflow(workflowId: string, dataSourceId: string): Promise<void> {
+    await db
+      .insert(workflowDataSources)
+      .values({ workflowId, dataSourceId })
+      .onConflictDoNothing();
+  }
+
+  /**
+   * Unlink a data source from a workflow
+   */
+  async unlinkFromWorkflow(workflowId: string, dataSourceId: string): Promise<void> {
+    await db
+      .delete(workflowDataSources)
+      .where(
+        and(
+          eq(workflowDataSources.workflowId, workflowId),
+          eq(workflowDataSources.dataSourceId, dataSourceId)
+        )
+      );
   }
 }
 

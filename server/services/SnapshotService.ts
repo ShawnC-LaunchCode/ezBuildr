@@ -1,227 +1,170 @@
-import {
-  snapshotRepository,
-  stepValueRepository,
-  stepRepository,
-  workflowRepository,
-  type WorkflowSnapshot,
-  type SnapshotValueMap,
-} from "../repositories";
-import { logger } from "../logger";
-import { generateWorkflowVersionHash, isVersionHashMatch } from "../utils/workflowVersionHash";
-import { findMissingValues, normalizeSnapshotValues, type MissingValue } from "../utils/snapshotHelpers";
+import { db } from "../db";
+import { workflowSnapshots, workflowRuns, stepValues, steps } from "@shared/schema";
+import { eq, desc, and } from "drizzle-orm";
+import type { InferSelectModel } from 'drizzle-orm';
 
-/**
- * Service layer for workflow snapshot-related business logic
- */
+type Snapshot = InferSelectModel<typeof workflowSnapshots>;
+
 export class SnapshotService {
-  private snapshotRepo: typeof snapshotRepository;
-  private stepValueRepo: typeof stepValueRepository;
-  private stepRepo: typeof stepRepository;
-  private workflowRepo: typeof workflowRepository;
-
-  constructor(
-    snapshotRepo?: typeof snapshotRepository,
-    stepValueRepo?: typeof stepValueRepository,
-    stepRepo?: typeof stepRepository,
-    workflowRepo?: typeof workflowRepository
-  ) {
-    this.snapshotRepo = snapshotRepo || snapshotRepository;
-    this.stepValueRepo = stepValueRepo || stepValueRepository;
-    this.stepRepo = stepRepo || stepRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
+  /**
+   * Create a new snapshot
+   */
+  static async createSnapshot(workflowId: string, name: string): Promise<Snapshot> {
+    const [snapshot] = await db
+      .insert(workflowSnapshots)
+      .values({
+        workflowId,
+        name,
+        values: {}, // Start empty
+      })
+      .returning();
+    return snapshot;
   }
 
   /**
    * Get all snapshots for a workflow
    */
-  async getSnapshotsByWorkflowId(workflowId: string): Promise<WorkflowSnapshot[]> {
-    return await this.snapshotRepo.findByWorkflowId(workflowId);
+  static async getSnapshotsByWorkflowId(workflowId: string): Promise<Snapshot[]> {
+    return await db
+      .select()
+      .from(workflowSnapshots)
+      .where(eq(workflowSnapshots.workflowId, workflowId))
+      .orderBy(desc(workflowSnapshots.createdAt));
   }
 
   /**
-   * Get a single snapshot by ID
+   * Get a single snapshot
    */
-  async getSnapshotById(snapshotId: string): Promise<WorkflowSnapshot | null> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
+  static async getSnapshotById(id: string): Promise<Snapshot | null> {
+    const [snapshot] = await db
+      .select()
+      .from(workflowSnapshots)
+      .where(eq(workflowSnapshots.id, id));
     return snapshot || null;
-  }
-
-  /**
-   * Create a new snapshot (empty values)
-   */
-  async createSnapshot(workflowId: string, name: string): Promise<WorkflowSnapshot> {
-    // Check if workflow exists
-    const workflow = await this.workflowRepo.findById(workflowId);
-    if (!workflow) {
-      throw new Error(`Workflow not found: ${workflowId}`);
-    }
-
-    // Check if snapshot with same name already exists
-    const existing = await this.snapshotRepo.findByWorkflowIdAndName(workflowId, name);
-    if (existing) {
-      throw new Error(`Snapshot with name "${name}" already exists for this workflow`);
-    }
-
-    // Get all workflow steps to generate version hash
-    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
-    const versionHash = generateWorkflowVersionHash(allSteps);
-
-    // Create snapshot with empty values and version hash
-    const snapshot = await this.snapshotRepo.create({
-      workflowId,
-      name,
-      values: {},
-      versionHash,
-    });
-
-    if (!snapshot) {
-      throw new Error("Failed to create snapshot");
-    }
-
-    logger.info({ workflowId, snapshotId: snapshot.id, name, versionHash }, "Created snapshot");
-    return snapshot;
   }
 
   /**
    * Rename a snapshot
    */
-  async renameSnapshot(snapshotId: string, newName: string): Promise<WorkflowSnapshot> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
-    if (!snapshot) {
-      throw new Error(`Snapshot not found: ${snapshotId}`);
-    }
+  static async renameSnapshot(id: string, name: string): Promise<Snapshot> {
+    const [snapshot] = await db
+      .update(workflowSnapshots)
+      .set({ name })
+      .where(eq(workflowSnapshots.id, id))
+      .returning();
 
-    // Check if another snapshot with the same name already exists for this workflow
-    const existing = await this.snapshotRepo.findByWorkflowIdAndName(snapshot.workflowId, newName);
-    if (existing && existing.id !== snapshotId) {
-      throw new Error(`Snapshot with name "${newName}" already exists for this workflow`);
-    }
-
-    const updated = await this.snapshotRepo.updateName(snapshotId, newName);
-    if (!updated) {
-      throw new Error("Failed to rename snapshot");
-    }
-
-    logger.info({ snapshotId, newName }, "Renamed snapshot");
-    return updated;
+    if (!snapshot) throw new Error(`Snapshot not found: ${id}`);
+    return snapshot;
   }
 
   /**
    * Delete a snapshot
    */
-  async deleteSnapshot(snapshotId: string): Promise<void> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
-    if (!snapshot) {
-      throw new Error(`Snapshot not found: ${snapshotId}`);
-    }
-
-    await this.snapshotRepo.delete(snapshotId);
-    logger.info({ snapshotId }, "Deleted snapshot");
+  static async deleteSnapshot(id: string): Promise<void> {
+    await db
+      .delete(workflowSnapshots)
+      .where(eq(workflowSnapshots.id, id));
   }
 
   /**
-   * Save current run values to a snapshot
-   * Stores simple key-value pairs (alias -> value) and updates version hash
+   * Save values from a run to a snapshot
    */
-  async saveFromRun(snapshotId: string, runId: string): Promise<WorkflowSnapshot> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
-    if (!snapshot) {
-      throw new Error(`Snapshot not found: ${snapshotId}`);
-    }
+  static async saveFromRun(snapshotId: string, runId: string): Promise<Snapshot> {
+    // 1. Verify run exists
+    const [run] = await db
+      .select()
+      .from(workflowRuns)
+      .where(eq(workflowRuns.id, runId));
 
-    // Get all step values for the run
-    const runValues = await this.stepValueRepo.findByRunId(runId);
+    if (!run) throw new Error(`Run not found: ${runId}`);
 
-    // Build the snapshot value map (simple format: alias -> value)
-    const valueMap: Record<string, any> = {};
+    // 2. Fetch step values with step info
+    const values = await db
+      .select({
+        value: stepValues.value,
+        stepAlias: steps.alias,
+        stepId: steps.id,
+      })
+      .from(stepValues)
+      .innerJoin(steps, eq(stepValues.stepId, steps.id))
+      .where(eq(stepValues.runId, runId));
 
-    for (const runValue of runValues) {
-      // Get step details
-      const step = await this.stepRepo.findById(runValue.stepId);
-      if (!step) {
-        logger.warn({ stepId: runValue.stepId }, "Step not found for run value, skipping");
-        continue;
+    // 3. Construct input map (prefer alias, fallback to ID if needed)
+    const inputMap: Record<string, any> = {};
+    for (const v of values) {
+      // Use alias if available, otherwise just ignore or use ID?
+      // Requirement: "reference variable names"
+      if (v.stepAlias) {
+        inputMap[v.stepAlias] = v.value;
       }
-
-      // Use step alias as key if available, otherwise use stepId
-      const key = step.alias || step.id;
-
-      // Store value directly (no wrapper)
-      valueMap[key] = runValue.value;
     }
 
-    // Get all workflow steps to regenerate version hash
-    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(snapshot.workflowId);
-    const versionHash = generateWorkflowVersionHash(allSteps);
+    // 4. Update snapshot
+    const [snapshot] = await db
+      .update(workflowSnapshots)
+      .set({
+        values: inputMap,
+        updatedAt: new Date()
+      })
+      .where(eq(workflowSnapshots.id, snapshotId))
+      .returning();
 
-    // Update snapshot with new values and version hash
-    const updated = await this.snapshotRepo.updateValues(snapshotId, valueMap, versionHash);
-    if (!updated) {
-      throw new Error("Failed to update snapshot values");
-    }
-
-    logger.info({ snapshotId, runId, valueCount: Object.keys(valueMap).length, versionHash }, "Saved run values to snapshot");
-    return updated;
+    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+    return snapshot;
   }
 
   /**
-   * Get snapshot values as a simple key-value map
-   * Useful for populating run initial values
-   *
-   * TODO: Add concurrency control for snapshot access
-   * Currently, multiple concurrent reads could cause race conditions if the snapshot
-   * is being updated simultaneously. Consider adding:
-   * - Row-level locking with FOR SHARE clause
-   * - Optimistic concurrency control with version field
-   * - Read-through cache with TTL
+   * Get snapshot values as map
    */
-  async getSnapshotValues(snapshotId: string): Promise<Record<string, any>> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
-    if (!snapshot) {
-      throw new Error(`Snapshot not found: ${snapshotId}`);
-    }
-
-    // Normalize values (handles both old and new format)
-    const values = normalizeSnapshotValues(snapshot.values);
-    return values;
+  static async getSnapshotValues(snapshotId: string): Promise<Record<string, any>> {
+    const snapshot = await this.getSnapshotById(snapshotId);
+    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+    return (snapshot.values as Record<string, any>) || {};
   }
 
   /**
-   * Check if a snapshot's values are still valid for the current workflow
-   * Returns validation details including missing values and hash status
+   * Validate snapshot against current workflow version
+   * Returns warnings if variables are missing in current workflow
    */
-  async validateSnapshot(snapshotId: string): Promise<{
-    isValid: boolean;
-    missingValues: MissingValue[];
-    outdatedHash: boolean;
-    currentHash: string;
-  }> {
-    const snapshot = await this.snapshotRepo.findById(snapshotId);
-    if (!snapshot) {
-      throw new Error(`Snapshot not found: ${snapshotId}`);
+  static async validateSnapshot(snapshotId: string): Promise<{ valid: boolean; warnings: string[] }> {
+    const snapshot = await this.getSnapshotById(snapshotId);
+    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+
+    const values = (snapshot.values as Record<string, any>) || {};
+    const keys = Object.keys(values);
+    if (keys.length === 0) return { valid: true, warnings: [] };
+
+    // Find current steps for the workflow
+    // This requires finding the workflow's current version (or just using latest steps if steps are shared across versions? No, steps are usually versioned or tied to section/workflow)
+    // In this schema, `steps` are linked to `sections` linked to `workflow`.
+    // We can fetch all steps for the workflow.
+
+    // Note: Schema has `workflowId` on `sections`.
+    const workflowSteps = await db
+      .select({ alias: steps.alias })
+      .from(steps)
+      .innerJoin(sections, eq(steps.sectionId, sections.id))
+      .where(
+        and(
+          eq(sections.workflowId, snapshot.workflowId),
+          eq(steps.isVirtual, false) // Only care about user inputs usually
+        )
+      );
+
+    const existingAliases = new Set(workflowSteps.map(s => s.alias).filter(Boolean));
+    const warnings: string[] = [];
+
+    for (const key of keys) {
+      if (!existingAliases.has(key)) {
+        warnings.push(`Variable '${key}' no longer exists in current workflow.`);
+      }
     }
-
-    // Get all current workflow steps
-    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(snapshot.workflowId);
-    const currentHash = generateWorkflowVersionHash(allSteps);
-
-    // Check if version hash matches
-    const outdatedHash = !isVersionHashMatch(snapshot.versionHash || null, currentHash);
-
-    // Normalize snapshot values
-    const normalizedValues = normalizeSnapshotValues(snapshot.values);
-
-    // Find missing values
-    const missingValues = findMissingValues(normalizedValues, allSteps);
 
     return {
-      isValid: !outdatedHash && missingValues.length === 0,
-      missingValues,
-      outdatedHash,
-      currentHash,
+      valid: warnings.length === 0,
+      warnings
     };
   }
 }
 
-// Singleton instance
-export const snapshotService = new SnapshotService();
+export const snapshotService = SnapshotService;

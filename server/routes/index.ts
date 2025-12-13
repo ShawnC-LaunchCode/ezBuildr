@@ -49,6 +49,7 @@ import { apiLimiter } from "../lib/rateLimit";
 import publicRouter from "./public.routes";
 import externalRouter from "./external.routes";
 import oauthRouter from "./oauth.routes";
+import { dataSourceRouter } from "./dataSource.routes";
 import webhookRouter from "./webhooks.routes";
 
 import aiDocRouter from "./ai.doc.routes";
@@ -57,6 +58,7 @@ import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
 import { registerDebugRoutes } from "./debug.routes";
 import { placesRouter } from "./places.routes";
+import { registerPreviewRoutes } from "./preview.routes";
 
 /**
  * Register all modular routes
@@ -71,6 +73,9 @@ export function registerAllRoutes(app: Express): void {
 
   // OAuth 2.1 Provider
   app.use("/oauth", oauthRouter);
+
+  // Data Sources
+  app.use("/api/data-sources", dataSourceRouter);
 
   // Webhook Management
   app.use("/api/webhooks", webhookRouter);
@@ -153,4 +158,5 @@ export function registerAllRoutes(app: Express): void {
   app.use("/api/sharing", sharingRouter);
   app.use("/api/enterprise/admin", enterpriseAdminRouter);
   registerBillingRoutes(app);
+  registerPreviewRoutes(app);
 }

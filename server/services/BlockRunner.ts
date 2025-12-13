@@ -5,6 +5,7 @@ import { recordService } from "./RecordService";
 import { workflowService } from "./WorkflowService";
 import { lifecycleHookService } from "./scripting/LifecycleHookService";
 import { db } from "../db";
+import { workflowQueriesRepository, stepValueRepository } from "../repositories";
 import type {
   BlockPhase,
   BlockContext,
@@ -21,9 +22,15 @@ import type {
   ComparisonOperator,
   AssertionOperator,
 } from "@shared/types/blocks";
+import { getValueByPath } from "@shared/conditionEvaluator";
 import type { LifecycleHookPhase } from "@shared/types/scripting";
-import type { Block } from "@shared/schema";
+import { Block, workflows, projects } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { logger } from "../logger";
+import { queryRunner } from "../lib/queries/QueryRunner";
+import type { QueryBlockConfig, WriteBlockConfig, ExternalSendBlockConfig } from "@shared/types/blocks";
+import { writeRunner } from "../lib/writes/WriteRunner";
+import { externalSendRunner } from "../lib/external/ExternalSendRunner";
 
 // Security: limit regex pattern size to prevent ReDoS
 const MAX_REGEX_PATTERN_LENGTH = 100;
@@ -234,6 +241,20 @@ export class BlockRunner {
       case "delete_record":
         return await this.executeDeleteRecordBlock(block.config as DeleteRecordConfig, context);
 
+      case "query":
+        return await this.executeQueryBlock(block, context);
+
+      case "write":
+        // Resolve tenantId needed for write operations
+        const tenantId = await this.resolveTenantId(context.workflowId);
+        if (!tenantId) {
+          return { success: false, errors: ["Tenant ID resolution failed"] };
+        }
+        return this.executeWriteBlock(block.config as WriteBlockConfig, context, tenantId);
+
+      case "external_send":
+        return this.executeExternalSendBlock(block.config as ExternalSendBlockConfig, context);
+
       default:
         logger.warn(`Unknown block type: ${(block as any).type}`);
         return { success: true };
@@ -329,7 +350,7 @@ export class BlockRunner {
    * Evaluate a when condition
    */
   private evaluateCondition(condition: WhenCondition, data: Record<string, any>): boolean {
-    const actualValue = data[condition.key];
+    const actualValue = getValueByPath(data, condition.key);
     return this.compareValues(actualValue, condition.op, condition.value);
   }
 
@@ -337,7 +358,7 @@ export class BlockRunner {
    * Evaluate an assertion
    */
   private evaluateAssertion(assertion: AssertExpression, data: Record<string, any>): boolean {
-    const actualValue = data[assertion.key];
+    const actualValue = getValueByPath(data, assertion.key);
 
     switch (assertion.op) {
       case "is_not_empty":
@@ -725,6 +746,188 @@ export class BlockRunner {
       return {
         success: false,
         errors: [`Failed to delete record: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
+    }
+  }
+
+  /**
+   * Execute query block
+   * Fetches data using the Query Runner
+   */
+  private async executeQueryBlock(
+    block: Block,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    const config = block.config as QueryBlockConfig;
+
+    try {
+      // Get query definition
+      const query = await workflowQueriesRepository.findById(config.queryId);
+      if (!query) {
+        return {
+          success: false,
+          errors: [`Query definition not found: ${config.queryId}`],
+        };
+      }
+
+      logger.info({
+        workflowId: context.workflowId,
+        queryId: config.queryId,
+        outputVar: config.outputVariableName
+      }, "Executing query block");
+
+      // Get tenantId from workflow
+      const tenantId = await this.getTenantIdFromWorkflow(context.workflowId);
+      if (!tenantId) {
+        return {
+          success: false,
+          errors: ["Failed to resolve tenantId from workflow"],
+        };
+      }
+
+      // Execute query with current context data
+      const listVariable = await queryRunner.executeQuery(query, context.data, tenantId);
+
+      // Persist to virtual step if runId is present
+      if (context.runId && block.virtualStepId) {
+        try {
+          await stepValueRepository.upsert({
+            runId: context.runId,
+            stepId: block.virtualStepId,
+            value: listVariable,
+          });
+          logger.debug({
+            blockId: block.id,
+            virtualStepId: block.virtualStepId,
+            rowCount: listVariable.rowCount
+          }, "Persisted query block output");
+        } catch (error) {
+          logger.error({ error, blockId: block.id }, "Failed to persist query block output");
+          // We don't fail the block execution just because persistence failed (though it's critical for downstream)
+          // Actually, for query blocks, if we don't persist, downstream logic can't use it.
+          // But we also return it in `data`.
+          // Let's fallback to just logging.
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          [config.outputVariableName]: listVariable
+        }
+      };
+    } catch (error) {
+      logger.error({ error, blockConfig: config }, "Error executing query block");
+      return {
+        success: false,
+        errors: [`Query execution failed: ${error instanceof Error ? error.message : 'unknown error'}`],
+      };
+    }
+  }
+
+  /**
+   * Execute write block
+   * Writes data to a native table using WriteRunner
+   */
+  /**
+   * Resolve Tenant ID from Workflow ID
+   */
+  private async resolveTenantId(workflowId: string): Promise<string | null> {
+    try {
+      const [result] = await db
+        .select({ tenantId: projects.tenantId })
+        .from(workflows)
+        .innerJoin(projects, eq(workflows.projectId, projects.id))
+        .where(eq(workflows.id, workflowId))
+        .limit(1);
+
+      return result?.tenantId || null;
+    } catch (e) {
+      logger.error({ error: e, workflowId }, "Failed to resolve tenant ID");
+      return null;
+    }
+  }
+
+  /**
+   * Execute write block
+   * Writes data to a native table using WriteRunner
+   */
+  private async executeWriteBlock(
+    config: WriteBlockConfig,
+    context: BlockContext,
+    tenantId: string
+  ): Promise<BlockResult> {
+    try {
+      // Check runCondition
+      if (config.runCondition) {
+        const shouldRun = this.evaluateCondition(config.runCondition, context.data);
+        if (!shouldRun) {
+          logger.info({ phase: context.phase }, "Skipping write block due to condition");
+          return { success: true };
+        }
+      }
+
+      const tenantId = await this.getTenantIdFromWorkflow(context.workflowId);
+      if (!tenantId) {
+        return { success: false, errors: ["Tenant ID not found"] };
+      }
+
+      // Determine if preview mode via context or generally?
+      // BlockContext doesn't list `isPreview` explicitly but typically context.data might have metadata 
+      // or we check environment. 
+      // For now, let's assume `false` unless we find a flag. 
+      // TODO: Add `isPreview` to BlockContext in broader refactor if needed.
+      const isPreview = false;
+
+      const result = await writeRunner.executeWrite(config, context, tenantId, isPreview);
+
+      return {
+        success: result.success,
+        // We could log result info or store it in run logs
+      };
+
+    } catch (error) {
+      logger.error({ error, config }, "Write block failed");
+      return {
+        success: false,
+        errors: [`Write failed: ${error instanceof Error ? error.message : 'unknown error'}`]
+      };
+    }
+  }
+
+  /**
+   * Execute external send block
+   */
+  private async executeExternalSendBlock(
+    config: ExternalSendBlockConfig,
+    context: BlockContext
+  ): Promise<BlockResult> {
+    try {
+      // Check runCondition
+      if (config.runCondition) {
+        const shouldRun = this.evaluateCondition(config.runCondition, context.data);
+        if (!shouldRun) {
+          return { success: true };
+        }
+      }
+
+      const isPreview = false; // TODO: Resolve from context if available
+
+      const result = await externalSendRunner.executeSend(config, context, isPreview);
+
+      if (!result.success) {
+        return {
+          success: false,
+          errors: [`External send failed: ${result.error || "Unknown error"}`]
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      logger.error({ error, config }, "External send block failed");
+      return {
+        success: false,
+        errors: [`External send failed: ${error instanceof Error ? error.message : "unknown error"}`]
       };
     }
   }

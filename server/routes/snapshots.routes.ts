@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { snapshotService } from "../services/SnapshotService";
+import { snapshotService } from "../services/snapshotService";
 import { z } from "zod";
 import { logger } from "../logger";
 

@@ -475,6 +475,8 @@ export const workflowRunEvents = pgTable("workflow_run_events", {
   index("wre_version_idx").on(table.versionId),
 ]);
 
+
+
 // Aggregated metrics per run (computed after run completion)
 export const workflowRunMetrics = pgTable("workflow_run_metrics", {
   runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).primaryKey(),
@@ -1562,6 +1564,29 @@ export const externalConnections = pgTable("external_connections", {
 // STAGE 16: INTEGRATIONS HUB - CONNECTIONS TABLE
 // =====================================================================
 
+// External destination type enum
+export const externalDestinationTypeEnum = pgEnum('external_destination_type', [
+  'webhook',
+  'google_sheets',
+  'airtable',
+  'zapier',
+  'make'
+]);
+
+// External destinations table
+export const externalDestinations = pgTable("external_destinations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),
+  type: externalDestinationTypeEnum("type").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  config: jsonb("config").default(sql`'{}'::jsonb`).notNull(), // credentials, endpoint, metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("external_destinations_workspace_idx").on(table.workspaceId),
+  index("external_destinations_type_idx").on(table.type),
+]);
+
 // Connections table - unified integration connection management
 export const connections = pgTable("connections", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1902,6 +1927,9 @@ export const blockTypeEnum = pgEnum('block_type', [
   'update_record',  // Stage 19: Update existing record
   'find_record',    // Stage 19: Query and find records
   'delete_record',  // Stage 19: Delete record from collection
+  'query',          // Query block for fetching data
+  'write',          // Write block for inserting/updating data
+  'external_send',  // Send data to external destination
 ]);
 
 // Block phase enum
@@ -1921,6 +1949,7 @@ export const blocks = pgTable("blocks", {
   type: blockTypeEnum("type").notNull(),
   phase: blockPhaseEnum("phase").notNull(),
   config: jsonb("config").notNull(), // type-specific configuration
+  virtualStepId: uuid("virtual_step_id").references(() => steps.id, { onDelete: 'set null' }), // Optional output variable
   enabled: boolean("enabled").default(true).notNull(),
   order: integer("order").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -2092,6 +2121,13 @@ export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
   actor: one(users, {
     fields: [auditEvents.actorId],
     references: [users.id],
+  }),
+}));
+
+export const externalDestinationsRelations = relations(externalDestinations, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [externalDestinations.workspaceId],
+    references: [workspaces.id],
   }),
 }));
 
@@ -2705,12 +2741,17 @@ export const sliWindows = pgTable("sli_windows", {
 // DATAVAULT TABLES (Phase 1)
 // =====================================================================
 
+// Data source type enum
+export const dataSourceTypeEnum = pgEnum('data_source_type', ['native', 'postgres', 'google_sheets', 'airtable', 'external']);
+
 // DataVault Databases - database containers for organizing tables
 export const datavaultDatabases = pgTable("datavault_databases", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  type: dataSourceTypeEnum("type").default('native').notNull(),
+  config: jsonb("config").default(sql`'{}'::jsonb`), // Connection details
   scopeType: datavaultScopeTypeEnum("scope_type").notNull().default('account'),
   scopeId: uuid("scope_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -2719,6 +2760,37 @@ export const datavaultDatabases = pgTable("datavault_databases", {
   index("idx_databases_tenant").on(table.tenantId),
   index("idx_databases_scope").on(table.scopeType, table.scopeId),
   index("idx_databases_updated").on(table.updatedAt),
+]);
+
+
+
+// Workflow Data Sources (Link workflows to data sources)
+export const workflowDataSources = pgTable("workflow_data_sources", {
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  dataSourceId: uuid("data_source_id").references(() => datavaultDatabases.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.workflowId, table.dataSourceId] }),
+  index("idx_workflow_data_sources_workflow").on(table.workflowId),
+  index("idx_workflow_data_sources_source").on(table.dataSourceId),
+]);
+
+
+// Workflow Queries (Saved queries for generating List variables)
+export const workflowQueries = pgTable("workflow_queries", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  dataSourceId: uuid("data_source_id").references(() => datavaultDatabases.id, { onDelete: 'cascade' }).notNull(),
+  tableId: uuid("table_id").references(() => datavaultTables.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(), // Variable name
+  filters: jsonb("filters").default(sql`'[]'::jsonb`), // QueryFilter[]
+  sort: jsonb("sort").default(sql`'[]'::jsonb`), // QuerySort[]
+  limit: integer("limit"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_workflow_queries_workflow").on(table.workflowId),
+  index("idx_workflow_queries_table").on(table.tableId),
 ]);
 
 // DataVault Tables - tenant-scoped table definitions
@@ -2935,6 +3007,18 @@ export const datavaultDatabasesRelations = relations(datavaultDatabases, ({ one,
   }),
   tables: many(datavaultTables),
   apiTokens: many(datavaultApiTokens),
+  workflows: many(workflowDataSources),
+}));
+
+export const workflowDataSourcesRelations = relations(workflowDataSources, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowDataSources.workflowId],
+    references: [workflows.id],
+  }),
+  dataSource: one(datavaultDatabases, {
+    fields: [workflowDataSources.dataSourceId],
+    references: [datavaultDatabases.id],
+  }),
 }));
 
 export const datavaultTablesRelations = relations(datavaultTables, ({ one, many }) => ({
@@ -2976,6 +3060,23 @@ export const datavaultRowsRelations = relations(datavaultRows, ({ one, many }) =
     references: [users.id],
   }),
   values: many(datavaultValues),
+  dataSources: many(workflowDataSources),
+  queries: many(workflowQueries),
+}));
+
+export const workflowQueriesRelations = relations(workflowQueries, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowQueries.workflowId],
+    references: [workflows.id],
+  }),
+  dataSource: one(datavaultDatabases, {
+    fields: [workflowQueries.dataSourceId],
+    references: [datavaultDatabases.id],
+  }),
+  table: one(datavaultTables, {
+    fields: [workflowQueries.tableId],
+    references: [datavaultTables.id],
+  }),
 }));
 
 export const datavaultValuesRelations = relations(datavaultValues, ({ one }) => ({

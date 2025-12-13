@@ -75,3 +75,13 @@ export interface WorkflowBlock {
     required?: boolean;
     [key: string]: any; // Allow keys like options without lint error
 }
+
+export interface Snapshot {
+    id: string;
+    workflowId: string;
+    name: string;
+    version: number;
+    inputValues: Record<string, any>;
+    createdAt: Date;
+    description?: string;
+}

@@ -146,6 +146,99 @@ export type DeleteRecordConfig = {
 };
 
 /**
+ * Query Block Configuration
+ * Executes a saved query and outputs a ListVariable
+ */
+export type QueryBlockConfig = {
+  queryId: string;                    // ID of the saved query to execute
+  outputVariableName: string;         // Name of the output list variable
+};
+
+/**
+ * Column Mapping
+ * Maps a workflow value to a database column
+ */
+export type ColumnMapping = {
+  columnId: string;
+  value: string; // Expression, variable ref, or static value
+};
+
+/**
+ * Write Block Configuration
+ * Writes data to a native table
+ */
+export type WriteBlockConfig = {
+  dataSourceId: string;
+  tableId: string;
+  mode: "create" | "update";
+  primaryKeyColumnId?: string;        // Required for update mode
+  primaryKeyValue?: string;           // Required for update mode
+  columnMappings: ColumnMapping[];
+  runCondition?: WhenCondition;
+};
+
+/**
+ * Write Execution Result
+ */
+export interface WriteResult {
+  success: boolean;
+  tableId: string;
+  rowId?: string;
+  writtenColumnIds: string[];
+  operation: "create" | "update";
+}
+
+/**
+ * External Destination Model
+ */
+export interface ExternalDestination {
+  id: string;
+  workspaceId: string;
+  type: "webhook" | "google_sheets" | "airtable" | "zapier" | "make";
+  name: string;
+  config: Record<string, any>;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+/**
+ * Payload Key-Value Mapping
+ */
+export type PayloadMapping = {
+  key: string;
+  value: string; // Expression or static value
+};
+
+/**
+ * Header Mapping
+ */
+export type HeaderMapping = {
+  key: string;
+  value: string;
+};
+
+/**
+ * External Send Block Configuration
+ */
+export type ExternalSendBlockConfig = {
+  destinationId: string;
+  payloadMappings: PayloadMapping[];
+  headers?: HeaderMapping[];
+  runCondition?: WhenCondition;
+};
+
+/**
+ * External Send Execution Result
+ */
+export interface ExternalSendResult {
+  success: boolean;
+  destinationId: string;
+  statusCode?: number;
+  responseSnippet?: string;
+  error?: string;
+}
+
+/**
  * Discriminated union of block kinds
  * Each block type has its own config shape
  */
@@ -156,7 +249,10 @@ export type BlockKind =
   | { type: "create_record"; phase: BlockPhase; config: CreateRecordConfig; sectionId?: string | null }
   | { type: "update_record"; phase: BlockPhase; config: UpdateRecordConfig; sectionId?: string | null }
   | { type: "find_record"; phase: BlockPhase; config: FindRecordConfig; sectionId?: string | null }
-  | { type: "delete_record"; phase: BlockPhase; config: DeleteRecordConfig; sectionId?: string | null };
+  | { type: "delete_record"; phase: BlockPhase; config: DeleteRecordConfig; sectionId?: string | null }
+  | { type: "query"; phase: BlockPhase; config: QueryBlockConfig; sectionId?: string | null }
+  | { type: "write"; phase: BlockPhase; config: WriteBlockConfig; sectionId?: string | null }
+  | { type: "external_send"; phase: BlockPhase; config: ExternalSendBlockConfig; sectionId?: string | null };
 
 /**
  * Block execution context

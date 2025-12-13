@@ -156,7 +156,7 @@ function evaluateSingleCondition(
 
   // Resolve the variable to get the actual value
   const variableKey = resolveVariable(condition.variable, aliasResolver);
-  const actualValue = data[variableKey] ?? data[condition.variable];
+  const actualValue = getValueByPath(data, variableKey);
 
   // Get the comparison value
   let compareValue = condition.value;
@@ -165,12 +165,12 @@ function evaluateSingleCondition(
   // If valueType is 'variable', resolve the comparison value from data
   if (condition.valueType === "variable" && typeof condition.value === "string") {
     const resolvedKey = resolveVariable(condition.value, aliasResolver);
-    compareValue = data[resolvedKey] ?? data[condition.value];
+    compareValue = getValueByPath(data, resolvedKey);
   }
 
   if (condition.valueType === "variable" && typeof condition.value2 === "string") {
     const resolvedKey = resolveVariable(condition.value2, aliasResolver);
-    compareValue2 = data[resolvedKey] ?? data[condition.value2];
+    compareValue2 = getValueByPath(data, resolvedKey);
   }
 
   return evaluateOperator(condition.operator, actualValue, compareValue, compareValue2);
@@ -389,6 +389,31 @@ function toArray(value: any): any[] {
   if (value == null) return [];
   if (Array.isArray(value)) return value;
   return [value];
+}
+
+/**
+ * Get value from data object using dot notation path
+ * @param data - Source data object
+ * @param path - Key or dot-notation path (e.g. "user.email" or "list.rowCount")
+ */
+export function getValueByPath(data: any, path: string): any {
+  if (data == null) return undefined;
+
+  // Direct match priority (in case key contains dots)
+  if (path in data) return data[path];
+
+  // Split by dot and traverse
+  const parts = path.split('.');
+  if (parts.length === 1) return data[path]; // Fallback for simple keys not in data
+
+  let current = data;
+  for (const part of parts) {
+    if (current == null || typeof current !== 'object') {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current;
 }
 
 // =====================================================================

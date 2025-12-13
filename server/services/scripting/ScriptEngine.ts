@@ -53,6 +53,10 @@ export class ScriptEngine {
       }, "ScriptEngine: Executing script");
 
       // Execute with helpers and context injection
+      // Extract resources if available in context (casted to any as ScriptEngine uses generics/loose types often)
+      const resources = (context as any).resources || {};
+      const cache = (context as any).cache || {};
+
       const result = await executeCodeWithHelpers({
         language,
         code,
@@ -61,6 +65,8 @@ export class ScriptEngine {
         helpers,
         timeoutMs,
         consoleEnabled,
+        isolate: resources.isolate,
+        scriptCache: cache.scripts,
       });
 
       // Log execution result (debug level)

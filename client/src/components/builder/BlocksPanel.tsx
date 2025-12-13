@@ -18,6 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 import type { BlockType, BlockPhase } from "@/lib/vault-api";
 import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
+import { QueryBlockEditor } from "@/components/blocks/QueryBlockEditor";
+import { WriteBlockEditor } from "@/components/blocks/WriteBlockEditor";
+import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";
 
 export function BlocksPanel({ workflowId }: { workflowId: string }) {
   const { data: blocks } = useBlocks(workflowId);
@@ -200,6 +203,15 @@ function BlockEditor({
                   <SelectItem value="prefill">Prefill</SelectItem>
                   <SelectItem value="validate">Validate</SelectItem>
                   <SelectItem value="branch">Branch</SelectItem>
+                  {availableBlockTypes.includes('query') && (
+                    <SelectItem value="query">Query Data</SelectItem>
+                  )}
+                  {availableBlockTypes.includes('write') && (
+                    <SelectItem value="write">Save Data</SelectItem>
+                  )}
+                  {availableBlockTypes.includes('external_send') && (
+                    <SelectItem value="external_send">Send Data</SelectItem>
+                  )}
                   {availableBlockTypes.includes('js') && (
                     <SelectItem value="js">JS Transform</SelectItem>
                   )}
@@ -235,6 +247,24 @@ function BlockEditor({
                 workflowId={workflowId}
               />
             </div>
+          ) : formData.type === 'query' ? (
+            <QueryBlockEditor
+              workflowId={workflowId}
+              config={formData.config}
+              onChange={(config) => setFormData({ ...formData, config })}
+            />
+          ) : formData.type === 'write' ? (
+            <WriteBlockEditor
+              workflowId={workflowId}
+              config={formData.config}
+              onChange={(config) => setFormData({ ...formData, config })}
+            />
+          ) : formData.type === 'external_send' ? (
+            <ExternalSendBlockEditor
+              workflowId={workflowId}
+              config={formData.config}
+              onChange={(config) => setFormData({ ...formData, config })}
+            />
           ) : (
             <div className="space-y-2">
               <Label>Config (JSON)</Label>
@@ -252,7 +282,7 @@ function BlockEditor({
                   try {
                     const config = JSON.parse(e.target.value);
                     setFormData({ ...formData, config });
-                  } catch {}
+                  } catch { }
                 }}
                 rows={10}
                 className="font-mono text-xs"

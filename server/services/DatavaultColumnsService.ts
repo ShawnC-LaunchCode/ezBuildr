@@ -4,8 +4,12 @@ import {
   datavaultRowsRepository,
   type DbTransaction,
 } from "../repositories";
+import { db } from "../db";
+import { blocks, transformBlocks } from "@shared/schema";
+import { like, or } from "drizzle-orm";
 import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
 import { ConflictError } from "../errors/AppError";
+import { sql } from "drizzle-orm";
 
 /**
  * Service layer for DataVault column business logic
@@ -478,6 +482,9 @@ export class DatavaultColumnsService {
   async deleteColumn(columnId: string, tenantId: string, tx?: DbTransaction): Promise<void> {
     const column = await this.verifyColumnOwnership(columnId, tenantId, tx);
 
+    // Guardrail: Check for references in workflows
+    await this.checkColumnUsage(columnId, tx);
+
     // Prevent deleting the only primary key column
     if (column.isPrimaryKey) {
       const allColumns = await this.columnsRepo.findByTableId(column.tableId, tx);
@@ -538,6 +545,45 @@ export class DatavaultColumnsService {
   ): Promise<DatavaultColumn | undefined> {
     await this.verifyTableOwnership(tableId, tenantId, tx);
     return await this.columnsRepo.findByTableAndSlug(tableId, slug, tx);
+  }
+  /**
+   * Check if column is used in any workflows (blocks or transforms)
+   * This is a guardrail to prevent breaking changes
+   */
+  private async checkColumnUsage(columnId: string, tx?: DbTransaction): Promise<void> {
+    const database = tx || db;
+
+    // Check blocks config for column ID reference (naive JSON string search for UUID)
+    // This catches usage in "Create Record", "Update Record", etc.
+    const matchingBlocks = await database
+      .select({ id: blocks.id, type: blocks.type, workflowId: blocks.workflowId })
+      .from(blocks)
+      .where(sql`${blocks.config}::text LIKE ${`%${columnId}%`}`)
+      .limit(1);
+
+    if (matchingBlocks.length > 0) {
+      throw new Error(
+        `Cannot delete column: It is referenced by a ${matchingBlocks[0].type} block in workflow ${matchingBlocks[0].workflowId}`
+      );
+    }
+
+    // Check transform blocks code or config
+    const matchingTransforms = await database
+      .select({ id: transformBlocks.id, name: transformBlocks.name, workflowId: transformBlocks.workflowId })
+      .from(transformBlocks)
+      .where(
+        or(
+          sql`${transformBlocks.code} LIKE ${`%${columnId}%`}`,
+          sql`${transformBlocks.inputKeys}::text LIKE ${`%${columnId}%`}`
+        )
+      )
+      .limit(1);
+
+    if (matchingTransforms.length > 0) {
+      throw new Error(
+        `Cannot delete column: It is referenced by transform block "${matchingTransforms[0].name}" in workflow ${matchingTransforms[0].workflowId}`
+      );
+    }
   }
 }
 

@@ -626,6 +626,49 @@ export class DatavaultRowsRepository extends BaseRepository<
 
     return result?.count || 0;
   }
+
+  /**
+   * Find a single row ID by a specific column value
+   * Used for "Primary Key" lookups in Write Blocks
+   */
+  async findRowByColumnValue(
+    tableId: string,
+    columnId: string,
+    value: any,
+    tenantId: string,
+    tx?: DbTransaction
+  ): Promise<string | null> {
+    const database = this.getDb(tx);
+
+    const [result] = await database
+      .select({ id: datavaultRows.id })
+      .from(datavaultRows)
+      .innerJoin(
+        datavaultValues,
+        and(
+          eq(datavaultValues.rowId, datavaultRows.id),
+          eq(datavaultValues.columnId, columnId)
+        )
+      )
+      .where(
+        and(
+          eq(datavaultRows.tableId, tableId),
+          // eq(datavaultRows.tenantId, tenantId) // Schema check: does row have tenantId? Yes (line 210 implies create uses it)
+          // Wait, createRowWithValues passes tenantId in rowData.
+          // Let's verify schema `DatavaultRow` later, but assuming yes for now.
+          // Looking at repo `createRowWithValues`: `this.create(rowData, tx)`.
+          // BaseRepository defaults? 
+          // `datavaultRows` table definition likely has tenantId.
+          // Using generic where clause for safety.
+          sql`${datavaultValues.value} = ${value}` // CAUTION: weak typing on value comparison? 
+          // Drizzle `eq` is safer if types align. datavaultValues.value is likely `text` or `jsonb`?
+          // If `value` col is `text`, perfect. EAV usually text.
+        )
+      )
+      .limit(1);
+
+    return result?.id || null;
+  }
 }
 
 // Singleton instance

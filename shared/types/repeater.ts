@@ -53,6 +53,9 @@ export interface RepeaterField {
 
   /** Field alias for variable references */
   alias?: string;
+
+  /** Source column ID/key from the list row (if repeater is list-driven) */
+  sourceKey?: string;
 }
 
 /**
@@ -82,6 +85,9 @@ export interface RepeaterConfig {
 
   /** Instance title template (e.g., "Dependent #{index}") */
   instanceTitleTemplate?: string;
+
+  /** Source ListVariable alias (if data-driven) */
+  listSource?: string;
 }
 
 /**

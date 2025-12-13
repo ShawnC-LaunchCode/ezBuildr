@@ -489,7 +489,7 @@ export const stepAPI = {
 // Blocks
 // ============================================================================
 
-export type BlockType = "prefill" | "validate" | "branch" | "js";
+export type BlockType = "prefill" | "validate" | "branch" | "js" | "query" | "write" | "external_send";
 export type BlockPhase = "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
 
 export interface ApiBlock {
@@ -1232,6 +1232,66 @@ export const collectionsAPI = {
 
   countRecords: (tenantId: string, collectionId: string) =>
     fetchAPI<{ count: number }>(`/api/tenants/${tenantId}/collections/${collectionId}/records/count`),
+};
+
+
+// ============================================================================
+// Data Sources
+// ============================================================================
+
+export interface ApiDataSource {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  type: "native" | "postgres" | "google_sheets" | "airtable" | "external";
+  config: any;
+  scopeType: "account" | "project" | "workflow";
+  scopeId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const dataSourceAPI = {
+  list: () =>
+    fetchAPI<ApiDataSource[]>(`/api/data-sources`),
+
+  listForWorkflow: (workflowId: string) =>
+    fetchAPI<ApiDataSource[]>(`/api/data-sources/workflow/${workflowId}`),
+
+  get: (id: string) =>
+    fetchAPI<ApiDataSource>(`/api/data-sources/${id}`),
+
+  getTables: (id: string) =>
+    fetchAPI<{ name: string; type: string }[]>(`/api/data-sources/${id}/tables`),
+
+  create: (data: Partial<ApiDataSource>) =>
+    fetchAPI<ApiDataSource>(`/api/data-sources`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<ApiDataSource>) =>
+    fetchAPI<ApiDataSource>(`/api/data-sources/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    fetchAPI<void>(`/api/data-sources/${id}`, {
+      method: "DELETE",
+    }),
+
+  linkToWorkflow: (id: string, workflowId: string) =>
+    fetchAPI<{ success: boolean }>(`/api/data-sources/${id}/link`, {
+      method: "POST",
+      body: JSON.stringify({ workflowId }),
+    }),
+
+  unlinkFromWorkflow: (id: string, workflowId: string) =>
+    fetchAPI<void>(`/api/data-sources/${id}/link/${workflowId}`, {
+      method: "DELETE",
+    }),
 };
 
 // ============================================================================

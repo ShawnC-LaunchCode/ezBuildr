@@ -246,6 +246,16 @@ export interface ChoiceAdvancedConfig {
   otherLabel?: string;     // Label for "Other" option
   searchable?: boolean;    // Enable search for dropdown (many options)
   randomizeOrder?: boolean;  // Randomize option order
+
+  /**
+   * List Binding Configuration
+   * Binds options to a dynamic ListVariable
+   */
+  listBinding?: {
+    listVariable: string;  // Name of the list variable (e.g. "activeUsers")
+    labelColumnId: string; // Column ID to use for label (display text)
+    valueColumnId: string; // Column ID to use for value (stored data)
+  };
 }
 
 /**

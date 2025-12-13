@@ -215,7 +215,7 @@ export class RunService {
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: any; stepId: string; stepUpdatedAt: string }> | undefined;
     if (options?.snapshotId) {
-      const { snapshotService } = await import('./SnapshotService');
+      const { snapshotService } = await import('./snapshotService');
       const snapshot = await snapshotService.getSnapshotById(options.snapshotId);
       if (!snapshot) {
         throw new Error(`Snapshot not found: ${options.snapshotId}`);

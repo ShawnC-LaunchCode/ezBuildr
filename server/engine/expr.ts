@@ -8,10 +8,39 @@ import { Parser } from 'expr-eval';
  * Does NOT use eval(), Function(), or dynamic code generation.
  */
 
+import type { VariableLineage, ListLineage } from '@shared/types/debug';
+
 export type EvalContext = {
   vars: Record<string, unknown>;   // user answers + computed vars only
+  workflowId?: string;             // Current workflow ID
   helpers?: Record<string, (...args: any[]) => any>;
   clock?: () => Date;              // injected clock for determinism (default fixed or from options)
+  executionMode?: 'live' | 'preview' | 'snapshot'; // Execution mode
+  writes?: Record<string, any>;    // Isolated writes for preview mode
+  variableLineage?: Record<string, VariableLineage>; // Variable derivation history
+  listLineage?: Record<string, ListLineage>; // List variable sources
+
+  // Performance and Caching
+  cache?: {
+    queries: Map<string, any>;     // Cache for query results
+    scripts: Map<string, any>;     // Cache for compiled scripts
+  };
+  metrics?: {
+    dbTimeMs: number;
+    jsTimeMs: number;
+    queryCount: number;
+  };
+  resources?: {
+    isolate?: any; // isolated-vm instance
+  };
+
+  // Guardrails
+  executedSideEffects?: Set<string>; // Block IDs that have already executed a write/send
+  limits?: {
+    maxExecutionTimeMs?: number;
+    maxSteps?: number;
+    maxQueryCount?: number;
+  };
 };
 
 export type ValidateResult = { ok: true } | { ok: false; error: string };

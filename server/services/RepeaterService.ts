@@ -14,6 +14,7 @@ import type {
   RepeaterFieldValidation,
   FlattenedRepeaterData,
 } from "../../shared/types/repeater";
+import type { ListVariable } from "../../shared/types/query";
 import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "repeater-service" });
@@ -139,6 +140,44 @@ export class RepeaterService {
 
     for (let i = 0; i < minInstances; i++) {
       instances.push(this.createEmptyInstance(i));
+    }
+
+    return { instances };
+  }
+
+  /**
+   * Create repeater value from a ListVariable
+   * (Stage 20: List-Based Inputs)
+   */
+  createFromList(list: ListVariable, config: RepeaterConfig): RepeaterValue {
+    const instances: RepeaterInstance[] = [];
+
+    // Determine count (list size, bounded by maxInstances)
+    const max = config.maxInstances || Infinity;
+    const count = Math.min(list.rowCount || list.rows.length, max);
+
+    for (let i = 0; i < count; i++) {
+      const row = list.rows[i] as Record<string, any>;
+      if (!row) continue;
+
+      const values: Record<string, any> = {};
+
+      // Map fields from list row
+      for (const field of config.fields) {
+        // Determine source key: explicit sourceKey > field alias > field ID
+        // This allows mapping "Employee Name" column to "name" field
+        const key = field.sourceKey || field.alias || field.id;
+
+        if (row[key] !== undefined) {
+          values[field.id] = row[key];
+        }
+      }
+
+      instances.push({
+        instanceId: `instance-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
+        index: i,
+        values
+      });
     }
 
     return { instances };
