@@ -1402,6 +1402,11 @@ export const templateAPI = {
     fetchAPI<void>(`/api/templates/${id}`, {
       method: 'DELETE',
     }),
+
+  getPlaceholders: (id: string) =>
+    fetchAPI<{ templateId: string; placeholders: ApiPlaceholderInfo[] }>(
+      `/api/templates/${id}/placeholders`
+    ),
 };
 
 
@@ -1568,3 +1573,11 @@ export const analyticsAPI = {
     ).then((res) => res.data);
   },
 };
+
+export interface ApiPlaceholderInfo {
+  name: string;
+  type: string;
+  example: string;
+}
+
+

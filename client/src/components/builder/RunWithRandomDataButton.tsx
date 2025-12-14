@@ -47,8 +47,8 @@ export function RunWithRandomDataButton({
       setPreviewToken(runId, runToken);
 
       toast({
-        title: "Random Data Generated",
-        description: "Preview started with AI-generated test data",
+        title: "Example Data Generated",
+        description: "Preview started with plausible example data",
       });
 
       // Navigate to preview
@@ -66,7 +66,7 @@ export function RunWithRandomDataButton({
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to generate random data",
+          description: error.message || "Failed to generate data",
           variant: "destructive",
         });
       }
@@ -87,12 +87,11 @@ export function RunWithRandomDataButton({
             className={className}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {isCreating ? "Generating..." : "Run with Random Data"}
+            {isCreating ? "Generating data..." : "Use Example Data"}
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Generate AI-powered test data and start preview</p>
-          <p className="text-xs text-muted-foreground">Requires AI_API_KEY configured</p>
+          <p>Fill the workflow with plausible example data to see how it flows</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

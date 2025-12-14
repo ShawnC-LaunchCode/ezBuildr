@@ -16,10 +16,10 @@ import type { ApiDataSource } from "@/lib/vault-api";
 
 interface DataSourcesTabProps {
   workflowId: string;
-  onConfigureCollections?: () => void;
+  onCollectionsClick?: () => void;
 }
 
-export function DataSourcesTab({ workflowId, onConfigureCollections }: DataSourcesTabProps) {
+export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTabProps) {
   const { data: allSources, isLoading: isLoadingAll } = useDataSources();
   const { data: linkedSources, isLoading: isLoadingLinked } = useWorkflowDataSources(workflowId);
   const linkMutation = useLinkDataSource();
@@ -50,7 +50,7 @@ export function DataSourcesTab({ workflowId, onConfigureCollections }: DataSourc
       // Assuming for now the 'collections' logic lives elsewhere or this ID matches the native DB one.
       // For PR, we might not have a dedicated Collections *DataSource* row yet unless created.
       // Let's assume we trigger the sidebar regardless.
-      onConfigureCollections?.();
+      onCollectionsClick?.();
     }
     // For others, open settings dialog (future)
   };

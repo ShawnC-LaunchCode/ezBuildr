@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
+import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // ============================================================================
@@ -1122,4 +1122,56 @@ export function useUnlinkDataSource() {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflowDataSources(variables.workflowId) });
     },
   });
+}
+
+
+// ============================================================================
+// Templates
+// ============================================================================
+
+export function useTemplatePlaceholders(templateId: string | undefined) {
+  return useQuery({
+    queryKey: ["templates", templateId, "placeholders"],
+    queryFn: () => templateAPI.getPlaceholders(templateId!),
+    enabled: !!templateId,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+}
+
+export function useActiveTemplateVariables(projectId: string | undefined, sectionConfig: any) {
+  // Extract template IDs from config
+  const templateIds: string[] = Array.isArray(sectionConfig?.templates)
+    ? sectionConfig.templates
+    : [];
+
+  const queries = useQueries({
+    queries: templateIds.map((id) => ({
+      queryKey: ["templates", id, "placeholders"],
+      queryFn: () => templateAPI.getPlaceholders(id),
+      staleTime: 1000 * 60 * 5,
+    })),
+  });
+
+  // Aggregate required variables
+  const requiredVariables = new Set<string>();
+  const isLoading = queries.some((q) => q.isLoading);
+  const isError = queries.some((q) => q.isError);
+
+  if (!isLoading && !isError) {
+    queries.forEach((query) => {
+      if (query.data?.placeholders) {
+        query.data.placeholders.forEach((p) => {
+          if (p.type === 'variable' || p.type === 'text') { // Assuming 'text' is default from service
+            requiredVariables.add(p.name);
+          }
+        });
+      }
+    });
+  }
+
+  return {
+    requiredVariables: Array.from(requiredVariables),
+    isLoading,
+    isError
+  };
 }

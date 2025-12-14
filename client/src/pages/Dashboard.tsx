@@ -17,7 +17,7 @@ import { Link } from "wouter";
 import {
   FileText, PlayCircle, TrendingUp, Percent, History,
   Home, PieChart, Settings, Zap, Plus,
-  BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2
+  BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2, Database
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -33,8 +33,8 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ event: name, data: props || {} })
-      }).catch(() => {}); // Silent fail for analytics
-    } catch {}
+      }).catch(() => { }); // Silent fail for analytics
+    } catch { }
   };
 
   // Redirect to home if not authenticated
@@ -136,7 +136,7 @@ export default function Dashboard() {
               changeLabel="average"
               isLoading={statsLoading}
             />
-            
+
             <StatsCard
               title="Completion Rate"
               value={`${stats?.completionRate ?? 0}%`}

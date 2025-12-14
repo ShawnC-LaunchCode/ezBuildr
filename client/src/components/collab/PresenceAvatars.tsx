@@ -1,4 +1,4 @@
-import { Users } from 'lucide-react';
+import { Users, Sparkles, Feather } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -52,6 +52,12 @@ export function PresenceAvatars({ users, maxVisible = 5 }: PresenceAvatarsProps)
                 <div className="font-semibold">{user.displayName}</div>
                 <div className="text-xs text-muted-foreground">{user.email}</div>
                 <div className="text-xs text-muted-foreground capitalize">{user.role}</div>
+                {user.mode && (
+                  <div className="flex items-center gap-1 text-[10px] bg-muted/50 px-1 py-0.5 rounded mt-1">
+                    {user.mode === 'advanced' ? <Sparkles className="w-3 h-3 text-indigo-500" /> : <Feather className="w-3 h-3 text-emerald-500" />}
+                    <span className="capitalize">{user.mode} Mode</span>
+                  </div>
+                )}
               </TooltipContent>
             </Tooltip>
           ))}

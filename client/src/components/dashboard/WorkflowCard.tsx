@@ -94,9 +94,16 @@ export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete
       link={{ href: `/workflows/${workflow.id}/builder` }}
       actions={actions}
       renderBadge={() => (
-        <Badge variant={statusVariant}>
-          {workflow.status}
-        </Badge>
+        <div className="flex gap-2">
+          {workflow.intakeConfig?.isIntake && (
+            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+              Intake
+            </Badge>
+          )}
+          <Badge variant={statusVariant}>
+            {workflow.status}
+          </Badge>
+        </div>
       )}
     />
   );

@@ -11,9 +11,11 @@ import {
   Database,
   Settings,
   Camera,
+  ClipboardCheck,
+  GitBranch,
 } from "lucide-react";
 
-export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots";
+export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
 
 interface TabConfig {
   id: BuilderTab;
@@ -25,20 +27,28 @@ const TABS: TabConfig[] = [
   { id: "sections", label: "Sections", icon: Layers },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "data-sources", label: "Data Sources", icon: Database },
+  { id: "review", label: "Review", icon: ClipboardCheck },
   { id: "snapshots", label: "Snapshots", icon: Camera },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "assignment", label: "Assignment", icon: GitBranch },
 ];
 
 interface BuilderTabNavProps {
   workflowId: string;
   activeTab: BuilderTab;
   onTabChange: (tab: BuilderTab) => void;
+  isIntake?: boolean;
 }
 
-export function BuilderTabNav({ workflowId, activeTab, onTabChange }: BuilderTabNavProps) {
+export function BuilderTabNav({ workflowId, activeTab, onTabChange, isIntake }: BuilderTabNavProps) {
+  const visibleTabs = TABS.filter(tab => {
+    if (tab.id === "assignment" && !isIntake) return false;
+    return true;
+  });
+
   return (
     <div className="flex items-center justify-center gap-1 border-b bg-card/50">
-      {TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
 

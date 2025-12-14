@@ -1,82 +1,10 @@
-import { useMemo, useRef, useState, useEffect } from "react";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
-import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-
-SyntaxHighlighter.registerLanguage("json", json);
+import { useState, useEffect, useRef, useMemo } from "react";
+import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface JsonViewerProps {
     data: Record<string, any>;
     className?: string;
-}
-
-// Helper to check if two values are effectively different
-function isDifferent(val1: any, val2: any): boolean {
-    if (val1 === val2) return false;
-    if (typeof val1 !== typeof val2) return true;
-    if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
-        if (Array.isArray(val1) !== Array.isArray(val2)) return true;
-        return JSON.stringify(val1) !== JSON.stringify(val2);
-    }
-    return true;
-}
-
-// Custom Pretty Printer that maps paths to line numbers
-function prettyPrintWithMap(data: any): { jsonString: string; lineMap: Map<string, number> } {
-    let line = 1;
-    const lineMap = new Map<string, number>();
-
-    function serialize(obj: any, indent: number, path: string[]) {
-        const spacer = " ".repeat(indent);
-
-        if (typeof obj !== "object" || obj === null) {
-            // Primitive
-            return JSON.stringify(obj);
-        }
-
-        const isArray = Array.isArray(obj);
-        let str = isArray ? "[" : "{";
-
-        const keys = Object.keys(obj);
-        if (keys.length > 0) {
-            str += "\n";
-            line++;
-
-            keys.forEach((key, index) => {
-                const value = obj[key];
-                const currentPath = isArray ? [...path] : [...path, key]; // Arrays dont strictly have keyed paths in this simplistic view
-                const pathKey = currentPath.join(".");
-
-                // Track line number for this key
-                if (!isArray) {
-                    lineMap.set(pathKey, line);
-                }
-
-                str += spacer + "  "; // Indent for key
-                if (!isArray) {
-                    str += `"${key}": `;
-                }
-
-                const valStr = serialize(value, indent + 2, currentPath);
-                str += valStr;
-
-                if (index < keys.length - 1) {
-                    str += ",";
-                }
-                str += "\n";
-                line++;
-            });
-
-            str += spacer + (isArray ? "]" : "}");
-        } else {
-            str += isArray ? "[]" : "{}";
-        }
-
-        return str;
-    }
-
-    const jsonString = serialize(data, 0, []);
-    return { jsonString, lineMap };
 }
 
 // Hook to detect dark mode from HTML class
@@ -103,119 +31,222 @@ function useDarkModeObserver() {
     return isDark;
 }
 
-interface HighlightInfo {
-    line: number;
-    ts: number;
+// Helper to check if two values are effectively different
+function isDifferent(val1: any, val2: any): boolean {
+    if (val1 === val2) return false;
+    if (typeof val1 !== typeof val2) return true;
+    if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
+        if (Array.isArray(val1) !== Array.isArray(val2)) return true;
+        return JSON.stringify(val1) !== JSON.stringify(val2);
+    }
+    return true;
 }
 
 export function JsonViewer({ data, className }: JsonViewerProps) {
     const isDark = useDarkModeObserver();
-    const [highlights, setHighlights] = useState<HighlightInfo[]>([]);
     const prevDataRef = useRef<Record<string, any>>({});
+    const [changedPaths, setChangedPaths] = useState<Map<string, number>>(new Map());
 
-    // Calculate JSON string and line map
-    const { jsonString, lineMap } = useMemo(() => prettyPrintWithMap(data), [data]);
-
+    // Calculate changed paths
     useEffect(() => {
         const prevData = prevDataRef.current;
-        // console.log("[JsonViewer] Data update. Keys:", Object.keys(data).length);
-
-        const newHighlights: HighlightInfo[] = [];
         const now = Date.now();
+        const newChanges = new Map<string, number>();
 
-        // Helper to get value by path
-        const getVal = (obj: any, pathStr: string) => {
-            if (!pathStr) return undefined;
-            const path = pathStr.split('.');
-            let current = obj;
-            for (const key of path) {
-                if (current === undefined || current === null) return undefined;
-                current = current[key];
+        // Flatten keys to check changes? Or just recursive check?
+        // Simple recursive diff
+        function findChanges(current: any, prev: any, path: string) {
+            if (isDifferent(current, prev)) {
+                newChanges.set(path, now);
             }
-            return current;
-        };
-
-        lineMap.forEach((lineNum, pathStr) => {
-            const currVal = getVal(data, pathStr);
-            const prevVal = getVal(prevData, pathStr);
-
-            // Check for changes
-            // 1. Value changed
-            // 2. New value (and not initial load)
-            if (
-                (isDifferent(currVal, prevVal) && prevVal !== undefined) ||
-                (prevVal === undefined && currVal !== undefined && Object.keys(prevData).length > 0)
-            ) {
-                // console.log(`[JsonViewer] Change at ${pathStr} (Line ${lineNum})`);
-                newHighlights.push({ line: lineNum, ts: now });
+            if (typeof current === 'object' && current !== null && typeof prev === 'object' && prev !== null) {
+                Object.keys(current).forEach(key => {
+                    const nextPath = path ? `${path}.${key}` : key;
+                    findChanges(current[key], prev[key], nextPath);
+                });
             }
-        });
+        }
 
-        if (newHighlights.length > 0) {
-            setHighlights(prev => {
-                // Keep existing highlights that haven't expired, plus new ones.
-                // If a line is in both, take the new one (new TS) to restart animation.
-                const map = new Map<number, number>();
-                prev.forEach(h => map.set(h.line, h.ts));
-                newHighlights.forEach(h => map.set(h.line, h.ts));
+        findChanges(data, prevData, "");
 
-                return Array.from(map.entries()).map(([line, ts]) => ({ line, ts }));
+        if (newChanges.size > 0) {
+            setChangedPaths(prev => {
+                const map = new Map(prev);
+                newChanges.forEach((ts, path) => map.set(path, ts));
+                return map;
             });
 
-            // Cleanup after 5s
-            const timer = setTimeout(() => {
-                setHighlights(current => {
+            // Cleanup
+            setTimeout(() => {
+                setChangedPaths(current => {
                     const threshold = Date.now() - 5000;
-                    return current.filter(h => h.ts > threshold);
+                    const map = new Map();
+                    current.forEach((ts, path) => {
+                        if (ts > threshold) map.set(path, ts);
+                    });
+                    return map;
                 });
             }, 5000);
-
-            prevDataRef.current = data;
-            return () => clearTimeout(timer);
         }
 
         prevDataRef.current = data;
-    }, [data, lineMap]);
+    }, [data]);
 
     return (
-        <div className={`text-xs h-full w-full overflow-auto ${className || ""}`}>
-            <SyntaxHighlighter
-                language="json"
-                style={isDark ? oneDark : oneLight}
-                customStyle={{ margin: 0, height: "100%", background: "transparent" }}
-                wrapLines={true}
-                showLineNumbers={true}
-                lineNumberStyle={{ display: "none" }}
-                lineProps={(lineNumber) => {
-                    // console.log("[JsonViewer] lineProps called with:", lineNumber, "typeof:", typeof lineNumber);
-                    const highlight = highlights.find(h => h.line === lineNumber);
-                    const isHighlighted = !!highlight;
+        <div className={cn("text-xs font-mono h-full w-full overflow-auto p-2 bg-slate-50 dark:bg-slate-950/50", className)}>
+            <JsonNode
+                name="root"
+                value={data}
+                isLast={true}
+                depth={0}
+                path=""
+                changedPaths={changedPaths}
+                initiallyExpanded={true}
+            />
+        </div>
+    );
+}
 
-                    return {
-                        style: {
-                            display: "block",
-                            width: "100%",
-                        },
-                        className: isHighlighted ? "animate-highlight" : undefined,
-                        // Provide explicit key for ALL lines to avoid mixing controlled/uncontrolled keys
-                        // Change key when highlighted to force remount and restart animation
-                        key: isHighlighted
-                            ? `line-${lineNumber}-hl-${highlight.ts}`
-                            : `line-${lineNumber}`
-                    };
-                }}
+interface JsonNodeProps {
+    name: string | null;
+    value: any;
+    isLast: boolean;
+    depth: number;
+    path: string;
+    changedPaths: Map<string, number>;
+    initiallyExpanded?: boolean;
+}
+
+function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExpanded = false }: JsonNodeProps) {
+    const [expanded, setExpanded] = useState(initiallyExpanded);
+    const [copied, setCopied] = useState(false);
+
+    // Highlight logic
+    const lastChange = changedPaths.get(path);
+    const isHighlighted = lastChange && (Date.now() - lastChange < 2000); // 2s highlight
+
+    const isObject = typeof value === 'object' && value !== null;
+    const isArray = Array.isArray(value);
+    const isEmpty = isObject && Object.keys(value).length === 0;
+
+    const handleCopy = (e: React.MouseEvent, text: string) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    };
+
+    const getTypeColor = (val: any) => {
+        if (val === null) return "text-rose-500";
+        switch (typeof val) {
+            case 'string': return "text-emerald-600 dark:text-emerald-400";
+            case 'number': return "text-blue-600 dark:text-blue-400";
+            case 'boolean': return "text-purple-600 dark:text-purple-400";
+            default: return "text-gray-600 dark:text-gray-400";
+        }
+    };
+
+    const renderValue = (val: any) => {
+        if (val === null) return "null";
+        if (typeof val === 'string') return `"${val}"`;
+        return String(val);
+    };
+
+    const containerClass = cn(
+        "flex items-start group rounded-sm px-1 -ml-1 border border-transparent transition-colors",
+        isHighlighted ? "bg-yellow-100 dark:bg-yellow-900/30 duration-500" : "hover:bg-black/5 dark:hover:bg-white/5",
+        // isHighlighted ? "animate-category-pulse" : "" 
+    );
+
+    if (isObject) {
+        const keys = Object.keys(value);
+
+        return (
+            <div className="ml-0">
+                <div className={containerClass} onClick={() => !isEmpty && setExpanded(!expanded)}>
+                    {/* Toggle */}
+                    {!isEmpty ? (
+                        <span className="cursor-pointer mr-1 mt-0.5 opacity-50 hover:opacity-100">
+                            {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        </span>
+                    ) : <span className="w-4 mr-1"></span>}
+
+                    {/* Key */}
+                    {name && (
+                        <span className="text-indigo-600 dark:text-indigo-400 mr-1 select-text" onDoubleClick={(e) => handleCopy(e, path)}>
+                            {name}:
+                        </span>
+                    )}
+
+                    {/* Preview */}
+                    <span className="text-gray-500 dark:text-gray-400">
+                        {isArray ? "[" : "{"}
+                        {!expanded && !isEmpty && (
+                            <span className="mx-1 text-gray-400 italic">
+                                {keys.length} {keys.length === 1 ? 'item' : 'items'}
+                            </span>
+                        )}
+                        {isEmpty && (isArray ? "]" : "}")}
+                    </span>
+
+                    {/* Tools */}
+                    <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-2">
+                        <button onClick={(e) => handleCopy(e, JSON.stringify(value, null, 2))} title="Copy Value">
+                            {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Children */}
+                {expanded && !isEmpty && (
+                    <div className="ml-4 border-l border-gray-200 dark:border-gray-800 pl-2">
+                        {keys.map((key, i) => (
+                            <JsonNode
+                                key={key}
+                                name={isArray ? null : key} // Don't show index keys for arrays generally, or do? usually no.
+                                // Actually for debugging, index is useful `[0]`. But user prefers cleanly list.
+                                // Let's show index if array?
+                                value={value[key]}
+                                isLast={i === keys.length - 1}
+                                depth={depth + 1}
+                                path={path ? `${path}.${key}` : key}
+                                changedPaths={changedPaths}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {expanded && !isEmpty && (
+                    <div className="ml-4 pl-1 text-gray-500 dark:text-gray-400">
+                        {isArray ? "]" : "}"}{!isLast && ","}
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // Primitive
+    return (
+        <div className={containerClass}>
+            <span className="w-4 mr-1"></span> {/* Indent spacer for leaves */}
+            {name && (
+                <span className="text-indigo-600 dark:text-indigo-400 mr-1 select-text" title={path} onDoubleClick={(e) => handleCopy(e, path)}>
+                    {name}:
+                </span>
+            )}
+            <span
+                className={cn("break-all select-text", getTypeColor(value))}
             >
-                {jsonString}
-            </SyntaxHighlighter>
-            <style>{`
-        @keyframes highlightFade {
-            0% { background-color: ${isDark ? "rgba(255, 255, 0, 0.2)" : "rgba(255, 255, 0, 0.5)"}; }
-            100% { background-color: transparent; }
-        }
-        .animate-highlight {
-            animation: highlightFade 2s ease-out forwards;
-        }
-      `}</style>
+                {renderValue(value)}
+            </span>
+            {!isLast && <span className="text-gray-400">,</span>}
+
+            {/* Tools */}
+            <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-2">
+                <button onClick={(e) => handleCopy(e, String(value))} title="Copy Value">
+                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />}
+                </button>
+            </div>
         </div>
     );
 }

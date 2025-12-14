@@ -82,6 +82,7 @@ export const createWorkflowSchema = z.object({
 export const updateWorkflowSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   graphJson: graphJsonSchema.optional(),
+  intakeConfig: z.record(z.unknown()).optional(),
 });
 
 export const publishWorkflowSchema = z.object({

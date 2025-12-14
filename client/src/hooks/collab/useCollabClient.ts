@@ -12,13 +12,22 @@ export interface CollabUser {
   color: string;
   cursor?: { x: number; y: number };
   selectedNodeId?: string | null;
+  mode?: 'easy' | 'advanced';
+  activeBlockId?: string | null;
 }
 
 export interface CollabClientState {
   connected: boolean;
   synced: boolean;
   users: CollabUser[];
+
   error: string | null;
+  user: {
+    id: string;
+    name: string;
+    color: string;
+    email?: string;
+  };
 }
 
 export interface CollabClientActions {
@@ -26,6 +35,8 @@ export interface CollabClientActions {
   updateEdges: (edges: Edge[]) => void;
   updateCursor: (x: number, y: number) => void;
   updateSelectedNode: (nodeId: string | null) => void;
+  updateMode: (mode: 'easy' | 'advanced') => void;
+  updateActiveBlock: (blockId: string | null) => void;
   disconnect: () => void;
 }
 
@@ -36,6 +47,12 @@ interface UseCollabClientOptions {
   onNodesChange: (nodes: Node[]) => void;
   onEdgesChange: (edges: Edge[]) => void;
   enabled?: boolean;
+  user: {
+    id: string;
+    name: string;
+    color: string;
+    email?: string;
+  };
 }
 
 /**
@@ -51,13 +68,16 @@ export function useCollabClient(
     onNodesChange,
     onEdgesChange,
     enabled = true,
+    user,
   } = options;
 
   const [state, setState] = useState<CollabClientState>({
     connected: false,
     synced: false,
     users: [],
+
     error: null,
+    user,
   });
 
   const docRef = useRef<Y.Doc | null>(null);
@@ -106,6 +126,20 @@ export function useCollabClient(
     if (!(doc as any).has('yComments')) {
       doc.getMap('yComments');
     }
+
+    // Set local user state
+    provider.awareness.setLocalStateField('user', {
+      userId: user.id,
+      displayName: user.name,
+      color: user.color,
+      email: user.email || '',
+      role: 'editor', // Default role
+      activeBlockId: null,
+      mode: 'easy', // Default mode
+      lastActive: Date.now()
+    });
+
+    // Connection event handlers
 
     // Connection event handlers
     provider.on('status', ({ status }: { status: string }) => {
@@ -175,7 +209,7 @@ export function useCollabClient(
       provider.destroy();
       doc.destroy();
     };
-  }, [enabled, workflowId, tenantId, token, roomKey, onNodesChange, onEdgesChange]);
+  }, [enabled, workflowId, tenantId, token, roomKey, onNodesChange, onEdgesChange, user.id, user.name, user.color]);
 
   // Update nodes in Yjs document
   const updateNodes = useCallback((nodes: Node[]) => {
@@ -271,6 +305,37 @@ export function useCollabClient(
     }
   }, []);
 
+  // Update user mode
+  const updateMode = useCallback((mode: 'easy' | 'advanced') => {
+    if (!awarenessRef.current) return;
+
+    const currentState = awarenessRef.current.getLocalState();
+    if (currentState?.user) {
+      awarenessRef.current.setLocalStateField('user', {
+        ...currentState.user,
+        mode,
+        lastActive: Date.now(),
+      });
+    }
+  }, []);
+
+  // Update active block (locking/presence)
+  const updateActiveBlock = useCallback((blockId: string | null) => {
+    if (!awarenessRef.current) return;
+
+    const currentState = awarenessRef.current.getLocalState();
+    if (currentState?.user) {
+      // Optimize: Don't update if same
+      if (currentState.user.activeBlockId === blockId) return;
+
+      awarenessRef.current.setLocalStateField('user', {
+        ...currentState.user,
+        activeBlockId: blockId,
+        lastActive: Date.now(),
+      });
+    }
+  }, []);
+
   // Disconnect
   const disconnect = useCallback(() => {
     if (providerRef.current) {
@@ -287,6 +352,8 @@ export function useCollabClient(
     updateEdges,
     updateCursor,
     updateSelectedNode,
+    updateMode,
+    updateActiveBlock,
     disconnect,
   };
 }

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
-import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks } from "@/lib/vault-hooks";
+import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { useToast } from "@/hooks/use-toast";
 import { combinePageItems, getNextOrder } from "@/lib/dnd";
@@ -40,10 +40,14 @@ interface PageCardProps {
   page: ApiSection;
   blocks: ApiBlock[];
   allSteps: ApiStep[];
+  index?: number;
+  total?: number;
 }
 
-export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCardProps) {
+export function PageCard({ workflowId, page, blocks, allSteps: steps, index, total }: PageCardProps) {
   const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
+  const { data: modeData } = useWorkflowMode(workflowId);
+  const mode = modeData?.mode || 'easy';
   const updateSectionMutation = useUpdateSection();
   const deleteSectionMutation = useDeleteSection();
   const reorderBlocksMutation = useReorderBlocks();
@@ -253,152 +257,178 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps }: PageCard
               )}
             </Button>
 
-          {/* Page title and description */}
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2">
-              <Input
-                value={page.title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
-                placeholder="Page title"
-              />
-              {isFinalDocumentsSection && (
-                <Badge variant="secondary" className="text-xs px-2 py-1">
-                  <FileText className="h-3 w-3 mr-1" />
-                  Final Documents Block
-                </Badge>
+            {/* Page title and description */}
+            <div className="flex-1 space-y-1">
+              {mode === 'easy' && typeof index === 'number' && typeof total === 'number' && !isFinalDocumentsSection && (
+                <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest pl-1 select-none">
+                  Page {index + 1} of {total}
+                </div>
               )}
-              <LogicIndicator
-                visibleIf={page.visibleIf}
-                variant="badge"
-                size="sm"
-                elementType="page"
+              <div className="flex items-center gap-2">
+                <Input
+                  value={page.title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
+                  placeholder="Page title"
+                />
+                {isFinalDocumentsSection && (
+                  <Badge variant="secondary" className="text-xs px-2 py-1">
+                    <FileText className="h-3 w-3 mr-1" />
+                    Final Documents Block
+                  </Badge>
+                )}
+                <LogicIndicator
+                  visibleIf={page.visibleIf}
+                  variant="badge"
+                  size="sm"
+                  elementType="page"
+                />
+              </div>
+              <AutoExpandTextarea
+                value={page.description || ""}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
+                placeholder="Page description (optional)"
+                minRows={1}
+                maxRows={4}
               />
             </div>
-            <AutoExpandTextarea
-              value={page.description || ""}
-              onChange={(e) => handleDescriptionChange(e.target.value)}
-              className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
-              placeholder="Page description (optional)"
-              minRows={1}
-              maxRows={4}
-            />
-          </div>
 
-          {/* Page actions */}
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" title="Page settings">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => selectSection(page.id)}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Page Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsLogicSheetOpen(true)}>
-                  <EyeOff className="h-4 w-4 mr-2" />
-                  Visibility Logic
-                  {page.visibleIf && (
-                    <span className="ml-auto text-xs text-amber-600">Active</span>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleDelete}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Page
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </CardHeader>
-
-      {!isCollapsed && (
-      <CardContent className="pt-0 space-y-3">
-        {isFinalDocumentsSection ? (
-          <FinalDocumentsSectionEditor section={page} workflowId={workflowId} />
-        ) : items.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            {UI_LABELS.NO_QUESTIONS}
-          </div>
-        ) : (
-          <SortableContext
-            items={items.map((i) => i.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-2">
-              {items.map((item, index) => {
-                const handleEnterNext = () => {
-                  // Find next item in list
-                  if (index < items.length - 1) {
-                    const nextItem = items[index + 1];
-                    if (nextItem.kind === "step") {
-                      // Select and expand next step
-                      selectStep(nextItem.id);
-                      setExpandedStepIds((prev) => new Set(prev).add(nextItem.id));
-                      setAutoFocusStepId(nextItem.id);
-                    } else {
-                      // Just select next block
-                      selectBlock(nextItem.id);
-                    }
-                  }
-                };
-
-                if (item.kind === "step") {
-                  return (
-                    <QuestionCard
-                      key={item.id}
-                      step={item.data}
-                      sectionId={page.id}
-                      workflowId={workflowId}
-                      isExpanded={expandedStepIds.has(item.id)}
-                      autoFocus={autoFocusStepId === item.id}
-                      onToggleExpand={() => handleToggleExpand(item.id)}
-                      onEnterNext={handleEnterNext}
-                    />
-                  );
-                } else {
-                  return (
-                    <BlockCard
-                      key={item.id}
-                      item={item}
-                      workflowId={workflowId}
-                      sectionId={page.id}
-                      isExpanded={expandedBlockIds.has(item.id)}
-                      onToggleExpand={() => handleToggleBlockExpand(item.id)}
-                      onEnterNext={handleEnterNext}
-                    />
-                  );
-                }
-              })}
+            {/* Page actions */}
+            <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" title="Page settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => selectSection(page.id)}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Page Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsLogicSheetOpen(true)}>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Visibility Logic
+                    {page.visibleIf && (
+                      <span className="ml-auto text-xs text-amber-600">Active</span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Page
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </SortableContext>
-        )}
-
-        {/* Add buttons at the bottom - hidden for Final Documents sections */}
-        {!isFinalDocumentsSection && (
-          <div className="flex items-center gap-2 pt-2">
-            <QuestionAddMenu
-              sectionId={page.id}
-              nextOrder={nextOrder}
-              workflowId={workflowId}
-            />
-            <LogicAddMenu
-              workflowId={workflowId}
-              sectionId={page.id}
-              nextOrder={nextOrder}
-            />
           </div>
+        </CardHeader>
+
+        {!isCollapsed && (
+          <CardContent className="pt-0 space-y-3">
+            {isFinalDocumentsSection ? (
+              <FinalDocumentsSectionEditor section={page} workflowId={workflowId} />
+            ) : items.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                {mode === 'easy' ? (
+                  <>
+                    <div className="p-3 bg-amber-50 rounded-full mb-2">
+                      <FileText className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <p className="font-medium text-amber-900">Add your first question to this page</p>
+                    <p className="text-xs text-amber-700 max-w-xs">
+                      Start by asking something simple. You can always add more pages later.
+                    </p>
+                  </>
+                ) : (
+                  UI_LABELS.NO_QUESTIONS
+                )}
+              </div>
+            ) : (
+              <SortableContext
+                items={items.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {items.map((item, index) => {
+                    const handleEnterNext = () => {
+                      // Find next item in list
+                      if (index < items.length - 1) {
+                        const nextItem = items[index + 1];
+                        if (nextItem.kind === "step") {
+                          // Select and expand next step
+                          selectStep(nextItem.id);
+                          setExpandedStepIds((prev) => new Set(prev).add(nextItem.id));
+                          setAutoFocusStepId(nextItem.id);
+                        } else {
+                          // Just select next block
+                          selectBlock(nextItem.id);
+                        }
+                      }
+                    };
+
+                    if (item.kind === "step") {
+                      return (
+                        <QuestionCard
+                          key={item.id}
+                          step={item.data}
+                          sectionId={page.id}
+                          workflowId={workflowId}
+                          isExpanded={expandedStepIds.has(item.id)}
+                          autoFocus={autoFocusStepId === item.id}
+                          onToggleExpand={() => handleToggleExpand(item.id)}
+                          onEnterNext={handleEnterNext}
+                        />
+                      );
+                    } else {
+                      return (
+                        <BlockCard
+                          key={item.id}
+                          item={item}
+                          workflowId={workflowId}
+                          sectionId={page.id}
+                          isExpanded={expandedBlockIds.has(item.id)}
+                          onToggleExpand={() => handleToggleBlockExpand(item.id)}
+                          onEnterNext={handleEnterNext}
+                        />
+                      );
+                    }
+                  })}
+                </div>
+              </SortableContext>
+            )}
+
+            {/* Add buttons at the bottom - hidden for Final Documents sections */}
+            {!isFinalDocumentsSection && (
+              <div className="space-y-2">
+                {mode === 'easy' && items.length > 0 && (
+                  <div className="flex items-center gap-2 px-1 pb-1 animate-in fade-in slide-in-from-top-1">
+                    <span className="text-[10px] text-muted-foreground italic">
+                      You can add another question here, or create a new page below.
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pt-2">
+                  <QuestionAddMenu
+                    sectionId={page.id}
+                    nextOrder={nextOrder}
+                    workflowId={workflowId}
+                  />
+                  <LogicAddMenu
+                    workflowId={workflowId}
+                    sectionId={page.id}
+                    nextOrder={nextOrder}
+                  />
+                </div>
+              </div>
+            )}
+          </CardContent>
         )}
-      </CardContent>
-      )}
-    </Card>
+      </Card>
 
       {/* Section Logic Sheet */}
       <SectionLogicSheet

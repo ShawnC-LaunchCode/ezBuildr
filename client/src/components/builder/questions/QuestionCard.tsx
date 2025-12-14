@@ -24,6 +24,9 @@ import {
   EyeOff,
   HelpCircle,
   ExternalLink,
+  X,
+  Database,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,13 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LogicBuilder, LogicIndicator, LogicStatusText } from "@/components/logic";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { ConditionExpression } from "@shared/types/conditions";
 import {
   Select,
@@ -47,8 +48,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useUpdateStep, useDeleteStep, useWorkflowMode } from "@/lib/vault-hooks";
+import {
+  useUpdateStep,
+  useDeleteStep,
+  useWorkflow,
+  useWorkflowMode
+} from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
+import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
+import { useIntake } from "../IntakeContext";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
 import { JSQuestionEditor, type JSQuestionConfig } from "./JSQuestionEditor";
 import type { ApiStep, StepType } from "@/lib/vault-api";
@@ -63,7 +72,7 @@ interface QuestionCardProps {
   onEnterNext?: () => void;
 }
 
-const STEP_TYPE_OPTIONS: Array<{ value: StepType; label: string }> = [
+const STEP_TYPE_OPTIONS: Array<{ value: StepType; label: string; advancedOnly?: boolean }> = [
   { value: "short_text", label: "Short Text" },
   { value: "long_text", label: "Long Text" },
   { value: "radio", label: "Radio (Single Choice)" },
@@ -71,7 +80,7 @@ const STEP_TYPE_OPTIONS: Array<{ value: StepType; label: string }> = [
   { value: "yes_no", label: "Yes/No" },
   { value: "date_time", label: "Date/Time" },
   { value: "file_upload", label: "File Upload" },
-  { value: "js_question", label: "JS Question" },
+  { value: "js_question", label: "JS Question (Advanced)", advancedOnly: true },
 ];
 
 // Get icon for each question type
@@ -110,8 +119,38 @@ export function QuestionCard({
   const updateStepMutation = useUpdateStep();
   const deleteStepMutation = useDeleteStep();
   const { toast } = useToast();
-  const { data: workflowMode } = useWorkflowMode(workflowId);
-  const mode = workflowMode?.mode || 'easy';
+  const { data: modeData } = useWorkflowMode(workflowId);
+  const mode = modeData?.mode || 'easy';
+  const isEasyMode = mode === 'easy';
+  const { data: workflow } = useWorkflow(workflowId);
+  const isIntake = workflow?.intakeConfig?.isIntake;
+  const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
+
+  // Intake Derived Values
+  const isLinkedToIntake = !!step.defaultValue && typeof step.defaultValue === 'object' && step.defaultValue.source === 'intake';
+  const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === step.defaultValue.variable) : null;
+
+  // Collaboration Hooks
+  const { updateActiveBlock, user: currentUser } = useCollaboration();
+  const { lockedBy, isLocked } = useBlockCollaborators(step.id);
+  const isLockedByOther = isLocked && lockedBy?.userId !== currentUser?.id;
+
+  const handleFocus = () => {
+    if (!isLockedByOther) {
+      updateActiveBlock(step.id);
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // Check if new focus is still within this card
+    if (e.relatedTarget && (e.relatedTarget as HTMLElement).closest(`[data-step-id="${step.id}"]`)) {
+      return;
+    }
+    // Only clear if we were the one locking it
+    if (!isLockedByOther) {
+      updateActiveBlock(null);
+    }
+  };
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [localRequired, setLocalRequired] = useState(step.required || false);
@@ -134,6 +173,8 @@ export function QuestionCard({
     }
     return [];
   });
+  const [isGuidanceDismissed, setIsGuidanceDismissed] = useState(false);
+
   const [localJsConfig, setLocalJsConfig] = useState<JSQuestionConfig>(
     step.type === "js_question" && step.options
       ? (step.options as JSQuestionConfig)
@@ -150,8 +191,10 @@ export function QuestionCard({
   // Auto-focus on mount if requested
   useEffect(() => {
     if (autoFocus && titleInputRef.current) {
+      titleInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       titleInputRef.current.focus();
-      titleInputRef.current.select();
+      // Don't select all text for new questions, just focus
+      // titleInputRef.current.select(); 
     }
   }, [autoFocus]);
 
@@ -219,29 +262,26 @@ export function QuestionCard({
   };
 
   const handleDefaultValueChange = (value: string) => {
-    // Parse the value based on step type
-    let parsedValue: any = value;
+    let parsedValue: string | boolean | number | null = value;
 
-    // For empty string, set to null to clear the default
-    if (value === "") {
+    if (step.type === 'yes_no') {
+      parsedValue = value === 'yes' ? true : value === 'no' ? false : null;
+    } else if (value === '') {
       parsedValue = null;
-    } else if (localType === "yes_no") {
-      // Convert to boolean
-      parsedValue = value.toLowerCase() === "yes" || value === "true";
-    } else if (localType === "multiple_choice") {
-      // For multiple choice, try to parse as JSON array
-      try {
-        parsedValue = JSON.parse(value);
-      } catch {
-        // If not valid JSON, keep as string
-        parsedValue = value;
-      }
     }
 
     updateStepMutation.mutate({
       id: step.id,
       sectionId,
       defaultValue: parsedValue
+    });
+  };
+
+  const handleIntakeLinkChange = (variableAlias: string) => {
+    updateStepMutation.mutate({
+      id: step.id,
+      sectionId,
+      defaultValue: variableAlias === 'none' ? null : { source: 'intake', variable: variableAlias }
     });
   };
 
@@ -342,9 +382,25 @@ export function QuestionCard({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <Card className={cn("shadow-sm", isDragging && "opacity-50")}>
-        <CardContent className="p-3">
+    <div ref={setNodeRef} style={style} data-step-id={step.id} onFocus={handleFocus} onBlur={handleBlur}>
+      <Card className={cn("shadow-sm transition-all duration-300", isDragging && "opacity-50", isLockedByOther && "ring-2 ring-indigo-400/50 border-indigo-200")}>
+        <CardContent className="p-3 relative">
+          {/* Lock Overlay */}
+          {isLockedByOther && (
+            <>
+              <div className="absolute top-2 right-12 z-20 flex items-center gap-2 bg-background/95 backdrop-blur px-2 py-1 rounded-full shadow-sm border border-indigo-100 animate-in fade-in zoom-in-95 duration-200">
+                <span className="text-[10px] font-medium text-indigo-700">Edited by {lockedBy?.displayName}</span>
+                <Avatar className="w-5 h-5 ring-1 ring-white">
+                  <AvatarFallback style={{ backgroundColor: lockedBy?.color }} className="text-[9px] text-white">
+                    {lockedBy?.displayName.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              {/* Interaction Blocker */}
+              <div className="absolute inset-0 z-10 bg-white/20" />
+            </>
+          )}
+
           <div className="flex items-start gap-2">
             {/* Drag Handle */}
             <button
@@ -390,280 +446,357 @@ export function QuestionCard({
               {/* Header Row - Title and Delete */}
               <div className="flex items-start gap-2">
                 <div className="flex-1">
-                  <Input
-                    ref={titleInputRef}
-                    value={step.title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.currentTarget.blur();
-                        onEnterNext?.();
-                      }
-                    }}
-                    placeholder="Question text"
-                    className="font-medium text-sm border-transparent hover:border-input focus:border-input"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      ref={titleInputRef}
+                      value={step.title}
+                      onChange={(e) => handleTitleChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur();
+                          onEnterNext?.();
+                        }
+                      }}
+                      placeholder="Question text"
+                      className={cn(
+                        "font-medium text-sm transition-all duration-300",
+                        step.title
+                          ? "border-transparent hover:border-input focus:border-input"
+                          : mode === 'easy' && !isGuidanceDismissed
+                            ? "border-amber-300 bg-amber-50/30 focus-visible:ring-amber-400 placeholder:text-amber-500/50"
+                            : "border-transparent hover:border-input focus:border-input"
+                      )}
+                      autoFocus={autoFocus && isExpanded}
+                    />
+                    {mode === 'easy' && !step.title && !isGuidanceDismissed && (
+                      <div className="absolute top-full left-0 mt-1 z-10 flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-md shadow-sm animate-in slide-in-from-top-2">
+                        <span className="text-[10px] text-amber-700 font-medium">Example: "What is your full name?"</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 text-amber-600 hover:text-amber-800 hover:bg-amber-100"
+                          onClick={(e) => { e.stopPropagation(); setIsGuidanceDismissed(true); }}
+                        >
+                          <span className="sr-only">Dismiss</span>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-destructive"
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
               </div>
+
+              {/* Intake Badge (Collapsed View) */}
+              {!isExpanded && isLinkedToIntake && (
+                <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full w-fit border border-emerald-100">
+                  <Database className="w-3 h-3" />
+                  <span>Linked to <strong>{upstreamWorkflow?.title}</strong> ({linkedVariable?.label || linkedVariable?.alias})</span>
+                </div>
+              )}
 
               {/* Expanded Content */}
               {isExpanded && (
                 <div className="space-y-3 pt-1 border-t">
-                  {/* Description */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Description (optional)
-                    </Label>
-                    <AutoExpandTextarea
-                      value={step.description || ""}
-                      onChange={(e) => handleDescriptionChange(e.target.value)}
-                      placeholder="Add a description for this question..."
-                      minRows={1}
-                      maxRows={4}
-                      className="text-sm"
-                    />
-                  </div>
+                  {/* Description - Moved specific to Easy Mode/Advanced flow logic below */}
 
-                  {/* Type Selector - Toggle for text types (short/long) - Hidden in Easy Mode */}
-                  {mode === 'advanced' && (localType === "short_text" || localType === "long_text") && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Question Type</Label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant={localType === "short_text" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleTypeChange("short_text")}
-                          className="flex-1"
-                        >
-                          <Type className="h-3 w-3 mr-1" />
-                          Short Text
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={localType === "long_text" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleTypeChange("long_text")}
-                          className="flex-1"
-                        >
-                          <AlignLeft className="h-3 w-3 mr-1" />
-                          Long Text
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Type Selector - visible in Easy Mode now too, but maybe simplified? */}
+                  {/* Per requirements: Question text -> Answer type -> Alias -> Required */}
 
-                  {/* Type Selector - Toggle for choice types (radio/multiple) - Hidden in Easy Mode */}
-                  {mode === 'advanced' && (localType === "radio" || localType === "multiple_choice") && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Question Type</Label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant={localType === "radio" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleTypeChange("radio")}
-                          className="flex-1"
-                        >
-                          <Circle className="h-3 w-3 mr-1" />
-                          Radio
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={localType === "multiple_choice" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleTypeChange("multiple_choice")}
-                          className="flex-1"
-                        >
-                          <CheckSquare className="h-3 w-3 mr-1" />
-                          Multiple Choice
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Required Toggle */}
-                  <div className="flex items-center justify-between py-1">
-                    <Label htmlFor={`required-${step.id}`} className="text-sm cursor-pointer">
-                      Required
-                    </Label>
-                    <Switch
-                      id={`required-${step.id}`}
-                      checked={localRequired}
-                      onCheckedChange={handleRequiredChange}
-                    />
-                  </div>
-
-                  {/* Default Value */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Default Value (optional)
+                  {/* Alias / Save Answer As - Moved up for Easy Mode priority */}
+                  <div className={cn(
+                    "space-y-1.5 p-2 rounded-md transition-colors",
+                    mode === 'easy' && !step.alias && "bg-amber-50/50 border border-amber-200/50"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium text-foreground">
+                        {mode === 'easy' ? "Save answer as" : "Variable (alias)"}
                       </Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="/docs/url-parameters"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <HelpCircle className="h-3 w-3" />
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs">
-                            <p className="text-sm">
-                              Set a default value that appears when the workflow runs.
-                              Can be overridden using URL parameters.
-                            </p>
-                            <div className="flex items-center gap-1 mt-2 text-xs text-primary">
-                              <ExternalLink className="h-3 w-3" />
-                              <span>Click for full documentation</span>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    {localType === "yes_no" ? (
-                      <Select
-                        value={
-                          step.defaultValue === null || step.defaultValue === undefined
-                            ? "none"
-                            : step.defaultValue === true
-                              ? "yes"
-                              : "no"
-                        }
-                        onValueChange={(value) => {
-                          if (value === "none") {
-                            handleDefaultValueChange("");
-                          } else {
-                            handleDefaultValueChange(value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="No default" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No default</SelectItem>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={
-                          step.defaultValue === null || step.defaultValue === undefined
-                            ? ""
-                            : typeof step.defaultValue === "object"
-                              ? JSON.stringify(step.defaultValue)
-                              : String(step.defaultValue)
-                        }
-                        onChange={(e) => handleDefaultValueChange(e.target.value)}
-                        placeholder={
-                          localType === "multiple_choice"
-                            ? '["Option 1", "Option 2"]'
-                            : localType === "radio"
-                              ? "Option text"
-                              : localType === "date_time"
-                                ? "YYYY-MM-DD or YYYY-MM-DDTHH:mm"
-                                : "Enter default value..."
-                        }
-                        className="h-9 text-sm"
-                      />
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Pre-fills this field when the workflow runs. Can be overridden by URL parameters.
-                    </p>
-                  </div>
-
-                  {/* Variable Alias - Hidden in Easy Mode */}
-                  {mode === 'advanced' && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">
-                          Variable (alias)
-                        </Label>
+                      {mode === 'advanced' && (
                         <span className="text-xs text-muted-foreground">
                           Internal key: <code className="font-mono text-[10px]">{step.id.slice(0, 8)}...</code>
                         </span>
+                      )}
+                    </div>
+                    <Input
+                      value={step.alias || ""}
+                      onChange={(e) => handleAliasChange(e.target.value)}
+                      placeholder={mode === 'easy' ? "e.g. clientName or client.name" : "e.g., user_email, phone_number"}
+                      className={cn(
+                        "h-9 text-sm font-mono",
+                        mode === 'easy' && !step.alias && "border-amber-300 focus-visible:ring-amber-400"
+                      )}
+                    />
+                    {mode === 'easy' && (
+                      <div className="animate-in fade-in slide-in-from-top-1 space-y-1">
+                        {!step.alias ? (
+                          <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                            <HelpCircle className="h-3 w-3" />
+                            Used later to fill documents and make decisions.
+                          </p>
+                        ) : (
+                          !/^[a-zA-Z0-9_.]+$/.test(step.alias) && (
+                            <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                              ⚠️ Simple names are safest (a-z, 0-9, dots).
+                            </p>
+                          )
+                        )}
                       </div>
-                      <Input
-                        value={step.alias || ""}
-                        onChange={(e) => handleAliasChange(e.target.value)}
-                        placeholder="e.g., user_email, phone_number"
-                        className="h-9 text-sm font-mono"
+                    )}
+                  </div>
+
+                  {/* Answer Settings */}
+                  <div className="space-y-1.5 pt-2">
+
+                    {/* Required Toggle */}
+                    <div className="flex items-center justify-between py-1">
+                      <Label htmlFor={`required-${step.id}`} className="text-sm cursor-pointer">
+                        Required
+                      </Label>
+                      <Switch
+                        id={`required-${step.id}`}
+                        checked={localRequired}
+                        onCheckedChange={handleRequiredChange}
                       />
                     </div>
-                  )}
 
-                  {/* Options Editor (for radio/multiple_choice) */}
-                  {(localType === "radio" || localType === "multiple_choice") && (
-                    <OptionsEditor
-                      options={localOptions}
-                      onChange={handleOptionsChange}
-                    />
-                  )}
+                    {/* Description / Help Text */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Description / Help Text (optional)
+                      </Label>
+                      <AutoExpandTextarea
+                        value={step.description || ""}
+                        onChange={(e) => handleDescriptionChange(e.target.value)}
+                        placeholder="Add instructions for the user..."
+                        minRows={1}
+                        maxRows={4}
+                        className="text-sm"
+                      />
+                    </div>
 
-                  {/* JS Question Editor (for js_question) */}
-                  {localType === "js_question" && (
-                    <JSQuestionEditor
-                      config={localJsConfig}
-                      onChange={handleJsConfigChange}
-                    />
-                  )}
+                    {/* Options Editor (for radio/multiple_choice) */}
+                    {(localType === "radio" || localType === "multiple_choice") && (
+                      <OptionsEditor
+                        options={localOptions}
+                        onChange={handleOptionsChange}
+                      />
+                    )}
 
-                  {/* Visibility Logic Section - Advanced Mode Only */}
-                  {mode === 'advanced' && (
-                    <Collapsible
-                      open={isVisibilityOpen}
-                      onOpenChange={setIsVisibilityOpen}
-                      className="border rounded-md"
-                    >
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-between px-3 py-2 h-auto"
-                        >
+                    {/* Default Value Section */}
+                    {(mode === 'advanced' || upstreamWorkflowId) && (
+                      <div className="space-y-1.5 pt-2 border-t border-dashed">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">Visibility</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <LogicStatusText visibleIf={step.visibleIf} />
-                            {isVisibilityOpen ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
+                            <Label className="text-xs text-muted-foreground">
+                              Default Value {mode === 'easy' && !upstreamWorkflowId && '(Advanced)'}
+                            </Label>
+                            {isLinkedToIntake && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
+                                <LinkIcon className="w-2.5 h-2.5" />
+                                Linked
+                              </Badge>
                             )}
                           </div>
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="px-3 pb-3">
-                        <LogicBuilder
-                          workflowId={workflowId}
-                          elementId={step.id}
-                          elementType="step"
-                          value={(step.visibleIf as ConditionExpression) || null}
-                          onChange={handleVisibilityChange}
-                          isSaving={updateStepMutation.isPending}
-                        />
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
+                        </div>
+
+                        {upstreamWorkflowId ? (
+                          <div className="space-y-2">
+                            {/* Toggle: Static vs Intake */}
+                            <Tabs
+                              value={isLinkedToIntake ? "intake" : "static"}
+                              onValueChange={(val) => {
+                                if (val === 'static') handleDefaultValueChange(""); // Clear to static
+                                // If switching to intake, user must select variable
+                              }}
+                              className="w-full"
+                            >
+                              <TabsList className="grid w-full grid-cols-2 h-7">
+                                <TabsTrigger value="static" className="text-xs h-6">Static Value</TabsTrigger>
+                                <TabsTrigger value="intake" className="text-xs h-6 flex items-center gap-1">
+                                  <Database className="w-3 h-3" /> From Intake
+                                </TabsTrigger>
+                              </TabsList>
+
+                              <TabsContent value="static" className="mt-2 space-y-1.5">
+                                {step.type === "yes_no" ? (
+                                  <Select
+                                    value={
+                                      step.defaultValue === null || step.defaultValue === undefined || typeof step.defaultValue === 'object'
+                                        ? "none"
+                                        : step.defaultValue === true
+                                          ? "yes"
+                                          : "no"
+                                    }
+                                    onValueChange={(value) => {
+                                      if (value === "none") {
+                                        handleDefaultValueChange("");
+                                      } else {
+                                        handleDefaultValueChange(value);
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="No default" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No default</SelectItem>
+                                      <SelectItem value="yes">Yes</SelectItem>
+                                      <SelectItem value="no">No</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input
+                                    value={
+                                      step.defaultValue === null || step.defaultValue === undefined || typeof step.defaultValue === 'object'
+                                        ? ""
+                                        : String(step.defaultValue)
+                                    }
+                                    onChange={(e) => handleDefaultValueChange(e.target.value)}
+                                    placeholder="Enter default value..."
+                                    className="h-9 text-sm"
+                                  />
+                                )}
+                              </TabsContent>
+
+                              <TabsContent value="intake" className="mt-2 text-primary-foreground">
+                                <div className="space-y-1">
+                                  <Select
+                                    value={isLinkedToIntake && step.defaultValue?.variable ? step.defaultValue.variable : "none"}
+                                    onValueChange={handleIntakeLinkChange}
+                                  >
+                                    <SelectTrigger className="h-9 w-full bg-emerald-50/50 border-emerald-200 text-emerald-900 focus:ring-emerald-500">
+                                      <SelectValue placeholder="Select intake variable..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">-- Select Variable --</SelectItem>
+                                      {upstreamVariables.map(v => (
+                                        <SelectItem key={v.key} value={v.alias || v.key}>
+                                          <div className="flex flex-col text-left">
+                                            <span className="font-medium text-sm">{v.label}</span>
+                                            <span className="text-[10px] text-muted-foreground font-mono">{v.alias || v.key}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {isLinkedToIntake && (
+                                    <p className="text-[10px] text-emerald-600 pl-1">
+                                      This field will pre-fill from <strong>{upstreamWorkflow?.title}</strong> data.
+                                    </p>
+                                  )}
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+                        ) : (
+                          // Standard Static Default Value (No Upstream)
+                          step.type === "yes_no" ? (
+                            <Select
+                              value={
+                                step.defaultValue === null || step.defaultValue === undefined
+                                  ? "none"
+                                  : step.defaultValue === true
+                                    ? "yes"
+                                    : "no"
+                              }
+                              onValueChange={(value) => {
+                                if (value === "none") {
+                                  handleDefaultValueChange("");
+                                } else {
+                                  handleDefaultValueChange(value);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="No default" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No default</SelectItem>
+                                <SelectItem value="yes">Yes</SelectItem>
+                                <SelectItem value="no">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={
+                                step.defaultValue === null || step.defaultValue === undefined
+                                  ? ""
+                                  : typeof step.defaultValue === "object"
+                                    ? JSON.stringify(step.defaultValue)
+                                    : String(step.defaultValue)
+                              }
+                              onChange={(e) => handleDefaultValueChange(e.target.value)}
+                              placeholder="Enter default value..."
+                              className="h-9 text-sm"
+                            />
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    {/* JS Question Editor (for js_question) */}
+                    {localType === "js_question" && (
+                      <JSQuestionEditor
+                        config={localJsConfig}
+                        onChange={handleJsConfigChange}
+                      />
+                    )}
+
+                    {/* Visibility Logic Section - Advanced Mode Only */}
+                    {mode === 'advanced' && (
+                      <Collapsible
+                        open={isVisibilityOpen}
+                        onOpenChange={setIsVisibilityOpen}
+                        className="border rounded-md"
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-between px-3 py-2 h-auto"
+                          >
+                            <div className="flex items-center gap-2">
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">Visibility</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <LogicStatusText visibleIf={step.visibleIf} />
+                              {isVisibilityOpen ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </div>
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-3 pb-3">
+                          <LogicBuilder
+                            workflowId={workflowId}
+                            elementId={step.id}
+                            elementType="step"
+                            value={(step.visibleIf as ConditionExpression) || null}
+                            onChange={handleVisibilityChange}
+                            isSaving={updateStepMutation.isPending}
+                          />
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Delete Button - Positioned Absolute for Tab Order (After inputs) */}
+          <div className="absolute top-3 right-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+              onClick={handleDelete}
+              tabIndex={0}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </CardContent>
       </Card>

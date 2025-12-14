@@ -21,7 +21,14 @@ import { useToast } from "@/hooks/use-toast";
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
+import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
+import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
+import { ReviewSection } from "@/components/runner/sections/ReviewSection";
+import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
+import { useWorkflow } from "@/lib/vault-hooks";
+import { Badge } from "@/components/ui/badge";
+import { Database } from "lucide-react";
 import type { LogicRule } from "@shared/schema";
 import { validatePage } from "@shared/validation/PageValidator";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
@@ -251,6 +258,12 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     ? previewState?.workflowId
     : run?.workflowId;
 
+  // Fetch Intake Data (Upstream)
+  const intakeData = useIntakeRuntime(workflowId);
+
+  // Fetch Workflow Definition (for intake config)
+  const { data: workflow } = useWorkflow(workflowId);
+
   // Get sections - from preview environment or API
   const { data: fetchedSections } = useSections(workflowId, {
     enabled: mode !== 'preview', // Only fetch if NOT in preview mode
@@ -276,6 +289,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [showReview, setShowReview] = useState(false);
 
   // Sync section index from preview environment (if changed externally, e.g. by Random Fill)
   useEffect(() => {
@@ -349,6 +363,29 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       setFormValues(initial);
     }
   }, [run, mode]);
+
+  // Intake Data Hydration (Production Mode)
+  useEffect(() => {
+    if (mode === 'production' && allSteps && intakeData.values && !intakeData.isLoading) {
+      setFormValues((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        allSteps.forEach((step: any) => {
+          // Only set if not already set
+          if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
+            if (step.defaultValue?.source === 'intake' && step.defaultValue.variable) {
+              const val = intakeData.values[step.defaultValue.variable];
+              if (val !== undefined) {
+                next[step.id] = val;
+                changed = true;
+              }
+            }
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [mode, allSteps, intakeData.values, intakeData.isLoading]);
 
   // Analytics: Track Run Start (Production)
   useEffect(() => {
@@ -648,12 +685,24 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         return;
       }
 
-      // If last section, complete the run
+      // If last section, show Review Screen instead of completing immediately
       if (isLastSection) {
-        await completeMutation.mutateAsync(actualRunId!);
-        toast({ title: "Complete!", description: "Workflow completed successfully" });
+        setShowReview(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
+
+      /* 
+       * OLD DIRECT COMPLETION LOGIC - Moved to handleFinalSubmit
+       * 
+       * if (isLastSection) {
+       *   await completeMutation.mutateAsync(actualRunId!);
+       *   toast({ title: "Complete!", description: "Workflow completed successfully" });
+       *   return;
+       * }
+       */
+
+      // Otherwise, navigate to next section
 
       // Otherwise, navigate to next section
       const nextResult = await nextMutation.mutateAsync({
@@ -690,38 +739,74 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       const errorMessage = error instanceof Error ? error.message : "Failed to proceed";
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
-  };
+    const handleFinalSubmit = async () => {
+      if (!actualRunId) return;
+      try {
+        await completeMutation.mutateAsync(actualRunId);
+        toast({ title: "Success", description: "Workflow submitted successfully" });
+        // After completion, the backend status updates.
+        // The component will re-render.
+        // We need to ensure we show the Final/Intake screen.
+        // Usually `useRunWithValues` or `useWorkflow` data update triggers UI change?
+        // Or we rely on `isFinalDocumentsSection` logic (which depends on runner state?).
 
-  const handlePrev = () => {
-    setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
-  };
+        // Actually, `isFinalDocumentsSection` logic usually checks if run is completed?
+        // Or if we are past the last step?
+        // Let's force a refetch or rely on mutation success.
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to submit workflow", variant: "destructive" });
+      }
+    };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {mode === 'preview' && (
-        <div className="bg-primary/10 border-b border-primary/20 p-2 text-center text-xs font-medium text-primary flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          Preview Mode - Simulating End User Experience
-        </div>
-      )}
-      <div className="container max-w-2xl mx-auto p-4 md:p-8 flex-1">
-        {/* Progress Bar */}
-        <div className="mb-8 mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-muted-foreground">
-              Step {currentSectionIndex + 1} of {visibleSections.length}
-            </span>
-            <span className="text-sm text-muted-foreground font-mono">{Math.round(progress)}%</span>
-          </div>
-          <Progress value={progress} className="h-1" />
-        </div>
+    const handlePrev = () => {
+      if (showReview) {
+        setShowReview(false);
+        return;
+      }
+      setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
+    };
 
-        {/* Section */}
-        {isFinalDocumentsSection ? (
+    // Determine if we are at the end (Review or Completion)
+    const isReviewStep = currentSectionIndex === visibleSections.length;
+    // If isReviewStep is true, we display the Review Screen.
+    // The actual "Completion" happens AFTER review relative to user flow,
+    // but logically "Final Documents" is section-based.
+    // Let's adjust:
+    // If we are past the last visible section, we show Review.
+    // AFTER Review, we show "Final Documents" or "Intake Assignment".
+
+    // Actually, existing logic uses isLastSection (index === length - 1).
+    // We need to inject Review BEFORE the "Final Documents" section if it exists,
+    // OR just treat Review as a virtual step before completion.
+
+    // Let's use a state for 'showReview' if we are at the end of sections but before submission?
+    // Or just map it as a step index.
+
+    // Current logic: visibleSections includes the Final Docs section?
+    // Usually Final Docs is a section.
+    // Let's treat Review as a distinct state.
+
+    // Update handleNext to show review before final section
+    // ... this requires deeper logic change in handleNext.
+    // For now, let's just wrap the EXISTING content in the new Layout.
+
+    return (
+      <ClientRunnerLayout
+        title={showReview ? "Review & Confirm" : (currentSection?.title || workflow?.title)}
+        progress={progress}
+        currentStep={showReview ? visibleSections.length : currentSectionIndex}
+        totalSteps={visibleSections.length}
+      >
+        {/* Section Content */}
+        {isFinalDocumentsSection && workflow?.intakeConfig?.isIntake ? (
+          <IntakeAssignmentSection
+            workflow={workflow}
+            runValues={effectiveValues}
+          />
+        ) : isFinalDocumentsSection ? (
           actualRunId ? (
-            // Have valid runId - show document generation (works in both preview and production)
             <FinalDocumentsSection
-              runId={actualRunId}
+              runId={actualRunId!}
               runToken={runToken || undefined}
               sectionConfig={(currentSection.config as any) || {
                 screenTitle: "Your Completed Documents",
@@ -730,7 +815,6 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
               }}
             />
           ) : (
-            // RunId not ready yet - show loading
             <Card>
               <CardHeader>
                 <CardTitle>Initializing Document Generation...</CardTitle>
@@ -741,167 +825,200 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
               </CardContent>
             </Card>
           )
+        ) : showReview ? (
+          <>
+            <ReviewSection
+              sections={visibleSections}
+              allSteps={allSteps || []}
+              values={effectiveValues}
+              visibleSectionIds={visibleSections.map(s => s.id)}
+              onEditSection={(index) => {
+                setShowReview(false);
+                setCurrentSectionIndex(index);
+              }}
+            />
+            <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-8">
+              <Button
+                variant="ghost"
+                onClick={() => setShowReview(false)}
+                className="text-slate-500 hover:text-slate-900"
+              >
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={handleFinalSubmit}
+                disabled={completeMutation.isPending}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px]"
+              >
+                Confirm & Submit <Check className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>{currentSection.title}</CardTitle>
-              {currentSection.description && (
-                <CardDescription>{currentSection.description}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <SectionSteps
-                key={currentSection.id} // FORCE RE-RENDER on section change
-                sectionId={currentSection.id}
-                steps={allSteps?.filter((s: ApiStep) => s.sectionId === currentSection.id)}
-                values={effectiveValues}
-                logicRules={logicRules || []}
-                errors={fieldErrors}
-                onChange={(stepId, value) => {
-                  if (mode === 'preview') {
-                    if (previewEnvironment) {
-                      previewEnvironment.setValue(stepId, value);
-                    }
-                  } else {
-                    setFormValues((prev) => ({ ...prev, [stepId]: value }));
-                  }
-                  // Clear error for this field on change
-                  if (fieldErrors[stepId]) {
-                    const newFieldErrors = { ...fieldErrors };
-                    delete newFieldErrors[stepId];
-                    setFieldErrors(newFieldErrors);
-                  }
-                }}
-              />
-
-              {errors.length > 0 && (
-                <div className="p-4 bg-destructive/10 border border-destructive rounded-md space-y-3">
-                  {errors.map((error, i) => (
-                    <div key={i} className="text-sm text-destructive">
-                      <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto">
-                        {error}
-                      </pre>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-6">
-          <Button
-            variant="outline"
-            onClick={handlePrev}
-            disabled={currentSectionIndex === 0}
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
-
-          <Button
-            onClick={handleNext}
-            disabled={submitMutation.isPending || nextMutation.isPending || completeMutation.isPending}
-          >
-            {isLastSection ? (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                Complete
-              </>
-            ) : (
-              <>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </>
+          <div className="space-y-6">
+            {currentSection.description && (
+              <p className="text-slate-600 mb-6">{currentSection.description}</p>
             )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function SectionSteps({
-  sectionId,
-  steps: providedSteps,
-  values,
-  logicRules,
-  onChange,
-  errors
-}: {
-  sectionId: string;
-  steps?: ApiStep[];
-  values: Record<string, any>;
-  logicRules: LogicRule[];
-  onChange: (stepId: string, value: any) => void;
-  errors?: Record<string, string[]>;
-}) {
-  const { data: rawSteps } = useSteps(sectionId, {
-    enabled: !providedSteps
-  });
+            <SectionSteps
+              key={currentSection.id}
+              sectionId={currentSection.id}
+              steps={allSteps?.filter((s: ApiStep) => s.sectionId === currentSection.id)}
+              values={effectiveValues}
+              logicRules={logicRules || []}
+              errors={fieldErrors}
+              intakeData={intakeData}
+              onChange={(stepId, value) => {
+                if (mode === 'preview') {
+                  if (previewEnvironment) {
+                    previewEnvironment.setValue(stepId, value);
+                  }
+                } else {
+                  setFormValues((prev) => ({ ...prev, [stepId]: value }));
+                }
+                if (fieldErrors[stepId]) {
+                  const newFieldErrors = { ...fieldErrors };
+                  delete newFieldErrors[stepId];
+                  setFieldErrors(newFieldErrors);
+                }
+              }}
+            />
 
-  const sourceSteps = providedSteps || rawSteps;
+            {errors.length > 0 && (
+              <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-md text-sm">
+                {errors.map((error, i) => (
+                  <div key={i}>{error}</div>
+                ))}
+              </div>
+            )}
 
-  const steps = useMemo(() => {
-    if (!sourceSteps) return [];
-    return sourceSteps.map(step => ({
-      ...step,
-      createdAt: step.createdAt ? new Date(step.createdAt) : null,
-      updatedAt: step.updatedAt ? new Date(step.updatedAt) : null,
-      alias: step.alias,
-      description: step.description,
-      visibleIf: step.visibleIf || null,
-      defaultValue: step.defaultValue ?? null,
-      isVirtual: step.isVirtual || false,
-      repeaterConfig: step.repeaterConfig || null,
-    }));
-  }, [sourceSteps]); // Depend on sourceSteps, not rawSteps
+            {/* Navigation */}
+            <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-8">
+              <Button
+                variant="ghost"
+                onClick={handlePrev}
+                disabled={currentSectionIndex === 0}
+                className="text-slate-500 hover:text-slate-900"
+              >
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
 
-  // Debug logs
-  /*
-  console.log('[WorkflowRunner:SectionSteps] Rendering:', {
+              <Button
+                onClick={handleNext}
+                disabled={submitMutation.isPending || nextMutation.isPending || completeMutation.isPending}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[120px]"
+              >
+                {isLastSection ? (
+                  <>
+                    Complete <Check className="w-4 h-4 ml-2" />
+                  </>
+                ) : (
+                  <>
+                    Next Step <ChevronRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </ClientRunnerLayout>
+    );
+  }
+
+  function SectionSteps({
     sectionId,
-    stepsCount: steps.length,
-    firstStepId: steps[0]?.id,
-    valuesCount: Object.keys(values).length
-  });
-  */
+    steps: providedSteps,
+    values,
+    logicRules,
+    onChange,
+    errors,
+    intakeData
+  }: {
+    sectionId: string;
+    steps?: ApiStep[];
+    values: Record<string, any>;
+    logicRules: LogicRule[];
+    onChange: (stepId: string, value: any) => void;
+    errors?: Record<string, string[]>;
+    intakeData?: any;
+  }) {
+    const { data: rawSteps } = useSteps(sectionId, {
+      enabled: !providedSteps
+    });
 
-  // Use visibility hook to evaluate which steps should be shown
-  const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
+    const sourceSteps = providedSteps || rawSteps;
 
-  if (!steps || steps.length === 0) {
-    return <p className="text-muted-foreground text-sm">No steps in this section</p>;
+    const steps = useMemo(() => {
+      if (!sourceSteps) return [];
+      return sourceSteps.map(step => ({
+        ...step,
+        createdAt: step.createdAt ? new Date(step.createdAt) : null,
+        updatedAt: step.updatedAt ? new Date(step.updatedAt) : null,
+        alias: step.alias,
+        description: step.description,
+        visibleIf: step.visibleIf || null,
+        defaultValue: step.defaultValue ?? null,
+        isVirtual: step.isVirtual || false,
+        repeaterConfig: step.repeaterConfig || null,
+      }));
+    }, [sourceSteps]); // Depend on sourceSteps, not rawSteps
+
+    // Debug logs
+    /*
+    console.log('[WorkflowRunner:SectionSteps] Rendering:', {
+      sectionId,
+      stepsCount: steps.length,
+      firstStepId: steps[0]?.id,
+      valuesCount: Object.keys(values).length
+    });
+    */
+
+    // Use visibility hook to evaluate which steps should be shown
+    const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
+
+    if (!steps || steps.length === 0) {
+      return <p className="text-muted-foreground text-sm">No steps in this section</p>;
+    }
+
+    // Filter steps to only show visible ones
+    const visibleSteps = steps.filter((step) => {
+      // Virtual steps are never shown
+      if (step.isVirtual) return false;
+
+      // Check visibility from logic rules
+      return isStepVisible(step.id);
+    });
+
+    if (visibleSteps.length === 0) {
+      return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
+    }
+
+    return (
+      <>
+        {visibleSteps.map((step) => (
+          <StepField
+            key={step.id}
+            step={step}
+            value={values[step.id]}
+            onChange={(v) => onChange(step.id, v)}
+            error={errors?.[step.id]?.[0]} // Pass first error message
+            context={values}
+            intakeSource={
+              step.defaultValue?.source === 'intake'
+                ? {
+                  title: intakeData?.sourceWorkflowTitle || 'Intake',
+                  variable: step.defaultValue.variable,
+                  value: intakeData?.values?.[step.defaultValue.variable]
+                }
+                : undefined
+            }
+          />
+        ))}
+      </>
+    )
   }
-
-  // Filter steps to only show visible ones
-  const visibleSteps = steps.filter((step) => {
-    // Virtual steps are never shown
-    if (step.isVirtual) return false;
-
-    // Check visibility from logic rules
-    return isStepVisible(step.id);
-  });
-
-  if (visibleSteps.length === 0) {
-    return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
-  }
-
-  return (
-    <>
-      {visibleSteps.map((step) => (
-        <StepField
-          key={step.id}
-          step={step}
-          value={values[step.id]}
-          onChange={(v) => onChange(step.id, v)}
-          error={errors?.[step.id]?.[0]} // Pass first error message
-          context={values}
-        />
-      ))}
-    </>
-  );
 }
 
 /**
@@ -910,17 +1027,37 @@ function SectionSteps({
  * Now uses the new comprehensive BlockRenderer system that supports
  * all block types with proper validation and nested data handling.
  */
-function StepField({ step, value, onChange, error, context }: { step: any; value: any; onChange: (value: any) => void; error?: string; context: Record<string, any> }) {
+function StepField({ step, value, onChange, error, context, intakeSource }: { step: any; value: any; onChange: (value: any) => void; error?: string; context: Record<string, any>; intakeSource?: any }) {
+  // Check if current value matches intake value to decide if we show the badge
+  const isUsingIntakeValue = intakeSource && value === intakeSource.value;
+
   return (
-    <BlockRenderer
-      step={step}
-      value={value}
-      onChange={onChange}
-      required={step.required}
-      readOnly={false}
-      error={error}
-      showValidation={!!error}
-      context={context}
-    />
+    <div className="space-y-1 relative group">
+      {intakeSource && isUsingIntakeValue && (
+        <div className="absolute -top-3 right-0 z-10">
+          <Badge variant="outline" className="text-[10px] h-5 gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+            <Database className="w-3 h-3" />
+            From {intakeSource.title}
+          </Badge>
+        </div>
+      )}
+      <BlockRenderer
+        step={step}
+        value={value}
+        onChange={onChange}
+        required={step.required}
+        readOnly={false}
+        error={error}
+        showValidation={!!error}
+        context={context}
+      />
+      {intakeSource && (
+        <div className="flex justify-end">
+          {isUsingIntakeValue ? null : ( // If value changed, maybe show "Restore" button? For now just visual cue
+            <span className="text-[10px] text-muted-foreground hidden">Modified from original</span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

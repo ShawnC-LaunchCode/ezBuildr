@@ -238,13 +238,15 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-6">
-              {pages.map((page) => (
+              {pages.map((page, index) => (
                 <PageCard
                   key={page.id}
                   workflowId={workflowId}
                   page={page}
                   blocks={allBlocks}
                   allSteps={allSteps[page.id] || []}
+                  index={index}
+                  total={pages.length}
                 />
               ))}
             </div>

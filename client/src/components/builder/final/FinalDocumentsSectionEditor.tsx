@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Eye, HelpCircle, ExternalLink } from "lucide-react";
+import { FileText, Eye, HelpCircle, ExternalLink, CheckCircle } from "lucide-react";
 import { useUpdateSection } from "@/lib/vault-hooks";
 import type { ApiSection } from "@/lib/vault-api";
 
@@ -31,8 +31,12 @@ interface WorkflowTemplate {
   description: string | null;
 }
 
+import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
+  const { mode } = useWorkflowBuilder();
+  const isEasyMode = mode === 'easy';
 
   // Get config from section or use defaults
   const config = section.config as any || {
@@ -113,30 +117,35 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Final Documents Configuration</CardTitle>
+          <CardTitle>Final Documents</CardTitle>
           <CardDescription>
-            Configure document generation and completion message for this workflow
+            {isEasyMode
+              ? "Customize the final screen your client sees when they download their documents."
+              : "Configure document generation and completion message for this workflow"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Screen Title */}
-          <div className="space-y-2">
-            <Label htmlFor="screenTitle">Screen Title</Label>
-            <Input
-              id="screenTitle"
-              value={screenTitle}
-              onChange={(e) => handleScreenTitleChange(e.target.value)}
-              onBlur={handleScreenTitleBlur}
-              placeholder="Your Completed Documents"
-            />
-            <p className="text-xs text-muted-foreground">
-              The heading shown to users when they reach this section
-            </p>
-          </div>
+          {/* Screen Title - Hidden in Easy Mode */}
+          {!isEasyMode && (
+            <div className="space-y-2">
+              <Label htmlFor="screenTitle">Screen Title</Label>
+              <Input
+                id="screenTitle"
+                value={screenTitle}
+                onChange={(e) => handleScreenTitleChange(e.target.value)}
+                onBlur={handleScreenTitleBlur}
+                placeholder="Your Completed Documents"
+              />
+              <p className="text-xs text-muted-foreground">
+                The heading shown to users when they reach this section
+              </p>
+            </div>
+          )}
 
           {/* Message with Markdown Preview */}
           <div className="space-y-2">
             <Label>Completion Message</Label>
+            {isEasyMode && <p className="text-xs text-muted-foreground -mt-1 mb-2">This text appears above the download links.</p>}
             <Tabs defaultValue="edit" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="edit">
@@ -157,34 +166,26 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
                   placeholder="# Thank You!&#10;&#10;Your documents are ready for download below."
                   className="font-mono text-sm"
                 />
-                <p className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-1">
-                  Supports Markdown formatting (headings, bold, italic, lists, etc.)
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href="https://www.markdownguide.org/cheat-sheet/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
-                      <p className="text-sm">
-                        Learn about Markdown syntax and formatting options
-                      </p>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-primary">
-                        <ExternalLink className="h-3 w-3" />
-                        <span>View Markdown cheat sheet</span>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </p>
+                {!isEasyMode && (
+                  <p className="text-xs text-muted-foreground mt-2 inline-flex items-center gap-1">
+                    Supports Markdown formatting
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>Markdown supported</TooltipContent>
+                    </Tooltip>
+                  </p>
+                )}
               </TabsContent>
               <TabsContent value="preview" className="mt-2">
-                <div className="border rounded-md p-4 min-h-[200px] prose prose-sm dark:prose-invert max-w-none">
+                <div className="border rounded-md p-4 min-h-[200px] prose prose-sm dark:prose-invert max-w-none bg-slate-50">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                      <CheckCircle className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <h2 className="text-center mt-0">{screenTitle}</h2>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {markdownMessage}
                   </ReactMarkdown>
@@ -195,12 +196,12 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
 
           {/* Template Selection */}
           <div className="space-y-2">
-            <Label>Document Templates to Generate</Label>
+            <Label>Selected Documents</Label>
             {templates.length === 0 ? (
-              <div className="border rounded-md p-4 text-center text-muted-foreground">
-                <p className="text-sm">No templates found for this workflow.</p>
+              <div className="border rounded-md p-4 text-center text-muted-foreground bg-muted/20">
+                <p className="text-sm">No templates found.</p>
                 <p className="text-xs mt-2">
-                  Go to the Templates tab to add document templates.
+                  Add templates in the project settings.
                 </p>
               </div>
             ) : (
@@ -219,7 +220,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
                       >
                         {template.name}
                       </label>
-                      {template.description && (
+                      {(!isEasyMode && template.description) && (
                         <p className="text-xs text-muted-foreground mt-1">
                           {template.description}
                         </p>
@@ -229,18 +230,22 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Select which document templates to generate when the workflow is completed
-            </p>
+            {!isEasyMode && (
+              <p className="text-xs text-muted-foreground">
+                Select which document templates to generate
+              </p>
+            )}
           </div>
 
-          {/* Advanced Options Placeholder */}
-          <div className="space-y-2">
-            <Label>Advanced Options</Label>
-            <div className="border rounded-md p-4 text-center text-muted-foreground">
-              <p className="text-sm">No advanced options available yet</p>
+          {/* Advanced Options - Hidden in Easy Mode */}
+          {!isEasyMode && (
+            <div className="space-y-2">
+              <Label>Advanced Options</Label>
+              <div className="border rounded-md p-4 text-center text-muted-foreground">
+                <p className="text-sm">No advanced options available yet</p>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

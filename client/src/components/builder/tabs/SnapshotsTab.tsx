@@ -91,8 +91,8 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
   // Handle preview with snapshot (navigate to new WorkflowPreview with snapshot parameter)
   const handlePreview = async (snapshot: ApiSnapshot) => {
     toast({
-      title: "Preview Started",
-      description: `Running with snapshot "${snapshot.name}"`,
+      title: "Scenario Loaded",
+      description: `Previewing scenario "${snapshot.name}"`,
     });
 
     // Navigate to workflow preview with snapshot ID
@@ -122,9 +122,9 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
     <BuilderLayout>
       <BuilderLayoutHeader>
         <div>
-          <h2 className="text-lg font-semibold">Test Snapshots</h2>
+          <h2 className="text-lg font-semibold">Saved Scenarios</h2>
           <p className="text-sm text-muted-foreground">
-            Preview and manage saved workflow test data. Create snapshots from the preview page.
+            Save different client situations (e.g. "Married with Kids") to quick-check your workflow logic.
           </p>
         </div>
       </BuilderLayoutHeader>
@@ -134,29 +134,31 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load snapshots: {error.message}
+              Failed to load scenarios: {error.message}
             </AlertDescription>
           </Alert>
         )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-muted-foreground">Loading snapshots...</div>
+            <div className="text-muted-foreground">Loading scenarios...</div>
           </div>
         ) : snapshots && snapshots.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Camera className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No snapshots yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Create snapshots from the preview page to save test data for this workflow
+          <div className="flex flex-col items-center justify-center py-12 text-center max-w-sm mx-auto">
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4">
+              <Camera className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No saved scenarios yet</h3>
+            <p className="text-sm text-muted-foreground text-center">
+              Create a scenario by running a Preview. At any point, you can click "Save Scenario" to capture the current answers for later use.
             </p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Values</TableHead>
+                <TableHead>Scenario Name</TableHead>
+                <TableHead>Data Points</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -174,36 +176,36 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
                         {snapshot.name}
                         {isOutdated && (
                           <span
-                            className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
-                            title="Snapshot may be outdated - created before versioning was enabled"
+                            className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 px-1.5 py-0.5 rounded"
+                            title="Scenario created on an older version of this workflow"
                           >
                             <AlertTriangle className="w-3 h-3" />
-                            <span className="hidden sm:inline">May be outdated</span>
+                            <span className="hidden sm:inline">Needs Update</span>
                           </span>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {valueCount} {valueCount === 1 ? 'value' : 'values'}
+                      {valueCount} {valueCount === 1 ? 'answer' : 'answers'}
                     </TableCell>
                     <TableCell>{new Date(snapshot.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         size="sm"
                         variant="default"
+                        className="bg-indigo-600 hover:bg-indigo-700"
                         onClick={() => handlePreview(snapshot)}
                       >
                         <Play className="w-3 h-3 mr-1" />
-                        Preview
+                        Run Scenario
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleView(snapshot)}>
-                        <Eye className="w-3 h-3 mr-1" />
-                        View
+                      <Button size="sm" variant="ghost" onClick={() => handleView(snapshot)}>
+                        <Eye className="w-3 h-3" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleOpenRename(snapshot)}>
                         <Edit2 className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleOpenDelete(snapshot)}>
+                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => handleOpenDelete(snapshot)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </TableCell>
@@ -218,12 +220,12 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Rename Snapshot</DialogTitle>
-              <DialogDescription>Change the name of this snapshot</DialogDescription>
+              <DialogTitle>Rename Scenario</DialogTitle>
+              <DialogDescription>Give this scenario a descriptive name (e.g. "Scenario A: High Net Worth")</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="rename">Snapshot Name</Label>
+                <Label htmlFor="rename">Scenario Name</Label>
                 <Input
                   id="rename"
                   value={newName}
@@ -243,7 +245,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
                 Cancel
               </Button>
               <Button onClick={handleRename} disabled={renameSnapshot.isPending || !newName.trim()}>
-                {renameSnapshot.isPending ? "Renaming..." : "Rename"}
+                {renameSnapshot.isPending ? "Saving..." : "Save Name"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -253,9 +255,9 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Snapshot</DialogTitle>
+              <DialogTitle>Delete Scenario</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete "{selectedSnapshot?.name}"? This action cannot be undone.
+                Are you sure you want to delete "{selectedSnapshot?.name}"?
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -263,7 +265,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
                 Cancel
               </Button>
               <Button variant="destructive" onClick={handleDelete} disabled={deleteSnapshot.isPending}>
-                {deleteSnapshot.isPending ? "Deleting..." : "Delete"}
+                {deleteSnapshot.isPending ? "Deleting..." : "Delete Scenario"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -273,13 +275,13 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedSnapshot?.name}</DialogTitle>
+              <DialogTitle>{selectedSnapshot?.name} (Data View)</DialogTitle>
               <DialogDescription>
-                {Object.keys(selectedSnapshot?.values || {}).length} stored values
+                {Object.keys(selectedSnapshot?.values || {}).length} stored values in this scenario
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-96 overflow-auto">
-              <pre className="p-4 bg-muted rounded-lg text-xs">
+              <pre className="p-4 bg-muted rounded-lg text-xs font-mono">
                 {JSON.stringify(selectedSnapshot?.values, null, 2)}
               </pre>
             </div>

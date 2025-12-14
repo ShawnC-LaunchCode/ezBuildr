@@ -64,13 +64,13 @@ export function DevToolbar({
     return (
         <div className="h-14 border-b bg-muted/40 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                        Preview Mode
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                        Changes here are not saved to the database.
-                    </span>
+                <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground">Client View Preview</span>
+                        <span className="text-[10px] text-muted-foreground">
+                            This is exactly what your client will see.
+                        </span>
+                    </div>
                 </div>
 
                 <Separator orientation="vertical" className="h-6" />

@@ -3,8 +3,8 @@
  */
 
 import { useState } from "react";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles } from "lucide-react";
-import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode } from "@/lib/vault-hooks";
+import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Info, Lock } from "lucide-react";
+import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode, useBlocks, useTransformBlocks, useWorkflow } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LogicIndicator } from "@/components/logic";
 import { BlocksPanel } from "./BlocksPanel";
-import { TransformBlocksPanel } from "./TransformBlocksPanel";
+import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import {
   DndContext,
@@ -42,14 +42,30 @@ import { UI_LABELS } from "@/lib/labels";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: sections } = useSections(workflowId);
+  const { data: blocks } = useBlocks(workflowId);
+  const { data: transformBlocks } = useTransformBlocks(workflowId);
+  const { data: workflow } = useWorkflow(workflowId);
   const createSectionMutation = useCreateSection();
   const createStepMutation = useCreateStep();
   const { data: workflowMode } = useWorkflowMode(workflowId);
   const mode = workflowMode?.mode || 'easy';
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showBlocksDialog, setShowBlocksDialog] = useState(false);
-  const [showTransformDialog, setShowTransformDialog] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
+
+  // Group blocks by section
+  const blocksBySection = (blocks || []).reduce((acc: Record<string, any[]>, block: any) => {
+    if (block.sectionId) {
+      if (!acc[block.sectionId]) acc[block.sectionId] = [];
+      acc[block.sectionId].push({ ...block, source: 'regular' });
+    }
+    return acc;
+  }, {});
+
+  // We don't have sectionId for transform blocks easily available in current API mock/usage potentially?
+  // If they don't have sectionId, we might not be able to map them easily. 
+  // Assuming they might be mapped by logic or assume they are global if not mapped.
+  // For now, let's just map regular blocks which have explicit sectionId.
 
   const handleCreateSection = async () => {
     const order = sections?.length || 0;
@@ -122,16 +138,12 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* Blocks and Transform buttons - Hidden in Easy Mode */}
+        {/* Blocks button - Hidden in Easy Mode */}
         {mode === 'advanced' && (
           <div className="flex gap-2">
             <Button onClick={() => setShowBlocksDialog(true)} size="sm" variant="outline" className="flex-1">
               <Blocks className="w-3 h-3 mr-1" />
               Blocks
-            </Button>
-            <Button onClick={() => setShowTransformDialog(true)} size="sm" variant="outline" className="flex-1">
-              <Code className="w-3 h-3 mr-1" />
-              Transform
             </Button>
           </div>
         )}
@@ -147,6 +159,10 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           Edit with AI
         </Button>
       </div>
+
+      {mode === 'easy' && workflow?.projectId && (
+        <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
+      )}
 
       <ScrollArea className="flex-1">
         <div className="p-2">
@@ -175,6 +191,8 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
               workflowId={workflowId}
               isExpanded={expandedSections.has(section.id)}
               onToggle={() => toggleSection(section.id)}
+              mode={mode}
+              blocks={blocksBySection[section.id] || []}
             />
           ))}
         </div>
@@ -182,21 +200,11 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
 
       {/* Blocks Dialog */}
       <Dialog open={showBlocksDialog} onOpenChange={setShowBlocksDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Workflow Blocks</DialogTitle>
           </DialogHeader>
           <BlocksPanel workflowId={workflowId} />
-        </DialogContent>
-      </Dialog>
-
-      {/* Transform Blocks Dialog */}
-      <Dialog open={showTransformDialog} onOpenChange={setShowTransformDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Transform Blocks</DialogTitle>
-          </DialogHeader>
-          <TransformBlocksPanel workflowId={workflowId} />
         </DialogContent>
       </Dialog>
 
@@ -214,11 +222,15 @@ function SectionItem({
   workflowId,
   isExpanded,
   onToggle,
+  mode,
+  blocks,
 }: {
   section: any;
   workflowId: string;
   isExpanded: boolean;
   onToggle: () => void;
+  mode: string;
+  blocks: any[];
 }) {
   const { data: steps } = useSteps(section.id);
   const createStepMutation = useCreateStep();
@@ -251,6 +263,17 @@ function SectionItem({
     });
     if (!isExpanded) onToggle();
   };
+
+  // Combine steps and blocks for display (if advanced mode or simple mode interoperability)
+  // In Advanced: Show items interleaved based on something? 
+  // Blocks have 'order'. Steps have 'order'. They might clash.
+  // For now, let's just show blocks AT THE TOP of the section (like pre-fill) or BOTTOM?
+  // Blocks have phases. 
+  // onSectionEnter -> Top
+  // onSectionSubmit -> Bottom
+
+  const topBlocks = blocks.filter(b => b.phase === 'onSectionEnter' || b.phase === 'onRunStart');
+  const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
 
   return (
     <div className="mb-1">
@@ -311,20 +334,34 @@ function SectionItem({
         )}
       </div>
 
-      {isExpanded && steps && steps.length > 0 && (
+      {isExpanded && (
         <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
-          {steps
-            // Filter out system steps and questions in final sections
-            .filter((step) => {
-              // Hide final_documents system steps (they're just metadata)
-              if (step.type === 'final_documents') return false;
-              // Hide any other questions that might exist in final sections (orphaned data)
-              if (isFinalSection) return false;
-              return true;
-            })
-            .map((step) => (
-              <StepItem key={step.id} step={step} sectionId={section.id} />
-            ))}
+
+          {/* Top Blocks (Prefill/Enter) */}
+          {topBlocks.map(block => (
+            <BlockTreeItem key={block.id} block={block} mode={mode} />
+          ))}
+
+          {/* Steps */}
+          {steps && steps.length > 0 &&
+            steps
+              // Filter out system steps and questions in final sections
+              .filter((step) => {
+                // Hide final_documents system steps (they're just metadata)
+                if (step.type === 'final_documents') return false;
+                // Hide any other questions that might exist in final sections (orphaned data)
+                if (isFinalSection) return false;
+                return true;
+              })
+              .map((step) => (
+                <StepItem key={step.id} step={step} sectionId={section.id} />
+              ))}
+
+          {/* Bottom Blocks (Submit/Next) */}
+          {bottomBlocks.map(block => (
+            <BlockTreeItem key={block.id} block={block} mode={mode} />
+          ))}
+
         </div>
       )}
     </div>
@@ -367,4 +404,46 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
       {step.required && <span className="text-xs text-destructive">*</span>}
     </div>
   );
+}
+
+function BlockTreeItem({ block, mode }: { block: any, mode: string }) {
+  // In Easy Mode, show as read-only/locked
+  const isLocked = mode === 'easy';
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'prefill': return <Play className="w-3 h-3" />;
+      case 'validate': return <CheckCircle className="w-3 h-3" />;
+      case 'branch': return <GitBranch className="w-3 h-3" />;
+      case 'query': return <Database className="w-3 h-3" />;
+      case 'write': return <Save className="w-3 h-3" />;
+      case 'external_send': return <Send className="w-3 h-3" />;
+      case 'js': case 'transform': return <Code className="w-3 h-3" />;
+      default: return <Blocks className="w-3 h-3" />;
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 p-1.5 rounded-md text-sm transition-colors border border-transparent",
+        isLocked
+          ? "bg-slate-50 text-slate-400 cursor-not-allowed italic"
+          : "hover:bg-sidebar-accent/50 cursor-pointer text-slate-600"
+      )}
+      title={isLocked ? "Switch to Advanced Mode to edit this logic block" : block.type}
+    >
+      {/* Indent slightly deeper to show it's 'attached' to section logic? Or same level? Same level seems fine. */}
+      <div className={cn("w-3 mr-1", isLocked ? "opacity-50" : "")}>
+        {isLocked ? <Lock className="w-3 h-3" /> : <GripVertical className="w-3 h-3 text-muted-foreground" />}
+      </div>
+      <div className={cn(isLocked ? "opacity-50" : "text-indigo-500")}>
+        {getIcon(block.type)}
+      </div>
+      <span className="flex-1 truncate text-xs font-medium">
+        {block.type === 'js' ? 'Script' : block.type}
+        {block.phase === 'onSectionEnter' ? ' (Enter)' : ' (Submit)'}
+      </span>
+    </div>
+  )
 }

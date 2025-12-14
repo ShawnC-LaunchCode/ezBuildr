@@ -298,11 +298,15 @@ router.patch(
 
       // Update workflow and version
       const result = await db.transaction(async (tx: PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>) => {
-        // Update workflow name if provided
-        if (data.name) {
+        // Update workflow name and intakeConfig if provided
+        if (data.name || data.intakeConfig) {
+          const updateValues: any = { updatedAt: new Date() };
+          if (data.name) updateValues.name = data.name;
+          if (data.intakeConfig) updateValues.intakeConfig = data.intakeConfig;
+
           await tx
             .update(schema.workflows)
-            .set({ name: data.name, updatedAt: new Date() })
+            .set(updateValues)
             .where(eq(schema.workflows.id, params.id));
         }
 
