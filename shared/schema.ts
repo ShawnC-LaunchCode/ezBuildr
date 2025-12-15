@@ -1965,6 +1965,8 @@ export const blockTypeEnum = pgEnum('block_type', [
   'query',          // Query block for fetching data
   'write',          // Write block for inserting/updating data
   'external_send',  // Send data to external destination
+  'read_table',     // Read data from DataVault table
+  'list_tools',     // Transform list variables (filter, sort, limit, select)
 ]);
 
 // Block phase enum

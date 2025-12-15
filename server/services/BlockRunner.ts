@@ -1111,19 +1111,14 @@ export class BlockRunner {
       const { datavaultRowsService } = await import('./DatavaultRowsService');
       const { datavaultColumnsRepository } = await import('../repositories');
 
-      // Verify table exists and user has access
-      const table = await datavaultTablesService.tablesRepo.findById(config.tableId);
-      if (!table) {
+      // Verify table exists and belongs to tenant
+      let table;
+      try {
+        table = await datavaultTablesService.verifyTenantOwnership(config.tableId, tenantId);
+      } catch (error) {
         return {
           success: false,
-          errors: [`Table not found: ${config.tableId}`]
-        };
-      }
-
-      if (table.tenantId !== tenantId) {
-        return {
-          success: false,
-          errors: ["Access denied - table belongs to different tenant"]
+          errors: [(error as Error).message]
         };
       }
 
