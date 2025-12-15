@@ -97,8 +97,8 @@ export function useCollabClient(
 
     // Get WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use port 5001 for dedicated WebSocket server
-    const wsUrl = `${protocol}//${window.location.hostname}:5001/collab`;
+    // Use the same host/port as the application (no separate port needed)
+    const wsUrl = `${protocol}//${window.location.host}/collab`;
 
     // Create WebSocket provider
     const provider = new WebSocketProvider(wsUrl, roomKey, doc, {

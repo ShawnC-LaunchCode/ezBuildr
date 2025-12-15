@@ -77,17 +77,15 @@ export function initCollabServer(server: HTTPServer): void {
   // Initialize Redis for multi-instance support
   initRedis();
 
-  // Create standalone WebSocket server on port 5001
-  // This avoids conflicts with Vite's HMR on the main port (5000)
-  const WS_PORT = parseInt(process.env.WS_PORT || '5001', 10);
-
+  // Attach to existing HTTP server
+  // This allows sharing the single exposed port on Railway/PaaS
   wss = new WebSocketServer({
-    port: WS_PORT,
+    server,
     clientTracking: true,
     path: '/collab'
   });
 
-  logger.info(`WebSocket collaboration server listening on port ${WS_PORT} path /collab`);
+  logger.info('WebSocket collaboration server attached to main HTTP server path /collab');
 
   wss.on('connection', handleConnection);
 
