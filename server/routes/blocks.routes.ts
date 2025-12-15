@@ -144,23 +144,23 @@ export function registerBlockRoutes(app: Express): void {
       req.params.workflowId = block.workflowId;
 
       // Apply auto-revert
-      await autoRevertToDraft(req, res, () => {});
+      await autoRevertToDraft(req, res, () => { });
 
       // Route to specialized service for query, read_table, and list_tools blocks
       let updatedBlock;
-      if (block.type === 'query') {
+      if ((block.type as string) === 'query') {
         updatedBlock = await queryBlockService.updateBlock(blockId, userId, {
           name: updates.name,
           config: updates.config,
           enabled: updates.enabled,
         });
-      } else if (block.type === 'read_table') {
+      } else if ((block.type as string) === 'read_table') {
         updatedBlock = await readTableBlockService.updateBlock(blockId, userId, {
           name: updates.name,
           config: updates.config,
           enabled: updates.enabled,
         });
-      } else if (block.type === 'list_tools') {
+      } else if ((block.type as string) === 'list_tools') {
         updatedBlock = await listToolsBlockService.updateBlock(blockId, userId, {
           name: updates.name,
           config: updates.config,
@@ -200,7 +200,7 @@ export function registerBlockRoutes(app: Express): void {
       req.params.workflowId = block.workflowId;
 
       // Apply auto-revert
-      await autoRevertToDraft(req, res, () => {});
+      await autoRevertToDraft(req, res, () => { });
 
       await blockService.deleteBlock(blockId, userId);
       res.json({ success: true, data: { message: "Block deleted successfully" } });

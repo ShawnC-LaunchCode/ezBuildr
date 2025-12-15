@@ -251,7 +251,7 @@ export class BlockRunner {
     let result: BlockResult;
 
     try {
-      switch (block.type) {
+      switch (block.type as string) {
         case "prefill":
           result = this.executePrefillBlock(block.config as PrefillConfig, context);
           break;

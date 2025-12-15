@@ -114,7 +114,7 @@ export class ReadTableBlockService {
 
     await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
-    if (block.type !== 'read_table') {
+    if ((block.type as string) !== 'read_table') {
       throw new Error("Block is not a read table block");
     }
 

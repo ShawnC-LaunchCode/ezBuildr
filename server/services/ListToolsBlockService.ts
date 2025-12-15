@@ -115,7 +115,7 @@ export class ListToolsBlockService {
 
     await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
-    if (block.type !== 'list_tools') {
+    if ((block.type as string) !== 'list_tools') {
       throw new Error("Block is not a list tools block");
     }
 

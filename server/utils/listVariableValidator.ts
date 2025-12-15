@@ -78,7 +78,7 @@ export function validateListVariable(
  * Create an empty ListVariable
  */
 export function createEmptyListVariable(
-  source: "computed" | "read_table" | "query" | "list_tools" = "computed"
+  source: "read_table" | "query" | "list_tools" = "read_table"
 ): ListVariable {
   return {
     metadata: {
