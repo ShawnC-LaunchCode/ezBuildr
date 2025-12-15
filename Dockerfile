@@ -4,9 +4,16 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Install dependencies needed for build
+# Install dependencies needed for build
 COPY package*.json ./
+COPY .npmrc ./
 # Install python/make/g++ for potential native module builds (bcrypt, isolated-vm)
 RUN apt-get update && apt-get install -y python3 make g++
+
+# Configure npm for better network reliability and performance
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000
 
 RUN npm ci
 
