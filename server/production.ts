@@ -1,14 +1,22 @@
 import { createServer } from "http";
-
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { log } from "./utils";
 import { serveStatic } from "./static";
+import { logger } from "./logger";
+import { sanitizeInputs } from "./utils/sanitize";
+import { errorHandler } from "./middleware/errorHandler";
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 
-// CORS configuration for external hosting
+// =====================================================================
+// 💡 CORS CONFIGURATION
+// Dynamically determines allowed origins based on environment
 const corsOptions = {
   origin: function (
     origin: string | undefined,
@@ -16,7 +24,7 @@ const corsOptions = {
   ) {
     const isDevelopment = process.env.NODE_ENV === "development";
 
-    // Always allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
@@ -57,41 +65,50 @@ const corsOptions = {
     callback(new Error("Not allowed by CORS"), false);
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Note: COOP header removed - it blocks Google OAuth window.postMessage communication
-// Google OAuth works fine with the default COOP policy (unsafe-none)
-
-// Create HTTP server
-const server = createServer(app);
+// XSS Protection: Sanitize all string inputs
+app.use(sanitizeInputs);
 
 (async () => {
-  // Register API routes
-  await registerRoutes(app);
+  try {
+    // Ensure database is initialized before starting server
+    // CRITICAL: This was missing in the previous production.ts, causing crashes on startup
+    const { dbInitPromise } = await import("./db.js");
+    await dbInitPromise;
 
-  // Global error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Initialize routes and collaboration server
+    // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
+    // Previously, production.ts created its own detached server.
+    console.log('[DEBUG] Registering routes...');
+    const server = await registerRoutes(app);
+    console.log('[DEBUG] Routes registered. Server created.');
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    // Register centralized error handler middleware (must be after all routes)
+    app.use(errorHandler);
 
-  // Serve static files in production
-  serveStatic(app);
+    // Serve static files in production
+    serveStatic(app);
 
-  // Start server
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+    // Start server
+    const port = parseInt(process.env.PORT || '5000', 10);
+    server.listen({
+      port,
+      host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+
+  } catch (error) {
+    console.error("FATAL: Failed to start server:", error);
+    logger.fatal({ error }, "FATAL: Failed to start server");
+    process.exit(1);
+  }
 })();
