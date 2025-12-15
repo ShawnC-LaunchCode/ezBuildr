@@ -8,6 +8,7 @@ import { logger } from "./logger";
 import { sanitizeInputs } from "./utils/sanitize";
 import { errorHandler } from "./middleware/errorHandler";
 import dotenv from "dotenv";
+import { dbInitPromise } from "./db";
 
 // Load environment variables
 dotenv.config();
@@ -79,13 +80,11 @@ app.use(sanitizeInputs);
 (async () => {
   try {
     // Ensure database is initialized before starting server
-    // CRITICAL: This was missing in the previous production.ts, causing crashes on startup
-    const { dbInitPromise } = await import("./db.js");
+    // Using static import to ensure correct bundling in production
     await dbInitPromise;
 
     // Initialize routes and collaboration server
     // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
-    // Previously, production.ts created its own detached server.
     console.log('[DEBUG] Registering routes...');
     const server = await registerRoutes(app);
     console.log('[DEBUG] Routes registered. Server created.');
