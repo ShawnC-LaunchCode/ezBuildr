@@ -86,6 +86,9 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Simple health check that doesn't depend on DB
+app.get('/healthz', (_req, res) => res.status(200).send('OK'));
+
 // XSS Protection: Sanitize all string inputs
 app.use(sanitizeInputs);
 

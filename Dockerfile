@@ -59,4 +59,5 @@ EXPOSE 5000
 # Use dumb-init to handle signals correctly (Disabled for debugging)
 # ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-CMD ["npm", "start"]
+# Switch to direct Node execution for better signal handling
+CMD ["node", "dist/index.js"]
