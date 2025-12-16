@@ -17,6 +17,11 @@ RUN npm config set fetch-retries 5 \
 
 RUN npm ci
 
+# SMOKE TEST: Verify native modules built correctly
+# This will fail the build immediately if isolated-vm is broken, saving a deployment cycle
+# Also verifying we can load the module in the build environment
+RUN node -e "console.log('Testing isolated-vm load...'); require('isolated-vm'); console.log('isolated-vm loaded successfully');"
+
 COPY . .
 
 # Build the client and server

@@ -13,6 +13,18 @@ import { dbInitPromise } from "./db";
 // Load environment variables
 dotenv.config();
 
+// Diagnostic logging for startup
+console.log("------------------------------------------");
+console.log("🚀 Starting Server Initialization");
+console.log("Time:", new Date().toISOString());
+console.log("Environment:", {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  DATABASE_URL_SET: !!process.env.DATABASE_URL,
+  PWD: process.cwd()
+});
+console.log("------------------------------------------");
+
 const app = express();
 
 // =====================================================================
