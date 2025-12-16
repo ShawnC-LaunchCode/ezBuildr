@@ -24,6 +24,13 @@ RUN node -e "console.log('Testing isolated-vm load...'); require('isolated-vm');
 
 COPY . .
 
+# ARG variables for frontend build (passed by Railway)
+ARG VITE_GOOGLE_CLIENT_ID
+ARG VITE_BASE_URL
+# Set as ENV so they are visible to npm run build
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ENV VITE_BASE_URL=$VITE_BASE_URL
+
 # Build the client and server
 RUN npm run build
 # Prune dev dependencies (Commented out for debugging 502)
