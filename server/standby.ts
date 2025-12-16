@@ -26,8 +26,13 @@ const server = createServer((req, res) => {
     res.end('Standby Mode');
 });
 
-server.listen(port, '0.0.0.0', () => {
-    console.log(`✅ Standby Server listening on 0.0.0.0:${port}`);
+// Log heartbeat to prove container is not frozen
+setInterval(() => {
+    console.log(`[Standby] Heartbeat - Server is running on port ${port} - Memory: ${process.memoryUsage().rss / 1024 / 1024} MB`);
+}, 5000);
+
+server.listen(port, () => {
+    console.log(`✅ Standby Server listening on port ${port} (All Interfaces)`);
 });
 
 // Prevent immediate exit
