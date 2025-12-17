@@ -36,14 +36,12 @@ export default function AIHeroCard({ className = "", onAIClick, onBlankClick }: 
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <Link
-            href="/workflows/new"
-            onClick={onAIClick}
-            className="inline-flex items-center justify-center rounded-xl bg-white text-slate-900 hover:bg-white/90 px-4 py-2.5 font-medium shadow-sm transition-colors"
+          <div
+            className="inline-flex items-center justify-center rounded-xl bg-white/50 text-slate-900/50 cursor-not-allowed px-4 py-2.5 font-medium shadow-sm transition-colors"
           >
             <Wand2 className="mr-2 h-4 w-4" />
-            Generate with AI
-          </Link>
+            Generate with AI (Coming Soon)
+          </div>
 
           <Link
             href="/workflows/new"

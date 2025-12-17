@@ -189,15 +189,16 @@ export default function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 sm:space-y-3">
-                    <QuickActionButton
-                      href="/ai-survey"
-                      icon={Wand2}
-                      iconColor="text-indigo-600"
-                      iconBgColor="bg-indigo-50"
-                      label="Generate with AI"
-                      testId="button-quick-ai-workflow"
-                      onClick={() => track("ai_workflow_entry_clicked", { source: "quick_actions" })}
-                    />
+                    <div className="opacity-50 pointer-events-none grayscale">
+                      <QuickActionButton
+                        href="#"
+                        icon={Wand2}
+                        iconColor="text-indigo-600"
+                        iconBgColor="bg-indigo-50"
+                        label="Generate (Coming Soon)"
+                        testId="button-quick-ai-workflow"
+                      />
+                    </div>
 
                     <QuickActionButton
                       href="/workflows/new"
