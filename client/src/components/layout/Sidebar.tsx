@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
-import logo from "@/assets/images/logo.jpg";
+import logo from "@/assets/images/logo.png";
 import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List } from "lucide-react";
 
 export default function Sidebar() {
@@ -75,7 +75,7 @@ export default function Sidebar() {
             alt="Vault-Logic Logo"
             className="w-8 h-8 rounded-lg object-cover"
           />
-          <span className="text-lg sm:text-xl font-bold text-foreground">Vault-Logic</span>
+          <span className="text-lg sm:text-xl font-bold text-foreground">Workflow App</span>
         </div>
       </div>
 

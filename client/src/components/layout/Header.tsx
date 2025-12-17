@@ -6,7 +6,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Menu } from "lucide-react";
 import { ReactNode, useState } from "react";
-import logo from "@/assets/images/logo.jpg";
+import logo from "@/assets/images/logo.png";
 
 interface HeaderProps {
   title: string;
@@ -85,7 +85,7 @@ export default function Header({ title, description, actions }: HeaderProps) {
                     alt="Vault-Logic Logo"
                     className="w-8 h-8 rounded-lg object-cover"
                   />
-                  <SheetTitle className="text-xl font-bold">ezBuildr</SheetTitle>
+                  <SheetTitle className="text-xl font-bold">Workflow App</SheetTitle>
                 </div>
               </SheetHeader>
 
@@ -95,8 +95,8 @@ export default function Header({ title, description, actions }: HeaderProps) {
                     <div
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
                         }`}
                     >
                       <i className={`${item.icon} w-5`}></i>
@@ -118,8 +118,8 @@ export default function Header({ title, description, actions }: HeaderProps) {
                         <div
                           onClick={() => setMobileMenuOpen(false)}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
-                              ? "bg-purple-600 text-white"
-                              : "text-muted-foreground hover:text-foreground hover:bg-purple-50"
+                            ? "bg-purple-600 text-white"
+                            : "text-muted-foreground hover:text-foreground hover:bg-purple-50"
                             }`}
                         >
                           <i className={`${item.icon} w-5`}></i>

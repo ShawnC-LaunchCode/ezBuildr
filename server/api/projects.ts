@@ -58,10 +58,28 @@ router.get(
         where: and(...whereConditions),
         orderBy: [desc(schema.projects.createdAt)],
         limit: limit + 1,
+        with: {
+          workflows: {
+            columns: {
+              id: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      // Map to include workflowCount (excluding archived workflows)
+      const projectsWithCount = projects.map((project: any) => {
+        const { workflows, ...rest } = project;
+        const activeWorkflows = workflows.filter((w: any) => w.status !== 'archived');
+        return {
+          ...rest,
+          workflowCount: activeWorkflows.length,
+        };
       });
 
       // Create paginated response
-      const response = createPaginatedResponse(projects, limit);
+      const response = createPaginatedResponse(projectsWithCount, limit);
 
       res.json(response);
     } catch (error) {

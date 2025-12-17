@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-VaultLogic is a **comprehensive enterprise workflow automation platform** that combines visual workflow building, conditional logic, custom code execution (JavaScript/Python), and advanced data management. Originally inspired by Poll-Vault, VaultLogic has evolved into a production-ready workflow engine with enterprise-grade features for automation, data transformation, team collaboration, and external integrations.
+Workflow App is a **comprehensive enterprise workflow automation platform** that combines visual workflow building, conditional logic, custom code execution (JavaScript/Python), and advanced data management. Originally inspired by Poll-Vault, VaultLogic has evolved into a production-ready workflow engine with enterprise-grade features for automation, data transformation, team collaboration, and external integrations.
 
 **Platform Scale:**
 - **30+ frontend pages** with React 18.3 + TypeScript

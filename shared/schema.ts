@@ -295,7 +295,7 @@ export const usageRecords = pgTable("usage_records", {
 ]);
 
 // =====================================================================
-// LEGACY POLL-VAULT SCHEMA (DEPRECATED)
+// LEGACY APP SCHEMA (DEPRECATED)
 // =====================================================================
 
 // Surveys table

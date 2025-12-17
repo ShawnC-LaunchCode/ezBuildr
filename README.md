@@ -14,7 +14,7 @@ VaultLogic is a comprehensive enterprise workflow automation platform built with
 - 15+ question/action types
 - 40+ helper functions for scripting
 
-Originally inspired by Poll-Vault, evolved into next-generation workflow automation with enterprise-grade features.
+Originally inspired by Legacy App, evolved into next-generation workflow automation with enterprise-grade features.
 
 ---
 
