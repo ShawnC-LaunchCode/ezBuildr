@@ -52,6 +52,12 @@ const corsOptions = {
             }
         }
 
+        // Allow ezBuildr production domains (explicit)
+        // These correspond to the ezBuildr production domains
+        if (hostname === "ezbuildr.com" || hostname === "www.ezbuildr.com") {
+            return callback(null, true);
+        }
+
         // In production, check against ALLOWED_ORIGIN environment variable
         const allowedOrigin = process.env.ALLOWED_ORIGIN;
         if (allowedOrigin) {
