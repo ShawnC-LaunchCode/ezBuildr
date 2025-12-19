@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useConfetti } from "@/hooks/useConfetti";
@@ -8,6 +8,10 @@ export default function FeedbackWidget() {
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { fire } = useConfetti();
+
+  if (typeof window !== 'undefined' && window.self !== window.top) {
+    return null;
+  }
 
   useEffect(() => {
     if (submitted) {
@@ -32,6 +36,7 @@ export default function FeedbackWidget() {
           <DialogContent
             className="sm:max-w-2xl h-[80vh] bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 p-0 overflow-hidden"
           >
+            <DialogTitle className="sr-only">Feedback Survey</DialogTitle>
             <div className="w-full h-full relative">
               <iframe
                 src="https://poll-vault-production.up.railway.app/survey/627635e4-6329-4928-afa7-3dab2d1714e4"
