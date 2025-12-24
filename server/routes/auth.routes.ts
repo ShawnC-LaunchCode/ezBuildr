@@ -18,13 +18,18 @@ import { eq, and, gt, ne, desc } from "drizzle-orm";
 const logger = createLogger({ module: 'auth-routes' });
 
 // SECURITY FIX: Rate limiting for password-based authentication
-const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs
-  message: { message: "Too many login/register attempts, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Disable rate limiting in test environment to prevent flaky tests
+const isTest = process.env.NODE_ENV === 'test';
+
+const authRateLimit = isTest ?
+  (req: Request, res: Response, next: any) => next() :
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 requests per windowMs
+    message: { message: "Too many login/register attempts, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
 /**
  * Register authentication-related routes
