@@ -2,7 +2,8 @@
   "include": [
     "client/src/**/*",
     "shared/**/*",
-    "server/**/*"
+    "server/**/*",
+    "tests/**/*"
   ],
   "exclude": [
     "node_modules",
@@ -29,8 +30,7 @@
     "baseUrl": ".",
     "types": [
       "node",
-      "vite/client",
-      "@testing-library/jest-dom"
+      "vite/client"
     ],
     "typeRoots": [
       "./node_modules/@types",

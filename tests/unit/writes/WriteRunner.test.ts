@@ -92,7 +92,7 @@ describe("WriteRunner", () => {
         });
 
         it("should resolve values and call createRowWithValues", async () => {
-            const config: WriteBlockConfig = {
+            const config: any = {
                 id: "block-1",
                 workflowId: "wf-1",
                 type: "write",
@@ -115,6 +115,7 @@ describe("WriteRunner", () => {
 
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
+                dataSourceId: "ds-native",
                 mode: "create",
                 columnMappings: [
                     { columnId: "col-first", value: "{{ firstName }}" },
@@ -151,6 +152,7 @@ describe("WriteRunner", () => {
         it("should simulate write in preview mode", async () => {
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
+                dataSourceId: "ds-native",
                 mode: "create",
                 columnMappings: []
             };
@@ -167,6 +169,7 @@ describe("WriteRunner", () => {
         it("should find row by PK and update", async () => {
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
+                dataSourceId: "ds-native",
                 mode: "update",
                 primaryKeyColumnId: "col-email",
                 primaryKeyValue: "test@example.com", // Static for simplicity or path?
@@ -195,6 +198,7 @@ describe("WriteRunner", () => {
         it("should return failure result if row not found", async () => {
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
+                dataSourceId: "ds-native",
                 mode: "update",
                 primaryKeyColumnId: "col-email",
                 primaryKeyValue: "missing@example.com",

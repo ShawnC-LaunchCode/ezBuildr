@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { db } from "../../server/db";
 import {
-    tenants,
+    organizations,
     users,
     projects,
     workflows,
@@ -20,10 +20,10 @@ import {
     steps,
     workflowRuns,
     stepValues,
-    databases,
-    tables as tablesSchema,
-    table_rows
-} from "@shared/schema";
+    datavaultDatabases as databases,
+    datavaultTables as tablesSchema,
+    datavaultRows as table_rows
+} from "../../shared/schema";
 import { v4 as uuidv4 } from "uuid";
 import { eq, and } from "drizzle-orm";
 import { runService } from "../../server/services/RunService";
@@ -40,12 +40,12 @@ describe("REG-1: Workflow Logic Regression", () => {
     let userId: string;
     let projectId: string;
     let workflowId: string;
-    let versionId: string;
+    let workflowVersionId: string;
 
     beforeAll(async () => {
         // Setup tenant and user
         tenantId = uuidv4();
-        await db.insert(tenants).values({
+        await db.insert(organizations).values({
             id: tenantId,
             name: "Regression Test Tenant",
             slug: `reg-test-${tenantId}`
@@ -55,19 +55,19 @@ describe("REG-1: Workflow Logic Regression", () => {
         await db.insert(users).values({
             id: userId,
             email: `regression-${userId}@test.com`,
-            tenantId,
+
             role: "admin",
             tenantRole: "owner",
-            name: "Regression Tester",
+            fullName: "Regression Tester",
             authProvider: "local"
         });
 
         projectId = uuidv4();
         await db.insert(projects).values({
             id: projectId,
-            name: "Regression Project",
+
             title: "Regression Project",
-            tenantId,
+
             creatorId: userId,
             ownerId: userId
         });
@@ -77,7 +77,7 @@ describe("REG-1: Workflow Logic Regression", () => {
         // Cleanup
         try {
             await db.delete(users).where(eq(users.id, userId));
-            await db.delete(tenants).where(eq(tenants.id, tenantId));
+            await db.delete(organizations).where(eq(organizations.id, tenantId));
         } catch (e) {
             console.warn("Cleanup error:", e);
         }
@@ -88,7 +88,7 @@ describe("REG-1: Workflow Logic Regression", () => {
 
         beforeEach(async () => {
             workflowId = uuidv4();
-            versionId = uuidv4();
+            workflowVersionId = uuidv4();
 
             await db.insert(workflows).values({
                 id: workflowId,
@@ -96,12 +96,12 @@ describe("REG-1: Workflow Logic Regression", () => {
                 title: "Required Question Test",
                 creatorId: userId,
                 ownerId: userId,
-                currentVersionId: versionId,
-                tenantId
+                currentVersionId: workflowVersionId,
+
             });
 
             await db.insert(workflowVersions).values({
-                id: versionId,
+                id: workflowVersionId,
                 workflowId,
                 versionNumber: 1,
                 graphJson: {},
@@ -127,21 +127,21 @@ describe("REG-1: Workflow Logic Regression", () => {
                 alias: "required_q",
                 order: 1,
                 required: true,
-                config: {}
+                options: {}
             });
 
             const runId = uuidv4();
             await db.insert(workflowRuns).values({
                 id: runId,
                 workflowId,
-                versionId,
+                workflowVersionId,
                 runToken: uuidv4(),
                 status: "in_progress",
-                tenantId
-            });
+
+            } as any);
 
             // Try to submit without value
-            const data = {};
+            const data: Record<string, any> = {};
             const allSteps = await db.select().from(steps).where(eq(steps.sectionId, sectionId));
 
             // Check required validation
@@ -163,7 +163,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 alias: "show_trigger",
                 order: 1,
                 required: false,
-                config: {}
+                options: {}
             });
 
             const requiredStepId = uuidv4();
@@ -176,21 +176,21 @@ describe("REG-1: Workflow Logic Regression", () => {
                 order: 2,
                 required: true,
                 visibleIf: "show_trigger == true", // Only visible when trigger is true
-                config: {}
+                options: {}
             });
 
             const runId = uuidv4();
             await db.insert(workflowRuns).values({
                 id: runId,
                 workflowId,
-                versionId,
+                workflowVersionId,
                 runToken: uuidv4(),
                 status: "in_progress",
-                tenantId
-            });
+
+            } as any);
 
             // Set trigger to false (hide required question)
-            const data = { show_trigger: false };
+            const data: Record<string, any> = { show_trigger: false };
 
             // Check visibility
             const isVisible = evaluateVisibilityExpression("show_trigger == true", data);
@@ -201,7 +201,7 @@ describe("REG-1: Workflow Logic Regression", () => {
             const visibleRequiredSteps = allSteps.filter(s => {
                 if (!s.required) return false;
                 if (s.visibleIf) {
-                    return evaluateVisibilityExpression(s.visibleIf, data);
+                    return evaluateVisibilityExpression((s.visibleIf as any) || "", data);
                 }
                 return true;
             });
@@ -220,7 +220,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 alias: "show_trigger",
                 order: 1,
                 required: true,
-                config: {}
+                options: {}
             });
 
             const requiredStepId = uuidv4();
@@ -233,18 +233,18 @@ describe("REG-1: Workflow Logic Regression", () => {
                 order: 2,
                 required: true,
                 visibleIf: "show_trigger == true",
-                config: {}
+                options: {}
             });
 
             // Set trigger to true (show required question)
-            const data = { show_trigger: true };
+            const data: Record<string, any> = { show_trigger: true };
 
             const allSteps = await db.select().from(steps).where(eq(steps.sectionId, sectionId));
             const missingRequired = allSteps.filter(s => {
                 if (!s.required) return false;
                 // Check visibility
                 if (s.visibleIf) {
-                    const visible = evaluateVisibilityExpression(s.visibleIf, data);
+                    const visible = evaluateVisibilityExpression((s.visibleIf as unknown as string) || "", data);
                     if (!visible) return false; // Hidden, not required
                 }
                 // Check if value exists
@@ -260,7 +260,7 @@ describe("REG-1: Workflow Logic Regression", () => {
     describe("2. Required + Show/Hide (Pages)", () => {
         it("should skip hidden required page entirely", async () => {
             workflowId = uuidv4();
-            versionId = uuidv4();
+            workflowVersionId = uuidv4();
 
             await db.insert(workflows).values({
                 id: workflowId,
@@ -268,12 +268,12 @@ describe("REG-1: Workflow Logic Regression", () => {
                 title: "Page Visibility Test",
                 creatorId: userId,
                 ownerId: userId,
-                currentVersionId: versionId,
-                tenantId
+                currentVersionId: workflowVersionId,
+
             });
 
             await db.insert(workflowVersions).values({
-                id: versionId,
+                id: workflowVersionId,
                 workflowId,
                 versionNumber: 1,
                 graphJson: {},
@@ -296,7 +296,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 title: "Show Page 2?",
                 alias: "show_page_2",
                 order: 1,
-                config: {}
+                options: {}
             });
 
             const section2Id = uuidv4();
@@ -317,15 +317,15 @@ describe("REG-1: Workflow Logic Regression", () => {
                 alias: "page2_required",
                 order: 1,
                 required: true,
-                config: {}
+                options: {}
             });
 
             // Data: don't show page 2
-            const data = { show_page_2: false };
+            const data: Record<string, any> = { show_page_2: false };
 
             // Check section visibility
             const section2 = await db.select().from(sections).where(eq(sections.id, section2Id)).then(r => r[0]);
-            const isVisible = evaluateVisibilityExpression(section2.visibleIf || "", data);
+            const isVisible = evaluateVisibilityExpression((section2.visibleIf as unknown as string) || "", data);
 
             expect(isVisible).toBe(false); // Section 2 should be hidden
 
@@ -336,7 +336,7 @@ describe("REG-1: Workflow Logic Regression", () => {
 
             const visibleSections = allSections.filter(s => {
                 if (!s.visibleIf) return true;
-                return evaluateVisibilityExpression(s.visibleIf, data);
+                return evaluateVisibilityExpression((s.visibleIf as unknown as string) || "", data);
             });
 
             expect(visibleSections.length).toBe(1); // Only section 1 visible
@@ -345,7 +345,7 @@ describe("REG-1: Workflow Logic Regression", () => {
 
         it("should enforce required on visible page", async () => {
             workflowId = uuidv4();
-            versionId = uuidv4();
+            workflowVersionId = uuidv4();
 
             await db.insert(workflows).values({
                 id: workflowId,
@@ -353,12 +353,12 @@ describe("REG-1: Workflow Logic Regression", () => {
                 title: "Page Required Test",
                 creatorId: userId,
                 ownerId: userId,
-                currentVersionId: versionId,
-                tenantId
+                currentVersionId: workflowVersionId,
+
             });
 
             await db.insert(workflowVersions).values({
-                id: versionId,
+                id: workflowVersionId,
                 workflowId,
                 versionNumber: 1,
                 graphJson: {},
@@ -381,7 +381,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 title: "Show Page 2?",
                 alias: "show_page_2",
                 order: 1,
-                config: {}
+                options: {}
             });
 
             const section2Id = uuidv4();
@@ -402,15 +402,15 @@ describe("REG-1: Workflow Logic Regression", () => {
                 alias: "page2_required",
                 order: 1,
                 required: true,
-                config: {}
+                options: {}
             });
 
             // Data: show page 2
-            const data = { show_page_2: true };
+            const data: Record<string, any> = { show_page_2: true };
 
             // Check section visibility
             const section2 = await db.select().from(sections).where(eq(sections.id, section2Id)).then(r => r[0]);
-            const isVisible = evaluateVisibilityExpression(section2.visibleIf || "", data);
+            const isVisible = evaluateVisibilityExpression((section2.visibleIf as unknown as string) || "", data);
 
             expect(isVisible).toBe(true); // Section 2 should be visible
 
@@ -429,7 +429,7 @@ describe("REG-1: Workflow Logic Regression", () => {
     describe("3. Preview/Snapshot/Live Parity", () => {
         it("should evaluate visibility consistently across modes", () => {
             // This is a unit test for visibility evaluation
-            const data = { trigger: true, value: 10 };
+            const data: Record<string, any> = { trigger: true, value: 10 };
 
             // Test same expression in different contexts
             const expr1 = "trigger == true";
@@ -450,7 +450,7 @@ describe("REG-1: Workflow Logic Regression", () => {
 
     describe("6. Failure Modes (No Silent Errors)", () => {
         it("should handle malformed visibility expression gracefully", () => {
-            const data = { trigger: true };
+            const data: Record<string, any> = { trigger: true };
 
             // Malformed expression
             const badExpr = "trigger == ";
@@ -462,7 +462,7 @@ describe("REG-1: Workflow Logic Regression", () => {
         });
 
         it("should handle missing variable in visibility expression", () => {
-            const data = { other: true };
+            const data: Record<string, any> = { other: true };
 
             const expr = "nonexistent == true";
             const result = evaluateVisibilityExpression(expr, data);

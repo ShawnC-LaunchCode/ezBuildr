@@ -40,6 +40,7 @@ describe('CollectionService', () => {
       const insertData = {
         tenantId: mockTenantId,
         name: 'Test Collection',
+        slug: 'test-collection',
         description: 'Test description',
       };
 
@@ -76,6 +77,7 @@ describe('CollectionService', () => {
       const insertData = {
         tenantId: mockTenantId,
         name: 'Test Collection',
+        slug: 'test-collection',
         description: 'Test description',
       };
 
@@ -353,6 +355,7 @@ describe('CollectionService', () => {
       const insertData = {
         tenantId: mockTenantId,
         name: 'Test @ Collection #123!',
+        slug: 'test-collection-123',
         description: 'Test',
       };
 
@@ -376,6 +379,7 @@ describe('CollectionService', () => {
       const insertData = {
         tenantId: mockTenantId,
         name: '  Test Collection  ',
+        slug: 'test-collection',
         description: 'Test',
       };
 

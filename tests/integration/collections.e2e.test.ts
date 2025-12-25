@@ -33,7 +33,13 @@ describe('Collections System E2E Tests', () => {
       id: 'test-user-collections-e2e',
       email: 'test-collections-e2e@example.com',
       fullName: 'Collections E2E Test User',
+      firstName: 'Collections',
+      lastName: 'E2E Test User',
       tenantId: testTenantId,
+      tenantRole: 'owner',
+      authProvider: 'local',
+      lastPasswordChange: null,
+      defaultMode: 'easy',
     }).returning();
     testUserId = user.id;
 
@@ -65,8 +71,8 @@ describe('Collections System E2E Tests', () => {
       const collection = await collectionService.createCollection({
         tenantId: testTenantId,
         name: 'Customers',
+        slug: 'customers',
         description: 'Customer database',
-        projectId: testProjectId
       });
 
       expect(collection).toBeDefined();
@@ -106,6 +112,7 @@ describe('Collections System E2E Tests', () => {
       const field = await collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'First Name',
+        slug: 'first_name',
         type: 'text',
         isRequired: true,
       });
@@ -123,6 +130,7 @@ describe('Collections System E2E Tests', () => {
       const field = await collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Email Address',
+        slug: 'email_address',
         type: 'text',
         isRequired: true,
       });
@@ -135,6 +143,7 @@ describe('Collections System E2E Tests', () => {
       const field = await collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Age',
+        slug: 'age',
         type: 'number',
         isRequired: false,
         defaultValue: 0,
@@ -149,6 +158,7 @@ describe('Collections System E2E Tests', () => {
       const field = await collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Status',
+        slug: 'status',
         type: 'select',
         isRequired: true,
         options: ['active', 'inactive', 'pending'],
@@ -165,6 +175,7 @@ describe('Collections System E2E Tests', () => {
       const field = await collectionFieldService.createField({
         collectionId: testCollectionId,
         name: 'Is Premium',
+        slug: 'is_premium',
         type: 'boolean',
         isRequired: false,
         defaultValue: false,

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestStep, createTestLogicRule } from "../../factories/workflowFactory";
-import type { InsertWorkflow } from "@shared/schema";
+import type { InsertWorkflow } from "../../../shared/schema";
 
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -135,7 +135,8 @@ describe("WorkflowService", () => {
         name: "My Workflow",
         title: "My Workflow",
         description: "Test workflow",
-        tenantId: "tenant-123",
+        creatorId: "user-123",
+        ownerId: "user-123",
       };
 
       const createdWorkflow = createTestWorkflow({
@@ -180,10 +181,10 @@ describe("WorkflowService", () => {
     it("should return workflow with sections, steps, and logic rules", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       const sections = [
-        createTestSection({ workflowId: validUUID }),
-        createTestSection({ workflowId: validUUID }),
+        createTestSection(validUUID),
+        createTestSection(validUUID),
       ];
-      const logicRules = [createTestLogicRule({ workflowId: validUUID })];
+      const logicRules = [createTestLogicRule(validUUID)];
 
       mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
       mockWorkflowRepo.findById.mockResolvedValue(workflow);

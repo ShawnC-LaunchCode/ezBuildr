@@ -52,10 +52,7 @@ describeWithDb('WorkflowTemplateService', () => {
         name: 'Test Workflow',
       },
       version: {
-        version: 1,
-        definition: {},
         graphJson: {},
-        status: 'draft',
         createdBy: user.id,
       },
     });
@@ -88,6 +85,12 @@ describeWithDb('WorkflowTemplateService', () => {
       fileRef: '/uploads/template1.docx',
       createdAt: new Date(),
       updatedAt: new Date(),
+      description: 'Test template',
+      helpersVersion: 1,
+      metadata: {},
+      mapping: {},
+      currentVersion: 1,
+      lastModifiedBy: testUserId,
     });
   });
 

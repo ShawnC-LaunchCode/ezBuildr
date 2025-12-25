@@ -27,7 +27,7 @@ describe('BlockRunner Validation Logic', () => {
     const executeValidate = (runner as any).executeValidateBlock.bind(runner);
 
     it('should pass if no rules are present', () => {
-        const config: ValidateConfig = { rules: [], outputKey: 'out' };
+        const config: ValidateConfig = { rules: [] };
         const context: any = { data: {}, aliasMap: {} };
         const result = executeValidate(config, context);
         expect(result.success).toBe(true);
@@ -42,7 +42,7 @@ describe('BlockRunner Validation Logic', () => {
             rightType: 'constant',
             message: 'Must be over 18'
         };
-        const config: ValidateConfig = { rules: [rule], outputKey: 'out' };
+        const config: ValidateConfig = { rules: [rule] };
 
         it('should pass on valid comparison', () => {
             const context: any = { data: { age: 20 }, aliasMap: { age: 'step-1' } };
@@ -60,7 +60,7 @@ describe('BlockRunner Validation Logic', () => {
 
         it('should compare with variable', () => {
             const varRule: CompareRule = { ...rule, rightType: 'variable', right: 'minAge' };
-            const varConfig = { rules: [varRule], outputKey: 'out' };
+            const varConfig = { rules: [varRule] };
 
             const context: any = { data: { age: 20, minAge: 21 }, aliasMap: {} };
             const result = executeValidate(varConfig, context);
@@ -75,7 +75,7 @@ describe('BlockRunner Validation Logic', () => {
             requiredFields: ['spouseName'],
             message: 'Spouse Name is required'
         };
-        const config: ValidateConfig = { rules: [rule], outputKey: 'out' };
+        const config: ValidateConfig = { rules: [rule] };
 
         it('should enforce requirement if condition met', () => {
             const context: any = {
@@ -109,7 +109,7 @@ describe('BlockRunner Validation Logic', () => {
                 } as any
             ]
         };
-        const config: ValidateConfig = { rules: [rule], outputKey: 'out' };
+        const config: ValidateConfig = { rules: [rule] };
 
         it('should validate items in list', () => {
             const context: any = {

@@ -35,6 +35,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Email Address',
         type: 'text' as const,
+        slug: 'email_address',
         isRequired: true,
       };
 
@@ -63,6 +64,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Status',
         type: 'select' as const,
+        slug: 'status',
         isRequired: false,
         options: ['Draft', 'Published', 'Archived'],
       };
@@ -90,6 +92,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Status',
         type: 'select' as const,
+        slug: 'status',
         isRequired: false,
       };
 
@@ -105,6 +108,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Status',
         type: 'select' as const,
+        slug: 'status',
         isRequired: false,
         options: 'invalid' as any,
       };
@@ -121,6 +125,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Status',
         type: 'select' as const,
+        slug: 'status',
         isRequired: false,
         options: [],
       };
@@ -137,6 +142,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Active',
         type: 'boolean' as const,
+        slug: 'active',
         isRequired: false,
         defaultValue: true,
       };
@@ -164,6 +170,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Age',
         type: 'number' as const,
+        slug: 'age',
         isRequired: false,
         defaultValue: 'not a number' as any,
       };
@@ -180,6 +187,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Email',
         type: 'text' as const,
+        slug: 'email',
         isRequired: true,
       };
 
@@ -211,6 +219,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Email',
         type: 'text' as const,
+        slug: 'email',
         isRequired: true,
       };
 
@@ -357,13 +366,12 @@ describe('CollectionFieldService', () => {
   describe('bulkCreateFields', () => {
     it('should create multiple fields', async () => {
       const fieldsData = [
-        { name: 'Email', type: 'text' as const, isRequired: true },
-        { name: 'Age', type: 'number' as const, isRequired: false },
+        { name: 'Email', slug: 'email', collectionId: mockCollectionId, type: 'text' as const, isRequired: true },
+        { name: 'Age', slug: 'age', collectionId: mockCollectionId, type: 'number' as const, isRequired: false },
       ];
 
       const createdFields = fieldsData.map((data, index) => ({
         id: `field-${index}`,
-        collectionId: mockCollectionId,
         ...data,
         slug: data.name.toLowerCase(),
         options: null,
@@ -391,6 +399,7 @@ describe('CollectionFieldService', () => {
         collectionId: mockCollectionId,
         name: 'Email Address',
         type: 'text' as const,
+        slug: 'email_address',
         isRequired: true,
       };
 
@@ -429,6 +438,7 @@ describe('CollectionFieldService', () => {
         const validData = {
           collectionId: mockCollectionId,
           name: 'Test Field',
+          slug: 'test_field',
           type,
           isRequired: false,
           defaultValue: validValue,

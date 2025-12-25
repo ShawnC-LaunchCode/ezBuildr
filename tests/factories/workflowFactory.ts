@@ -2,7 +2,7 @@
  * Test factory for creating workflow-related test data
  */
 
-import type { Workflow, Section, Step, LogicRule, WorkflowRun } from "@shared/schema";
+import type { Workflow, Section, Step, LogicRule, WorkflowRun } from "../../shared/schema";
 
 /**
  * Create a test workflow
@@ -18,11 +18,15 @@ export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
     status: "draft",
     creatorId: "user-test-123",
     ownerId: "user-test-123",
-    tenantId: "tenant-test-123",
     publicLink: null,
-    easyModeEnabled: false,
-    welcomeScreen: null,
-    thankYouScreen: null,
+    isPublic: false,
+    slug: null,
+    requireLogin: false,
+    intakeConfig: {},
+    pinnedVersionId: null,
+    modeOverride: null,
+    sourceBlueprintId: null,
+    currentVersionId: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -40,7 +44,9 @@ export function createTestSection(workflowId: string, overrides?: Partial<Sectio
     title: "Test Section",
     description: null,
     order: 1,
-    skipLogic: null,
+    skipIf: null,
+    config: {},
+    visibleIf: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -59,9 +65,12 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
     title: "Test Step",
     description: null,
     alias: null,
+    defaultValue: null,
     required: false,
     order: 1,
-    config: {},
+    options: {},
+    visibleIf: null,
+    repeaterConfig: null,
     isVirtual: false,
     createdAt: now,
     updatedAt: now,
@@ -77,16 +86,15 @@ export function createTestLogicRule(workflowId: string, overrides?: Partial<Logi
   return {
     id: "logic-" + Math.random().toString(36).substring(7),
     workflowId,
-    condition: {
-      stepId: "step-123",
-      operator: "equals",
-      value: "yes",
-    },
-    action: {
-      type: "show",
-      targetStepId: "step-456",
-    },
-    enabled: true,
+    conditionStepId: "step-123",
+    operator: "equals",
+    conditionValue: "yes",
+    targetType: "step",
+    targetStepId: "step-456",
+    targetSectionId: null,
+    action: "show",
+    logicalOperator: "AND",
+    order: 1,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -108,6 +116,12 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
     currentSectionId: null,
     progress: 0,
     metadata: null,
+    workflowVersionId: "v1", // Default to a dummy version
+    clientEmail: null,
+    portalAccessKey: null,
+    accessMode: "anonymous",
+    shareToken: null,
+    shareTokenExpiresAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,

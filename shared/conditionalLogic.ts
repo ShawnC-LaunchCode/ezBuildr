@@ -12,6 +12,13 @@ import type {
   ConditionalCondition
 } from './schema';
 
+export type {
+  ConditionalRule,
+  ConditionalEvaluationResult,
+  ConditionalLogicConfig,
+  ConditionalCondition
+};
+
 /**
  * Evaluation context for conditional logic
  */
@@ -45,40 +52,40 @@ export function evaluateCondition(
 
   const conditionAnswer = answers[rule.conditionQuestionId];
   const conditionValue = rule.conditionValue;
-  
+
   // If no answer provided for the condition question, evaluate as false
   if (conditionAnswer === undefined || conditionAnswer === null) {
     return rule.operator === 'is_empty';
   }
-  
+
   switch (rule.operator) {
     case 'equals':
       return isEqual(conditionAnswer, conditionValue);
-      
+
     case 'not_equals':
       return !isEqual(conditionAnswer, conditionValue);
-      
+
     case 'contains':
       return containsValue(conditionAnswer, conditionValue);
-      
+
     case 'not_contains':
       return !containsValue(conditionAnswer, conditionValue);
-      
+
     case 'greater_than':
       return compareNumeric(conditionAnswer, conditionValue, '>');
-      
+
     case 'less_than':
       return compareNumeric(conditionAnswer, conditionValue, '<');
-      
+
     case 'between':
       return isBetween(conditionAnswer, conditionValue);
-      
+
     case 'is_empty':
       return isEmpty(conditionAnswer);
-      
+
     case 'is_not_empty':
       return !isEmpty(conditionAnswer);
-      
+
     default:
       console.warn('Unknown condition operator:', rule.operator);
       return false;
@@ -93,17 +100,17 @@ function isEqual(answer: any, expectedValue: any): boolean {
   if (Array.isArray(answer) && Array.isArray(expectedValue)) {
     return JSON.stringify(answer.sort()) === JSON.stringify(expectedValue.sort());
   }
-  
+
   // Handle string/number comparisons
   if (typeof answer === 'string' && typeof expectedValue === 'string') {
     return answer.toLowerCase() === expectedValue.toLowerCase();
   }
-  
+
   // Handle boolean comparisons
   if (typeof answer === 'boolean' || typeof expectedValue === 'boolean') {
     return Boolean(answer) === Boolean(expectedValue);
   }
-  
+
   // Standard equality check
   return answer === expectedValue;
 }
@@ -115,11 +122,11 @@ function containsValue(answer: any, searchValue: any): boolean {
   if (Array.isArray(answer)) {
     return answer.some(item => isEqual(item, searchValue));
   }
-  
+
   if (typeof answer === 'string' && typeof searchValue === 'string') {
     return answer.toLowerCase().includes(searchValue.toLowerCase());
   }
-  
+
   return false;
 }
 
@@ -129,11 +136,11 @@ function containsValue(answer: any, searchValue: any): boolean {
 function compareNumeric(answer: any, compareValue: any, operator: '>' | '<'): boolean {
   const numAnswer = parseFloat(answer);
   const numCompareValue = parseFloat(compareValue);
-  
+
   if (isNaN(numAnswer) || isNaN(numCompareValue)) {
     return false;
   }
-  
+
   return operator === '>' ? numAnswer > numCompareValue : numAnswer < numCompareValue;
 }
 
@@ -142,23 +149,23 @@ function compareNumeric(answer: any, compareValue: any, operator: '>' | '<'): bo
  */
 function isBetween(answer: any, rangeValue: any): boolean {
   const numAnswer = parseFloat(answer);
-  
+
   if (isNaN(numAnswer)) {
     return false;
   }
-  
+
   // Expect rangeValue to be an object like { min: number, max: number }
   if (typeof rangeValue === 'object' && rangeValue.min !== undefined && rangeValue.max !== undefined) {
     const min = parseFloat(rangeValue.min);
     const max = parseFloat(rangeValue.max);
-    
+
     if (isNaN(min) || isNaN(max)) {
       return false;
     }
-    
+
     return numAnswer >= min && numAnswer <= max;
   }
-  
+
   return false;
 }
 
@@ -169,19 +176,19 @@ function isEmpty(answer: any): boolean {
   if (answer === null || answer === undefined) {
     return true;
   }
-  
+
   if (typeof answer === 'string') {
     return answer.trim() === '';
   }
-  
+
   if (Array.isArray(answer)) {
     return answer.length === 0;
   }
-  
+
   if (typeof answer === 'object') {
     return Object.keys(answer).length === 0;
   }
-  
+
   return false;
 }
 
@@ -193,23 +200,23 @@ function isEmpty(answer: any): boolean {
  * @returns Array of evaluation results for each question
  */
 export function evaluatePageConditionalLogic(
-  rules: ConditionalRule[], 
+  rules: ConditionalRule[],
   answers: Record<string, any>
 ): ConditionalEvaluationResult[] {
   const evaluationResults: Record<string, ConditionalEvaluationResult> = {};
-  
+
   // Group rules by target question
   const rulesByTarget = rules.reduce((acc, rule) => {
     const targetId = rule.targetQuestionId;
     if (!targetId) return acc;
-    
+
     if (!acc[targetId]) {
       acc[targetId] = [];
     }
     acc[targetId].push(rule);
     return acc;
   }, {} as Record<string, ConditionalRule[]>);
-  
+
   // Evaluate rules for each target question
   Object.entries(rulesByTarget).forEach(([questionId, questionRules]) => {
     const result = evaluateQuestionConditionalLogic(questionRules, answers);
@@ -220,7 +227,7 @@ export function evaluatePageConditionalLogic(
       reason: result.reason
     };
   });
-  
+
   return Object.values(evaluationResults);
 }
 
@@ -232,13 +239,13 @@ export function evaluatePageConditionalLogic(
  * @returns Evaluation result for the question
  */
 function evaluateQuestionConditionalLogic(
-  rules: ConditionalRule[], 
+  rules: ConditionalRule[],
   answers: Record<string, any>
 ): { visible: boolean; required: boolean; reason?: string } {
   if (rules.length === 0) {
     return { visible: true, required: false };
   }
-  
+
   // Group rules by logical operator
   const andRules = rules.filter(r => r.logicalOperator === 'AND' || !r.logicalOperator);
   const orRules = rules.filter(r => r.logicalOperator === 'OR');
@@ -250,20 +257,20 @@ function evaluateQuestionConditionalLogic(
   let visible = !hasOrShowRules;
   let required = false;
   const reasons: string[] = [];
-  
+
   // Evaluate AND rules - all must be true
   if (andRules.length > 0) {
     const andResults = andRules.map(rule => {
       const conditionMet = evaluateCondition(rule, answers);
       return { rule, conditionMet };
     });
-    
+
     const allAndConditionsMet = andResults.every(r => r.conditionMet);
-    
+
     // Apply actions based on AND results
     andRules.forEach((rule, index) => {
       const conditionMet = andResults[index].conditionMet;
-      
+
       switch (rule.action) {
         case 'show':
           if (allAndConditionsMet && conditionMet) {
@@ -274,21 +281,21 @@ function evaluateQuestionConditionalLogic(
             reasons.push(`Hidden due to unmet condition on ${rule.conditionQuestionId}`);
           }
           break;
-          
+
         case 'hide':
           if (allAndConditionsMet && conditionMet) {
             visible = false;
             reasons.push(`Hidden due to condition on ${rule.conditionQuestionId}`);
           }
           break;
-          
+
         case 'require':
           if (allAndConditionsMet && conditionMet) {
             required = true;
             reasons.push(`Required due to condition on ${rule.conditionQuestionId}`);
           }
           break;
-          
+
         case 'make_optional':
           if (allAndConditionsMet && conditionMet) {
             required = false;
@@ -298,34 +305,34 @@ function evaluateQuestionConditionalLogic(
       }
     });
   }
-  
+
   // Evaluate OR rules - any can be true to trigger action
   if (orRules.length > 0) {
     const orResults = orRules.map(rule => {
       const conditionMet = evaluateCondition(rule, answers);
       return { rule, conditionMet };
     });
-    
+
     orRules.forEach((rule, index) => {
       const conditionMet = orResults[index].conditionMet;
-      
+
       if (conditionMet) {
         switch (rule.action) {
           case 'show':
             visible = true;
             reasons.push(`Showing due to OR condition on ${rule.conditionQuestionId}`);
             break;
-            
+
           case 'hide':
             visible = false;
             reasons.push(`Hidden due to OR condition on ${rule.conditionQuestionId}`);
             break;
-            
+
           case 'require':
             required = true;
             reasons.push(`Required due to OR condition on ${rule.conditionQuestionId}`);
             break;
-            
+
           case 'make_optional':
             required = false;
             reasons.push(`Made optional due to OR condition on ${rule.conditionQuestionId}`);
@@ -334,11 +341,11 @@ function evaluateQuestionConditionalLogic(
       }
     });
   }
-  
-  return { 
-    visible, 
-    required, 
-    reason: reasons.length > 0 ? reasons.join('; ') : undefined 
+
+  return {
+    visible,
+    required,
+    reason: reasons.length > 0 ? reasons.join('; ') : undefined
   };
 }
 
@@ -352,52 +359,52 @@ export function detectCircularDependencies(rules: ConditionalRule[]): string[] {
   const circularRules: string[] = [];
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
-  
+
   // Create adjacency list for dependencies
   const dependencies: Record<string, string[]> = {};
-  
+
   rules.forEach(rule => {
     if (!rule.targetQuestionId) return;
-    
+
     if (!dependencies[rule.conditionQuestionId]) {
       dependencies[rule.conditionQuestionId] = [];
     }
     dependencies[rule.conditionQuestionId].push(rule.targetQuestionId);
   });
-  
+
   // DFS to detect cycles
   function hasCycle(questionId: string): boolean {
     if (recursionStack.has(questionId)) {
       return true; // Cycle detected
     }
-    
+
     if (visited.has(questionId)) {
       return false;
     }
-    
+
     visited.add(questionId);
     recursionStack.add(questionId);
-    
+
     const dependentQuestions = dependencies[questionId] || [];
-    
+
     for (const dependentId of dependentQuestions) {
       if (hasCycle(dependentId)) {
         circularRules.push(questionId);
         return true;
       }
     }
-    
+
     recursionStack.delete(questionId);
     return false;
   }
-  
+
   // Check all questions for cycles
   Object.keys(dependencies).forEach(questionId => {
     if (!visited.has(questionId)) {
       hasCycle(questionId);
     }
   });
-  
+
   return circularRules;
 }
 
@@ -412,43 +419,43 @@ export function validateConditionalLogic(config: ConditionalLogicConfig): {
   errors: string[];
 } {
   const errors: string[] = [];
-  
+
   if (!config.enabled) {
     return { valid: true, errors: [] };
   }
-  
+
   if (!config.conditions || config.conditions.length === 0) {
     errors.push('At least one condition is required when conditional logic is enabled');
   }
-  
+
   config.conditions.forEach((condition, index) => {
     if (!condition.questionId) {
       errors.push(`Condition ${index + 1}: Question ID is required`);
     }
-    
+
     if (!condition.operator) {
       errors.push(`Condition ${index + 1}: Operator is required`);
     }
-    
+
     // Validate value based on operator
     if (['equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than'].includes(condition.operator)) {
       if (condition.value === undefined || condition.value === null) {
         errors.push(`Condition ${index + 1}: Value is required for ${condition.operator} operator`);
       }
     }
-    
+
     if (condition.operator === 'between') {
-      if (!condition.value || typeof condition.value !== 'object' || 
-          condition.value.min === undefined || condition.value.max === undefined) {
+      if (!condition.value || typeof condition.value !== 'object' ||
+        condition.value.min === undefined || condition.value.max === undefined) {
         errors.push(`Condition ${index + 1}: Between operator requires min and max values`);
       }
     }
   });
-  
+
   if (!config.action) {
     errors.push('Action is required');
   }
-  
+
   return {
     valid: errors.length === 0,
     errors

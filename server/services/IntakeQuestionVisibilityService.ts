@@ -6,9 +6,9 @@
  * displayed within a page.
  */
 
-import * as repositories from "@server/repositories";
+import * as repositories from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
-import type { Step } from "@shared/schema";
+import type { Step } from "../../shared/schema";
 import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "intake-question-visibility" });
@@ -347,7 +347,7 @@ export class IntakeQuestionVisibilityService {
   clearCache(runId?: string): void {
     if (runId) {
       // Clear all cache entries for this run
-      for (const key of this.visibilityCache.keys()) {
+      for (const key of Array.from(this.visibilityCache.keys())) {
         if (key.startsWith(`${runId}-`)) {
           this.visibilityCache.delete(key);
         }
@@ -368,7 +368,7 @@ export class IntakeQuestionVisibilityService {
   getCacheStats(): { size: number; oldestEntryAgeMs: number | null } {
     let oldestTimestamp: number | null = null;
 
-    for (const entry of this.visibilityCache.values()) {
+    for (const entry of [...this.visibilityCache.values()]) {
       if (oldestTimestamp === null || entry.timestamp < oldestTimestamp) {
         oldestTimestamp = entry.timestamp;
       }

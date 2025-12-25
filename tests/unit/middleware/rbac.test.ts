@@ -97,7 +97,7 @@ describe("RBAC Middleware", () => {
 
       mockRes = {
         status: statusSpy,
-        json: jsonSpy,
+        json: jsonSpy as any,
       };
 
       mockNext = vi.fn();
@@ -187,7 +187,7 @@ describe("RBAC Middleware", () => {
 
       mockRes = {
         status: statusSpy,
-        json: jsonSpy,
+        json: jsonSpy as any,
       };
 
       mockNext = vi.fn();
@@ -244,7 +244,7 @@ describe("RBAC Middleware", () => {
 
       mockRes = {
         status: statusSpy,
-        json: jsonSpy,
+        json: jsonSpy as any,
       };
 
       mockNext = vi.fn();
@@ -301,7 +301,7 @@ describe("RBAC Middleware", () => {
 
       mockRes = {
         status: statusSpy,
-        json: jsonSpy,
+        json: jsonSpy as any,
       };
 
       mockNext = vi.fn();
@@ -357,7 +357,7 @@ describe("RBAC Middleware", () => {
     beforeEach(() => {
       mockRes = {
         status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
+        json: vi.fn() as any,
       };
 
       mockNext = vi.fn();
@@ -502,7 +502,7 @@ describe("RBAC Middleware", () => {
     beforeEach(() => {
       mockRes = {
         status: vi.fn().mockReturnThis(),
-        json: vi.fn(),
+        json: vi.fn() as any,
       };
 
       mockNext = vi.fn();

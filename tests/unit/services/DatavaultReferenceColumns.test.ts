@@ -185,7 +185,7 @@ describe('DataVault Reference Columns', () => {
       });
 
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
-      mockColumnsRepo.create.mockImplementation((data) => Promise.resolve(data));
+      mockColumnsRepo.create.mockImplementation((data: any) => Promise.resolve(data));
 
       const result = await columnsService.createColumn(
         {

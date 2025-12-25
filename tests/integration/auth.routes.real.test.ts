@@ -119,7 +119,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect(response.status).toBe(201);
       expect(response.headers['set-cookie']).toBeDefined();
 
-      const cookies = response.headers['set-cookie'] as string[];
+      const cookies = response.headers['set-cookie'] as unknown as string[];
       const refreshTokenCookie = cookies.find(c => c.startsWith('refresh_token='));
       expect(refreshTokenCookie).toBeDefined();
       expect(refreshTokenCookie).toContain('HttpOnly');
@@ -141,7 +141,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect(response.body.user.email).toBe(email);
 
       // Verify refresh token cookie is set
-      const cookies = response.headers['set-cookie'] as string[];
+      const cookies = response.headers['set-cookie'] as unknown as string[];
       const refreshTokenCookie = cookies.find(c => c.startsWith('refresh_token='));
       expect(refreshTokenCookie).toBeDefined();
     });

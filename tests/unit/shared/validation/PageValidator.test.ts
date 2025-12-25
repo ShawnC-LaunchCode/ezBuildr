@@ -28,7 +28,8 @@ describe('PageValidator', () => {
 
     it('should aggregate errors from invalid blocks', async () => {
         // Setup mock to fail for block2
-        mockValidateValue.mockImplementation(async ({ schema, value }) => {
+        mockValidateValue.mockImplementation(async (args: any) => {
+            const { value } = args;
             if (value === 'invalid') {
                 return { valid: false, errors: ['Error 1'] };
             }

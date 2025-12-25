@@ -88,7 +88,7 @@ describe('DatavaultTablesService', () => {
       mockColumnsRepo.countByTableId.mockResolvedValue(2);
       mockRowsRepo.countByTableId.mockResolvedValue(42);
 
-      const result = await service.listTablesWithStats(mockTenantId);
+      const result = await service.listTablesWithStats(mockTenantId, mockUserId);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty('columnCount', 2);

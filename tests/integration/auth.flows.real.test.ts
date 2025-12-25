@@ -310,7 +310,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
       // Since token is hashed, we need to use the service to generate it
       // We'll request a new one and capture it
-      const { authService } = await import("../../../server/services/AuthService");
+      const { authService } = await import("../../server/services/AuthService");
       const plainToken = await authService.generatePasswordResetToken(email);
 
       expect(plainToken).toBeTruthy();
@@ -354,7 +354,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       const oldToken = loginResponse.body.token;
 
       // Generate and use reset token
-      const { authService } = await import("../../../server/services/AuthService");
+      const { authService } = await import("../../server/services/AuthService");
       const resetToken = await authService.generatePasswordResetToken(email);
 
       const newPassword = randomPassword();
@@ -397,7 +397,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
         .post("/api/auth/login")
         .send({ email, password });
 
-      let cookies = loginResponse.headers['set-cookie'] as string[];
+      let cookies = loginResponse.headers['set-cookie'] as unknown as string[];
       let refreshTokenCookie = cookies.find(c => c.startsWith('refresh_token='));
 
       expect(refreshTokenCookie).toBeDefined();
@@ -411,7 +411,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
         expect(refreshResponse.status).toBe(200);
         expect(refreshResponse.body.token).toBeDefined();
 
-        const newCookies = refreshResponse.headers['set-cookie'] as string[];
+        const newCookies = refreshResponse.headers['set-cookie'] as unknown as string[];
         const newRefreshTokenCookie = newCookies.find(c => c.startsWith('refresh_token='));
 
         expect(newRefreshTokenCookie).toBeDefined();
@@ -430,7 +430,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
         .post("/api/auth/login")
         .send({ email, password });
 
-      const cookies = loginResponse.headers['set-cookie'] as string[];
+      const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
       const originalRefreshToken = cookies.find(c => c.startsWith('refresh_token='));
 
       // Use token once (rotation happens)

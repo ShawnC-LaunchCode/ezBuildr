@@ -81,7 +81,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       const result = await openaiService.generateWorkflow({
         description: 'Create a form to collect personal information',
@@ -131,7 +131,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       await expect(
         openaiService.generateWorkflow({
@@ -185,7 +185,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       await expect(
         openaiService.generateWorkflow({
@@ -243,7 +243,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       await expect(
         openaiService.generateWorkflow({
@@ -267,7 +267,7 @@ describe('AIService', () => {
             create: vi.fn().mockRejectedValue(rateLimitError),
           },
         },
-      };
+      } as any;
 
       try {
         await openaiService.generateWorkflow({
@@ -299,7 +299,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       try {
         await openaiService.generateWorkflow({
@@ -364,7 +364,7 @@ describe('AIService', () => {
         messages: {
           create: vi.fn().mockResolvedValue(mockResponse),
         },
-      };
+      } as any;
 
       const result = await anthropicService.generateWorkflow({
         description: 'Create a form to collect personal information',
@@ -404,7 +404,7 @@ describe('AIService', () => {
         messages: {
           create: vi.fn().mockResolvedValue(mockResponse),
         },
-      };
+      } as any;
 
       const result = await anthropicService.generateWorkflow({
         description: 'Test',
@@ -455,7 +455,7 @@ describe('AIService', () => {
             create: vi.fn().mockResolvedValue(mockResponse),
           },
         },
-      };
+      } as any;
 
       const result = await openaiService.suggestTemplateBindings(
         {

@@ -23,11 +23,11 @@ describe("conditionEvaluator", () => {
 
     it("should evaluate simple condition", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "greater_than",
             value: 18,
@@ -44,7 +44,7 @@ describe("conditionEvaluator", () => {
 
     it("should return true for empty conditions array", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [],
       };
@@ -57,11 +57,11 @@ describe("conditionEvaluator", () => {
   describe("evaluateConditionExpressionWithDetails", () => {
     it("should return detailed result with reason", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "status",
             operator: "equals",
             value: "active",
@@ -80,18 +80,18 @@ describe("conditionEvaluator", () => {
 
     it("should count multiple evaluated conditions", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "greater_than",
             value: 18,
             valueType: "constant",
           },
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "country",
             operator: "equals",
             value: "US",
@@ -109,11 +109,11 @@ describe("conditionEvaluator", () => {
 
     it("should return reason when conditions not satisfied", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "less_than",
             value: 18,
@@ -134,18 +134,18 @@ describe("conditionEvaluator", () => {
     describe("AND operator", () => {
       it("should return true when all conditions are true", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "age",
               operator: "greater_than",
               value: 18,
               valueType: "constant",
             },
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "country",
               operator: "equals",
               value: "US",
@@ -162,18 +162,18 @@ describe("conditionEvaluator", () => {
 
       it("should return false when any condition is false", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "age",
               operator: "greater_than",
               value: 18,
               valueType: "constant",
             },
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "country",
               operator: "equals",
               value: "UK",
@@ -192,18 +192,18 @@ describe("conditionEvaluator", () => {
     describe("OR operator", () => {
       it("should return true when any condition is true", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "OR",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "age",
               operator: "less_than",
               value: 18,
               valueType: "constant",
             },
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "country",
               operator: "equals",
               value: "US",
@@ -220,18 +220,18 @@ describe("conditionEvaluator", () => {
 
       it("should return false when all conditions are false", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "OR",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "age",
               operator: "less_than",
               value: 18,
               valueType: "constant",
             },
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "country",
               operator: "equals",
               value: "UK",
@@ -250,29 +250,29 @@ describe("conditionEvaluator", () => {
     describe("Nested groups", () => {
       it("should evaluate nested AND/OR groups", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "age",
               operator: "greater_than",
               value: 18,
               valueType: "constant",
             },
             {
-              type: "group",
+              type: "group", id: "g1",
               operator: "OR",
               conditions: [
                 {
-                  type: "condition",
+                  type: "condition", id: "c1",
                   variable: "country",
                   operator: "equals",
                   value: "US",
                   valueType: "constant",
                 },
                 {
-                  type: "condition",
+                  type: "condition", id: "c1",
                   variable: "country",
                   operator: "equals",
                   value: "UK",
@@ -291,26 +291,26 @@ describe("conditionEvaluator", () => {
 
       it("should handle deeply nested groups", () => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [
             {
-              type: "group",
+              type: "group", id: "g1",
               operator: "OR",
               conditions: [
                 {
-                  type: "group",
+                  type: "group", id: "g1",
                   operator: "AND",
                   conditions: [
                     {
-                      type: "condition",
+                      type: "condition", id: "c1",
                       variable: "a",
                       operator: "equals",
                       value: 1,
                       valueType: "constant",
                     },
                     {
-                      type: "condition",
+                      type: "condition", id: "c1",
                       variable: "b",
                       operator: "equals",
                       value: 2,
@@ -335,7 +335,7 @@ describe("conditionEvaluator", () => {
     describe("equals", () => {
       it("should match equal strings (case-insensitive)", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "name",
           operator: "equals",
           value: "JOHN",
@@ -343,7 +343,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -354,7 +354,7 @@ describe("conditionEvaluator", () => {
 
       it("should match equal numbers", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "count",
           operator: "equals",
           value: 42,
@@ -362,7 +362,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -373,7 +373,7 @@ describe("conditionEvaluator", () => {
 
       it("should match booleans", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "equals",
           value: true,
@@ -381,7 +381,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -392,7 +392,7 @@ describe("conditionEvaluator", () => {
 
       it("should match boolean string representations", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "equals",
           value: true,
@@ -400,7 +400,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -411,7 +411,7 @@ describe("conditionEvaluator", () => {
 
       it("should match arrays", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "tags",
           operator: "equals",
           value: ["a", "b"],
@@ -419,7 +419,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -430,7 +430,7 @@ describe("conditionEvaluator", () => {
 
       it("should match objects", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "meta",
           operator: "equals",
           value: { x: 1, y: 2 },
@@ -438,7 +438,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -449,7 +449,7 @@ describe("conditionEvaluator", () => {
 
       it("should handle null/undefined equality", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "equals",
           value: null,
@@ -457,7 +457,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -468,7 +468,7 @@ describe("conditionEvaluator", () => {
 
       it("should coerce number strings", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "count",
           operator: "equals",
           value: "42",
@@ -476,7 +476,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -489,7 +489,7 @@ describe("conditionEvaluator", () => {
     describe("not_equals", () => {
       it("should return true for different values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "status",
           operator: "not_equals",
           value: "inactive",
@@ -497,7 +497,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -508,7 +508,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false for equal values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "status",
           operator: "not_equals",
           value: "active",
@@ -516,7 +516,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -529,7 +529,7 @@ describe("conditionEvaluator", () => {
     describe("contains", () => {
       it("should find substring in string (case-insensitive)", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "contains",
           value: "WORLD",
@@ -537,7 +537,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -548,7 +548,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false when substring not found", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "contains",
           value: "xyz",
@@ -556,7 +556,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -569,7 +569,7 @@ describe("conditionEvaluator", () => {
     describe("not_contains", () => {
       it("should return true when substring not found", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "not_contains",
           value: "xyz",
@@ -577,7 +577,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -590,7 +590,7 @@ describe("conditionEvaluator", () => {
     describe("starts_with", () => {
       it("should match string prefix (case-insensitive)", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "starts_with",
           value: "HELLO",
@@ -598,7 +598,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -611,7 +611,7 @@ describe("conditionEvaluator", () => {
     describe("ends_with", () => {
       it("should match string suffix (case-insensitive)", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "ends_with",
           value: "WORLD",
@@ -619,7 +619,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -632,7 +632,7 @@ describe("conditionEvaluator", () => {
     describe("greater_than", () => {
       it("should compare numbers", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "age",
           operator: "greater_than",
           value: 18,
@@ -640,7 +640,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -651,7 +651,7 @@ describe("conditionEvaluator", () => {
 
       it("should parse string numbers", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "count",
           operator: "greater_than",
           value: "10",
@@ -659,7 +659,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -670,7 +670,7 @@ describe("conditionEvaluator", () => {
 
       it("should handle dates", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "birthdate",
           operator: "greater_than",
           value: "2000-01-01",
@@ -678,7 +678,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -689,7 +689,7 @@ describe("conditionEvaluator", () => {
 
       it("should convert booleans to numbers", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "flag",
           operator: "greater_than",
           value: false,
@@ -697,7 +697,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -710,7 +710,7 @@ describe("conditionEvaluator", () => {
     describe("less_than", () => {
       it("should compare numbers", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "age",
           operator: "less_than",
           value: 18,
@@ -718,7 +718,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -731,7 +731,7 @@ describe("conditionEvaluator", () => {
     describe("greater_or_equal", () => {
       it("should return true for greater value", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "score",
           operator: "greater_or_equal",
           value: 100,
@@ -739,7 +739,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -749,7 +749,7 @@ describe("conditionEvaluator", () => {
 
       it("should return true for equal value", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "score",
           operator: "greater_or_equal",
           value: 100,
@@ -757,7 +757,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -767,7 +767,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false for lesser value", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "score",
           operator: "greater_or_equal",
           value: 100,
@@ -775,7 +775,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -787,7 +787,7 @@ describe("conditionEvaluator", () => {
     describe("less_or_equal", () => {
       it("should compare numbers correctly", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "score",
           operator: "less_or_equal",
           value: 100,
@@ -795,7 +795,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -809,7 +809,7 @@ describe("conditionEvaluator", () => {
     describe("between", () => {
       it("should check if value is between min and max (inclusive)", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "age",
           operator: "between",
           value: 18,
@@ -818,7 +818,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -834,7 +834,7 @@ describe("conditionEvaluator", () => {
     describe("is_true", () => {
       it("should return true for boolean true", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "is_true",
           value: null,
@@ -842,7 +842,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -852,7 +852,7 @@ describe("conditionEvaluator", () => {
 
       it("should return true for truthy strings", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "is_true",
           value: null,
@@ -860,7 +860,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -872,7 +872,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false for falsy values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "is_true",
           value: null,
@@ -880,7 +880,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -894,7 +894,7 @@ describe("conditionEvaluator", () => {
     describe("is_false", () => {
       it("should return true for boolean false", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "active",
           operator: "is_false",
           value: null,
@@ -902,7 +902,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -914,7 +914,7 @@ describe("conditionEvaluator", () => {
     describe("is_empty", () => {
       it("should return true for null/undefined", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "is_empty",
           value: null,
@@ -922,7 +922,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -933,7 +933,7 @@ describe("conditionEvaluator", () => {
 
       it("should return true for empty string", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "text",
           operator: "is_empty",
           value: null,
@@ -941,7 +941,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -952,7 +952,7 @@ describe("conditionEvaluator", () => {
 
       it("should return true for empty array", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "items",
           operator: "is_empty",
           value: null,
@@ -960,7 +960,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -970,7 +970,7 @@ describe("conditionEvaluator", () => {
 
       it("should return true for empty object", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "meta",
           operator: "is_empty",
           value: null,
@@ -978,9 +978,9 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
-          conditions: [condition],
+          conditions: [condition as any],
         };
 
         expect(evaluateConditionExpression(expression, { meta: {} })).toBe(true);
@@ -988,7 +988,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false for non-empty values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "is_empty",
           value: null,
@@ -996,7 +996,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1010,7 +1010,7 @@ describe("conditionEvaluator", () => {
     describe("is_not_empty", () => {
       it("should return true for non-empty values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "is_not_empty",
           value: null,
@@ -1018,7 +1018,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1030,7 +1030,7 @@ describe("conditionEvaluator", () => {
 
       it("should return false for empty values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "is_not_empty",
           value: null,
@@ -1038,7 +1038,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1051,7 +1051,7 @@ describe("conditionEvaluator", () => {
     describe("includes", () => {
       it("should check if array includes value", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "tags",
           operator: "includes",
           value: "important",
@@ -1059,7 +1059,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1070,7 +1070,7 @@ describe("conditionEvaluator", () => {
 
       it("should handle non-array values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "includes",
           value: "test",
@@ -1078,7 +1078,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1090,7 +1090,7 @@ describe("conditionEvaluator", () => {
     describe("not_includes", () => {
       it("should return true when array does not include value", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "tags",
           operator: "not_includes",
           value: "blocked",
@@ -1098,7 +1098,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1111,7 +1111,7 @@ describe("conditionEvaluator", () => {
     describe("includes_all", () => {
       it("should return true when array includes all required values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "tags",
           operator: "includes_all",
           value: ["urgent", "important"],
@@ -1119,7 +1119,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1132,7 +1132,7 @@ describe("conditionEvaluator", () => {
     describe("includes_any", () => {
       it("should return true when array includes any of the values", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "tags",
           operator: "includes_any",
           value: ["urgent", "blocked"],
@@ -1140,7 +1140,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1153,7 +1153,7 @@ describe("conditionEvaluator", () => {
     describe("Unknown operator", () => {
       it("should default to true and log warning", () => {
         const condition: Condition = {
-          type: "condition",
+          type: "condition", id: "c1",
           variable: "value",
           operator: "unknown_operator" as any,
           value: "test",
@@ -1161,7 +1161,7 @@ describe("conditionEvaluator", () => {
         };
 
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [condition],
         };
@@ -1184,7 +1184,7 @@ describe("conditionEvaluator", () => {
 
     it("should resolve alias to step ID when resolver is provided", () => {
       const condition: Condition = {
-        type: "condition",
+        type: "condition", id: "c1",
         variable: "firstName",
         operator: "equals",
         value: "John",
@@ -1192,7 +1192,7 @@ describe("conditionEvaluator", () => {
       };
 
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [condition],
       };
@@ -1205,7 +1205,7 @@ describe("conditionEvaluator", () => {
 
     it("should fall back to original key if not resolved", () => {
       const condition: Condition = {
-        type: "condition",
+        type: "condition", id: "c1",
         variable: "unknownAlias",
         operator: "equals",
         value: "test",
@@ -1213,7 +1213,7 @@ describe("conditionEvaluator", () => {
       };
 
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [condition],
       };
@@ -1226,7 +1226,7 @@ describe("conditionEvaluator", () => {
 
     it("should resolve variable references in value", () => {
       const condition: Condition = {
-        type: "condition",
+        type: "condition", id: "c1",
         variable: "firstName",
         operator: "equals",
         value: "lastName",
@@ -1234,7 +1234,7 @@ describe("conditionEvaluator", () => {
       };
 
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [condition],
       };
@@ -1250,7 +1250,7 @@ describe("conditionEvaluator", () => {
 
     it("should skip conditions with no variable selected", () => {
       const condition: Condition = {
-        type: "condition",
+        type: "condition", id: "c1",
         variable: "",
         operator: "equals",
         value: "test",
@@ -1258,7 +1258,7 @@ describe("conditionEvaluator", () => {
       };
 
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [condition],
       };
@@ -1338,11 +1338,11 @@ describe("conditionEvaluator", () => {
 
     it("should describe simple condition", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "greater_than",
             value: 18,
@@ -1359,18 +1359,18 @@ describe("conditionEvaluator", () => {
 
     it("should describe AND conditions", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "greater_than",
             value: 18,
             valueType: "constant",
           },
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "country",
             operator: "equals",
             value: "US",
@@ -1385,18 +1385,18 @@ describe("conditionEvaluator", () => {
 
     it("should describe OR conditions", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "OR",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "less_than",
             value: 18,
             valueType: "constant",
           },
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "greater_than",
             value: 65,
@@ -1411,11 +1411,11 @@ describe("conditionEvaluator", () => {
 
     it("should use variable labels when provided", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "step-uuid-123",
             operator: "equals",
             value: "test",
@@ -1434,11 +1434,11 @@ describe("conditionEvaluator", () => {
 
     it("should describe between operator", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "age",
             operator: "between",
             value: 18,
@@ -1464,11 +1464,11 @@ describe("conditionEvaluator", () => {
 
       operators.forEach((op) => {
         const expression: ConditionExpression = {
-          type: "group",
+          type: "group", id: "g1",
           operator: "AND",
           conditions: [
             {
-              type: "condition",
+              type: "condition", id: "c1",
               variable: "value",
               operator: op,
               value: null,
@@ -1485,11 +1485,11 @@ describe("conditionEvaluator", () => {
 
     it("should describe variable references", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "firstName",
             operator: "equals",
             value: "lastName",
@@ -1510,22 +1510,22 @@ describe("conditionEvaluator", () => {
 
     it("should handle nested groups with parentheses", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "group",
+            type: "group", id: "g1",
             operator: "OR",
             conditions: [
               {
-                type: "condition",
+                type: "condition", id: "c1",
                 variable: "a",
                 operator: "equals",
                 value: 1,
                 valueType: "constant",
               },
               {
-                type: "condition",
+                type: "condition", id: "c1",
                 variable: "b",
                 operator: "equals",
                 value: 2,
@@ -1544,11 +1544,11 @@ describe("conditionEvaluator", () => {
 
     it("should format array values", () => {
       const expression: ConditionExpression = {
-        type: "group",
+        type: "group", id: "g1",
         operator: "AND",
         conditions: [
           {
-            type: "condition",
+            type: "condition", id: "c1",
             variable: "tags",
             operator: "includes_all",
             value: ["urgent", "important"],

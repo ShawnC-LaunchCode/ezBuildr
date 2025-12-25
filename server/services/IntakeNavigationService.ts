@@ -8,7 +8,7 @@
 
 import { sectionRepository, stepRepository, stepValueRepository } from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
-import type { Section } from "@shared/schema";
+import type { Section } from "../../shared/schema";
 import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "intake-navigation" });
@@ -60,7 +60,7 @@ export class IntakeNavigationService {
     const stepValues = await stepValueRepository.findByRunId(runId);
 
     // Load all steps to map stepId -> alias
-    const allSteps = await (stepRepository as any).findByWorkflowId(workflowId);
+    const allSteps = await stepRepository.findByWorkflowIdWithAliases(workflowId);
     const stepIdToAlias = new Map<string, string>();
     for (const step of allSteps) {
       if (step.alias) {

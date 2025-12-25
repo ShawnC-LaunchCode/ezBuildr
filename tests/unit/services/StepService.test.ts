@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { StepService } from "../../../server/services/StepService";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
-import type { InsertStep } from "@shared/schema";
+import type { InsertStep } from "../../../shared/schema";
 
 describe("StepService", () => {
   let service: StepService;
@@ -48,7 +48,8 @@ describe("StepService", () => {
         type: "short_text",
         title: "New Step",
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 3 });
@@ -77,7 +78,8 @@ describe("StepService", () => {
         type: "short_text",
         title: "First Step",
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 1 });
@@ -104,7 +106,8 @@ describe("StepService", () => {
         title: "Duplicate Alias",
         alias: "firstName",
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
@@ -126,7 +129,8 @@ describe("StepService", () => {
         title: "No Alias Step",
         alias: null,
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData });
@@ -148,7 +152,8 @@ describe("StepService", () => {
         type: "short_text",
         title: "New Step",
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
@@ -167,7 +172,8 @@ describe("StepService", () => {
         type: "short_text",
         title: "New Step",
         required: false,
-        config: {},
+        options: {},
+        order: 1,
       };
 
       mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied"));

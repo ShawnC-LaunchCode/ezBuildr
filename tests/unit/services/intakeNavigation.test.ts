@@ -16,10 +16,10 @@ import * as repositories from '../../../server/repositories';
 // Mock the repositories
 vi.mock('../../../server/repositories', () => ({
   sectionRepository: {
-    findByWorkflowId: vi.fn(),
+    findByWorkflowIdWithAliases: vi.fn(),
   },
   stepRepository: {
-    findByWorkflowId: vi.fn(),
+    findByWorkflowIdWithAliases: vi.fn(),
   },
   stepValueRepository: {
     findByRunId: vi.fn(),
@@ -46,9 +46,9 @@ describe('IntakeNavigationService', () => {
         { id: 'page3', workflowId: 'wf1', title: 'Page 3', order: 2, visibleIf: null, skipIf: null },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -62,9 +62,9 @@ describe('IntakeNavigationService', () => {
     });
 
     it('should handle empty workflow', async () => {
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -82,9 +82,9 @@ describe('IntakeNavigationService', () => {
         { id: 'page3', workflowId: 'wf1', title: 'Page 3', order: 2, visibleIf: null, skipIf: null },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const result = await service.evaluateNavigation('wf1', 'run1', 'page2');
 
@@ -122,9 +122,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step1', value: false }, // showPage2 = false
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -155,9 +155,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step1', value: true }, // showPage2 = true
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -193,9 +193,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step2', value: 25 },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -230,9 +230,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step1', value: true }, // skipEmployment = true
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -263,9 +263,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step1', value: false }, // skipEmployment = false
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -303,9 +303,9 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step2', value: true },  // skip = true
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues1 as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues1 as any);
 
       const result1 = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -319,7 +319,7 @@ describe('IntakeNavigationService', () => {
         { runId: 'run1', stepId: 'step2', value: true },  // skip = true
       ];
 
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues2 as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues2 as any);
 
       const result2 = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -340,9 +340,9 @@ describe('IntakeNavigationService', () => {
         { id: 'page2', workflowId: 'wf1', title: 'Page 2', order: 1, visibleIf: null, skipIf: null },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const firstPage = await service.getFirstPage('wf1', 'run1');
 
@@ -364,9 +364,9 @@ describe('IntakeNavigationService', () => {
       const mockSteps = [{ id: 'step1', sectionId: 'page1', alias: 'show' }];
       const mockValues = [{ runId: 'run1', stepId: 'step1', value: false }];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const firstPage = await service.getFirstPage('wf1', 'run1');
 
@@ -389,9 +389,9 @@ describe('IntakeNavigationService', () => {
       const mockSteps = [{ id: 'step1', sectionId: 'page1', alias: 'show' }];
       const mockValues = [{ runId: 'run1', stepId: 'step1', value: false }];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const isPage1Navigable = await service.isPageNavigable('wf1', 'run1', 'page1');
       const isPage2Navigable = await service.isPageNavigable('wf1', 'run1', 'page2');
@@ -417,9 +417,9 @@ describe('IntakeNavigationService', () => {
       const mockSteps = [{ id: 'step1', sectionId: 'page1', alias: 'skip' }];
       const mockValues = [{ runId: 'run1', stepId: 'step1', value: true }];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       const sequence = await service.getPageSequence('wf1', 'run1');
 
@@ -444,9 +444,9 @@ describe('IntakeNavigationService', () => {
         },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -467,9 +467,9 @@ describe('IntakeNavigationService', () => {
         },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       const result = await service.evaluateNavigation('wf1', 'run1', null);
 
@@ -492,9 +492,9 @@ describe('IntakeNavigationService', () => {
         { id: 'page4', workflowId: 'wf1', title: 'Page 4', order: 3, visibleIf: null, skipIf: null },
       ];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue([]);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue([]);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue([]);
 
       // Page 1: 1/4 = 25%
       const result1 = await service.evaluateNavigation('wf1', 'run1', 'page1');
@@ -530,9 +530,9 @@ describe('IntakeNavigationService', () => {
       const mockSteps = [{ id: 'step1', sectionId: 'page1', alias: 'skip' }];
       const mockValues = [{ runId: 'run1', stepId: 'step1', value: true }];
 
-      vi.mocked(repositories.sectionRepository.findByWorkflowId).mockResolvedValue(mockPages as any);
-      vi.mocked(repositories.stepRepository.findByWorkflowId).mockResolvedValue(mockSteps as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      vi.mocked(repositories.sectionRepository.findByWorkflowId as any).mockResolvedValue(mockPages as any);
+      vi.mocked(repositories.stepRepository.findByWorkflowIdWithAliases as any).mockResolvedValue(mockSteps as any);
+      vi.mocked(repositories.stepValueRepository.findByRunId as any).mockResolvedValue(mockValues as any);
 
       // Only 2 navigable pages: page1, page3
       // Page 1: 1/2 = 50%

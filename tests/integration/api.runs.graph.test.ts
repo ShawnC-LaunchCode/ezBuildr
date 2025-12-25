@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import request from "supertest";
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
@@ -27,7 +27,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
   let runId2: string;
 
   // Mock setupAuth to allow backdoor login
-  vi.mock("../../server/googleAuth", async (importOriginal) => {
+  vi.mock("../../server/googleAuth", async (importOriginal: () => Promise<any>) => {
     const actual = await importOriginal();
     return {
       ...actual,
@@ -35,7 +35,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
         app.use(actual.getSession());
 
         // Debug middleware to log cookies and session AND restore req.user
-        app.use((req, res, next) => {
+        app.use((req: any, res: any, next: any) => {
           if (req.session && req.session.user) {
             // Restore req.user from session (mimic passport)
             req.user = req.session.user;
@@ -148,7 +148,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
       published: true,
       publishedAt: new Date(),
       publishedBy: userId,
-      name: "v1.0",
+      publishedBy: userId,
     }).returning();
     workflowVersionId = version.id;
 

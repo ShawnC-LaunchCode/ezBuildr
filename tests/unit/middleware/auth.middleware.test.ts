@@ -39,7 +39,7 @@ describe("Auth Middleware", () => {
 
     mockRes = {
       status: statusMock as any,
-      json: jsonMock,
+      json: jsonMock as any,
     };
 
     mockNext = vi.fn();

@@ -14,8 +14,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -31,8 +31,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -48,8 +48,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: 42,
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -67,8 +67,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "not_equals",
           conditionValue: "yes",
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -84,8 +84,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "not_equals",
           conditionValue: "yes",
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -103,8 +103,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "contains",
           conditionValue: "feedback",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -120,8 +120,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "contains",
           conditionValue: "option2",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -137,8 +137,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "contains",
           conditionValue: "missing",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -156,8 +156,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "greater_than",
           conditionValue: 50,
-          action: "require",
-          targetQuestionId: "q2",
+          action: "require", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -173,8 +173,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "greater_than",
           conditionValue: 50,
-          action: "require",
-          targetQuestionId: "q2",
+          action: "require", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -192,8 +192,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "less_than",
           conditionValue: 100,
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -209,8 +209,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "less_than",
           conditionValue: 100,
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -228,8 +228,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "between",
           conditionValue: { min: 10, max: 50 },
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -245,8 +245,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "between",
           conditionValue: { min: 10, max: 50 },
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const contextMin: EvaluationContext = {
@@ -268,8 +268,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "between",
           conditionValue: { min: 10, max: 50 },
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -287,8 +287,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_empty",
           conditionValue: null,
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -304,8 +304,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_empty",
           conditionValue: null,
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -321,8 +321,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_empty",
           conditionValue: null,
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -338,8 +338,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_empty",
           conditionValue: null,
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -357,8 +357,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_not_empty",
           conditionValue: null,
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const context: EvaluationContext = {
@@ -374,8 +374,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "is_not_empty",
           conditionValue: null,
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         };
 
         const contextNull: EvaluationContext = {
@@ -413,8 +413,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         },
       ];
 
@@ -434,8 +434,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q2",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         },
       ];
 
@@ -455,8 +455,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "skip",
-          action: "hide",
-          targetQuestionId: "q2",
+          action: "hide", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         },
       ];
 
@@ -476,8 +476,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "high",
-          action: "require",
-          targetQuestionId: "q2",
+          action: "require", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         },
       ];
 
@@ -498,8 +498,8 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "low",
-          action: "make_optional",
-          targetQuestionId: "q2",
+          action: "make_optional", id: "c1", createdAt: null, surveyId: "s1", order: 1, logicalOperator: null,
+          targetQuestionId: "q2", targetPageId: null,
         },
       ];
 
@@ -520,16 +520,16 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q3",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1,
+          targetQuestionId: "q3", targetPageId: null,
           logicalOperator: "AND",
         },
         {
           conditionQuestionId: "q2",
           operator: "equals",
           conditionValue: "high",
-          action: "show",
-          targetQuestionId: "q3",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1,
+          targetQuestionId: "q3", targetPageId: null,
           logicalOperator: "AND",
         },
       ];
@@ -560,16 +560,16 @@ describe("conditionalLogic", () => {
           conditionQuestionId: "q1",
           operator: "equals",
           conditionValue: "yes",
-          action: "show",
-          targetQuestionId: "q3",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1,
+          targetQuestionId: "q3", targetPageId: null,
           logicalOperator: "OR",
         },
         {
           conditionQuestionId: "q2",
           operator: "equals",
           conditionValue: "high",
-          action: "show",
-          targetQuestionId: "q3",
+          action: "show", id: "c1", createdAt: null, surveyId: "s1", order: 1,
+          targetQuestionId: "q3", targetPageId: null,
           logicalOperator: "OR",
         },
       ];

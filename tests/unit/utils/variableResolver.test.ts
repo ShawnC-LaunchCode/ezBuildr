@@ -7,26 +7,38 @@ describe("VariableResolver", () => {
     {
       key: "step-uuid-123",
       alias: "firstName",
-      title: "First Name",
       type: "short_text",
+      label: "First Name",
+      sectionId: "sec-1",
+      sectionTitle: "Section 1",
+      stepId: "step-1",
     },
     {
       key: "step-uuid-456",
       alias: "lastName",
-      title: "Last Name",
       type: "short_text",
+      label: "Last Name",
+      sectionId: "sec-1",
+      sectionTitle: "Section 1",
+      stepId: "step-2",
     },
     {
       key: "step-uuid-789",
       alias: null,
-      title: "Email",
       type: "short_text",
+      label: "Email",
+      sectionId: "section-1",
+      sectionTitle: "Section 1",
+      stepId: "step-uuid-789",
     },
     {
       key: "step-uuid-101",
       alias: "age",
-      title: "Age",
       type: "short_text",
+      label: "Age",
+      sectionId: "section-1",
+      sectionTitle: "Section 1",
+      stepId: "step-uuid-101",
     },
   ];
 
@@ -142,8 +154,11 @@ describe("VariableResolver", () => {
         {
           key: "firstName", // Same as another variable's alias
           alias: "conflictingAlias",
-          title: "Conflicting",
           type: "short_text",
+          label: "Conflicting",
+          sectionId: "sec-1",
+          sectionTitle: "Section 1",
+          stepId: "step-conflicting",
         },
       ];
 
@@ -160,7 +175,6 @@ describe("VariableResolver", () => {
       expect(result).toEqual({
         key: "step-uuid-789",
         alias: null,
-        title: "Email",
         type: "short_text",
       });
     });

@@ -496,6 +496,10 @@ export const conditionalRules = pgTable("conditional_rules", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
+
+
+
 // Responses table
 export const responses = pgTable("responses", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -961,32 +965,29 @@ export const templateSharesRelations = relations(templateShares, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertUserCredentialsSchema = createInsertSchema(userCredentials).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSurveySchema = createInsertSchema(surveys).omit({ id: true, createdAt: true, updatedAt: true, publicLink: true });
-export const insertSurveyPageSchema = createInsertSchema(surveyPages).omit({ id: true, createdAt: true });
-export const insertQuestionSchema = createInsertSchema(questions).omit({ id: true, createdAt: true });
-export const insertLoopGroupSubquestionSchema = createInsertSchema(loopGroupSubquestions).omit({ id: true, createdAt: true });
-export const insertConditionalRuleSchema = createInsertSchema(conditionalRules).omit({ id: true, createdAt: true });
-export const insertResponseSchema = createInsertSchema(responses).omit({ id: true, createdAt: true });
-export const insertAnswerSchema = createInsertSchema(answers).omit({ id: true, createdAt: true });
-export const insertAnonymousResponseTrackingSchema = createInsertSchema(anonymousResponseTracking).omit({ id: true, createdAt: true });
-export const insertFileSchema = createInsertSchema(files).omit({ id: true, uploadedAt: true });
-export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTemplateShareSchema = createInsertSchema(templateShares).omit({ id: true, invitedAt: true, acceptedAt: true });
-export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ createdAt: true, updatedAt: true });
-export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPersonalizationSettings).omit({ createdAt: true, updatedAt: true });
-export const insertWorkflowPersonalizationSettingsSchema = createInsertSchema(workflowPersonalizationSettings).omit({ createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users); // ;
+export const insertUserCredentialsSchema = createInsertSchema(userCredentials);
+export const insertSurveySchema = createInsertSchema(surveys);
+export const insertSurveyPageSchema = createInsertSchema(surveyPages);
+export const insertQuestionSchema = createInsertSchema(questions);
+export const insertLoopGroupSubquestionSchema = createInsertSchema(loopGroupSubquestions);
+export const insertConditionalRuleSchema = createInsertSchema(conditionalRules);
+export const insertResponseSchema = createInsertSchema(responses);
+export const insertAnswerSchema = createInsertSchema(answers);
+export const insertAnonymousResponseTrackingSchema = createInsertSchema(anonymousResponseTracking);
+export const insertFileSchema = createInsertSchema(files);
+export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates);
+export const insertTemplateShareSchema = createInsertSchema(templateShares);
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
+export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPersonalizationSettings);
+export const insertWorkflowPersonalizationSettingsSchema = createInsertSchema(workflowPersonalizationSettings);
 
 // Analytics Insert Schemas (Strict validation not required here as mostly internal)
-export const insertWorkflowRunEventSchema = createInsertSchema(workflowRunEvents).omit({ id: true, timestamp: true });
-export const insertWorkflowRunMetricsSchema = createInsertSchema(workflowRunMetrics).omit({ createdAt: true });
+export const insertWorkflowRunEventSchema = createInsertSchema(workflowRunEvents);
+export const insertWorkflowRunMetricsSchema = createInsertSchema(workflowRunMetrics);
 
 // Analytics event validation schema with strict validation
-export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
-  id: true,
-  timestamp: true
-}).extend({
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents /* .omit removed */).extend({
   event: z.enum(['page_view', 'page_leave', 'question_focus', 'question_blur', 'question_answer', 'question_skip', 'survey_start', 'survey_complete', 'survey_abandon']),
   responseId: z.string().uuid("Invalid response ID format"),
   surveyId: z.string().uuid("Invalid survey ID format"),
@@ -996,17 +997,17 @@ export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).om
   data: z.record(z.any()).optional()
 });
 
-export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkspaceSchema = createInsertSchema(workspaces).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers).omit({ id: true, joinedAt: true });
-export const insertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations).omit({ id: true, createdAt: true });
+export const insertOrganizationSchema = createInsertSchema(organizations);
+export const insertWorkspaceSchema = createInsertSchema(workspaces);
+export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers);
+export const insertWorkspaceInvitationSchema = createInsertSchema(workspaceInvitations);
 
 
-export const insertBillingPlanSchema = createInsertSchema(billingPlans).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSubscriptionSeatSchema = createInsertSchema(subscriptionSeats).omit({ id: true, assignedAt: true });
-export const insertCustomerBillingInfoSchema = createInsertSchema(customerBillingInfo).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertUsageRecordSchema = createInsertSchema(usageRecords).omit({ id: true, recordedAt: true });
+export const insertBillingPlanSchema = createInsertSchema(billingPlans);
+export const insertSubscriptionSchema = createInsertSchema(subscriptions);
+export const insertSubscriptionSeatSchema = createInsertSchema(subscriptionSeats);
+export const insertCustomerBillingInfoSchema = createInsertSchema(customerBillingInfo);
+export const insertUsageRecordSchema = createInsertSchema(usageRecords);
 
 // Types
 export type BillingPlan = typeof billingPlans.$inferSelect;
@@ -2078,6 +2079,8 @@ export const logicRules = pgTable("logic_rules", {
   index("logic_rules_target_section_idx").on(table.targetSectionId),
 ]);
 
+
+
 // Workflow runs table (execution instances)
 // Runs are now independent of participants - they can be creator-started or anonymous
 export const workflowRuns = pgTable("workflow_runs", {
@@ -2483,39 +2486,39 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
 }));
 
 // Vault-Logic Insert Schemas
-export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTenantDomainSchema = createInsertSchema(tenantDomains).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 17
-export const insertEmailTemplateMetadataSchema = createInsertSchema(emailTemplateMetadata).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 17
-export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true, currentVersionId: true });
-export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
-export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 21
-export const insertRunSchema = createInsertSchema(runs).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRunOutputSchema = createInsertSchema(runOutputs).omit({ id: true, createdAt: true, updatedAt: true }); // Stage 21
-export const insertSecretSchema = createInsertSchema(secrets).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertExternalConnectionSchema = createInsertSchema(externalConnections).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({ id: true, ts: true, createdAt: true });
-export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, updatedAt: true, lastUsedAt: true });
-export const insertRunLogSchema = createInsertSchema(runLogs).omit({ id: true, createdAt: true });
+export const insertTenantSchema = createInsertSchema(tenants);
+export const insertTenantDomainSchema = createInsertSchema(tenantDomains); // Stage 17
+export const insertEmailTemplateMetadataSchema = createInsertSchema(emailTemplateMetadata); // Stage 17
+export const insertProjectSchema = createInsertSchema(projects);
+export const insertWorkflowSchema = createInsertSchema(workflows);
+export const insertWorkflowVersionSchema = createInsertSchema(workflowVersions);
+export const insertTemplateSchema = createInsertSchema(templates);
+export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates); // Stage 21
+export const insertRunSchema = createInsertSchema(runs);
+export const insertRunOutputSchema = createInsertSchema(runOutputs); // Stage 21
+export const insertSecretSchema = createInsertSchema(secrets);
+export const insertExternalConnectionSchema = createInsertSchema(externalConnections);
+export const insertAuditEventSchema = createInsertSchema(auditEvents);
+export const insertApiKeySchema = createInsertSchema(apiKeys);
+export const insertRunLogSchema = createInsertSchema(runLogs);
 
 // Stage 14: Review & E-Signature insert schemas
-export const insertReviewTaskSchema = createInsertSchema(reviewTasks).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSignatureRequestSchema = createInsertSchema(signatureRequests).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSignatureEventSchema = createInsertSchema(signatureEvents).omit({ id: true, timestamp: true });
+export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
+export const insertSignatureRequestSchema = createInsertSchema(signatureRequests);
+export const insertSignatureEventSchema = createInsertSchema(signatureEvents);
 
 // Stage 19: Collections/Datastore insert schemas
-export const insertCollectionSchema = createInsertSchema(collections).omit({ id: true, createdAt: true, updatedAt: true }).strict();
-export const insertCollectionFieldSchema = createInsertSchema(collectionFields).omit({ id: true, createdAt: true, updatedAt: true }).strict();
-export const insertRecordSchema = createInsertSchema(records).omit({ id: true, createdAt: true, updatedAt: true }).strict();
+export const insertCollectionSchema = createInsertSchema(collections).strict();
+export const insertCollectionFieldSchema = createInsertSchema(collectionFields).strict();
+export const insertRecordSchema = createInsertSchema(records).strict();
 
-export const insertSectionSchema = createInsertSchema(sections).omit({ id: true, createdAt: true });
-export const insertStepSchema = createInsertSchema(steps).omit({ id: true, createdAt: true });
-export const insertLogicRuleSchema = createInsertSchema(logicRules).omit({ id: true, createdAt: true });
-export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertStepValueSchema = createInsertSchema(stepValues).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments).omit({ id: true, createdAt: true });
-export const insertBlockSchema = createInsertSchema(blocks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSectionSchema = createInsertSchema(sections);
+export const insertStepSchema = createInsertSchema(steps);
+export const insertLogicRuleSchema = createInsertSchema(logicRules);
+export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
+export const insertStepValueSchema = createInsertSchema(stepValues);
+export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments);
+export const insertBlockSchema = createInsertSchema(blocks);
 
 // Transform block types
 export const transformBlockTypeEnum = pgEnum('transform_block_type', [
@@ -2593,8 +2596,8 @@ export const transformBlockRunsRelations = relations(transformBlockRuns, ({ one 
 }));
 
 // Transform Blocks Insert Schemas
-export const insertTransformBlockSchema = createInsertSchema(transformBlocks).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns).omit({ id: true, startedAt: true });
+export const insertTransformBlockSchema = createInsertSchema(transformBlocks);
+export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns);
 
 // ===================================================================
 // LIFECYCLE HOOKS & SCRIPTING SYSTEM
@@ -2715,9 +2718,9 @@ export const scriptExecutionLogRelations = relations(scriptExecutionLog, ({ one 
 }));
 
 // Scripting System Insert Schemas
-export const insertLifecycleHookSchema = createInsertSchema(lifecycleHooks).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertDocumentHookSchema = createInsertSchema(documentHooks).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog).omit({ id: true, createdAt: true });
+export const insertLifecycleHookSchema = createInsertSchema(lifecycleHooks);
+export const insertDocumentHookSchema = createInsertSchema(documentHooks);
+export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog);
 
 // Scripting System TypeScript Types
 export type LifecycleHook = typeof lifecycleHooks.$inferSelect;
@@ -2785,10 +2788,10 @@ export const workflowAccessRelations = relations(workflowAccess, ({ one }) => ({
 }));
 
 // Teams & ACL Insert Schemas
-export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
-export const insertProjectAccessSchema = createInsertSchema(projectAccess).omit({ id: true, createdAt: true });
-export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess).omit({ id: true, createdAt: true });
+export const insertTeamSchema = createInsertSchema(teams);
+export const insertTeamMemberSchema = createInsertSchema(teamMembers);
+export const insertProjectAccessSchema = createInsertSchema(projectAccess);
+export const insertWorkflowAccessSchema = createInsertSchema(workflowAccess);
 
 // ===================================================================
 // REAL-TIME COLLABORATION (Stage 7B)
@@ -2865,9 +2868,9 @@ export const collabSnapshotsRelations = relations(collabSnapshots, ({ one }) => 
 }));
 
 // Collaboration Insert Schemas
-export const insertCollabDocSchema = createInsertSchema(collabDocs).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertCollabUpdateSchema = createInsertSchema(collabUpdates).omit({ id: true, ts: true });
-export const insertCollabSnapshotSchema = createInsertSchema(collabSnapshots).omit({ id: true, ts: true });
+export const insertCollabDocSchema = createInsertSchema(collabDocs);
+export const insertCollabUpdateSchema = createInsertSchema(collabUpdates);
+export const insertCollabSnapshotSchema = createInsertSchema(collabSnapshots);
 
 // Collaboration Types
 export type CollabDoc = typeof collabDocs.$inferSelect;
@@ -2878,7 +2881,7 @@ export type CollabSnapshot = typeof collabSnapshots.$inferSelect;
 export type InsertCollabSnapshot = typeof insertCollabSnapshotSchema._type;
 
 // External Destinations Types
-export const insertExternalDestinationSchema = createInsertSchema(externalDestinations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertExternalDestinationSchema = createInsertSchema(externalDestinations);
 export type ExternalDestination = typeof externalDestinations.$inferSelect;
 export type InsertExternalDestination = typeof insertExternalDestinationSchema._type;
 
@@ -3361,10 +3364,10 @@ export const datavaultApiTokensRelations = relations(datavaultApiTokens, ({ one 
 }));
 
 // Analytics Insert Schemas
-export const insertMetricsEventSchema = createInsertSchema(metricsEvents).omit({ id: true, createdAt: true });
-export const insertMetricsRollupSchema = createInsertSchema(metricsRollups).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSliConfigSchema = createInsertSchema(sliConfigs).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSliWindowSchema = createInsertSchema(sliWindows).omit({ id: true, createdAt: true });
+export const insertMetricsEventSchema = createInsertSchema(metricsEvents);
+export const insertMetricsRollupSchema = createInsertSchema(metricsRollups);
+export const insertSliConfigSchema = createInsertSchema(sliConfigs);
+export const insertSliWindowSchema = createInsertSchema(sliWindows);
 
 // Analytics Types
 export type MetricsEvent = typeof metricsEvents.$inferSelect;
@@ -3378,24 +3381,24 @@ export type InsertSliWindow = typeof insertSliWindowSchema._type;
 
 // DataVault Insert Schemas
 export const insertDatavaultDatabaseSchema = createInsertSchema(datavaultDatabases)
-  .omit({ id: true, createdAt: true, updatedAt: true });
+  ;
 
 export const insertDatavaultTableSchema = createInsertSchema(datavaultTables)
-  .omit({ id: true, createdAt: true, updatedAt: true })
+
   .extend({
     slug: z.string().optional()  // Override: slug is auto-generated by service layer if not provided
   });
 
 export const insertDatavaultColumnSchema = createInsertSchema(datavaultColumns)
-  .omit({ id: true, createdAt: true, updatedAt: true })
+
   .extend({
     slug: z.string().optional()  // Override: slug is auto-generated by service layer if not provided
   });
-export const insertDatavaultRowSchema = createInsertSchema(datavaultRows).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertDatavaultValueSchema = createInsertSchema(datavaultValues).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertDatavaultRowNoteSchema = createInsertSchema(datavaultRowNotes).omit({ id: true, createdAt: true });
-export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiTokens).omit({ id: true, createdAt: true });
-export const insertDatavaultTablePermissionSchema = createInsertSchema(datavaultTablePermissions).omit({ id: true, createdAt: true });
+export const insertDatavaultRowSchema = createInsertSchema(datavaultRows);
+export const insertDatavaultValueSchema = createInsertSchema(datavaultValues);
+export const insertDatavaultRowNoteSchema = createInsertSchema(datavaultRowNotes);
+export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiTokens);
+export const insertDatavaultTablePermissionSchema = createInsertSchema(datavaultTablePermissions);
 
 // DataVault Types
 export type DatavaultDatabase = typeof datavaultDatabases.$inferSelect;
@@ -3471,6 +3474,7 @@ export type InsertSection = typeof insertSectionSchema._type;
 export type Step = typeof steps.$inferSelect;
 export type InsertStep = typeof insertStepSchema._type;
 export type LogicRule = typeof logicRules.$inferSelect;
+
 export type InsertLogicRule = typeof insertLogicRuleSchema._type;
 export type WorkflowRun = typeof workflowRuns.$inferSelect;
 export type InsertWorkflowRun = typeof insertWorkflowRunSchema._type;

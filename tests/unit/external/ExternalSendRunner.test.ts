@@ -68,7 +68,7 @@ describe("ExternalSendRunner", () => {
             text: async () => JSON.stringify({ success: true })
         });
 
-        const result = await runner.execute(config, mockContext.data, "tenant-1", "live");
+        const result = await runner.execute(config, mockContext, "tenant-1", "live");
 
         expect(result.success).toBe(true);
         expect(result.statusCode).toBe(200);
@@ -97,7 +97,7 @@ describe("ExternalSendRunner", () => {
             config: { url: "https://example.com", method: "POST" }
         });
 
-        const result = await runner.execute(config, mockContext.data, "tenant-1", "preview");
+        const result = await runner.execute(config, mockContext, "tenant-1", "preview");
 
         expect(result.success).toBe(true);
         expect(result.simulated).toBe(true);
@@ -109,7 +109,7 @@ describe("ExternalSendRunner", () => {
         const config: ExternalSendBlockConfig = { destinationId: "missing", payloadMappings: [] };
         (externalDestinationService.getDestination as any).mockResolvedValue(null);
 
-        const result = await runner.execute(config, mockContext.data, "tenant-1", "live");
+        const result = await runner.execute(config, mockContext, "tenant-1", "live");
         expect(result.success).toBe(false);
         expect(result.error).toContain("Destination not found");
     });

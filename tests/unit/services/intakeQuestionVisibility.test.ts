@@ -9,10 +9,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { IntakeQuestionVisibilityService } from '@server/services/IntakeQuestionVisibilityService';
-import * as repositories from '@server/repositories';
+import { IntakeQuestionVisibilityService } from '../../../server/services/IntakeQuestionVisibilityService';
+import * as repositories from '../../../server/repositories';
+import { SectionRepository } from '../../../server/repositories/SectionRepository';
+import { StepRepository } from '../../../server/repositories/StepRepository';
+import { StepValueRepository } from '../../../server/repositories/StepValueRepository';
 
-vi.mock('@server/repositories', () => ({
+vi.mock('../../../server/repositories', () => ({
   stepRepository: {
     findBySectionIds: vi.fn(),
     findById: vi.fn(),
@@ -368,7 +371,7 @@ describe('IntakeQuestionVisibilityService', () => {
         { runId: 'run1', stepId: 'q1', value: true }, // show = true
       ];
 
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
+      vi.mocked(repositories.stepRepository.findBySectionIds as any).mockResolvedValue(mockQuestions as any);
       vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
 
       console.log('MOCK SETUP DONE. Mock questions:', mockQuestions);
@@ -377,8 +380,8 @@ describe('IntakeQuestionVisibilityService', () => {
       const count = await service.getVisibleQuestionCount('section1', 'run1');
 
       console.log('COUNT RESULT:', count);
-      console.log('Mock called times:', repositories.stepRepository.findBySectionIds.mock.calls.length);
-      console.log('Mock last call args:', repositories.stepRepository.findBySectionIds.mock.lastCall);
+      console.log('Mock called times:', (repositories.stepRepository.findBySectionIds as any).mock.calls.length);
+      console.log('Mock last call args:', (repositories.stepRepository.findBySectionIds as any).mock.lastCall);
 
       // TODO: Fix mock setup for this test. Logic verified via other tests.
       // expect(count).toBe(3); // All visible
