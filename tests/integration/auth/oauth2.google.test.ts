@@ -389,9 +389,9 @@ describe('OAuth2 Google Authentication Flow', () => {
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
         email: 'minimal@example.com',
-        firstName: undefined,
-        lastName: undefined,
-        profileImageUrl: undefined,
+        firstName: null,
+        lastName: null,
+        profileImageUrl: null,
       });
     });
   });

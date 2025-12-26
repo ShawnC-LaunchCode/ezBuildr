@@ -52,12 +52,13 @@ async function upsertUser(payload: TokenPayload) {
     const userData = {
       id: payload.sub!,
       email: payload.email || "",
-      firstName: payload.given_name || "",
-      lastName: payload.family_name || "",
+      firstName: payload.given_name || null,
+      lastName: payload.family_name || null,
       profileImageUrl: payload.picture || null,
       defaultMode: 'easy' as const,
       tenantId: defaultTenant.id,
       tenantRole: 'viewer' as const,
+      authProvider: 'google' as const,
       emailVerified: true,
       lastPasswordChange: null
     };
@@ -187,9 +188,9 @@ export async function setupAuth(app: Express) {
         user: {
           id: payload.sub,
           email: payload.email,
-          firstName: payload.given_name,
-          lastName: payload.family_name,
-          profileImageUrl: payload.picture,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+          profileImageUrl: dbUser.profileImageUrl,
           tenantId: dbUser.tenantId,
           role: dbUser.role,
           tenantRole: dbUser.tenantRole,

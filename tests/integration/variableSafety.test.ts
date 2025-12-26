@@ -199,6 +199,9 @@ describe("Variable Schema Safety & Resolution", () => {
         });
 
         // Expectation: Should PASS now
+        if (!result.ok) {
+            console.log("ScriptEngine failed:", JSON.stringify(result, null, 2));
+        }
         expect(result.ok).toBe(true);
         expect(result.output).toBe(200);
     });

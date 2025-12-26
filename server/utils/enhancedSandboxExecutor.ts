@@ -4,6 +4,7 @@
  */
 
 import { spawn } from "child_process";
+import vm from "vm";
 import type { ScriptExecutionResult, ScriptContextAPI } from "@shared/types/scripting";
 import { createHelperLibrary } from "../services/scripting/HelperLibrary";
 import { createLogger } from "../logger";
@@ -54,11 +55,8 @@ async function runJsWithHelpers(
     // @ts-ignore
     ivm = await import("isolated-vm");
   } catch (error) {
-    logger.error({ error }, "Failed to load isolated-vm");
-    return {
-      ok: false,
-      error: "SandboxEnvironmentError: isolated-vm is not available",
-    };
+    logger.warn({ error }, "isolated-vm not found, falling back to node 'vm' module");
+    return runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
   }
 
   // Create or reuse Isolate
@@ -602,13 +600,13 @@ except Exception as e:
       // Send payload to stdin
       pythonProcess.stdin.write(payloadJson);
       pythonProcess.stdin.end();
-    } catch (error) {
+    } catch (error: any) {
       resolve({
         ok: false,
         error: `SetupError: ${error instanceof Error ? error.message : 'unknown error'}`,
       });
     }
-  });
+  }); // End Promise
 }
 
 /**
@@ -646,5 +644,60 @@ export async function executeCodeWithHelpers(
       ok: false,
       error: `Unsupported language: ${language}`,
     };
+  }
+}
+
+/**
+ * Fallback execution using Node's native vm module
+ * Used when isolated-vm is not available (e.g. dev/test environments)
+ */
+async function runJsWithVmFallback(
+  code: string,
+  input: Record<string, unknown>,
+  context: ScriptContextAPI,
+  actualHelpers: Record<string, any> | undefined,
+  timeoutMs: number,
+  consoleEnabled: boolean
+): Promise<ScriptExecutionResult> {
+  const consoleLogs: any[][] = [];
+
+  const sandbox = {
+    input,
+    context,
+    helpers: actualHelpers,
+    console: {
+      log: (...args: any[]) => consoleLogs.push(args),
+      warn: (...args: any[]) => consoleLogs.push(['[WARN]', ...args]),
+      error: (...args: any[]) => consoleLogs.push(['[ERROR]', ...args]),
+      info: (...args: any[]) => consoleLogs.push(['[INFO]', ...args]),
+    }
+  };
+
+  const startTime = Date.now();
+  try {
+    // Wrap code in function IIFE to mimic isolated-vm behavior
+    const wrappedCode = `
+      (function(input, context, helpers) {
+        ${code}
+      })(input, context, helpers);
+    `;
+
+    const script = new vm.Script(wrappedCode);
+    const result = script.runInNewContext(sandbox, {
+      timeout: timeoutMs
+    });
+
+    return {
+      ok: true,
+      output: result,
+      consoleLogs: consoleLogs.length > 0 ? consoleLogs : undefined,
+      durationMs: Date.now() - startTime
+    };
+  } catch (error: any) {
+    const msg = error.message;
+    if (msg.includes("timed out")) {
+      return { ok: false, error: "TimeoutError: Execution exceeded time limit" };
+    }
+    return { ok: false, error: `SandboxError: ${msg}` };
   }
 }

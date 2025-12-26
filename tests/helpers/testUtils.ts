@@ -66,13 +66,15 @@ export function randomPassword(): string {
   const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const lowercase = "abcdefghijklmnopqrstuvwxyz";
   const numbers = "0123456789";
+  const special = "!@#$%^&*()_+";
 
   const password = [
     uppercase[Math.floor(Math.random() * uppercase.length)],
     lowercase[Math.floor(Math.random() * lowercase.length)],
     numbers[Math.floor(Math.random() * numbers.length)],
-    ...Array(5).fill(null).map(() => {
-      const all = uppercase + lowercase + numbers;
+    special[Math.floor(Math.random() * special.length)],
+    ...Array(10).fill(null).map(() => {
+      const all = uppercase + lowercase + numbers + special;
       return all[Math.floor(Math.random() * all.length)];
     }),
   ];
