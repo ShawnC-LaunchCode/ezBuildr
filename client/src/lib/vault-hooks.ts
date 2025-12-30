@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
+import { fetchAPI, projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, logicRuleAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
 import { DevPanelBus } from "./devpanelBus";
 
 // Re-export types for convenience
@@ -44,6 +44,7 @@ export const queryKeys = {
   dataSources: ["dataSources"] as const,
   workflowDataSources: (workflowId: string) => ["workflows", workflowId, "dataSources"] as const,
   dataSource: (id: string) => ["dataSources", id] as const,
+  logicRules: (workflowId: string) => ["workflows", workflowId, "logicRules"] as const,
 };
 
 // ============================================================================
@@ -171,8 +172,12 @@ export function useUpdateWorkflow() {
     mutationFn: ({ id, ...data }: Partial<ApiWorkflow> & { id: string }) =>
       workflowAPI.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.id) });
+      // Invalidate the specific workflow and all its sub-resources (sections, steps, blocks, etc.)
+      queryClient.invalidateQueries({ queryKey: ["workflows", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["sections", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["steps"] }); // Steps often have weird keys, safer to nuke 'em
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+      DevPanelBus.emitWorkflowUpdate();
     },
   });
 }
@@ -198,16 +203,9 @@ export function useReviseWorkflow() {
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
       mode?: 'easy' | 'advanced';
     }) =>
-      fetch('/api/ai/workflows/revise', {
+      fetchAPI('/api/ai/workflows/revise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || 'Failed to revise workflow');
-        }
-        return res.json();
       }),
     onSuccess: (data) => {
       // User must review and apply manually
@@ -218,13 +216,9 @@ export function useReviseWorkflow() {
 export function useConnectLogic() {
   return useMutation({
     mutationFn: (data: any) =>
-      fetch('/api/ai/workflows/generate-logic', {
+      fetchAPI('/api/ai/workflows/generate-logic', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
-        return res.json();
       }),
   });
 }
@@ -232,13 +226,9 @@ export function useConnectLogic() {
 export function useDebugLogic() {
   return useMutation({
     mutationFn: (data: any) =>
-      fetch('/api/ai/workflows/debug-logic', {
+      fetchAPI('/api/ai/workflows/debug-logic', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
-        return res.json();
       }),
   });
 }
@@ -246,13 +236,9 @@ export function useDebugLogic() {
 export function useVisualizeLogic() {
   return useMutation({
     mutationFn: (data: any) =>
-      fetch('/api/ai/workflows/visualize-logic', {
+      fetchAPI('/api/ai/workflows/visualize-logic', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then(async (res) => {
-        if (!res.ok) throw new Error((await res.json()).message || 'Failed');
-        return res.json();
       }),
   });
 }
@@ -799,6 +785,20 @@ export function useUpdateTransformBlock() {
     },
   });
 }
+
+// ============================================================================
+// Logic Rules
+// ============================================================================
+
+export function useLogicRules(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.logicRules(workflowId!),
+    queryFn: () => logicRuleAPI.list(workflowId!),
+    enabled: !!workflowId && workflowId !== "undefined",
+  });
+}
+
+
 
 export function useDeleteTransformBlock() {
   const queryClient = useQueryClient();

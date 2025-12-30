@@ -7,7 +7,7 @@ import { useParams, useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWorkflow, useSections, useCreateRun, useWorkflowMode, useSetWorkflowMode, queryKeys } from "@/lib/vault-hooks";
+import { useWorkflow, useCreateRun, useSetWorkflowMode, queryKeys } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { usePreviewStore } from "@/store/preview";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,11 @@ import { AIAssistPanel } from "@/components/builder/AIAssistPanel";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
 import { PreviewRunner } from "@/components/preview/PreviewRunner";
 
+import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
+import { AiConversationPanel } from "@/components/builder/AiConversationPanel";
+import Sidebar from "@/components/layout/Sidebar";
+import FeedbackWidget from "@/components/FeedbackWidget";
+
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   // ... existing hooks ...
@@ -63,8 +68,12 @@ export default function WorkflowBuilder() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
-  const { data: sections } = useSections(workflowId);
-  const { data: workflowMode, isLoading: modeLoading } = useWorkflowMode(workflowId);
+  // Use data from workflow response instead of separate API calls (performance optimization)
+  const sections = workflow?.sections;
+  const logicRules = workflow?.logicRules;
+  const transformBlocks = workflow?.transformBlocks;
+  const workflowMode = workflow ? { mode: workflow.modeOverride || 'easy' } : undefined;
+  const modeLoading = isLoading;
   const { data: versions } = useVersions(workflowId);
   const publishMutation = usePublishWorkflow();
   const restoreMutation = useRestoreVersion();
@@ -188,166 +197,186 @@ export default function WorkflowBuilder() {
     }}>
       <IntakeProvider workflowId={workflowId!}>
         <CollabSync mode={mode} />
-        <div className="h-screen flex flex-col bg-background">
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-background">
-            <div className="border-b px-6 py-3 flex items-center justify-between bg-card">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/workflows')} className="mr-2">
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                </Button>
-                <h1 className="text-xl font-semibold">{workflow.title}</h1>
-                {workflow.intakeConfig?.isIntake && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">
-                    <Database className="w-3 h-3" />
-                    <span>Intake</span>
-                  </div>
-                )}
-                {mode === 'advanced' && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium border border-indigo-200">
-                    <Sparkles className="w-3 h-3" />
-                    <span>Advanced</span>
-                  </div>
-                )}
 
-                {/* Presence */}
-                <div className="ml-4 border-l pl-4 hidden md:block">
-                  <CollabHeader />
-                </div>
+        <ResizableBuilderLayout
+          workflowId={workflowId}
+          rightPanelOpen={aiPanelOpen}
+          onRightPanelToggle={setAiPanelOpen}
 
-                {/* Version Badge */}
-                <div className="ml-4 border-l pl-4">
-                  <VersionBadge
-                    versionLabel={versionLabel}
-                    isDraft={true}
-                    onClick={() => setHistoryOpen(true)}
-                  />
-                </div>
+          leftPanel={
+            <Sidebar className="w-full border-r-0 h-full" />
+          }
 
-                {/* Mode Selector */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="mr-2">
-                      {mode === 'easy' ? 'Easy Mode' : 'Advanced Mode'}
-                      <ChevronDown className="w-4 h-4 ml-2" />
+          centerPanel={
+            <div className="h-screen flex flex-col bg-background">
+              {/* Header */}
+              <div className="sticky top-0 z-10 bg-background">
+                <div className="border-b px-6 py-3 flex items-center justify-between bg-card">
+                  <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/workflows')} className="mr-2">
+                      <ArrowLeft className="w-4 h-4 mr-2" /> Back
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'easy' })}>
-                      Switch to Easy Mode
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'advanced' })}>
-                      Switch to Advanced Mode
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    <h1 className="text-xl font-semibold">{workflow.title}</h1>
+                    {workflow.intakeConfig?.isIntake && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">
+                        <Database className="w-3 h-3" />
+                        <span>Intake</span>
+                      </div>
+                    )}
+                    {mode === 'advanced' && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium border border-indigo-200">
+                        <Sparkles className="w-3 h-3" />
+                        <span>Advanced</span>
+                      </div>
+                    )}
 
-                <div className="border-l pl-2 ml-2">
-                  <ActivateToggle
-                    workflowId={workflowId!}
-                    currentStatus={workflow.status}
-                    // @ts-ignore
-                    onStatusChange={(s) => {
-                      queryClient.invalidateQueries({ queryKey: ["workflows"] });
-                    }}
-                  />
+                    {/* Presence */}
+                    <div className="ml-4 border-l pl-4 hidden md:block">
+                      <CollabHeader />
+                    </div>
+
+                    {/* Version Badge */}
+                    <div className="ml-4 border-l pl-4">
+                      <VersionBadge
+                        versionLabel={versionLabel}
+                        isDraft={true}
+                        onClick={() => setHistoryOpen(true)}
+                      />
+                    </div>
+
+                    {/* Mode Selector */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="mr-2">
+                          {mode === 'easy' ? 'Easy Mode' : 'Advanced Mode'}
+                          <ChevronDown className="w-4 h-4 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'easy' })}>
+                          Switch to Easy Mode
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'advanced' })}>
+                          Switch to Advanced Mode
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <div className="border-l pl-2 ml-2">
+                      <ActivateToggle
+                        workflowId={workflowId!}
+                        currentStatus={workflow.status}
+                        // @ts-ignore
+                        onStatusChange={(s) => {
+                          queryClient.invalidateQueries({ queryKey: ["workflows"] });
+                        }}
+                      />
+                    </div>
+
+                    {mode === 'advanced' && (
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/workflows/${workflowId}/visual-builder`)} className="mr-2">
+                        <GitGraph className="w-4 h-4 mr-2" /> Visual Builder
+                      </Button>
+                    )}
+
+                    <Button variant="outline" size="sm" onClick={() => setIsPreviewMode(true)} disabled={launchingPreview}>
+                      <Eye className="w-4 h-4 mr-2" /> Preview
+                    </Button>
+
+                    <Button
+                      variant={aiPanelOpen ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" /> AI Assist
+                    </Button>
+                  </div>
                 </div>
+                <BuilderTabNav
+                  workflowId={workflowId!}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  isIntake={workflow.intakeConfig?.isIntake}
+                />
+              </div>
 
-                {mode === 'advanced' && (
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/workflows/${workflowId}/visual-builder`)} className="mr-2">
-                    <GitGraph className="w-4 h-4 mr-2" /> Visual Builder
-                  </Button>
+              {/* Content */}
+              <div className="flex-1 flex flex-col overflow-hidden relative">
+                {activeTab === "sections" && (
+                  <SectionsTab
+                    workflowId={workflowId!}
+                    mode={mode}
+                  />
                 )}
 
-                <Button variant="outline" size="sm" onClick={() => setIsPreviewMode(true)} disabled={launchingPreview}>
-                  <Eye className="w-4 h-4 mr-2" /> Preview
-                </Button>
+                {activeTab === "templates" && <TemplatesTab workflowId={workflowId!} />}
+
+                {activeTab === "data-sources" && (
+                  <DataSourcesTab
+                    workflowId={workflowId!}
+                    onCollectionsClick={() => setCollectionsDrawerOpen(true)}
+                  />
+                )}
+
+                {activeTab === "review" && (
+                  <ReviewTab workflowId={workflowId!} />
+                )}
+
+                {activeTab === "snapshots" && (
+                  <SnapshotsTab
+                    workflowId={workflowId!}
+                  />
+                )}
+
+                {activeTab === "settings" && <SettingsTab workflowId={workflowId!} />}
+
+                {activeTab === "assignment" && <AssignmentTab workflowId={workflowId!} />}
               </div>
+
+              <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId!} />
+
+              {/* Versioning Components */}
+              <VersionHistoryPanel
+                workflowId={workflowId!}
+                isOpen={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                onRestore={(v) => restoreMutation.mutate({ workflowId: workflowId!, versionId: v.id })}
+                onDiff={handleDiff}
+              />
+
+              <PublishWorkflowDialog
+                isOpen={publishOpen}
+                onClose={() => setPublishOpen(false)}
+                onPublish={handlePublish}
+                isPublishing={publishMutation.isPending}
+              />
+
+              <DiffViewer
+                workflowId={workflowId!}
+                version1={diffBaseVersion}
+                version2={diffTargetVersion}
+                isOpen={diffOpen}
+                onClose={() => setDiffOpen(false)}
+              />
+
+              <LogicInspectorPanel
+                workflowId={workflowId!}
+                currentWorkflow={workflow}
+                isOpen={logicPanelOpen}
+                onClose={() => setLogicPanelOpen(false)}
+              />
+              <FeedbackWidget className="absolute bottom-6 right-6" />
             </div>
-            <BuilderTabNav
+          }
+
+          rightPanel={
+            <AiConversationPanel
               workflowId={workflowId!}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              isIntake={workflow.intakeConfig?.isIntake}
+              currentWorkflow={workflow}
+              transformBlocks={transformBlocks}
             />
-          </div>
-
-          {/* Banner removed in favor of header badge */}
-
-
-          {/* Content */}
-          <div className="flex-1 flex flex-col overflow-hidden relative">
-            {activeTab === "sections" && (
-              <SectionsTab
-                workflowId={workflowId!}
-                mode={mode}
-              />
-            )}
-
-            {activeTab === "templates" && <TemplatesTab workflowId={workflowId!} />}
-
-            {activeTab === "data-sources" && (
-              <DataSourcesTab
-                workflowId={workflowId!}
-                onCollectionsClick={() => setCollectionsDrawerOpen(true)}
-              />
-            )}
-
-            {activeTab === "review" && (
-              <ReviewTab workflowId={workflowId!} />
-            )}
-
-            {activeTab === "snapshots" && (
-              <SnapshotsTab
-                workflowId={workflowId!}
-              />
-            )}
-
-            {activeTab === "settings" && <SettingsTab workflowId={workflowId!} />}
-
-            {activeTab === "assignment" && <AssignmentTab workflowId={workflowId!} />}
-          </div>
-
-          <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId!} />
-
-          {/* Versioning Components */}
-          <VersionHistoryPanel
-            workflowId={workflowId!}
-            isOpen={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-            onRestore={(v) => restoreMutation.mutate({ workflowId: workflowId!, versionId: v.id })}
-            onDiff={handleDiff}
-          />
-
-          <PublishWorkflowDialog
-            isOpen={publishOpen}
-            onClose={() => setPublishOpen(false)}
-            onPublish={handlePublish}
-            isPublishing={publishMutation.isPending}
-          />
-
-          <DiffViewer
-            workflowId={workflowId!}
-            version1={diffBaseVersion}
-            version2={diffTargetVersion}
-            isOpen={diffOpen}
-            onClose={() => setDiffOpen(false)}
-          />
-
-          <AIAssistPanel
-            workflowId={workflowId!}
-            currentWorkflow={workflow}
-            isOpen={aiPanelOpen}
-            onClose={() => setAiPanelOpen(false)}
-          />
-
-          <LogicInspectorPanel
-            workflowId={workflowId!}
-            currentWorkflow={workflow}
-            isOpen={logicPanelOpen}
-            onClose={() => setLogicPanelOpen(false)}
-          />
-        </div>
+          }
+        />
       </IntakeProvider>
     </CollaborationProvider >
   );

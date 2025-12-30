@@ -20,6 +20,7 @@ export function useAuth() {
         // This exchanges the HttpOnly cookie for a JWT Access Token
         const res = await fetch("/api/auth/refresh-token", {
           method: "POST",
+          credentials: "include", // CRITICAL: Must include cookies for refresh token
         });
 
         if (!res.ok) {

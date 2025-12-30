@@ -664,6 +664,53 @@ export const blockMetrics = pgTable("block_metrics", {
   index("bm_version_block_idx").on(table.versionId, table.blockId),
 ]);
 
+// =====================================================================
+// AI FEEDBACK & QUALITY TRACKING
+// =====================================================================
+
+// AI workflow feedback - user ratings on AI-generated workflows
+export const aiWorkflowFeedback = pgTable("ai_workflow_feedback", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+
+  // What AI operation was this feedback for?
+  operationType: varchar("operation_type").notNull(), // 'generation', 'revision', 'suggestion', etc.
+
+  // User rating (1-5)
+  rating: integer("rating").notNull(), // 1 = poor, 5 = excellent
+
+  // Optional text feedback
+  comment: text("comment"),
+
+  // AI metadata at time of generation
+  aiProvider: varchar("ai_provider"), // 'openai', 'anthropic', 'gemini'
+  aiModel: varchar("ai_model"),
+  promptVersion: varchar("prompt_version"), // For A/B testing
+
+  // Quality score at time of generation
+  qualityScore: integer("quality_score"), // 0-100
+  qualityPassed: boolean("quality_passed"),
+  issuesCount: integer("issues_count"),
+
+  // Request metadata
+  requestDescription: text("request_description"), // What user asked for
+  generatedSections: integer("generated_sections"),
+  generatedSteps: integer("generated_steps"),
+
+  // Did user edit the AI output?
+  wasEdited: boolean("was_edited").default(false),
+  editCount: integer("edit_count").default(0),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("ai_feedback_workflow_idx").on(table.workflowId),
+  index("ai_feedback_user_idx").on(table.userId),
+  index("ai_feedback_rating_idx").on(table.rating),
+  index("ai_feedback_operation_idx").on(table.operationType),
+  index("ai_feedback_created_idx").on(table.createdAt),
+]);
+
 // System statistics table for tracking historical totals
 export const systemStats = pgTable("system_stats", {
   id: integer("id").primaryKey().default(1), // Single row table
@@ -3198,6 +3245,21 @@ export const datavaultTablePermissions = pgTable("datavault_table_permissions", 
   uniqueIndex("unique_table_user_permission").on(table.tableId, table.userId),
 ]);
 
+// DataVault Writeback Mappings - Workflow to DataVault mappings for run completion writebacks
+export const datavaultWritebackMappings = pgTable("datavault_writeback_mappings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
+  tableId: uuid("table_id").references(() => datavaultTables.id, { onDelete: 'cascade' }).notNull(),
+  columnMappings: jsonb("column_mappings").notNull(),  // { stepAlias: columnId } mapping
+  triggerPhase: varchar("trigger_phase", { length: 50 }).notNull().default('afterComplete'), // When to execute writeback
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+}, (table) => [
+  index("idx_writeback_mappings_workflow").on(table.workflowId),
+  index("idx_writeback_mappings_table").on(table.tableId),
+]);
+
 // Analytics Relations
 export const metricsEventsRelations = relations(metricsEvents, ({ one }) => ({
   tenant: one(tenants, {
@@ -3401,6 +3463,7 @@ export const insertDatavaultValueSchema = createInsertSchema(datavaultValues);
 export const insertDatavaultRowNoteSchema = createInsertSchema(datavaultRowNotes);
 export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiTokens);
 export const insertDatavaultTablePermissionSchema = createInsertSchema(datavaultTablePermissions);
+export const insertDatavaultWritebackMappingSchema = createInsertSchema(datavaultWritebackMappings);
 
 // DataVault Types
 export type DatavaultDatabase = typeof datavaultDatabases.$inferSelect;
@@ -3421,6 +3484,8 @@ export type InsertDatavaultApiToken = typeof insertDatavaultApiTokenSchema._type
 export type DatavaultTablePermission = typeof datavaultTablePermissions.$inferSelect;
 export type InsertDatavaultTablePermission = typeof insertDatavaultTablePermissionSchema._type;
 export type DatavaultTableRole = typeof datavaultTableRoleEnum.enumValues[number];
+export type DatavaultWritebackMapping = typeof datavaultWritebackMappings.$inferSelect;
+export type InsertDatavaultWritebackMapping = typeof insertDatavaultWritebackMappingSchema._type;
 
 // ===================================================================
 // LEGACY TYPES
@@ -3646,3 +3711,13 @@ export const portalTokens = pgTable("portal_tokens", {
 
 export type PortalToken = InferSelectModel<typeof portalTokens>;
 export type InsertPortalToken = typeof portalTokens.$inferInsert;
+
+// AI Settings
+export const aiSettings = pgTable("ai_settings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  scope: varchar("scope").notNull(), // 'global', 'org', 'user'
+  scopeId: varchar("scope_id"), // Null for global, orgId for org, userId for user
+  systemPrompt: text("system_prompt"),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

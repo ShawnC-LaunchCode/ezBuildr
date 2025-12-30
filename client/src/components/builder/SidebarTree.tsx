@@ -43,14 +43,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { UI_LABELS } from "@/lib/labels";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
-  const { data: sections } = useSections(workflowId);
-  const { data: blocks } = useBlocks(workflowId);
-  const { data: transformBlocks } = useTransformBlocks(workflowId);
   const { data: workflow } = useWorkflow(workflowId);
+  // Use data from workflow response instead of separate API calls (performance optimization)
+  const sections = workflow?.sections;
+  const transformBlocks = workflow?.transformBlocks;
+  const mode = workflow?.modeOverride || 'easy';
+  const { data: blocks } = useBlocks(workflowId);
   const createSectionMutation = useCreateSection();
   const createStepMutation = useCreateStep();
-  const { data: workflowMode } = useWorkflowMode(workflowId);
-  const mode = workflowMode?.mode || 'easy';
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
   const [editingSection, setEditingSection] = useState<any>(null);

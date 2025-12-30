@@ -9,11 +9,11 @@ import {
   type DbTransaction,
 } from "../repositories";
 import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
-import { workflowVersions } from "@shared/schema";
+import { workflowVersions, workflows, sections, steps, logicRules, auditEvents } from "@shared/schema";
 import { aclService } from "./AclService";
 import { logger } from "../logger";
 import { db } from "../db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 /**
  * Service layer for workflow-related business logic
@@ -130,9 +130,12 @@ export class WorkflowService {
     const workflow = await this.verifyAccess(workflowId, userId, 'view');
 
     // OPTIMIZATION: Run independent queries in parallel
-    const [sections, logicRules] = await Promise.all([
+    const [sections, logicRules, transformBlocks] = await Promise.all([
       this.sectionRepo.findByWorkflowId(workflowId),
       this.logicRuleRepo.findByWorkflowId(workflowId),
+      db.query.transformBlocks.findMany({
+        where: (tb: any, { eq }: any) => eq(tb.workflowId, workflowId),
+      }),
     ]);
 
     const sectionIds = sections.map((s) => s.id);
@@ -180,6 +183,7 @@ export class WorkflowService {
       ...workflow,
       sections: sectionsWithSteps,
       logicRules,
+      transformBlocks,
       currentVersion,
     };
   }
@@ -596,6 +600,162 @@ export class WorkflowService {
         await this.sectionRepo.delete(finalSection.id);
       }
     }
+  }
+  /**
+   * Replace full workflow content (Deep Update)
+   * Used by AI Assistant to apply full structural changes
+   */
+  async replaceWorkflowContent(
+    workflowId: string,
+    userId: string,
+    data: any
+  ): Promise<any> {
+    // 1. Authorization
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
+    if (!hasAccess) {
+      throw new Error("Access denied - you do not have permission to edit this workflow");
+    }
+
+    return await db.transaction(async (tx) => {
+      // 2. Update Workflow Metadata
+      const [updatedWorkflow] = await tx
+        .update(workflows)
+        .set({
+          title: data.title,
+          description: data.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(workflows.id, workflowId))
+        .returning();
+
+      if (!updatedWorkflow) {
+        throw new Error("Workflow not found");
+      }
+
+      // 3. Sync Sections
+      const existingSections = await tx
+        .select()
+        .from(sections)
+        .where(eq(sections.workflowId, workflowId));
+
+      const existingSectionIds = new Set(existingSections.map(s => s.id));
+      const incomingSectionIds = new Set<string>();
+
+      if (Array.isArray(data.sections)) {
+        data.sections.forEach((sectionData: any, index: number) => {
+          sectionData.order = sectionData.order ?? index;
+        });
+
+        for (const sectionData of data.sections) {
+          let sectionId = sectionData.id;
+          const isExisting = sectionId && existingSectionIds.has(sectionId);
+
+          if (isExisting) {
+            incomingSectionIds.add(sectionId);
+            await tx
+              .update(sections)
+              .set({
+                title: sectionData.title,
+                description: sectionData.description,
+                order: sectionData.order,
+                visibleIf: sectionData.visibleIf,
+              })
+              .where(eq(sections.id, sectionId));
+          } else {
+            const [newSection] = await tx
+              .insert(sections)
+              .values({
+                workflowId,
+                title: sectionData.title,
+                description: sectionData.description,
+                order: sectionData.order,
+                visibleIf: sectionData.visibleIf,
+              })
+              .returning();
+            sectionId = newSection.id;
+          }
+
+          // 4. Sync Steps
+          if (Array.isArray(sectionData.steps)) {
+            let existingStepIds = new Set<string>();
+            if (isExisting) {
+              const dbSteps = await tx.select().from(steps).where(eq(steps.sectionId, sectionId));
+              existingStepIds = new Set(dbSteps.map(s => s.id));
+            }
+            const incomingStepIds = new Set<string>();
+
+            for (const [stepIndex, stepData] of sectionData.steps.entries()) {
+              const stepId = stepData.id;
+              const isStepExisting = stepId && existingStepIds.has(stepId);
+
+              if (isStepExisting) {
+                incomingStepIds.add(stepId);
+                await tx.update(steps).set({
+                  title: stepData.title,
+                  description: stepData.description,
+                  type: stepData.type,
+                  required: stepData.required,
+                  options: stepData.options,
+                  config: stepData.config,
+                  order: stepData.order ?? stepIndex,
+                  sectionId,
+                }).where(eq(steps.id, stepId));
+              } else {
+                await tx.insert(steps).values({
+                  sectionId,
+                  type: stepData.type,
+                  title: stepData.title,
+                  description: stepData.description,
+                  required: stepData.required || false,
+                  options: stepData.options || [],
+                  config: stepData.config || {},
+                  order: stepData.order ?? stepIndex,
+                });
+              }
+            }
+
+            if (isExisting) {
+              const stepsToDelete = [...existingStepIds].filter(id => !incomingStepIds.has(id));
+              if (stepsToDelete.length > 0) {
+                await tx.delete(steps).where(inArray(steps.id, stepsToDelete));
+              }
+            }
+          }
+        }
+      }
+
+      const sectionsToDelete = [...existingSectionIds].filter(id => !incomingSectionIds.has(id));
+      if (sectionsToDelete.length > 0) {
+        await tx.delete(sections).where(inArray(sections.id, sectionsToDelete));
+      }
+
+      // 5. Logic Rules
+      await tx.delete(logicRules).where(eq(logicRules.workflowId, workflowId));
+
+      if (Array.isArray(data.logicRules) && data.logicRules.length > 0) {
+        await tx.insert(logicRules).values(
+          data.logicRules.map((rule: any) => ({
+            workflowId,
+            conditionStepAlias: rule.conditionStepAlias,
+            operator: rule.operator,
+            conditionValue: rule.conditionValue,
+            targetType: rule.targetType,
+            targetAlias: rule.targetAlias,
+            action: rule.action,
+          }))
+        );
+      }
+
+      await db.insert(auditEvents).values({
+        actorId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'ai_revision_apply',
+        diff: { summary: 'Full content replaced by AI' },
+      });
+
+      return updatedWorkflow;
+    });
   }
 }
 

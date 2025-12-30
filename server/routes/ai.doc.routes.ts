@@ -8,25 +8,62 @@ import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES } from "../services/fileService";
 const router = Router();
 // SECURITY FIX: Add file size and type validation
 const upload = multer({
-  storage: multer.memoryStorage(), // Memory storage for parsing
-  limits: {
-    fileSize: MAX_FILE_SIZE, // 10MB default
-    files: 1
-  },
-  fileFilter: (req, file, cb) => {
-    // Only allow document types for template analysis
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
+    storage: multer.memoryStorage(), // Memory storage for parsing
+    limits: {
+        fileSize: MAX_FILE_SIZE, // 10MB default
+        files: 1
+    },
+    fileFilter: (req, file, cb) => {
+        // Only allow document types for template analysis
+        const allowedMimeTypes = [
+            'application/pdf',
+            'application/x-pdf',
+            'application/acrobat',
+            'applications/vnd.pdf',
+            'text/pdf',
+            'text/x-pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/octet-stream', // Sometimes PDFs/DOCX are identified as this
+            'text/plain',
+            'text/markdown'
+        ];
 
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error(`File type ${file.mimetype} is not allowed. Only PDF and Word documents are supported.`));
+        const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md'];
+
+        console.log(`[Upload Debug] File: ${file.originalname}, Mime: ${file.mimetype}, Size: ${file.size}`);
+
+        // Two-tier validation: MIME type OR file extension
+        // This handles cases where MIME type is unreliable (common with PDFs)
+        const mimeValid = allowedMimeTypes.includes(file.mimetype);
+        const extValid = allowedExtensions.some(ext =>
+            file.originalname.toLowerCase().endsWith(ext)
+        );
+
+        if (!mimeValid && !extValid) {
+            console.warn(`[Upload Rejected] Invalid file: ${file.originalname} (Mime: ${file.mimetype})`);
+            return cb(new Error(
+                `File type not supported. Please upload PDF or DOCX files only. ` +
+                `Received: ${file.originalname} (${file.mimetype})`
+            ));
+        }
+
+        // Additional security: Check for suspicious double extensions
+        const filename = file.originalname.toLowerCase();
+        const suspiciousPatterns = [
+            '.exe', '.bat', '.cmd', '.sh', '.ps1', '.vbs', '.js', '.jar', '.app',
+            '.dmg', '.pkg', '.deb', '.rpm', '.msi', '.scr', '.com'
+        ];
+
+        if (suspiciousPatterns.some(pattern => filename.includes(pattern))) {
+            console.warn(`[Upload Rejected] Suspicious extension: ${file.originalname}`);
+            return cb(new Error(
+                `File contains suspicious extension. Only PDF and DOCX files are allowed.`
+            ));
+        }
+
+        cb(null, true);
     }
-
-    cb(null, true);
-  }
 });
 
 // Middleware
@@ -65,6 +102,30 @@ router.post("/analyze", (req, res, next) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Analysis failed" });
+    }
+});
+
+/**
+ * POST /api/ai/doc/extract-text
+ * Upload a file, return raw extracted text for chat context
+ */
+router.post("/extract-text", (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            console.error("[Upload Error] Multer failed:", err);
+            return res.status(400).json({ message: err.message, error: err.message });
+        }
+        next();
+    });
+}, async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: "No file provided" });
+
+        const text = await documentAIAssistService.extractTextContent(req.file.buffer, req.file.originalname);
+        res.json({ text });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Text extraction failed" });
     }
 });
 

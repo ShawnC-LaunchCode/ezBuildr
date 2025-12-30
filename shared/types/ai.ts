@@ -13,20 +13,56 @@ import { z } from 'zod';
 export const AIGeneratedStepSchema = z.object({
   id: z.string().describe('Unique identifier for the step'),
   type: z.enum([
+    // Legacy / Existing Types
     'short_text',
     'long_text',
     'multiple_choice',
     'radio',
-    'checkbox',
+    'checkbox', // Kept for AI compatibility if used, though not in DB enum explicitly? (Check usage)
     'yes_no',
     'date_time',
     'file_upload',
+    'loop_group',
+    'computed',
+    'js_question',
+    'repeater',
+    'final_documents',
+    'signature_block',
+
+    // Easy Mode Types
+    'true_false',
+    'phone',
+    'date',
+    'time',
+    'datetime',
+    'email',
+    'number',
+    'currency',
+    'scale',
+    'website',
+    'display',
+    'address',
+    'final',
+
+    // Advanced Mode Types
+    'text',
+    'boolean',
+    'phone_advanced',
+    'datetime_unified',
+    'choice',
+    'email_advanced',
+    'number_advanced',
+    'scale_advanced',
+    'website_advanced',
+    'address_advanced',
+    'multi_field',
+    'display_advanced'
   ]).describe('Step type (question type)'),
   title: z.string().min(1).describe('Step title/question text'),
-  description: z.string().optional().describe('Optional step description'),
-  alias: z.string().optional().describe('Human-friendly variable name for this step'),
+  description: z.string().nullable().optional().describe('Optional step description'),
+  alias: z.string().nullable().optional().describe('Human-friendly variable name for this step'),
   required: z.boolean().default(false).describe('Whether this step is required'),
-  config: z.record(z.any()).optional().describe('Type-specific configuration (choices, validation, etc)'),
+  config: z.record(z.any()).nullable().optional().describe('Type-specific configuration (choices, validation, etc)'),
 });
 
 export type AIGeneratedStep = z.infer<typeof AIGeneratedStepSchema>;
@@ -37,7 +73,7 @@ export type AIGeneratedStep = z.infer<typeof AIGeneratedStepSchema>;
 export const AIGeneratedSectionSchema = z.object({
   id: z.string().describe('Unique identifier for the section'),
   title: z.string().min(1).describe('Section title'),
-  description: z.string().optional().describe('Optional section description'),
+  description: z.string().nullable().optional().describe('Optional section description'),
   order: z.number().int().min(0).describe('Display order of this section'),
   steps: z.array(AIGeneratedStepSchema).describe('Steps within this section'),
 });
@@ -65,7 +101,7 @@ export const AIGeneratedLogicRuleSchema = z.object({
   targetType: z.enum(['section', 'step']).describe('Whether the target is a section or step'),
   targetAlias: z.string().describe('Alias of the target section/step'),
   action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']).describe('Action to perform when condition is met'),
-  description: z.string().optional().describe('Human-readable description of what this rule does'),
+  description: z.string().nullable().optional().describe('Human-readable description of what this rule does'),
 });
 
 export type AIGeneratedLogicRule = z.infer<typeof AIGeneratedLogicRuleSchema>;
@@ -91,12 +127,12 @@ export type AIGeneratedTransformBlock = z.infer<typeof AIGeneratedTransformBlock
  * AI-generated workflow specification
  */
 export const AIGeneratedWorkflowSchema = z.object({
-  name: z.string().min(1).describe('Workflow name'),
-  description: z.string().optional().describe('Workflow description'),
-  sections: z.array(AIGeneratedSectionSchema).min(1).describe('Workflow sections (pages)'),
+  title: z.string().min(1).describe('Workflow title'),
+  description: z.string().nullable().optional().describe('Workflow description'),
+  sections: z.array(AIGeneratedSectionSchema).default([]).describe('Workflow sections (pages)'),
   logicRules: z.array(AIGeneratedLogicRuleSchema).default([]).describe('Conditional logic rules'),
   transformBlocks: z.array(AIGeneratedTransformBlockSchema).default([]).describe('JavaScript/Python computation blocks'),
-  notes: z.string().optional().describe('Additional notes from the AI about this workflow'),
+  notes: z.string().nullable().optional().describe('Additional notes from the AI about this workflow'),
 });
 
 export type AIGeneratedWorkflow = z.infer<typeof AIGeneratedWorkflowSchema>;
@@ -215,7 +251,7 @@ export const WorkflowChangeSchema = z.object({
   target: z.string().describe('Path to the target element (e.g., sections[0].steps[1])'),
   before: z.any().optional().describe('Value before change (for updates/removes)'),
   after: z.any().optional().describe('Value after change (for updates/adds)'),
-  explanation: z.string().describe('Human-readable explanation of this specific change'),
+  explanation: z.string().optional().describe('Human-readable explanation of this specific change'),
 });
 
 export type WorkflowChange = z.infer<typeof WorkflowChangeSchema>;
@@ -242,7 +278,7 @@ export type AIWorkflowRevisionRequest = z.infer<typeof AIWorkflowRevisionRequest
 export const AIWorkflowRevisionResponseSchema = z.object({
   updatedWorkflow: AIGeneratedWorkflowSchema.describe('The revised workflow JSON'),
   diff: WorkflowDiffSchema.describe('Structured diff of changes'),
-  explanation: z.array(z.string()).describe('High-level explanation of what was done'),
+  explanation: z.array(z.string()).optional().describe('High-level explanation of what was done'),
   suggestions: z.array(z.string()).optional().describe('Follow-up suggestions'),
 });
 

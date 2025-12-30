@@ -64,6 +64,9 @@ export { DatavaultApiTokensRepository, datavaultApiTokensRepository } from "./Da
 // DataVault v4 Micro-Phase 6: Table Permissions
 export { DatavaultTablePermissionsRepository, datavaultTablePermissionsRepository } from "./DatavaultTablePermissionsRepository";
 
+// DataVault Writeback Mappings - Workflow to DataVault integration
+export { DatavaultWritebackMappingsRepository, datavaultWritebackMappingsRepository } from "./DatavaultWritebackMappingsRepository";
+
 // Export type for Insert operations
 export type { InsertAnalyticsEvent } from "./AnalyticsRepository";
 export * from "./ExternalDestinationsRepository";

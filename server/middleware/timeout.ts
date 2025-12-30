@@ -11,15 +11,16 @@ const logger = createLogger({ module: 'timeout' });
  * Endpoints can override with custom timeout by setting res.locals.timeout
  */
 
-const DEFAULT_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? '30000', 10);
+const DEFAULT_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? '120000', 10);
 
 export function requestTimeout(req: Request, res: Response, next: NextFunction): void {
   // Allow endpoints to override timeout
-  const timeoutMs = res.locals.timeout || DEFAULT_TIMEOUT_MS;
+  let timeoutMs = res.locals.timeout || DEFAULT_TIMEOUT_MS;
 
-  // Skip timeout in test environment
-  if (process.env.NODE_ENV === 'test') {
-    return next();
+  // AUTO-EXTEND: AI routes need more time (default to 5 minutes for large PDFs)
+  // Check both path and originalUrl to be safe against mounting differences
+  if (req.path.includes('/ai/') || (req.originalUrl && req.originalUrl.includes('/ai/'))) {
+    timeoutMs = 600000; // 10 minutes
   }
 
   // Set timeout on the socket connection

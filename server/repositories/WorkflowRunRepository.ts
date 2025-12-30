@@ -1,6 +1,6 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, count, sql } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -108,6 +108,26 @@ export class WorkflowRunRepository extends BaseRepository<
       .where(eq(workflowRuns.portalAccessKey, key))
       .limit(1);
     return run || null;
+  }
+  /**
+   * Get workflow run statistics (admin only)
+   * Optimized to use a single query instead of fetching all runs
+   */
+  async getRunStats(tx?: DbTransaction) {
+    const database = this.getDb(tx);
+    const [stats] = await database
+      .select({
+        total: count(workflowRuns.id),
+        completed: sql<number>`sum(case when ${workflowRuns.completed} = true then 1 else 0 end)`,
+        inProgress: sql<number>`sum(case when ${workflowRuns.completed} = false then 1 else 0 end)`,
+      })
+      .from(workflowRuns);
+
+    return {
+      total: Number(stats?.total || 0),
+      completed: Number(stats?.completed || 0),
+      inProgress: Number(stats?.inProgress || 0),
+    };
   }
 }
 

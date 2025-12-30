@@ -1,10 +1,10 @@
-# VaultLogic 🧠
+# ezBuildr 🧠
 
 [![CI](https://github.com/ShawnC-LaunchCode/VaultLogic/workflows/CI/badge.svg)](https://github.com/ShawnC-LaunchCode/VaultLogic/actions/workflows/ci.yml)
 
 **Enterprise Workflow Automation Platform**
 
-VaultLogic is a comprehensive enterprise workflow automation platform built with modern web technologies. Create, distribute, and analyze workflows with advanced features like conditional logic, custom scripting, data management, AI-powered generation, and detailed analytics.
+ezBuildr is a comprehensive enterprise workflow automation platform built with modern web technologies. Create, distribute, and analyze workflows with advanced features like conditional logic, custom scripting, data management, AI-powered generation, and detailed analytics.
 
 **Platform Scale:**
 - 30+ frontend pages with React 18.3 + TypeScript
@@ -152,9 +152,9 @@ CREATE DATABASE vault_logic;
 
 ## 🏛️ System Architecture
 
-**VaultLogic is a dedicated workflow automation platform** (as of November 2025):
+**ezBuildr is a dedicated workflow automation platform** (as of November 2025):
 
-### **Workflows (VaultLogic Core)** ⭐ Primary System
+### **Workflows (ezBuildr Core)** ⭐ Primary System
 - Modern workflow automation engine
 - Database tables: `workflows`, `sections`, `steps`, `workflowRuns`, `stepValues`
 - API paths: `/api/workflows/*`, `/api/runs/*`
@@ -167,7 +167,7 @@ CREATE DATABASE vault_logic;
 - Not accessible via UI or API
 - See `SURVEY_REMOVAL_SUMMARY.md` for complete details
 
-**All new development uses the Workflow system.** VaultLogic is now 100% workflow-focused.
+**All new development uses the Workflow system.** ezBuildr is now 100% workflow-focused.
 
 ---
 
@@ -594,7 +594,7 @@ We welcome contributions! To get started:
 
 ## 📄 License
 
-MIT © 2025 Vault-Logic Contributors
+MIT © 2025 ezBuildr Contributors
 
 Originally inspired by Poll-Vault, rebuilt for next-generation workflow automation.
 
@@ -602,7 +602,7 @@ Originally inspired by Poll-Vault, rebuilt for next-generation workflow automati
 
 ## 📚 Documentation
 
-VaultLogic has comprehensive documentation organized by topic:
+ezBuildr has comprehensive documentation organized by topic:
 
 - **[Architecture & Current State](./CLAUDE.md)** - Streamlined architecture overview for technical teams
 - **[Changelog v1.6.0](./CHANGELOG_1.6.0.md)** - Complete release notes for latest version
@@ -664,5 +664,5 @@ For more detailed troubleshooting, see [CLAUDE.md](./CLAUDE.md) troubleshooting 
 
 ---
 
-**Last Updated:** December 15, 2025
+**Last Updated:** December 26, 2025
 **Version:** 1.7.0 (Custom Scripting System + Full Platform)

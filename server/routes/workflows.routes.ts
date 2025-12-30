@@ -116,7 +116,14 @@ export function registerWorkflowRoutes(app: Express): void {
       const { workflowId } = req.params;
       const updateData = req.body;
 
-      const workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
+      let workflow;
+      // Deep update if sections are provided (e.g. from AI)
+      if (updateData.sections && Array.isArray(updateData.sections)) {
+        workflow = await workflowService.replaceWorkflowContent(workflowId, userId, updateData);
+      } else {
+        workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
+      }
+
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");

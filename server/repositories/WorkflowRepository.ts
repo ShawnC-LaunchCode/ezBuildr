@@ -1,6 +1,6 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 import { workflows, type Workflow, type InsertWorkflow } from "@shared/schema";
-import { eq, and, desc, isNull, or, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, or, inArray, count, sql } from "drizzle-orm";
 import { db } from "../db";
 
 /**
@@ -159,6 +159,29 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(eq(workflows.id, workflowId))
       .returning();
     return workflow;
+  }
+
+  /**
+   * Get workflow statistics (admin only)
+   * Optimized to use a single query instead of fetching all workflows
+   */
+  async getWorkflowStats(tx?: DbTransaction) {
+    const database = this.getDb(tx);
+    const [stats] = await database
+      .select({
+        total: count(workflows.id),
+        active: sql<number>`sum(case when ${workflows.status} = 'active' then 1 else 0 end)`,
+        draft: sql<number>`sum(case when ${workflows.status} = 'draft' then 1 else 0 end)`,
+        archived: sql<number>`sum(case when ${workflows.status} = 'archived' then 1 else 0 end)`,
+      })
+      .from(workflows);
+
+    return {
+      total: Number(stats?.total || 0),
+      active: Number(stats?.active || 0),
+      draft: Number(stats?.draft || 0),
+      archived: Number(stats?.archived || 0),
+    };
   }
 }
 

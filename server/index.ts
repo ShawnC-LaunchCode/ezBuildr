@@ -37,12 +37,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for Vite in dev
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"], // Required for Vite in dev
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://*.google.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
-            connectSrc: ["'self'", "https://accounts.google.com", "wss:", "ws:"],
-            frameSrc: ["'self'", "https://accounts.google.com"],
+            connectSrc: ["'self'", "https://accounts.google.com", "https://*.googleapis.com", "https://*.google.com", "https://*.gstatic.com", "wss:", "ws:"],
+            frameSrc: ["'self'", "https://accounts.google.com", "https://*.google.com"],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
         },
@@ -59,6 +59,9 @@ app.use(helmet({
     xssFilter: true, // Enable XSS filter
     referrerPolicy: {
         policy: 'strict-origin-when-cross-origin',
+    },
+    crossOriginOpenerPolicy: {
+        policy: "same-origin-allow-popups",
     },
 }));
 
@@ -172,6 +175,17 @@ app.use(requestLogger);
             logger.fatal('Please ensure VL_MASTER_KEY is set to a valid base64-encoded 32-byte key');
             logger.fatal('Generate a new key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"');
             process.exit(1);
+        }
+
+        // CONFIGURATION CHECK: Validate AI provider configuration
+        const { validateAIConfig } = await import("./services/AIService.js");
+        const aiConfig = validateAIConfig();
+        if (aiConfig.configured) {
+            logger.info({ provider: aiConfig.provider, model: aiConfig.model }, 'AI Service configured and ready');
+        } else {
+            logger.warn({ error: aiConfig.error }, 'AI Service not configured - AI features will be unavailable');
+            logger.warn('To enable AI features, set GEMINI_API_KEY or AI_API_KEY environment variable');
+            logger.warn('Get your key at: https://makersuite.google.com/app/apikey (Gemini) or https://platform.openai.com/api-keys (OpenAI)');
         }
 
         // Ensure database is initialized before starting server

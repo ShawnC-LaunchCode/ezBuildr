@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { isAdmin } from "../middleware/adminAuth";
+import { hybridAuth } from "../middleware/auth";
 import { userRepository } from "../repositories/UserRepository";
 import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
@@ -29,32 +30,17 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/users
    * Get all users in the system
    */
-  app.get('/api/admin/users', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/users', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const users = await userRepository.findAllUsers();
-
-      // Fetch all workflows at once to avoid N+1 query problem
-      const allWorkflows = await workflowRepository.findAll();
-
-      // Group workflows by creator ID
-      const workflowsByCreator = new Map<string, number>();
-      for (const workflow of allWorkflows) {
-        const count = workflowsByCreator.get(workflow.creatorId) || 0;
-        workflowsByCreator.set(workflow.creatorId, count + 1);
-      }
-
-      // Return users with workflow count
-      const usersWithStats = users.map((user) => ({
-        ...user,
-        workflowCount: workflowsByCreator.get(user.id) || 0,
-      }));
+      // Use optimized query to get users and workflow counts in one go
+      const usersWithStats = await userRepository.findAllUsersWithWorkflowCounts();
 
       logger.info(
-        { adminId: req.adminUser!.id, userCount: users.length },
+        { adminId: req.adminUser!.id, userCount: usersWithStats.length },
         'Admin fetched all users'
       );
 
@@ -69,7 +55,7 @@ export function registerAdminRoutes(app: Express): void {
    * PUT /api/admin/users/:userId/role
    * Update user role (promote/demote admin)
    */
-  app.put('/api/admin/users/:userId/role', isAdmin, async (req: Request, res: Response) => {
+  app.put('/api/admin/users/:userId/role', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -139,7 +125,7 @@ export function registerAdminRoutes(app: Express): void {
    * POST /api/admin/users/:userId/unlock
    * Unlock a locked user account
    */
-  app.post('/api/admin/users/:userId/unlock', isAdmin, async (req: Request, res: Response) => {
+  app.post('/api/admin/users/:userId/unlock', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -193,7 +179,7 @@ export function registerAdminRoutes(app: Express): void {
    * POST /api/admin/users/:userId/reset-mfa
    * Reset MFA for a user (for locked out users)
    */
-  app.post('/api/admin/users/:userId/reset-mfa', isAdmin, async (req: Request, res: Response) => {
+  app.post('/api/admin/users/:userId/reset-mfa', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -246,7 +232,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/users/:userId/workflows
    * Get all workflows for a specific user
    */
-  app.get('/api/admin/users/:userId/workflows', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/users/:userId/workflows', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -293,7 +279,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/workflows
    * Get all workflows in the system
    */
-  app.get('/api/admin/workflows', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/workflows', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -340,7 +326,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/workflows/:workflowId
    * Get any workflow (including full details)
    */
-  app.get('/api/admin/workflows/:workflowId', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/workflows/:workflowId', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -371,7 +357,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/workflows/:workflowId/runs
    * Get all runs for any workflow
    */
-  app.get('/api/admin/workflows/:workflowId/runs', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/workflows/:workflowId/runs', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -404,7 +390,7 @@ export function registerAdminRoutes(app: Express): void {
    * DELETE /api/admin/workflows/:workflowId
    * Delete any workflow
    */
-  app.delete('/api/admin/workflows/:workflowId', isAdmin, async (req: Request, res: Response) => {
+  app.delete('/api/admin/workflows/:workflowId', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -451,33 +437,30 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/stats
    * Get system-wide statistics
    */
-  app.get('/api/admin/stats', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/stats', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Get users count
-      const users = await userRepository.findAllUsers();
-      const adminCount = users.filter((u) => u.role === "admin").length;
-
-      // Get all workflows directly
-      const allWorkflows = await workflowRepository.findAll();
-
-      // Get all runs directly
-      const allRuns = await workflowRunRepository.findAll();
+      // Fetch stats in parallel for better performance
+      const [userStats, workflowStats, runStats] = await Promise.all([
+        userRepository.getUserStats(),
+        workflowRepository.getWorkflowStats(),
+        workflowRunRepository.getRunStats()
+      ]);
 
       const stats = {
-        totalUsers: users.length,
-        adminUsers: adminCount,
-        creatorUsers: users.length - adminCount,
-        totalWorkflows: allWorkflows.length,
-        activeWorkflows: allWorkflows.filter((w) => w.status === "active").length,
-        draftWorkflows: allWorkflows.filter((w) => w.status === "draft").length,
-        archivedWorkflows: allWorkflows.filter((w) => w.status === "archived").length,
-        totalRuns: allRuns.length,
-        completedRuns: allRuns.filter((r) => r.completed).length,
-        inProgressRuns: allRuns.filter((r) => !r.completed).length,
+        totalUsers: userStats.total,
+        adminUsers: userStats.admins,
+        creatorUsers: userStats.creators,
+        totalWorkflows: workflowStats.total,
+        activeWorkflows: workflowStats.active,
+        draftWorkflows: workflowStats.draft,
+        archivedWorkflows: workflowStats.archived,
+        totalRuns: runStats.total,
+        completedRuns: runStats.completed,
+        inProgressRuns: runStats.inProgress,
       };
 
       logger.info({ adminId: req.adminUser!.id }, "Admin fetched system stats");
@@ -497,7 +480,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs
    * Get activity logs with filtering and pagination
    */
-  app.get('/api/admin/logs', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/logs', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -540,7 +523,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/export
    * Export activity logs to CSV
    */
-  app.get('/api/admin/logs/export', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/logs/export', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -580,7 +563,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/events
    * Get unique event types for filter dropdowns
    */
-  app.get('/api/admin/logs/events', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/logs/events', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -604,7 +587,7 @@ export function registerAdminRoutes(app: Express): void {
    * GET /api/admin/logs/actors
    * Get unique actors for filter dropdowns
    */
-  app.get('/api/admin/logs/actors', isAdmin, async (req: Request, res: Response) => {
+  app.get('/api/admin/logs/actors', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -632,7 +615,7 @@ export function registerAdminRoutes(app: Express): void {
    * PUT /api/admin/tenants/:tenantId/mfa-required
    * Toggle MFA requirement for a tenant
    */
-  app.put('/api/admin/tenants/:tenantId/mfa-required', isAdmin, async (req: Request, res: Response) => {
+  app.put('/api/admin/tenants/:tenantId/mfa-required', hybridAuth, isAdmin, async (req: Request, res: Response) => {
     try {
       if (!req.adminUser) {
         return res.status(401).json({ message: "Unauthorized" });

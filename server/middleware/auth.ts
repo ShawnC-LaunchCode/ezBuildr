@@ -16,6 +16,7 @@ export interface AuthRequest extends Request {
   userEmail?: string;
   tenantId?: string;
   userRole?: 'owner' | 'builder' | 'runner' | 'viewer' | null;
+  systemRole?: 'admin' | 'creator' | null;
   jwtPayload?: JWTPayload;
 }
 
@@ -199,7 +200,8 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
     userId: payload.userId,
     userEmail: payload.email,
     tenantId: payload.tenantId || undefined,
-    userRole: payload.role,
+    userRole: payload.tenantRole || null, // Prefer tenantRole from payload, fallback handled below
+    systemRole: payload.role as any, // Admin/Creator
     jwtPayload: payload
   } as AuthRequest);
 

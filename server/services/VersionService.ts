@@ -185,8 +185,85 @@ export class VersionService {
 
 
   /**
+   * Create a draft version (for AI edits or auto-saves)
+   * Creates an immutable snapshot without publishing
+   * Does NOT validate or update workflow.currentVersionId
+   * Returns null if no changes detected (checksum matches latest)
+   */
+  async createDraftVersion(
+    workflowId: string,
+    userId: string,
+    graphJson: any,
+    notes?: string,
+    metadata?: Record<string, any>
+  ): Promise<WorkflowVersion | null> {
+    // Compute checksum
+    const checksum = computeChecksum({ graphJson });
+
+    // Fetch the LATEST version for this workflow.
+    const [latestVersion] = await db
+      .select()
+      .from(workflowVersions)
+      .where(eq(workflowVersions.workflowId, workflowId))
+      .orderBy(desc(workflowVersions.createdAt))
+      .limit(1);
+
+    // If checksum matches latest, no changes - return null
+    if (latestVersion && latestVersion.checksum === checksum) {
+      logger.debug({ workflowId, checksum }, "No changes detected, skipping draft version creation");
+      return null;
+    }
+
+    // Compute diff against latest version for changelog
+    let changelog: any = null;
+    if (latestVersion) {
+      changelog = workflowDiffService.diff(latestVersion.graphJson as any, graphJson);
+    }
+
+    // Determine version number
+    const versionNumber = latestVersion ? (latestVersion.versionNumber || 1) + 1 : 1;
+
+    // Create new draft version
+    const [newVersion] = await db
+      .insert(workflowVersions)
+      .values({
+        workflowId,
+        graphJson,
+        createdBy: userId,
+        isDraft: true,
+        published: false,
+        versionNumber,
+        notes,
+        checksum,
+        changelog,
+        migrationInfo: metadata ? { aiMetadata: metadata } : null,
+      })
+      .returning();
+
+    // Log audit event
+    await db.insert(auditEvents).values({
+      actorId: userId,
+      entityType: 'workflow_version',
+      entityId: newVersion.id,
+      action: 'create_draft_version',
+      diff: {
+        notes,
+        checksum,
+        versionNumber,
+        changelog,
+        metadata,
+      },
+    });
+
+    logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Created draft version");
+
+    return newVersion;
+  }
+
+  /**
    * Publish a new version
-   * Creates an immutable snapshot with checksum
+   * Creates an immutable snapshot with checksum and updates workflow.currentVersionId
+   * This is for user-initiated publishes (moving from draft to active)
    */
   async publishVersion(
     workflowId: string,
@@ -219,26 +296,32 @@ export class VersionService {
       changelog = workflowDiffService.diff(latestVersion.graphJson as any, graphJson);
     }
 
-    // Create new version
+    // Determine version number
+    const versionNumber = latestVersion ? (latestVersion.versionNumber || 1) + 1 : 1;
+
+    // Create new version (published)
     const [newVersion] = await db
       .insert(workflowVersions)
       .values({
         workflowId,
         graphJson,
         createdBy: userId,
+        isDraft: false,
         published: true,
         publishedAt: new Date(),
+        versionNumber,
         notes,
         checksum,
         changelog,
       })
       .returning();
 
-    // Update workflow's currentVersionId
+    // Update workflow's currentVersionId and status to active
     await db
       .update(workflows)
       .set({
         currentVersionId: newVersion.id,
+        status: 'active',
         updatedAt: new Date(),
       })
       .where(eq(workflows.id, workflowId));
@@ -252,13 +335,14 @@ export class VersionService {
       diff: {
         notes,
         checksum,
+        versionNumber,
         validationWarnings: validation.warnings,
         forced: force,
         changelog // include in audit too
       },
     });
 
-    logger.info({ workflowId, versionId: newVersion.id, userId }, "Published new version");
+    logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Published new version");
 
     return newVersion;
   }
@@ -266,6 +350,7 @@ export class VersionService {
   /**
    * Rollback to a previous version
    * Sets currentVersionId to the specified version
+   * Works with both draft and published versions
    */
   async rollbackToVersion(
     workflowId: string,
@@ -298,10 +383,59 @@ export class VersionService {
       diff: {
         toVersionId,
         notes,
+        isDraft: version.isDraft,
       },
     });
 
-    logger.info({ workflowId, toVersionId, userId }, "Rolled back to version");
+    logger.info({ workflowId, toVersionId, userId, isDraft: version.isDraft }, "Rolled back to version");
+  }
+
+  /**
+   * Restore workflow to a specific version (creates new draft version with same content)
+   * This is preferred for AI undo operations as it preserves full history
+   */
+  async restoreToVersion(
+    workflowId: string,
+    fromVersionId: string,
+    userId: string,
+    notes?: string
+  ): Promise<WorkflowVersion> {
+    // Verify source version exists and belongs to workflow
+    const sourceVersion = await this.getVersion(fromVersionId);
+
+    if (!sourceVersion || sourceVersion.workflowId !== workflowId) {
+      throw new Error("Source version not found or does not belong to this workflow");
+    }
+
+    // Create a new draft version with the same graphJson
+    const restoredVersion = await this.createDraftVersion(
+      workflowId,
+      userId,
+      sourceVersion.graphJson,
+      notes || `Restored from version ${sourceVersion.versionNumber || fromVersionId}`,
+      { restoredFrom: fromVersionId }
+    );
+
+    if (!restoredVersion) {
+      throw new Error("Failed to create restored version (no changes detected)");
+    }
+
+    // Log audit event
+    await db.insert(auditEvents).values({
+      actorId: userId,
+      entityType: 'workflow',
+      entityId: workflowId,
+      action: 'restore',
+      diff: {
+        fromVersionId,
+        toVersionId: restoredVersion.id,
+        notes,
+      },
+    });
+
+    logger.info({ workflowId, fromVersionId, toVersionId: restoredVersion.id, userId }, "Restored to version");
+
+    return restoredVersion;
   }
 
   /**

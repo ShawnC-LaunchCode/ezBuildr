@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { hybridAuth } from '../middleware/auth';
 import type { AuthRequest } from '../middleware/auth';
+import { extendedTimeout } from '../middleware/timeout';
 import { geminiService } from "../services/geminiService";
 import { logger } from "../logger";
 import { createLogger } from "../logger";
@@ -9,6 +10,8 @@ import { requireBuilder } from "../middleware/rbac";
 import { createAIServiceFromEnv } from "../services/AIService";
 import { workflowService } from "../services/WorkflowService";
 import { variableService } from "../services/VariableService";
+import { sectionService } from "../services/SectionService";
+import { stepService } from "../services/StepService";
 import {
   AIWorkflowGenerationRequestSchema,
   AIWorkflowSuggestionRequestSchema,
@@ -22,12 +25,86 @@ import {
 const aiLogger = createLogger({ module: 'ai-routes' });
 
 /**
+ * Middleware to validate workflow size in request body
+ * Prevents memory issues and API overload from huge workflow objects
+ */
+const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100) => {
+  return (req: Request, res: Response, next: Function) => {
+    try {
+      const workflow = req.body.currentWorkflow;
+
+      if (!workflow) {
+        // No workflow in body, skip validation
+        return next();
+      }
+
+      // Check sections count
+      if (workflow.sections && workflow.sections.length > maxSections) {
+        return res.status(413).json({
+          success: false,
+          message: `Workflow too large: ${workflow.sections.length} sections (max: ${maxSections})`,
+          error: 'workflow_too_large',
+          details: {
+            sectionsCount: workflow.sections.length,
+            maxSections,
+            suggestion: 'Consider breaking this workflow into smaller workflows or using fewer sections.',
+          },
+        });
+      }
+
+      // Check steps per section
+      if (workflow.sections) {
+        for (let i = 0; i < workflow.sections.length; i++) {
+          const section = workflow.sections[i];
+          if (section.steps && section.steps.length > maxStepsPerSection) {
+            return res.status(413).json({
+              success: false,
+              message: `Section "${section.title || i}" has too many steps: ${section.steps.length} (max: ${maxStepsPerSection})`,
+              error: 'section_too_large',
+              details: {
+                sectionIndex: i,
+                sectionTitle: section.title,
+                stepsCount: section.steps.length,
+                maxStepsPerSection,
+                suggestion: 'Split this section into multiple smaller sections.',
+              },
+            });
+          }
+        }
+      }
+
+      // Check total JSON size (rough estimate)
+      const jsonSize = JSON.stringify(workflow).length;
+      const maxJsonSize = 5 * 1024 * 1024; // 5MB limit
+
+      if (jsonSize > maxJsonSize) {
+        return res.status(413).json({
+          success: false,
+          message: `Workflow JSON too large: ${(jsonSize / 1024 / 1024).toFixed(2)}MB (max: 5MB)`,
+          error: 'payload_too_large',
+          details: {
+            jsonSizeMB: (jsonSize / 1024 / 1024).toFixed(2),
+            maxSizeMB: 5,
+            suggestion: 'Reduce the number of sections, steps, or remove unnecessary data.',
+          },
+        });
+      }
+
+      next();
+    } catch (error) {
+      aiLogger.error({ error }, 'Error validating workflow size');
+      next(error);
+    }
+  };
+};
+
+/**
  * Rate limiting for AI workflow generation endpoints
  * These endpoints are expensive and can consume significant API credits
  */
 const aiWorkflowRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // limit each user to 10 AI requests per minute
+  max: 100, // limit each user to 100 AI requests per minute
   message: {
     success: false,
     message: 'Too many AI requests, please try again later.',
@@ -62,7 +139,7 @@ export function registerAiRoutes(app: Express): void {
 
       res.json({
         available: hasApiKey,
-        model: hasApiKey ? "gemini-2.5-flash" : null,
+        model: hasApiKey ? (process.env.GEMINI_MODEL || "gemini-2.0-flash") : null,
         features: hasApiKey ? [
           "workflow_generation",
           "sentiment_analysis",
@@ -161,6 +238,9 @@ export function registerAiRoutes(app: Express): void {
           blocksCount: generatedWorkflow.transformBlocks.length,
         }, 'AI workflow generation succeeded');
 
+        // Extract quality score (attached by AIService)
+        const qualityScore = (generatedWorkflow as any).__qualityScore;
+
         res.status(200).json({
           success: true,
           workflow: generatedWorkflow,
@@ -170,6 +250,13 @@ export function registerAiRoutes(app: Express): void {
             logicRulesGenerated: generatedWorkflow.logicRules.length,
             transformBlocksGenerated: generatedWorkflow.transformBlocks.length,
           },
+          quality: qualityScore ? {
+            score: qualityScore.overall,
+            breakdown: qualityScore.breakdown,
+            passed: qualityScore.passed,
+            issues: qualityScore.issues,
+            suggestions: qualityScore.suggestions,
+          } : undefined,
         });
       } catch (error: any) {
         const duration = Date.now() - startTime;
@@ -483,13 +570,18 @@ export function registerAiRoutes(app: Express): void {
    */
   app.post(
     '/api/ai/workflows/revise',
+    extendedTimeout(300000), // 5 minutes for AI processing (large PDFs)
     hybridAuth,
     requireBuilder,
+    validateWorkflowSize(50, 50), // Limit: 50 sections, 50 steps per section
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
       const startTime = Date.now();
       const authReq = req as AuthRequest;
       const userId = authReq.userId!;
+
+      // FORCE TIMEOUT
+      req.setTimeout(600000); // 10 minutes
 
       try {
         // Validate request body
@@ -511,18 +603,199 @@ export function registerAiRoutes(app: Express): void {
         // Perform revision
         const revisionResult = await aiService.reviseWorkflow(requestData);
 
+        // AUTO-APPLY: Persist AI changes to database
+        aiLogger.info({
+          workflowId: requestData.workflowId,
+          sectionsCount: revisionResult.updatedWorkflow.sections?.length || 0,
+          changesCount: revisionResult.diff.changes.length
+        }, 'Applying AI revision to database');
+
+        try {
+          // Get existing sections and steps from DB
+          const existingWorkflow = await workflowService.getWorkflowWithDetails(requestData.workflowId, userId);
+          const existingSectionIds = new Set((existingWorkflow.sections || []).map(s => s.id));
+          const existingStepIds = new Set(
+            (existingWorkflow.sections || [])
+              .flatMap(s => (s.steps || []).map(step => step.id))
+          );
+          // Build alias -> stepId map to handle AI regenerating steps with same alias but different ID
+          const existingStepsByAlias = new Map<string, string>();
+          for (const section of (existingWorkflow.sections || [])) {
+            for (const step of (section.steps || [])) {
+              if (step.alias) {
+                existingStepsByAlias.set(step.alias, step.id);
+              }
+            }
+          }
+
+          // Update workflow-level properties if changed
+          const aiWorkflow = revisionResult.updatedWorkflow;
+          const workflowUpdates: any = {};
+          let hasWorkflowUpdates = false;
+
+          if (aiWorkflow.title && aiWorkflow.title !== existingWorkflow.title) {
+            workflowUpdates.title = aiWorkflow.title;
+            hasWorkflowUpdates = true;
+          }
+          if (aiWorkflow.description !== undefined && aiWorkflow.description !== existingWorkflow.description) {
+            workflowUpdates.description = aiWorkflow.description;
+            hasWorkflowUpdates = true;
+          }
+
+          if (hasWorkflowUpdates) {
+            aiLogger.debug({ workflowId: requestData.workflowId, updates: workflowUpdates }, 'Updating workflow properties');
+            await workflowService.updateWorkflow(requestData.workflowId, userId, workflowUpdates);
+            aiLogger.info({ workflowId: requestData.workflowId, updates: workflowUpdates }, 'Updated workflow properties');
+          }
+
+          const aiSections = revisionResult.updatedWorkflow.sections || [];
+          const processedSectionIds = new Set<string>();
+          const processedStepIds = new Set<string>();
+
+          // Process each section from AI
+          for (const aiSection of aiSections) {
+            try {
+              const sectionData: any = {
+                title: aiSection.title,
+                description: aiSection.description || null,
+                order: aiSection.order,
+              };
+
+              let sectionId: string;
+
+              if (aiSection.id && existingSectionIds.has(aiSection.id)) {
+                // Update existing section
+                aiLogger.debug({ sectionId: aiSection.id, data: sectionData }, 'Updating section');
+                await sectionService.updateSectionById(aiSection.id, userId, sectionData);
+                sectionId = aiSection.id;
+                aiLogger.debug({ sectionId, title: aiSection.title }, 'Updated section');
+              } else {
+                // Create new section
+                aiLogger.debug({ workflowId: requestData.workflowId, data: sectionData }, 'Creating section');
+                const newSection = await sectionService.createSection(requestData.workflowId, userId, sectionData);
+                sectionId = newSection.id;
+                aiLogger.debug({ sectionId, title: aiSection.title }, 'Created section');
+              }
+
+              processedSectionIds.add(sectionId);
+
+              // Process steps for this section
+              const aiSteps = aiSection.steps || [];
+              for (const aiStep of aiSteps) {
+                try {
+                  const stepData: any = {
+                    type: aiStep.type,
+                    title: aiStep.title,
+                    description: aiStep.description || null,
+                    alias: aiStep.alias || null,
+                    required: aiStep.required ?? false,
+                    config: aiStep.config || {},
+                    order: aiStep.order,
+                    visibleIf: aiStep.visibleIf || null,
+                    defaultValue: aiStep.defaultValue || null,
+                  };
+
+                  // Check if step exists by ID or by alias
+                  let existingStepId: string | undefined;
+                  if (aiStep.id && existingStepIds.has(aiStep.id)) {
+                    existingStepId = aiStep.id;
+                  } else if (aiStep.alias && existingStepsByAlias.has(aiStep.alias)) {
+                    existingStepId = existingStepsByAlias.get(aiStep.alias);
+                  }
+
+                  if (existingStepId) {
+                    // Update existing step (matched by ID or alias)
+                    aiLogger.debug({ stepId: existingStepId, data: stepData, matchedBy: aiStep.id === existingStepId ? 'id' : 'alias' }, 'Updating step');
+                    await stepService.updateStepById(existingStepId, userId, stepData);
+                    processedStepIds.add(existingStepId);
+                    aiLogger.debug({ stepId: existingStepId, title: aiStep.title, alias: aiStep.alias }, 'Updated step');
+                  } else {
+                    // Create new step (no ID or alias match)
+                    aiLogger.debug({ sectionId, data: stepData }, 'Creating step');
+                    const newStep = await stepService.createStepBySectionId(sectionId, userId, stepData);
+                    processedStepIds.add(newStep.id);
+                    aiLogger.debug({ stepId: newStep.id, title: aiStep.title, alias: aiStep.alias }, 'Created step');
+                  }
+                } catch (stepError: any) {
+                  aiLogger.error({
+                    error: {
+                      message: stepError.message,
+                      stack: stepError.stack,
+                    },
+                    stepTitle: aiStep.title,
+                    stepAlias: aiStep.alias,
+                    sectionId,
+                  }, 'Failed to process step');
+                  throw stepError;
+                }
+              }
+            } catch (sectionError: any) {
+              aiLogger.error({
+                error: {
+                  message: sectionError.message,
+                  stack: sectionError.stack,
+                },
+                sectionTitle: aiSection.title,
+              }, 'Failed to process section');
+              throw sectionError;
+            }
+          }
+
+          // Delete sections that are no longer in the AI workflow
+          for (const existingSection of (existingWorkflow.sections || [])) {
+            if (!processedSectionIds.has(existingSection.id)) {
+              await sectionService.deleteSectionById(existingSection.id, userId);
+              aiLogger.debug({ sectionId: existingSection.id }, 'Deleted orphaned section');
+            }
+          }
+
+          // Delete steps that are no longer in the AI workflow
+          for (const existingSection of (existingWorkflow.sections || [])) {
+            for (const existingStep of (existingSection.steps || [])) {
+              if (!processedStepIds.has(existingStep.id)) {
+                await stepService.deleteStepById(existingStep.id, userId);
+                aiLogger.debug({ stepId: existingStep.id }, 'Deleted orphaned step');
+              }
+            }
+          }
+
+          aiLogger.info({
+            workflowId: requestData.workflowId,
+            sectionsProcessed: processedSectionIds.size,
+            stepsProcessed: processedStepIds.size
+          }, 'AI revision applied to database successfully');
+
+        } catch (applyError: any) {
+          aiLogger.error({
+            error: {
+              message: applyError.message,
+              stack: applyError.stack,
+              name: applyError.name,
+              code: applyError.code,
+            },
+            workflowId: requestData.workflowId,
+          }, 'Failed to apply AI revision to database');
+          throw new Error(`Failed to persist AI changes: ${applyError.message || applyError}`);
+        }
+
         const duration = Date.now() - startTime;
 
-        res.status(200).json({
-          success: true,
-          ...revisionResult,
-          metadata: {
-            duration,
-            changeCount: revisionResult.diff.changes.length
-          }
-        });
+        if (!res.headersSent) {
+          res.status(200).json({
+            success: true,
+            ...revisionResult,
+            metadata: {
+              duration,
+              changeCount: revisionResult.diff.changes.length,
+              applied: true  // Indicate changes were persisted
+            }
+          });
+        }
 
       } catch (error: any) {
+        // Prevent crashing if timeout middleware already sent response
+        if (res.headersSent) return;
+
         const duration = Date.now() - startTime;
         aiLogger.error({
           error,
@@ -555,12 +828,15 @@ export function registerAiRoutes(app: Express): void {
           });
         }
 
-        res.status(500).json({
-          success: false,
-          message: 'Failed to revise workflow',
-          error: 'internal_error',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        });
+        // Check if response was already sent (e.g., by timeout middleware)
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to revise workflow',
+            error: 'internal_error',
+            details: process.env.NODE_ENV === 'development' ? (error as any).details || error.message : undefined,
+          });
+        }
       }
     }
   );
@@ -651,6 +927,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/generate-logic',
     hybridAuth,
     requireBuilder,
+    validateWorkflowSize(50, 50), // Limit: 50 sections, 50 steps per section
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
       const startTime = Date.now();
@@ -726,6 +1003,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/debug-logic',
     hybridAuth,
     requireBuilder,
+    validateWorkflowSize(50, 50), // Limit: 50 sections, 50 steps per section
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
       try {
@@ -766,6 +1044,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/visualize-logic',
     hybridAuth,
     requireBuilder,
+    validateWorkflowSize(50, 50), // Limit: 50 sections, 50 steps per section
     aiWorkflowRateLimit,
     async (req: Request, res: Response) => {
       try {

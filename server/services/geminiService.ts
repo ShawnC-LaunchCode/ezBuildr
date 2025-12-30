@@ -24,8 +24,9 @@ export class GeminiService {
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-2.5-flash for speed and cost efficiency
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Use configurable Gemini model from env, fallback to gemini-2.0-flash
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    this.model = this.genAI.getGenerativeModel({ model });
   }
 
   /**
@@ -115,7 +116,7 @@ export class GeminiService {
     return {
       insights,
       metadata: {
-        model: "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
         promptTokens,
         responseTokens,
         analysisDate: new Date(),

@@ -28,6 +28,7 @@ import { workflowVersions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { analyticsService } from "./analytics/AnalyticsService";
 import { aggregationService } from "./analytics/AggregationService";
+import { writebackExecutionService } from "./WritebackExecutionService";
 
 /**
  * Service layer for workflow run-related business logic
@@ -687,6 +688,30 @@ export class RunService {
         completedAt: new Date(),
         progress: 100,
       });
+
+      // Execute DataVault writebacks (if configured)
+      try {
+        const writebackResult = await writebackExecutionService.executeWritebacksForRun(
+          runId,
+          run.workflowId,
+          userId
+        );
+        if (writebackResult.rowsCreated > 0) {
+          logger.info(
+            { runId, rowsCreated: writebackResult.rowsCreated },
+            'DataVault writeback completed'
+          );
+        }
+        if (writebackResult.errors.length > 0) {
+          logger.warn(
+            { runId, errors: writebackResult.errors },
+            'Some writeback mappings failed'
+          );
+        }
+      } catch (error) {
+        logger.error({ error, runId }, 'Writeback execution failed, but run marked complete');
+        // Don't fail the run completion if writeback fails
+      }
 
       // Generate documents for Final Documents sections
       try {

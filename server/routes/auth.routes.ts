@@ -22,7 +22,8 @@ import {
   AccountLockedError,
   EmailNotVerifiedError,
   MfaRequiredError,
-  UnauthorizedError
+  UnauthorizedError,
+  AuthProviderMismatchError
 } from "../errors/AuthErrors";
 import { send, sendErrorResponse, sendSuccessResponse } from "../utils/responses";
 import { RATE_LIMIT_CONFIG, LOCKOUT_CONFIG } from "../config/auth";
@@ -54,7 +55,7 @@ async function validateCredentials(email: string, password: string, req: Request
   }
 
   if (user.authProvider !== 'local') {
-    throw new Error(`Please sign in with ${user.authProvider}`);
+    throw new AuthProviderMismatchError(user.authProvider);
   }
 
   const credentials = await userCredentialsRepository.findByUserId(user.id);
@@ -158,7 +159,9 @@ async function issueTokens(user: User, req: Request, res: Response) {
       firstName: user.firstName,
       lastName: user.lastName,
       tenantId: user.tenantId,
-      role: user.tenantRole,
+
+      role: user.role,
+      tenantRole: user.tenantRole,
       emailVerified: user.emailVerified,
       mfaEnabled: user.mfaEnabled
     }
@@ -336,6 +339,8 @@ export function registerAuthRoutes(app: Express): void {
         metricsService.recordLoginAttempt('account_locked', 'local');
       } else if (error instanceof EmailNotVerifiedError) {
         metricsService.recordLoginAttempt('email_not_verified', 'local');
+      } else if (error instanceof AuthProviderMismatchError) {
+        metricsService.recordLoginAttempt('provider_mismatch', 'local');
       } else {
         metricsService.recordLoginAttempt('error', 'local');
       }
@@ -390,7 +395,12 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({
         token: newAccessToken,
-        user: { id: user.id, email: user.email, role: user.tenantRole }
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          tenantRole: user.tenantRole
+        }
       });
     } catch (error) {
       logger.error({ error }, 'Refresh token failed');
@@ -514,7 +524,8 @@ export function registerAuthRoutes(app: Express): void {
         fullName: user.fullName,
         profileImageUrl: user.profileImageUrl,
         tenantId: user.tenantId,
-        role: user.tenantRole,
+        role: user.role,
+        tenantRole: user.tenantRole,
         authProvider: user.authProvider,
         defaultMode: user.defaultMode,
       });
@@ -1142,22 +1153,52 @@ export function registerAuthRoutes(app: Express): void {
   // Dev Login Stub (if needed) - kept minimal
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     app.all('/api/auth/dev-login', async (req, res) => {
-      const user = {
-        id: 'dev-user',
-        email: 'dev@example.com',
-        tenantId: 'default',
-        firstName: 'Dev',
-        lastName: 'User',
-        fullName: 'Dev User',
-        role: 'owner',
-        tenantRole: 'owner',
-        authProvider: 'local'
-      } as unknown as User;
-      const token = authService.createToken(user);
-      const refresh = await authService.createRefreshToken(user.id);
-      res.setHeader('Set-Cookie', serialize('refresh_token', refresh, { path: '/', httpOnly: true }));
-      if (req.method === 'GET') res.redirect('/dashboard');
-      else res.json({ user, token });
+      try {
+        // Try to find existing dev user
+        let user = await userRepository.findByEmail('dev@example.com');
+
+        // Create dev user if doesn't exist
+        if (!user) {
+          user = await userRepository.create({
+            id: 'dev-user',
+            email: 'dev@example.com',
+            firstName: 'Dev',
+            lastName: 'User',
+            fullName: 'Dev User',
+            profileImageUrl: null,
+            tenantId: null,
+            role: 'creator',
+            tenantRole: 'owner',
+            authProvider: 'local',
+            defaultMode: 'easy',
+          });
+
+          // Create credentials for the dev user
+          const passwordHash = await authService.hashPassword('DevPassword123!');
+          await userCredentialsRepository.createCredentials(user.id, passwordHash);
+
+          logger.info('Dev user created for dev-login endpoint');
+        }
+
+        const token = authService.createToken(user);
+        const refresh = await authService.createRefreshToken(user.id, {
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        });
+
+        res.setHeader('Set-Cookie', serialize('refresh_token', refresh, {
+          path: '/',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict'
+        }));
+
+        if (req.method === 'GET') res.redirect('/dashboard');
+        else res.json({ user, token });
+      } catch (error) {
+        logger.error({ error }, 'Dev login failed');
+        res.status(500).json({ message: 'Dev login failed' });
+      }
     });
   }
 }

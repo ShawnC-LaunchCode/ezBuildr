@@ -3,8 +3,14 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import { MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useConfetti } from "@/hooks/useConfetti";
+import { cn } from "@/lib/utils";
 
-export default function FeedbackWidget() {
+interface FeedbackWidgetProps {
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export default function FeedbackWidget({ className, style }: FeedbackWidgetProps) {
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { fire } = useConfetti();
@@ -26,7 +32,7 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className={cn("fixed bottom-6 right-6 z-50", className)} style={style}>
         <Dialog>
           <DialogTrigger asChild>
             <button className="bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:scale-105 active:scale-95 transition-all">

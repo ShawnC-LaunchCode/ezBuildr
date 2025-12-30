@@ -30,7 +30,7 @@ interface User {
   profileImageUrl: string | null;
   role: 'admin' | 'creator';
   createdAt: string;
-  surveyCount: number;
+  workflowCount: number;
 }
 
 export default function AdminUsers() {
@@ -155,7 +155,7 @@ export default function AdminUsers() {
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground">User</th>
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground">Email</th>
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground">Role</th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Surveys</th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Workflows</th>
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground">Joined</th>
                         <th className="text-right p-3 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
@@ -199,7 +199,7 @@ export default function AdminUsers() {
                               <Badge variant="secondary">Creator</Badge>
                             )}
                           </td>
-                          <td className="p-3 text-sm">{user.surveyCount}</td>
+                          <td className="p-3 text-sm">{user.workflowCount}</td>
                           <td className="p-3 text-sm text-muted-foreground">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </td>
@@ -208,7 +208,7 @@ export default function AdminUsers() {
                               <Link href={`/admin/users/${user.id}/surveys`}>
                                 <Button variant="ghost" size="sm">
                                   <Eye className="h-4 w-4 mr-1" />
-                                  View Surveys
+                                  View Workflows
                                 </Button>
                               </Link>
 

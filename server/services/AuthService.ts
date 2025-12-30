@@ -15,17 +15,17 @@ import { hashToken } from "../utils/encryption";
 import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
 import { accountLockoutService } from "./AccountLockoutService";
 import {
-  InvalidTokenError,
-  TokenExpiredError,
-  InvalidCredentialsError
+    InvalidTokenError,
+    TokenExpiredError,
+    InvalidCredentialsError
 } from "../errors/AuthErrors";
 import {
-  PASSWORD_CONFIG,
-  JWT_CONFIG,
-  REFRESH_TOKEN_CONFIG,
-  PASSWORD_RESET_CONFIG,
-  EMAIL_VERIFICATION_CONFIG,
-  PASSWORD_POLICY
+    PASSWORD_CONFIG,
+    JWT_CONFIG,
+    REFRESH_TOKEN_CONFIG,
+    PASSWORD_RESET_CONFIG,
+    EMAIL_VERIFICATION_CONFIG,
+    PASSWORD_POLICY
 } from "../config/auth";
 import zxcvbn from 'zxcvbn';
 
@@ -84,7 +84,8 @@ export interface JWTPayload {
     userId: string;
     email: string;
     tenantId: string | null;
-    role: 'owner' | 'builder' | 'runner' | 'viewer' | null;
+    role: 'admin' | 'creator' | 'owner' | 'builder' | 'runner' | 'viewer' | null;
+    tenantRole?: 'owner' | 'builder' | 'runner' | 'viewer' | null;
     iat?: number;
     exp?: number;
 }
@@ -113,7 +114,8 @@ export class AuthService {
                 userId: user.id,
                 email: user.email,
                 tenantId: user.tenantId || null,
-                role: user.tenantRole || null,
+                role: user.role, // System role (admin/creator)
+                tenantRole: user.tenantRole || null, // Tenant role (owner/builder/etc)
             };
 
             const options: SignOptions = {

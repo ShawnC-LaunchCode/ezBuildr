@@ -1,5 +1,5 @@
 
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -13,6 +13,7 @@ import WorkflowsList from "@/pages/WorkflowsList";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminLogs from "@/pages/AdminLogs";
+import AdminAiSettings from "@/pages/AdminAiSettings";
 import TemplatesPage from "@/pages/TemplatesPage";
 import Marketplace from "@/pages/Marketplace";
 import SettingsPage from "@/pages/SettingsPage";
@@ -156,6 +157,7 @@ function Router() {
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/logs" component={AdminLogs} />
+            <Route path="/admin/ai-settings" component={AdminAiSettings} />
 
             {/* Billing Routes */}
             <Route path="/billing" component={BillingDashboard} />
@@ -168,10 +170,9 @@ function Router() {
           </>
         )}
       </Switch>
-      {/* Feedback widget - visible on all authenticated pages */}
+      {/* Feedback widget moved to App component for conditional rendering */}
       {!isLoading && isAuthenticated && (
         <>
-          <FeedbackWidget />
           <CommandPalette />
           <ShortcutHelper />
         </>
@@ -182,6 +183,9 @@ function Router() {
 
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const [location] = useLocation();
+
+  const isBuilder = location.includes('/builder') || location.includes('/visual-builder');
 
   if (!googleClientId) {
     console.warn('VITE_GOOGLE_CLIENT_ID environment variable is not set - running in development mode');
@@ -191,6 +195,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          {/* Feedback widget - visible on all authenticated pages except builder */}
+          {!isBuilder && <FeedbackWidget />}
         </TooltipProvider>
       </QueryClientProvider>
     );
@@ -202,6 +208,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          {/* Feedback widget - visible on all authenticated pages except builder */}
+          {!isBuilder && <FeedbackWidget />}
         </TooltipProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>

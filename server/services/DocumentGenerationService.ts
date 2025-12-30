@@ -19,6 +19,8 @@ import { createError } from '../utils/errors';
 import { logger } from '../logger';
 import path from 'path';
 import { type WorkflowRun } from '@shared/schema';
+import { applyMapping, type DocumentMapping } from './document/MappingInterpreter';
+import { evaluateConditionExpression } from '@shared/conditionEvaluator';
 
 const DEFAULT_TO_PDF = false;
 const PDF_STRATEGY = 'puppeteer';
@@ -144,13 +146,58 @@ export class DocumentGenerationService {
 
       log.info({ templateName: template.name }, 'Rendering template');
 
-      // 2. Get template file path
+      // 2. Check conditional visibility (templates.metadata.visibleIf)
+      const metadata = template.metadata as any;
+      if (metadata?.visibleIf) {
+        try {
+          const isVisible = evaluateConditionExpression(metadata.visibleIf, data);
+          if (!isVisible) {
+            log.info(
+              { templateId, condition: metadata.visibleIf },
+              'Document skipped due to conditional visibility (visibleIf evaluated to false)'
+            );
+            return; // Skip document generation
+          }
+          log.debug('Document visibility condition passed');
+        } catch (error) {
+          log.warn(
+            { error, condition: metadata.visibleIf },
+            'Failed to evaluate document visibility condition, proceeding with generation'
+          );
+          // Proceed with generation if condition evaluation fails (fail-open)
+        }
+      }
+
+      // 3. Apply field mapping (templates.mapping)
+      let mappedData = data;
+      if (template.mapping) {
+        const mappingResult = applyMapping(data, template.mapping as DocumentMapping);
+        mappedData = mappingResult.data;
+
+        log.info(
+          {
+            mapped: mappingResult.mapped.length,
+            missing: mappingResult.missing.length,
+            unused: mappingResult.unused.length,
+          },
+          'Applied document field mapping'
+        );
+
+        if (mappingResult.missing.length > 0) {
+          log.warn(
+            { missingFields: mappingResult.missing },
+            'Some mapped fields had no source data'
+          );
+        }
+      }
+
+      // 4. Get template file path
       const templatePath = await getTemplateFilePath(template.fileRef);
 
-      // 3. Render document using new DocumentEngine
+      // 5. Render document using new DocumentEngine
       const result = await documentEngine.generate({
         templatePath,
-        data,
+        data: mappedData, // Use mapped data
         outputName: `${template.name}-run-${run.id}`,
         toPdf: DEFAULT_TO_PDF, // Default to false for now, can be enabled via config later
         pdfStrategy: PDF_STRATEGY

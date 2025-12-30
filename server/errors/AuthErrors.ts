@@ -15,6 +15,7 @@ export enum AuthErrorCode {
   MFA_REQUIRED = 'AUTH_007',
   UNAUTHORIZED = 'AUTH_008',
   FORBIDDEN = 'AUTH_009',
+  PROVIDER_MISMATCH = 'AUTH_010',
 }
 
 /**
@@ -123,6 +124,19 @@ export class UnauthorizedError extends AuthenticationError {
 export class ForbiddenError extends AuthenticationError {
   constructor(message: string = 'Insufficient permissions') {
     super(message, AuthErrorCode.FORBIDDEN, 403);
+  }
+}
+
+/**
+ * User attempted to login with wrong provider (e.g. password login for Google account)
+ */
+export class AuthProviderMismatchError extends AuthenticationError {
+  public readonly provider: string;
+
+  constructor(provider: string, message?: string) {
+    const errorMsg = message || `This account uses ${provider} authentication. Please sign in with ${provider}.`;
+    super(errorMsg, AuthErrorCode.PROVIDER_MISMATCH, 400); // 400 Bad Request
+    this.provider = provider;
   }
 }
 

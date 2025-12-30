@@ -58,6 +58,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize WebSocket collaboration server
   initCollabServer(httpServer);
 
+  // INCREASE SERVER TIMEOUTS (Fix for AI 60s timeout)
+  httpServer.setTimeout(600000); // 10 minutes
+  httpServer.keepAliveTimeout = 600000;
+  httpServer.headersTimeout = 601000; // Must be higher than keepAliveTimeout
+
   logger.info('Real-time collaboration server initialized');
 
   // Start metrics rollup worker (Stage 11)

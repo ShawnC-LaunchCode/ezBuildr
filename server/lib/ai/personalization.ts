@@ -20,7 +20,8 @@ export class PersonalizationService {
             console.warn("GEMINI_API_KEY is not set. Personalization will be disabled.");
         }
         this.genAI = new GoogleGenerativeAI(apiKey || "");
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+        this.model = this.genAI.getGenerativeModel({ model });
     }
 
     async rewriteBlockText(

@@ -6,9 +6,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 import logo from "@/assets/images/logo.png";
-import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List } from "lucide-react";
+import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
 
-export default function Sidebar() {
+interface SidebarProps {
+  className?: string;
+}
+
+export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -46,6 +50,7 @@ export default function Sidebar() {
     { name: "Admin Dashboard", href: "/admin", icon: Shield },
     { name: "Manage Users", href: "/admin/users", icon: Users },
     { name: "Activity Logs", href: "/admin/logs", icon: List },
+    { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },
   ];
 
   const isActive = (href: string) => {
@@ -61,7 +66,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="hidden md:flex w-64 bg-card border-r border-border flex-col" data-testid="sidebar">
+    <aside className={`hidden md:flex w-64 bg-card border-r border-border flex-col ${className || ''}`} data-testid="sidebar">
       {/* Logo and Brand */}
       <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
         <div className="flex items-center space-x-3">

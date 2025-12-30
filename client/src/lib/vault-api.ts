@@ -62,12 +62,23 @@ export async function fetchAPI<T>(
   if (response.status === 401 && !isRunEndpoint && !endpoint.includes('/api/auth/login')) {
     // Try to refresh token
     try {
+      console.log('[VaultAPI] 401 detected, attempting token refresh...');
       const refreshRes = await fetch(`${API_BASE}/api/auth/refresh-token`, { method: 'POST', credentials: 'include' });
+      console.log(`[VaultAPI] Refresh status: ${refreshRes.status}`);
       if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        if (refreshData.token) {
+          console.log('[VaultAPI] New token received, updating headers.');
+          setAccessToken(refreshData.token);
+          headers["Authorization"] = `Bearer ${refreshData.token}`;
+        } else {
+          console.warn('[VaultAPI] Refresh successful but NO TOKEN payload:', refreshData);
+        }
+
         // Retry original request
         response = await fetch(url, {
           ...options,
-          headers, // Headers might need updating if we were using Bearer tokens, but we rely on cookies here
+          headers, // Updated with new token if available
           credentials: "include",
         });
       }
@@ -294,6 +305,7 @@ export interface ApiWorkflowVersion {
   isDraft: boolean;
   publishedAt: string | null;
   pinned: boolean; // Computed field
+  migrationInfo?: any; // Metadata including AI generation info
 }
 
 export interface ApiVersionDiff {
@@ -519,6 +531,27 @@ export const sectionAPI = {
       method: "DELETE",
       body: JSON.stringify({}), // Some servers require body for DELETE
     }),
+};
+
+// ============================================================================
+// Logic Rules
+// ============================================================================
+
+export interface ApiLogicRule {
+  id: string;
+  workflowId: string;
+  conditionStepAlias: string;
+  operator: string;
+  conditionValue: any;
+  targetType: 'section' | 'step';
+  targetAlias: string;
+  action: 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
+  description?: string;
+}
+
+export const logicRuleAPI = {
+  list: (workflowId: string) =>
+    fetchAPI<ApiLogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
 };
 
 // ============================================================================

@@ -1,6 +1,6 @@
-# VaultLogic - Architecture & Current State
+# ezBuildr - Architecture & Current State
 
-**Last Updated:** December 15, 2025
+**Last Updated:** December 26, 2025
 **Version:** 1.7.0 - Custom Scripting System (Lifecycle & Document Hooks)
 **Status:** Production Ready - Enterprise Scale
 
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-ezBuildr is a **comprehensive enterprise workflow automation platform** that combines visual workflow building, conditional logic, custom code execution (JavaScript/Python), and advanced data management. Originally inspired by Poll-Vault, VaultLogic has evolved into a production-ready workflow engine with enterprise-grade features for automation, data transformation, team collaboration, and external integrations.
+ezBuildr is a **comprehensive enterprise workflow automation platform** that combines visual workflow building, conditional logic, custom code execution (JavaScript/Python), and advanced data management. Originally inspired by Poll-Vault, ezBuildr has evolved into a production-ready workflow engine with enterprise-grade features for automation, data transformation, team collaboration, and external integrations.
 
 **Platform Scale:**
 - **30+ frontend pages** with React 18.3 + TypeScript
@@ -130,9 +130,9 @@ VaultLogic/
 
 ### Workflow-First Platform
 
-**As of November 2025**, VaultLogic is a **dedicated workflow automation platform**:
+**As of November 2025**, ezBuildr is a **dedicated workflow automation platform**:
 
-**Workflows (VaultLogic Core)** - Primary system
+**Workflows (ezBuildr Core)** - Primary system
 - Tables: `workflows`, `sections`, `steps`, `workflowRuns`, `stepValues`
 - Status: Production ready, active development
 - Full feature set for workflow automation and data collection
@@ -934,7 +934,7 @@ Full HTTP/API node with OAuth2 Client Credentials, AES-256-GCM secrets encryptio
 Transform block outputs persisted via virtual steps with proper UUIDs, step aliases for variables.
 
 ### Survey System Removal (Nov 16, 2025)
-Complete removal of legacy survey UI (67 files, ~11,763 LOC). VaultLogic is now 100% workflow-focused.
+Complete removal of legacy survey UI (67 files, ~11,763 LOC). ezBuildr is now 100% workflow-focused.
 
 ### Builder Navigation Overhaul (Nov 14-17, 2025)
 5-tab navigation (Sections, Settings, Templates, Data Sources, Snapshots), mobile-responsive, template test runner.
@@ -986,8 +986,8 @@ Adds missing columns to `users`, `projects`, `workflows` tables, creates default
 
 **Document Maintainer:** Development Team
 **Review Cycle:** Monthly
-**Next Review:** February 7, 2026
+**Next Review:** February 26, 2026
 **Version History:**
-- v1.7.0 (Dec 7, 2025) - Custom Scripting System (Lifecycle & Document Hooks)
+- v1.7.0 (Dec 26, 2025) - Custom Scripting System (Lifecycle & Document Hooks) + Documentation Update
 - v1.6.0 (Nov 26, 2025) - DataVault v4 + Visibility Logic Builder
 - v1.5.0 (Nov 17, 2025) - Survey Removal + Navigation Overhaul

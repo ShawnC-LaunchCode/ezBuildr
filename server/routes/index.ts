@@ -6,7 +6,9 @@ import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerFileRoutes } from "./files.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
 import { registerAdminRoutes } from "./admin.routes";
+import { registerAdminAiSettingsRoutes } from "./admin.aiSettings.routes";
 import { registerAiRoutes } from "./ai.routes";
+import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
 import { registerProjectRoutes } from "./projects.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerSectionRoutes } from "./sections.routes";
@@ -57,6 +59,7 @@ import aiDocRouter from "./ai.doc.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
+import { registerAiWorkflowEditRoutes } from "./ai/workflowEdit.routes";
 import { registerDebugRoutes } from "./debug.routes";
 import { placesRouter } from "./places.routes";
 import { registerPreviewRoutes } from "./preview.routes";
@@ -98,6 +101,9 @@ export function registerAllRoutes(app: Express): void {
   // AI Transforms
   app.use("/api/ai/transform", aiTransformRouter);
 
+  // AI Workflow Editing (Stage 22)
+  registerAiWorkflowEditRoutes(app);
+
   // Debug Routes (temporary)
   if (process.env.NODE_ENV === 'development') {
     registerDebugRoutes(app);
@@ -132,7 +138,9 @@ export function registerAllRoutes(app: Express): void {
   registerDashboardRoutes(app);
   registerFileRoutes(app);
   registerAiRoutes(app);
+  registerAiFeedbackRoutes(app);
   registerAdminRoutes(app);
+  registerAdminAiSettingsRoutes(app);
   registerProjectRoutes(app);
   registerSnapshotRoutes(app);
   registerWorkflowTemplateRoutes(app);

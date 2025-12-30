@@ -38,7 +38,8 @@ export class DocumentAIAssistService {
         const apiKey = process.env.GEMINI_API_KEY;
         if (apiKey) {
             this.genAI = new GoogleGenerativeAI(apiKey);
-            this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+            this.model = this.genAI.getGenerativeModel({ model });
         } else {
             logger.warn("GEMINI_API_KEY not found. AI Assist Service will run in degraded mode (deterministic only).");
         }
@@ -202,28 +203,15 @@ Requirements:
         return variables;
     }
 
-    private async extractTextContent(buffer: Buffer, filename: string): Promise<string> {
+    public async extractTextContent(buffer: Buffer, filename: string): Promise<string> {
         if (filename.endsWith('.docx')) {
             const result = await mammoth.extractRawText({ buffer });
             return result.value;
         } else if (filename.endsWith('.pdf')) {
             try {
-                // Determine usage based on available methods
-                const PDFParse = pdfLib.PDFParse;
-                if (PDFParse) {
-                    const parser = new PDFParse();
-                    // Assume load takes buffer and returns promise or we can await it
-                    // Based on prototype 'load' and 'getText'
-                    await parser.load(buffer);
-                    // getText likely returns string or Promise<string>
-                    // If checking prototype, it might be async
-                    return await parser.getText();
-                } else {
-                    // Fallback if structure is different than expected (e.g. if we get the function version in some envs)
-                    // But verify script says we have PDFParse class
-                    logger.warn("PDFParse class not found in pdf-parse export");
-                    return "";
-                }
+                // PDFParse is a function in v1.1.1
+                const data = await pdfLib(buffer);
+                return data.text;
             } catch (e) {
                 logger.error({ error: e }, "PDF parsing failed");
                 return "";

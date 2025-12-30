@@ -1,7 +1,7 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { users, type User, type UpsertUser } from "@shared/schema";
+import { users, workflows, type User, type UpsertUser } from "@shared/schema";
 import { db } from "../db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, count, getTableColumns } from "drizzle-orm";
 import { logger } from "../logger";
 
 /**
@@ -49,6 +49,10 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
           if (userData.firstName !== undefined) updateData.firstName = userData.firstName;
           if (userData.lastName !== undefined) updateData.lastName = userData.lastName;
           if (userData.profileImageUrl !== undefined) updateData.profileImageUrl = userData.profileImageUrl;
+          // Update auth provider and verification status if provided (e.g. linking Google account)
+          if (userData.authProvider) updateData.authProvider = userData.authProvider;
+          if (userData.emailVerified !== undefined) updateData.emailVerified = userData.emailVerified;
+
           // Note: We intentionally don't update email or role here to preserve existing values
 
           const [updatedUser] = await database
@@ -115,6 +119,51 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .select()
       .from(users)
       .orderBy(users.createdAt);
+  }
+
+  /**
+   * Get all users with their workflow count (admin only)
+   * Optimized to use a single query with LEFT JOIN instead of fetching all workflows
+   */
+  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<(User & { workflowCount: number })[]> {
+    const database = this.getDb(tx);
+
+    // Select all user columns plus the count of workflows
+    const rows = await database
+      .select({
+        ...getTableColumns(users),
+        workflowCount: count(workflows.id),
+      })
+      .from(users)
+      .leftJoin(workflows, eq(users.id, workflows.creatorId))
+      .groupBy(users.id)
+      .orderBy(users.createdAt);
+
+    return rows.map(row => ({
+      ...row,
+      workflowCount: Number(row.workflowCount)
+    }));
+  }
+
+  /**
+   * Get user statistics (admin only)
+   * Optimized to use a single query instead of fetching all users
+   */
+  async getUserStats(tx?: DbTransaction) {
+    const database = this.getDb(tx);
+    const [stats] = await database
+      .select({
+        total: count(users.id),
+        admins: sql<number>`sum(case when ${users.role} = 'admin' then 1 else 0 end)`,
+        creators: sql<number>`sum(case when ${users.role} = 'creator' then 1 else 0 end)`,
+      })
+      .from(users);
+
+    return {
+      total: Number(stats?.total || 0),
+      admins: Number(stats?.admins || 0),
+      creators: Number(stats?.creators || 0),
+    };
   }
 
   /**
