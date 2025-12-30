@@ -718,6 +718,9 @@ export const systemStats = pgTable("system_stats", {
   totalSurveysDeleted: integer("total_surveys_deleted").default(0).notNull(),
   totalResponsesCollected: integer("total_responses_collected").default(0).notNull(),
   totalResponsesDeleted: integer("total_responses_deleted").default(0).notNull(),
+  // Platform Expansion Stats (Lifetime counters)
+  totalUsersCreated: integer("total_users_created").default(0).notNull(),
+  totalWorkflowsCreated: integer("total_workflows_created").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

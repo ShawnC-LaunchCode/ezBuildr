@@ -79,6 +79,19 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
           },
         })
         .returning();
+
+      // Track lifetime stats for new users
+      if (user) {
+        // We only increment if it was a true insert (checked by comparing createdAt close to now, 
+        // or simplistic assumption here since upsert is complex).
+        // Better approach: Check if we are in the "insert" path which we are here. 
+        // However, onConflictDoUpdate might mean it WAS an update on ID collision.
+        // But for Google Auth, we queried by email first. So if we are here, email didn't exist.
+        // The ID conflict is rare/impossible if ID is auto-generated.
+        const { systemStatsRepository } = await import("./SystemStatsRepository"); // Lazy import to avoid circular dependency
+        await systemStatsRepository.incrementUsersCreated();
+      }
+
       return user;
     } catch (error) {
       // If we still get a constraint violation, it could be due to race conditions
@@ -151,18 +164,24 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    */
   async getUserStats(tx?: DbTransaction) {
     const database = this.getDb(tx);
-    const [stats] = await database
-      .select({
-        total: count(users.id),
-        admins: sql<number>`sum(case when ${users.role} = 'admin' then 1 else 0 end)`,
-        creators: sql<number>`sum(case when ${users.role} = 'creator' then 1 else 0 end)`,
-      })
-      .from(users);
+    const { systemStatsRepository } = await import("./SystemStatsRepository");
+
+    // Run queries in parallel
+    const [stats, systemStats] = await Promise.all([
+      database
+        .select({
+          admins: sql<number>`sum(case when ${users.role} = 'admin' then 1 else 0 end)`,
+          creators: sql<number>`sum(case when ${users.role} = 'creator' then 1 else 0 end)`,
+        })
+        .from(users),
+      systemStatsRepository.getStats()
+    ]);
 
     return {
-      total: Number(stats?.total || 0),
-      admins: Number(stats?.admins || 0),
-      creators: Number(stats?.creators || 0),
+      total: systemStats.totalUsersCreated, // Use lifetime total
+      active: Number(stats[0]?.admins || 0) + Number(stats[0]?.creators || 0), // Optional: tracked active users
+      admins: Number(stats[0]?.admins || 0),
+      creators: Number(stats[0]?.creators || 0),
     };
   }
 

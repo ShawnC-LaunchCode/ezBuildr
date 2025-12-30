@@ -13,17 +13,13 @@ interface AdminStats {
   totalUsers: number;
   adminUsers: number;
   creatorUsers: number;
-  totalSurveys: number;
-  activeSurveys: number;
-  draftSurveys: number;
-  closedSurveys: number;
-  totalResponses: number;
-  completedResponses: number;
-  // Historical totals (including deleted items)
-  totalSurveysEverCreated: number;
-  totalSurveysDeleted: number;
-  totalResponsesEverCollected: number;
-  totalResponsesDeleted: number;
+  totalWorkflows: number;
+  activeWorkflows: number;
+  draftWorkflows: number;
+  archivedWorkflows: number;
+  totalRuns: number;
+  completedRuns: number;
+  inProgressRuns: number;
 }
 
 export default function AdminDashboard() {
@@ -155,20 +151,23 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Survey Stats */}
+  // Platform Stats
               <div>
-                <h3 className="text-lg font-semibold mb-4">Survey Statistics</h3>
+                <h3 className="text-lg font-semibold mb-4">Workflow Statistics</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <Card>
+                  <Card className="border-indigo-200 bg-indigo-50/50">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Surveys
+                        Lifetime Workflows
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold">{stats.totalSurveys}</div>
-                        <FileText className="h-8 w-8 text-primary" />
+                        <div className="text-3xl font-bold text-indigo-600">{stats.totalWorkflows}</div>
+                        <Database className="h-8 w-8 text-indigo-600" />
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Total created (including deleted)
                       </div>
                     </CardContent>
                   </Card>
@@ -176,12 +175,12 @@ export default function AdminDashboard() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Active Surveys
+                        Active Workflows
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-green-600">{stats.activeSurveys}</div>
+                        <div className="text-3xl font-bold text-green-600">{stats.activeWorkflows}</div>
                         <TrendingUp className="h-8 w-8 text-green-600" />
                       </div>
                     </CardContent>
@@ -190,12 +189,12 @@ export default function AdminDashboard() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Draft Surveys
+                        Draft Workflows
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-yellow-600">{stats.draftSurveys}</div>
+                        <div className="text-3xl font-bold text-yellow-600">{stats.draftWorkflows}</div>
                         <FileText className="h-8 w-8 text-yellow-600" />
                       </div>
                     </CardContent>
@@ -204,32 +203,32 @@ export default function AdminDashboard() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Closed Surveys
+                        Archived Workflows
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-gray-600">{stats.closedSurveys}</div>
-                        <FileText className="h-8 w-8 text-gray-600" />
+                        <div className="text-3xl font-bold text-gray-600">{stats.archivedWorkflows}</div>
+                        <Trash2 className="h-8 w-8 text-gray-600" />
                       </div>
                     </CardContent>
                   </Card>
                 </div>
               </div>
 
-              {/* Response Stats */}
+              {/* Run Stats */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Response Statistics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 className="text-lg font-semibold mb-4">Run Statistics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Responses
+                        Total Runs
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold">{stats.totalResponses}</div>
+                        <div className="text-3xl font-bold">{stats.totalRuns}</div>
                         <BarChart className="h-8 w-8 text-primary" />
                       </div>
                     </CardContent>
@@ -238,92 +237,32 @@ export default function AdminDashboard() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Completed Responses
+                        Completed Runs
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-success">{stats.completedResponses}</div>
-                        <CheckCircle className="h-8 w-8 text-success" />
+                        <div className="text-3xl font-bold text-green-600">{stats.completedRuns}</div>
+                        <CheckCircle className="h-8 w-8 text-green-600" />
                       </div>
                       <div className="text-sm text-muted-foreground mt-2">
-                        {stats.totalResponses > 0
-                          ? `${((stats.completedResponses / stats.totalResponses) * 100).toFixed(1)}% completion rate`
-                          : 'No responses yet'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Historical Stats */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Historical Statistics (All Time)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card className="border-indigo-200 bg-indigo-50/50">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Surveys Created
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-indigo-600">{stats.totalSurveysEverCreated}</div>
-                        <Database className="h-8 w-8 text-indigo-600" />
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Including deleted surveys
+                        {stats.totalRuns > 0
+                          ? `${((stats.completedRuns / stats.totalRuns) * 100).toFixed(1)}% completion rate`
+                          : 'No runs yet'}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-red-200 bg-red-50/50">
+                  <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Surveys Deleted
+                        In Progress
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-red-600">{stats.totalSurveysDeleted}</div>
-                        <Trash2 className="h-8 w-8 text-red-600" />
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Permanently removed
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-blue-200 bg-blue-50/50">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Responses Collected
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-blue-600">{stats.totalResponsesEverCollected}</div>
-                        <Database className="h-8 w-8 text-blue-600" />
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Including deleted responses
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-orange-200 bg-orange-50/50">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Responses Deleted
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div className="text-3xl font-bold text-orange-600">{stats.totalResponsesDeleted}</div>
-                        <Trash2 className="h-8 w-8 text-orange-600" />
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Via survey deletions
+                        <div className="text-3xl font-bold text-blue-600">{stats.inProgressRuns}</div>
+                        <TrendingUp className="h-8 w-8 text-blue-600" />
                       </div>
                     </CardContent>
                   </Card>
@@ -338,30 +277,7 @@ export default function AdminDashboard() {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link href="/admin/users">
-                <Button className="w-full" size="lg">
-                  <Users className="mr-2 h-5 w-5" />
-                  Manage Users
-                </Button>
-              </Link>
-              <Link href="/admin/surveys">
-                <Button className="w-full" size="lg" variant="outline">
-                  <FileText className="mr-2 h-5 w-5" />
-                  View All Surveys
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button className="w-full" size="lg" variant="outline">
-                  <TrendingUp className="mr-2 h-5 w-5" />
-                  My Dashboard
-                </Button>
-              </Link>
-            </div>
-          </div>
+
         </div>
       </main>
     </div>

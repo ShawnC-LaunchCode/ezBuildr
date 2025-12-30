@@ -95,6 +95,36 @@ export class SystemStatsRepository {
   }
 
   /**
+   * Increment users created counter
+   */
+  async incrementUsersCreated(count: number = 1): Promise<void> {
+    await this.getOrInitialize(); // Ensure row exists
+
+    await db
+      .update(systemStats)
+      .set({
+        totalUsersCreated: sql`${systemStats.totalUsersCreated} + ${count}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(systemStats.id, 1));
+  }
+
+  /**
+   * Increment workflows created counter
+   */
+  async incrementWorkflowsCreated(count: number = 1): Promise<void> {
+    await this.getOrInitialize(); // Ensure row exists
+
+    await db
+      .update(systemStats)
+      .set({
+        totalWorkflowsCreated: sql`${systemStats.totalWorkflowsCreated} + ${count}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(systemStats.id, 1));
+  }
+
+  /**
    * Get current stats
    */
   async getStats(): Promise<SystemStats> {

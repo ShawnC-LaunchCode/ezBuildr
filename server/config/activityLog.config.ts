@@ -11,19 +11,19 @@
  */
 
 export const activityLogSource = {
-  table: "analytics_events", // Change to "activity_logs" if you create a dedicated table
+  table: "audit_logs",
   columns: {
     id: "id",
-    timestamp: "timestamp",          // timestamptz - when the event occurred
-    event: "event",                  // text - event name/type
-    actorId: "response_id",          // uuid - who performed the action (responseId as proxy for user)
-    actorEmail: null,                // Not available in analyticsEvents; set to column name if you add it
-    entityType: "question_id",       // uuid - what type of entity (we can infer from non-null columns)
-    entityId: "survey_id",           // uuid - the main entity being acted upon
-    status: null,                    // Not available; could be inferred from event name
-    ipAddress: null,                 // Not in analyticsEvents; available in responses table
-    userAgent: null,                 // Not in analyticsEvents; available in responses table
-    metadata: "data"                 // jsonb - freeform event payload
+    timestamp: "timestamp",
+    event: "action",             // audit_logs.action
+    actorId: "user_id",          // audit_logs.user_id
+    actorEmail: null,            // Not available directly in audit_logs
+    entityType: "resource_type", // audit_logs.resource_type
+    entityId: "resource_id",     // audit_logs.resource_id
+    status: null,                // Not available in audit_logs
+    ipAddress: "ip_address",     // audit_logs.ip_address
+    userAgent: "user_agent",     // audit_logs.user_agent
+    metadata: "changes"          // audit_logs.changes
   }
 } as const;
 
@@ -52,6 +52,14 @@ export const eventDisplayMap: Record<string, { label: string; tone: "info" | "su
   // AI-related events (if you're tracking AI survey generation)
   "ai.generated": { label: "AI Survey Generated", tone: "success" },
   "ai.error": { label: "AI Generation Failed", tone: "error" },
+
+  // Admin / Security Events
+  "login_success": { label: "Login Success", tone: "success" },
+  "login_failed": { label: "Login Failed", tone: "error" },
+  "user.create": { label: "User Created", tone: "success" },
+  "user.update": { label: "User Updated", tone: "info" },
+  "user.delete": { label: "User Deleted", tone: "warn" },
+  "workflow.delete": { label: "Workflow Deleted", tone: "warn" },
 };
 
 /**

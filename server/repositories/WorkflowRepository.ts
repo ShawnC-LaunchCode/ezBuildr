@@ -12,6 +12,24 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   }
 
   /**
+   * Create a new workflow and track stats
+   */
+  async create(data: InsertWorkflow, tx?: DbTransaction): Promise<Workflow> {
+    const workflow = await super.create(data, tx);
+
+    // Track lifetime stats
+    try {
+      const { systemStatsRepository } = await import("./SystemStatsRepository");
+      await systemStatsRepository.incrementWorkflowsCreated();
+    } catch (err) {
+      // Don't fail the request if stats fail
+      console.error("Failed to increment workflow stats:", err);
+    }
+
+    return workflow;
+  }
+
+  /**
    * Find workflows by creator ID (legacy)
    * @deprecated use findByUserAccess
    */
@@ -167,20 +185,24 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async getWorkflowStats(tx?: DbTransaction) {
     const database = this.getDb(tx);
-    const [stats] = await database
-      .select({
-        total: count(workflows.id),
-        active: sql<number>`sum(case when ${workflows.status} = 'active' then 1 else 0 end)`,
-        draft: sql<number>`sum(case when ${workflows.status} = 'draft' then 1 else 0 end)`,
-        archived: sql<number>`sum(case when ${workflows.status} = 'archived' then 1 else 0 end)`,
-      })
-      .from(workflows);
+    const { systemStatsRepository } = await import("./SystemStatsRepository");
+
+    const [stats, systemStats] = await Promise.all([
+      database
+        .select({
+          active: sql<number>`sum(case when ${workflows.status} = 'active' then 1 else 0 end)`,
+          draft: sql<number>`sum(case when ${workflows.status} = 'draft' then 1 else 0 end)`,
+          archived: sql<number>`sum(case when ${workflows.status} = 'archived' then 1 else 0 end)`,
+        })
+        .from(workflows),
+      systemStatsRepository.getStats()
+    ]);
 
     return {
-      total: Number(stats?.total || 0),
-      active: Number(stats?.active || 0),
-      draft: Number(stats?.draft || 0),
-      archived: Number(stats?.archived || 0),
+      total: systemStats.totalWorkflowsCreated, // Use lifetime total
+      active: Number(stats[0]?.active || 0),
+      draft: Number(stats[0]?.draft || 0),
+      archived: Number(stats[0]?.archived || 0),
     };
   }
 }
