@@ -101,9 +101,35 @@ function getBlockSummary(block: any): string | null {
 
     if (block.type === 'list_tools') {
       const config = block.config || {};
-      if (config.operation) {
-        return config.operation.charAt(0).toUpperCase() + config.operation.slice(1);
+      const parts: string[] = [];
+
+      if (config.sourceListVar && config.outputListVar) {
+        parts.push(`${config.sourceListVar} → ${config.outputListVar}`);
       }
+
+      const filterCount = config.filters?.rules?.length || 0;
+      if (filterCount > 0) {
+        parts.push(`filters:${filterCount}`);
+      }
+
+      const sortCount = config.sort?.length || 0;
+      if (sortCount > 0) {
+        parts.push(`sort:${sortCount}`);
+      }
+
+      if (config.limit !== undefined) {
+        parts.push(`limit:${config.limit}`);
+      }
+
+      if (config.select && config.select.length > 0) {
+        parts.push(`select:${config.select.length}`);
+      }
+
+      if (config.dedupe) {
+        parts.push('dedupe');
+      }
+
+      return parts.length > 0 ? parts.join(' | ') : 'Configure list transformation';
     }
   } catch (e) {
     return null;

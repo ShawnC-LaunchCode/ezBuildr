@@ -1537,8 +1537,8 @@ export class BlockRunner {
   }
 
   /**
-   * Execute list tools block
-   * Transforms a list variable with various operations (filter, sort, limit, select)
+   * Execute comprehensive list tools block
+   * Applies operations in sequence: filter → sort → offset/limit → select → dedupe
    */
   private async executeListToolsBlock(
     config: ListToolsConfig,
@@ -1556,62 +1556,75 @@ export class BlockRunner {
       }
 
       // Resolve input list from context data
-      const inputKey = context.aliasMap?.[config.inputKey] || config.inputKey;
-      const inputList = context.data[inputKey] as ListVariable | undefined;
+      const inputKey = context.aliasMap?.[config.sourceListVar] || config.sourceListVar;
+      const inputData = context.data[inputKey];
 
-      if (!inputList) {
+      if (!inputData) {
+        logger.warn({ sourceListVar: config.sourceListVar, inputKey }, "Input list not found, treating as empty array");
+        // Treat as empty list rather than error
+        const emptyList: ListVariable = {
+          metadata: { source: 'list_tools' },
+          rows: [],
+          count: 0,
+          columns: []
+        };
+
         return {
-          success: false,
-          errors: [`Input list not found: ${config.inputKey}`]
+          success: true,
+          data: this.buildListToolsOutputData(config, emptyList, context)
         };
       }
 
-      // Validate input is a list variable
-      if (!inputList.rows || !Array.isArray(inputList.rows) || !inputList.columns) {
+      // Normalize input - handle both ListVariable and plain arrays
+      let workingList: ListVariable;
+      if (this.isListVariable(inputData)) {
+        workingList = inputData as ListVariable;
+      } else if (Array.isArray(inputData)) {
+        // Convert plain array to ListVariable
+        workingList = this.arrayToListVariable(inputData);
+      } else {
         return {
           success: false,
-          errors: [`Input variable "${config.inputKey}" is not a valid list`]
+          errors: [`Input variable "${config.sourceListVar}" is not a valid list or array`]
         };
       }
 
-      let outputValue: any;
+      // Apply operations in sequence
+      let resultList = workingList;
 
-      // Execute operation
-      switch (config.operation) {
-        case "filter":
-          if (!config.filter) {
-            return { success: false, errors: ["Filter configuration is required for filter operation"] };
-          }
-          outputValue = await this.executeListFilter(inputList, config.filter, context);
-          break;
-
-        case "sort":
-          if (!config.sort) {
-            return { success: false, errors: ["Sort configuration is required for sort operation"] };
-          }
-          outputValue = this.executeListSort(inputList, config.sort);
-          break;
-
-        case "limit":
-          if (!config.limit) {
-            return { success: false, errors: ["Limit value is required for limit operation"] };
-          }
-          outputValue = this.executeListLimit(inputList, config.limit);
-          break;
-
-        case "select":
-          if (!config.select) {
-            return { success: false, errors: ["Select configuration is required for select operation"] };
-          }
-          outputValue = this.executeListSelect(inputList, config.select);
-          break;
-
-        default:
-          return {
-            success: false,
-            errors: [`Unknown list tools operation: ${config.operation}`]
-          };
+      // 1. Filter
+      if (config.filters) {
+        resultList = this.applyListFilters(resultList, config.filters, context);
       }
+
+      // 2. Sort (multi-key)
+      if (config.sort && config.sort.length > 0) {
+        resultList = this.applyListSort(resultList, config.sort);
+      }
+
+      // 3. Offset & Limit
+      if (config.offset !== undefined || config.limit !== undefined) {
+        resultList = this.applyListRange(resultList, config.offset || 0, config.limit);
+      }
+
+      // 4. Select (column projection)
+      if (config.select && config.select.length > 0) {
+        resultList = this.applyListSelect(resultList, config.select);
+      }
+
+      // 5. Dedupe
+      if (config.dedupe) {
+        resultList = this.applyListDedupe(resultList, config.dedupe);
+      }
+
+      // Update metadata
+      resultList.metadata = {
+        ...resultList.metadata,
+        source: 'list_tools'
+      };
+
+      // Build output data (includes list + derived outputs)
+      const outputData = this.buildListToolsOutputData(config, resultList, context);
 
       // Persist to virtual step if runId is present
       if (context.runId && block.virtualStepId) {
@@ -1619,12 +1632,12 @@ export class BlockRunner {
           await stepValueRepository.upsert({
             runId: context.runId,
             stepId: block.virtualStepId,
-            value: outputValue,
+            value: resultList,
           });
           logger.debug({
             blockId: block.id,
             virtualStepId: block.virtualStepId,
-            operation: config.operation
+            rowCount: resultList.count
           }, "Persisted list_tools block output");
         } catch (error) {
           logger.error({ error, blockId: block.id }, "Failed to persist list_tools block output");
@@ -1633,9 +1646,7 @@ export class BlockRunner {
 
       return {
         success: true,
-        data: {
-          [config.outputKey]: outputValue
-        }
+        data: outputData
       };
 
     } catch (error) {
@@ -1648,39 +1659,112 @@ export class BlockRunner {
   }
 
   /**
-   * Execute list filter operation
-   * Filters rows based on a column condition
+   * Check if data is a ListVariable
    */
-  private async executeListFilter(
-    inputList: ListVariable,
-    filter: { columnId: string; operator: ReadTableOperator; value?: any },
-    context: BlockContext
-  ): Promise<ListVariable> {
-    // Resolve filter value from context if it's a variable reference
-    let resolvedValue = filter.value;
-    if (typeof filter.value === 'string' && filter.value.startsWith('{{') && filter.value.endsWith('}}')) {
-      const variableName = filter.value.slice(2, -2).trim();
-      const dataKey = context.aliasMap?.[variableName] || variableName;
-      resolvedValue = context.data[dataKey];
-    }
+  private isListVariable(data: any): boolean {
+    return data && typeof data === 'object' && 'rows' in data && 'columns' in data && 'metadata' in data;
+  }
 
-    // Filter rows
-    const filteredRows = inputList.rows.filter(row => {
-      const columnValue = row[filter.columnId];
-      return this.evaluateListFilterCondition(columnValue, filter.operator, resolvedValue);
+  /**
+   * Convert plain array to ListVariable
+   */
+  private arrayToListVariable(array: any[]): ListVariable {
+    // Extract all unique keys from array items
+    const allKeys = new Set<string>();
+    array.forEach(item => {
+      if (item && typeof item === 'object') {
+        Object.keys(item).forEach(key => allKeys.add(key));
+      }
     });
 
-    // Build new list variable
+    const columns = Array.from(allKeys).map(key => ({
+      id: key,
+      name: key,
+      type: 'text'
+    }));
+
     return {
-      metadata: {
-        ...inputList.metadata,
-        source: 'list_tools' as const,
-        filteredBy: [...(inputList.metadata.filteredBy || []), filter.columnId]
-      },
-      rows: filteredRows,
-      count: filteredRows.length,
-      columns: inputList.columns
+      metadata: { source: 'list_tools' },
+      rows: array.map((item, idx) => ({
+        id: `row-${idx}`,
+        ...item
+      })),
+      count: array.length,
+      columns
     };
+  }
+
+  /**
+   * Apply filters to list (supports AND/OR groups)
+   */
+  private applyListFilters(
+    list: ListVariable,
+    filterGroup: import('@shared/types/blocks').ListToolsFilterGroup,
+    context: BlockContext
+  ): ListVariable {
+    const filteredRows = list.rows.filter(row =>
+      this.evaluateFilterGroup(row, filterGroup, context)
+    );
+
+    return {
+      ...list,
+      rows: filteredRows,
+      count: filteredRows.length
+    };
+  }
+
+  /**
+   * Evaluate filter group (recursive for nested groups)
+   */
+  private evaluateFilterGroup(
+    row: any,
+    group: import('@shared/types/blocks').ListToolsFilterGroup,
+    context: BlockContext
+  ): boolean {
+    const results: boolean[] = [];
+
+    // Evaluate rules
+    if (group.rules) {
+      for (const rule of group.rules) {
+        results.push(this.evaluateFilterRule(row, rule, context));
+      }
+    }
+
+    // Evaluate nested groups
+    if (group.groups) {
+      for (const nestedGroup of group.groups) {
+        results.push(this.evaluateFilterGroup(row, nestedGroup, context));
+      }
+    }
+
+    // Combine with combinator
+    if (group.combinator === 'and') {
+      return results.every(r => r);
+    } else {
+      return results.some(r => r);
+    }
+  }
+
+  /**
+   * Evaluate single filter rule
+   */
+  private evaluateFilterRule(
+    row: any,
+    rule: import('@shared/types/blocks').ListToolsFilterRule,
+    context: BlockContext
+  ): boolean {
+    // Get field value using dot notation
+    const fieldValue = getValueByPath(row, rule.fieldPath);
+
+    // Resolve filter value
+    let compareValue = rule.value;
+    if (rule.valueSource === 'var') {
+      const varKey = context.aliasMap?.[rule.value] || rule.value;
+      compareValue = context.data[varKey];
+    }
+
+    // Apply operator
+    return this.evaluateListFilterCondition(fieldValue, rule.op, compareValue);
   }
 
   /**
@@ -1701,6 +1785,9 @@ export class BlockRunner {
       case "contains":
         return this.contains(actualValue, expectedValue);
 
+      case "not_contains":
+        return !this.contains(actualValue, expectedValue);
+
       case "starts_with":
         if (typeof actualValue === "string" && typeof expectedValue === "string") {
           return actualValue.toLowerCase().startsWith(expectedValue.toLowerCase());
@@ -1716,8 +1803,14 @@ export class BlockRunner {
       case "greater_than":
         return this.compareNumeric(actualValue, expectedValue) > 0;
 
+      case "gte":
+        return this.compareNumeric(actualValue, expectedValue) >= 0;
+
       case "less_than":
         return this.compareNumeric(actualValue, expectedValue) < 0;
+
+      case "lte":
+        return this.compareNumeric(actualValue, expectedValue) <= 0;
 
       case "is_empty":
         return this.isEmpty(actualValue);
@@ -1726,10 +1819,20 @@ export class BlockRunner {
         return !this.isEmpty(actualValue);
 
       case "in":
+      case "in_list":
         if (Array.isArray(expectedValue)) {
           return expectedValue.some(v => this.isEqual(actualValue, v));
         }
         return false;
+
+      case "not_in_list":
+        if (Array.isArray(expectedValue)) {
+          return !expectedValue.some(v => this.isEqual(actualValue, v));
+        }
+        return true;
+
+      case "exists":
+        return actualValue !== undefined && actualValue !== null;
 
       default:
         logger.warn(`Unknown list filter operator: ${operator}`);
@@ -1738,97 +1841,162 @@ export class BlockRunner {
   }
 
   /**
-   * Execute list sort operation
-   * Sorts rows by a column
+   * Apply multi-key sorting
    */
-  private executeListSort(
-    inputList: ListVariable,
-    sort: { columnId: string; direction: "asc" | "desc" }
+  private applyListSort(
+    list: ListVariable,
+    sortKeys: import('@shared/types/blocks').ListToolsSortKey[]
   ): ListVariable {
-    const sortedRows = [...inputList.rows].sort((a, b) => {
-      const aVal = a[sort.columnId];
-      const bVal = b[sort.columnId];
+    const sortedRows = [...list.rows].sort((a, b) => {
+      for (const sortKey of sortKeys) {
+        const aVal = getValueByPath(a, sortKey.fieldPath);
+        const bVal = getValueByPath(b, sortKey.fieldPath);
 
-      // Handle null/undefined
-      if (aVal == null && bVal == null) return 0;
-      if (aVal == null) return sort.direction === "asc" ? 1 : -1;
-      if (bVal == null) return sort.direction === "asc" ? -1 : 1;
+        // Handle null/undefined (sort last)
+        if (aVal == null && bVal == null) continue;
+        if (aVal == null) return sortKey.direction === "asc" ? 1 : -1;
+        if (bVal == null) return sortKey.direction === "asc" ? -1 : 1;
 
-      // Type-specific comparison
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
+        let comparison = 0;
+
+        // Type-specific comparison
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          comparison = aVal - bVal;
+        } else if (typeof aVal === "boolean" && typeof bVal === "boolean") {
+          comparison = (aVal === bVal) ? 0 : (aVal ? 1 : -1);
+        } else {
+          // String comparison
+          const aStr = String(aVal).toLowerCase();
+          const bStr = String(bVal).toLowerCase();
+          comparison = aStr.localeCompare(bStr);
+        }
+
+        if (comparison !== 0) {
+          return sortKey.direction === "asc" ? comparison : -comparison;
+        }
       }
-
-      // String comparison
-      const aStr = String(aVal).toLowerCase();
-      const bStr = String(bVal).toLowerCase();
-      const comparison = aStr.localeCompare(bStr);
-      return sort.direction === "asc" ? comparison : -comparison;
+      return 0;
     });
 
     return {
-      metadata: {
-        ...inputList.metadata,
-        source: 'list_tools' as const,
-        sortedBy: sort
-      },
-      rows: sortedRows,
-      count: sortedRows.length,
-      columns: inputList.columns
+      ...list,
+      rows: sortedRows
     };
   }
 
   /**
-   * Execute list limit operation
-   * Limits the number of rows
+   * Apply offset and limit
    */
-  private executeListLimit(
-    inputList: ListVariable,
-    limit: number
+  private applyListRange(
+    list: ListVariable,
+    offset: number,
+    limit?: number
   ): ListVariable {
-    const limitedRows = inputList.rows.slice(0, limit);
+    let rangedRows = list.rows.slice(offset);
+    if (limit !== undefined) {
+      rangedRows = rangedRows.slice(0, limit);
+    }
 
     return {
-      metadata: {
-        ...inputList.metadata,
-        source: 'list_tools' as const
-      },
-      rows: limitedRows,
-      count: limitedRows.length,
-      columns: inputList.columns
+      ...list,
+      rows: rangedRows,
+      count: rangedRows.length
     };
   }
 
   /**
-   * Execute list select operation
-   * Selects count, specific column values, or a specific row
+   * Apply column selection (projection)
    */
-  private executeListSelect(
-    inputList: ListVariable,
-    select: { mode: "count" | "column" | "row"; columnId?: string; rowIndex?: number }
-  ): any {
-    switch (select.mode) {
-      case "count":
-        return inputList.count;
+  private applyListSelect(
+    list: ListVariable,
+    fieldPaths: string[]
+  ): ListVariable {
+    // Project each row to only selected fields
+    const projectedRows = list.rows.map(row => {
+      const projected: any = { id: row.id }; // Always keep ID
+      for (const fieldPath of fieldPaths) {
+        const value = getValueByPath(row, fieldPath);
+        // Preserve nested structure
+        this.setValueByPath(projected, fieldPath, value);
+      }
+      return projected;
+    });
 
-      case "column":
-        if (!select.columnId) {
-          throw new Error("columnId is required for column select mode");
-        }
-        return inputList.rows.map(row => row[select.columnId!]);
+    // Filter columns to only selected ones
+    const selectedColumns = list.columns.filter(col =>
+      fieldPaths.includes(col.id) || fieldPaths.some(fp => fp.startsWith(col.id + '.'))
+    );
 
-      case "row":
-        if (select.rowIndex === undefined || select.rowIndex === null) {
-          throw new Error("rowIndex is required for row select mode");
-        }
-        if (select.rowIndex < 0 || select.rowIndex >= inputList.rows.length) {
-          return null; // Out of bounds
-        }
-        return inputList.rows[select.rowIndex];
+    return {
+      ...list,
+      rows: projectedRows,
+      columns: selectedColumns
+    };
+  }
 
-      default:
-        throw new Error(`Unknown select mode: ${select.mode}`);
+  /**
+   * Apply deduplication
+   */
+  private applyListDedupe(
+    list: ListVariable,
+    dedupe: import('@shared/types/blocks').ListToolsDedupe
+  ): ListVariable {
+    const seen = new Set<string>();
+    const dedupedRows = list.rows.filter(row => {
+      const value = getValueByPath(row, dedupe.fieldPath);
+      const key = JSON.stringify(value);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+
+    return {
+      ...list,
+      rows: dedupedRows,
+      count: dedupedRows.length
+    };
+  }
+
+  /**
+   * Build output data including derived outputs
+   */
+  private buildListToolsOutputData(
+    config: ListToolsConfig,
+    resultList: ListVariable,
+    context: BlockContext
+  ): Record<string, any> {
+    const outputData: Record<string, any> = {
+      [config.outputListVar]: resultList
+    };
+
+    // Add derived outputs
+    if (config.outputs?.countVar) {
+      outputData[config.outputs.countVar] = resultList.count;
     }
+
+    if (config.outputs?.firstVar) {
+      outputData[config.outputs.firstVar] = resultList.rows[0] || null;
+    }
+
+    return outputData;
+  }
+
+  /**
+   * Set value by dot-notation path (helper for nested object building)
+   */
+  private setValueByPath(obj: any, path: string, value: any): void {
+    const parts = path.split('.');
+    let current = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!(part in current)) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    current[parts[parts.length - 1]] = value;
   }
 }
 

@@ -1,39 +1,26 @@
 /**
- * List Tools Block Editor
- * Provides UI for configuring list transformation operations (filter, sort, limit, select)
+ * Comprehensive List Tools Block Editor
+ * Applies multiple operations in sequence: filter → sort → offset/limit → select → dedupe
  */
 
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSteps } from "@/lib/vault-hooks";
-import { Filter, ArrowUpDown, Scissors, Target } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-
-type ListToolsOperation = "filter" | "sort" | "limit" | "select";
-type ReadTableOperator = "equals" | "not_equals" | "contains" | "starts_with" | "ends_with" | "greater_than" | "less_than" | "is_empty" | "is_not_empty" | "in";
-
-interface ListToolsConfig {
-  inputKey: string;
-  operation: ListToolsOperation;
-  filter?: {
-    columnId: string;
-    operator: ReadTableOperator;
-    value?: any;
-  };
-  sort?: {
-    columnId: string;
-    direction: "asc" | "desc";
-  };
-  limit?: number;
-  select?: {
-    mode: "count" | "column" | "row";
-    columnId?: string;
-    rowIndex?: number;
-  };
-  outputKey: string;
-}
+import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type {
+  ListToolsConfig,
+  ListToolsFilterGroup,
+  ListToolsFilterRule,
+  ListToolsSortKey,
+  ListToolsDedupe,
+  ReadTableOperator
+} from "@shared/types/blocks";
 
 interface ListToolsBlockEditorProps {
   workflowId: string;
@@ -42,53 +29,42 @@ interface ListToolsBlockEditorProps {
   mode: 'easy' | 'advanced';
 }
 
+const OPERATORS: { value: ReadTableOperator; label: string }[] = [
+  { value: "equals", label: "Equals" },
+  { value: "not_equals", label: "Not Equals" },
+  { value: "contains", label: "Contains" },
+  { value: "not_contains", label: "Not Contains" },
+  { value: "starts_with", label: "Starts With" },
+  { value: "ends_with", label: "Ends With" },
+  { value: "greater_than", label: "Greater Than" },
+  { value: "gte", label: "Greater Than or Equal" },
+  { value: "less_than", label: "Less Than" },
+  { value: "lte", label: "Less Than or Equal" },
+  { value: "is_empty", label: "Is Empty" },
+  { value: "is_not_empty", label: "Is Not Empty" },
+  { value: "in_list", label: "In List" },
+  { value: "not_in_list", label: "Not In List" },
+  { value: "exists", label: "Field Exists" },
+];
+
 export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: ListToolsBlockEditorProps) {
   const { data: steps } = useSteps(workflowId);
   const [localConfig, setLocalConfig] = useState<Partial<ListToolsConfig>>(config);
-  const [availableColumns, setAvailableColumns] = useState<Array<{ id: string; name: string; type: string }>>([]);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['source']));
 
   useEffect(() => {
     setLocalConfig(config);
   }, [config]);
 
-  // Get list variables (computed steps with list data from read_table/query blocks)
+  // Get list variables from workflow
   const listVariables = (steps || []).filter(step =>
     step.type === 'computed' && step.alias && step.alias.length > 0
   );
 
-  // Fetch columns when input list is selected
-  useEffect(() => {
-    if (!localConfig.inputKey) {
-      setAvailableColumns([]);
-      return;
-    }
-
-    // Find the step that creates this variable
-    const sourceStep = listVariables.find(v => v.alias === localConfig.inputKey);
-    if (!sourceStep) {
-      setAvailableColumns([]);
-      return;
-    }
-
-    // For now, we'll try to get columns from the step's description or metadata
-    // In a real implementation, you would fetch the actual table/query columns
-    // This is a simplified version that assumes columns are stored in step metadata
-    if (sourceStep.description && sourceStep.description.includes('columns:')) {
-      // Parse columns from description (temporary solution)
-      try {
-        const columnsMatch = sourceStep.description.match(/columns: \[(.*?)\]/);
-        if (columnsMatch) {
-          const cols = JSON.parse(`[${columnsMatch[1]}]`);
-          setAvailableColumns(cols);
-        }
-      } catch (e) {
-        setAvailableColumns([]);
-      }
-    } else {
-      // Default fallback - show a note that user needs to run the workflow first
-      setAvailableColumns([]);
-    }
-  }, [localConfig.inputKey, listVariables]);
+  // Get all workflow variables for value source
+  const allVariables = (steps || [])
+    .filter(step => step.alias && step.alias.length > 0)
+    .map(step => step.alias);
 
   const handleChange = (updates: Partial<ListToolsConfig>) => {
     const newConfig = { ...localConfig, ...updates };
@@ -96,378 +72,517 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
     onChange(newConfig);
   };
 
-  const getOperationIcon = (op: string) => {
-    switch (op) {
-      case "filter": return <Filter className="w-4 h-4" />;
-      case "sort": return <ArrowUpDown className="w-4 h-4" />;
-      case "limit": return <Scissors className="w-4 h-4" />;
-      case "select": return <Target className="w-4 h-4" />;
-      default: return null;
+  const toggleSection = (section: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(section)) {
+      newExpanded.delete(section);
+    } else {
+      newExpanded.add(section);
     }
+    setExpandedSections(newExpanded);
   };
 
-  const getOperationDescription = (op: string) => {
-    switch (op) {
-      case "filter": return "Filter rows based on a condition";
-      case "sort": return "Sort rows by a column";
-      case "limit": return "Limit the number of rows";
-      case "select": return "Extract count, column values, or a specific row";
-      default: return "";
-    }
+  // Filter management
+  const addFilter = () => {
+    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
+    const newRule: ListToolsFilterRule = {
+      fieldPath: '',
+      op: 'equals',
+      valueSource: 'const',
+      value: ''
+    };
+    handleChange({
+      filters: {
+        ...currentFilters,
+        rules: [...(currentFilters.rules || []), newRule]
+      }
+    });
   };
+
+  const updateFilter = (index: number, updates: Partial<ListToolsFilterRule>) => {
+    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
+    const newRules = [...(currentFilters.rules || [])];
+    newRules[index] = { ...newRules[index], ...updates };
+    handleChange({
+      filters: {
+        ...currentFilters,
+        rules: newRules
+      }
+    });
+  };
+
+  const removeFilter = (index: number) => {
+    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
+    const newRules = (currentFilters.rules || []).filter((_, i) => i !== index);
+    handleChange({
+      filters: {
+        ...currentFilters,
+        rules: newRules
+      }
+    });
+  };
+
+  // Sort management
+  const addSort = () => {
+    const currentSort = localConfig.sort || [];
+    handleChange({
+      sort: [...currentSort, { fieldPath: '', direction: 'asc' }]
+    });
+  };
+
+  const updateSort = (index: number, updates: Partial<ListToolsSortKey>) => {
+    const currentSort = localConfig.sort || [];
+    const newSort = [...currentSort];
+    newSort[index] = { ...newSort[index], ...updates };
+    handleChange({ sort: newSort });
+  };
+
+  const removeSort = (index: number) => {
+    const currentSort = localConfig.sort || [];
+    handleChange({ sort: currentSort.filter((_, i) => i !== index) });
+  };
+
+  // Validation
+  const isValid = !!(localConfig.sourceListVar && localConfig.outputListVar);
+
+  const filterCount = localConfig.filters?.rules?.length || 0;
+  const sortCount = localConfig.sort?.length || 0;
 
   return (
-    <div className="space-y-4">
-      {/* Input List */}
-      <div className="space-y-2">
-        <Label>Input List Variable</Label>
-        <Select
-          value={localConfig.inputKey || ""}
-          onValueChange={(value) => handleChange({ inputKey: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a list variable..." />
-          </SelectTrigger>
-          <SelectContent>
-            {listVariables.length === 0 && (
-              <div className="p-2 text-xs text-muted-foreground">
-                No list variables found. Create a Read Table or Query block first.
-              </div>
+    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      {/* Source & Output */}
+      <Card className="border-green-200 bg-green-50/30">
+        <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('source')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {expandedSections.has('source') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <Target className="w-4 h-4 text-green-600" />
+              Source & Output
+            </CardTitle>
+            {localConfig.sourceListVar && localConfig.outputListVar && (
+              <Badge variant="outline" className="text-xs bg-green-100 border-green-300">
+                {localConfig.sourceListVar} → {localConfig.outputListVar}
+              </Badge>
             )}
-            {listVariables.map((variable) => (
-              <SelectItem key={variable.id} value={variable.alias || ""}>
-                {variable.alias} ({variable.title})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {!localConfig.inputKey && (
-          <p className="text-xs text-muted-foreground">
-            Select a list variable created by a Read Table or Query block
-          </p>
-        )}
-      </div>
-
-      {/* Operation */}
-      <div className="space-y-2">
-        <Label>Operation</Label>
-        <Select
-          value={localConfig.operation || ""}
-          onValueChange={(value) => handleChange({ operation: value as ListToolsOperation })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select operation..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="filter">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                <div>
-                  <div className="font-medium">Filter</div>
-                  <div className="text-xs text-muted-foreground">Filter rows by condition</div>
-                </div>
-              </div>
-            </SelectItem>
-            <SelectItem value="sort">
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4" />
-                <div>
-                  <div className="font-medium">Sort</div>
-                  <div className="text-xs text-muted-foreground">Sort rows by column</div>
-                </div>
-              </div>
-            </SelectItem>
-            <SelectItem value="limit">
-              <div className="flex items-center gap-2">
-                <Scissors className="w-4 h-4" />
-                <div>
-                  <div className="font-medium">Limit</div>
-                  <div className="text-xs text-muted-foreground">Limit number of rows</div>
-                </div>
-              </div>
-            </SelectItem>
-            <SelectItem value="select">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                <div>
-                  <div className="font-medium">Select</div>
-                  <div className="text-xs text-muted-foreground">Extract values or count</div>
-                </div>
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Operation-Specific Configuration */}
-      {localConfig.operation === "filter" && (
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-blue-900">
-              <Filter className="w-4 h-4" />
-              Filter Configuration
-            </div>
-
+          </div>
+        </CardHeader>
+        {expandedSections.has('source') && (
+          <CardContent className="space-y-3 pt-0">
             <div className="space-y-2">
-              <Label className="text-xs">Column</Label>
+              <Label className="text-xs">Source List Variable</Label>
               <Select
-                value={localConfig.filter?.columnId || ""}
-                onValueChange={(value) => handleChange({
-                  filter: { ...localConfig.filter, columnId: value, operator: localConfig.filter?.operator || "equals" }
-                })}
+                value={localConfig.sourceListVar || ""}
+                onValueChange={(value) => handleChange({ sourceListVar: value })}
               >
                 <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Select column..." />
+                  <SelectValue placeholder="Select source list..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableColumns.length === 0 ? (
+                  {listVariables.length === 0 && (
                     <div className="p-2 text-xs text-muted-foreground">
-                      No columns available. Select a list variable first.
+                      No list variables found. Create a Read Table or Query block first.
                     </div>
-                  ) : (
-                    availableColumns.map((col: any) => (
-                      <SelectItem key={col.id} value={col.id}>
-                        {col.name} ({col.type})
-                      </SelectItem>
-                    ))
                   )}
+                  {listVariables.map((variable) => (
+                    <SelectItem key={variable.id} value={variable.alias || ""}>
+                      {variable.alias} ({variable.title})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Operator</Label>
-              <Select
-                value={localConfig.filter?.operator || "equals"}
-                onValueChange={(value) => handleChange({
-                  filter: { ...localConfig.filter, columnId: localConfig.filter?.columnId || "", operator: value as ReadTableOperator }
-                })}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="equals">Equals</SelectItem>
-                  <SelectItem value="not_equals">Not Equals</SelectItem>
-                  <SelectItem value="contains">Contains</SelectItem>
-                  <SelectItem value="starts_with">Starts With</SelectItem>
-                  <SelectItem value="ends_with">Ends With</SelectItem>
-                  <SelectItem value="greater_than">Greater Than</SelectItem>
-                  <SelectItem value="less_than">Less Than</SelectItem>
-                  <SelectItem value="is_empty">Is Empty</SelectItem>
-                  <SelectItem value="is_not_empty">Is Not Empty</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {localConfig.filter?.operator !== "is_empty" && localConfig.filter?.operator !== "is_not_empty" && (
-              <div className="space-y-2">
-                <Label className="text-xs">Value</Label>
-                <Input
-                  className="bg-background"
-                  placeholder="Enter value or {{variable}}"
-                  value={localConfig.filter?.value || ""}
-                  onChange={(e) => handleChange({
-                    filter: { ...localConfig.filter, columnId: localConfig.filter?.columnId || "", operator: localConfig.filter?.operator || "equals", value: e.target.value }
-                  })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Use {`{{variableName}}`} to reference another variable
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {localConfig.operation === "sort" && (
-        <Card className="border-purple-200 bg-purple-50/50">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-purple-900">
-              <ArrowUpDown className="w-4 h-4" />
-              Sort Configuration
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Column</Label>
-              <Select
-                value={localConfig.sort?.columnId || ""}
-                onValueChange={(value) => handleChange({
-                  sort: { columnId: value, direction: localConfig.sort?.direction || "asc" }
-                })}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Select column..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableColumns.length === 0 ? (
-                    <div className="p-2 text-xs text-muted-foreground">
-                      No columns available. Select a list variable first.
-                    </div>
-                  ) : (
-                    availableColumns.map((col: any) => (
-                      <SelectItem key={col.id} value={col.id}>
-                        {col.name} ({col.type})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Direction</Label>
-              <Select
-                value={localConfig.sort?.direction || "asc"}
-                onValueChange={(value) => handleChange({
-                  sort: { ...localConfig.sort, columnId: localConfig.sort?.columnId || "", direction: value as "asc" | "desc" }
-                })}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="asc">Ascending (A-Z, 0-9)</SelectItem>
-                  <SelectItem value="desc">Descending (Z-A, 9-0)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {localConfig.operation === "limit" && (
-        <Card className="border-orange-200 bg-orange-50/50">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-orange-900">
-              <Scissors className="w-4 h-4" />
-              Limit Configuration
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Maximum Rows</Label>
+              <Label className="text-xs">Output List Variable</Label>
               <Input
-                className="bg-background"
-                type="number"
-                min="1"
-                placeholder="e.g., 10"
-                value={localConfig.limit || ""}
-                onChange={(e) => handleChange({ limit: parseInt(e.target.value) || 0 })}
+                className="font-mono text-sm bg-background"
+                placeholder="e.g., filtered_users"
+                value={localConfig.outputListVar || ""}
+                onChange={(e) => handleChange({ outputListVar: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
-                Only keep the first N rows
+              <p className="text-[11px] text-muted-foreground">
+                Name for the transformed list output
               </p>
             </div>
           </CardContent>
-        </Card>
-      )}
+        )}
+      </Card>
 
-      {localConfig.operation === "select" && (
-        <Card className="border-green-200 bg-green-50/50">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-green-900">
-              <Target className="w-4 h-4" />
-              Select Configuration
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Select Mode</Label>
-              <Select
-                value={localConfig.select?.mode || "count"}
-                onValueChange={(value) => handleChange({
-                  select: { mode: value as "count" | "column" | "row" }
-                })}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="count">Count (number of rows)</SelectItem>
-                  <SelectItem value="column">Column Values (array)</SelectItem>
-                  <SelectItem value="row">Specific Row (object)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {localConfig.select?.mode === "column" && (
-              <div className="space-y-2">
-                <Label className="text-xs">Column</Label>
+      {/* Filters */}
+      <Card className="border-blue-200 bg-blue-50/30">
+        <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('filters')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {expandedSections.has('filters') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <Filter className="w-4 h-4 text-blue-600" />
+              Filters {filterCount > 0 && <Badge variant="secondary" className="ml-1 text-xs">{filterCount}</Badge>}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        {expandedSections.has('filters') && (
+          <CardContent className="space-y-3 pt-0">
+            {filterCount > 0 && mode === 'advanced' && (
+              <div className="flex items-center gap-2 pb-2 border-b">
+                <Label className="text-xs">Combine with:</Label>
                 <Select
-                  value={localConfig.select?.columnId || ""}
-                  onValueChange={(value) => handleChange({
-                    select: { ...localConfig.select, mode: "column", columnId: value }
+                  value={localConfig.filters?.combinator || 'and'}
+                  onValueChange={(value: 'and' | 'or') => handleChange({
+                    filters: { ...localConfig.filters!, combinator: value }
                   })}
                 >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select column..." />
+                  <SelectTrigger className="w-24 h-7 text-xs">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableColumns.length === 0 ? (
-                      <div className="p-2 text-xs text-muted-foreground">
-                        No columns available. Select a list variable first.
-                      </div>
-                    ) : (
-                      availableColumns.map((col: any) => (
-                        <SelectItem key={col.id} value={col.id}>
-                          {col.name}
-                        </SelectItem>
-                      ))
-                    )}
+                    <SelectItem value="and">AND</SelectItem>
+                    <SelectItem value="or">OR</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Extracts an array of values from this column
-                </p>
               </div>
             )}
 
-            {localConfig.select?.mode === "row" && (
-              <div className="space-y-2">
-                <Label className="text-xs">Row Index (0-based)</Label>
+            <div className="space-y-2">
+              {(localConfig.filters?.rules || []).map((rule, index) => (
+                <div key={index} className="bg-background border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Filter {index + 1}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2"
+                      onClick={() => removeFilter(index)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Field Path</Label>
+                      <Input
+                        className="h-8 text-xs font-mono"
+                        placeholder="e.g., name, address.zip"
+                        value={rule.fieldPath}
+                        onChange={(e) => updateFilter(index, { fieldPath: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Operator</Label>
+                      <Select
+                        value={rule.op}
+                        onValueChange={(value: ReadTableOperator) => updateFilter(index, { op: value })}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OPERATORS.map(op => (
+                            <SelectItem key={op.value} value={op.value} className="text-xs">
+                              {op.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {!['is_empty', 'is_not_empty', 'exists'].includes(rule.op) && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[11px]">Value Source:</Label>
+                        <Select
+                          value={rule.valueSource}
+                          onValueChange={(value: 'const' | 'var') => updateFilter(index, { valueSource: value })}
+                        >
+                          <SelectTrigger className="h-7 w-28 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="const">Constant</SelectItem>
+                            <SelectItem value="var">Variable</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">
+                          {rule.valueSource === 'const' ? 'Value' : 'Variable Name'}
+                        </Label>
+                        {rule.valueSource === 'const' ? (
+                          <Input
+                            className="h-8 text-xs"
+                            placeholder="Enter value..."
+                            value={rule.value || ''}
+                            onChange={(e) => updateFilter(index, { value: e.target.value })}
+                          />
+                        ) : (
+                          <Select
+                            value={rule.value || ''}
+                            onValueChange={(value) => updateFilter(index, { value })}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Select variable..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allVariables.map(v => (
+                                <SelectItem key={v} value={v}>{v}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-8 text-xs"
+                onClick={addFilter}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Filter
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Sort */}
+      <Card className="border-purple-200 bg-purple-50/30">
+        <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('sort')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {expandedSections.has('sort') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <ArrowUpDown className="w-4 h-4 text-purple-600" />
+              Sort {sortCount > 0 && <Badge variant="secondary" className="ml-1 text-xs">{sortCount} keys</Badge>}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        {expandedSections.has('sort') && (
+          <CardContent className="space-y-3 pt-0">
+            <div className="space-y-2">
+              {(localConfig.sort || []).map((sortKey, index) => (
+                <div key={index} className="bg-background border rounded-lg p-3 flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground w-8">{index + 1}.</span>
+                  <Input
+                    className="flex-1 h-8 text-xs font-mono"
+                    placeholder="Field path..."
+                    value={sortKey.fieldPath}
+                    onChange={(e) => updateSort(index, { fieldPath: e.target.value })}
+                  />
+                  <Select
+                    value={sortKey.direction}
+                    onValueChange={(value: 'asc' | 'desc') => updateSort(index, { direction: value })}
+                  >
+                    <SelectTrigger className="w-28 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2"
+                    onClick={() => removeSort(index)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-8 text-xs"
+                onClick={addSort}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Sort Key
+              </Button>
+
+              {mode === 'advanced' && sortCount > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Multi-key sorting: Applied in order. First key has priority.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Range (Offset/Limit) */}
+      <Card className="border-orange-200 bg-orange-50/30">
+        <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('range')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {expandedSections.has('range') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <Scissors className="w-4 h-4 text-orange-600" />
+              Range
+            </CardTitle>
+            {(localConfig.offset || localConfig.limit) && (
+              <Badge variant="outline" className="text-xs bg-orange-100 border-orange-300">
+                {localConfig.offset ? `Skip ${localConfig.offset}` : ''}{localConfig.offset && localConfig.limit ? ', ' : ''}{localConfig.limit ? `Take ${localConfig.limit}` : ''}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        {expandedSections.has('range') && (
+          <CardContent className="space-y-3 pt-0">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Offset (skip first N)</Label>
                 <Input
-                  className="bg-background"
                   type="number"
                   min="0"
-                  placeholder="e.g., 0 for first row"
-                  value={localConfig.select?.rowIndex ?? ""}
-                  onChange={(e) => handleChange({
-                    select: { ...localConfig.select, mode: "row", rowIndex: parseInt(e.target.value) || 0 }
-                  })}
+                  className="h-8 text-xs bg-background"
+                  placeholder="0"
+                  value={localConfig.offset ?? ''}
+                  onChange={(e) => handleChange({ offset: e.target.value ? parseInt(e.target.value) : undefined })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  0 = first row, 1 = second row, etc.
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Limit (max rows)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  className="h-8 text-xs bg-background"
+                  placeholder="No limit"
+                  value={localConfig.limit ?? ''}
+                  onChange={(e) => handleChange({ limit: e.target.value ? parseInt(e.target.value) : undefined })}
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Transform (Select/Dedupe) */}
+      {mode === 'advanced' && (
+        <Card className="border-indigo-200 bg-indigo-50/30">
+          <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('transform')}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                {expandedSections.has('transform') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <Columns className="w-4 h-4 text-indigo-600" />
+                Transform
+              </CardTitle>
+            </div>
+          </CardHeader>
+          {expandedSections.has('transform') && (
+            <CardContent className="space-y-3 pt-0">
+              <div className="space-y-2">
+                <Label className="text-xs">Select Columns (leave empty for all)</Label>
+                <Input
+                  className="h-8 text-xs font-mono bg-background"
+                  placeholder="e.g., name, email, address.city"
+                  value={localConfig.select?.join(', ') || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    handleChange({
+                      select: value ? value.split(',').map(s => s.trim()).filter(Boolean) : undefined
+                    });
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Comma-separated field paths. Supports dot notation.
                 </p>
               </div>
-            )}
-          </CardContent>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Deduplicate by Field</Label>
+                <Input
+                  className="h-8 text-xs font-mono bg-background"
+                  placeholder="e.g., email"
+                  value={localConfig.dedupe?.fieldPath || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    handleChange({
+                      dedupe: value ? { fieldPath: value } : undefined
+                    });
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Keep only first occurrence of each unique value
+                </p>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
-      {/* Output Variable */}
-      <div className="space-y-2">
-        <Label>Output Variable Name</Label>
-        <Input
-          placeholder="e.g., filteredList, sortedData, rowCount"
-          value={localConfig.outputKey || ""}
-          onChange={(e) => handleChange({ outputKey: e.target.value })}
-        />
-        <p className="text-xs text-muted-foreground">
-          {localConfig.operation === "select" && localConfig.select?.mode === "count"
-            ? "Will store a number (row count)"
-            : localConfig.operation === "select" && localConfig.select?.mode === "column"
-            ? "Will store an array of values"
-            : localConfig.operation === "select" && localConfig.select?.mode === "row"
-            ? "Will store a single row object"
-            : "Will store a new list variable"
-          }
-        </p>
-      </div>
+      {/* Derived Outputs */}
+      {mode === 'advanced' && (
+        <Card className="border-pink-200 bg-pink-50/30">
+          <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('outputs')}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                {expandedSections.has('outputs') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <Hash className="w-4 h-4 text-pink-600" />
+                Derived Outputs
+              </CardTitle>
+            </div>
+          </CardHeader>
+          {expandedSections.has('outputs') && (
+            <CardContent className="space-y-3 pt-0">
+              <div className="space-y-2">
+                <Label className="text-xs">Count Variable (optional)</Label>
+                <Input
+                  className="h-8 text-xs font-mono bg-background"
+                  placeholder="e.g., user_count"
+                  value={localConfig.outputs?.countVar || ''}
+                  onChange={(e) => handleChange({
+                    outputs: {
+                      ...localConfig.outputs,
+                      countVar: e.target.value || undefined
+                    }
+                  })}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Store the number of rows as a separate variable
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">First Row Variable (optional)</Label>
+                <Input
+                  className="h-8 text-xs font-mono bg-background"
+                  placeholder="e.g., top_user"
+                  value={localConfig.outputs?.firstVar || ''}
+                  onChange={(e) => handleChange({
+                    outputs: {
+                      ...localConfig.outputs,
+                      firstVar: e.target.value || undefined
+                    }
+                  })}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Store the first row as a separate variable
+                </p>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Validation Message */}
+      {!isValid && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-xs text-yellow-900">
+          <p className="font-medium mb-1">Required Fields</p>
+          <p>Please provide both a source list variable and output list variable name.</p>
+        </div>
+      )}
 
       {mode === 'easy' && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-900">
           <p className="font-medium mb-1">Easy Mode Note</p>
           <p>
-            List tools are primarily for Advanced Mode. They allow you to filter, sort, limit, and extract data from lists created by Read Table blocks.
+            List Tools apply filtering, sorting, and transformations to lists. Switch to Advanced Mode for more options (multi-sort, dedupe, column selection).
           </p>
         </div>
       )}

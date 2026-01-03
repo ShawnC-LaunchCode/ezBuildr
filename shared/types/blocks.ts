@@ -298,19 +298,25 @@ export interface ExternalSendResult {
 }
 
 /**
- * Filter operators for ReadTable block
+ * Filter operators for ReadTable block and List Tools
  */
 export type ReadTableOperator =
   | "equals"
   | "not_equals"
   | "contains"
+  | "not_contains"
   | "starts_with"
   | "ends_with"
   | "greater_than"
+  | "gte"
   | "less_than"
+  | "lte"
   | "is_empty"
   | "is_not_empty"
-  | "in";
+  | "in_list"
+  | "not_in_list"
+  | "exists"
+  | "in"; // Legacy alias for in_list
 
 /**
  * Filter condition for ReadTable block
@@ -388,71 +394,70 @@ export interface ListVariable {
 }
 
 /**
- * List Tools Operations
+ * List Tools Filter Rule
+ * Single filter condition for list filtering
  */
-export type ListToolsOperation =
-  | "filter"      // Filter rows by column condition
-  | "sort"        // Sort rows by column
-  | "limit"       // Limit number of rows
-  | "select";     // Select specific columns or derive values
-
-/**
- * List Tools Filter Configuration
- */
-export type ListToolsFilter = {
-  columnId: string;              // Column to filter on
-  operator: ReadTableOperator;   // Comparison operator
-  value?: any;                   // Filter value (can be static or variable reference)
+export type ListToolsFilterRule = {
+  fieldPath: string;                 // Dot-notation path to field (e.g., "name", "address.zip", "child.age")
+  op: ReadTableOperator;             // Comparison operator
+  valueSource: "const" | "var";      // Whether value is a constant or variable reference
+  value?: any;                       // Filter value (constant or variable name)
 };
 
 /**
- * List Tools Sort Configuration
+ * List Tools Filter Group
+ * Supports AND/OR combinators with nested groups
  */
-export type ListToolsSort = {
-  columnId: string;              // Column to sort by
-  direction: "asc" | "desc";     // Sort direction
+export type ListToolsFilterGroup = {
+  combinator: "and" | "or";          // How to combine rules/groups
+  rules?: ListToolsFilterRule[];     // Filter rules in this group
+  groups?: ListToolsFilterGroup[];   // Nested groups (for advanced mode)
 };
 
 /**
- * List Tools Select Configuration
+ * List Tools Sort Key
+ * Single sort key configuration
  */
-export type ListToolsSelect = {
-  mode: "count" | "column" | "row"; // What to select
-  columnId?: string;                // For mode=column: which column to extract
-  rowIndex?: number;                // For mode=row: which row index (0-based)
+export type ListToolsSortKey = {
+  fieldPath: string;                 // Dot-notation path to field
+  direction: "asc" | "desc";         // Sort direction
 };
 
 /**
- * List Tools Block Configuration
- * Transforms lists with various operations
+ * List Tools Dedupe Configuration
+ */
+export type ListToolsDedupe = {
+  fieldPath: string;                 // Field to dedupe by
+};
+
+/**
+ * List Tools Output Configuration
+ * Derived outputs from the list transformation
+ */
+export type ListToolsOutputs = {
+  countVar?: string;                 // Variable to store count
+  firstVar?: string;                 // Variable to store first row
+};
+
+/**
+ * Comprehensive List Tools Block Configuration
+ * Applies multiple operations in sequence: filter → sort → offset/limit → select → dedupe
  */
 export type ListToolsConfig = {
-  inputKey: string;                  // Variable name of input list
-  operation: ListToolsOperation;     // Operation to perform
-  filter?: ListToolsFilter;          // For operation=filter
-  sort?: ListToolsSort;              // For operation=sort
-  limit?: number;                    // For operation=limit
-  select?: ListToolsSelect;          // For operation=select
-  outputKey: string;                 // Variable name for output
-  runCondition?: WhenCondition;      // Optional condition
+  sourceListVar: string;             // Input list variable name
+  outputListVar: string;             // Output list variable name
+
+  // Operations (applied in order)
+  filters?: ListToolsFilterGroup;    // Filter configuration (AND/OR groups)
+  sort?: ListToolsSortKey[];         // Multi-key sorting (applied in order)
+  limit?: number;                    // Row limit
+  offset?: number;                   // Row offset (skip first N rows)
+  select?: string[];                 // Field paths to project (if omitted, all fields included)
+  dedupe?: ListToolsDedupe;          // Deduplication configuration
+  outputs?: ListToolsOutputs;        // Derived outputs (count, first row)
+
+  runCondition?: WhenCondition;      // Optional condition to run block
 };
-
-// Fix the duplicated property error on lines above if any
-// Cleaned up version:
-
-export type ListToolsConfigClean = {
-  inputKey: string;                  // Variable name of input list
-  operation: ListToolsOperation;     // Operation to perform
-  filter?: ListToolsFilter;          // For operation=filter
-  sort?: ListToolsSort;              // For operation=sort
-  limit?: number;                    // For operation=limit
-  select?: ListToolsSelect;          // For operation=select
-  outputKey: string;                 // Variable name for output
-  runCondition?: WhenCondition;      // Optional condition
-};
-
-// Re-export ListToolsConfig properly
-// (Using the raw type to match existing pattern, removing dups manually)
 
 /**
  * Discriminated union of block kinds
