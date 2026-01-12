@@ -316,7 +316,13 @@ export type ReadTableOperator =
   | "in_list"
   | "not_in_list"
   | "exists"
-  | "in"; // Legacy alias for in_list
+  | "in" // Legacy alias for in_list
+  // Case-insensitive variants
+  | "equals_ci"
+  | "contains_ci"
+  | "not_contains_ci"
+  | "starts_with_ci"
+  | "ends_with_ci";
 
 /**
  * Filter condition for ReadTable block

@@ -10,7 +10,7 @@
  * }
  */
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -19,15 +19,21 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GripVertical, Trash2, Plus, AlertCircle, RefreshCw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { GripVertical, Trash2, Plus, AlertCircle, RefreshCw, Wand2, ExternalLink, Unlink, Link } from "lucide-react";
 import { LabelField } from "./common/LabelField";
 import { AliasField } from "./common/AliasField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { SectionHeader } from "./common/EditorField";
-import { useUpdateStep, useWorkflowVariables, useBlocks, useSections } from "@/lib/vault-hooks";
+import { useUpdateStep, useWorkflowVariables, useBlocks, useSections, useWorkflow } from "@/lib/vault-hooks";
 import { useTableColumns } from "@/hooks/useTableColumns";
 import { useToast } from "@/hooks/use-toast";
-import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, LegacyRadioConfig, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs";
+import { useQueryClient } from "@tanstack/react-query";
+import { blockAPI } from "@/lib/vault-api";
+import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, LegacyRadioConfig, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs"
+;
+import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
+import { TransformSummary } from "../TransformSummary";
 
 interface ChoiceCardEditorProps {
   stepId: string;
@@ -46,6 +52,19 @@ interface ChoiceCardEditorProps {
 export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: ChoiceCardEditorProps) {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isCreatingListTools, setIsCreatingListTools] = useState(false);
+
+  // Block Editor Dialog state
+  const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
+
+  // Unlink Confirmation Dialog state
+  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+
+  // Fetch workflow for mode
+  const { data: workflow } = useWorkflow(workflowId);
+  const mode = workflow?.modeOverride || 'easy';
 
   // Determine mode
   const isAdvancedMode = step.type === "choice";
@@ -142,7 +161,26 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
           staticOptions = dynConfig.options || [];
         } else if (dynConfig.type === 'list') {
           mode = "dynamic";
-          dynamicOptions = dynConfig;
+          // Migrate old format to new format
+          dynamicOptions = {
+            type: 'list',
+            listVariable: dynConfig.listVariable || '',
+            labelPath: (dynConfig as any).labelPath || (dynConfig as any).labelColumnId || '',
+            valuePath: (dynConfig as any).valuePath || (dynConfig as any).valueColumnId || '',
+            labelTemplate: dynConfig.labelTemplate,
+            groupByPath: dynConfig.groupByPath,
+            enableSearch: dynConfig.enableSearch,
+            includeBlankOption: dynConfig.includeBlankOption,
+            blankLabel: dynConfig.blankLabel,
+            transform: dynConfig.transform || {
+              filters: undefined,
+              sort: undefined,
+              limit: undefined,
+              offset: undefined,
+              dedupe: undefined,
+              select: undefined
+            }
+          };
         }
       } else if (Array.isArray(rawOptions)) {
         staticOptions = rawOptions;
@@ -156,10 +194,21 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
         dynamicOptions: dynamicOptions.type === 'list' ? dynamicOptions : {
           type: 'list',
           listVariable: '',
-          labelColumnId: '',
-          valueColumnId: '',
-          dedupeBy: null,
-          sort: null
+          labelPath: '',
+          valuePath: '',
+          labelTemplate: '',
+          groupByPath: '',
+          enableSearch: false,
+          includeBlankOption: false,
+          blankLabel: '',
+          transform: {
+            filters: undefined,
+            sort: undefined,
+            limit: undefined,
+            offset: undefined,
+            dedupe: undefined,
+            select: undefined
+          }
         }
       });
       setSourceMode(mode);
@@ -183,9 +232,21 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
         dynamicOptions: {
           type: 'list',
           listVariable: '',
-          labelColumnId: '',
-          valueColumnId: '',
-          dedupeBy: null
+          labelPath: '',
+          valuePath: '',
+          labelTemplate: '',
+          groupByPath: '',
+          enableSearch: false,
+          includeBlankOption: false,
+          blankLabel: '',
+          transform: {
+            filters: undefined,
+            sort: undefined,
+            limit: undefined,
+            offset: undefined,
+            dedupe: undefined,
+            select: undefined
+          }
         }
       });
       setSourceMode("static");
@@ -292,6 +353,167 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
     } else {
       handleUpdate({ display, allowMultiple });
     }
+  };
+
+  // List Tools block handlers
+  const handleCreateListTools = async () => {
+    if (!localConfig?.dynamicOptions?.listVariable) {
+      toast({
+        title: "Error",
+        description: "Please select a list variable first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsCreatingListTools(true);
+    try {
+      const result = await blockAPI.createListToolsFromChoice(workflowId, stepId, {
+        sourceListVar: localConfig.dynamicOptions.listVariable,
+        transformConfig: localConfig.dynamicOptions.transform,
+        sectionId: sectionId
+      });
+
+      // Update the question config to link to the new block
+      const newDynamic = {
+        ...localConfig.dynamicOptions,
+        linkedListToolsBlockId: result.block.id,
+        baseListVar: localConfig.dynamicOptions.listVariable,
+        listVariable: result.outputVar,
+        transform: undefined // Clear transform since it's now in the block
+      };
+
+      handleUpdate({ dynamicOptions: newDynamic });
+
+      // Invalidate blocks query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['blocks', workflowId] });
+
+      toast({
+        title: "Success",
+        description: `Created List Tools block: ${result.outputVar}`,
+      });
+
+      // Auto-open the block editor so user can immediately configure transforms
+      const universalBlock: UniversalBlock = {
+        id: result.block.id,
+        type: result.block.type,
+        phase: result.block.phase || 'onRunStart',
+        order: result.block.order || 0,
+        enabled: result.block.enabled ?? true,
+        raw: result.block,
+        source: 'regular',
+        title: result.outputVar,
+        displayType: 'list_tools'
+      };
+
+      setEditingBlock(universalBlock);
+      setIsBlockEditorOpen(true);
+    } catch (error) {
+      console.error("Error creating List Tools block:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create List Tools block",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingListTools(false);
+    }
+  };
+
+  const handleUnlinkListTools = () => {
+    // Show confirmation dialog
+    setShowUnlinkConfirm(true);
+  };
+
+  const confirmUnlinkListTools = () => {
+    if (!localConfig?.dynamicOptions?.baseListVar) {
+      toast({
+        title: "Error",
+        description: "No base list variable found",
+        variant: "destructive"
+      });
+      setShowUnlinkConfirm(false);
+      return;
+    }
+
+    const newDynamic = {
+      ...localConfig.dynamicOptions,
+      linkedListToolsBlockId: undefined,
+      listVariable: localConfig.dynamicOptions.baseListVar,
+      baseListVar: undefined
+    };
+
+    handleUpdate({ dynamicOptions: newDynamic });
+
+    toast({
+      title: "Unlinked",
+      description: "List Tools block unlinked. The block still exists but is no longer connected to this question.",
+    });
+
+    setShowUnlinkConfirm(false);
+  };
+
+  const handleReplaceListTools = async () => {
+    // First unlink (directly without confirmation since user clicked Replace)
+    if (!localConfig?.dynamicOptions?.baseListVar) {
+      toast({
+        title: "Error",
+        description: "No base list variable found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newDynamic = {
+      ...localConfig.dynamicOptions,
+      linkedListToolsBlockId: undefined,
+      listVariable: localConfig.dynamicOptions.baseListVar,
+      baseListVar: undefined
+    };
+
+    handleUpdate({ dynamicOptions: newDynamic });
+
+    // Then create new block after a short delay to ensure state update
+    setTimeout(() => handleCreateListTools(), 150);
+  };
+
+  const linkedBlock = useMemo(() => {
+    if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) return null;
+    return blocks.find(b => b.id === localConfig.dynamicOptions.linkedListToolsBlockId);
+  }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
+
+  const handleOpenLinkedBlock = () => {
+    if (!linkedBlock) {
+      toast({
+        title: "Error",
+        description: "Linked block not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Convert to UniversalBlock format expected by BlockEditorDialog
+    const universalBlock: UniversalBlock = {
+      id: linkedBlock.id,
+      type: linkedBlock.type,
+      phase: linkedBlock.phase || 'onRunStart',
+      order: linkedBlock.order || 0,
+      enabled: linkedBlock.enabled ?? true,
+      raw: linkedBlock,
+      source: 'regular',
+      title: linkedBlock.config?.outputListVar || linkedBlock.config?.outputKey || 'List Tools',
+      displayType: 'list_tools'
+    };
+
+    setEditingBlock(universalBlock);
+    setIsBlockEditorOpen(true);
+  };
+
+  const handleCloseBlockEditor = () => {
+    setIsBlockEditorOpen(false);
+    setEditingBlock(null);
+    // Refresh blocks after editing
+    queryClient.invalidateQueries({ queryKey: ['workflows', workflowId, 'blocks'] });
   };
 
   if (!localConfig) return null;
@@ -403,6 +625,88 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
               )}
             </div>
 
+            {/* List Tools Linking */}
+            {localConfig.dynamicOptions.listVariable && (
+              <div className="space-y-2 border-t pt-3">
+                <Label className="text-xs font-medium">Options Transformation</Label>
+                {linkedBlock ? (
+                  <div className="space-y-3 bg-blue-50/50 border border-blue-200 rounded-md p-3">
+                    <div className="flex items-center gap-2">
+                      <Link className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-medium text-blue-900">Linked to List Tools block</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-blue-700">{(linkedBlock.config as any)?.outputListVar || (linkedBlock.config as any)?.outputKey}</span>
+                    </div>
+
+                    {/* Transform Summary (Read-Only) */}
+                    <TransformSummary config={(linkedBlock.config as any)} />
+
+                    {/* Primary Action: Open Block */}
+                    <div className="space-y-1.5">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full h-8 text-xs font-medium"
+                        onClick={handleOpenLinkedBlock}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Open List Tools Block to Edit
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground text-center">
+                        Edit filters, sorting, and transforms in the List Tools block
+                      </p>
+                    </div>
+
+                    {/* Secondary Actions */}
+                    <div className="flex gap-1 pt-1 border-t border-blue-200/50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-1"
+                        onClick={handleUnlinkListTools}
+                      >
+                        <Unlink className="h-3 w-3 mr-1" />
+                        Unlink
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs flex-1"
+                        onClick={handleReplaceListTools}
+                        disabled={isCreatingListTools}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Replace
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      Create a List Tools block to filter, sort, and transform options before displaying them.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 text-xs"
+                      onClick={handleCreateListTools}
+                      disabled={isCreatingListTools || !localConfig.dynamicOptions.listVariable}
+                    >
+                      <Wand2 className="h-3 w-3 mr-1" />
+                      {isCreatingListTools ? "Creating..." : "Create List Tools Block"}
+                    </Button>
+                    {localConfig.dynamicOptions.transform && (
+                      <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Current transforms will be moved to the new block
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Columns Selection */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -439,79 +743,20 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
               </div>
             </div>
 
-            <Separator />
-
-            {/* Advanced: Dedupe & Sort */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Label className="text-xs text-muted-foreground">Dedupe by Value</Label>
-                <Switch
-                  checked={localConfig.dynamicOptions.dedupeBy === 'value'}
-                  onCheckedChange={(c) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, dedupeBy: c ? 'value' : null } })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Sort By */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Sort By</Label>
-                  <Select
-                    value={localConfig.dynamicOptions.sort?.by || 'none'}
-                    onValueChange={(val) => {
-                      if (val === 'none') {
-                        handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, sort: null } });
-                      } else {
-                        handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, sort: { ...localConfig.dynamicOptions.sort, by: val, direction: localConfig.dynamicOptions.sort?.direction || 'asc' } } });
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-8"><SelectValue placeholder="No Sort" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="label">Label</SelectItem>
-                      <SelectItem value="value">Value</SelectItem>
-                      <SelectItem value="column">Specific Column</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sort Direction */}
-                {localConfig.dynamicOptions.sort && (
-                  <div className="space-y-1.5 animate-in fade-in">
-                    <Label className="text-xs">Direction</Label>
-                    <Select
-                      value={localConfig.dynamicOptions.sort.direction}
-                      onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, sort: { ...localConfig.dynamicOptions.sort, direction: val as any } } })}
-                    >
-                      <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="asc">Ascending</SelectItem>
-                        <SelectItem value="desc">Descending</SelectItem>
-                      </SelectContent>
-                    </Select>
+            {/* Transform Hint - Direct users to List Tools */}
+            {!linkedBlock && localConfig.dynamicOptions.listVariable && (
+              <div className="bg-amber-50/50 border border-amber-200 rounded-md p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-amber-900">Need to filter, sort, or transform options?</p>
+                    <p className="text-[10px] text-amber-700">
+                      Create a List Tools block above to apply filters, multi-key sorting, deduplication, and other transforms.
+                    </p>
                   </div>
-                )}
-              </div>
-
-              {/* Sort Column ID - if by column */}
-              {localConfig.dynamicOptions.sort?.by === 'column' && (
-                <div className="space-y-1.5 animate-in fade-in">
-                  <Label className="text-xs">Sort Column</Label>
-                  <Select
-                    value={localConfig.dynamicOptions.sort.columnId}
-                    onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, sort: { ...localConfig.dynamicOptions.sort, columnId: val } } })}
-                    disabled={!sourceTableId || loadingColumns}
-                  >
-                    <SelectTrigger className="h-8"><SelectValue placeholder="Select column for sorting..." /></SelectTrigger>
-                    <SelectContent>
-                      {columns.map((col: any) => (
-                        <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Blank Option */}
             <div className="space-y-3 pt-2 border-t">
@@ -561,6 +806,36 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
           </div>
         )
       }
+
+      {/* Block Editor Dialog */}
+      <BlockEditorDialog
+        workflowId={workflowId}
+        block={editingBlock}
+        mode={mode as any}
+        isOpen={isBlockEditorOpen}
+        onClose={handleCloseBlockEditor}
+      />
+
+      {/* Unlink Confirmation Dialog */}
+      <AlertDialog open={showUnlinkConfirm} onOpenChange={setShowUnlinkConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unlink List Tools Block?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will disconnect the List Tools block from this question. Any transforms (filters, sorting, etc.)
+              configured in the block will no longer be applied to the options.
+              <br /><br />
+              The List Tools block itself will still exist and can be relinked later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUnlinkListTools} className="bg-destructive hover:bg-destructive/90">
+              Unlink
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div >
   );
 }

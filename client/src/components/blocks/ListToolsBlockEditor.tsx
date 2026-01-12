@@ -3,23 +3,20 @@
  * Applies multiple operations in sequence: filter → sort → offset/limit → select → dedupe
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSteps } from "@/lib/vault-hooks";
-import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, ChevronDown, ChevronRight } from "lucide-react";
+import { FilterBuilderUI, SortBuilderUI, RangeControlsUI, AdvancedTransformUI } from "@/components/builder/transforms";
 import type {
   ListToolsConfig,
   ListToolsFilterGroup,
-  ListToolsFilterRule,
   ListToolsSortKey,
-  ListToolsDedupe,
-  ReadTableOperator
+  ListToolsDedupe
 } from "@shared/types/blocks";
 
 interface ListToolsBlockEditorProps {
@@ -28,24 +25,6 @@ interface ListToolsBlockEditorProps {
   onChange: (config: Partial<ListToolsConfig>) => void;
   mode: 'easy' | 'advanced';
 }
-
-const OPERATORS: { value: ReadTableOperator; label: string }[] = [
-  { value: "equals", label: "Equals" },
-  { value: "not_equals", label: "Not Equals" },
-  { value: "contains", label: "Contains" },
-  { value: "not_contains", label: "Not Contains" },
-  { value: "starts_with", label: "Starts With" },
-  { value: "ends_with", label: "Ends With" },
-  { value: "greater_than", label: "Greater Than" },
-  { value: "gte", label: "Greater Than or Equal" },
-  { value: "less_than", label: "Less Than" },
-  { value: "lte", label: "Less Than or Equal" },
-  { value: "is_empty", label: "Is Empty" },
-  { value: "is_not_empty", label: "Is Not Empty" },
-  { value: "in_list", label: "In List" },
-  { value: "not_in_list", label: "Not In List" },
-  { value: "exists", label: "Field Exists" },
-];
 
 export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: ListToolsBlockEditorProps) {
   const { data: steps } = useSteps(workflowId);
@@ -63,7 +42,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
 
   // Get all workflow variables for value source
   const allVariables = (steps || [])
-    .filter(step => step.alias && step.alias.length > 0)
+    .filter((step): step is typeof step & { alias: string } => !!step.alias && step.alias.length > 0)
     .map(step => step.alias);
 
   const handleChange = (updates: Partial<ListToolsConfig>) => {
@@ -82,74 +61,61 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
     setExpandedSections(newExpanded);
   };
 
-  // Filter management
-  const addFilter = () => {
-    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
-    const newRule: ListToolsFilterRule = {
-      fieldPath: '',
-      op: 'equals',
-      valueSource: 'const',
-      value: ''
-    };
-    handleChange({
-      filters: {
-        ...currentFilters,
-        rules: [...(currentFilters.rules || []), newRule]
-      }
-    });
-  };
-
-  const updateFilter = (index: number, updates: Partial<ListToolsFilterRule>) => {
-    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
-    const newRules = [...(currentFilters.rules || [])];
-    newRules[index] = { ...newRules[index], ...updates };
-    handleChange({
-      filters: {
-        ...currentFilters,
-        rules: newRules
-      }
-    });
-  };
-
-  const removeFilter = (index: number) => {
-    const currentFilters = localConfig.filters || { combinator: 'and', rules: [] };
-    const newRules = (currentFilters.rules || []).filter((_, i) => i !== index);
-    handleChange({
-      filters: {
-        ...currentFilters,
-        rules: newRules
-      }
-    });
-  };
-
-  // Sort management
-  const addSort = () => {
-    const currentSort = localConfig.sort || [];
-    handleChange({
-      sort: [...currentSort, { fieldPath: '', direction: 'asc' }]
-    });
-  };
-
-  const updateSort = (index: number, updates: Partial<ListToolsSortKey>) => {
-    const currentSort = localConfig.sort || [];
-    const newSort = [...currentSort];
-    newSort[index] = { ...newSort[index], ...updates };
-    handleChange({ sort: newSort });
-  };
-
-  const removeSort = (index: number) => {
-    const currentSort = localConfig.sort || [];
-    handleChange({ sort: currentSort.filter((_, i) => i !== index) });
-  };
-
   // Validation
   const isValid = !!(localConfig.sourceListVar && localConfig.outputListVar);
 
   const filterCount = localConfig.filters?.rules?.length || 0;
   const sortCount = localConfig.sort?.length || 0;
 
+  // Summary stats
+  const hasFilters = filterCount > 0;
+  const hasSorts = sortCount > 0;
+  const hasRange = !!(localConfig.offset || localConfig.limit);
+  const hasDedupe = !!localConfig.dedupe;
+  const hasSelect = (localConfig.select?.length || 0) > 0;
+  const hasTransforms = hasFilters || hasSorts || hasRange || hasDedupe || hasSelect;
+
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+      {/* Transform Summary */}
+      {localConfig.sourceListVar && localConfig.outputListVar && hasTransforms && (
+        <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-900 mb-1">Transform Pipeline</p>
+              <div className="flex flex-wrap gap-1">
+                {hasFilters && (
+                  <Badge variant="outline" className="text-[10px] bg-blue-100 border-blue-300 text-blue-700">
+                    {filterCount} filter{filterCount > 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {hasSorts && (
+                  <Badge variant="outline" className="text-[10px] bg-purple-100 border-purple-300 text-purple-700">
+                    Sort by {sortCount} key{sortCount > 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {hasRange && (
+                  <Badge variant="outline" className="text-[10px] bg-orange-100 border-orange-300 text-orange-700">
+                    {localConfig.offset ? `Skip ${localConfig.offset}` : ''}{localConfig.offset && localConfig.limit ? ', ' : ''}{localConfig.limit ? `Take ${localConfig.limit}` : ''}
+                  </Badge>
+                )}
+                {hasSelect && (
+                  <Badge variant="outline" className="text-[10px] bg-indigo-100 border-indigo-300 text-indigo-700">
+                    {localConfig.select!.length} column{localConfig.select!.length > 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {hasDedupe && (
+                  <Badge variant="outline" className="text-[10px] bg-pink-100 border-pink-300 text-pink-700">
+                    Dedupe by {localConfig.dedupe!.fieldPath}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <Badge className="bg-green-600 text-white text-[10px] px-2">Active</Badge>
+          </div>
+        </div>
+      )}
+
       {/* Source & Output */}
       <Card className="border-green-200 bg-green-50/30">
         <CardHeader className="pb-3 cursor-pointer" onClick={() => toggleSection('source')}>
@@ -220,132 +186,12 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
           </div>
         </CardHeader>
         {expandedSections.has('filters') && (
-          <CardContent className="space-y-3 pt-0">
-            {filterCount > 0 && mode === 'advanced' && (
-              <div className="flex items-center gap-2 pb-2 border-b">
-                <Label className="text-xs">Combine with:</Label>
-                <Select
-                  value={localConfig.filters?.combinator || 'and'}
-                  onValueChange={(value: 'and' | 'or') => handleChange({
-                    filters: { ...localConfig.filters!, combinator: value }
-                  })}
-                >
-                  <SelectTrigger className="w-24 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="and">AND</SelectItem>
-                    <SelectItem value="or">OR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {(localConfig.filters?.rules || []).map((rule, index) => (
-                <div key={index} className="bg-background border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Filter {index + 1}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-2"
-                      onClick={() => removeFilter(index)}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Field Path</Label>
-                      <Input
-                        className="h-8 text-xs font-mono"
-                        placeholder="e.g., name, address.zip"
-                        value={rule.fieldPath}
-                        onChange={(e) => updateFilter(index, { fieldPath: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Operator</Label>
-                      <Select
-                        value={rule.op}
-                        onValueChange={(value: ReadTableOperator) => updateFilter(index, { op: value })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {OPERATORS.map(op => (
-                            <SelectItem key={op.value} value={op.value} className="text-xs">
-                              {op.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {!['is_empty', 'is_not_empty', 'exists'].includes(rule.op) && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-[11px]">Value Source:</Label>
-                        <Select
-                          value={rule.valueSource}
-                          onValueChange={(value: 'const' | 'var') => updateFilter(index, { valueSource: value })}
-                        >
-                          <SelectTrigger className="h-7 w-28 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="const">Constant</SelectItem>
-                            <SelectItem value="var">Variable</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">
-                          {rule.valueSource === 'const' ? 'Value' : 'Variable Name'}
-                        </Label>
-                        {rule.valueSource === 'const' ? (
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="Enter value..."
-                            value={rule.value || ''}
-                            onChange={(e) => updateFilter(index, { value: e.target.value })}
-                          />
-                        ) : (
-                          <Select
-                            value={rule.value || ''}
-                            onValueChange={(value) => updateFilter(index, { value })}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Select variable..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allVariables.map(v => (
-                                <SelectItem key={v} value={v}>{v}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full h-8 text-xs"
-                onClick={addFilter}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Filter
-              </Button>
-            </div>
+          <CardContent className="pt-0">
+            <FilterBuilderUI
+              filters={localConfig.filters}
+              onChange={(filters) => handleChange({ filters })}
+              availableVariables={allVariables}
+            />
           </CardContent>
         )}
       </Card>
@@ -362,56 +208,11 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
           </div>
         </CardHeader>
         {expandedSections.has('sort') && (
-          <CardContent className="space-y-3 pt-0">
-            <div className="space-y-2">
-              {(localConfig.sort || []).map((sortKey, index) => (
-                <div key={index} className="bg-background border rounded-lg p-3 flex items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground w-8">{index + 1}.</span>
-                  <Input
-                    className="flex-1 h-8 text-xs font-mono"
-                    placeholder="Field path..."
-                    value={sortKey.fieldPath}
-                    onChange={(e) => updateSort(index, { fieldPath: e.target.value })}
-                  />
-                  <Select
-                    value={sortKey.direction}
-                    onValueChange={(value: 'asc' | 'desc') => updateSort(index, { direction: value })}
-                  >
-                    <SelectTrigger className="w-28 h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asc">Ascending</SelectItem>
-                      <SelectItem value="desc">Descending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-2"
-                    onClick={() => removeSort(index)}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full h-8 text-xs"
-                onClick={addSort}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Sort Key
-              </Button>
-
-              {mode === 'advanced' && sortCount > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  Multi-key sorting: Applied in order. First key has priority.
-                </p>
-              )}
-            </div>
+          <CardContent className="pt-0">
+            <SortBuilderUI
+              sort={localConfig.sort}
+              onChange={(sort) => handleChange({ sort })}
+            />
           </CardContent>
         )}
       </Card>
@@ -433,31 +234,12 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
           </div>
         </CardHeader>
         {expandedSections.has('range') && (
-          <CardContent className="space-y-3 pt-0">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Offset (skip first N)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  className="h-8 text-xs bg-background"
-                  placeholder="0"
-                  value={localConfig.offset ?? ''}
-                  onChange={(e) => handleChange({ offset: e.target.value ? parseInt(e.target.value) : undefined })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Limit (max rows)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  className="h-8 text-xs bg-background"
-                  placeholder="No limit"
-                  value={localConfig.limit ?? ''}
-                  onChange={(e) => handleChange({ limit: e.target.value ? parseInt(e.target.value) : undefined })}
-                />
-              </div>
-            </div>
+          <CardContent className="pt-0">
+            <RangeControlsUI
+              offset={localConfig.offset}
+              limit={localConfig.limit}
+              onChange={(updates) => handleChange(updates)}
+            />
           </CardContent>
         )}
       </Card>
@@ -475,42 +257,12 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
             </div>
           </CardHeader>
           {expandedSections.has('transform') && (
-            <CardContent className="space-y-3 pt-0">
-              <div className="space-y-2">
-                <Label className="text-xs">Select Columns (leave empty for all)</Label>
-                <Input
-                  className="h-8 text-xs font-mono bg-background"
-                  placeholder="e.g., name, email, address.city"
-                  value={localConfig.select?.join(', ') || ''}
-                  onChange={(e) => {
-                    const value = e.target.value.trim();
-                    handleChange({
-                      select: value ? value.split(',').map(s => s.trim()).filter(Boolean) : undefined
-                    });
-                  }}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Comma-separated field paths. Supports dot notation.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Deduplicate by Field</Label>
-                <Input
-                  className="h-8 text-xs font-mono bg-background"
-                  placeholder="e.g., email"
-                  value={localConfig.dedupe?.fieldPath || ''}
-                  onChange={(e) => {
-                    const value = e.target.value.trim();
-                    handleChange({
-                      dedupe: value ? { fieldPath: value } : undefined
-                    });
-                  }}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Keep only first occurrence of each unique value
-                </p>
-              </div>
+            <CardContent className="pt-0">
+              <AdvancedTransformUI
+                select={localConfig.select}
+                dedupe={localConfig.dedupe}
+                onChange={(updates) => handleChange(updates)}
+              />
             </CardContent>
           )}
         </Card>
