@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
+
 // Use dynamic import for service to ensure mocks apply
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestStep, createTestLogicRule } from "../../factories/workflowFactory";
+
 import type { InsertWorkflow } from "../../../shared/schema";
 
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";
@@ -12,6 +14,9 @@ vi.mock("../../../server/db", () => ({
     query: {
       workflowVersions: {
         findFirst: vi.fn(),
+      },
+      transformBlocks: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
     },
   },
@@ -23,6 +28,12 @@ vi.mock("../../../server/services/AclService", () => ({
     hasWorkflowRole: vi.fn().mockResolvedValue(true),
     hasProjectRole: vi.fn().mockResolvedValue(true),
   },
+}));
+
+vi.mock("../../../server/utils/ownershipAccess", () => ({
+  canAccessAsset: vi.fn().mockResolvedValue(false),
+  requireAssetAccess: vi.fn(),
+  canCreateWithOwnership: vi.fn().mockResolvedValue(true),
 }));
 
 describe("WorkflowService", () => {
@@ -44,6 +55,9 @@ describe("WorkflowService", () => {
         query: {
           workflowVersions: {
             findFirst: vi.fn(),
+          },
+          transformBlocks: {
+            findMany: vi.fn().mockResolvedValue([]),
           },
         },
       },
@@ -221,7 +235,7 @@ describe("WorkflowService", () => {
 
       // mockWorkflowRepo.findByUserAccess.mockResolvedValue(workflows);
       // Force mock on instance to avoid reference disconnects
-      vi.spyOn((service as any).workflowRepo, 'findByUserAccess').mockResolvedValue(workflows);
+      vi.spyOn((service).workflowRepo, 'findByUserAccess').mockResolvedValue(workflows);
 
 
       const result = await service.listWorkflows("user-123");
@@ -233,7 +247,7 @@ describe("WorkflowService", () => {
 
     it("should return empty array if user has no workflows", async () => {
       // mockWorkflowRepo.findByUserAccess.mockResolvedValue([]);
-      vi.spyOn((service as any).workflowRepo, 'findByUserAccess').mockResolvedValue([]);
+      vi.spyOn((service).workflowRepo, 'findByUserAccess').mockResolvedValue([]);
 
       const result = await service.listWorkflows("user-123");
 

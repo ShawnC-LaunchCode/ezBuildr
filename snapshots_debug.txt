@@ -1,0 +1,86 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> cross-env VITEST_INTEGRATION=true vitest run --coverage tests/integration/api.snapshots.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768338832551,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mΓ£à OpenAPI specification loaded successfully
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768338837246,"env":"test","msg":"DB: initializing... Local"}
+{"level":20,"time":1768338837247,"env":"test","msg":"DB: importing pg..."}
+{"level":20,"time":1768338837247,"env":"test","msg":"DB: creating pool..."}
+{"level":20,"time":1768338837247,"env":"test","msg":"DB: importing drizzle..."}
+{"level":20,"time":1768338837271,"env":"test","msg":"DB: created."}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768338837271,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768338837784,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768338837797,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts[2m > [22m[2mStage 13: Workflow Snapshots & Versioning
+[22m[39m≡ƒôÜ API Documentation available at /api-docs
+[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768338837790,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768338837790,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768338837794,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768338837797,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768338837797,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768338837797,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768338837797,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768338838356,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768338838357,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/api.snapshots.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 1543[2mms[22m[39m
+[31m     [31m├ù[31m should maintain immutability of runs across versions[39m[32m 265[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.snapshots.test.ts > Stage 13: Workflow Snapshots & Versioning > should maintain immutability of runs across versions
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ Γ¥» tests/integration/api.snapshots.test.ts:192:37
+    190|         // 7. Verify Run 1 still sees Version 1 Question
+    191|         const run1Response = await agent.get(`/api/runs/${run1.id}`);
+    192|         expect(run1Response.status).toBe(200);
+       |                                     ^
+    193|         const run1Graph = run1Response.body.workflowVersion.graphJson;
+    194|         expect(run1Graph.nodes[0].config.question).toBe('Version 1 QueΓÇª
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 15:13:50
+[2m   Duration [22m 14.49s[2m (transform 2.80s, setup 126ms, import 6.15s, tests 1.54s, environment 0ms)[22m
+

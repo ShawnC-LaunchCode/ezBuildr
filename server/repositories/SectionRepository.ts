@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { sections, type Section, type InsertSection } from "@shared/schema";
 import { eq, asc } from "drizzle-orm";
+
+import { sections, type Section, type InsertSection } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for section data access
@@ -16,7 +19,7 @@ export class SectionRepository extends BaseRepository<typeof sections, Section, 
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<Section[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(sections)
       .where(eq(sections.workflowId, workflowId))

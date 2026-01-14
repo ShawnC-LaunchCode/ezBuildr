@@ -1,4 +1,7 @@
+import * as fs from 'fs/promises';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import {
   analyzeTemplate,
   validateTemplateWithData,
@@ -8,7 +11,6 @@ import {
   type ValidationResult,
 } from '../../../server/services/TemplateAnalysisService';
 import * as templatesModule from '../../../server/services/templates';
-import * as fs from 'fs/promises';
 
 /**
  * Stage 21 PR 4: Template Analysis Service Tests

@@ -1,6 +1,7 @@
-import type { DynamicOptionsConfig, ChoiceOption } from "@/../../shared/types/stepConfigs";
 import { transformList, getFieldValue, isListVariable, arrayToListVariable } from "@/../../shared/listPipeline";
+
 import type { ListVariable } from "@/../../shared/types/blocks";
+import type { DynamicOptionsConfig, ChoiceOption } from "@/../../shared/types/stepConfigs";
 
 /**
  * Generate choice options from a list variable with full transformation support
@@ -11,7 +12,7 @@ export function generateOptionsFromList(
   config: DynamicOptionsConfig,
   context?: Record<string, any>
 ): ChoiceOption[] {
-  if (config.type !== 'list') return [];
+  if (config.type !== 'list') {return [];}
 
   const { listVariable, labelPath, valuePath, labelTemplate, groupByPath, transform, includeBlankOption, blankLabel } = config;
 
@@ -33,7 +34,7 @@ export function generateOptionsFromList(
   }
 
   // Map rows to options
-  let opts: ChoiceOption[] = transformedList.rows.map((row, idx) => {
+  const opts: ChoiceOption[] = transformedList.rows.map((row, idx) => {
     // Value (stored data)
     const value = getFieldValue(row, valuePath);
     const alias = value !== undefined && value !== null ? String(value) : `opt-${idx}`;
@@ -102,7 +103,7 @@ export function validateFieldPath(
     return { valid: false, message: 'Field path is required' };
   }
 
-  if (!listVariable || !listVariable.columns || listVariable.columns.length === 0) {
+  if (!listVariable?.columns || listVariable.columns.length === 0) {
     return { valid: true }; // Can't validate without column metadata, assume valid
   }
 
@@ -127,7 +128,7 @@ export function validateFieldPath(
 export function getAvailableFieldPaths(
   listVariable: ListVariable | undefined
 ): Array<{ id: string; name: string; type?: string }> {
-  if (!listVariable || !listVariable.columns) {
+  if (!listVariable?.columns) {
     return [];
   }
 
@@ -147,7 +148,7 @@ export function validateTransformConfig(
 ): Array<{ field: string; message: string }> {
   const errors: Array<{ field: string; message: string }> = [];
 
-  if (!transform || !sourceList) return errors;
+  if (!transform || !sourceList) {return errors;}
 
   // Validate filter field paths
   if (transform.filters?.rules) {

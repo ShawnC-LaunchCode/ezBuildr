@@ -1,7 +1,8 @@
+import { logger } from '../../logger';
+
 import { IStorageProvider } from './IStorageProvider';
 import { LocalStorageProvider } from './LocalStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
-import { logger } from '../../logger';
 
 /**
  * Storage Provider Factory

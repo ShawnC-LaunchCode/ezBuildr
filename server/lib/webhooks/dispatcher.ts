@@ -1,7 +1,9 @@
 
-import { db } from "../../db";
-import { webhookSubscriptions, webhookEvents } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
+
+import { webhookSubscriptions, webhookEvents } from "@shared/schema";
+
+import { db } from "../../db";
 // import fetch from "node-fetch"; // Node 18+ has built-in fetch
 
 export class WebhookDispatcher {
@@ -28,7 +30,7 @@ export class WebhookDispatcher {
                 return events.includes(event) || events.includes('*');
             });
 
-            if (relevantSubs.length === 0) return;
+            if (relevantSubs.length === 0) {return;}
 
             // 2. Create Delivery Events
             for (const sub of relevantSubs) {
@@ -41,7 +43,7 @@ export class WebhookDispatcher {
                 }).returning();
 
                 // 3. Trigger Async Delivery (Fire and forget or queue)
-                void this.deliver(eventRecord.id, sub.targetUrl, sub.secret as string, event, payload);
+                void this.deliver(eventRecord.id, sub.targetUrl, sub.secret, event, payload);
             }
 
         } catch (err) {

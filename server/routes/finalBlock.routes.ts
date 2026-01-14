@@ -14,19 +14,22 @@
  * @date December 6, 2025
  */
 
-import type { Express, Response } from 'express';
-import { z } from 'zod';
-import path from 'path';
 import { promises as fs } from 'fs';
+import path from 'path';
+
+import { z } from 'zod';
+
+import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
+import { documentTemplateRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
 import { workflowService } from '../services/WorkflowService.js';
-import { documentTemplateRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
-import type { FinalBlockConfig } from '../../shared/types/stepConfigs.js';
-import { createLogger } from '../logger.js';
 import { createError } from '../utils/errors.js';
+
+import type { FinalBlockConfig } from '../../shared/types/stepConfigs.js';
+import type { Express, Response } from 'express';
 
 const logger = createLogger({ module: 'finalBlock-routes' });
 
@@ -101,7 +104,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           // Fallback for run token or public run logic if getRun is too strict
           // For now, assuming middleware ensures access, we can fetch no-auth if getRun fails?
           // But getRun handles 'creator:...' check.
-          if (userId) throw e;
+          if (userId) {throw e;}
           run = await runService.getRunWithValuesNoAuth(runId);
         }
 
@@ -114,7 +117,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           // If verifyAccess fails (e.g. anon with run token), we might need to fetch public workflow
           // preventing error if we are authorized via run token
           const w = await workflowService['workflowRepo'].findById(run.workflowId);
-          if (w) return w;
+          if (w) {return w;}
           throw createError.notFound('Workflow', run.workflowId);
         });
 
@@ -124,8 +127,8 @@ export function registerFinalBlockRoutes(app: Express): void {
           throw createError.validation('Invalid step: must be a Final Block');
         }
 
-        const finalBlockConfig = step.options as unknown as FinalBlockConfig;
-        if (!finalBlockConfig || !finalBlockConfig.documents) {
+        const finalBlockConfig = step.options as FinalBlockConfig;
+        if (!finalBlockConfig?.documents) {
           throw createError.validation('Final Block configuration missing or invalid');
         }
 
@@ -316,7 +319,7 @@ export function registerFinalBlockRoutes(app: Express): void {
         try {
           run = await runService.getRun(runId, userId);
         } catch (e) {
-          if (userId) throw e;
+          if (userId) {throw e;}
           // If no user ID, allow if token is valid? 
           // RunService doesn't have explicit run token check, but if we reached here via middleware
           // we assume valid token.

@@ -6,6 +6,7 @@
  */
 
 import { X, ArrowRightLeft } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
 import type {
   Condition,
   ComparisonOperator,

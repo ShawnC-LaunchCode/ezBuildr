@@ -3,10 +3,12 @@
  * Reusable card component for displaying projects, workflows, and other entities
  */
 
+import { MoreVertical , LucideIcon } from "lucide-react";
+import React, { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { MoreVertical } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +22,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LucideIcon } from "lucide-react";
-import { ReactNode } from "react";
+
+
 
 export interface EntityAction {
   label: string | ReactNode;
@@ -160,7 +162,7 @@ export function EntityCard({
       <CardContent>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {renderBadge && renderBadge(entity)}
+            {renderBadge?.(entity)}
           </div>
           <span className="text-xs text-muted-foreground">
             {new Date(entity.updatedAt).toLocaleDateString()}

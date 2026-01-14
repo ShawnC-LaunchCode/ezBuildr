@@ -1,15 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
-import express, { type Express } from 'express';
-import { createServer, type Server } from 'http';
-import { registerRoutes } from '../../server/routes';
-import { nanoid } from 'nanoid';
-import { db } from '../../server/db';
-import * as schema from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import fs from 'fs/promises';
+import { createServer, type Server } from 'http';
 import path from 'path';
+
+import { eq } from 'drizzle-orm';
+import express, { type Express } from 'express';
+import { nanoid } from 'nanoid';
 import PizZip from 'pizzip';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import * as schema from '@shared/schema';
+
+import { db } from '../../server/db';
+import { registerRoutes } from '../../server/routes';
 
 /**
  * Helper to create a minimal valid DOCX file for testing
@@ -106,7 +109,7 @@ describe('Runs API - DOCX Generation Integration Tests', () => {
     const email = `test-docx-${nanoid()}@example.com`;
     const registerResponse = await request(baseURL)
       .post('/api/auth/register')
-      .send({ email, password: 'TestPassword123' })
+      .send({ email, password: 'TestPassword123!@#Strong' })
       .expect(201);
 
     authToken = registerResponse.body.token;
@@ -180,6 +183,12 @@ describe('Runs API - DOCX Generation Integration Tests', () => {
     // Clean up
     try {
       if (tenantId) {
+        // Clean up runs and outputs first to prevent FK violations
+        if (workflowVersionId) {
+          await db.delete(schema.runOutputs).where(eq(schema.runOutputs.workflowVersionId, workflowVersionId));
+          await db.delete(schema.runs).where(eq(schema.runs.workflowVersionId, workflowVersionId));
+        }
+
         // Clean up workflows first (cascades to workflow_versions)
         // clean up workflows manually logic removed as tenant cascade should handle it
         // Or finding workflows by project if needed.

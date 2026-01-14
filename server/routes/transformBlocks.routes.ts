@@ -1,11 +1,14 @@
-import type { Express, Request, Response } from "express";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { insertTransformBlockSchema } from "@shared/schema";
-import { transformBlockService } from "../services/TransformBlockService";
-import { transformBlockRepository } from "../repositories/TransformBlockRepository";
 import { z } from "zod";
+
+import { insertTransformBlockSchema } from "@shared/schema";
+
 import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { transformBlockRepository } from "../repositories/TransformBlockRepository";
+import { transformBlockService } from "../services/TransformBlockService";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "transform-blocks-routes" });
 

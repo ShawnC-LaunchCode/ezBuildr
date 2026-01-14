@@ -4,18 +4,23 @@
  * Endpoints for viewing and downloading generated documents
  */
 
-import type { Express } from 'express';
-import express from 'express';
-import { asyncHandler } from '../middleware';
-import { hybridAuth } from '../middleware/auth';
-import { db } from '../db';
-import { runOutputs } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { createError } from '../utils/errors';
-import { getOutputFilePath } from '../services/templates';
-import { pdfQueueService } from '../services/PdfQueueService';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { eq } from 'drizzle-orm';
+import express from 'express';
+
+import { runOutputs } from '@shared/schema';
+
+import { db } from '../db';
+import { asyncHandler } from '../middleware';
+import { hybridAuth } from '../middleware/auth';
+import { pdfQueueService } from '../services/PdfQueueService';
+import { getOutputFilePath } from '../services/templates';
+import { createError } from '../utils/errors';
+
+
+import type { Express } from 'express';
 
 const router = express.Router();
 

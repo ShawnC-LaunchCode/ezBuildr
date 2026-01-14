@@ -1,14 +1,19 @@
 import fs from 'fs/promises';
 import path from 'path';
+
 import { nanoid } from 'nanoid';
-import { createError } from '../utils/errors';
+
 import { logger } from '../logger';
-import type { PlaceholderInfo } from '../api/validators/templates';
+import { createError } from '../utils/errors';
+
 import {
   extractPlaceholdersFromDocx,
   renderDocx,
   validateTemplateData,
 } from './docxRenderer';
+
+import type { PlaceholderInfo } from '../api/validators/templates';
+
 
 // Local file storage directory
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');

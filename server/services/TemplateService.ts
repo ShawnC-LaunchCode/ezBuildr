@@ -1,7 +1,8 @@
-import { db } from '../db';
-import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
 import { eq, and, sql, desc, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+
+import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
+import { db } from '../db';
 
 export interface CreateTemplateParams {
   name: string;
@@ -37,17 +38,17 @@ class TemplateService {
         where: eq(workflows.id, sourceWorkflowId),
         columns: { currentVersionId: true, pinnedVersionId: true }
       });
-      if (!workflow) throw new Error("Workflow not found");
+      if (!workflow) {throw new Error("Workflow not found");}
       versionId = workflow.currentVersionId || workflow.pinnedVersionId || undefined;
     }
 
-    if (!versionId) throw new Error("No version found for workflow");
+    if (!versionId) {throw new Error("No version found for workflow");}
 
     const sourceVersion = await db.query.workflowVersions.findFirst({
       where: eq(workflowVersions.id, versionId)
     });
 
-    if (!sourceVersion) throw new Error("Source version not found");
+    if (!sourceVersion) {throw new Error("Source version not found");}
 
     // 2. Create Blueprint
     const [blueprint] = await db.insert(workflowBlueprints).values({
@@ -94,7 +95,7 @@ class TemplateService {
       where: eq(workflowBlueprints.id, templateId)
     });
 
-    if (!template) throw new Error("Template not found");
+    if (!template) {throw new Error("Template not found");}
 
     // Check tenant access (simple check)
     if (template.tenantId !== tenantId && !template.isPublic) {

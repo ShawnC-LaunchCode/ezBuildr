@@ -1,5 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { runGraph } from '../../../server/engine/index';
 // Mocks need to be consistent with existing setups
 vi.mock('../../../server/repositories/DatavaultRowsRepository', () => ({
@@ -121,7 +122,7 @@ describe('Debug & Lineage', () => {
                     ],
                     startNodeId: 'c1'
                 }
-            } as any
+            }
         };
 
         const result = await runGraph(inputWithSkip);
@@ -130,7 +131,7 @@ describe('Debug & Lineage', () => {
         const step = result.executionTrace!.steps[0];
 
         expect(step.status).toBe('skipped');
-        expect(step.skippedReason).toBe('condition evaluated to false');
+        expect(step.skippedReason).toBe('condition false');
         expect(result.executionTrace!.variableLineage['skippedVar']).toBeUndefined();
     });
 });

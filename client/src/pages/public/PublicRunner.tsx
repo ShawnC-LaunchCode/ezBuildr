@@ -1,10 +1,12 @@
 
+import { Loader2, AlertCircle } from "lucide-react";
 import React, { useEffect, useState } from 'react';
 import { useRoute } from "wouter";
-import { Loader2, AlertCircle } from "lucide-react";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
 import { FloatingAIAssist } from "./components/FloatingAIAssist";
 
 interface PublicWorkflow {
@@ -33,7 +35,7 @@ export default function PublicRunner() {
         try {
             const res = await fetch(`/public/w/${slug}`);
             if (!res.ok) {
-                if (res.status === 404) throw new Error("Workflow not found or private");
+                if (res.status === 404) {throw new Error("Workflow not found or private");}
                 throw new Error("Failed to load workflow");
             }
             const data = await res.json();
@@ -49,7 +51,7 @@ export default function PublicRunner() {
         try {
             setRunState('running');
             const res = await fetch(`/public/w/${slug}/run`, { method: 'POST' });
-            if (!res.ok) throw new Error("Failed to start run");
+            if (!res.ok) {throw new Error("Failed to start run");}
             const data = await res.json();
             // In a real app, this would initialize a Multi-Step Runner component
             // For now, we simulate completion

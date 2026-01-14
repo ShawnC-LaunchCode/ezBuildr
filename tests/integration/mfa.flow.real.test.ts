@@ -1,16 +1,23 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
-import type { Express } from "express";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+
+import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
+
+import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
   cleanAuthTables,
+  deleteTestUser,
   createVerifiedUser,
   createUserWithMfa,
   generateTotpCode,
 } from "../helpers/testUtils";
-import { db } from "../../server/db";
-import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
-import { eq } from "drizzle-orm";
+
+import type { Express } from "express";
+
+
+
 
 /**
  * MFA Flow Integration Tests (REAL)
@@ -19,26 +26,46 @@ import { eq } from "drizzle-orm";
 
 describe("MFA Flow Integration Tests (REAL)", () => {
   let app: Express;
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
+  // Helper to track user creation
+  const trackUser = (userId: string) => {
+    createdUserIds.push(userId);
+    return userId;
+  };
 
   beforeAll(async () => {
     app = createTestApp();
   });
 
-  beforeEach(async () => {
-    await cleanAuthTables();
+  // NO GLOBAL CLEANUP to allow parallel runs
+  // beforeEach(async () => {
+  //   await cleanAuthTables();
+  // });
+
+  afterEach(async () => {
+    // specific cleanup for users created in this test block
+    while (createdUserIds.length > 0) {
+      const userId = createdUserIds.pop();
+      if (userId) {
+        await deleteTestUser(userId);
+      }
+    }
   });
 
   describe("MFA Setup Flow", () => {
     it("should complete full MFA setup flow", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Step 1: Login
       const loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
 
-      const token = (loginResponse.body as any).token;
-      expect((loginResponse.body as any).user.mfaEnabled).toBe(false);
+      const token = (loginResponse.body).token;
+      expect((loginResponse.body).user.mfaEnabled).toBe(false);
 
       // Step 2: Setup MFA
       const setupResponse = await request(app)
@@ -46,13 +73,13 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .set("Authorization", `Bearer ${token}`);
 
       expect(setupResponse.status).toBe(200);
-      expect((setupResponse.body as any).qrCodeDataUrl).toBeDefined();
-      expect((setupResponse.body as any).qrCodeDataUrl).toContain("data:image/png");
-      expect((setupResponse.body as any).backupCodes).toBeDefined();
-      expect((setupResponse.body as any).backupCodes).toHaveLength(10);
+      expect((setupResponse.body).qrCodeDataUrl).toBeDefined();
+      expect((setupResponse.body).qrCodeDataUrl).toContain("data:image/png");
+      expect((setupResponse.body).backupCodes).toBeDefined();
+      expect((setupResponse.body).backupCodes).toHaveLength(10);
 
       // Verify backup codes format (XXXX-XXXX)
-      (setupResponse.body as any).backupCodes.forEach((code: string) => {
+      (setupResponse.body).backupCodes.forEach((code: string) => {
         expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
       });
 
@@ -77,7 +104,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .send({ token: totpCode });
 
       expect(verifyResponse.status).toBe(200);
-      expect((verifyResponse.body as any).message).toContain("enabled");
+      expect((verifyResponse.body).message).toContain("enabled");
 
       // Step 5: Verify MFA is now enabled
       const updatedSecret = await db.query.mfaSecrets.findFirst({
@@ -95,7 +122,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     });
 
     it("should reject invalid TOTP code during setup", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -126,7 +154,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     });
 
     it("should not allow MFA setup if already enabled", async () => {
-      const { email, password } = await createUserWithMfa();
+      const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -139,7 +168,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     });
 
     it("should generate unique backup codes", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -158,6 +188,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should store hashed backup codes", async () => {
       const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -187,6 +218,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
   describe("MFA Login Flow", () => {
     it("should require MFA for enabled users", async () => {
       const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -200,6 +232,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should complete MFA login with valid TOTP", async () => {
       const { email, password, totpSecret, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       // Step 1: Initial login
       const loginResponse = await request(app)
@@ -233,6 +266,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should reject invalid TOTP during login", async () => {
       const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -250,6 +284,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should accept TOTP codes within 60-second window", async () => {
       const { email, password, totpSecret, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -280,7 +315,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
   describe("Backup Code Flow", () => {
     it("should login with valid backup code", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Setup MFA
       const loginResponse = await request(app)
@@ -332,6 +368,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should mark backup code as used", async () => {
       const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       // Get backup codes
       const storedCodes = await db.query.mfaBackupCodes.findMany({
@@ -350,7 +387,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     });
 
     it("should prevent backup code reuse", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Setup MFA and get backup codes
       const loginResponse = await request(app)
@@ -412,6 +450,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should try TOTP before backup code", async () => {
       const { email, password, totpSecret, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -433,7 +472,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
   describe("MFA Status", () => {
     it("should return MFA status for user", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -450,6 +490,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should return backup codes count for MFA users", async () => {
       const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       // Get token by completing MFA login
       const loginResponse = await request(app)
@@ -486,6 +527,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
   describe("MFA Disable Flow", () => {
     it("should disable MFA with password verification", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login with MFA
       await request(app).post("/api/auth/login").send({ email, password });
@@ -535,6 +577,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
     it("should require correct password to disable MFA", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login with MFA
       await request(app).post("/api/auth/login").send({ email, password });
@@ -568,6 +611,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
   describe("Backup Code Regeneration", () => {
     it("should regenerate backup codes", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login with MFA
       await request(app).post("/api/auth/login").send({ email, password });
@@ -599,7 +643,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
     });
 
     it("should return error if MFA not enabled", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -626,6 +671,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
 
       // 2. Create user in that tenant (without MFA enabled individually)
       const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
       await db.update(users)
         .set({ tenantId: tenantId, tenantRole: 'viewer' })
         .where(eq(users.id, userId));
@@ -640,7 +686,8 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(loginResponse.body.userId).toBe(userId);
       expect(loginResponse.body.message).toContain("MFA required");
 
-      // Cleanup tenant
+      // Cleanup
+      await deleteTestUser(userId);
       await db.delete(tenants).where(eq(tenants.id, tenantId));
     });
   });

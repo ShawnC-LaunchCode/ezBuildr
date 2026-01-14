@@ -7,16 +7,17 @@
  * Enhanced with filters for granular visibility (Skipped, Logic, Mutations).
  */
 
-import React, { useState } from "react";
-import { CheckCircle, XCircle, AlertCircle, ArrowRight, Clock, Filter, Eye, EyeOff, GitBranch, Database, Zap } from "lucide-react";
 import { format } from "date-fns";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { CheckCircle, XCircle, AlertCircle, ArrowRight, Clock, Filter, Eye, EyeOff, GitBranch, Database, Zap } from "lucide-react";
+import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
-import type { TraceEntry } from "@/lib/previewRunner/PreviewEnvironment";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { TraceEntry } from "@/lib/previewRunner/PreviewEnvironment";
+import { cn } from "@/lib/utils";
 
 interface ExecutionTimelineProps {
     trace: TraceEntry[];
@@ -47,8 +48,8 @@ export function ExecutionTimeline({ trace, isLoading }: ExecutionTimelineProps) 
 
     // Filter trace
     const filteredTrace = trace.filter(entry => {
-        if (!showSkipped && entry.status === 'skipped') return false;
-        if (!showLogic && entry.type === 'logic') return false;
+        if (!showSkipped && entry.status === 'skipped') {return false;}
+        if (!showLogic && entry.type === 'logic') {return false;}
         return true;
     });
 
@@ -130,10 +131,10 @@ function TimelineItem({ entry, index, forceDetails }: { entry: TraceEntry; index
     const isMutation = isAction || (entry.type === 'step' && entry.details?.outputs);
 
     const getIcon = () => {
-        if (isFailed) return <XCircle className="w-4 h-4 text-destructive" />;
-        if (isSkipped) return <ArrowRight className="w-4 h-4 text-muted-foreground" />;
-        if (isLogic) return <GitBranch className="w-4 h-4 text-amber-500" />;
-        if (isAction) return <Database className="w-4 h-4 text-blue-500" />;
+        if (isFailed) {return <XCircle className="w-4 h-4 text-destructive" />;}
+        if (isSkipped) {return <ArrowRight className="w-4 h-4 text-muted-foreground" />;}
+        if (isLogic) {return <GitBranch className="w-4 h-4 text-amber-500" />;}
+        if (isAction) {return <Database className="w-4 h-4 text-blue-500" />;}
         return <CheckCircle className="w-4 h-4 text-green-500" />;
     };
 

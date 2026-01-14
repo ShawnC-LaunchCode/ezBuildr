@@ -15,11 +15,13 @@
  * - Safe experimentation with templates
  */
 
-import { db } from '../db';
-import { templates, templateVersions } from '../../shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
+
+import { templates, templateVersions } from '../../shared/schema';
+import { db } from '../db';
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
+
 import { getStorageProvider } from './storage';
 
 export interface CreateVersionOptions {

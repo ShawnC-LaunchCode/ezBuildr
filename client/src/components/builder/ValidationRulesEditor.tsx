@@ -1,16 +1,18 @@
 
-import { useState } from "react";
-import { Plus, Trash2, Code, AlertCircle, List } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
+import { Plus, Trash2, Code, AlertCircle, List , Database } from "lucide-react";
+import React, { useState } from "react";
+
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
 import { Badge } from "@/components/ui/badge";
-import { Database } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+
 
 // Types derived from existing codebase or re-declared for standalone usage if needed
 // Assuming @shared/types/blocks is available
@@ -373,7 +375,7 @@ function ForEachRuleEditor({ rule, onChange, workflowId }: { rule: ForEachRule, 
                     </div>
                 ))}
                 <Button variant="secondary" size="sm" className="w-full h-6 text-[10px]" onClick={() => {
-                    const newSub = [...rule.rules, { assert: { key: rule.itemAlias + '.field', op: 'is_not_empty' }, message: 'Required' } as LegacyValidateRule];
+                    const newSub = [...rule.rules, { assert: { key: `${rule.itemAlias  }.field`, op: 'is_not_empty' }, message: 'Required' } as LegacyValidateRule];
                     onChange({ ...rule, rules: newSub });
                 }}>
                     + Add Item Check (JSON)

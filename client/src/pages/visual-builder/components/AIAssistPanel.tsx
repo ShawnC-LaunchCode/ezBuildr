@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Wand2, Check, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { Wand2, Check, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
 
 interface AIAssistPanelProps {
     templateId: string;
@@ -111,7 +113,7 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
                                                 <div className="mt-3 pt-2 border-t">
                                                     {(() => {
                                                         const mapping = mappings.find(m => m.templateVariable === v.name);
-                                                        if (!mapping) return <span className="text-xs text-muted-foreground">No mapping found</span>;
+                                                        if (!mapping) {return <span className="text-xs text-muted-foreground">No mapping found</span>;}
 
                                                         return (
                                                             <div className="flex flex-col gap-1">

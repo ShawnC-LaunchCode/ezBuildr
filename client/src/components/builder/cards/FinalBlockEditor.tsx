@@ -18,13 +18,17 @@
  * Note: Final blocks should NOT have "required" toggle
  */
 
-import { useState, useEffect } from "react";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { LabelField } from "./common/LabelField";
-import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
-import { useUpdateStep } from "@/lib/vault-hooks";
 import { Plus, Trash2, FileText, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+
+
 import type { FinalBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
 
 interface FinalBlockEditorProps {

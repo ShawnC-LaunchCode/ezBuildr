@@ -1,12 +1,17 @@
-import type { Express, Request, Response } from "express";
-import { createLogger } from "../logger";
-import { userRepository } from "../repositories";
-import { hybridAuth, type AuthRequest } from "../middleware/auth";
-import { requireTenant, validateTenantParam } from "../middleware/tenant";
-import { requireOwner, requirePermission } from "../middleware/rbac";
-import { db } from "../db";
-import { tenants, users, projects } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { tenants, users, projects } from "@shared/schema";
+
+import { db } from "../db";
+import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from "../middleware/auth";
+import { requireOwner, requirePermission } from "../middleware/rbac";
+import { requireTenant, validateTenantParam } from "../middleware/tenant";
+import { userRepository } from "../repositories";
+
+import type { Express, Request, Response } from "express";
+
+
 
 const logger = createLogger({ module: 'tenant-routes' });
 
@@ -113,9 +118,9 @@ export function registerTenantRoutes(app: Express): void {
         updatedAt: new Date(),
       };
 
-      if (name !== undefined) updateData.name = name;
-      if (billingEmail !== undefined) updateData.billingEmail = billingEmail;
-      if (plan !== undefined) updateData.plan = plan;
+      if (name !== undefined) {updateData.name = name;}
+      if (billingEmail !== undefined) {updateData.billingEmail = billingEmail;}
+      if (plan !== undefined) {updateData.plan = plan;}
 
       // Update tenant
       const [updatedTenant] = await db

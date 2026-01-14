@@ -5,7 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import type { TenantBranding } from '@/lib/vault-api';
+
 import {
   brandingToThemeTokens,
   applyThemeTokens,

@@ -36,7 +36,7 @@ export function useAutoSave<T>({
 
   // Function to perform the actual save
   const performSave = useCallback(async () => {
-    if (isSavingRef.current) return;
+    if (isSavingRef.current) {return;}
 
     try {
       isSavingRef.current = true;
@@ -73,7 +73,7 @@ export function useAutoSave<T>({
 
   // Auto-save effect with debouncing
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {return;}
 
     // Check if data has changed
     const dataChanged = JSON.stringify(data) !== JSON.stringify(lastDataRef.current);
@@ -121,7 +121,7 @@ export function useAutoSave<T>({
  * Utility to format last saved time
  */
 export function formatLastSaved(lastSavedAt: Date | null): string {
-  if (!lastSavedAt) return "";
+  if (!lastSavedAt) {return "";}
 
   const now = new Date();
   const diffMs = now.getTime() - lastSavedAt.getTime();
@@ -129,10 +129,10 @@ export function formatLastSaved(lastSavedAt: Date | null): string {
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
 
-  if (diffSeconds < 10) return "just now";
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffSeconds < 10) {return "just now";}
+  if (diffSeconds < 60) {return `${diffSeconds}s ago`;}
+  if (diffMinutes < 60) {return `${diffMinutes}m ago`;}
+  if (diffHours < 24) {return `${diffHours}h ago`;}
 
   return lastSavedAt.toLocaleString();
 }

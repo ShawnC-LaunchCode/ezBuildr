@@ -5,12 +5,13 @@
  * NOTE: These are integration tests that require database connectivity
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { describeWithDb } from '../../helpers/dbTestHelper';
-import { db } from '../../../server/db';
-import { workflowTemplates, workflowVersions, workflows, projects, templates, users } from '../../../shared/schema';
-import { WorkflowTemplateRepository } from '../../../server/repositories/WorkflowTemplateRepository';
 import { eq } from 'drizzle-orm';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { db } from '../../../server/db';
+import { WorkflowTemplateRepository } from '../../../server/repositories/WorkflowTemplateRepository';
+import { workflowTemplates, workflowVersions, workflows, projects, templates, users } from '../../../shared/schema';
+import { describeWithDb } from '../../helpers/dbTestHelper';
 
 describeWithDb('WorkflowTemplateRepository', () => {
   const repo = new WorkflowTemplateRepository();
@@ -396,9 +397,9 @@ describeWithDb('WorkflowTemplateRepository', () => {
       });
 
       expect(updated).toBeDefined();
-      expect(updated!.key).toBe('engagement_letter_v2');
-      expect(updated!.isPrimary).toBe(true);
-      expect(updated!.updatedAt).toBeDefined();
+      expect(updated.key).toBe('engagement_letter_v2');
+      expect(updated.isPrimary).toBe(true);
+      expect(updated.updatedAt).toBeDefined();
     });
   });
 

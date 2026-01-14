@@ -1,9 +1,10 @@
+import type { Section, Step, LogicRule } from "@shared/schema";
+
 import { db } from "../db";
-import type { WorkflowPatchOp } from "../schemas/aiWorkflowEdit.schema";
-import { workflowService } from "./WorkflowService";
+import { createLogger } from "../logger";
 import {
   sectionRepository,
-  stepRepository,
+  stepRepository as defaultStepRepository,
   logicRuleRepository,
   documentTemplateRepository,
   workflowTemplateRepository,
@@ -11,10 +12,12 @@ import {
   projectRepository,
   datavaultWritebackMappingsRepository,
 } from "../repositories";
-import type { Section, Step, LogicRule } from "@shared/schema";
-import { createLogger } from "../logger";
-import { DatavaultTablesService } from "./DatavaultTablesService";
+import { type WorkflowPatchOp, workflowPatchOpSchema } from "../schemas/aiWorkflowEdit.schema";
+
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
+import { DatavaultTablesService } from "./DatavaultTablesService";
+import { workflowService } from "./WorkflowService";
+
 
 const logger = createLogger({ module: "workflow-patch-service" });
 
@@ -26,12 +29,19 @@ export class WorkflowPatchService {
   private tempIdMap: Map<string, string> = new Map();
   private datavaultTablesService = new DatavaultTablesService();
   private datavaultColumnsService = new DatavaultColumnsService();
+  private stepRepository = defaultStepRepository;
+
+  constructor(stepRepo?: typeof defaultStepRepository) {
+    if (stepRepo) {
+      this.stepRepository = stepRepo;
+    }
+  }
 
   /**
    * Resolve a reference (can be real ID or tempId)
    */
   private resolve(ref: string | undefined): string | undefined {
-    if (!ref) return undefined;
+    if (!ref) {return undefined;}
     return this.tempIdMap.get(ref) || ref;
   }
 
@@ -137,9 +147,15 @@ export class WorkflowPatchService {
    * Validate a single operation (security checks, safety rules)
    */
   private async validateOp(workflowId: string, op: WorkflowPatchOp): Promise<void> {
+    // Validate against Zod schema
+    const result = workflowPatchOpSchema.safeParse(op);
+    if (!result.success) {
+      throw new Error(`Invalid operation schema: ${result.error.errors[0].message}`);
+    }
+
     // DataVault safety checks
     if (op.op.startsWith("datavault.")) {
-      if (op.op === "datavault.createTable" || op.op === "datavault.addColumns") {
+      if (op.op === "datavault.createTable" || op.op === "datavault.addColumns" || op.op === "datavault.createWritebackMapping") {
         // Safe operations - allowed
       } else {
         throw new Error(`Unsafe DataVault operation: ${op.op}`);
@@ -148,7 +164,7 @@ export class WorkflowPatchService {
 
     // Alias uniqueness check for step creation
     if ((op.op === "step.create" || op.op === "step.update") && op.alias) {
-      const existingSteps = await stepRepository.findByWorkflowId(workflowId);
+      const existingSteps = await this.stepRepository.findByWorkflowId(workflowId);
       const duplicate = existingSteps.find(
         (s) => s.alias === op.alias && (op.op === "step.create" || s.id !== this.resolve(op.id))
       );
@@ -196,7 +212,7 @@ export class WorkflowPatchService {
 
       case "section.update": {
         const sectionId = this.resolve(op.id || op.tempId);
-        if (!sectionId) throw new Error("Section ID or tempId required");
+        if (!sectionId) {throw new Error("Section ID or tempId required");}
 
         await sectionRepository.update(sectionId, {
           title: op.title,
@@ -208,7 +224,7 @@ export class WorkflowPatchService {
 
       case "section.delete": {
         const sectionId = this.resolve(op.id || op.tempId);
-        if (!sectionId) throw new Error("Section ID or tempId required");
+        if (!sectionId) {throw new Error("Section ID or tempId required");}
 
         await sectionRepository.delete(sectionId);
         return `Deleted section`;
@@ -230,12 +246,12 @@ export class WorkflowPatchService {
       // ====================================================================
       case "step.create": {
         const sectionId = this.resolve(op.sectionId || op.sectionRef);
-        if (!sectionId) throw new Error("Section ID or sectionRef required");
+        if (!sectionId) {throw new Error("Section ID or sectionRef required");}
 
         // Get max order for this section if not specified
         const order = op.order ?? await this.getNextStepOrder(sectionId);
 
-        const step = await stepRepository.create({
+        const step = await this.stepRepository.create({
           sectionId,
           type: op.type as any, // Type validated by schema
           title: op.title,
@@ -254,9 +270,9 @@ export class WorkflowPatchService {
 
       case "step.update": {
         const stepId = this.resolve(op.id || op.tempId);
-        if (!stepId) throw new Error("Step ID or tempId required");
+        if (!stepId) {throw new Error("Step ID or tempId required");}
 
-        await stepRepository.update(stepId, {
+        await this.stepRepository.update(stepId, {
           type: op.type as any, // Type validated by schema
           title: op.title,
           alias: op.alias,
@@ -270,22 +286,22 @@ export class WorkflowPatchService {
 
       case "step.delete": {
         const stepId = this.resolve(op.id || op.tempId);
-        if (!stepId) throw new Error("Step ID or tempId required");
+        if (!stepId) {throw new Error("Step ID or tempId required");}
 
-        await stepRepository.delete(stepId);
+        await this.stepRepository.delete(stepId);
         return `Deleted step`;
       }
 
       case "step.move": {
         const stepId = this.resolve(op.id || op.tempId);
-        if (!stepId) throw new Error("Step ID or tempId required");
+        if (!stepId) {throw new Error("Step ID or tempId required");}
 
         const toSectionId = this.resolve(op.toSectionId);
-        if (!toSectionId) throw new Error("Target section ID required");
+        if (!toSectionId) {throw new Error("Target section ID required");}
 
         const order = op.order ?? await this.getNextStepOrder(toSectionId);
 
-        await stepRepository.update(stepId, {
+        await this.stepRepository.update(stepId, {
           sectionId: toSectionId,
           order,
         });
@@ -295,9 +311,9 @@ export class WorkflowPatchService {
 
       case "step.setVisibleIf": {
         const stepId = this.resolve(op.id || op.tempId);
-        if (!stepId) throw new Error("Step ID or tempId required");
+        if (!stepId) {throw new Error("Step ID or tempId required");}
 
-        await stepRepository.update(stepId, {
+        await this.stepRepository.update(stepId, {
           visibleIf: op.visibleIf,
         });
 
@@ -306,9 +322,9 @@ export class WorkflowPatchService {
 
       case "step.setRequired": {
         const stepId = this.resolve(op.id || op.tempId);
-        if (!stepId) throw new Error("Step ID or tempId required");
+        if (!stepId) {throw new Error("Step ID or tempId required");}
 
-        await stepRepository.update(stepId, {
+        await this.stepRepository.update(stepId, {
           required: op.required,
         });
 
@@ -322,13 +338,13 @@ export class WorkflowPatchService {
         // Logic rules are implemented via visibleIf/skipIf on steps/sections
         // Parse the rule and apply to the target entity
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
-        if (!targetId) throw new Error("Logic rule target ID required");
+        if (!targetId) {throw new Error("Logic rule target ID required");}
 
         // Convert rule to ConditionExpression format
         const conditionExpr = this.parseConditionToExpression(op.rule.condition);
 
         if (op.rule.target.type === "step") {
-          await stepRepository.update(targetId, {
+          await this.stepRepository.update(targetId, {
             visibleIf: conditionExpr,
           });
           return `Applied visibility rule to step`;
@@ -348,19 +364,19 @@ export class WorkflowPatchService {
           throw new Error("Logic rule target required for update");
         }
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
-        if (!targetId) throw new Error("Logic rule target ID required");
+        if (!targetId) {throw new Error("Logic rule target ID required");}
 
         const conditionExpr = op.rule.condition
           ? this.parseConditionToExpression(op.rule.condition)
           : null;
 
         if (op.rule.target.type === "step") {
-          await stepRepository.update(targetId, {
-            visibleIf: conditionExpr as any,
+          await this.stepRepository.update(targetId, {
+            visibleIf: conditionExpr,
           });
         } else if (op.rule.target.type === "section") {
           await sectionRepository.update(targetId, {
-            visibleIf: conditionExpr as any,
+            visibleIf: conditionExpr,
           });
         }
 
@@ -420,7 +436,7 @@ export class WorkflowPatchService {
 
       case "document.update": {
         const docId = this.resolve(op.id || op.tempId);
-        if (!docId) throw new Error("Document ID or tempId required");
+        if (!docId) {throw new Error("Document ID or tempId required");}
 
         const { projectId } = await this.getTenantContext(workflowId);
 
@@ -436,7 +452,7 @@ export class WorkflowPatchService {
 
       case "document.setConditional": {
         const docId = this.resolve(op.id || op.tempId);
-        if (!docId) throw new Error("Document ID or tempId required");
+        if (!docId) {throw new Error("Document ID or tempId required");}
 
         // Parse condition to ConditionExpression if provided
         const conditionExpr = op.condition
@@ -457,12 +473,12 @@ export class WorkflowPatchService {
 
       case "document.bindFields": {
         const docId = this.resolve(op.id || op.tempId);
-        if (!docId) throw new Error("Document ID or tempId required");
+        if (!docId) {throw new Error("Document ID or tempId required");}
 
         const { projectId } = await this.getTenantContext(workflowId);
 
         // Verify all step aliases exist in workflow
-        const workflowSteps = await stepRepository.findByWorkflowId(workflowId);
+        const workflowSteps = await this.stepRepository.findByWorkflowId(workflowId);
         const validAliases = new Set(workflowSteps.map(s => s.alias).filter(Boolean));
 
         for (const stepAlias of Object.values(op.bindings)) {
@@ -538,7 +554,7 @@ export class WorkflowPatchService {
 
       case "datavault.addColumns": {
         const tableId = this.resolve(op.tableId);
-        if (!tableId) throw new Error("Table ID required");
+        if (!tableId) {throw new Error("Table ID required");}
 
         const { tenantId } = await this.getTenantContext(workflowId);
 
@@ -573,7 +589,7 @@ export class WorkflowPatchService {
 
       case "datavault.createWritebackMapping": {
         const tableId = this.resolve(op.tableId);
-        if (!tableId) throw new Error("Table ID required");
+        if (!tableId) {throw new Error("Table ID required");}
 
         const { tenantId } = await this.getTenantContext(workflowId);
 
@@ -591,7 +607,7 @@ export class WorkflowPatchService {
         const columnsByName = new Map(columns.map((c) => [c.name, c.id]));
 
         // Get workflow steps to validate aliases
-        const workflowSteps = await stepRepository.findByWorkflowId(workflowId);
+        const workflowSteps = await this.stepRepository.findByWorkflowId(workflowId);
         const validAliases = new Set(workflowSteps.map((s) => s.alias).filter(Boolean));
 
         // Build columnMappings: { stepAlias: columnId }
@@ -610,8 +626,7 @@ export class WorkflowPatchService {
 
           if (!columnId) {
             throw new Error(
-              `Column '${columnName}' not found in table. Available columns: ${
-                Array.from(columnsByName.keys()).join(', ')
+              `Column '${columnName}' not found in table. Available columns: ${Array.from(columnsByName.keys()).join(', ')
               }`
             );
           }
@@ -642,8 +657,8 @@ export class WorkflowPatchService {
    * Get next available order for a section's steps
    */
   private async getNextStepOrder(sectionId: string): Promise<number> {
-    const steps = await stepRepository.findBySectionId(sectionId);
-    if (steps.length === 0) return 1;
+    const steps = await this.stepRepository.findBySectionId(sectionId);
+    if (steps.length === 0) {return 1;}
     return Math.max(...steps.map(s => s.order)) + 1;
   }
 
@@ -692,7 +707,7 @@ export class WorkflowPatchService {
 
     for (const rawOperator of operators) {
       const operatorIndex = condition.indexOf(` ${rawOperator} `);
-      if (operatorIndex === -1) continue;
+      if (operatorIndex === -1) {continue;}
 
       const left = condition.substring(0, operatorIndex).trim();
       const right = condition.substring(operatorIndex + rawOperator.length + 2).trim();

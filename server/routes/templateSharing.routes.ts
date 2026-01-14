@@ -1,8 +1,9 @@
-import type { Express, Request, Response } from "express";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { TemplateSharingService } from "../services/TemplateSharingService";
 import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { userRepository } from "../repositories";
+import { TemplateSharingService } from "../services/TemplateSharingService";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "template-sharing-routes" });
 const sharingService = new TemplateSharingService();

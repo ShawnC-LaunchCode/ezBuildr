@@ -1,8 +1,10 @@
-import type { Express, Request, Response } from "express";
+import { z } from "zod";
+
+import { createLogger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
 import { teamService } from "../services/TeamService";
-import { z } from "zod";
-import { createLogger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "teams-routes" });
 

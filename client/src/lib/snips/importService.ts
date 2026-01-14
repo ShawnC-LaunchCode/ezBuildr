@@ -4,8 +4,10 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import type { SnipDefinition, SnipImportRequest, SnipImportResult } from "./types";
+
 import { getSnipById } from "./registry";
+
+import type { SnipDefinition, SnipImportRequest, SnipImportResult } from "./types";
 
 /**
  * Detect all variable collisions (aliases from questions, JS outputs, list variables)
@@ -72,7 +74,7 @@ function generateAliasMappings(
             // Has namespace (e.g., "respondent.name.first")
             // Rename the namespace: respondent -> respondent_2
             baseName = parts[0];
-            suffix = '.' + parts.slice(1).join('.');
+            suffix = `.${  parts.slice(1).join('.')}`;
         }
 
         // Find next available suffix

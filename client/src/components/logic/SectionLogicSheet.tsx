@@ -12,11 +12,14 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { LogicBuilder } from "./LogicBuilder";
-import { useUpdateSection } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import type { ConditionExpression } from "@shared/types/conditions";
 import type { ApiSection } from "@/lib/vault-api";
+import { useUpdateSection } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
+
+
+import { LogicBuilder } from "./LogicBuilder";
 
 interface SectionLogicSheetProps {
   /** Whether the sheet is open */

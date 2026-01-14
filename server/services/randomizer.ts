@@ -8,7 +8,7 @@ export class RandomizerService {
         const data: Record<string, any> = {};
 
         for (const config of questions) {
-            if (!config.key) continue;
+            if (!config.key) {continue;}
             data[config.key] = this.generateValue(config);
         }
 
@@ -46,7 +46,7 @@ export class RandomizerService {
 
     private static randomString(): string {
         const words = ['foo', 'bar', 'baz', 'qux', 'test', 'demo', 'sample'];
-        return words[Math.floor(Math.random() * words.length)] + '_' + Math.floor(Math.random() * 1000);
+        return `${words[Math.floor(Math.random() * words.length)]  }_${  Math.floor(Math.random() * 1000)}`;
     }
 
     private static randomNumber(min?: number, max?: number): number {

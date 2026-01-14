@@ -1,7 +1,10 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { DatavaultRow } from '../lib/types/datavault';
+
 import * as api from '../lib/api/datavault';
+
 import { tableKeys } from './useDatavaultTables';
+
+import type { DatavaultRow } from '../lib/types/datavault';
 
 // ============================================================================
 // Row Queries (Infinite)
@@ -13,7 +16,7 @@ export function useTableRows(tableId: string | undefined, pageSize: number = DEF
   return useInfiniteQuery({
     queryKey: tableId ? tableKeys.rows(tableId) : ['datavault', 'tables', 'null', 'rows'],
     queryFn: ({ pageParam = 0 }) => {
-      if (!tableId) throw new Error('Table ID is required');
+      if (!tableId) {throw new Error('Table ID is required');}
       return api.getTableRows(tableId, {
         limit: pageSize,
         offset: pageParam,
@@ -21,7 +24,7 @@ export function useTableRows(tableId: string | undefined, pageSize: number = DEF
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.hasMore) return undefined;
+      if (!lastPage.hasMore) {return undefined;}
       return allPages.length * pageSize;
     },
     enabled: !!tableId,
@@ -67,7 +70,7 @@ export function useUpdateRow() {
 
       // Optimistically update the row
       queryClient.setQueryData(tableKeys.rows(tableId), (old: any) => {
-        if (!old) return old;
+        if (!old) {return old;}
 
         return {
           ...old,
@@ -109,7 +112,7 @@ export function useDeleteRow() {
 
       // Optimistically remove the row
       queryClient.setQueryData(tableKeys.rows(tableId), (old: any) => {
-        if (!old) return old;
+        if (!old) {return old;}
 
         return {
           ...old,

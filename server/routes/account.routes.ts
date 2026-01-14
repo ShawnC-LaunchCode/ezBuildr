@@ -1,9 +1,11 @@
-import type { Express, Request, Response } from "express";
+import { z } from "zod";
+
+import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';
 import { requireUser, type UserRequest } from '../middleware/requireUser';
 import { accountService } from "../services/AccountService";
-import { z } from "zod";
-import { logger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 /**
  * Register account-related routes

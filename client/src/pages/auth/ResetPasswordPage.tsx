@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { Link, useLocation } from "wouter";
+import { z } from "zod";
+
+import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { authAPI } from "@/lib/vault-api";
-import logo from "@/assets/images/logo.png";
 
 const resetPasswordSchema = z.object({
     password: z.string()
@@ -55,7 +56,7 @@ export default function ResetPasswordPage() {
     });
 
     const onSubmit = async (data: ResetPasswordFormValues) => {
-        if (!token) return;
+        if (!token) {return;}
         setIsLoading(true);
         try {
             await authAPI.resetPassword({

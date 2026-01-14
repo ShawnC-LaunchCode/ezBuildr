@@ -1,6 +1,8 @@
-import { db } from "../db";
-import { workflowRuns, workflows, sections } from "@shared/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
+
+import { workflowRuns, workflows, sections } from "@shared/schema";
+
+import { db } from "../db";
 import { logger } from "../logger";
 
 export class PortalService {

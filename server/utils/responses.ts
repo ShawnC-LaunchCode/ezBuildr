@@ -5,6 +5,7 @@
  */
 
 import { Response } from 'express';
+
 import { AuthErrorCode, AuthenticationError, isAuthenticationError } from '../errors/AuthErrors';
 
 /**

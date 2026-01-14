@@ -4,10 +4,15 @@
  * Handles code, input/output mapping, display mode, and timeout settings
  */
 
-import { useState, useEffect, useRef } from "react";
-import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+
+import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
+import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,11 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
-import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export interface JSQuestionConfig {
@@ -65,7 +66,7 @@ export function JSQuestionEditor({ config, onChange, className, elementId, workf
 
   // Insert variable path into code editor at cursor position
   const handleInsertVariable = (path: string) => {
-    if (!codeTextareaRef.current) return;
+    if (!codeTextareaRef.current) {return;}
 
     const textarea = codeTextareaRef.current;
     const start = textarea.selectionStart;

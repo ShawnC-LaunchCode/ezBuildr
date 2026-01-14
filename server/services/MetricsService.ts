@@ -1,9 +1,15 @@
-import { getMeter } from '../observability/telemetry';
-import { createLogger } from '../logger';
-import type { Counter, Histogram, ObservableGauge } from '@opentelemetry/api';
-import { db } from '../db';
-import { refreshTokens } from '@shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
+
+import { refreshTokens } from '@shared/schema';
+
+import { db } from '../db';
+import { createLogger } from '../logger';
+import { getMeter } from '../observability/telemetry';
+
+import type { Counter, Histogram, ObservableGauge } from '@opentelemetry/api';
+
+
+
 
 const logger = createLogger({ module: 'metrics-service' });
 

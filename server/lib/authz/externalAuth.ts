@@ -1,12 +1,15 @@
 
-import { Request, Response, NextFunction } from "express";
-import { db } from "../../db";
-import { oauthAccessTokens, apiKeys } from "@shared/schema";
+import crypto from 'crypto';
+
 import { eq } from "drizzle-orm";
+import { Request, Response, NextFunction } from "express";
+
+import { oauthAccessTokens, apiKeys } from "@shared/schema";
+
+import { db } from "../../db";
 // import { verify } from "drizzle-orm/mysql-core"; // Not needed if manual compare
 // Ideally use a crypto lib for generic hash compare if bcrypt was used. 
 // Assuming simple string match for mock or using crypto for hash verification.
-import crypto from 'crypto';
 
 export interface ExternalAuthRequest extends Request {
     externalAuth?: {
@@ -23,7 +26,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
     const authHeader = req.headers.authorization;
     const apiKeyHeader = req.headers['x-api-key'] as string;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
         // OAuth Flow
         const token = authHeader.split(' ')[1];
         try {
@@ -82,7 +85,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
             req.externalAuth = {
                 type: 'api_key',
                 workspaceId: (keyRecord as any).workspaceId,
-                scopes: keyRecord.scopes as string[],
+                scopes: keyRecord.scopes,
                 apiKeyId: keyRecord.id
             };
             return next();

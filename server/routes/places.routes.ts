@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { googlePlacesService } from "../services/GooglePlacesService";
+
 import { creatorOrRunTokenAuth } from "../middleware/runTokenAuth";
+import { googlePlacesService } from "../services/GooglePlacesService";
 
 const router = Router();
 

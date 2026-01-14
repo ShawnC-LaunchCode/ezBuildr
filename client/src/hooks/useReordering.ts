@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -11,7 +12,7 @@ export function useReorderPages(surveyId: string) {
 
   return useMutation({
     mutationFn: async (pages: Array<{ id: string; order: number }>) => {
-      return await apiRequest("PUT", `/api/surveys/${surveyId}/pages/reorder`, {
+      return apiRequest("PUT", `/api/surveys/${surveyId}/pages/reorder`, {
         pages,
       });
     },
@@ -43,7 +44,7 @@ export function useReorderQuestions(surveyId: string) {
 
   return useMutation({
     mutationFn: async (questions: Array<{ id: string; pageId: string; order: number }>) => {
-      return await apiRequest("PUT", `/api/surveys/${surveyId}/questions/reorder`, {
+      return apiRequest("PUT", `/api/surveys/${surveyId}/questions/reorder`, {
         questions,
       });
     },

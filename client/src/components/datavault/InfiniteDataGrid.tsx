@@ -3,15 +3,18 @@
  * Wrapper around DataGrid with infinite scroll support
  */
 
-import { useEffect, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
-import { DataGrid } from "./DataGrid";
-import { DataGridSkeleton } from "./DataGridSkeleton";
-import { DataGridEmptyState } from "./DataGridEmptyState";
-import { Loader2 } from "lucide-react";
+
 import type { DatavaultColumn } from "@shared/schema";
+
+import { DataGrid } from "./DataGrid";
+import { DataGridEmptyState } from "./DataGridEmptyState";
+import { DataGridSkeleton } from "./DataGridSkeleton";
 
 interface InfiniteDataGridProps {
   tableId: string;
@@ -96,7 +99,7 @@ export function InfiniteDataGrid({
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (isLoading) {
-    return <DataGridSkeleton rows={10} columns={columns.length || 5} />;
+    return <DataGridSkeleton rows={10} columns={(columns.length > 0) || 5} />;
   }
 
   if (isError) {

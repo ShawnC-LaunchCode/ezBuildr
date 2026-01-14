@@ -1,10 +1,12 @@
 
-import { Router } from "express";
-import { db } from "../db"; // Correct path: ../db because we are in server/routes/
-import { steps } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { validatePage } from "@shared/validation/PageValidator";
+import { Router } from "express";
+
+import { steps } from "@shared/schema";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
+import { validatePage } from "@shared/validation/PageValidator";
+
+import { db } from "../db"; // Correct path: ../db because we are in server/routes/
 import { logger } from "../logger"; // Correct path: ../logger
 
 export const validationRouter = Router();
@@ -40,8 +42,8 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", async (req, re
         // Server-side visibility check attempt
         // If allValues not provided, we might over-validate or skip visibility check
         const stepsToValidate = sectionSteps.filter((step: any) => {
-            if (!step.visibleIf) return true;
-            if (!allValues) return true; // Validate if we can't be sure
+            if (!step.visibleIf) {return true;}
+            if (!allValues) {return true;} // Validate if we can't be sure
             try {
                 // evaluateConditionExpression is Isomorphic
                 const { evaluateConditionExpression } = require("@shared/conditionEvaluator");

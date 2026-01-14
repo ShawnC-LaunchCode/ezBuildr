@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Request, Response, NextFunction } from 'express';
+
 import {
   hasPermission,
   requirePermission,
@@ -13,7 +13,9 @@ import {
   type UserRole,
   type Permission,
 } from '../../../server/middleware/rbac';
+
 import type { AuthRequest } from '../../../server/middleware/auth';
+import type { Request, Response, NextFunction } from 'express';
 
 /**
  * RBAC Middleware Unit Tests

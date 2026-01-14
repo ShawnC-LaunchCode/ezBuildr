@@ -1,8 +1,12 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { blocks, type Block, type InsertBlock } from "@shared/schema";
 import { eq, and, asc } from "drizzle-orm";
-import { db } from "../db";
+
+import { blocks, type Block, type InsertBlock } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
+
+import { db } from "../db";
+
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for block data access
@@ -27,7 +31,7 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
       ? and(eq(blocks.workflowId, workflowId), eq(blocks.phase, phase), eq(blocks.enabled, true))
       : and(eq(blocks.workflowId, workflowId), eq(blocks.enabled, true));
 
-    return await database
+    return database
       .select()
       .from(blocks)
       .where(conditions)
@@ -56,7 +60,7 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
     tx?: DbTransaction
   ): Promise<Block[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(blocks)
       .where(
@@ -102,7 +106,7 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
    */
   async findAllByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<Block[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(blocks)
       .where(eq(blocks.workflowId, workflowId))

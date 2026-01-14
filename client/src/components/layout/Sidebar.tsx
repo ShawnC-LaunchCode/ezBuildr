@@ -1,12 +1,15 @@
 
-import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
-import logo from "@/assets/images/logo.png";
 import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
+import { Link, useLocation } from "wouter";
+
+import logo from "@/assets/images/logo.png";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+import type { User } from "@shared/schema";
+
 
 interface SidebarProps {
   className?: string;
@@ -42,6 +45,7 @@ export default function Sidebar({ className }: SidebarProps) {
     { name: "Workflows", href: "/workflows", icon: Workflow },
     { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
     { name: "Billing", href: "/billing", icon: CreditCard },
+    { name: "Organizations", href: "/organizations", icon: Users },
     { name: "DataVault", href: "/datavault", icon: Folder },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

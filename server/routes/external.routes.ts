@@ -1,8 +1,10 @@
 
-import { Router } from "express";
-import { db } from "../db";
-import { surveys, usageRecords, users, workspaces } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { Router } from "express";
+
+import { surveys, usageRecords, users, workspaces } from "@shared/schema";
+
+import { db } from "../db";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { TenantContext } from "../lib/tenancy/tenantContext";
 import { createLogger } from "../logger";
@@ -60,7 +62,7 @@ router.post("/workflows/:id/runs", async (req: ExternalAuthRequest, res) => {
 
         // Create Run (Mock)
         // In real impl, insert into 'survey_results' or 'workflow_runs'
-        const runId = "run_" + Math.random().toString(36).substr(2, 9);
+        const runId = `run_${  Math.random().toString(36).substr(2, 9)}`;
 
         // Resolve organization ID from workspace
         const workspace = await db.query.workspaces.findFirst({

@@ -11,8 +11,9 @@
  * - Download and verification
  */
 
-import { test, expect } from '@playwright/test';
 import path from 'path';
+
+import { test, expect } from '@playwright/test';
 
 // Test configuration
 const TEST_PROJECT_NAME = 'E2E Doc Gen Project';

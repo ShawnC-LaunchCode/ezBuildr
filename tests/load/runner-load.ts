@@ -1,5 +1,5 @@
-import { Profiler } from "../../server/lib/performance/profiler";
 import { logger } from "../../server/lib/observability/logger";
+import { Profiler } from "../../server/lib/performance/profiler";
 
 // Mock runner function simulating a workflow run
 const simulateWorkflowRun = async (runId: number) => {

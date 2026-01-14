@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+
 import { AIService } from '../../server/services/AIService';
 
 // Mock the AIService to avoid actual API calls during tests
@@ -32,7 +33,7 @@ vi.mock('../../server/services/AIService', () => ({
       ],
       logicRules: [],
       transformBlocks: [],
-      notes: 'Generated from: ' + request.description,
+      notes: `Generated from: ${  request.description}`,
     })),
     suggestWorkflowImprovements: vi.fn(async () => ({
       newSections: [],

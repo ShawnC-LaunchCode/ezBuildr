@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { repeaterService } from '../../../server/services/RepeaterService';
+
 import type { ListVariable } from '@shared/types/query';
+
+import { repeaterService } from '../../../server/services/RepeaterService';
 
 describe('RepeaterService List Integration', () => {
     const mockListVariable: ListVariable = {

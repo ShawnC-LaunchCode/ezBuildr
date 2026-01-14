@@ -1,9 +1,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { FinalBlockConfig } from '@shared/types/stepConfigs';
+
+import { db } from '../../../server/db';
 import { executeFinalNode, FinalBlockInput } from '../../../server/engine/nodes/final';
 import { finalBlockRenderer } from '../../../server/services/document/FinalBlockRenderer';
-import { db } from '../../../server/db';
-import { FinalBlockConfig } from '@shared/types/stepConfigs';
 
 // Mock dependencies
 vi.mock('../../../server/services/document/FinalBlockRenderer', () => ({

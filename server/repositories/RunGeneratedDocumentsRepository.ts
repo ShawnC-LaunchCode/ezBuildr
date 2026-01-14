@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { runGeneratedDocuments, type RunGeneratedDocument, type InsertRunGeneratedDocument } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { runGeneratedDocuments, type RunGeneratedDocument, type InsertRunGeneratedDocument } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for run generated documents data access
@@ -20,7 +23,7 @@ export class RunGeneratedDocumentsRepository extends BaseRepository<
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<RunGeneratedDocument[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(runGeneratedDocuments)
       .where(eq(runGeneratedDocuments.runId, runId))

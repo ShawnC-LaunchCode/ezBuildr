@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { getQueryFn } from "@/lib/queryClient";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Download, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { getQueryFn } from "@/lib/queryClient";
+
 
 interface ActivityLog {
   id: string;
@@ -49,12 +51,12 @@ export default function AdminLogs() {
 
   // Build query params
   const queryParams = new URLSearchParams();
-  if (searchQuery) queryParams.set("q", searchQuery);
-  if (eventFilter) queryParams.set("event", eventFilter);
-  if (actorFilter) queryParams.set("actor", actorFilter);
-  if (statusFilter) queryParams.set("status", statusFilter);
-  if (fromDate) queryParams.set("from", fromDate);
-  if (toDate) queryParams.set("to", toDate);
+  if (searchQuery) {queryParams.set("q", searchQuery);}
+  if (eventFilter) {queryParams.set("event", eventFilter);}
+  if (actorFilter) {queryParams.set("actor", actorFilter);}
+  if (statusFilter) {queryParams.set("status", statusFilter);}
+  if (fromDate) {queryParams.set("from", fromDate);}
+  if (toDate) {queryParams.set("to", toDate);}
   queryParams.set("sort", sortOrder);
   queryParams.set("limit", String(limit));
   queryParams.set("offset", String(page * limit));
@@ -130,7 +132,7 @@ export default function AdminLogs() {
   };
 
   const getStatusBadgeClass = (status?: string | null) => {
-    if (!status) return "bg-gray-100 text-gray-700";
+    if (!status) {return "bg-gray-100 text-gray-700";}
     switch (status.toLowerCase()) {
       case "error":
         return "bg-red-100 text-red-700";
@@ -146,12 +148,12 @@ export default function AdminLogs() {
 
   const handleExport = () => {
     const exportParams = new URLSearchParams();
-    if (searchQuery) exportParams.set("q", searchQuery);
-    if (eventFilter) exportParams.set("event", eventFilter);
-    if (actorFilter) exportParams.set("actor", actorFilter);
-    if (statusFilter) exportParams.set("status", statusFilter);
-    if (fromDate) exportParams.set("from", fromDate);
-    if (toDate) exportParams.set("to", toDate);
+    if (searchQuery) {exportParams.set("q", searchQuery);}
+    if (eventFilter) {exportParams.set("event", eventFilter);}
+    if (actorFilter) {exportParams.set("actor", actorFilter);}
+    if (statusFilter) {exportParams.set("status", statusFilter);}
+    if (fromDate) {exportParams.set("from", fromDate);}
+    if (toDate) {exportParams.set("to", toDate);}
     exportParams.set("sort", sortOrder);
 
     window.location.href = `/api/admin/logs/export?${exportParams.toString()}`;

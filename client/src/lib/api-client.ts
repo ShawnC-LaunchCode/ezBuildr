@@ -38,5 +38,5 @@ export async function testTemplate(
     throw new Error(error.message || `HTTP ${response.status}: Failed to test template`);
   }
 
-  return await response.json();
+  return response.json();
 }

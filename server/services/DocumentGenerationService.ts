@@ -3,8 +3,12 @@
  * Handles document generation for Final Documents sections
  */
 
-import { documentEngine } from './document/DocumentEngine';
-import { getTemplateFilePath } from './templates';
+import path from 'path';
+
+import { evaluateConditionExpression } from '@shared/conditionEvaluator';
+import { type WorkflowRun } from '@shared/schema';
+
+import { logger } from '../logger';
 import {
   workflowRunRepository,
   sectionRepository,
@@ -16,11 +20,14 @@ import {
   workflowTemplateRepository,
 } from '../repositories';
 import { createError } from '../utils/errors';
-import { logger } from '../logger';
-import path from 'path';
-import { type WorkflowRun } from '@shared/schema';
+
+import { documentEngine } from './document/DocumentEngine';
 import { applyMapping, type DocumentMapping } from './document/MappingInterpreter';
-import { evaluateConditionExpression } from '@shared/conditionEvaluator';
+import { getTemplateFilePath } from './templates';
+
+
+
+
 
 const DEFAULT_TO_PDF = false;
 const PDF_STRATEGY = 'puppeteer';
@@ -214,7 +221,7 @@ export class DocumentGenerationService {
       let workflowTemplateId: string | null = null;
       try {
         const workflow = await workflowRepository.findById(run.workflowId);
-        if (workflow && workflow.currentVersionId) {
+        if (workflow?.currentVersionId) {
           const workflowTemplate = await workflowTemplateRepository.findByWorkflowVersionAndTemplateId(
             workflow.currentVersionId,
             templateId

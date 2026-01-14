@@ -3,8 +3,6 @@
  * Supports: Sections, Templates, Data Sources, Settings, Snapshots
  */
 
-import { useLocation } from "wouter";
-import { cn } from "@/lib/utils";
 import {
   Layers,
   FileText,
@@ -15,6 +13,9 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
+import { useLocation } from "wouter";
+
+import { cn } from "@/lib/utils";
 
 export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
 
@@ -43,7 +44,7 @@ interface BuilderTabNavProps {
 
 export function BuilderTabNav({ workflowId, activeTab, onTabChange, isIntake }: BuilderTabNavProps) {
   const visibleTabs = TABS.filter(tab => {
-    if (tab.id === "assignment" && !isIntake) return false;
+    if (tab.id === "assignment" && !isIntake) {return false;}
     return true;
   });
 

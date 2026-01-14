@@ -4,25 +4,27 @@
  * Endpoints for accessing metrics, rollups, SLI data, and new event-based analytics.
  */
 
-import type { Express } from 'express';
+import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import express from 'express';
 import { z } from 'zod';
-import { hybridAuth } from '../middleware';
-import { db } from '../db';
+
 import {
   metricsEvents,
   metricsRollups,
   workflowRunMetrics,
 } from '../../shared/schema';
-import { eq, and, gte, desc, sql } from 'drizzle-orm';
-import sli from '../services/sli';
+import { db } from '../db';
 import logger from '../logger';
+import { hybridAuth } from '../middleware';
 
 // New Analytics Services
 import { analyticsService } from '../services/analytics/AnalyticsService';
+import { branchingService } from '../services/analytics/BranchingService';
 import { dropoffService } from '../services/analytics/DropoffService';
 import { heatmapService } from '../services/analytics/HeatmapService';
-import { branchingService } from '../services/analytics/BranchingService';
+import sli from '../services/sli';
+
+import type { Express } from 'express';
 
 const router = express.Router();
 

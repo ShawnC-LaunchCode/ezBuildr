@@ -13,10 +13,13 @@
  * @date December 2025
  */
 
-import { EsignProviderFactory } from './EsignProvider';
-import { EnvelopeBuilder } from './EnvelopeBuilder';
-import type { SignatureBlockConfig } from '../../../shared/types/stepConfigs';
 import { createLogger } from '../../logger';
+
+import { EnvelopeBuilder } from './EnvelopeBuilder';
+import { EsignProviderFactory } from './EsignProvider';
+
+import type { SignatureBlockConfig } from '../../../shared/types/stepConfigs';
+
 
 const logger = createLogger({ module: 'signature-block-service' });
 

@@ -1,6 +1,7 @@
-import { db } from "../db";
-import { templateShares, users } from "../../shared/schema";
 import { and, eq, or, sql, isNull } from "drizzle-orm";
+
+import { templateShares, users } from "../../shared/schema";
+import { db } from "../db";
 
 export class TemplateShareRepository {
   /**
@@ -8,7 +9,7 @@ export class TemplateShareRepository {
    * Returns both accepted (userId set) and pending (pendingEmail set) shares
    */
   async listByTemplate(templateId: string) {
-    const result = await db
+    return db
       .select({
         id: templateShares.id,
         templateId: templateShares.templateId,
@@ -22,15 +23,13 @@ export class TemplateShareRepository {
       .from(templateShares)
       .leftJoin(users, eq(users.id, templateShares.userId))
       .where(eq(templateShares.templateId, templateId));
-
-    return result;
   }
 
   /**
    * List all templates shared with a specific user (by userId or their email)
    */
   async listForUser(userId: string, userEmail: string) {
-    const result = await db
+    return db
       .select({
         id: templateShares.id,
         templateId: templateShares.templateId,
@@ -45,8 +44,6 @@ export class TemplateShareRepository {
           eq(templateShares.pendingEmail, userEmail.toLowerCase())
         )
       );
-
-    return result;
   }
 
   /**
@@ -88,7 +85,7 @@ export class TemplateShareRepository {
    * Converts pendingEmail shares to userId shares
    */
   async acceptPendingForUser(userId: string, email: string) {
-    const updated = await db
+    return db
       .update(templateShares)
       .set({
         userId,
@@ -102,8 +99,6 @@ export class TemplateShareRepository {
         )
       )
       .returning();
-
-    return updated;
   }
 
   /**

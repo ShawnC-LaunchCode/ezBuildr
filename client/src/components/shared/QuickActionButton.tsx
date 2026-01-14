@@ -1,6 +1,7 @@
-import { Button } from "@/components/ui/button";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import { Link } from "wouter";
+
+import { Button } from "@/components/ui/button";
 
 interface QuickActionButtonProps {
   href?: string;

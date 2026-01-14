@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Save, RotateCcw, Bot, BarChart3 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import React, { useState, useEffect } from "react";
+
 import { AIPerformanceMonitor } from "@/components/admin/AIPerformanceMonitor";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AiSettingsResponse {
     settings?: { systemPrompt: string };
@@ -81,7 +82,7 @@ export default function AdminAiSettings() {
     };
 
     // Auth protection
-    if (authLoading) return null;
+    if (authLoading) {return null;}
     if (!isAuthenticated || user?.role !== 'admin') {
         return (
             <div className="flex h-screen items-center justify-center">

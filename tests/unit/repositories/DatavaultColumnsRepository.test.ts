@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DatavaultColumnsRepository } from '../../../server/repositories/DatavaultColumnsRepository';
+
 import type { DatavaultColumn, InsertDatavaultColumn } from '@shared/schema';
+
+import { DatavaultColumnsRepository } from '../../../server/repositories/DatavaultColumnsRepository';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultColumnsRepository Tests

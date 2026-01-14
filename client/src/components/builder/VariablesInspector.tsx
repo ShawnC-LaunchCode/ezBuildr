@@ -4,18 +4,21 @@
  * Designed for Advanced Mode control room UX
  */
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Search, Database, Code, Copy, ChevronDown, ChevronRight, Layers } from "lucide-react";
+import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Database, Code, Copy, ChevronDown, ChevronRight, Layers } from "lucide-react";
-import { useWorkflowVariables } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { ListInspector } from "./ListInspector";
 import { cn } from "@/lib/utils";
+import { useWorkflowVariables } from "@/lib/vault-hooks";
+
+import { ListInspector } from "./ListInspector";
+
 
 interface VariablesInspectorProps {
   workflowId: string;
@@ -59,10 +62,10 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
     if (searchQuery && !v.alias?.toLowerCase().includes(searchQuery.toLowerCase()) && !v.label?.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    if (activeTab === "all") return true;
-    if (activeTab === "lists") return isListType(v.type);
-    if (activeTab === "computed") return v.type === "js_question" || v.type === "computed";
-    if (activeTab === "questions") return !isListType(v.type) && v.type !== "js_question" && v.type !== "computed";
+    if (activeTab === "all") {return true;}
+    if (activeTab === "lists") {return isListType(v.type);}
+    if (activeTab === "computed") {return v.type === "js_question" || v.type === "computed";}
+    if (activeTab === "questions") {return !isListType(v.type) && v.type !== "js_question" && v.type !== "computed";}
     return true;
   });
 
@@ -76,8 +79,8 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
   }, {} as Record<string, typeof variables>);
 
   const getVariableIcon = (type: string) => {
-    if (isListType(type)) return <Database className="w-3.5 h-3.5 text-blue-500" />;
-    if (type === "js_question" || type === "computed") return <Code className="w-3.5 h-3.5 text-purple-500" />;
+    if (isListType(type)) {return <Database className="w-3.5 h-3.5 text-blue-500" />;}
+    if (type === "js_question" || type === "computed") {return <Code className="w-3.5 h-3.5 text-purple-500" />;}
     return <Layers className="w-3.5 h-3.5 text-gray-500" />;
   };
 

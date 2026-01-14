@@ -14,13 +14,13 @@ import type { ListVariable, ListToolsFilterGroup, ListToolsFilterRule, ListTools
  * Examples: "name", "address.city", "user.profile.age"
  */
 export function getFieldValue(obj: any, fieldPath: string): any {
-  if (!fieldPath) return undefined;
+  if (!fieldPath) {return undefined;}
 
   const keys = fieldPath.split('.');
   let value: any = obj;
 
   for (const key of keys) {
-    if (value === null || value === undefined) return undefined;
+    if (value === null || value === undefined) {return undefined;}
     value = value[key];
   }
 
@@ -101,12 +101,12 @@ export function evaluateFilterRule(
 
     case 'in_list':
     case 'in':
-      if (!Array.isArray(compareValue)) return false;
+      if (!Array.isArray(compareValue)) {return false;}
       // Strict equality for predictability
       return compareValue.some(v => v === fieldValue);
 
     case 'not_in_list':
-      if (!Array.isArray(compareValue)) return true;
+      if (!Array.isArray(compareValue)) {return true;}
       // Strict equality
       return !compareValue.some(v => v === fieldValue);
 
@@ -176,7 +176,7 @@ export function applyListSort(
   list: ListVariable,
   sortKeys: ListToolsSortKey[]
 ): ListVariable {
-  if (!sortKeys || sortKeys.length === 0) return list;
+  if (!sortKeys || sortKeys.length === 0) {return list;}
 
   const sortedRows = [...list.rows].sort((a, b) => {
     for (const sortKey of sortKeys) {
@@ -184,14 +184,14 @@ export function applyListSort(
       const valB = getFieldValue(b, sortKey.fieldPath);
 
       // Handle null/undefined
-      if (valA == null && valB == null) continue;
-      if (valA == null) return sortKey.direction === 'asc' ? -1 : 1;
-      if (valB == null) return sortKey.direction === 'asc' ? 1 : -1;
+      if (valA == null && valB == null) {continue;}
+      if (valA == null) {return sortKey.direction === 'asc' ? -1 : 1;}
+      if (valB == null) {return sortKey.direction === 'asc' ? 1 : -1;}
 
       // Compare values
       let cmp = 0;
-      if (valA < valB) cmp = -1;
-      else if (valA > valB) cmp = 1;
+      if (valA < valB) {cmp = -1;}
+      else if (valA > valB) {cmp = 1;}
 
       if (cmp !== 0) {
         return sortKey.direction === 'asc' ? cmp : -cmp;
@@ -291,7 +291,7 @@ export function applyListDedupe(
 
     const key = JSON.stringify(value); // Handle objects
 
-    if (seen.has(key)) return false;
+    if (seen.has(key)) {return false;}
     seen.add(key);
     return true;
   });

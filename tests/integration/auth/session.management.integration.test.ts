@@ -5,13 +5,17 @@
  * Covers multi-device login scenarios and session security features.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
-import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
-import { db } from "../../../server/db";
-import { refreshTokens, trustedDevices, emailVerificationTokens, users } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
+import { refreshTokens, trustedDevices, emailVerificationTokens, users } from "@shared/schema";
+
+import { db } from "../../../server/db";
+import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
+
+
 
 describe.sequential("Session Management Integration Tests", () => {
     let ctx: IntegrationTestContext;
@@ -39,7 +43,7 @@ describe.sequential("Session Management Integration Tests", () => {
     beforeEach(async () => {
         testUser = {
             email: `session-test-${nanoid()}@example.com`,
-            password: "TestPassword123!",
+            password: "StrongTestUser123!@#",
             firstName: "Session",
             lastName: "Tester",
         };

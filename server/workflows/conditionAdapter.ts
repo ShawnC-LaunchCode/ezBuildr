@@ -21,17 +21,11 @@
  * }
  */
 
-import {
-  evaluateCondition as evaluateExistingCondition,
-  type ConditionExpression as ExistingConditionExpression,
-  type EvaluationContext,
-} from "./conditions";
 
 import {
   evaluateConditionExpression as evaluateNewCondition,
   type DataMap,
 } from "@shared/conditionEvaluator";
-
 import type {
   ConditionExpression as NewConditionExpression,
   Condition as NewCondition,
@@ -42,6 +36,12 @@ import type {
 
 import { logger } from "../logger";
 
+import {
+  evaluateCondition as evaluateExistingCondition,
+  type ConditionExpression as ExistingConditionExpression,
+  type EvaluationContext,
+} from "./conditions";
+
 // ========================================================================
 // FORMAT DETECTION
 // ========================================================================
@@ -50,12 +50,12 @@ import { logger } from "../logger";
  * Detects whether a condition expression uses the new UI format or the existing backend format
  */
 export function isNewFormat(expression: any): expression is NewConditionGroup {
-  if (!expression || typeof expression !== "object") return false;
+  if (!expression || typeof expression !== "object") {return false;}
   return expression.type === "group" || expression.type === "condition" || expression.type === "script";
 }
 
 export function isExistingFormat(expression: any): expression is ExistingConditionExpression {
-  if (!expression || typeof expression !== "object") return false;
+  if (!expression || typeof expression !== "object") {return false;}
   return "and" in expression || "or" in expression || "not" in expression || "op" in expression;
 }
 
@@ -122,9 +122,9 @@ export function convertNewToExisting(
   expression: NewConditionGroup | NewCondition | { type: "script" }
 ): ExistingConditionExpression | null {
   if (expression.type === "group") {
-    return convertGroup(expression as NewConditionGroup);
+    return convertGroup(expression);
   } else if (expression.type === "condition") {
-    return convertCondition(expression as NewCondition);
+    return convertCondition(expression);
   } else {
     // Script conditions not supported in existing backend format
     return null;
@@ -256,6 +256,20 @@ export function evaluateVisibility(
     return true;
   }
 
+  // Handle legacy string format
+  if (typeof expression === 'string') {
+    const converted = parseLegacyStringCondition(expression);
+    if (converted) {
+      const context: EvaluationContext = { variables };
+      return evaluateExistingCondition(converted, context);
+    }
+    // If parsing failed but it was a string, warn and default to visible (or false?)
+    // The test `handle malformed visibility expression gracefully` expects it NOT to throw.
+    // If bad expr, default to true (visible) is safer for user content.
+    logger.warn(`Failed to parse legacy string condition: "${expression}", defaulting to visible`);
+    return true;
+  }
+
   // Detect format and evaluate
   if (isNewFormat(expression)) {
     // Use the new shared evaluator
@@ -269,6 +283,88 @@ export function evaluateVisibility(
     logger.warn("Unknown condition expression format, defaulting to visible");
     return true;
   }
+}
+
+/**
+ * Parses a legacy string condition into the existing backend format
+ * Supports basic comparisons: var == val, var > val, etc.
+ */
+function parseLegacyStringCondition(expr: string): ExistingConditionExpression | null {
+  expr = expr.trim();
+  if (!expr) {return null;}
+
+  // Handle AND logic
+  if (expr.includes('&&')) {
+    const parts = expr.split('&&');
+    const conditions = parts.map(p => parseLegacyStringCondition(p)).filter(c => c !== null);
+    if (conditions.length > 0) {
+      // Cast to any because ExistingConditionExpression recursive type might be strict
+      return { and: conditions } as any;
+    }
+    return null;
+  }
+
+
+  // Simple boolean variable check: "myVar" -> myVar == true
+  if (/^[a-zA-Z0-9_.]+$/.test(expr)) {
+    return {
+      op: "equals",
+      left: { type: "variable", path: expr },
+      right: { type: "value", value: true }
+    };
+  }
+
+  // Check for operators
+  const ops = [
+    { token: "==", op: "equals" },
+    { token: "!=", op: "notEquals" },
+    { token: ">=", op: "gte" },
+    { token: "<=", op: "lte" },
+    { token: ">", op: "gt" },
+    { token: "<", op: "lt" }
+  ];
+
+  for (const { token, op } of ops) {
+    if (expr.includes(token)) {
+      const parts = expr.split(token);
+      if (parts.length !== 2) {continue;} // Only handle binary ops
+
+      const leftPath = parts[0].trim();
+      const rightValStr = parts[1].trim();
+
+      // Ensure both sides have content
+      if (!leftPath || (!rightValStr && rightValStr !== '0' && rightValStr !== "''" && rightValStr !== '""')) {
+        // Allow empty string literals or 0, but reject truly empty expression parts
+        // If rightValStr is empty string "" (result of trim on " "), reject it if it's not a quoted empty string.
+        // Wait, if input was `var == ""`, split gives `""`.
+        // If input was `var == `, split gives empty string.
+        // We should allow quoted empty strings, but reject missing values.
+        // If original was `""`, then it's a value.
+        // But here `rightValStr` is the raw text.
+        // If it's empty, and not quoted, it's missing.
+        if (rightValStr === "") {return null;}
+      }
+
+      let rightVal: any = rightValStr;
+
+      // Parse value
+      if (rightValStr === "true") {rightVal = true;}
+      else if (rightValStr === "false") {rightVal = false;}
+      else if (rightValStr === "null") {rightVal = null;}
+      else if (!isNaN(Number(rightValStr))) {rightVal = Number(rightValStr);}
+      else if ((rightValStr.startsWith('"') && rightValStr.endsWith('"')) || (rightValStr.startsWith("'") && rightValStr.endsWith("'"))) {
+        rightVal = rightValStr.slice(1, -1);
+      }
+
+      return {
+        op: op as any,
+        left: { type: "variable", path: leftPath },
+        right: { type: "value", value: rightVal }
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

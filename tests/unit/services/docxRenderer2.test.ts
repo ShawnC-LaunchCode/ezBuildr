@@ -1,10 +1,12 @@
+import * as fs from 'fs/promises';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import {
   renderDocx2,
   extractPlaceholders2,
   validateTemplateData2,
 } from '../../../server/services/docxRenderer2';
-import * as fs from 'fs/promises';
 
 /**
  * Stage 21 PR 3: DOCX Renderer 2.0 Tests

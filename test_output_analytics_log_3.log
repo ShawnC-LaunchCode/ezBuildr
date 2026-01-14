@@ -1,0 +1,54 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768328849057,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768328849077,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":50,"time":1768328850563,"env":"test","error":{"length":341,"name":"error","severity":"ERROR","code":"23503","detail":"Key (run_id)=(7ca0d987-7f24-4558-b748-48d7c6669a15) is not present in table \"runs\".","schema":"public","table":"workflow_run_events","constraint":"workflow_run_events_run_id_runs_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"input":{"runId":"7ca0d987-7f24-4558-b748-48d7c6669a15","workflowId":"417b808f-57b3-4206-9369-a1069c27ecd3","versionId":"a4f402b2-7344-4f10-9257-409209c58c30","type":"run.start","timestamp":"2026-01-13T18:27:30.516Z","isPreview":false,"payload":{"accessMode":"anonymous"}},"msg":"Failed to record analytics event"}
+{"level":30,"time":1768328852215,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768328852216,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/analytics_service.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 3160[2mms[22m[39m
+[31m     [31m├ù[31m should generate events and metrics on run completion[39m[33m 1982[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/analytics_service.test.ts > Analytics Service Integration > should generate events and metrics on run completion
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ Γ¥» tests/integration/analytics_service.test.ts:57:68
+     55|             await new Promise(r => setTimeout(r, 200));
+     56|         }
+     57|         expect(eventsAfterStart.some(e => e.type === 'run.start')).toBΓÇª
+       |                                                                    ^
+     58| 
+     59|         // 3. Complete Run
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 12:27:26
+[2m   Duration [22m 5.34s[2m (transform 856ms, setup 123ms, import 1.71s, tests 3.16s, environment 0ms)[22m
+

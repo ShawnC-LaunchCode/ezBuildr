@@ -5,6 +5,7 @@
  */
 
 import { Link2, Loader2 } from 'lucide-react';
+
 import { useReferenceRow } from '@/hooks/useReferenceRow';
 import type { DatavaultColumn } from '@/lib/types/datavault';
 
@@ -37,7 +38,7 @@ export function ReferenceCell({ value, column, batchData }: ReferenceCellProps) 
 
   // Use batch data if available
   if (shouldUseBatch) {
-    const batchItem = batchData![rowId];
+    const batchItem = batchData[rowId];
 
     if (!batchItem) {
       return (

@@ -16,22 +16,10 @@
  */
 
 
-import { useRef, useState, useEffect } from "react";
+import { Loader2, MapPin } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+
 // Removed wouter hooks to safely handle URLs without re-renders
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -40,11 +28,26 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import type { Step } from "@/types";
-import type { AddressConfig, AddressValue } from "@/../../shared/types/stepConfigs";
-import { Loader2, MapPin } from "lucide-react";
-// Import store to get access to preview tokens
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePreviewStore } from "@/store/preview";
+import type { Step } from "@/types";
+
+import type { AddressConfig, AddressValue } from "@/../../shared/types/stepConfigs";
+
+// Import store to get access to preview tokens
 
 // US States
 const US_STATES = [
@@ -251,7 +254,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
       });
       const data = await res.json();
 
-      if (data && data.address_components) {
+      if (data?.address_components) {
         // Parse address components
         let streetNum = "";
         let route = "";
@@ -260,14 +263,14 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
         let zip = "";
 
         data.address_components.forEach((comp: any) => {
-          if (comp.types.includes("street_number")) streetNum = comp.long_name;
-          if (comp.types.includes("route")) route = comp.long_name;
-          if (comp.types.includes("locality")) city = comp.long_name;
+          if (comp.types.includes("street_number")) {streetNum = comp.long_name;}
+          if (comp.types.includes("route")) {route = comp.long_name;}
+          if (comp.types.includes("locality")) {city = comp.long_name;}
           // If locality is missing, try sublocality or neighborhood? usually locality is city.
-          if (!city && comp.types.includes("sublocality")) city = comp.long_name;
+          if (!city && comp.types.includes("sublocality")) {city = comp.long_name;}
 
-          if (comp.types.includes("administrative_area_level_1")) state = comp.short_name;
-          if (comp.types.includes("postal_code")) zip = comp.long_name;
+          if (comp.types.includes("administrative_area_level_1")) {state = comp.short_name;}
+          if (comp.types.includes("postal_code")) {zip = comp.long_name;}
         });
 
         onChange({
@@ -322,7 +325,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                   data-1p-ignore // Ignore 1Password
                   data-lpignore="true" // Ignore LastPass
                   onFocus={() => {
-                    if (suggestions.length > 0) setShowSuggestions(true);
+                    if (suggestions.length > 0) {setShowSuggestions(true);}
                   }}
                 />
                 {loading && (

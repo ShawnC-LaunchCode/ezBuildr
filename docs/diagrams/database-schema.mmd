@@ -1,0 +1,659 @@
+erDiagram
+    %% Core Workflow Domain
+    projects ||--o{ workflows : contains
+    projects ||--o{ databases : contains
+    projects ||--o{ connections : has
+    projects ||--o{ api_tokens : has
+    projects {
+        uuid id PK
+        string name
+        text description
+        uuid createdBy FK
+        uuid tenantId FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    workflows ||--o{ sections : contains
+    workflows ||--o{ logicRules : has
+    workflows ||--o{ transformBlocks : has
+    workflows ||--o{ blocks : has
+    workflows ||--o{ workflowRuns : executes
+    workflows ||--o{ workflowVersions : versions
+    workflows ||--o{ workflowSnapshots : snapshots
+    workflows ||--o{ lifecycle_hooks : has
+    workflows ||--o{ document_hooks : has
+    workflows {
+        uuid id PK
+        uuid projectId FK
+        string title
+        string status
+        text description
+        string publicLink
+        jsonb config
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    sections ||--o{ steps : contains
+    sections {
+        uuid id PK
+        uuid workflowId FK
+        string title
+        integer order
+        jsonb skipLogic
+        string visibleIf
+        timestamp createdAt
+    }
+
+    steps ||--o{ stepValues : stores
+    steps {
+        uuid id PK
+        uuid sectionId FK
+        string type
+        string alias
+        boolean required
+        jsonb config
+        string visibleIf
+        jsonb defaultValue
+        integer order
+        timestamp createdAt
+    }
+
+    workflowRuns ||--o{ stepValues : captures
+    workflowRuns ||--o{ transformBlockRuns : executes
+    workflowRuns ||--o{ runGeneratedDocuments : generates
+    workflowRuns ||--o{ script_execution_log : logs
+    workflowRuns {
+        uuid id PK
+        uuid workflowId FK
+        string runToken UK
+        uuid createdBy FK
+        integer progress
+        boolean completed
+        jsonb metadata
+        timestamp createdAt
+        timestamp completedAt
+    }
+
+    stepValues {
+        uuid id PK
+        uuid runId FK
+        uuid stepId FK
+        jsonb value
+        timestamp createdAt
+    }
+
+    %% Logic & Automation Domain
+    logicRules {
+        uuid id PK
+        uuid workflowId FK
+        jsonb condition
+        jsonb action
+        integer order
+        timestamp createdAt
+    }
+
+    transformBlocks ||--o{ transformBlockRuns : executes
+    transformBlocks {
+        uuid id PK
+        uuid workflowId FK
+        text code
+        string language
+        string[] inputKeys
+        string outputKey
+        uuid virtualStepId FK
+        timestamp createdAt
+    }
+
+    transformBlockRuns {
+        uuid id PK
+        uuid runId FK
+        uuid blockId FK
+        string status
+        text errorMessage
+        jsonb output
+        timestamp createdAt
+    }
+
+    blocks {
+        uuid id PK
+        uuid workflowId FK
+        string type
+        jsonb config
+        integer order
+        timestamp createdAt
+    }
+
+    %% Custom Scripting Domain (Prompt 12)
+    lifecycle_hooks {
+        uuid id PK
+        uuid workflowId FK
+        uuid sectionId FK
+        string name
+        string phase
+        string language
+        text code
+        string mutationMode
+        integer timeout
+        timestamp createdAt
+    }
+
+    document_hooks {
+        uuid id PK
+        uuid workflowId FK
+        uuid documentId FK
+        string name
+        string phase
+        string language
+        text code
+        integer timeout
+        timestamp createdAt
+    }
+
+    script_execution_log {
+        uuid id PK
+        uuid runId FK
+        string scriptType
+        uuid scriptId FK
+        string status
+        text consoleOutput
+        integer durationMs
+        text errorMessage
+        timestamp createdAt
+    }
+
+    %% DataVault Domain
+    databases ||--o{ tables : contains
+    databases {
+        uuid id PK
+        uuid projectId FK
+        string name
+        boolean archived
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    tables ||--o{ table_rows : contains
+    tables ||--o{ table_permissions : has
+    tables ||--o{ row_notes : has
+    tables {
+        uuid id PK
+        uuid databaseId FK
+        string name
+        jsonb columns
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    table_rows {
+        uuid id PK
+        uuid tableId FK
+        jsonb data
+        uuid createdBy FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    table_permissions {
+        uuid id PK
+        uuid tableId FK
+        uuid userId FK
+        uuid teamId FK
+        boolean canView
+        boolean canCreate
+        boolean canUpdate
+        boolean canDelete
+        timestamp createdAt
+    }
+
+    row_notes {
+        uuid id PK
+        uuid tableId FK
+        uuid rowId FK
+        uuid userId FK
+        text note
+        timestamp createdAt
+    }
+
+    %% Integration Domain
+    connections ||--o{ secrets : uses
+    connections {
+        uuid id PK
+        uuid projectId FK
+        string connectionType
+        string name
+        jsonb authConfig
+        string[] secretRefs
+        jsonb oauthState
+        timestamp createdAt
+    }
+
+    secrets {
+        uuid id PK
+        uuid projectId FK
+        string key
+        string type
+        text encryptedValue
+        text iv
+        text authTag
+        timestamp createdAt
+    }
+
+    %% E-Signature Domain
+    signature_requests ||--o{ signature_events : tracks
+    signature_requests {
+        uuid id PK
+        uuid runId FK
+        string token UK
+        string status
+        string documentUrl
+        jsonb metadata
+        timestamp createdAt
+    }
+
+    signature_events {
+        uuid id PK
+        uuid signatureRequestId FK
+        string eventType
+        jsonb metadata
+        timestamp timestamp
+    }
+
+    %% Review Domain
+    review_tasks {
+        uuid id PK
+        uuid runId FK
+        string status
+        uuid assignedTo FK
+        string decision
+        text comments
+        timestamp createdAt
+        timestamp completedAt
+    }
+
+    %% Document Generation Domain
+    runGeneratedDocuments {
+        uuid id PK
+        uuid runId FK
+        string documentUrl
+        string fileType
+        jsonb metadata
+        timestamp createdAt
+    }
+
+    finalBlock {
+        uuid id PK
+        uuid workflowId FK
+        uuid templateId FK
+        jsonb config
+        timestamp createdAt
+    }
+
+    %% Team & Collaboration Domain
+    tenants ||--o{ organizations : contains
+    tenants ||--o{ workspaces : contains
+    tenants ||--o{ subscriptions : has
+    tenants {
+        uuid id PK
+        string name
+        string slug UK
+        timestamp createdAt
+    }
+
+    teams ||--o{ teamMembers : has
+    teams ||--o{ projectAccess : grants
+    teams ||--o{ workflowAccess : grants
+    teams {
+        uuid id PK
+        string name
+        uuid createdBy FK
+        timestamp createdAt
+    }
+
+    users ||--o{ teamMembers : member
+    users {
+        uuid id PK
+        string email UK
+        string name
+        string googleId
+        string role
+        uuid tenantId FK
+        timestamp createdAt
+    }
+
+    teamMembers {
+        uuid id PK
+        uuid teamId FK
+        uuid userId FK
+        string role
+        timestamp createdAt
+    }
+
+    projectAccess {
+        uuid id PK
+        uuid projectId FK
+        uuid teamId FK
+        uuid userId FK
+        string role
+        timestamp createdAt
+    }
+
+    workflowAccess {
+        uuid id PK
+        uuid workflowId FK
+        uuid teamId FK
+        uuid userId FK
+        string role
+        timestamp createdAt
+    }
+
+    organizations {
+        uuid id PK
+        uuid tenantId FK
+        string name
+        jsonb settings
+        timestamp createdAt
+    }
+
+    workspaces {
+        uuid id PK
+        uuid tenantId FK
+        string name
+        jsonb settings
+        timestamp createdAt
+    }
+
+    workspaceMembers {
+        uuid id PK
+        uuid workspaceId FK
+        uuid userId FK
+        string role
+        timestamp createdAt
+    }
+
+    %% Portal Domain
+    portalUsers ||--o{ portalAccessLogs : logs
+    portalUsers {
+        uuid id PK
+        string email UK
+        uuid workflowId FK
+        string magicToken UK
+        timestamp createdAt
+    }
+
+    portalAccessLogs {
+        uuid id PK
+        uuid portalUserId FK
+        timestamp timestamp
+    }
+
+    anonymousResponseTracking {
+        uuid id PK
+        uuid runId FK
+        string fingerprint
+        timestamp createdAt
+    }
+
+    %% Template Domain
+    workflowTemplates ||--o{ workflowBlueprints : defines
+    workflowTemplates ||--o{ templateShares : shared
+    workflowTemplates {
+        uuid id PK
+        string name
+        text description
+        uuid createdBy FK
+        jsonb metadata
+        timestamp createdAt
+    }
+
+    workflowBlueprints {
+        uuid id PK
+        uuid templateId FK
+        jsonb structure
+        timestamp createdAt
+    }
+
+    templateShares {
+        uuid id PK
+        uuid templateId FK
+        uuid sharedWith FK
+        jsonb permissions
+        timestamp createdAt
+    }
+
+    emailTemplateMetadata {
+        uuid id PK
+        uuid projectId FK
+        string name
+        text htmlContent
+        jsonb variables
+        timestamp createdAt
+    }
+
+    %% Analytics Domain
+    analyticsEvents {
+        uuid id PK
+        uuid workflowId FK
+        uuid runId FK
+        string eventType
+        jsonb metadata
+        timestamp timestamp
+    }
+
+    workflowRunEvents {
+        uuid id PK
+        uuid runId FK
+        string eventName
+        jsonb metadata
+        timestamp timestamp
+    }
+
+    workflowRunMetrics {
+        uuid id PK
+        uuid runId FK
+        integer completionTime
+        uuid dropoffStep FK
+        jsonb metrics
+        timestamp createdAt
+    }
+
+    blockMetrics {
+        uuid id PK
+        uuid blockId FK
+        integer executionTime
+        float errorRate
+        jsonb metrics
+        timestamp createdAt
+    }
+
+    workflowAnalyticsSnapshots {
+        uuid id PK
+        uuid workflowId FK
+        date snapshotDate
+        jsonb metrics
+        timestamp createdAt
+    }
+
+    metricsEvents {
+        uuid id PK
+        string eventType
+        jsonb value
+        timestamp timestamp
+    }
+
+    metricsRollups {
+        uuid id PK
+        string period
+        jsonb aggregatedData
+        timestamp createdAt
+    }
+
+    %% Versioning Domain
+    workflowVersions {
+        uuid id PK
+        uuid workflowId FK
+        integer versionNumber
+        jsonb snapshot
+        timestamp publishedAt
+    }
+
+    workflowSnapshots {
+        uuid id PK
+        uuid workflowId FK
+        string name
+        jsonb data
+        timestamp createdAt
+    }
+
+    %% Billing Domain
+    subscriptions {
+        uuid id PK
+        uuid tenantId FK
+        string stripeSubscriptionId UK
+        string status
+        uuid planId FK
+        timestamp createdAt
+    }
+
+    billingPlans {
+        uuid id PK
+        string name
+        jsonb features
+        integer priceMonthly
+        timestamp createdAt
+    }
+
+    subscriptionSeats {
+        uuid id PK
+        uuid subscriptionId FK
+        uuid userId FK
+        timestamp assignedAt
+    }
+
+    customerBillingInfo {
+        uuid id PK
+        uuid tenantId FK
+        string billingEmail
+        string stripeCustomerId
+        jsonb billingAddress
+        timestamp createdAt
+    }
+
+    usageRecords {
+        uuid id PK
+        uuid tenantId FK
+        string period
+        integer runCount
+        integer workflowCount
+        jsonb details
+        timestamp createdAt
+    }
+
+    %% Audit & Logging Domain
+    auditLogs {
+        uuid id PK
+        uuid userId FK
+        string action
+        string resourceType
+        uuid resourceId
+        jsonb metadata
+        timestamp timestamp
+    }
+
+    auditEvents {
+        uuid id PK
+        uuid userId FK
+        string action
+        string resourceType
+        uuid resourceId
+        jsonb before
+        jsonb after
+        timestamp timestamp
+    }
+
+    runLogs {
+        uuid id PK
+        uuid runId FK
+        string logLevel
+        text message
+        jsonb metadata
+        timestamp timestamp
+    }
+
+    %% Utility Domain
+    files {
+        uuid id PK
+        string filename
+        string mimeType
+        uuid uploadedBy FK
+        string url
+        timestamp createdAt
+    }
+
+    api_tokens {
+        uuid id PK
+        uuid projectId FK
+        string token UK
+        timestamp expiresAt
+        timestamp createdAt
+    }
+
+    sessions {
+        string sid PK
+        jsonb sess
+        timestamp expire
+    }
+
+    userPreferences {
+        uuid id PK
+        uuid userId FK
+        jsonb preferences
+        timestamp updatedAt
+    }
+
+    userPersonalizationSettings {
+        uuid id PK
+        uuid userId FK
+        jsonb settings
+        timestamp updatedAt
+    }
+
+    workflowPersonalizationSettings {
+        uuid id PK
+        uuid workflowId FK
+        jsonb settings
+        timestamp updatedAt
+    }
+
+    systemStats {
+        uuid id PK
+        string statName
+        jsonb value
+        timestamp recordedAt
+    }
+
+    %% Collections Domain (Legacy)
+    collections ||--o{ collectionFields : defines
+    collections ||--o{ records : contains
+    collections {
+        uuid id PK
+        uuid projectId FK
+        string name
+        timestamp createdAt
+    }
+
+    collectionFields {
+        uuid id PK
+        uuid collectionId FK
+        string fieldName
+        string fieldType
+        timestamp createdAt
+    }
+
+    records {
+        uuid id PK
+        uuid collectionId FK
+        jsonb data
+        timestamp createdAt
+    }

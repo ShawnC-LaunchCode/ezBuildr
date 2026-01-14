@@ -26,6 +26,7 @@ import {
   parseISO,
   parse as parseDateFns,
 } from "date-fns";
+
 import type { HelperLibraryAPI } from "@shared/types/scripting";
 
 // ===================================================================
@@ -238,13 +239,13 @@ const stringHelpers = {
   },
 
   capitalize: (str: string): string => {
-    if (!str) return str;
+    if (!str) {return str;}
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   },
 
   truncate: (str: string, length: number): string => {
-    if (str.length <= length) return str;
-    return str.slice(0, length) + "...";
+    if (str.length <= length) {return str;}
+    return `${str.slice(0, length)  }...`;
   },
 };
 
@@ -254,7 +255,7 @@ const stringHelpers = {
 
 const numberHelpers = {
   round: (num: number, decimals: number = 0): number => {
-    if (typeof num !== 'number' || isNaN(num)) return NaN;
+    if (typeof num !== 'number' || isNaN(num)) {return NaN;}
     return Number(num.toFixed(decimals));
   },
 
@@ -319,8 +320,8 @@ const arrayHelpers = {
     return [...arr].sort((a, b) => {
       const aVal = a[key];
       const bVal = b[key];
-      if (aVal < bVal) return -1;
-      if (aVal > bVal) return 1;
+      if (aVal < bVal) {return -1;}
+      if (aVal > bVal) {return 1;}
       return 0;
     });
   },
@@ -388,7 +389,7 @@ const mathHelpers = {
   },
 
   avg: (arr: number[]): number => {
-    if (arr.length === 0) return 0;
+    if (arr.length === 0) {return 0;}
     return arr.reduce((a, b) => a + b, 0) / arr.length;
   },
 

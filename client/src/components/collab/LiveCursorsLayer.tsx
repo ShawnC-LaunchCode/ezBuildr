@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
 import { MousePointer2 } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+
 import type { CollabUser } from '@/hooks/collab/useCollabClient';
 
 interface LiveCursorsLayerProps {
@@ -43,7 +44,7 @@ function RemoteCursor({ user, viewport }: RemoteCursorProps) {
   const lastPositionRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    if (!user.cursor || !cursorRef.current) return;
+    if (!user.cursor || !cursorRef.current) {return;}
 
     const { x, y } = user.cursor;
 
@@ -65,7 +66,7 @@ function RemoteCursor({ user, viewport }: RemoteCursorProps) {
     lastPositionRef.current = { x, y };
   }, [user.cursor, viewport]);
 
-  if (!user.cursor) return null;
+  if (!user.cursor) {return null;}
 
   return (
     <div

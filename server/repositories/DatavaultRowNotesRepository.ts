@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc } from "drizzle-orm";
+
 import {
   datavaultRowNotes,
   type DatavaultRowNote,
   type InsertDatavaultRowNote,
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault row notes data access
@@ -29,7 +32,7 @@ export class DatavaultRowNotesRepository extends BaseRepository<
   ): Promise<DatavaultRowNote[]> {
     const database = this.getDb(tx);
 
-    return await database
+    return database
       .select()
       .from(datavaultRowNotes)
       .where(eq(datavaultRowNotes.rowId, rowId))
@@ -46,7 +49,7 @@ export class DatavaultRowNotesRepository extends BaseRepository<
   ): Promise<DatavaultRowNote[]> {
     const database = this.getDb(tx);
 
-    return await database
+    return database
       .select()
       .from(datavaultRowNotes)
       .where(
@@ -65,7 +68,7 @@ export class DatavaultRowNotesRepository extends BaseRepository<
     data: InsertDatavaultRowNote,
     tx?: DbTransaction
   ): Promise<DatavaultRowNote> {
-    return await this.create(data, tx);
+    return this.create(data, tx);
   }
 
   /**

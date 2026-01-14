@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { analyticsAPI, ApiDropoffStep } from '../../lib/vault-api';
 import { Users, UserMinus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+
+import { analyticsAPI, ApiDropoffStep } from '../../lib/vault-api';
 
 interface Props {
     workflowId: string;
@@ -28,8 +29,8 @@ export const DropoffList: React.FC<Props> = ({ workflowId, versionId, className 
         }
     };
 
-    if (loading) return <div className="p-4 text-center text-gray-400 animate-pulse">Loading funnel...</div>;
-    if (!funnel || funnel.length === 0) return <div className="p-4 text-center text-gray-500">No dropoff data available</div>;
+    if (loading) {return <div className="p-4 text-center text-gray-400 animate-pulse">Loading funnel...</div>;}
+    if (!funnel || funnel.length === 0) {return <div className="p-4 text-center text-gray-500">No dropoff data available</div>;}
 
     const maxViews = Math.max(...funnel.map(s => s.views), 1);
 

@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +50,8 @@ export function ResizableBuilderLayout({
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const { left, right } = JSON.parse(saved);
-        if (left) setLeftWidth(left);
-        if (right) setRightWidth(right);
+        if (left) {setLeftWidth(left);}
+        if (right) {setRightWidth(right);}
         // We don't load collapsed state if it's controlled externally
         if (rightPanelOpen === undefined && JSON.parse(saved).rightCollapsed !== undefined) {
           setInternalRightCollapsed(JSON.parse(saved).rightCollapsed);
@@ -79,10 +80,10 @@ export function ResizableBuilderLayout({
 
   // Handle left resize
   useEffect(() => {
-    if (!isDraggingLeft) return;
+    if (!isDraggingLeft) {return;}
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
+      if (!containerRef.current) {return;}
 
       const containerRect = containerRef.current.getBoundingClientRect();
       const newWidth = e.clientX - containerRect.left;
@@ -107,10 +108,10 @@ export function ResizableBuilderLayout({
 
   // Handle right resize
   useEffect(() => {
-    if (!isDraggingRight) return;
+    if (!isDraggingRight) {return;}
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
+      if (!containerRef.current) {return;}
 
       const containerRect = containerRef.current.getBoundingClientRect();
       const newWidth = containerRect.right - e.clientX;

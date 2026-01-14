@@ -4,8 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { blockRunner } from '../server/services/BlockRunner';
+
 import type { BlockContext, ListVariable, ListToolsConfig } from '@shared/types/blocks';
+
+import { blockRunner } from '../server/services/BlockRunner';
 
 // Mock the stepValueRepository to avoid actual database calls
 vi.mock('../server/repositories/stepValues', () => ({

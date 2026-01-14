@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { workflowTemplates, type WorkflowTemplate, type InsertWorkflowTemplate } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+
+import { workflowTemplates, type WorkflowTemplate, type InsertWorkflowTemplate } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Stage 21: Workflow Template Repository
@@ -25,7 +28,7 @@ export class WorkflowTemplateRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<WorkflowTemplate[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowTemplates)
       .where(eq(workflowTemplates.workflowVersionId, workflowVersionId))
@@ -149,22 +152,19 @@ export class WorkflowTemplateRepository extends BaseRepository<
   ): Promise<boolean> {
     const database = this.getDb(tx);
 
-    const conditions = excludeId
-      ? and(
-        eq(workflowTemplates.workflowVersionId, workflowVersionId),
-        eq(workflowTemplates.key, key),
-        // @ts-ignore - SQL comparison
-        sql`${workflowTemplates.id} != ${excludeId}`
-      )
-      : and(
-        eq(workflowTemplates.workflowVersionId, workflowVersionId),
-        eq(workflowTemplates.key, key)
-      );
+    const baseConditions = [
+      eq(workflowTemplates.workflowVersionId, workflowVersionId),
+      eq(workflowTemplates.key, key)
+    ];
+
+    if (excludeId) {
+      baseConditions.push(sql`${workflowTemplates.id} != ${excludeId}`);
+    }
 
     const [result] = await database
       .select({ id: workflowTemplates.id })
       .from(workflowTemplates)
-      .where(conditions)
+      .where(and(...baseConditions))
       .limit(1);
 
     return !!result;

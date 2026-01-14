@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { MessageSquare, Send, Trash2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
+import { MessageSquare, Send, Trash2, X } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import type { Comment } from '@/hooks/collab/useComments';
 
 interface CommentsPanelProps {
@@ -34,7 +35,7 @@ export function CommentsPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {return;}
 
     setIsSubmitting(true);
     try {

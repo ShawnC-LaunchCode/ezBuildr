@@ -1,9 +1,10 @@
 
 import { Router } from "express";
+
+import { requireWorkspace } from "../lib/authz/enforce";
+import { StripeProvider } from "../lib/billing/providers/StripeProvider";
 import { SubscriptionService } from "../lib/billing/SubscriptionService";
 import { UsageAggregator } from "../lib/metering/usageAggregator";
-import { StripeProvider } from "../lib/billing/providers/StripeProvider";
-import { requireWorkspace } from "../lib/authz/enforce";
 
 const router = Router();
 const provider = new StripeProvider();

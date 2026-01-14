@@ -1,0 +1,270 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768320723654,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768320723677,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768320724853,"env":"test","workflowId":"672b16da-9523-4384-a11a-f8f8b79a2b3f","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4128[39m
+
+{"level":30,"time":1768320725296,"env":"test","workflowId":"672b16da-9523-4384-a11a-f8f8b79a2b3f","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320725537,"env":"test","module":"version-service","workflowId":"672b16da-9523-4384-a11a-f8f8b79a2b3f","versionId":"15ac40d6-1cc7-4f0e-bd18-17d0ce023b0b","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320725537,"env":"test","module":"ai-workflow-edit-routes","workflowId":"672b16da-9523-4384-a11a-f8f8b79a2b3f","versionId":"15ac40d6-1cc7-4f0e-bd18-17d0ce023b0b","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768320725828,"env":"test","workflowId":"8c668976-9722-4344-85f5-7fa8045120bc","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4099[39m
+
+{"level":30,"time":1768320726265,"env":"test","workflowId":"8c668976-9722-4344-85f5-7fa8045120bc","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320726460,"env":"test","module":"version-service","workflowId":"8c668976-9722-4344-85f5-7fa8045120bc","versionId":"ace26284-2886-4341-b5eb-6716556a98cd","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320726460,"env":"test","module":"ai-workflow-edit-routes","workflowId":"8c668976-9722-4344-85f5-7fa8045120bc","versionId":"ace26284-2886-4341-b5eb-6716556a98cd","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768320726664,"env":"test","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4094[39m
+
+{"level":30,"time":1768320727098,"env":"test","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320727293,"env":"test","module":"version-service","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","versionId":"57c712d3-7521-4912-b88a-ca387178ab5a","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320727294,"env":"test","module":"ai-workflow-edit-routes","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","versionId":"57c712d3-7521-4912-b88a-ca387178ab5a","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768320727440,"env":"test","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4189[39m
+
+{"level":30,"time":1768320727688,"env":"test","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320727789,"env":"test","module":"ai-workflow-edit-routes","workflowId":"65ce6874-0954-4332-8463-6ab8df54b2a4","msg":"AI made no changes (checksum match)"}
+{"level":30,"time":1768320727955,"env":"test","workflowId":"a4839ae5-f790-4ff4-9d21-f9e953119b72","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unauthorized access
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4084[39m
+
+{"level":30,"time":1768320728401,"env":"test","workflowId":"a4839ae5-f790-4ff4-9d21-f9e953119b72","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320728590,"env":"test","module":"version-service","workflowId":"a4839ae5-f790-4ff4-9d21-f9e953119b72","versionId":"48097219-4e3a-49e0-89e5-0fc7d678aee0","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320728591,"env":"test","module":"ai-workflow-edit-routes","workflowId":"a4839ae5-f790-4ff4-9d21-f9e953119b72","versionId":"48097219-4e3a-49e0-89e5-0fc7d678aee0","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768320728739,"env":"test","workflowId":"afdee640-3d0f-4bb9-b6c1-05c0e5351c2a","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4090[39m
+
+{"level":50,"time":1768320728840,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for datavault.dropTable: Invalid operation schema: Invalid discriminator value. Expected 'workflow.setMetadata' | 'section.create' | 'section.update' | 'section.delete' | 'section.reorder' | 'step.create' | 'step.update' | 'step.delete' | 'step.move' | 'step.setVisibleIf' | 'step.setRequired' | 'logicRule.create' | 'logicRule.update' | 'logicRule.delete' | 'document.add' | 'document.update' | 'document.setConditional' | 'document.bindFields' | 'datavault.createTable' | 'datavault.addColumns' | 'datavault.createWritebackMapping'"],"workflowId":"afdee640-3d0f-4bb9-b6c1-05c0e5351c2a","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768320728992,"env":"test","workflowId":"482ad3ca-ec2f-4073-a287-9ca537ed516d","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4168[39m
+
+{"level":30,"time":1768320729666,"env":"test","workflowId":"482ad3ca-ec2f-4073-a287-9ca537ed516d","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":2,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320729866,"env":"test","module":"version-service","workflowId":"482ad3ca-ec2f-4073-a287-9ca537ed516d","versionId":"f9c66547-a509-466e-875d-d397bbf79b29","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320729867,"env":"test","module":"ai-workflow-edit-routes","workflowId":"482ad3ca-ec2f-4073-a287-9ca537ed516d","versionId":"f9c66547-a509-466e-875d-d397bbf79b29","opsCount":4,"msg":"AI edit completed"}
+{"level":30,"time":1768320730117,"env":"test","workflowId":"b142bf17-8a62-42f1-97b9-c598b6a1dae0","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4093[39m
+
+{"level":30,"time":1768320730557,"env":"test","workflowId":"b142bf17-8a62-42f1-97b9-c598b6a1dae0","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":30,"time":1768320730762,"env":"test","module":"version-service","workflowId":"b142bf17-8a62-42f1-97b9-c598b6a1dae0","versionId":"44106cba-1965-4a5a-86d6-306fc6412d07","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768320730762,"env":"test","module":"ai-workflow-edit-routes","workflowId":"b142bf17-8a62-42f1-97b9-c598b6a1dae0","versionId":"44106cba-1965-4a5a-86d6-306fc6412d07","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768320731103,"env":"test","workflowId":"18e4afcc-3b9e-418b-9c4e-5c1e5d3a103c","userId":"c4f84d43-4b96-458d-bce1-f8fab0296ee7","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4182[39m
+
+{"level":50,"time":1768320731243,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for step.create: Step alias 'email' already exists"],"workflowId":"18e4afcc-3b9e-418b-9c4e-5c1e5d3a103c","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768320731497,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768320731497,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[33m 8430[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should create draft version on successful AI edit [33m 1259[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 922[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should not create version when no changes detected (checksum match) [33m 1281[2mms[22m[39m
+[31m     [31m├ù[31m should reject unauthorized access[39m[33m 802[2mms[22m[39m
+[31m     [31m├ù[31m should reject unsafe DataVault operations[39m[32m 250[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[33m 1121[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should create BEFORE and AFTER snapshots [33m 846[2mms[22m[39m
+[31m     [31m├ù[31m should rollback on validation failure[39m[33m 435[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test
+error: update or delete on table "users" violates foreign key constraint "audit_events_actor_id_users_id_fk" on table "audit_events"
+ Γ¥» node_modules/pg-pool/index.js:45:11
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:142:5
+    140|     await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+    141|     await db.delete(projects).where(eq(projects.id, testProjectId));
+    142|     await db.delete(users).where(eq(users.id, testUserId));
+       |     ^
+    143|   });
+    144| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/6]ΓÄ»
+
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 5 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+AssertionError: expected 'active' to be 'draft' // Object.is equality
+
+Expected: "draft"
+Received: "active"
+
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:204:34
+    202|       .where(eq(workflows.id, testWorkflowId))
+    203|       .limit(1);
+    204|     expect(workflowAfter.status).toBe('draft');
+       |                                  ^
+    205|   });
+    206| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/6]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unauthorized access
+Error: expected 401 "Unauthorized", got 200 "OK"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:264:8
+    262|         userMessage: 'Add field',
+    263|       })
+    264|       .expect(401);
+       |        ^
+    265|   });
+    266| 
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/6]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+AssertionError: expected 'Failed to apply operations' to contain 'Unsafe DataVault operation'
+
+Expected: "Unsafe DataVault operation"
+Received: "Failed to apply operations"
+
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:301:33
+    299| 
+    300|     expect(response.body.success).toBe(false);
+    301|     expect(response.body.error).toContain('Unsafe DataVault operation'ΓÇª
+       |                                 ^
+    302|   });
+    303| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/6]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+AssertionError: expected undefined to be 'equals' // Object.is equality
+
+- Expected: 
+"equals"
+
++ Received: 
+undefined
+
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:390:54
+    388|     // Verify visibility rule was applied
+    389|     expect(createdSections[0].visibleIf).toBeDefined();
+    390|     expect((createdSections[0].visibleIf as any).op).toBe('equals');
+       |                                                      ^
+    391|   });
+    392| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/6]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+AssertionError: expected 'Failed to apply operations' to contain 'Step alias \'email\' already exists'
+
+Expected: "Step alias 'email' already exists"
+Received: "Failed to apply operations"
+
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:471:33
+    469| 
+    470|     expect(response.body.success).toBe(false);
+    471|     expect(response.body.error).toContain("Step alias 'email' already ΓÇª
+       |                                 ^
+    472| 
+    473|     // Verify no version was created
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/6]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 10:12:01
+[2m   Duration [22m 10.30s[2m (transform 665ms, setup 153ms, import 1.33s, tests 8.43s, environment 0ms)[22m
+

@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Bug, GitGraph, CheckCircle, AlertTriangle, AlertOctagon } from "lucide-react";
-import { useConnectLogic, useDebugLogic, useVisualizeLogic, useUpdateWorkflow } from "@/lib/vault-hooks";
+import React, { useState } from 'react';
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useConnectLogic, useDebugLogic, useVisualizeLogic, useUpdateWorkflow } from "@/lib/vault-hooks";
 
 interface LogicInspectorPanelProps {
     workflowId: string;
@@ -28,7 +29,7 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
     const { toast } = useToast();
 
     const handleGenerate = async () => {
-        if (!description.trim()) return;
+        if (!description.trim()) {return;}
         try {
             const result = await connectMutation.mutateAsync({
                 workflowId,
@@ -57,7 +58,7 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen) {return null;}
 
     return (
         <div className="fixed inset-y-0 right-0 w-[400px] bg-background border-l shadow-xl z-50 flex flex-col transition-transform duration-300">

@@ -1,18 +1,19 @@
+import { Code, Play, CheckCircle2, ChevronLeft, ChevronRight, X, Settings } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
+
+import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
+import { VariablePalette } from "@/components/builder/pages/VariablePalette";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Code, Play, CheckCircle2, ChevronLeft, ChevronRight, X, Settings } from "lucide-react";
-import { VariablePalette } from "@/components/builder/pages/VariablePalette";
-import { useWorkflowVariables, useWorkflowMode } from "@/lib/vault-hooks";
-import { cn } from "@/lib/utils";
 import { DevPanelBus } from "@/lib/devpanelBus";
-import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
+import { cn } from "@/lib/utils";
+import { useWorkflowVariables, useWorkflowMode } from "@/lib/vault-hooks";
 
 interface JSBlockEditorProps {
   block: any;
@@ -81,7 +82,7 @@ export const JSBlockEditor: React.FC<JSBlockEditorProps> = ({ block, onChange, w
 
   const handleInsertVariable = (key: string) => {
     const textarea = textareaRef.current;
-    if (!textarea) return;
+    if (!textarea) {return;}
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;

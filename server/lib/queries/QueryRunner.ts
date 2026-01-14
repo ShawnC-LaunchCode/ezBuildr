@@ -1,8 +1,10 @@
-import { db } from '../../db';
-import { datavaultRows, datavaultValues } from '@shared/schema';
 import { and, eq, exists, sql, desc, asc, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
+import { datavaultRows, datavaultValues } from '@shared/schema';
 import type { WorkflowQuery, QueryFilter, QuerySort, ListVariable } from '@shared/types/query';
+
+import { db } from '../../db';
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
 
 export class QueryRunner {
@@ -24,14 +26,14 @@ export class QueryRunner {
         tenantId: string
     ): Promise<ListVariable> {
         // 1. Basic Validation
-        if (!query.tableId) throw new Error('Query missing tableId');
+        if (!query.tableId) {throw new Error('Query missing tableId');}
 
         // 2. Resolve Filter Values
         const resolvedFilters = this.resolveFilters(query.filters, contextVariables);
 
         // 3. Build Query
         // We select rows from datavaultRows where...
-        let sqlQuery = this.db.select({ id: datavaultRows.id })
+        const sqlQuery = this.db.select({ id: datavaultRows.id })
             .from(datavaultRows)
             .where(and(
                 eq(datavaultRows.tableId, query.tableId),
@@ -162,7 +164,7 @@ export class QueryRunner {
 
             rows = rowIds.map((id: string) => {
                 const entry = batchMap.get(id);
-                if (!entry) return null;
+                if (!entry) {return null;}
                 // Merge row metadata + values
                 return {
                     _id: entry.row.id,
@@ -175,7 +177,7 @@ export class QueryRunner {
             // Extract all unique column IDs encountered
             const colSet = new Set<string>();
             rows.forEach((r: Record<string, any>) => Object.keys(r).forEach(k => {
-                if (!k.startsWith('_')) colSet.add(k);
+                if (!k.startsWith('_')) {colSet.add(k);}
             }));
             columnIds = Array.from(colSet);
         }

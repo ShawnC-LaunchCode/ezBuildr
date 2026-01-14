@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
-import PizZip from 'pizzip';
+
 import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import {
   renderDocx,
   extractPlaceholdersFromDocx,

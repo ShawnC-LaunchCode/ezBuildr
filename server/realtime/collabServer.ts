@@ -1,17 +1,27 @@
-import * as Y from 'yjs';
-import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage, Server as HTTPServer } from 'http';
-import { Awareness } from 'y-protocols/awareness';
-import * as syncProtocol from 'y-protocols/sync';
-import * as awarenessProtocol from 'y-protocols/awareness';
+
 import { encoding, decoding } from 'lib0';
+import { WebSocket, WebSocketServer } from 'ws';
+import { Awareness } from 'y-protocols/awareness';
+import * as awarenessProtocol from 'y-protocols/awareness';
+import * as syncProtocol from 'y-protocols/sync';
+import * as Y from 'yjs';
+
 import { createLogger } from '../logger';
+
 import {
   authenticateConnection,
   canMutate,
   handleAuthError,
   type AuthenticatedUser,
 } from './auth';
+import {
+  createAwareness,
+  setUserPresence,
+  removeUserPresence,
+  cleanupInactiveUsers,
+  getActiveUserCount,
+} from './awareness';
 import {
   getOrCreateCollabDoc,
   loadDocument,
@@ -21,13 +31,6 @@ import {
   initRedis,
   cleanup as cleanupPersistence,
 } from './persistence';
-import {
-  createAwareness,
-  setUserPresence,
-  removeUserPresence,
-  cleanupInactiveUsers,
-  getActiveUserCount,
-} from './awareness';
 
 const logger = createLogger({ module: 'collab-server' });
 
@@ -91,7 +94,6 @@ export function initCollabServer(server: HTTPServer): void {
 
   wss.on('error', (err) => {
     logger.error({ err }, 'WebSocket Server Error');
-    console.error('[DEBUG] WebSocket Server Error:', err);
   });
 
   // Start cleanup interval for inactive users
@@ -468,7 +470,7 @@ async function getOrCreateRoom(roomName: string, tenantId: string): Promise<Room
  */
 function cleanupRoom(roomName: string): void {
   const room = rooms.get(roomName);
-  if (!room) return;
+  if (!room) {return;}
 
   logger.info({ roomName }, 'Cleaning up collaboration room');
 
@@ -520,7 +522,7 @@ async function getDocIdForRoom(roomName: string, tenantId: string): Promise<stri
     throw new Error('Invalid room key');
   }
 
-  return await getOrCreateCollabDoc(
+  return getOrCreateCollabDoc(
     roomInfo.workflowId,
     tenantId,
     roomInfo.versionId

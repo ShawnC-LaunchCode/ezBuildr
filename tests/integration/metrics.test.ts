@@ -1,9 +1,10 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import request from 'supertest';
 import express from 'express';
-import { registerMetricsRoutes } from '../../server/routes/metrics';
+import request from 'supertest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import { initTelemetry, shutdownTelemetry } from '../../server/observability/telemetry';
+import { registerMetricsRoutes } from '../../server/routes/metrics';
 
 describe('Metrics Integration', () => {
     let app: express.Express;
@@ -16,6 +17,8 @@ describe('Metrics Integration', () => {
 
         // Initialize telemetry
         initTelemetry();
+
+        delete process.env.METRICS_API_KEY;
 
         // Setup app
         app = express();

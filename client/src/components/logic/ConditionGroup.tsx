@@ -9,9 +9,11 @@
  */
 
 import { Plus, Trash2, FolderPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
-import { ConditionRow } from "./ConditionRow";
+import { Button } from "@/components/ui/button";
+
+
 import type {
   Condition,
   ConditionGroup as ConditionGroupType,
@@ -19,6 +21,8 @@ import type {
   VariableInfo,
 } from "@shared/types/conditions";
 import { createEmptyCondition, createEmptyGroup } from "@shared/types/conditions";
+
+import { ConditionRow } from "./ConditionRow";
 
 interface ConditionGroupProps {
   group: ConditionGroupType;

@@ -1,8 +1,10 @@
+import type { User, SurveyTemplate } from "@shared/schema";
+
 import { TemplateRepository } from "../repositories/TemplateRepository";
 import { TemplateShareRepository } from "../repositories/TemplateShareRepository";
 import { UserRepository } from "../repositories/UserRepository";
+
 import { sendTemplateInvitation } from "./sendgrid";
-import type { User, SurveyTemplate } from "@shared/schema";
 
 export interface ShareTemplateParams {
   userId?: string;
@@ -61,7 +63,7 @@ export class TemplateSharingService {
     }
 
     // Check if user has a share
-    const accessLevel = await this.shareRepo.getAccessLevel(templateId, user.id, user.email!);
+    const accessLevel = await this.shareRepo.getAccessLevel(templateId, user.id, user.email);
     return accessLevel !== null;
   }
 
@@ -86,7 +88,7 @@ export class TemplateSharingService {
     }
 
     // Check if user has "edit" share
-    const accessLevel = await this.shareRepo.getAccessLevel(templateId, user.id, user.email!);
+    const accessLevel = await this.shareRepo.getAccessLevel(templateId, user.id, user.email);
     return accessLevel === "edit";
   }
 
@@ -121,13 +123,11 @@ export class TemplateSharingService {
         throw new Error("Cannot share with the template owner");
       }
 
-      const share = await this.shareRepo.addUserShare(
+      return this.shareRepo.addUserShare(
         templateId,
         params.userId,
         params.access
       );
-
-      return share;
     }
 
     if (params.email) {
@@ -225,7 +225,7 @@ export class TemplateSharingService {
     const ownAndSystem = await this.tplRepo.findAllAccessible(user.id);
 
     // Get shared templates
-    const sharedTemplateIds = await this.shareRepo.listForUser(user.id, user.email!);
+    const sharedTemplateIds = await this.shareRepo.listForUser(user.id, user.email);
 
     // Fetch full template data for shared templates
     const sharedTemplates = await Promise.all(

@@ -15,6 +15,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 import { useBuilderStore } from '../store/useBuilderStore';
+
 import { nodeTypes } from './NodeCard';
 
 interface BuilderCanvasProps {

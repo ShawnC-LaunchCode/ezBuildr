@@ -20,7 +20,7 @@ export function useIntersectionObserver(
   const { onIntersect, enabled = true, root = null, rootMargin = "0px", threshold = 1.0 } = options;
 
   useEffect(() => {
-    if (!enabled || !targetRef.current) return;
+    if (!enabled || !targetRef.current) {return;}
 
     const observer = new IntersectionObserver(
       (entries) => {

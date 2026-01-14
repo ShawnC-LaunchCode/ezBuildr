@@ -1,0 +1,172 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant RunService
+    participant LifecycleHooks
+    participant IntakeService
+    participant BlockRunner
+    participant TransformBlocks
+    participant ScriptEngine
+    participant DocumentHooks
+    participant DocumentGen
+    participant Database
+
+    %% Create Run
+    Client->>API: POST /api/workflows/:id/runs
+    API->>RunService: createRun(workflowId, userId)
+    RunService->>Database: INSERT INTO workflowRuns
+    Database-->>RunService: runId, runToken
+    RunService-->>API: { runId, runToken }
+    API-->>Client: 201 { runId, runToken }
+
+    %% Section 1: Navigate to First Page
+    Client->>API: GET /api/runs/:id/next
+    API->>IntakeService: getNextSection(runId)
+    IntakeService->>Database: GET sections ORDER BY order
+    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, sectionId)
+
+    rect rgb(240, 230, 255)
+        Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: beforePage
+        LifecycleHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine->>ScriptEngine: sandbox execution (JS/Python)
+        ScriptEngine-->>LifecycleHooks: { success, output, consoleLog }
+        LifecycleHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    IntakeService->>BlockRunner: evaluateVisibility(steps)
+    BlockRunner->>Database: GET steps WHERE sectionId
+    BlockRunner-->>IntakeService: visibleSteps[]
+    IntakeService-->>API: { section, steps, progress }
+    API-->>Client: 200 { section, steps }
+
+    %% User Fills Out Section 1
+    Client->>Client: User inputs data
+    Client->>API: POST /api/runs/:id/values/bulk
+    API->>RunService: saveStepValues(runId, values[])
+    RunService->>Database: INSERT INTO stepValues (bulk)
+    Database-->>RunService: saved
+    RunService-->>API: 200 OK
+    API-->>Client: 200 OK
+
+    %% Submit Section 1
+    Client->>API: POST /api/runs/:id/sections/:sid/submit
+    API->>IntakeService: submitSection(runId, sectionId)
+    IntakeService->>LifecycleHooks: executeAfterPageHooks(runId, sectionId)
+
+    rect rgb(240, 230, 255)
+        Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: afterPage
+        LifecycleHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine->>ScriptEngine: sandbox + mutation mode
+        ScriptEngine-->>LifecycleHooks: { success, mutatedData }
+        LifecycleHooks->>Database: UPDATE stepValues (if mutation)
+        LifecycleHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    IntakeService->>RunService: updateProgress(runId)
+    RunService->>Database: UPDATE workflowRuns SET progress
+    IntakeService-->>API: 200 OK
+    API-->>Client: 200 OK
+
+    %% Section 2: Navigate to Second Page (with skip logic)
+    Client->>API: GET /api/runs/:id/next
+    API->>IntakeService: getNextSection(runId)
+    IntakeService->>Database: GET sections WHERE order > current
+    IntakeService->>BlockRunner: evaluateSkipLogic(sections, runData)
+    BlockRunner->>BlockRunner: evaluate conditions
+    BlockRunner-->>IntakeService: nextSection (may skip)
+    IntakeService->>LifecycleHooks: executeBeforePageHooks(runId, sectionId)
+    LifecycleHooks->>ScriptEngine: execute(hookCode, context)
+    ScriptEngine-->>LifecycleHooks: { success }
+    IntakeService-->>API: { section, steps }
+    API-->>Client: 200 { section, steps }
+
+    %% Complete Run
+    Client->>API: PUT /api/runs/:id/complete
+    API->>RunService: completeRun(runId)
+
+    %% Execute beforeFinalBlock Lifecycle Hook
+    RunService->>LifecycleHooks: executeBeforeFinalBlockHooks(runId)
+
+    rect rgb(240, 230, 255)
+        Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: beforeFinalBlock
+        LifecycleHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine-->>LifecycleHooks: { success, output }
+        LifecycleHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    %% Execute Transform Blocks
+    RunService->>TransformBlocks: executeAllBlocks(runId)
+
+    loop For Each Transform Block
+        TransformBlocks->>Database: GET transformBlocks
+        TransformBlocks->>ScriptEngine: execute(blockCode, input)
+
+        rect rgb(255, 245, 230)
+            Note over ScriptEngine: Sandboxed Execution
+            ScriptEngine->>ScriptEngine: vm2/Python subprocess
+            ScriptEngine->>ScriptEngine: inject helpers
+            ScriptEngine-->>TransformBlocks: { output }
+        end
+
+        TransformBlocks->>Database: INSERT INTO transformBlockRuns
+        TransformBlocks->>Database: INSERT INTO stepValues (virtualStep)
+    end
+
+    TransformBlocks-->>RunService: allBlocksComplete
+
+    %% Generate Documents
+    RunService->>DocumentGen: generateDocuments(runId)
+
+    %% Execute beforeGeneration Document Hook
+    DocumentGen->>DocumentHooks: executeBeforeGenerationHooks(runId, documentId)
+
+    rect rgb(240, 255, 240)
+        Note over DocumentHooks,ScriptEngine: Document Hook: beforeGeneration
+        DocumentHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine-->>DocumentHooks: { success, mutatedTemplate }
+        DocumentHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    DocumentGen->>DocumentGen: parse template
+    DocumentGen->>DocumentGen: resolve variables
+    DocumentGen->>DocumentGen: generate PDF/DOCX
+
+    %% Execute afterGeneration Document Hook
+    DocumentGen->>DocumentHooks: executeAfterGenerationHooks(runId, documentId, documentData)
+
+    rect rgb(240, 255, 240)
+        Note over DocumentHooks,ScriptEngine: Document Hook: afterGeneration
+        DocumentHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine-->>DocumentHooks: { success, mutatedDocument }
+        DocumentHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    DocumentGen->>Database: INSERT INTO runGeneratedDocuments
+    DocumentGen-->>RunService: documentsGenerated
+
+    %% Execute afterDocumentsGenerated Lifecycle Hook
+    RunService->>LifecycleHooks: executeAfterDocumentsGeneratedHooks(runId)
+
+    rect rgb(240, 230, 255)
+        Note over LifecycleHooks,ScriptEngine: Lifecycle Hook: afterDocumentsGenerated
+        LifecycleHooks->>ScriptEngine: execute(hookCode, context)
+        ScriptEngine-->>LifecycleHooks: { success, output }
+        LifecycleHooks->>Database: INSERT INTO script_execution_log
+    end
+
+    %% Mark Run Complete
+    RunService->>Database: UPDATE workflowRuns SET completed=true, completedAt=now()
+    RunService->>Database: INSERT INTO workflowRunMetrics
+    RunService->>Database: INSERT INTO analyticsEvents
+    RunService-->>API: { runId, documents[] }
+    API-->>Client: 200 { runId, documents[] }
+
+    %% Retrieve Run Details
+    Client->>API: GET /api/runs/:id
+    API->>RunService: getRun(runId)
+    RunService->>Database: SELECT * FROM workflowRuns
+    RunService->>Database: SELECT * FROM stepValues
+    RunService->>Database: SELECT * FROM runGeneratedDocuments
+    RunService->>Database: SELECT * FROM script_execution_log
+    RunService-->>API: { run, values, documents, scriptLogs }
+    API-->>Client: 200 { run, values, documents, scriptLogs }

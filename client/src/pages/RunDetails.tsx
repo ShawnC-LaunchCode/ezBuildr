@@ -4,23 +4,27 @@
  */
 
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useRoute, useLocation } from 'wouter';
-import { documentRunsAPI } from '@/lib/vault-api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-
+import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Download, PlayCircle, FileText, Share2, Copy } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+
+
 import { Label } from "@/components/ui/label";
-import { useState } from 'react';
-import { LoadingState } from '@/components/shared/LoadingState';
+
+import React, { useState } from 'react';
+import { useRoute, useLocation } from 'wouter';
+
 import { JsonViewer } from '@/components/shared/JsonViewer';
 import { TracePanel } from '@/components/runs/TracePanel';
+import { LoadingState } from '@/components/shared/LoadingState';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
+import { documentRunsAPI } from '@/lib/vault-api';
+
 
 export default function RunDetails() {
   const [_, params] = useRoute('/runs/:id');
@@ -115,9 +119,9 @@ export default function RunDetails() {
   };
 
   const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+    if (!ms) {return '-';}
+    if (ms < 1000) {return `${ms}ms`;}
+    if (ms < 60000) {return `${(ms / 1000).toFixed(2)}s`;}
     return `${(ms / 60000).toFixed(2)}m`;
   };
 

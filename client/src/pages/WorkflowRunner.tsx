@@ -6,33 +6,38 @@
  * 2. Preview mode: previewEnvironment is an in-memory PreviewEnvironment instance
  */
 
-import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Check, Loader2, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Check, Loader2, FileText , Database } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+
 // import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
 // Importing individually to avoid lint 'Module not found' if aliases differ, but they seem to use @/lib/vault-hooks
-import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
-import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
 import { BlockRenderer } from "@/components/runner/blocks";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
+import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
-import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
-import { useWorkflow } from "@/lib/vault-hooks";
 import { Badge } from "@/components/ui/badge";
-import { Database } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
+import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useWorkflow } from "@/lib/vault-hooks";
+
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+
+import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
+import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
+
+
 import type { LogicRule } from "@shared/schema";
-import { validatePage } from "@shared/validation/PageValidator";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
+import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidationSchema } from "@shared/validation/ValidationSchema";
+
 import { analytics } from "@/lib/analytics";
 import type { ApiStep } from "@/lib/vault-api";
 
@@ -282,7 +287,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       const response = await fetch(`/api/workflows/${workflowId}/logic-rules`, {
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch logic rules");
+      if (!response.ok) {throw new Error("Failed to fetch logic rules");}
       return response.json();
     },
     enabled: !!workflowId,
@@ -323,7 +328,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       }
 
       // Production mode: fetch from API
-      if (!sections) return [];
+      if (!sections) {return [];}
       const allStepPromises = sections.map(section =>
         fetch(`/api/sections/${section.id}/steps`, {
           credentials: "include",
@@ -337,20 +342,20 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
 
   // Memoize visible sections calculation with alias resolution - MUST be before early returns
   const visibleSections = useMemo(() => {
-    if (!sections) return [];
+    if (!sections) {return [];}
 
     // Create alias resolver for section visibility
     const aliasResolver = (variableName: string): string | undefined => {
-      if (!allSteps) return undefined;
+      if (!allSteps) {return undefined;}
       const step = allSteps.find((s: any) => s.alias === variableName);
       return step?.id;
     };
 
     return sections.filter(section => {
-      if (!section.visibleIf) return true;
+      if (!section.visibleIf) {return true;}
       try {
         // Use effectiveValues (preview or production values)
-        return evaluateConditionExpression(section.visibleIf as any, effectiveValues, aliasResolver);
+        return evaluateConditionExpression(section.visibleIf, effectiveValues, aliasResolver);
       } catch (error) {
         console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
         return true;
@@ -466,7 +471,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
 
   // Check if current section is a Final Documents section
-  const isFinalDocumentsSection = (currentSection?.config as any)?.finalBlock === true;
+  const isFinalDocumentsSection = (currentSection?.config)?.finalBlock === true;
 
   // Get run token from localStorage for Final Documents section
   const runToken = actualRunId ? localStorage.getItem(`run_token_${actualRunId}`) : null;
@@ -497,7 +502,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       const stepSchemas: Record<string, ValidationSchema> = {};
 
       visibleSectionSteps = currentSectionSteps.filter((step: any) => {
-        if (!step.visibleIf) return true;
+        if (!step.visibleIf) {return true;}
         try {
           const aliasResolver = (variableName: string): string | undefined => {
             const s = allSteps.find((as: any) => as.alias === variableName);
@@ -536,7 +541,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         schemas: stepSchemas,
         values: effectiveValues,
         allValues: effectiveValues,
-        pageRules: (currentSection.config as any)?.validationRules || []
+        pageRules: (currentSection.config)?.validationRules || []
       });
 
       if (!validationResult.valid) {
@@ -592,7 +597,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
             message: 'Workflow Completed',
           });
           toast({ title: "Preview Complete!", description: "Preview workflow completed successfully" });
-          if (onPreviewComplete) onPreviewComplete();
+          if (onPreviewComplete) {onPreviewComplete();}
           return;
         }
 
@@ -601,7 +606,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
 
         // CRITICAL FIX: If navigating to a Final Documents section, save all preview values to database first
         // This ensures document generation has access to the actual form values
-        if (actualRunId && nextSection && (nextSection.config as any)?.finalBlock === true) {
+        if (actualRunId && nextSection && (nextSection.config)?.finalBlock === true) {
           try {
             // Get all values from preview environment
             const allValues = previewEnvironment.getValues();
@@ -733,7 +738,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   }; // Close handleNext
 
   const handleFinalSubmit = async () => {
-    if (!actualRunId) return;
+    if (!actualRunId) {return;}
     try {
       await completeMutation.mutateAsync(actualRunId);
       toast({ title: "Success", description: "Workflow submitted successfully" });
@@ -807,9 +812,9 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         ) : isFinalDocumentsSection ? (
           actualRunId ? (
             <FinalDocumentsSection
-              runId={actualRunId!}
+              runId={actualRunId}
               runToken={runToken || undefined}
-              sectionConfig={(currentSection.config as any) || {
+              sectionConfig={(currentSection.config) || {
                 screenTitle: "Your Completed Documents",
                 markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
                 templates: []
@@ -956,7 +961,7 @@ function SectionSteps({
   const sourceSteps = providedSteps || rawSteps;
 
   const steps = useMemo(() => {
-    if (!sourceSteps) return [];
+    if (!sourceSteps) {return [];}
     return sourceSteps.map(step => ({
       ...step,
       createdAt: step.createdAt ? new Date(step.createdAt) : null,
@@ -980,7 +985,7 @@ function SectionSteps({
   // Filter steps to only show visible ones
   const visibleSteps = steps.filter((step) => {
     // Virtual steps are never shown
-    if (step.isVirtual) return false;
+    if (step.isVirtual) {return false;}
 
     // Check visibility from logic rules
     return isStepVisible(step.id);

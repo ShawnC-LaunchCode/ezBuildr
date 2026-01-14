@@ -1,7 +1,15 @@
 ﻿import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
+console.log("SETUP: Loading setup.ts...");
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import dotenv from "dotenv";
-import "@testing-library/jest-dom";
+
+// import "@testing-library/jest-dom";
+import { SchemaManager } from "./helpers/schemaManager";
+
+declare global {
+  var __BASE_DB_URL__: string;
+  var __TEST_SCHEMA__: string;
+}
 
 // Load environment variables immediately
 dotenv.config();
@@ -14,26 +22,80 @@ dotenv.config();
 // Define db and helpers at file scope but initialize them dynamically
 let db: any;
 let initializeDatabase: any;
+let closeDatabase: any;
 let dbInitPromise: any;
 
 // Correctly configure environment variables BEFORE importing DB (executed when setup files run)
 process.env.NODE_ENV = "test";
 process.env.GEMINI_API_KEY = "dummy-key-for-tests";
-process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret-key-for-testing-only";
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret-key-for-testing-only-very-long-to-be-safe";
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "test-google-client-id";
 process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-google-client-id";
-process.env.JWT_SECRET = "test-jwt-secret";
+process.env.JWT_SECRET = "test-jwt-secret-key-must-be-at-least-32-chars-long";
 
 // Enforce usage of TEST_DATABASE_URL if available
 if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
 
+// Mock browser APIs for JSDOM environment (UI tests)
+if (typeof window !== 'undefined') {
+  // Mock window.navigator
+  Object.defineProperty(window, 'navigator', {
+    value: {
+      userAgent: 'test-user-agent',
+      language: 'en-US',
+      languages: ['en-US', 'en'],
+      onLine: true,
+      platform: 'test',
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+        readText: vi.fn().mockResolvedValue(''),
+      },
+    },
+    writable: true,
+    configurable: true,
+  });
+
+  // Mock IntersectionObserver
+  global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+    root: null,
+    rootMargin: '',
+    thresholds: [],
+    takeRecords: vi.fn().mockReturnValue([]),
+  }));
+
+  // Mock ResizeObserver
+  global.ResizeObserver = class ResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  } as any;
+
+  // Mock matchMedia
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 // Helper to check if we should connect to real DB
 const shouldConnectToDb = () => {
   // Don't connect if we are explicitly in unit tests (which interpret "db" as a mock)
   // or if NO database URL was provided at all
-  if (process.env.TEST_TYPE === 'unit') return false;
+  if (process.env.TEST_TYPE === 'unit') {return false;}
 
   // If we are in unit tests generally (inferred), try to avoid heavy DB unless forced
   return !!process.env.DATABASE_URL;
@@ -41,20 +103,44 @@ const shouldConnectToDb = () => {
 
 // Global test hooks
 beforeAll(async () => {
+  // Conditionally load jest-dom for UI tests (JSDOM environment)
+  if (typeof window !== 'undefined') {
+    try {
+      await import("@testing-library/jest-dom");
+    } catch (e) {
+      console.warn("Failed to load jest-dom:", e);
+    }
+  }
+
   // Only attempt DB setup if we expect a real DB connection
   if (shouldConnectToDb()) {
     try {
+      // PARALLELISM: Create isolated schema for this worker
+      // We must do this BEFORE importing server/db so that the pool connects to the correct schema
+      if (process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true") {
+        // Save original URL for teardown
+        (global as any).__BASE_DB_URL__ = process.env.DATABASE_URL;
+        const { schemaName, connectionString, existed } = await SchemaManager.createTestSchema(process.env.DATABASE_URL!);
+        process.env.DATABASE_URL = connectionString;
+        (global as any).__TEST_SCHEMA__ = schemaName;
+        console.log(`🔒 Test Schema Isolated: ${schemaName} (Reused: ${existed})`);
+
+        // Check if we need to run migrations (only if schema is new)
+        (global as any).__SKIP_MIGRATIONS__ = existed;
+      }
+
       // Dynamically import server/db to ensure it picks up the mutated env vars
       const dbModule = await import("../server/db");
 
       // Check if the module is valid (not a partial mock missing exports)
-      if (dbModule.db && dbModule.initializeDatabase) {
+      // Use 'in' check to avoid accessing undefined properties on strict mocks
+      if ('db' in dbModule && 'initializeDatabase' in dbModule && dbModule.db && dbModule.initializeDatabase) {
         db = dbModule.db;
         initializeDatabase = dbModule.initializeDatabase;
+        closeDatabase = dbModule.closeDatabase;
         dbInitPromise = dbModule.dbInitPromise;
 
         // Setup test database
-        console.log("🧪 Setting up test environment...");
         await initializeDatabase();
         await dbInitPromise;
         console.log("✅ Database initialized for tests");
@@ -62,10 +148,19 @@ beforeAll(async () => {
         // Run database migrations for test DB
         // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
         try {
-          console.log("🔄 Running test migrations...");
-          await migrate(db, { migrationsFolder: "./migrations" });
-        } catch (error) {
-          console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
+          if ((global as any).__SKIP_MIGRATIONS__) {
+            console.log("⏩ Schema reused, skipping migrations.");
+          } else {
+            console.log("🔄 Running test migrations...");
+            await migrate(db, { migrationsFolder: "./migrations" });
+          }
+        } catch (error: any) {
+          // Ignore specific known migration errors that are non-fatal (like types already existing)
+          if (error?.message?.includes('type "auth_provider" already exists')) {
+            // Valid failure when running tests in parallel against same DB or repeated runs
+          } else {
+            console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
+          }
         }
 
         // Ensure DB functions exist (with concurrency retry)
@@ -83,7 +178,24 @@ beforeAll(async () => {
 afterAll(async () => {
   // Cleanup test database
   console.log("🧹 Cleaning up test environment...");
-  // await db.destroy();
+
+  // Close DB pool first
+  if (closeDatabase) {
+    await closeDatabase();
+  } else if (db?.closeDatabase) {
+    await db.closeDatabase();
+  }
+
+  // Drop isolated schema if it exists
+  const schemaName = (global as any).__TEST_SCHEMA__;
+  const baseDbUrl = (global as any).__BASE_DB_URL__;
+
+  // OPTIMIZATION: Do NOT drop schema here!
+  // We want to reuse the schema for the next test file running in this same worker.
+  // This enables "Worker Reuse" strategy.
+  // if (schemaName && baseDbUrl) {
+  //   await SchemaManager.dropTestSchema(baseDbUrl, schemaName);
+  // }
 });
 
 beforeEach(async () => {
@@ -104,15 +216,19 @@ afterEach(async () => {
 // Helper to ensure DB functions exist with retry logic for concurrency
 async function ensureDbFunctionsWithRetry(retries = 3) {
   // Only proceed if db is actually connected to a real DB-like object
-  if (!db || !db.execute) return;
+  if (!db?.execute) {return;}
 
   for (let i = 0; i < retries; i++) {
     try {
       await ensureDbFunctions();
       return; // Success
     } catch (err: any) {
-      // Check for "tuple concurrently updated" (Postgres error 40001 or similar)
-      if (err.message && (err.message.includes('tuple concurrently updated') || err.message.includes('deadlock detected'))) {
+      // Check for "tuple concurrently updated" (Postgres error 40001) or Unique Violation (23505)
+      // 23505 happens when two tests try to create the same function at the exact same millisecond
+      if (
+        (err.code === '23505' || err.code === '40001') ||
+        (err.message && (err.message.includes('tuple concurrently updated') || err.message.includes('deadlock detected')))
+      ) {
         console.log(`⚠️ Concurrency conflict creating DB functions (attempt ${i + 1}/${retries}). Retrying...`);
         await new Promise(r => setTimeout(r, 300 * (i + 1))); // Exponential backoff
         continue;
@@ -125,11 +241,13 @@ async function ensureDbFunctionsWithRetry(retries = 3) {
 // Helper to ensure DB functions exist
 async function ensureDbFunctions() {
   // FORCE RECREATE function to ensure correct signature (7 args)
-  // Drop first to allow parameter name changes
-  await db.execute('DROP FUNCTION IF EXISTS public.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text);');
+  // We use CREATE OR REPLACE to handle updates atomically-ish.
+  // Removed explicit DROP to reduce race condition window unless purely necessary.
+
+  // await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text);');
 
   await db.execute(`
-        CREATE OR REPLACE FUNCTION public.datavault_get_next_autonumber(
+        CREATE OR REPLACE FUNCTION datavault_get_next_autonumber(
           p_tenant_id UUID,
           p_table_id UUID,
           p_column_id UUID,
@@ -196,7 +314,7 @@ async function ensureDbFunctions() {
 
   // Cleanup function
   await db.execute(`
-        CREATE OR REPLACE FUNCTION public.datavault_cleanup_sequence(p_column_id UUID)
+        CREATE OR REPLACE FUNCTION datavault_cleanup_sequence(p_column_id UUID)
         RETURNS VOID
         LANGUAGE plpgsql
         AS $$
@@ -217,9 +335,9 @@ async function ensureDbFunctions() {
 
   // Legacy name support if needed (alias)
   // Renamed p_tenant_id to p_table_id to match usage semantics (though types are same)
-  await db.execute('DROP FUNCTION IF EXISTS public.datavault_get_next_auto_number(uuid,uuid,integer);');
+  await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_auto_number(uuid,uuid,integer);');
   await db.execute(`
-        CREATE OR REPLACE FUNCTION public.datavault_get_next_auto_number(
+        CREATE OR REPLACE FUNCTION datavault_get_next_auto_number(
           p_table_id UUID,
           p_column_id UUID,
           p_start_value INTEGER
@@ -235,6 +353,22 @@ async function ensureDbFunctions() {
       `);
 }
 
+// Mock express-session only for unit tests (integration tests need real sessions)
+const isIntegrationTest = process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true";
+vi.mock('express-session', async () => {
+  // Check if running integration tests
+  if (process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true") {
+    // Return actual express-session for integration tests
+    return vi.importActual('express-session');
+  }
+
+  // Return mock for unit tests
+  const { createMockSessionMiddleware } = require('./helpers/authMocks');
+  return {
+    default: vi.fn(() => createMockSessionMiddleware()),
+  };
+});
+
 // Mock external services
 vi.mock("../server/services/sendgrid", () => ({
   sendEmail: vi.fn().mockResolvedValue({ success: true }),
@@ -246,26 +380,61 @@ vi.mock("../server/services/sendgrid", () => ({
 // Use a Map to store users in memory for tests (cleared before each test)
 const testUsersMap = new Map();
 
-vi.mock("../server/storage", () => ({
-  storage: {
-    upsertUser: vi.fn().mockImplementation(async (user: any) => {
-      testUsersMap.set(user.id, user);
-      return user;
-    }),
-    getUser: vi.fn().mockImplementation(async (userId: string) => {
-      const user = testUsersMap.get(userId);
-      if (!user) {
-        throw new Error(`User not found: ${userId}`);
-      }
-      return user;
-    }),
-    deleteUser: vi.fn().mockImplementation(async (userId: string) => {
-      testUsersMap.delete(userId);
-    }),
-    ping: vi.fn().mockResolvedValue(true),
-  },
-}));
+vi.mock("../server/storage", async (importOriginal) => {
+  const actual = await importOriginal<any>();
 
-if (process.env.TEST_TYPE === "integration") {
-  vi.setConfig({ testTimeout: 30000 });
+  // Helper to determine mode inside the hoisted factory
+  const shouldUseRealDb = () => {
+    // Explicit integration flags
+    if (process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true") {return true;}
+    // Unit test flag
+    if (process.env.TEST_TYPE === "unit") {return false;}
+    // Fallback: If DB URL exists, assume integration unless unit explicitly requested
+    return !!(process.env.DATABASE_URL || process.env.TEST_DATABASE_URL);
+  };
+
+  return {
+    storage: {
+      ...actual.storage,
+      upsertUser: vi.fn().mockImplementation(async (user: any) => {
+        if (!shouldUseRealDb()) {
+          // console.log("[Storage Mock] creating user in Memory", user.email);
+          testUsersMap.set(user.id, user);
+          return user; // Return the user object as expected even in mock
+        }
+        // console.log("[Storage Mock] upsertUser delegating to Real DB", user.email);
+        try {
+          return await actual.storage.upsertUser(user);
+        } catch (e) {
+          console.error("[Storage Mock] upsertUser failed in Real DB", e);
+          throw e;
+        }
+      }),
+      getUser: vi.fn().mockImplementation(async (userId: string) => {
+        if (!shouldUseRealDb()) {
+          // console.log("[Storage Mock] getUser from Memory", userId, user ? "FOUND" : "NOT FOUND");
+          // Behave like Real DB: return undefined if not found (don't throw unless required by contract, currently contract says | undefined)
+          // Wait, server/storage.ts says Promise<User | undefined>. 
+          // So we should return undefined if not found.
+          // BUT previous mock threw error? "throw new Error(`User not found...`)"? 
+          // Let's stick to returning undefined to match interface.
+          return testUsersMap.get(userId);
+        }
+        // console.log("[Storage Mock] getUser delegating to Real DB", userId);
+        return actual.storage.getUser(userId);
+      }),
+      deleteUser: vi.fn().mockImplementation(async (userId: string) => {
+        if (!shouldUseRealDb()) {
+          testUsersMap.delete(userId);
+          return;
+        }
+        return actual.storage.deleteUser(userId);
+      }),
+      ping: vi.fn().mockResolvedValue(true),
+    },
+  };
+});
+
+if (isIntegrationTest) {
+  vi.setConfig({ testTimeout: 60000 });
 }

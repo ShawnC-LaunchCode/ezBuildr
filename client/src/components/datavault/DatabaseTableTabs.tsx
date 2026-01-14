@@ -3,10 +3,12 @@
  * Airtable-style horizontal scrollable tab bar for switching between tables
  */
 
-import { useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useRef, useEffect } from "react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 import type { DatavaultTable } from "@shared/schema";
 
 interface DatabaseTableTabsProps {

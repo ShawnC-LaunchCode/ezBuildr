@@ -9,14 +9,17 @@
  * @date December 2025
  */
 
-import type { Express, Request, Response } from 'express';
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { requireProjectRole } from '../middleware/aclAuth';
-import { db } from '../db';
-import { templates } from '@/../../shared/schema';
 import { eq, and } from 'drizzle-orm';
+
+import { templates } from '@/../../shared/schema';
+
+import { db } from '../db';
 import { createLogger } from '../logger';
+import { requireProjectRole } from '../middleware/aclAuth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { aclService } from '../services/AclService';
+
+import type { Express, Request, Response } from 'express';
 
 const logger = createLogger({ module: 'documents-routes' });
 

@@ -1,7 +1,9 @@
 
-import { workspaceMembers, workspaceRoleEnum, resourcePermissions } from "@shared/schema";
-import { db } from "../../db";
 import { eq, and } from "drizzle-orm";
+
+import { workspaceMembers, workspaceRoleEnum, resourcePermissions } from "@shared/schema";
+
+import { db } from "../../db";
 
 export const ACTION = {
     VIEW_WORKFLOW: 'workflow.view',
@@ -70,6 +72,6 @@ export async function checkPermission(
 
 function checkRoleHasCapability(role: string, action: string): boolean {
     const capabilities = ROLE_CAPABILITIES[role as keyof typeof ROLE_CAPABILITIES] || [];
-    if (capabilities.includes('*')) return true;
+    if (capabilities.includes('*')) {return true;}
     return capabilities.includes(action);
 }

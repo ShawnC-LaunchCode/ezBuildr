@@ -1,4 +1,5 @@
-import { db } from "../../db";
+import { eq, and, desc, sql } from "drizzle-orm";
+
 import {
     // TODO: marketplaceTemplates and marketplaceTemplateShares tables need to be added to schema
     // marketplaceTemplates,
@@ -9,9 +10,11 @@ import {
     type Workflow,
     type WorkflowVersion
 } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
-import type { TemplateManifest } from "./types";
+
+import { db } from "../../db";
 import { logger } from "../../logger";
+
+import type { TemplateManifest } from "./types";
 
 export class TemplateService {
 
@@ -52,7 +55,7 @@ export class TemplateService {
             }
         });
 
-        if (!workflow || !workflow.currentVersion) {
+        if (!workflow?.currentVersion) {
             throw new Error("Workflow not found or has no versions");
         }
 
@@ -67,7 +70,7 @@ export class TemplateService {
             category: "general",
             tags: [],
             version: "1.0.0",
-            author: workflow.creatorId,
+            author: workflow.creatorId || '',
             minCompatibleVersion: "1.0.0",
             requiredBlocks: [], // Would analyze graph to find types
             requiredFeatures: [],

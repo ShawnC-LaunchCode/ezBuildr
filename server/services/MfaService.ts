@@ -1,11 +1,16 @@
-import { db } from "../db";
-import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
-import { createLogger } from "../logger";
-import speakeasy from "speakeasy";
-import QRCode from "qrcode";
-import bcrypt from "bcrypt";
 import crypto from "crypto";
+
+import bcrypt from "bcrypt";
+import { eq, and } from "drizzle-orm";
+import QRCode from "qrcode";
+import speakeasy from "speakeasy";
+
+import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
+
+import { db } from "../db";
+import { createLogger } from "../logger";
+
+
 
 const log = createLogger({ module: 'mfa-service' });
 

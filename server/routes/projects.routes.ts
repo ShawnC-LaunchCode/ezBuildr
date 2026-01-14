@@ -1,11 +1,16 @@
-import type { Express, Request, Response } from "express";
+import { z } from "zod";
+
+import { insertProjectSchema } from "@shared/schema";
+
+import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';
 import { requireUser, type UserRequest } from '../middleware/requireUser';
 import { validateProjectId } from '../middleware/validateId';
-import { insertProjectSchema } from "@shared/schema";
 import { projectService } from "../services/ProjectService";
-import { z } from "zod";
-import { logger } from "../logger";
+
+
+
+import type { Express, Request, Response } from "express";
 
 /**
  * Register project-related routes
@@ -313,6 +318,49 @@ export function registerProjectRoutes(app: Express): void {
 
       const message = error instanceof Error ? error.message : "Failed to transfer project ownership";
       const status = message.includes("not found") ? 404 : message.includes("Only the") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  });
+
+  /**
+   * POST /api/projects/:projectId/transfer
+   * Transfer project ownership (new ownership model)
+   * Cascades to all child workflows
+   * Body: { targetOwnerType: 'user' | 'org', targetOwnerUuid: string }
+   */
+  app.post('/api/projects/:projectId/transfer', hybridAuth, requireUser, validateProjectId(), async (req: Request, res: Response) => {
+    try {
+      const user = (req as UserRequest).user;
+      const { projectId } = req.params;
+
+      const schema = z.object({
+        targetOwnerType: z.enum(['user', 'org']),
+        targetOwnerUuid: z.string().uuid(),
+      });
+
+      const { targetOwnerType, targetOwnerUuid } = schema.parse(req.body);
+      const project = await projectService.transferOwnership(
+        projectId,
+        user.id,
+        targetOwnerType,
+        targetOwnerUuid
+      );
+
+      logger.info({ projectId, targetOwnerType, targetOwnerUuid, userId: user.id }, 'Project ownership transferred');
+      res.json({ success: true, data: project });
+    } catch (error) {
+      logger.error({ error }, "Error transferring project ownership");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to transfer project ownership";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
     }
   });

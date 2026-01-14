@@ -6,10 +6,11 @@
  * displayed within a page.
  */
 
+import { createLogger } from "../logger";
 import * as repositories from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
+
 import type { Step } from "../../shared/schema";
-import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "intake-question-visibility" });
 
@@ -192,7 +193,7 @@ export class IntakeQuestionVisibilityService {
 
     for (const questionId of visibility.allQuestions) {
       const question = questionMap.get(questionId);
-      if (!question) continue;
+      if (!question) {continue;}
 
       // Hidden questions are always skipped
       if (visibility.hiddenQuestions.includes(questionId)) {

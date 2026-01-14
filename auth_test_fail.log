@@ -1,0 +1,288 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> vitest run --coverage tests/unit/services/AuthService.test.ts
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+
+stderr | tests/unit/services/AuthService.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: [vitest] No "dbInitPromise" export is defined on the "../../../server/db" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+    at VitestMocker.createError (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:311:17)
+    at Object.get (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:384:16)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:107:34
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  codeFrame: 'vi.mock(import("../../../server/db"), async (importOriginal) => {\n' +
+    '  const actual = await importOriginal()\n' +
+    '  return {\n' +
+    '    ...actual,\n' +
+    '    // your mocked methods\n' +
+    '  }\n' +
+    '})'
+}
+
+{"level":30,"time":1767814282093,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814282096,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":40,"time":1767814282117,"env":"test","module":"auth-service","tokenHash":"9206c2394794b8fc97fcd896f95e40028ab7a15c10279446c23fbdd4b4ae7a1e","msg":"Security: Unknown refresh token used"}
+{"level":40,"time":1767814282118,"env":"test","module":"auth-service","userId":"user-123","tokenHash":"0f45e858fbc4176cdf4e411f88281edefc390ae5afe7df0f44cd9297f0a64580","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1767814282119,"env":"test","module":"auth-service","userId":"user-123","msg":"Security: Expired refresh token used"}
+{"level":30,"time":1767814282122,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814282123,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814282123,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814282124,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814283799,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814284213,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/unit/services/AuthService.test.ts [2m([22m[2m113 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[33m 7156[2mms[22m[39m
+         [32mΓ£ô[39m should hash a password using bcrypt with 12 rounds[32m 213[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should generate different hashes for same password [33m 417[2mms[22m[39m
+         [32mΓ£ô[39m should handle empty passwords[32m 211[2mms[22m[39m
+         [32mΓ£ô[39m should handle long passwords[32m 208[2mms[22m[39m
+         [32mΓ£ô[39m should handle unicode characters in password[32m 205[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return true for correct password [33m 407[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return false for incorrect password [33m 425[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should be case-sensitive [33m 418[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle empty password comparison [33m 416[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid email addresses[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails longer than 254 characters (RFC 5321)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails shorter than 3 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with consecutive dots[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without @ symbol[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without domain[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with spaces[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without TLD[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject null or undefined[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with local part longer than 64 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid strong passwords[32m 16[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords shorter than 8 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords longer than 128 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject weak passwords with zxcvbn score < 3[32m 4[2mms[22m[39m
+         [32mΓ£ô[39m should provide helpful feedback for weak passwords[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's email[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's name[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should accept strong password even with user inputs provided[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 8 characters if strong enough[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 128 characters if strong[32m 83[2mms[22m[39m
+         [32mΓ£ô[39m should return score in result object[32m 4[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid JWT token for a user[32m 4[2mms[22m[39m
+[31m         [31m├ù[31m should include userId, email, tenantId, and role in token payload[39m[32m 8[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 15 minutes by default[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT_SECRET is not configured[32m 1[2mms[22m[39m
+[31m         [31m├ù[31m should handle null tenantId and role[39m[32m 2[2mms[22m[39m
+[31m         [31m├ù[31m should verify and decode a valid token[39m[32m 3[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should throw error for expired token [33m 1102[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token signature[39m[32m 3[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for malformed token[39m[32m 2[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token[39m[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should extract token from Bearer authorization header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return token if no Bearer prefix[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should return null for undefined header[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should return null for empty header[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should handle Bearer with multiple spaces[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return true for JWT-like tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for non-JWT tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for empty token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for null/undefined[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid portal token for an email[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should include email and portal flag in token payload[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 24 hours[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify and decode a valid portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for non-portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for token without email[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for expired portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate password reset token for existing user[32m 209[2mms[22m[39m
+         [32mΓ£ô[39m should return null for non-existent user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should invalidate previous reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for used token[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should mark token as used[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate verification token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should have 24 hour expiry[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify email with valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should delete token after successful verification[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should create refresh token with 30-day expiry[32m 8[2mms[22m[39m
+         [32mΓ£ô[39m should store device metadata[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for revoked token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should rotate valid token and return new one[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for unknown token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens on reuse detection[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke specific token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens for user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired refresh tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired password reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired email verification tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup old login attempts via accountLockoutService[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should use JWT_SECRET if provided[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should warn if JWT_SECRET is less than 32 characters[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject token with modified payload[32m 1[2mms[22m[39m
+[31m         [31m├ù[31m should reject token with valid structure but invalid signature[39m[32m 2[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with special characters [33m 414[2mms[22m[39m
+         [32mΓ£ô[39m should handle password with only spaces[32m 207[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with newlines and tabs [33m 421[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should reject password with null bytes (if validation exists) [33m 414[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with unicode domain (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email starting with dot (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email ending with dot before @ (security fix)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with plus addressing[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with subdomain[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with invalid TLD (single char)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should accept email with numeric TLD[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should prevent timing attacks on token validation[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should support full user authentication lifecycle[32m 209[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should support complete password reset workflow [33m 414[2mms[22m[39m
+         [32mΓ£ô[39m should prevent reuse of password reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should support multiple valid refresh tokens per user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all user tokens on security event[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle database connection failures gracefully[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should handle transaction failures[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT signing fails[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should hash password in reasonable time (< 500ms)[32m 209[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should compare password in reasonable time (< 500ms) [33m 420[2mms[22m[39m
+         [32mΓ£ô[39m should create JWT token in < 10ms[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify JWT token in < 10ms[32m 1[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 7 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > createToken() > should include userId, email, tenantId, and role in token payload
+AssertionError: expected undefined to be 'builder' // Object.is equality
+
+- Expected: 
+"builder"
+
++ Received: 
+undefined
+
+ Γ¥» tests/unit/services/AuthService.test.ts:350:30
+    348|         expect(decoded.email).toBe("owner@example.com");
+    349|         expect(decoded.tenantId).toBe("tenant-789");
+    350|         expect(decoded.role).toBe("builder");
+       |                              ^
+    351|       });
+    352| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > createToken() > should handle null tenantId and role
+AssertionError: expected undefined to be null
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ Γ¥» tests/unit/services/AuthService.test.ts:433:30
+    431| 
+    432|         expect(decoded.tenantId).toBeNull();
+    433|         expect(decoded.role).toBeNull();
+       |                              ^
+    434|       });
+    435|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should verify and decode a valid token
+AssertionError: expected undefined to be 'owner' // Object.is equality
+
+- Expected: 
+"owner"
+
++ Received: 
+undefined
+
+ Γ¥» tests/unit/services/AuthService.test.ts:464:30
+    462|         expect(payload.email).toBe("test@example.com");
+    463|         expect(payload.tenantId).toBe("tenant-123");
+    464|         expect(payload.role).toBe("owner");
+       |                              ^
+    465|       });
+    466| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:503:62
+    501|         const tamperedToken = token.slice(0, -5) + "XXXXX";
+    502| 
+    503|         expect(() => authService.verifyToken(tamperedToken)).toThrow("ΓÇª
+       |                                                              ^
+    504|       });
+    505| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for malformed token
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:507:68
+    505| 
+    506|       it("should throw error for malformed token", () => {
+    507|         expect(() => authService.verifyToken("not.a.valid.token")).toTΓÇª
+       |                                                                    ^
+    508|       });
+    509| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:512:64
+    510|       it("should throw error for invalid token", () => {
+    511|         // Test with a malformed token
+    512|         expect(() => authService.verifyToken("invalid.token")).toThrowΓÇª
+       |                                                                ^
+    513|       });
+    514|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > Security Edge Cases > Token Manipulation > should reject token with valid structure but invalid signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:1054:58
+    1052|         const fakeToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2ΓÇª
+    1053| 
+    1054|         expect(() => authService.verifyToken(fakeToken)).toThrow("InvaΓÇª
+       |                                                          ^
+    1055|       });
+    1056|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/7]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m106 passed[39m[22m[90m (113)[39m
+[2m   Start at [22m 13:31:16
+[2m   Duration [22m 15.80s[2m (transform 293ms, setup 177ms, import 725ms, tests 7.16s, environment 0ms)[22m
+

@@ -1,9 +1,10 @@
+import type { DatavaultApiToken, InsertDatavaultApiToken } from "@shared/schema";
+
 import {
   datavaultApiTokensRepository,
   datavaultDatabasesRepository,
   type DbTransaction,
 } from "../repositories";
-import type { DatavaultApiToken, InsertDatavaultApiToken } from "@shared/schema";
 import { generateApiToken, hashToken } from "../utils/encryption";
 
 /**
@@ -77,7 +78,7 @@ export class DatavaultApiTokensService {
     await this.verifyDatabaseOwnership(databaseId, tenantId, tx);
 
     // Get tokens (hash is excluded in repository method)
-    return await this.tokensRepo.findByDatabaseId(databaseId, tx);
+    return this.tokensRepo.findByDatabaseId(databaseId, tx);
   }
 
   /**
@@ -180,9 +181,7 @@ export class DatavaultApiTokensService {
     const tokenHash = hashToken(plainToken);
 
     // Find token by hash (repository checks expiration)
-    const token = await this.tokensRepo.findByTokenHash(tokenHash, tx);
-
-    return token;
+    return this.tokensRepo.findByTokenHash(tokenHash, tx);
   }
 
   /**

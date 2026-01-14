@@ -1,7 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Breadcrumbs, type BreadcrumbItem } from '@/components/common/Breadcrumbs';
 import { Database } from 'lucide-react';
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+
+import { Breadcrumbs, type BreadcrumbItem } from '@/components/common/Breadcrumbs';
+
 
 /**
  * DataVault Phase 2 PR 13: Breadcrumbs Component Tests

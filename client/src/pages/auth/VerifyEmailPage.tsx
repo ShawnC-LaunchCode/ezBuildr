@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { Link } from "wouter";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { authAPI } from "@/lib/vault-api";
+import React, { useState, useEffect } from "react";
+import { Link } from "wouter";
+
 import logo from "@/assets/images/logo.png";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { authAPI } from "@/lib/vault-api";
 
 export default function VerifyEmailPage() {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');

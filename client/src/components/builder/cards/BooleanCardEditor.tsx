@@ -3,13 +3,17 @@
  * Editor for boolean blocks (yes_no, true_false, boolean)
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
 import { Separator } from "@/components/ui/separator";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
 
 interface BooleanCardEditorProps {

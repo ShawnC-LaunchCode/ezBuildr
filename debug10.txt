@@ -1,0 +1,90 @@
+
+Running 2 tests using 2 workers
+
+Creation Workflow...
+Creation Workflow...
+Create Workflow Status: 201
+Creating Section for ea622100-c658-4c23-b791-2545383c71c8...
+Create Workflow Status: 201
+Creating Section for bf7e6dab-5d8c-430d-b03d-5edf0e4d66de...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Waiting for Page text...
+Page text found.
+Step: Adding List Tools block
+Looking for Add Logic button...
+Waiting for Page text...
+Page text found.
+Waiting for List Tool block...
+Step: Verifying Operator Labels
+  Γ£ÿ  1 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence (1.0m)
+  Γ£ÿ  2 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:168:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) (1.0m)
+
+
+  1) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Equals (strict)' })
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Equals (strict)' })[22m
+
+
+      126 |
+      127 |         // Assert Labels
+    > 128 |         await expect(page.getByRole('option', { name: "Equals (strict)" })).toBeVisible();
+          |                                                                             ^
+      129 |         await expect(page.getByRole('option', { name: "contains (case-insensitive)" })).toBeVisible();
+      130 |
+      131 |         await page.keyboard.press('Escape'); // Close dropdown
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:128:77
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:168:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for getByLabel('Limit')[22m
+
+
+      178 |         // Set Range: Limit 0
+      179 |         await page.getByText("Range").click();
+    > 180 |         await page.getByLabel("Limit").fill("0"); // "Limit" is placeholder or label? 
+          |                                        ^
+      181 |
+      182 |         // Save
+      183 |         await page.getByRole('button', { name: "Save Changes" }).click();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:180:40
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\error-context.md
+
+  2 failed
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:168:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 

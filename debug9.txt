@@ -1,0 +1,84 @@
+
+Running 2 tests using 2 workers
+
+Creation Workflow...
+Creation Workflow...
+Create Workflow Status: 201
+Creating Section for 512e3b07-32ff-460c-b26e-d6def1deee1e...
+Create Workflow Status: 201
+Creating Section for e72643b3-5708-4a6f-88fb-024026c49c4b...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Waiting for Page text...
+Page text found.
+Waiting for Page text...
+Page text found.
+Step: Adding List Tools block
+Looking for Add Logic button...
+  Γ£ÿ  2 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:172:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) (10.5s)
+  Γ£ÿ  1 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:84:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence (10.9s)
+
+
+  1) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:84:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+
+    Error: locator.click: Error: strict mode violation: locator('button[title="Add Logic"]') resolved to 2 elements:
+        1) <button type="button" id="radix-:re:" title="Add Logic" data-state="closed" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-fΓÇª>ΓÇª</button> aka getByRole('button', { name: 'Add Logic' }).first()
+        2) <button type="button" id="radix-:ri:" title="Add Logic" data-state="closed" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-fΓÇª>ΓÇª</button> aka getByRole('button', { name: 'Add Logic' }).nth(1)
+
+    Call log:
+    [2m  - waiting for locator('button[title="Add Logic"]')[22m
+
+
+       96 |         console.log("Looking for Add Logic button...");
+       97 |         const addLogicBtn = page.locator('button[title="Add Logic"]');
+    >  98 |         await addLogicBtn.click();
+          |                           ^
+       99 |
+      100 |         // Click "List Tools" in dropdown
+      101 |         await page.getByRole('menuitem', { name: "List Tools" }).click();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:98:27
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:172:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+
+    Error: locator.click: Error: strict mode violation: locator('button[title="Add Logic"]') resolved to 2 elements:
+        1) <button type="button" id="radix-:re:" title="Add Logic" data-state="closed" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-fΓÇª>ΓÇª</button> aka getByRole('button', { name: 'Add Logic' }).first()
+        2) <button type="button" id="radix-:ri:" title="Add Logic" data-state="closed" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-fΓÇª>ΓÇª</button> aka getByRole('button', { name: 'Add Logic' }).nth(1)
+
+    Call log:
+    [2m  - waiting for locator('button[title="Add Logic"]')[22m
+
+
+      174 |         const sectionItem = page.getByText("Test Page 1").locator("..");
+      175 |         await sectionItem.hover();
+    > 176 |         await page.locator('button[title="Add Logic"]').click();
+          |                                                         ^
+      177 |         await page.getByRole('menuitem', { name: "List Tools" }).click();
+      178 |
+      179 |         const blockItem = page.getByText("List Tool", { exact: false }).first();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:176:57
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\error-context.md
+
+  2 failed
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:84:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:172:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 

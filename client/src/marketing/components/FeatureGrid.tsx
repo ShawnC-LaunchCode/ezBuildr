@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { brand } from "../lib/brand";
 import { Hammer, BarChart3, GitBranch, Users, HardDriveDownload } from "lucide-react";
+
+import { brand } from "../lib/brand";
 
 const cards = [
   { icon: Hammer, title: "Visual Workflow Builder", tag: "Drag & Drop", body: "Build complex forms and workflows without writing code." },

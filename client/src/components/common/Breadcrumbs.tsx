@@ -4,8 +4,10 @@
  * DataVault Phase 2: PR 13
  */
 
-import { Link } from "wouter";
 import { ChevronRight, Home } from "lucide-react";
+import React from "react";
+import { Link } from "wouter";
+
 import { cn } from "@/lib/utils";
 
 export interface BreadcrumbItem {
@@ -53,7 +55,7 @@ export function Breadcrumbs({ items, className, showHome = true }: BreadcrumbsPr
                 )}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                {item.label}
               </span>
             )}
           </div>

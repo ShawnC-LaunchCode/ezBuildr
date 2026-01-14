@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { TransformBlock, transformBlockTypeEnum } from "shared/schema";
 import { z } from "zod";
+
+import { TransformBlock, transformBlockTypeEnum } from "shared/schema";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });

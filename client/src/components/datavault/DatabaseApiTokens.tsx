@@ -4,25 +4,10 @@
  * DataVault v4 Micro-Phase 5: PR 10
  */
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import {
-  useDatavaultApiTokens,
-  useCreateApiToken,
-  useDeleteApiToken,
-} from "@/lib/datavault-hooks";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Loader2, Plus, Trash2, Key, Copy, Check, AlertTriangle, Calendar } from "lucide-react";
+import React, { useState } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,10 +18,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Plus, Trash2, Key, Copy, Check, AlertTriangle, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useDatavaultApiTokens,
+  useCreateApiToken,
+  useDeleteApiToken,
+} from "@/lib/datavault-hooks";
 
 interface DatabaseApiTokensProps {
   databaseId: string;
@@ -72,8 +73,8 @@ export function DatabaseApiTokens({ databaseId }: DatabaseApiTokensProps) {
     }
 
     const scopes: ('read' | 'write')[] = [];
-    if (readScope) scopes.push('read');
-    if (writeScope) scopes.push('write');
+    if (readScope) {scopes.push('read');}
+    if (writeScope) {scopes.push('write');}
 
     if (scopes.length === 0) {
       toast({
@@ -133,7 +134,7 @@ export function DatabaseApiTokens({ databaseId }: DatabaseApiTokensProps) {
   };
 
   const handleDeleteToken = async () => {
-    if (!deleteTokenId) return;
+    if (!deleteTokenId) {return;}
 
     try {
       await deleteMutation.mutateAsync({ tokenId: deleteTokenId, databaseId });

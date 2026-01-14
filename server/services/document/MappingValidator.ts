@@ -26,14 +26,17 @@
  * ```
  */
 
-import { db } from '../../db';
-import { templates } from '../../../shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { templates } from '../../../shared/schema';
+import { db } from '../../db';
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-import type { DocumentMapping } from './MappingInterpreter';
+
 import { applyMapping } from './MappingInterpreter';
 import { normalizeVariables } from './VariableNormalizer';
+
+import type { DocumentMapping } from './MappingInterpreter';
 
 // ============================================================================
 // TYPES
@@ -413,9 +416,9 @@ export class MappingValidator {
    * Get the type of a value
    */
   private getValueType(value: any): string {
-    if (value === null) return 'null';
-    if (Array.isArray(value)) return 'array';
-    if (value instanceof Date) return 'date';
+    if (value === null) {return 'null';}
+    if (Array.isArray(value)) {return 'array';}
+    if (value instanceof Date) {return 'date';}
     return typeof value;
   }
 
@@ -428,7 +431,7 @@ export class MappingValidator {
     value: any
   ): boolean {
     // Exact match
-    if (expectedType === receivedType) return true;
+    if (expectedType === receivedType) {return true;}
 
     // Compatible conversions
     const compatibilityMap: Record<string, string[]> = {

@@ -10,13 +10,17 @@
  * }
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
 import { Separator } from "@/components/ui/separator";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { SwitchField, SectionHeader } from "./common/EditorField";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { AddressConfig } from "@/../../shared/types/stepConfigs";
 
 interface AddressCardEditorProps {

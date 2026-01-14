@@ -1,6 +1,8 @@
-import { datavaultDatabasesRepository } from "../repositories/DatavaultDatabasesRepository";
-import type { DbTransaction } from "../repositories/BaseRepository";
 import type { InsertDatavaultDatabase, DatavaultDatabase } from "@shared/schema";
+
+import { datavaultDatabasesRepository } from "../repositories/DatavaultDatabasesRepository";
+
+import type { DbTransaction } from "../repositories/BaseRepository";
 
 /**
  * Service for managing DataSources (Databases) and their connections to Workflows.

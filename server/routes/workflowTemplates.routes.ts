@@ -4,13 +4,15 @@
  * Endpoints for attaching/detaching templates to workflow versions
  */
 
-import type { Express } from 'express';
 import express from 'express';
+import { z } from 'zod';
+
 import { asyncHandler } from '../middleware';
 import { hybridAuth } from '../middleware/auth';
-import { z } from 'zod';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
+
+import type { Express } from 'express';
 
 const router = express.Router();
 

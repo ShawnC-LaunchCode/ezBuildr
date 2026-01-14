@@ -3,17 +3,21 @@
  * Editor for text blocks (short_text, long_text, text)
  */
 
-import { useState, useEffect } from "react";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { TextField, NumberField, SectionHeader } from "./common/EditorField";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import React, { useState, useEffect } from "react";
+
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { TextField, NumberField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 interface TextCardEditorProps {
@@ -72,7 +76,7 @@ export function TextCardEditor({ stepId, sectionId, step }: TextCardEditorProps)
   }, [step.config, step.type, isAdvancedMode, config]);
 
   const validatePattern = (pattern: string): string | null => {
-    if (!pattern.trim()) return null;
+    if (!pattern.trim()) {return null;}
 
     try {
       new RegExp(pattern);
@@ -101,7 +105,7 @@ export function TextCardEditor({ stepId, sectionId, step }: TextCardEditorProps)
     if (updates.pattern !== undefined) {
       const error = validatePattern(updates.pattern);
       setPatternError(error);
-      if (error) return; // Don't save if invalid
+      if (error) {return;} // Don't save if invalid
     }
 
     // Validate min/max
@@ -117,7 +121,7 @@ export function TextCardEditor({ stepId, sectionId, step }: TextCardEditorProps)
 
     // Build the config object
     const configToSave: TextAdvancedConfig = {
-      variant: newConfig.variant as "short" | "long",
+      variant: newConfig.variant,
     };
 
     // Only include validation if there are validation rules

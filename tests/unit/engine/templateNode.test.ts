@@ -5,9 +5,14 @@
  * NOTE: These are integration tests that require database connectivity
  */
 
+import fs from 'fs/promises';
+import path from 'path';
+
+import { eq, and } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { describeWithDb } from '../../helpers/dbTestHelper';
+
 import { db } from '../../../server/db';
+import { executeTemplateNode } from '../../../server/engine/nodes/template';
 import {
   projects,
   workflows,
@@ -19,12 +24,11 @@ import {
   users,
   tenants,
 } from '../../../shared/schema';
-import { executeTemplateNode } from '../../../server/engine/nodes/template';
-import type { TemplateNodeConfig, TemplateNodeInput } from '../../../server/engine/nodes/template';
-import { eq, and } from 'drizzle-orm';
-import fs from 'fs/promises';
-import path from 'path';
+import { describeWithDb } from '../../helpers/dbTestHelper';
 import { createTestFactory } from '../../helpers/testFactory';
+
+import type { TemplateNodeConfig, TemplateNodeInput } from '../../../server/engine/nodes/template';
+
 
 // Mock the docxRenderer2 module
 vi.mock('../../../server/services/docxRenderer2', () => ({

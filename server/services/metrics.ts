@@ -5,9 +5,10 @@
  * Events are stored in metrics_events table and aggregated by rollup jobs.
  */
 
-import { db } from '../db';
-import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
+
+import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
+import { db } from '../db';
 import logger from '../logger';
 
 export interface MetricsEventInput {
@@ -298,7 +299,7 @@ export async function getRecentEvents(params: {
     conditions.push(gte(metricsEvents.ts, params.since));
   }
 
-  return await db
+  return db
     .select()
     .from(metricsEvents)
     .where(and(...conditions))

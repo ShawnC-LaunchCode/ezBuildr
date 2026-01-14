@@ -3,12 +3,13 @@
  * PR2: Workflow activation control
  */
 
-import { useState } from "react";
 import { Check, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
+import React, { useState } from "react";
+
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 type WorkflowStatus = "draft" | "active" | "archived";
 
@@ -31,7 +32,7 @@ export function ActivateToggle({
   const isActive = currentStatus === "active";
 
   const handleToggle = async () => {
-    if (disabled) return;
+    if (disabled) {return;}
 
     const newStatus: WorkflowStatus = isActive ? "draft" : "active";
 

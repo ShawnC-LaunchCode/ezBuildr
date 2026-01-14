@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
+
+import { activityLogSource } from "../config/activityLog.config";
 import { db } from "../db";
 import { ActivityLog, ActivityLogQuery, ActivityLogInsert, ActivityLogResult } from "../types/activityLog";
-import { activityLogSource } from "../config/activityLog.config";
+
 import type { DbTransaction } from "./BaseRepository";
 
 /**
@@ -50,11 +52,11 @@ export class ActivityLogRepository {
     // Free text search: search across event and actorEmail (if available)
     if (q) {
       const searchConditions: any[] = [
-        sql`${sql.raw(this.columns.event)} ILIKE ${"%" + q + "%"}`
+        sql`${sql.raw(this.columns.event)} ILIKE ${`%${  q  }%`}`
       ];
       if (this.columns.actorEmail) {
         searchConditions.push(
-          sql`${sql.raw(this.columns.actorEmail)} ILIKE ${"%" + q + "%"}`
+          sql`${sql.raw(this.columns.actorEmail)} ILIKE ${`%${  q  }%`}`
         );
       }
       conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
@@ -69,7 +71,7 @@ export class ActivityLogRepository {
     if (actor) {
       if (this.columns.actorEmail) {
         // Use ILIKE for partial matching (e.g., "scooter" matches "scooter4356@gmail.com")
-        conditions.push(sql`${sql.raw(this.columns.actorEmail)} ILIKE ${"%" + actor + "%"}`);
+        conditions.push(sql`${sql.raw(this.columns.actorEmail)} ILIKE ${`%${  actor  }%`}`);
       } else if (this.columns.actorId) {
         // Only try to match by ID if the input looks like a valid UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -115,7 +117,7 @@ export class ActivityLogRepository {
     `;
 
     const countResult = await database.execute(countQuery);
-    const total = (countResult.rows[0] as any)?.total ?? 0;
+    const total = (countResult.rows[0])?.total ?? 0;
 
     // Build SELECT columns
     const selectColumns = [
@@ -184,7 +186,7 @@ export class ActivityLogRepository {
     // Helper to add a column if it exists in config
     const addColumn = (configKey: keyof typeof this.columns, value: any) => {
       const columnName = this.columns[configKey];
-      if (!columnName || value === undefined) return;
+      if (!columnName || value === undefined) {return;}
 
       columns.push(columnName);
       values.push(value);
@@ -242,7 +244,7 @@ export class ActivityLogRepository {
 
     // Try actorEmail first, fallback to actorId
     const actorColumn = this.columns.actorEmail || this.columns.actorId;
-    if (!actorColumn) return [];
+    if (!actorColumn) {return [];}
 
     const query = sql`
       SELECT DISTINCT ${sql.raw(actorColumn)} as actor

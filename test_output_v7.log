@@ -1,0 +1,204 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+
+{"level":30,"time":1768087706293,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768087723333,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768087723346,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts[2m > [22m[2mJWT Authentication Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768087723340,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768087723340,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768087723343,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768087723346,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768087723346,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768087723346,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768087723346,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768087723823,"env":"test","module":"user-credentials-repository","userId":"e5a1b062-36d1-40a4-b004-ad9b88025760","msg":"User credentials created"}
+{"level":30,"time":1768087723941,"env":"test","module":"email-queue","jobId":"1eaad86b-0a84-4193-8e28-927d26839011","to":"test-VlmzvozlUrZ1ngcFc8GMA@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087723994,"env":"test","module":"auth-routes","userId":"e5a1b062-36d1-40a4-b004-ad9b88025760","email":"test-VlmzvozlUrZ1ngcFc8GMA@example.com","msg":"User registered"}
+{"level":30,"time":1768087724652,"env":"test","module":"user-credentials-repository","userId":"e67e1d02-ef49-4b27-afd0-e5a62cff30e9","msg":"User credentials created"}
+{"level":30,"time":1768087724759,"env":"test","module":"email-queue","jobId":"d7f3b21a-20f3-40c4-aa53-38cd2ce749de","to":"jwt-test-AlyLJYXbSwjufoNiW6j2r@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087724810,"env":"test","module":"auth-routes","userId":"e67e1d02-ef49-4b27-afd0-e5a62cff30e9","email":"jwt-test-AlyLJYXbSwjufoNiW6j2r@example.com","msg":"User registered"}
+{"level":30,"time":1768087725397,"env":"test","module":"auth-routes","userId":"e67e1d02-ef49-4b27-afd0-e5a62cff30e9","msg":"User logged in successfully"}
+{"level":30,"time":1768087725452,"env":"test","module":"audit-log-service","userId":"e67e1d02-ef49-4b27-afd0-e5a62cff30e9","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087725833,"env":"test","module":"user-credentials-repository","userId":"65d0d5c7-12ea-44e0-a42e-f4246a25f737","msg":"User credentials created"}
+{"level":30,"time":1768087725943,"env":"test","module":"email-queue","jobId":"be81674c-24eb-4e73-bb26-4f1d17f214a8","to":"jwt-test-wsTUoiQiRZo4NJfBlF8mZ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087726001,"env":"test","module":"auth-routes","userId":"65d0d5c7-12ea-44e0-a42e-f4246a25f737","email":"jwt-test-wsTUoiQiRZo4NJfBlF8mZ@example.com","msg":"User registered"}
+{"level":30,"time":1768087726537,"env":"test","module":"auth-routes","userId":"65d0d5c7-12ea-44e0-a42e-f4246a25f737","msg":"User logged in successfully"}
+{"level":30,"time":1768087726592,"env":"test","module":"audit-log-service","userId":"65d0d5c7-12ea-44e0-a42e-f4246a25f737","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087726975,"env":"test","module":"user-credentials-repository","userId":"00efb953-30ec-405f-aadf-aaacd5c07bda","msg":"User credentials created"}
+{"level":30,"time":1768087727085,"env":"test","module":"email-queue","jobId":"ec0fb62a-34a2-4d9d-94ff-8a0f96139b84","to":"jwt-test-aGEtZ9v5CdQIlHjAcjq4I@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087727137,"env":"test","module":"auth-routes","userId":"00efb953-30ec-405f-aadf-aaacd5c07bda","email":"jwt-test-aGEtZ9v5CdQIlHjAcjq4I@example.com","msg":"User registered"}
+{"level":30,"time":1768087727676,"env":"test","module":"auth-routes","userId":"00efb953-30ec-405f-aadf-aaacd5c07bda","msg":"User logged in successfully"}
+{"level":30,"time":1768087727729,"env":"test","module":"audit-log-service","userId":"00efb953-30ec-405f-aadf-aaacd5c07bda","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087728106,"env":"test","module":"user-credentials-repository","userId":"d5c0d482-b916-49cc-a23a-bf8c7825363d","msg":"User credentials created"}
+{"level":30,"time":1768087728223,"env":"test","module":"email-queue","jobId":"1da60990-7523-4cb0-8e15-872b4accb52a","to":"jwt-test-HYWoPwqQ9QXFe6edlH-Z1@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087728276,"env":"test","module":"auth-routes","userId":"d5c0d482-b916-49cc-a23a-bf8c7825363d","email":"jwt-test-HYWoPwqQ9QXFe6edlH-Z1@example.com","msg":"User registered"}
+{"level":30,"time":1768087728800,"env":"test","module":"auth-routes","userId":"d5c0d482-b916-49cc-a23a-bf8c7825363d","msg":"User logged in successfully"}
+{"level":30,"time":1768087728854,"env":"test","module":"audit-log-service","userId":"d5c0d482-b916-49cc-a23a-bf8c7825363d","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768087728961,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768087728964,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768087729352,"env":"test","module":"user-credentials-repository","userId":"5ac810f4-b586-4cb6-afd4-7f927c54774e","msg":"User credentials created"}
+{"level":30,"time":1768087729461,"env":"test","module":"email-queue","jobId":"9b30989b-c151-42ac-a264-796e75587cd0","to":"jwt-test-MjKNdZGnyoKVkQQvNpJYp@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087729515,"env":"test","module":"auth-routes","userId":"5ac810f4-b586-4cb6-afd4-7f927c54774e","email":"jwt-test-MjKNdZGnyoKVkQQvNpJYp@example.com","msg":"User registered"}
+{"level":30,"time":1768087730045,"env":"test","module":"auth-routes","userId":"5ac810f4-b586-4cb6-afd4-7f927c54774e","msg":"User logged in successfully"}
+{"level":30,"time":1768087730102,"env":"test","module":"audit-log-service","userId":"5ac810f4-b586-4cb6-afd4-7f927c54774e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768087730213,"env":"test","module":"auth-middleware","error":{"name":"InvalidTokenError","code":"AUTH_003","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768087730213,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":40,"time":1768087731320,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768087731320,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":40,"time":1768087732425,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768087732425,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768087733378,"env":"test","module":"user-credentials-repository","userId":"02af1cb7-5e3c-4a13-a91e-7e4ff93591b1","msg":"User credentials created"}
+{"level":30,"time":1768087733485,"env":"test","module":"email-queue","jobId":"4c63bb98-326c-4b75-a8a2-fed18dc103b7","to":"jwt-test-cRzYZBTNZf_iu4r9BbRVl@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087733538,"env":"test","module":"auth-routes","userId":"02af1cb7-5e3c-4a13-a91e-7e4ff93591b1","email":"jwt-test-cRzYZBTNZf_iu4r9BbRVl@example.com","msg":"User registered"}
+{"level":50,"time":1768087733698,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768087734068,"env":"test","module":"user-credentials-repository","userId":"ef5ce9aa-3670-4642-adf1-d230b394e464","msg":"User credentials created"}
+{"level":30,"time":1768087734181,"env":"test","module":"email-queue","jobId":"9fea4344-6db5-409d-8fe7-b34da1f0743e","to":"user1-psWG-kWMTfNlTOn2hSz3j@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087734236,"env":"test","module":"auth-routes","userId":"ef5ce9aa-3670-4642-adf1-d230b394e464","email":"user1-psWG-kWMTfNlTOn2hSz3j@example.com","msg":"User registered"}
+{"level":30,"time":1768087734612,"env":"test","module":"user-credentials-repository","userId":"1a476479-edac-4139-a817-612692041720","msg":"User credentials created"}
+{"level":30,"time":1768087734719,"env":"test","module":"email-queue","jobId":"3c989b3f-a2d4-4098-a1df-ecdd9388bd83","to":"user2-PuqDaPz006e2IDa8nG2yd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087734773,"env":"test","module":"auth-routes","userId":"1a476479-edac-4139-a817-612692041720","email":"user2-PuqDaPz006e2IDa8nG2yd@example.com","msg":"User registered"}
+{"level":30,"time":1768087735253,"env":"test","module":"user-credentials-repository","userId":"4655434e-3c1b-4839-951b-96dd1984bbc5","msg":"User credentials created"}
+{"level":30,"time":1768087735363,"env":"test","module":"email-queue","jobId":"9d869f8f-5d62-499b-8d6f-7430b897376f","to":"jwt-test-Xaw2onBbqE9EyKGQSIeZt@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087735418,"env":"test","module":"auth-routes","userId":"4655434e-3c1b-4839-951b-96dd1984bbc5","email":"jwt-test-Xaw2onBbqE9EyKGQSIeZt@example.com","msg":"User registered"}
+{"level":50,"time":1768087735421,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768087735795,"env":"test","module":"user-credentials-repository","userId":"359afbb3-3167-4e32-9127-63897aed75ec","msg":"User credentials created"}
+{"level":30,"time":1768087735902,"env":"test","module":"email-queue","jobId":"c2cb6436-399d-4d3f-93d7-0e73c54a9ee0","to":"jwt-test-W3GltLBt3ha9B7y47iJkf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087735954,"env":"test","module":"auth-routes","userId":"359afbb3-3167-4e32-9127-63897aed75ec","email":"jwt-test-W3GltLBt3ha9B7y47iJkf@example.com","msg":"User registered"}
+{"level":30,"time":1768087736477,"env":"test","module":"auth-routes","userId":"359afbb3-3167-4e32-9127-63897aed75ec","msg":"User logged in successfully"}
+{"level":30,"time":1768087736530,"env":"test","module":"audit-log-service","userId":"359afbb3-3167-4e32-9127-63897aed75ec","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087737074,"env":"test","module":"user-credentials-repository","userId":"5bca0459-341a-4fd1-a3c7-a0b91f0a01ca","msg":"User credentials created"}
+{"level":30,"time":1768087737177,"env":"test","module":"email-queue","jobId":"fc752597-81be-4284-bf7a-e7fff4dc683e","to":"jwt-test-Ios3Jpou0SsqvybTQp_cq@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087737228,"env":"test","module":"auth-routes","userId":"5bca0459-341a-4fd1-a3c7-a0b91f0a01ca","email":"jwt-test-Ios3Jpou0SsqvybTQp_cq@example.com","msg":"User registered"}
+{"level":50,"time":1768087737230,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768087738552,"env":"test","module":"user-credentials-repository","userId":"7a9922cc-a912-4a8f-81d3-7094187710d4","msg":"User credentials created"}
+{"level":30,"time":1768087738660,"env":"test","module":"email-queue","jobId":"3bc399e6-3d08-47b9-a981-b42298997a0b","to":"jwt-test-C1c3s_dNnCybYmlf1oMur@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087738713,"env":"test","module":"auth-routes","userId":"7a9922cc-a912-4a8f-81d3-7094187710d4","email":"jwt-test-C1c3s_dNnCybYmlf1oMur@example.com","msg":"User registered"}
+{"level":30,"time":1768087739251,"env":"test","module":"auth-routes","userId":"7a9922cc-a912-4a8f-81d3-7094187710d4","msg":"User logged in successfully"}
+{"level":30,"time":1768087739307,"env":"test","module":"audit-log-service","userId":"7a9922cc-a912-4a8f-81d3-7094187710d4","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087740894,"env":"test","module":"user-credentials-repository","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","msg":"User credentials created"}
+{"level":30,"time":1768087741004,"env":"test","module":"email-queue","jobId":"2be2082b-744b-4222-a852-6448e195b34f","to":"jwt-test-RkSZ-BtNWlq27N-pAM1r0@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087741057,"env":"test","module":"auth-routes","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","email":"jwt-test-RkSZ-BtNWlq27N-pAM1r0@example.com","msg":"User registered"}
+{"level":30,"time":1768087741582,"env":"test","module":"auth-routes","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","msg":"User logged in successfully"}
+{"level":30,"time":1768087741634,"env":"test","module":"audit-log-service","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768087741896,"env":"test","module":"auth-service","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","tokenHash":"e152c645e4c6ebbd8ef6b709525c481a5640d97c2bdccb3bdd184e2e8429e51e","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1768087742005,"env":"test","module":"auth-service","userId":"e0a85622-158a-4a28-adc4-eca1edd408bc","tokenHash":"c906a6f447cddcbf0e1c1936ec172bafed8d1587e08f856c83748bae59743ba0","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768087742439,"env":"test","module":"user-credentials-repository","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","msg":"User credentials created"}
+{"level":30,"time":1768087742545,"env":"test","module":"email-queue","jobId":"877508d8-c6b0-4206-a9e0-0ccbf40139b7","to":"jwt-test-WQEj5vfLvaQUMIvs5SR3p@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087742595,"env":"test","module":"auth-routes","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","email":"jwt-test-WQEj5vfLvaQUMIvs5SR3p@example.com","msg":"User registered"}
+{"level":30,"time":1768087743126,"env":"test","module":"auth-routes","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","msg":"User logged in successfully"}
+{"level":30,"time":1768087743181,"env":"test","module":"audit-log-service","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768087743651,"env":"test","module":"auth-routes","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","msg":"User logged in successfully"}
+{"level":30,"time":1768087743701,"env":"test","module":"audit-log-service","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768087743962,"env":"test","module":"auth-service","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","tokenHash":"e4d3159595ac30680a71d782dd1bb452535f2b9a9160c53f4f5b95d32d2608c2","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1768087744069,"env":"test","module":"auth-service","userId":"9fb41f3c-80a7-4db0-a6d3-6f8a44a1f61d","tokenHash":"4a3d0ddc6f71c49c3b889c54f86d019b85ff9a663810ef7638de59e5c6d4405e","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768087744498,"env":"test","module":"user-credentials-repository","userId":"d1eeecb2-eb0c-4d55-a2ad-445a494350de","msg":"User credentials created"}
+{"level":30,"time":1768087744606,"env":"test","module":"email-queue","jobId":"0aceeeb1-3bc9-4f9e-a832-234b45e49bb5","to":"jwt-test-WUHlv-rpEu-9ngNme8dkd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087744661,"env":"test","module":"auth-routes","userId":"d1eeecb2-eb0c-4d55-a2ad-445a494350de","email":"jwt-test-WUHlv-rpEu-9ngNme8dkd@example.com","msg":"User registered"}
+{"level":30,"time":1768087745184,"env":"test","module":"auth-routes","userId":"d1eeecb2-eb0c-4d55-a2ad-445a494350de","msg":"User logged in successfully"}
+{"level":30,"time":1768087745239,"env":"test","module":"audit-log-service","userId":"d1eeecb2-eb0c-4d55-a2ad-445a494350de","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768087745347,"env":"test","module":"auth-service","userId":"d1eeecb2-eb0c-4d55-a2ad-445a494350de","tokenHash":"360a9180d8798bdb2f0959b0bc6316a611f15574dcb32fa771c54c5c60ad3467","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768087745767,"env":"test","module":"user-credentials-repository","userId":"9ae6fcf7-0206-4f8b-b094-b9fe9af6b1f6","msg":"User credentials created"}
+{"level":30,"time":1768087745876,"env":"test","module":"email-queue","jobId":"007a80c7-4078-470b-a3ff-85e045edd346","to":"jwt-test-HpWUqFBP913CYusaUKAAa@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768087745929,"env":"test","module":"auth-routes","userId":"9ae6fcf7-0206-4f8b-b094-b9fe9af6b1f6","email":"jwt-test-HpWUqFBP913CYusaUKAAa@example.com","msg":"User registered"}
+{"level":30,"time":1768087746455,"env":"test","module":"auth-routes","userId":"9ae6fcf7-0206-4f8b-b094-b9fe9af6b1f6","msg":"User logged in successfully"}
+{"level":30,"time":1768087746508,"env":"test","module":"audit-log-service","userId":"9ae6fcf7-0206-4f8b-b094-b9fe9af6b1f6","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/auth/jwt.authentication.test.ts [2m([22m[2m27 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 24235[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should generate valid JWT token on successful login [33m 1181[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should include correct payload in JWT token [33m 1137[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should set JWT expiry to 15 minutes [33m 1137[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should accept valid JWT token on protected routes [33m 1228[2mms[22m[39m
+       [32mΓ£ô[39m should reject request without authorization header[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should reject request with malformed token[32m 3[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should accept request with missing Bearer prefix (lenient) [33m 1244[2mms[22m[39m
+       [32mΓ£ô[39m should reject token with invalid signature[32m 4[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject expired JWT token [33m 1108[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should return token_expired error code for expired tokens [33m 1104[2mms[22m[39m
+       [32mΓ£ô[39m should authenticate with Bearer token in Authorization header[32m 105[2mms[22m[39m
+       [32mΓ£ô[39m should work with Bearer token on POST requests[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should work with Bearer token on PUT requests[32m 207[2mms[22m[39m
+       [32mΓ£ô[39m should work with Bearer token on DELETE requests[32m 265[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should exchange valid session cookie for JWT token [33m 691[2mms[22m[39m
+       [32mΓ£ô[39m should reject token exchange without valid cookie[32m 4[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prefer Bearer token over cookie when both present [33m 1180[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should fall back to cookie if Bearer token is invalid [33m 543[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow GET requests with cookie auth only [33m 1279[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject POST requests with cookie auth only (mutation-strict) [33m 530[2mms[22m[39m
+[31m       [31m├ù[31m should allow anonymous access to public workflows[39m[33m 461[2mms[22m[39m
+[31m       [31m├ù[31m should attach user info if authenticated on optional auth routes[39m[33m 482[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should refresh access token using refresh token [33m 2345[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should rotate refresh token on use [33m 1541[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should detect token reuse and revoke all user tokens [33m 2063[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke refresh token on logout [33m 1278[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should clear refresh token cookie on logout [33m 1161[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should allow anonymous access to public workflows
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:466:18
+    464|             const publicRes = await request(ctx.baseURL)
+    465|                 .get(`/public/w/${publicSlug}`)
+    466|                 .expect(200);
+       |                  ^
+    467| 
+    468|             // Public route returns { id, title, publicSettings... }
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should attach user info if authenticated on optional auth routes
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:497:18
+    495|                 .get(`/public/w/${optionalSlug}`)
+    496|                 .set("Authorization", `Bearer ${ctx.authToken}`)
+    497|                 .expect(200);
+       |                  ^
+    498| 
+    499|             // Response should include user context if available (checΓÇª
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m25 passed[39m[22m[90m (27)[39m
+[2m   Start at [22m 17:28:06
+[2m   Duration [22m 60.72s[2m (transform 6.30s, setup 325ms, import 27.36s, tests 24.24s, environment 0ms)[22m
+

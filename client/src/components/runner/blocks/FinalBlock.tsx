@@ -12,11 +12,13 @@
  * @date December 2025
  */
 
+import { FileDown, FileText, CheckCircle2 } from "lucide-react";
 import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { FileDown, FileText, CheckCircle2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import type { Step } from "@/types";
+
 import type { FinalBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
 
 // ============================================================================
@@ -43,11 +45,11 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
 
   // Evaluate which documents should be shown
   const visibleDocuments = useMemo(() => {
-    if (!config?.documents) return [];
+    if (!config?.documents) {return [];}
 
     return config.documents.filter(doc => {
       // If no conditions, always show
-      if (!doc.conditions) return true;
+      if (!doc.conditions) {return true;}
 
       // Evaluate conditions (simplified for now)
       // Full logic evaluation will be enhanced in future prompts
@@ -168,7 +170,7 @@ function evaluateDocumentConditions(
   conditions: LogicExpression,
   stepValues: Record<string, any>
 ): boolean {
-  if (!conditions || !conditions.conditions || conditions.conditions.length === 0) {
+  if (!conditions?.conditions || conditions.conditions.length === 0) {
     return true;
   }
 

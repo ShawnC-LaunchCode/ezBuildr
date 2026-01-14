@@ -87,7 +87,7 @@ registerMigration("1.0.0", {
             }
 
             // Cleanup legacy properties if they were moved to config
-            if (step.options) delete newStep.options;
+            if (step.options) {delete newStep.options;}
 
             return newStep;
         });

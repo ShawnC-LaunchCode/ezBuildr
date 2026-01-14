@@ -12,8 +12,12 @@
  * - Configure template bindings
  */
 
-import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FileText, Plus, Upload, Trash2, Star, StarOff, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+
+import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import {
   Dialog,
@@ -32,9 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
-import { Badge } from '../../../components/ui/badge';
-import { FileText, Plus, Upload, Trash2, Star, StarOff, Settings } from 'lucide-react';
-import { toast } from 'sonner';
+
+
 import { DocumentTemplateEditor } from './DocumentTemplateEditor';
 import { TemplateUploadWizard } from './TemplateUploadWizard';
 

@@ -63,6 +63,9 @@ export const AIGeneratedStepSchema = z.object({
   alias: z.string().nullable().optional().describe('Human-friendly variable name for this step'),
   required: z.boolean().default(false).describe('Whether this step is required'),
   config: z.record(z.any()).nullable().optional().describe('Type-specific configuration (choices, validation, etc)'),
+  visibleIf: z.string().nullable().optional().describe('Condition expression for visibility'),
+  order: z.number().int().optional().describe('Display order'),
+  defaultValue: z.any().optional().describe('Default value'),
 });
 
 export type AIGeneratedStep = z.infer<typeof AIGeneratedStepSchema>;

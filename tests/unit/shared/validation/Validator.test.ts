@@ -1,14 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
-import { validateValue, ValidatorOptions } from '../../../../shared/validation/Validator';
-import { ValidationSchema } from '../../../../shared/validation/ValidationSchema';
+
 import { ValidationRule } from '../../../../shared/validation/ValidationRule';
+import { ValidationSchema } from '../../../../shared/validation/ValidationSchema';
+import { validateValue, ValidatorOptions } from '../../../../shared/validation/Validator';
 
 // Mock condition evaluator since it's an external dependency
 vi.mock('../../../../shared/conditionEvaluator', () => ({
     evaluateConditionExpression: vi.fn((condition, values) => {
         // Simple mock logic: if condition is 'true', return true, else false
-        if (condition === 'mock-true') return true;
-        if (condition === 'mock-false') return false;
+        if (condition === 'mock-true') {return true;}
+        if (condition === 'mock-false') {return false;}
         return false;
     }),
 }));

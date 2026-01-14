@@ -1,13 +1,15 @@
+import { Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useTemplates } from "@/hooks/useTemplates";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useConfetti } from "@/hooks/useConfetti";
-import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useTemplates } from "@/hooks/useTemplates";
+
 
 interface Template {
   id: string;
@@ -39,7 +41,7 @@ export default function EditTemplateModal({ open, onClose, template }: EditTempl
   }, [template]);
 
   async function handleSave() {
-    if (!template) return;
+    if (!template) {return;}
 
     if (!name.trim()) {
       toast({

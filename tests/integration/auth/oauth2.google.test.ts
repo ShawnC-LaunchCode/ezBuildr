@@ -4,15 +4,18 @@
  * Tests the Google OAuth2 login flow with mocked Google token verification
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import request from 'supertest';
-import type { Express } from 'express';
-import express from 'express';
-import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
-import { db } from '../../../server/db';
-import { users, tenants, refreshTokens } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import express from 'express';
 import { nanoid } from 'nanoid';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
+import { users, tenants, refreshTokens } from '@shared/schema';
+
+import { db } from '../../../server/db';
+import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
+
+import type { Express } from 'express';
 import type { TokenPayload } from 'google-auth-library';
 
 describe('OAuth2 Google Authentication Flow', () => {

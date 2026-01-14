@@ -1,6 +1,8 @@
-import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+
+import express, { type Express } from "express";
+
 import { logger } from "./logger";
 
 export function serveStatic(app: Express) {

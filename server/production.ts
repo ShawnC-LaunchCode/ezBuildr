@@ -1,14 +1,16 @@
 import { createServer } from "http";
-import express, { type Request, Response, NextFunction } from "express";
+
 import cors from "cors";
-import { registerRoutes } from "./routes";
-import { log } from "./utils";
-import { serveStatic } from "./static";
-import { logger } from "./logger";
-import { sanitizeInputs } from "./utils/sanitize";
-import { errorHandler } from "./middleware/errorHandler";
 import dotenv from "dotenv";
+import express, { type Request, Response, NextFunction } from "express";
+
 import { dbInitPromise } from "./db";
+import { logger } from "./logger";
+import { errorHandler } from "./middleware/errorHandler";
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+import { log } from "./utils";
+import { sanitizeInputs } from "./utils/sanitize";
 
 // Load environment variables
 dotenv.config();

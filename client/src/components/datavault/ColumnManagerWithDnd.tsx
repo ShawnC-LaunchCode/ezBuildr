@@ -3,35 +3,6 @@
  * Manage columns for a table: add, edit, delete, reorder with drag & drop
  */
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
-import type { DatavaultColumn } from "@shared/schema";
-import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
 import {
   DndContext,
   closestCenter,
@@ -49,8 +20,42 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useTables, useTableSchema } from "@/hooks/useDatavaultTables";
+
+import type { DatavaultColumn } from "@shared/schema";
+
+import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
+
+
 
 interface ColumnManagerProps {
   columns: DatavaultColumn[];
@@ -258,7 +263,7 @@ export function ColumnManagerWithDnd({
   };
 
   const handleAddColumn = async () => {
-    if (!newColumnName.trim()) return;
+    if (!newColumnName.trim()) {return;}
 
     // Validate reference column
     if (newColumnType === 'reference' && !newReferenceTableId) {
@@ -290,7 +295,7 @@ export function ColumnManagerWithDnd({
   };
 
   const handleEditColumn = async () => {
-    if (!editDialog || !editColumnName.trim()) return;
+    if (!editDialog || !editColumnName.trim()) {return;}
 
     try {
       await onUpdateColumn(editDialog.id, {
@@ -306,7 +311,7 @@ export function ColumnManagerWithDnd({
   };
 
   const handleDeleteColumn = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     await onDeleteColumn(deleteConfirm.id);
     setDeleteConfirm(null);

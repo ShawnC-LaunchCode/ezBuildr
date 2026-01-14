@@ -1,11 +1,14 @@
-import { db } from "../db";
-import { eq, and, desc, type SQL } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
-import type { PgTransaction } from "drizzle-orm/pg-core";
-import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
-import type { ExtractTablesWithRelations } from "drizzle-orm";
+import { eq, and, desc, type SQL , ExtractTablesWithRelations } from "drizzle-orm";
 
 import * as schema from "@shared/schema";
+
+import { db } from "../db";
+
+import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
+import type { PgTable , PgTransaction } from "drizzle-orm/pg-core";
+
+
+
 
 // Type alias for database transactions
 export type DbTransaction = PgTransaction<
@@ -33,10 +36,10 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
    */
   protected getDb(tx?: DbTransaction) {
     // If transaction provided, use it
-    if (tx) return tx;
+    if (tx) {return tx;}
 
     // If explicit db instance was provided in constructor (for tests), use it
-    if (this.dbInstance !== undefined) return this.dbInstance;
+    if (this.dbInstance !== undefined) {return this.dbInstance;}
 
     // Otherwise, use the current value of the db module variable
     // This ensures we always get the initialized db, even if repository
@@ -157,6 +160,6 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
   async transaction<T>(
     callback: (tx: DbTransaction) => Promise<T>
   ): Promise<T> {
-    return await db.transaction(callback);
+    return db.transaction(callback);
   }
 }

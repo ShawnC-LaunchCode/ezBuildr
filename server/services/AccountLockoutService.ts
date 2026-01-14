@@ -1,6 +1,8 @@
-import { db } from "../db";
-import { loginAttempts, accountLocks, users } from "@shared/schema";
 import { eq, and, gte, lt } from "drizzle-orm";
+
+import { loginAttempts, accountLocks, users } from "@shared/schema";
+
+import { db } from "../db";
 import { createLogger } from "../logger";
 
 const log = createLogger({ module: 'account-lockout' });

@@ -4,6 +4,7 @@
  */
 
 import { Code2, Database, Save, Send, Sparkles, GitBranch } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,11 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { isFeatureAllowed } from "@/lib/mode";
 import { UI_LABELS } from "@/lib/labels";
+import { isFeatureAllowed } from "@/lib/mode";
+import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface LogicAddMenuProps {
   workflowId: string;

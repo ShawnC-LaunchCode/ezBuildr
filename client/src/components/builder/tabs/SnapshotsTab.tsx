@@ -3,24 +3,27 @@
  * Fully integrated with backend API for snapshot management
  */
 
-import { useState } from "react";
-import { useLocation } from "wouter";
 import { Camera, Plus, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
-import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
+import React, { useState } from "react";
+import { useLocation } from "wouter";
+
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { usePreviewStore } from "@/store/preview";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { runAPI, type ApiSnapshot } from "@/lib/vault-api";
 import {
   useSnapshots,
   useRenameSnapshot,
   useDeleteSnapshot,
 } from "@/lib/vault-hooks";
-import { runAPI, type ApiSnapshot } from "@/lib/vault-api";
+import { usePreviewStore } from "@/store/preview";
+
+import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
 interface SnapshotsTabProps {
   workflowId: string;
@@ -46,7 +49,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
 
   // Handle rename snapshot
   const handleRename = async () => {
-    if (!selectedSnapshot || !newName.trim()) return;
+    if (!selectedSnapshot || !newName.trim()) {return;}
 
     try {
       await renameSnapshot.mutateAsync({
@@ -69,7 +72,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
 
   // Handle delete snapshot
   const handleDelete = async () => {
-    if (!selectedSnapshot) return;
+    if (!selectedSnapshot) {return;}
 
     try {
       await deleteSnapshot.mutateAsync({

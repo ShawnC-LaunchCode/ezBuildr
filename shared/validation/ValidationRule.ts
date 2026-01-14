@@ -9,7 +9,7 @@ export type ValidationRuleType =
     | "pattern"
     | "email"
     | "url"
-    | "url"
+     
     | "maxDecimalPlaces" // validation for currency/numbers
     | "custom"      // Custom sync JS function (legacy/simple)
     | "conditional" // DSL or simple conditional

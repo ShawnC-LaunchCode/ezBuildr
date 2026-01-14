@@ -1,0 +1,146 @@
+graph TB
+    subgraph "Client Layer"
+        WebBrowser[Web Browser]
+        ReactApp[React 18.3 + TypeScript]
+        Zustand[Zustand State]
+        TanStack[TanStack Query]
+
+        WebBrowser --> ReactApp
+        ReactApp --> Zustand
+        ReactApp --> TanStack
+    end
+
+    subgraph "CDN / Static Assets"
+        Vite[Vite Build]
+        StaticFiles[JS/CSS/Images]
+
+        Vite --> StaticFiles
+    end
+
+    subgraph "API Gateway / Load Balancer"
+        Railway[Railway Platform]
+        CORS[CORS Middleware]
+
+        Railway --> CORS
+    end
+
+    subgraph "Backend Services - Express 4.21"
+        Auth[Auth Middleware<br/>JWT + Session]
+        Routes[66+ Route Files]
+        Services[90+ Service Classes]
+        Repos[20+ Repositories]
+
+        CORS --> Auth
+        Auth --> Routes
+        Routes --> Services
+        Services --> Repos
+    end
+
+    subgraph "Data Layer"
+        Drizzle[Drizzle ORM]
+        PostgreSQL[(PostgreSQL<br/>Neon Serverless<br/>80+ Tables)]
+        SessionStore[(Session Store<br/>connect-pg-simple)]
+
+        Repos --> Drizzle
+        Drizzle --> PostgreSQL
+        Auth --> SessionStore
+        SessionStore --> PostgreSQL
+    end
+
+    subgraph "External Services"
+        GoogleOAuth[Google OAuth2<br/>Authentication]
+        SendGrid[SendGrid<br/>Email Delivery]
+        Gemini[Google Gemini<br/>AI Generation]
+        OpenAI[OpenAI<br/>GPT-4]
+        Anthropic[Anthropic<br/>Claude]
+        DocuSign[DocuSign<br/>E-Signature]
+        Stripe[Stripe<br/>Billing]
+
+        Auth -.-> GoogleOAuth
+        Services -.-> SendGrid
+        Services -.-> Gemini
+        Services -.-> OpenAI
+        Services -.-> Anthropic
+        Services -.-> DocuSign
+        Services -.-> Stripe
+    end
+
+    subgraph "File Storage"
+        Multer[Multer Upload]
+        FileSystem[Local File System<br/>or S3]
+
+        Routes --> Multer
+        Multer --> FileSystem
+    end
+
+    subgraph "Execution Engines"
+        VM2[VM2 Sandbox<br/>JavaScript]
+        Python[Python Subprocess<br/>Isolated]
+        HelperLib[Helper Library<br/>40+ Functions]
+
+        Services --> VM2
+        Services --> Python
+        VM2 --> HelperLib
+        Python --> HelperLib
+    end
+
+    subgraph "Queue & Background Jobs"
+        PdfQueue[PDF Queue Service]
+        EmailQueue[Email Queue]
+        WebhookQueue[Webhook Queue]
+
+        Services --> PdfQueue
+        Services --> EmailQueue
+        Services --> WebhookQueue
+    end
+
+    subgraph "Logging & Monitoring"
+        Pino[Pino Logger]
+        AuditLog[Audit Log Service]
+        MetricsEvents[Metrics Events]
+
+        Services --> Pino
+        Services --> AuditLog
+        Services --> MetricsEvents
+        AuditLog --> PostgreSQL
+        MetricsEvents --> PostgreSQL
+    end
+
+    %% Client to Backend Flow
+    TanStack -->|HTTP/REST| Railway
+
+    %% Static Assets
+    ReactApp -->|Load| StaticFiles
+
+    %% Deployment Architecture
+    subgraph "Deployment - Railway"
+        BuildProcess[Build Process<br/>npm run build]
+        NodeServer[Node.js Server<br/>Port 5000]
+        HealthCheck[Health Check<br/>/api/health]
+
+        BuildProcess --> NodeServer
+        NodeServer --> HealthCheck
+    end
+
+    Railway -.->|Deploy| NodeServer
+
+    %% Database Connections
+    PostgreSQL -.->|Connection Pool| Drizzle
+
+    %% Security Layer
+    subgraph "Security"
+        RateLimit[Rate Limiting]
+        Encryption[AES-256-GCM<br/>Secrets]
+        CSRF[CSRF Protection]
+
+        Auth --> RateLimit
+        Services --> Encryption
+        Auth --> CSRF
+    end
+
+    style ReactApp fill:#61dafb,stroke:#333,stroke-width:2px
+    style PostgreSQL fill:#336791,stroke:#333,stroke-width:2px
+    style Railway fill:#0b0d0e,stroke:#333,stroke-width:2px
+    style Services fill:#68a063,stroke:#333,stroke-width:2px
+    style VM2 fill:#f7df1e,stroke:#333,stroke-width:2px
+    style Python fill:#3776ab,stroke:#333,stroke-width:2px

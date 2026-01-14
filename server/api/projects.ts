@@ -1,19 +1,23 @@
-import { Router, type Request, Response } from 'express';
 import { eq, and, desc, lt, or, inArray } from 'drizzle-orm';
-import { db } from '../db';
+import { Router, type Request, Response } from 'express';
+
 import * as schema from '@shared/schema';
+
+import { db } from '../db';
 import { hybridAuth } from '../middleware/auth';
-import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
+import { requireTenant } from '../middleware/tenant';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
-import type { AuthRequest } from '../middleware/auth';
+
 import {
   createProjectSchema,
   updateProjectSchema,
   listProjectsQuerySchema,
   projectParamsSchema,
 } from './validators/projects';
+
+import type { AuthRequest } from '../middleware/auth';
 
 
 

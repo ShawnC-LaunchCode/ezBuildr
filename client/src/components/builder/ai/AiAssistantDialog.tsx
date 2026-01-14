@@ -1,18 +1,20 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Sparkles, Loader2, Send, RotateCcw, Check, X } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Send, RotateCcw, Check, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { applyAiSuggestions } from "@/lib/ai-operations";
+import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { useCreateSection, useCreateStep } from "@/lib/vault-hooks";
+
 import { AiDiffView } from "./AiDiffView";
 
-import { applyAiSuggestions } from "@/lib/ai-operations";
-import { useCreateSection, useCreateStep } from "@/lib/vault-hooks";
 
 interface AiAssistantDialogProps {
     workflowId: string;
@@ -63,7 +65,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             const res = await apiRequest("POST", `/api/ai/workflows/${workflowId}/suggest`, {
                 description,
             });
-            return await res.json();
+            return res.json();
         },
         onSuccess: (data) => {
             // Add assistant message with suggestions
@@ -85,7 +87,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
     });
 
     const handleGenerate = () => {
-        if (!prompt.trim()) return;
+        if (!prompt.trim()) {return;}
 
         // Add user message via optimistic update
         const userMsg: Message = {

@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { datavaultAPI } from "./datavault-api";
 
 // ============================================================================
@@ -45,7 +46,7 @@ export function useDatavaultDatabase(id: string | undefined) {
   return useQuery({
     queryKey: id ? datavaultQueryKeys.database(id) : ['datavault', 'databases', 'null'],
     queryFn: () => {
-      if (!id) throw new Error('Database ID is required');
+      if (!id) {throw new Error('Database ID is required');}
       return datavaultAPI.getDatabase(id);
     },
     enabled: !!id,
@@ -58,7 +59,7 @@ export function useDatabaseTables(databaseId: string | undefined) {
       ? datavaultQueryKeys.databaseTables(databaseId)
       : ['datavault', 'databases', 'null', 'tables'],
     queryFn: () => {
-      if (!databaseId) throw new Error('Database ID is required');
+      if (!databaseId) {throw new Error('Database ID is required');}
       return datavaultAPI.getTablesInDatabase(databaseId);
     },
     enabled: !!databaseId,
@@ -95,6 +96,21 @@ export function useDeleteDatavaultDatabase() {
       queryClient.removeQueries({ queryKey: datavaultQueryKeys.database(id) });
       queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
       queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
+    },
+  });
+}
+
+export function useTransferDatavaultDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetOwnerType, targetOwnerUuid }: {
+      id: string;
+      targetOwnerType: 'user' | 'org';
+      targetOwnerUuid: string;
+    }) => datavaultAPI.transferDatabase(id, targetOwnerType, targetOwnerUuid),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.database(result.id) });
+      queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
     },
   });
 }
@@ -345,7 +361,7 @@ export function useDatavaultApiTokens(databaseId: string | undefined) {
       ? datavaultQueryKeys.apiTokens(databaseId)
       : ['datavault', 'databases', 'null', 'tokens'],
     queryFn: () => {
-      if (!databaseId) throw new Error('Database ID is required');
+      if (!databaseId) {throw new Error('Database ID is required');}
       return datavaultAPI.listApiTokens(databaseId);
     },
     enabled: !!databaseId,
@@ -399,7 +415,7 @@ export function useTablePermissions(tableId: string | undefined) {
       ? datavaultQueryKeys.tablePermissions(tableId)
       : ['datavault', 'tables', 'null', 'permissions'],
     queryFn: () => {
-      if (!tableId) throw new Error('Table ID is required');
+      if (!tableId) {throw new Error('Table ID is required');}
       return datavaultAPI.listTablePermissions(tableId);
     },
     enabled: !!tableId,

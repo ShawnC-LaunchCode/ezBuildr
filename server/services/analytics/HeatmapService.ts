@@ -3,9 +3,10 @@
  * Provides block-level metrics for heatmap visualization.
  */
 
-import { db } from "../../db";
-import { blockMetrics } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
+
+import { blockMetrics } from "../../../shared/schema";
+import { db } from "../../db";
 
 export interface BlockHeatmapData {
     blockId: string;
@@ -35,7 +36,7 @@ class HeatmapService {
             // Calculate a "pain score"
             // Factors: Error rate (high weight), Time spent (medium weight - tricky without baseline)
             let score = errorRate * 5; // e.g. 20% error rate = 100 score
-            if (score > 100) score = 100;
+            if (score > 100) {score = 100;}
 
             return {
                 blockId: m.blockId,

@@ -3,15 +3,17 @@
  * Displays notes for a row with ability to add/delete notes
  */
 
-import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, MessageSquare } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { datavaultAPI } from "@/lib/datavault-api";
-import { NoteItem } from "./NoteItem";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { datavaultAPI } from "@/lib/datavault-api";
+
+import { NoteItem } from "./NoteItem";
 
 interface NotesTabProps {
   rowId: string;
@@ -105,7 +107,7 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
 
   // Check if user can delete a note (owner or table owner)
   const canDeleteNote = (note: any) => {
-    if (!user) return false;
+    if (!user) {return false;}
     return note.userId === user.id || tableOwnerId === user.id;
   };
 

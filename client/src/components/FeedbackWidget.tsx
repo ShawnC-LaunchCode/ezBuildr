@@ -1,7 +1,8 @@
-﻿import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+﻿import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { useConfetti } from "@/hooks/useConfetti";
 import { cn } from "@/lib/utils";
 

@@ -1,10 +1,12 @@
+import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType } from "@shared/schema";
+
 import {
   projectRepository,
   workflowRepository,
   projectAccessRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType } from "@shared/schema";
+import { canAccessAsset, requireAssetAccess } from "../utils/ownershipAccess";
 
 /**
  * Service layer for project-related business logic
@@ -25,7 +27,7 @@ export class ProjectService {
   }
 
   /**
-   * Verify user owns the project
+   * Verify user owns or has access to the project (ownership-based access)
    */
   async verifyOwnership(projectId: string, userId: string): Promise<Project> {
     const project = await this.projectRepo.findById(projectId);
@@ -34,23 +36,42 @@ export class ProjectService {
       throw new Error("Project not found");
     }
 
-    // Check both createdBy (new field) and creatorId (legacy field) for backward compatibility
-    const projectCreator = project.createdBy || project.creatorId;
-    if (projectCreator !== userId) {
-      throw new Error("Access denied - you do not own this project");
+    // Check ownership-based access (new model)
+    const hasAccess = await canAccessAsset(userId, project.ownerType, project.ownerUuid);
+    if (hasAccess) {
+      return project;
     }
 
-    return project;
+    // Fallback: Check legacy ownership
+    const projectCreator = project.createdBy || project.creatorId;
+    if (projectCreator === userId) {
+      return project;
+    }
+
+    throw new Error("Access denied - you do not have permission to access this project");
   }
 
   /**
    * Create a new project
    */
   async createProject(data: InsertProject, creatorId: string): Promise<Project> {
-    return await this.projectRepo.create({
+    // Validate ownership before creating
+    const ownerType = data.ownerType || 'user';
+    const ownerUuid = data.ownerUuid || creatorId;
+
+    const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
+    const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
+    if (!canCreate) {
+      throw new Error('Access denied: You do not have permission to create assets with this ownership');
+    }
+
+    return this.projectRepo.create({
       ...data,
+      creatorId: creatorId, // Legacy field (required)
       createdBy: creatorId,
-      ownerId: creatorId, // Creator is also the initial owner
+      ownerId: creatorId, // Creator is also the initial owner (legacy)
+      ownerType,
+      ownerUuid,
       status: 'active',
     });
   }
@@ -72,14 +93,14 @@ export class ProjectService {
    * List all projects for a user
    */
   async listProjects(creatorId: string): Promise<Project[]> {
-    return await this.projectRepo.findByCreatorId(creatorId);
+    return this.projectRepo.findByCreatorId(creatorId);
   }
 
   /**
    * List active (non-archived) projects for a user
    */
   async listActiveProjects(creatorId: string): Promise<Project[]> {
-    return await this.projectRepo.findActiveByCreatorId(creatorId);
+    return this.projectRepo.findActiveByCreatorId(creatorId);
   }
 
   /**
@@ -91,7 +112,7 @@ export class ProjectService {
     data: Partial<InsertProject>
   ): Promise<Project> {
     await this.verifyOwnership(projectId, userId);
-    return await this.projectRepo.update(projectId, data);
+    return this.projectRepo.update(projectId, data);
   }
 
   /**
@@ -99,7 +120,7 @@ export class ProjectService {
    */
   async archiveProject(projectId: string, userId: string): Promise<Project> {
     await this.verifyOwnership(projectId, userId);
-    return await this.projectRepo.update(projectId, {
+    return this.projectRepo.update(projectId, {
       status: 'archived',
     });
   }
@@ -109,7 +130,7 @@ export class ProjectService {
    */
   async unarchiveProject(projectId: string, userId: string): Promise<Project> {
     await this.verifyOwnership(projectId, userId);
-    return await this.projectRepo.update(projectId, {
+    return this.projectRepo.update(projectId, {
       status: 'active',
     });
   }
@@ -128,7 +149,7 @@ export class ProjectService {
    */
   async getProjectWorkflows(projectId: string, userId: string): Promise<Workflow[]> {
     await this.verifyOwnership(projectId, userId);
-    return await this.workflowRepo.findByProjectId(projectId);
+    return this.workflowRepo.findByProjectId(projectId);
   }
 
   /**
@@ -149,7 +170,7 @@ export class ProjectService {
    */
   async getProjectAccess(projectId: string, userId: string, tx?: DbTransaction): Promise<ProjectAccess[]> {
     await this.verifyOwnership(projectId, userId);
-    return await this.projectAccessRepo.findByProjectId(projectId, tx);
+    return this.projectAccessRepo.findByProjectId(projectId, tx);
   }
 
   /**
@@ -222,13 +243,76 @@ export class ProjectService {
       throw new Error("Only the current owner can transfer ownership");
     }
 
-    return await this.projectRepo.update(
+    return this.projectRepo.update(
       projectId,
       {
         ownerId: newOwnerId,
       },
       tx
     );
+  }
+
+  /**
+   * Transfer project ownership (new ownership model)
+   * Cascades to all child workflows AND their runs
+   *
+   * @param projectId - Project to transfer
+   * @param userId - User requesting transfer
+   * @param targetOwnerType - 'user' or 'org'
+   * @param targetOwnerUuid - UUID of target owner
+   */
+  async transferOwnership(
+    projectId: string,
+    userId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<Project> {
+    const { transferService } = await import('./TransferService');
+    const { workflowRuns } = await import('@shared/schema');
+    const { inArray } = await import('drizzle-orm');
+    const { db } = await import('../db');
+
+    const project = await this.verifyOwnership(projectId, userId);
+
+    // Validate transfer permissions
+    await transferService.validateTransfer(
+      userId,
+      project.ownerType,
+      project.ownerUuid,
+      targetOwnerType,
+      targetOwnerUuid
+    );
+
+    // Update project ownership and cascade to workflows
+    const updatedProject = await this.projectRepo.update(projectId, {
+      ownerType: targetOwnerType,
+      ownerUuid: targetOwnerUuid,
+    });
+
+    // Cascade: Transfer all child workflows to same owner
+    const workflows = await this.workflowRepo.findByProjectId(projectId);
+    const workflowIds = workflows.map(w => w.id);
+
+    if (workflowIds.length > 0) {
+      // Update workflows
+      for (const workflow of workflows) {
+        await this.workflowRepo.update(workflow.id, {
+          ownerType: targetOwnerType,
+          ownerUuid: targetOwnerUuid,
+        });
+      }
+
+      // FIX #1: Cascade ownership to all runs for these workflows
+      await db
+        .update(workflowRuns)
+        .set({
+          ownerType: targetOwnerType,
+          ownerUuid: targetOwnerUuid,
+        })
+        .where(inArray(workflowRuns.workflowId, workflowIds));
+    }
+
+    return updatedProject;
   }
 }
 

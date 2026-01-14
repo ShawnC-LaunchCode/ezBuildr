@@ -3,9 +3,19 @@
  * Displays table data in a responsive grid with edit/delete actions
  */
 
-import { useState, useRef, useEffect } from "react";
+import { MoreVertical, Edit2, Trash2, Archive, ArchiveRestore, ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -14,17 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreVertical, Edit2, Trash2, Archive, ArchiveRestore, ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import type { DatavaultColumn } from "@shared/schema";
 import type { ApiDatavaultRowWithValues } from "@/lib/datavault-api";
+
+import type { DatavaultColumn } from "@shared/schema";
 
 interface DataGridProps {
   columns: DatavaultColumn[];
@@ -68,7 +70,7 @@ export function DataGrid({
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
   const formatValue = (value: any, type: string): string => {
-    if (value === null || value === undefined) return "-";
+    if (value === null || value === undefined) {return "-";}
 
     switch (type) {
       case "boolean":
@@ -93,7 +95,7 @@ export function DataGrid({
   };
 
   const handleResizeMove = (e: MouseEvent) => {
-    if (!resizingColumn) return;
+    if (!resizingColumn) {return;}
 
     const delta = e.clientX - resizeStartX.current;
     const newWidth = Math.max(80, resizeStartWidth.current + delta); // Min width 80px

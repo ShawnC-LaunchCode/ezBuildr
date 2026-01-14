@@ -3,12 +3,14 @@
  * Container for records with search, filters, and view options
  */
 
-import { useState } from "react";
-import { RecordTable } from "./RecordTable";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Search, Plus, Filter } from "lucide-react";
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { ApiCollectionRecord, ApiCollectionField } from "@/lib/vault-api";
+
+import { RecordTable } from "./RecordTable";
 
 interface RecordsListProps {
   records: ApiCollectionRecord[];
@@ -44,7 +46,7 @@ export function RecordsList({
         const searchLower = searchQuery.toLowerCase();
         return fields.some((field) => {
           const value = record.data[field.slug];
-          if (value === null || value === undefined) return false;
+          if (value === null || value === undefined) {return false;}
 
           // Handle different field types
           if (Array.isArray(value)) {

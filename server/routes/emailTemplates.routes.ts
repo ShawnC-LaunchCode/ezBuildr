@@ -1,9 +1,12 @@
-import type { Express, Request, Response } from 'express';
+import { updateEmailTemplateMetadataSchema } from '@shared/types/branding';
+
 import { createLogger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { emailTemplateMetadataService } from '../services/EmailTemplateMetadataService';
-import { updateEmailTemplateMetadataSchema } from '@shared/types/branding';
+
+import type { Express, Request, Response } from 'express';
+
 
 const logger = createLogger({ module: 'emailTemplates-routes' });
 

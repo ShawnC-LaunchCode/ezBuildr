@@ -1,14 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
-import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
-import { db } from "../../server/db";
-import * as schema from "@shared/schema";
-import { eq } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";
-import { vi } from "vitest";
+
+import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import request from "supertest";
+import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
+import * as schema from "@shared/schema";
+
+import { db } from "../../server/db";
 import { templateScanner } from "../../server/services/document/TemplateScanner";
+import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 
 // Mock template scanner to avoid parsing invalid zip files
 vi.mock("../../server/services/document/TemplateScanner", () => ({
@@ -96,7 +98,7 @@ describe("Templates and Runs API Integration Tests", () => {
           .field("name", "Test Template")
           .expect(201)
           .catch(err => {
-            if (err.response && err.response.body) {
+            if (err.response?.body) {
               console.error("DEBUG: Template upload failed:", JSON.stringify(err.response.body, null, 2));
             }
             throw err;
@@ -116,7 +118,7 @@ describe("Templates and Runs API Integration Tests", () => {
           .set("Authorization", `Bearer ${ctx.authToken}`)
           .field("name", "Test Template")
           .attach("file", mockPdf, "test.pdf")
-          .expect(500); // Multer rejects before handler
+          .expect(400); // Multer/Validator rejects invalid file type
       });
 
       it("should reject without file", async () => {
@@ -285,7 +287,7 @@ describe("Templates and Runs API Integration Tests", () => {
         const viewerEmail = `viewer-${nanoid()}@example.com`;
         const viewerResponse = await request(ctx.baseURL)
           .post("/api/auth/register")
-          .send({ email: viewerEmail, password: "TestPassword123" })
+          .send({ email: viewerEmail, password: "StrongTestPass!2024" })
           .expect(201);
 
         await db.update(schema.users)

@@ -1,18 +1,19 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import axios from 'axios';
+import { Loader2, Save, ZoomIn, ZoomOut, AlertCircle, Check, ChevronsUpDown, Variable, TableProperties, Type, FileCode, Info } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Loader2, Save, ZoomIn, ZoomOut, AlertCircle, Check, ChevronsUpDown, Variable, TableProperties, Type, FileCode, Info } from 'lucide-react';
-import { Document, Page, pdfjs } from 'react-pdf';
-import axios from 'axios';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 // Set worker source for react-pdf
@@ -80,7 +81,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
         try {
             const response = await axios.get(`/api/templates/${templateId}`);
             setTemplate(response.data);
-            if (response.data.metadata && response.data.metadata.fields) {
+            if (response.data.metadata?.fields) {
                 setFields(response.data.metadata.fields);
             }
             if (response.data.mapping) {
@@ -136,11 +137,11 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
 
     // Helper to get display label for a mapped value
     const getMappedLabel = (val: string) => {
-        if (!val) return "Select variable...";
+        if (!val) {return "Select variable...";}
         const v = workflowVariables.find(wv => wv.alias === val || wv.id === val); // Backward compat check
-        if (!v) return val; // Fallback
+        if (!v) {return val;} // Fallback
 
-        if (v.alias) return v.alias;
+        if (v.alias) {return v.alias;}
         // Show question text for unaliased
     };
 
@@ -149,7 +150,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
     type MappingMode = 'variable' | 'excel' | 'constant' | 'template';
 
     const getMappingMode = (val: string | undefined): MappingMode => {
-        if (!val) return 'variable'; // Default
+        if (!val) {return 'variable';} // Default
 
         // Constant: Quoted string
         if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
@@ -163,14 +164,14 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
 
         // Variable: Matches a known variable ID or alias
         const isVar = workflowVariables.some(v => v.alias === val || v.id === val);
-        if (isVar) return 'variable';
+        if (isVar) {return 'variable';}
 
         // Else assumed to be Excel/Formula
         return 'excel';
     };
 
     const getDisplayValue = (val: string | undefined, mode: MappingMode): string => {
-        if (!val) return "";
+        if (!val) {return "";}
         if (mode === 'constant') {
             // Strip quotes
             return val.slice(1, -1);
@@ -200,8 +201,8 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
             return null;
         }).filter(p => p !== null);
 
-        if (args.length === 0) return "''";
-        if (args.length === 1) return args[0]!;
+        if (args.length === 0) {return "''";}
+        if (args.length === 1) {return args[0];}
         return `concat(${args.join(', ')})`;
     };
 
@@ -641,7 +642,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
                                                                                         setMentionOpen(false);
                                                                                         // Focus back?
                                                                                         const input = document.getElementById('template-input') as HTMLTextAreaElement;
-                                                                                        if (input) input.focus();
+                                                                                        if (input) {input.focus();}
                                                                                     }
                                                                                 }}
                                                                                 className="cursor-pointer"

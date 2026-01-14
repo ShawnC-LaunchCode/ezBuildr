@@ -3,8 +3,11 @@
  * Button to add a new row to the table
  */
 
-import { useState } from "react";
+import { Plus, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,10 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Loader2 } from "lucide-react";
-import { datavaultAPI } from "@/lib/datavault-api";
 import { useToast } from "@/hooks/use-toast";
+import { datavaultAPI } from "@/lib/datavault-api";
+
 import type { DatavaultColumn } from "@shared/schema";
 
 interface AddRowButtonProps {
@@ -42,7 +44,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
       const filteredValues: Record<string, any> = {};
       for (const [colId, value] of Object.entries(values)) {
         const column = columns.find(c => c.id === colId);
-        if (column?.type === 'auto_number') continue; // Skip auto-number fields
+        if (column?.type === 'auto_number') {continue;} // Skip auto-number fields
 
         if (value !== undefined && value !== null && value !== '') {
           filteredValues[colId] = value;

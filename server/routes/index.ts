@@ -1,36 +1,43 @@
 ﻿
-import type { Express } from "express";
-import { registerAuthRoutes } from "./auth.routes";
+import { apiLimiter } from "../lib/rateLimit";
+
 import { registerAccountRoutes } from "./account.routes";
+import enterpriseAdminRouter from "./admin";
+import { registerAdminAiSettingsRoutes } from "./admin.aiSettings.routes";
+import { registerAdminRoutes } from "./admin.routes";
+import { registerAiWorkflowEditRoutes } from "./ai/workflowEdit.routes";
+import aiDocRouter from "./ai.doc.routes";
+import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
+import { registerAiRoutes } from "./ai.routes";
+import { registerAuthRoutes } from "./auth.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
 import { registerFileRoutes } from "./files.routes";
 import { registerDashboardRoutes } from "./dashboard.routes";
-import { registerAdminRoutes } from "./admin.routes";
-import { registerAdminAiSettingsRoutes } from "./admin.aiSettings.routes";
-import { registerAiRoutes } from "./ai.routes";
-import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
 import { registerProjectRoutes } from "./projects.routes";
+import { validationRouter } from "./validation.routes";
+import { registerVersionRoutes } from "./versions.routes";
+import webhookRouter from "./webhooks.routes";
+import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
+import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerSectionRoutes } from "./sections.routes";
 import { registerStepRoutes } from "./steps.routes";
 import { registerBlockRoutes } from "./blocks.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerSnapshotRoutes } from "./snapshots.routes";
-import { registerWorkflowExportRoutes } from "./workflowExports.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
 import documentHooksRoutes from "./documentHooks.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTenantRoutes } from "./tenant.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
+import { registerOrganizationRoutes } from "./organizations.routes";
 import { registerConnectionsV2Routes } from "./connections-v2.routes";
 import { registerApiProjectRoutes } from "./api.projects.routes";
 import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiRunRoutes } from "./api.runs.routes";
-import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
 import { registerIntakeRoutes } from "./intake.routes";
-import { registerVersionRoutes } from "./versions.routes";
 import { registerBrandingRoutes } from "./branding.routes";
 import { registerBlueprintRoutes } from "./blueprint.routes";
 import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
@@ -43,34 +50,33 @@ import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
 import { registerDocumentRoutes } from "./documents.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
 import { registerEsignRoutes } from "./esign.routes";
-import { validationRouter } from "./validation.routes";
 import marketplaceRouter from "./marketplace";
 import sharingRouter from "./sharing";
-import enterpriseAdminRouter from "./admin";
 import { registerBillingRoutes } from "./billing.routes";
-import { apiLimiter } from "../lib/rateLimit";
 import publicRouter from "./public.routes";
 import externalRouter from "./external.routes";
 import oauthRouter from "./oauth.routes";
 import { dataSourceRouter } from "./dataSource.routes";
-import webhookRouter from "./webhooks.routes";
-
-import aiDocRouter from "./ai.doc.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
-import { registerAiWorkflowEditRoutes } from "./ai/workflowEdit.routes";
 import { registerDebugRoutes } from "./debug.routes";
 import { placesRouter } from "./places.routes";
 import { registerPreviewRoutes } from "./preview.routes";
 import portalRouter from "./portal.routes";
 import { registerMetricsRoutes } from "./metrics";
+import { registerDocsRoutes } from "./docs.routes";
+
+import type { Express } from "express";
 
 /**
  * Register all modular routes
  * This is the main aggregator that wires up all domain-specific route modules
  */
 export function registerAllRoutes(app: Express): void {
+  // API Documentation (Swagger UI)
+  registerDocsRoutes(app);
+
   // Metrics endpoint (Prometheus)
   registerMetricsRoutes(app);
 
@@ -128,6 +134,7 @@ export function registerAllRoutes(app: Express): void {
   registerAccountRoutes(app);
   registerUserPreferencesRoutes(app);
   registerTeamRoutes(app);
+  registerOrganizationRoutes(app);
 
   // Validation
   app.use(validationRouter);

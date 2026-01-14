@@ -1,5 +1,6 @@
-import { userPreferencesRepository } from "../repositories";
 import type { UserPreferences } from "@shared/schema";
+
+import { userPreferencesRepository } from "../repositories";
 
 /**
  * Service layer for user preferences business logic

@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import type { DatavaultColumn, DatavaultTable } from '@shared/schema';
+
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
-import type { DatavaultColumn, DatavaultTable } from '@shared/schema';
 
 // Mock db module
 vi.mock('../../../server/db', () => ({

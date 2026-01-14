@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Strict Zones Configuration Schema",
+  "description": "Schema for defining TypeScript strict mode zones in the ezBuildr codebase",
+  "type": "object",
+  "required": ["version", "zones"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Configuration version (semver)"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Overall description of the strict zones configuration"
+    },
+    "zones": {
+      "type": "array",
+      "description": "Active strict zones that must comply with strict TypeScript settings",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "description"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob pattern for files in this zone (e.g., 'server/services/**/*')"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of this zone"
+          },
+          "addedDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date when this zone was added (YYYY-MM-DD)"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Team or person responsible for this zone"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Why this zone requires strict mode"
+          }
+        }
+      }
+    },
+    "plannedZones": {
+      "type": "array",
+      "description": "Zones planned for future migration to strict mode",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "description", "targetDate"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob pattern for files in this zone"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of this zone"
+          },
+          "targetDate": {
+            "type": "string",
+            "description": "Target date for migration (YYYY-MM-DD or YYYY-Q#)"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Migration priority"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Why this zone should migrate to strict mode"
+          }
+        }
+      }
+    },
+    "exemptions": {
+      "type": "array",
+      "description": "Patterns exempt from strict mode requirements",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "reason"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob pattern for exempted files"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this pattern is exempt"
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "description": "Enforcement rules for strict zones",
+      "properties": {
+        "newCodeMustBeStrict": {
+          "type": "boolean",
+          "description": "Whether all new code must be added to strict zones"
+        },
+        "enforceInCI": {
+          "type": "boolean",
+          "description": "Whether to enforce strict checks in CI/CD"
+        },
+        "allowTsExpectError": {
+          "type": "boolean",
+          "description": "Whether @ts-expect-error comments are allowed (with explanation)"
+        },
+        "allowTsIgnore": {
+          "type": "boolean",
+          "description": "Whether @ts-ignore comments are allowed (generally false)"
+        },
+        "maxTsExpectErrorPerFile": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of @ts-expect-error comments per file"
+        },
+        "requireExplicitReturnTypes": {
+          "type": "boolean",
+          "description": "Whether explicit return types are required on functions"
+        },
+        "requireExplicitParameterTypes": {
+          "type": "boolean",
+          "description": "Whether explicit parameter types are required"
+        }
+      }
+    }
+  }
+}

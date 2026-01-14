@@ -1,0 +1,62 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768321107425,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768321107447,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768321108601,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768321108602,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[33m8 skipped[39m[2m)[22m[33m 1662[2mms[22m[39m
+     [2m[90mΓåô[39m[22m should create draft version on successful AI edit
+     [2m[90mΓåô[39m[22m should enforce draft mode (revert active workflow to draft)
+     [2m[90mΓåô[39m[22m should not create version when no changes detected (checksum match)
+     [2m[90mΓåô[39m[22m should reject unauthorized access
+     [2m[90mΓåô[39m[22m should reject unsafe DataVault operations
+     [2m[90mΓåô[39m[22m should handle multi-operation edits with tempId resolution
+     [2m[90mΓåô[39m[22m should create BEFORE and AFTER snapshots
+     [2m[90mΓåô[39m[22m should rollback on validation failure
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test
+error: duplicate key value violates unique constraint "users_pkey"
+ Γ¥» node_modules/pg-pool/index.js:45:11
+ Γ¥» node_modules/drizzle-orm/node-postgres/session.js:83:22
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:109:20
+    107| 
+    108|     // Create test user
+    109|     const [user] = await db.insert(users).values({
+       |                    ^
+    110|       id: mockUserId,
+    111|       email: 'test@example.com',
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m8 skipped[39m[90m (8)[39m
+[2m   Start at [22m 10:18:24
+[2m   Duration [22m 3.65s[2m (transform 663ms, setup 158ms, import 1.31s, tests 1.66s, environment 0ms)[22m
+

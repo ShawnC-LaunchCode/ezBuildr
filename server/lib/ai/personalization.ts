@@ -1,5 +1,6 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
 
 // Types for input
@@ -51,7 +52,7 @@ export class PersonalizationService {
         try {
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
-            let text = response.text();
+            const text = response.text();
             return text.trim();
         } catch (error) {
             console.error("Personalization AI Error:", error);
@@ -93,7 +94,7 @@ export class PersonalizationService {
         userAnswer: string,
         context: PersonalizationContext
     ): Promise<string | null> {
-        if (!context.userSettings.allowAIClarification) return null;
+        if (!context.userSettings.allowAIClarification) {return null;}
 
         const prompt = `
         The user provided an unclear or ambiguous answer to a question.
@@ -135,7 +136,7 @@ export class PersonalizationService {
         try {
             const result = await this.model.generateContent(prompt);
             const text = result.response.text().trim();
-            if (text.includes("NO")) return null;
+            if (text.includes("NO")) {return null;}
 
             // Clean json block if present
             const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -146,7 +147,7 @@ export class PersonalizationService {
     }
 
     async translateText(text: string, targetLanguage: string): Promise<string> {
-        if (targetLanguage === 'en') return text;
+        if (targetLanguage === 'en') {return text;}
 
         const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText: "${text}"`;
         try {

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { Link } from "wouter";
 import { Wand2, PenSquare } from "lucide-react";
+import { Link } from "wouter";
 
 type Props = {
   className?: string;

@@ -3,10 +3,18 @@
  * Tests inline editing, auto-save, error handling, and accessibility
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { EditableCell } from '@/components/datavault/EditableCell';
+
 import type { DatavaultColumn } from '@shared/schema';
 
 describe('EditableCell Component', () => {
@@ -123,7 +131,7 @@ describe('EditableCell Component', () => {
       fireEvent.doubleClick(cell);
 
       await waitFor(() => {
-        const input = screen.getByRole('textbox') as HTMLInputElement;
+        const input = screen.getByRole('textbox');
         expect(input).toHaveFocus();
       });
     });

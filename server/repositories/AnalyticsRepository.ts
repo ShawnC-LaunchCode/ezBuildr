@@ -1,4 +1,5 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc, gte, lte, sql, between } from "drizzle-orm";
+
 import {
   analyticsEvents,
   questions,
@@ -8,7 +9,8 @@ import {
   type AnalyticsEvent,
   insertAnalyticsEventSchema,
 } from "@shared/schema";
-import { eq, and, desc, gte, lte, sql, between } from "drizzle-orm";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Insert type for analytics events (validated via Zod schema)
@@ -50,7 +52,7 @@ export class AnalyticsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database.insert(analyticsEvents).values(events as any).returning();
+    return database.insert(analyticsEvents).values(events as any).returning();
   }
 
   // ==================== Event Queries ====================
@@ -60,7 +62,7 @@ export class AnalyticsRepository extends BaseRepository<
    */
   async findByResponse(responseId: string, tx?: DbTransaction): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(analyticsEvents)
       .where(eq(analyticsEvents.responseId, responseId))
@@ -86,7 +88,7 @@ export class AnalyticsRepository extends BaseRepository<
       query = query.limit(limit) as any;
     }
 
-    return await query;
+    return query;
   }
 
   /**
@@ -98,7 +100,7 @@ export class AnalyticsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(analyticsEvents)
       .where(and(eq(analyticsEvents.surveyId, surveyId), eq(analyticsEvents.event, eventType)))
@@ -110,7 +112,7 @@ export class AnalyticsRepository extends BaseRepository<
    */
   async findByQuestion(questionId: string, tx?: DbTransaction): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(analyticsEvents)
       .where(eq(analyticsEvents.questionId, questionId))
@@ -122,7 +124,7 @@ export class AnalyticsRepository extends BaseRepository<
    */
   async findByPage(pageId: string, tx?: DbTransaction): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(analyticsEvents)
       .where(eq(analyticsEvents.pageId, pageId))
@@ -139,7 +141,7 @@ export class AnalyticsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<AnalyticsEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(analyticsEvents)
       .where(
@@ -481,7 +483,7 @@ export class AnalyticsRepository extends BaseRepository<
       if (typeof value === 'boolean') {
         value ? yes++ : no++;
       } else if (typeof value === 'object' && value !== null) {
-        const text = (value as any).text;
+        const text = (value).text;
         if (text === true || text === 'true' || text === 'Yes' || text === 'yes') {
           yes++;
         } else {
@@ -564,9 +566,9 @@ export class AnalyticsRepository extends BaseRepository<
     const textValues = answers
       .map(a => {
         const value = a.value;
-        if (typeof value === 'string') return value;
+        if (typeof value === 'string') {return value;}
         if (typeof value === 'object' && value !== null) {
-          return (value as any).text || String(value);
+          return (value).text || String(value);
         }
         return String(value);
       })
@@ -659,12 +661,12 @@ export class AnalyticsRepository extends BaseRepository<
           return value;
         } else if (typeof value === 'object' && value !== null) {
           // Handle object format: { text: "...", date: "...", time: "..." }
-          if ((value as any).text) {
-            return (value as any).text;
+          if ((value).text) {
+            return (value).text;
           }
-          if ((value as any).date) {
-            const date = (value as any).date;
-            const time = (value as any).time;
+          if ((value).date) {
+            const date = (value).date;
+            const time = (value).time;
             return time ? `${date} ${time}` : date;
           }
           // Try to convert to ISO string if it's a Date object

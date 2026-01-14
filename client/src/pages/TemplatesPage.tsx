@@ -1,12 +1,24 @@
-import { useMemo, useState, Suspense } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Plus, Sparkles, FileText, Calendar, MoreVertical, Pencil, FileEdit, Trash2, Share2, Users } from "lucide-react";
+import React, { useMemo, useState, Suspense } from "react";
 import { useLocation } from "wouter";
-import { useTemplates, useTemplateSharing } from "@/hooks/useTemplates";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+import AddToSurveyDialog from "@/components/templates/AddToSurveyDialog";
+import EditTemplateModal from "@/components/templates/EditTemplateModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
@@ -21,21 +33,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Loader2, Plus, Sparkles, FileText, Calendar, MoreVertical, Pencil, FileEdit, Trash2, Share2, Users } from "lucide-react";
-import AddToSurveyDialog from "@/components/templates/AddToSurveyDialog";
-import EditTemplateModal from "@/components/templates/EditTemplateModal";
 import ShareTemplateModal from "@/components/templates/ShareTemplateModal";
-import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useTemplates, useTemplateSharing } from "@/hooks/useTemplates";
+
 
 interface Template {
   id: string;

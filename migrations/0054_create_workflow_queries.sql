@@ -12,19 +12,19 @@ CREATE TABLE IF NOT EXISTS "workflow_queries" (
 );
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."datavault_databases"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "datavault_databases"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
+ ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

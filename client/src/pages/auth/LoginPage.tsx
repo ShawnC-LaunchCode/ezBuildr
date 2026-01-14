@@ -1,17 +1,18 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Loader2, Shield, Smartphone } from "lucide-react";
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Link, useLocation } from "wouter";
+import { z } from "zod";
+
+import logo from "@/assets/images/logo.png";
+import { GoogleLogin } from "@/components/GoogleLogin";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { authAPI } from "@/lib/vault-api";
-import { GoogleLogin } from "@/components/GoogleLogin";
-import logo from "@/assets/images/logo.png";
 
 const loginSchema = z.object({
     email: z.string().email("Please enter a valid email"),
@@ -82,7 +83,7 @@ export default function LoginPage() {
 
     const handleMfaSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!mfaToken) return;
+        if (!mfaToken) {return;}
 
         setIsLoading(true);
         try {

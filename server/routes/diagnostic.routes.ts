@@ -1,7 +1,8 @@
-import type { Express } from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import type { Express } from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +16,7 @@ export function registerDiagnosticRoutes(app: Express) {
         if (fs.existsSync(filePath)) {
             res.sendFile(filePath);
         } else {
-            res.status(404).send("Diagnostic file not found at " + filePath);
+            res.status(404).send(`Diagnostic file not found at ${  filePath}`);
         }
     });
 }

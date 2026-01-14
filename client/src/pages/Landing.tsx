@@ -12,10 +12,11 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
+
+import logo from "@/assets/images/logo.png";
+import { GoogleLogin } from "@/components/GoogleLogin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GoogleLogin } from "@/components/GoogleLogin";
-import logo from "@/assets/images/logo.png";
 
 export default function Landing() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;

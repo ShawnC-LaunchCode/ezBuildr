@@ -4,8 +4,14 @@
  * Tests for the 10 critical issues identified and fixed in the organization audit
  */
 
+import { eq, and } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import { db } from '../../server/db';
+import { organizationService } from '../../server/services/OrganizationService';
+import { projectService } from '../../server/services/ProjectService';
+import { workflowService } from '../../server/services/WorkflowService';
 import {
   users,
   organizations,
@@ -15,12 +21,9 @@ import {
   workflowRuns,
   projects,
   tenants,
+  auditLogs,
 } from '../../shared/schema';
-import { eq, and } from 'drizzle-orm';
-import { organizationService } from '../../server/services/OrganizationService';
-import { workflowService } from '../../server/services/WorkflowService';
-import { projectService } from '../../server/services/ProjectService';
-import { v4 as uuidv4 } from 'uuid';
+
 
 describe('Organization Audit Fixes', () => {
   const testTenantId = uuidv4();
@@ -57,6 +60,16 @@ describe('Organization Audit Fixes', () => {
       user1Id
     );
     testOrgId = org.id;
+
+    // Create a dummy workspace with ID = testTenantId to satisfy OrganizationService's
+    // incorrect assumption that tenantId can be logged as workspaceId in audit logs.
+    const { workspaces } = await import('../../shared/schema');
+    await db.insert(workspaces).values({
+      id: testTenantId, // Force ID to match tenantId
+      organizationId: testOrgId,
+      name: 'Default Workspace',
+      slug: 'default-workspace',
+    }).onConflictDoNothing();
   });
 
   afterAll(async () => {
@@ -67,6 +80,26 @@ describe('Organization Audit Fixes', () => {
         await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, testOrgId));
         await db.delete(organizations).where(eq(organizations.id, testOrgId));
       }
+
+      // Cleanup assets created by users to prevents FK violations
+      // Users are identified by user1Id and user2Id
+      // Note: We use raw sql or individual deletes because we don't have direct "ownerId IN (...)" easily without 'inArray' import
+      // But we can just clean everything for these users.
+
+      // Cleanup for user1Id and user2Id
+      const testUserIds = [user1Id, user2Id];
+
+      for (const uid of testUserIds) {
+        // Runs
+        await db.delete(workflowRuns).where(eq(workflowRuns.createdBy, uid));
+        // Workflows
+        await db.delete(workflows).where(eq(workflows.creatorId, uid));
+        // Projects
+        await db.delete(projects).where(eq(projects.creatorId, uid));
+        // Audit Logs (fix FK violation)
+        await db.delete(auditLogs).where(eq(auditLogs.userId, uid));
+      }
+
       await db.delete(users).where(eq(users.tenantId, testTenantId));
       await db.delete(tenants).where(eq(tenants.id, testTenantId));
     } catch (error) {
@@ -236,6 +269,8 @@ describe('Organization Audit Fixes', () => {
           title: 'Blocking Workflow',
           creatorId: user1Id,
           ownerId: user1Id,
+          ownerType: 'org',
+          ownerUuid: org.id,
         },
         user1Id
       );

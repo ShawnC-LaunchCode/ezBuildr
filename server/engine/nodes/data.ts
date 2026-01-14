@@ -1,7 +1,9 @@
-import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
-import type { EvalContext } from '../expr';
-import { evaluateExpression } from '../expr';
 import { v4 as uuidv4 } from 'uuid';
+
+import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
+import { evaluateExpression } from '../expr';
+
+import type { EvalContext } from '../expr';
 
 // ==========================================
 // QUERY NODE
@@ -65,7 +67,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
             mode: context.executionMode
         });
 
-        if (context.cache && context.cache.queries.has(cacheKey)) {
+        if (context.cache?.queries.has(cacheKey)) {
             const cachedResult = context.cache.queries.get(cacheKey);
             // Store outcome in vars (side effect of execution)
             context.vars[config.outputKey] = cachedResult;
@@ -83,7 +85,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
         // or rely on repo for basic sorting/pagination.
 
         // Note: datavaultRowsRepository.getRowsWithValues returns { row, values }
-        let rows = await datavaultRowsRepository.getRowsWithValues(config.tableId, {
+        const rows = await datavaultRowsRepository.getRowsWithValues(config.tableId, {
             limit: 1000,
             showArchived: false,
         });
@@ -106,7 +108,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
             // First, map existing rows by ID for easy access
             const rowMap = new Map(flatRows.map(r => [r.id, r]));
 
-            for (const [rowId, write] of Object.entries(tableWrites) as [string, any][]) {
+            for (const [rowId, write] of Object.entries(tableWrites)) {
                 if (write.deleted) {
                     rowMap.delete(rowId);
                 } else {
@@ -197,7 +199,7 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
 
     try {
         // IDEMPOTENCY GUARD (PART 4)
-        if (context.executedSideEffects && context.executedSideEffects.has(nodeId)) {
+        if (context.executedSideEffects?.has(nodeId)) {
             // Already executed in this run
             // We treat this as a skip to prevent accidental loops or double-execution
             return {
@@ -238,10 +240,10 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
             const tableWrites = context.writes[config.tableId];
 
             if (config.operation === 'delete') {
-                if (!rowId) throw new Error('Row ID required for delete');
+                if (!rowId) {throw new Error('Row ID required for delete');}
                 tableWrites[rowId] = { deleted: true };
             } else if (config.operation === 'update') {
-                if (!rowId) throw new Error('Row ID required for update');
+                if (!rowId) {throw new Error('Row ID required for update');}
                 // We merge with existing "live" data logically, but here we just store the delta
                 const currentWrite = tableWrites[rowId] || {};
                 tableWrites[rowId] = {
@@ -288,20 +290,20 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
             );
             result = row;
             // Re-fetch to get full object with IDs if needed? Usually just ID is enough.
-            if (config.outputKey) context.vars[config.outputKey] = row;
+            if (config.outputKey) {context.vars[config.outputKey] = row;}
 
         } else if (config.operation === 'update') {
-            if (!rowId) throw new Error('Row ID required for update');
+            if (!rowId) {throw new Error('Row ID required for update');}
             await datavaultRowsRepository.updateRowValues(
                 rowId,
                 Object.entries(dataToWrite).map(([k, v]) => ({ columnId: k, value: v }))
             );
             result = { id: rowId, ...dataToWrite };
             const outKey = config.outputKey;
-            if (outKey) context.vars[outKey] = result;
+            if (outKey) {context.vars[outKey] = result;}
 
         } else if (config.operation === 'delete') {
-            if (!rowId) throw new Error('Row ID required for delete');
+            if (!rowId) {throw new Error('Row ID required for delete');}
             await datavaultRowsRepository.deleteRow(rowId);
             result = { id: rowId, deleted: true };
         }

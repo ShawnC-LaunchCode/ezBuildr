@@ -1,3 +1,5 @@
+import type { DatavaultTable, InsertDatavaultTable, DatavaultTableRole } from "@shared/schema";
+
 import {
   datavaultTablesRepository,
   datavaultColumnsRepository,
@@ -5,7 +7,7 @@ import {
   datavaultTablePermissionsRepository,
   type DbTransaction,
 } from "../repositories";
-import type { DatavaultTable, InsertDatavaultTable, DatavaultTableRole } from "@shared/schema";
+
 import type { TablePermissionFlags } from "./DatavaultTablePermissionsService";
 
 /**
@@ -198,7 +200,7 @@ export class DatavaultTablesService {
    * Get table by ID with tenant verification
    */
   async getTable(tableId: string, tenantId: string, tx?: DbTransaction): Promise<DatavaultTable> {
-    return await this.verifyTenantOwnership(tableId, tenantId, tx);
+    return this.verifyTenantOwnership(tableId, tenantId, tx);
   }
 
   /**
@@ -233,7 +235,7 @@ export class DatavaultTablesService {
    * List all tables for a tenant (filtered by user access)
    */
   async listTables(tenantId: string, userId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {
-    return await this.tablesRepo.findByTenantAndUser(tenantId, userId, tx);
+    return this.tablesRepo.findByTenantAndUser(tenantId, userId, tx);
   }
 
   /**
@@ -242,7 +244,7 @@ export class DatavaultTablesService {
   async listTablesWithStats(tenantId: string, userId: string, tx?: DbTransaction) {
     const tables = await this.tablesRepo.findByTenantAndUser(tenantId, userId, tx);
 
-    const tablesWithStats = await Promise.all(
+    return Promise.all(
       tables.map(async (table) => {
         const columnCount = await this.columnsRepo.countByTableId(table.id, tx);
         const rowCount = await this.rowsRepo.countByTableId(table.id, tx);
@@ -254,8 +256,6 @@ export class DatavaultTablesService {
         };
       })
     );
-
-    return tablesWithStats;
   }
 
   /**
@@ -280,7 +280,7 @@ export class DatavaultTablesService {
       data.slug = await this.ensureUniqueSlug(tenantId, data.slug, tableId, tx);
     }
 
-    return await this.tablesRepo.update(tableId, data, tx);
+    return this.tablesRepo.update(tableId, data, tx);
   }
 
   /**
@@ -299,7 +299,7 @@ export class DatavaultTablesService {
     slug: string,
     tx?: DbTransaction
   ): Promise<DatavaultTable | undefined> {
-    return await this.tablesRepo.findByTenantAndSlug(tenantId, slug, tx);
+    return this.tablesRepo.findByTenantAndSlug(tenantId, slug, tx);
   }
 
   /**
@@ -337,7 +337,7 @@ export class DatavaultTablesService {
     }
 
     // Update the table's databaseId
-    return await this.tablesRepo.update(tableId, { databaseId }, tx);
+    return this.tablesRepo.update(tableId, { databaseId }, tx);
   }
 }
 

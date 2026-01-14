@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import { templateService } from "../lib/templates/TemplateService";
 import { logger } from "../logger";
 
@@ -47,7 +48,7 @@ router.post("/templates/:id/install", async (req, res) => {
         const { projectId } = req.body;
         // Mock user context - in real app would get from session/JWT
         // We'll trust the projectId passed for now, assuming middleware checked existing access
-        const { userId } = req.body as any || { userId: 'system' }; // Fallback
+        const { userId } = req.body || { userId: 'system' }; // Fallback
 
         const workflow = await templateService.installTemplate(
             req.params.id,

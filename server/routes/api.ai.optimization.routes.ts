@@ -1,8 +1,10 @@
 
 import { Router } from "express";
-import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
-import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";
 import { z } from "zod";
+
+import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";
+
+import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
 
 const router = Router();
 

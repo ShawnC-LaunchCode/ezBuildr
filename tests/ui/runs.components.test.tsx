@@ -1,7 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { RunsTable } from '@/components/runs/RunsTable';
+import userEvent from '@testing-library/user-event';
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+
 import { RunFilters } from '@/components/runs/RunFilters';
+import { RunsTable } from '@/components/runs/RunsTable';
 import { TracePanel } from '@/components/runs/TracePanel';
 import type { DocumentRun, TraceEntry, ListRunsParams } from '@/lib/vault-api';
 
@@ -11,6 +18,7 @@ import type { DocumentRun, TraceEntry, ListRunsParams } from '@/lib/vault-api';
  */
 describe('Stage 8: Runs UI Components', () => {
   describe('RunsTable', () => {
+    // ... (keep existing mockRuns)
     const mockRuns: DocumentRun[] = [
       {
         id: 'run-1',
@@ -48,10 +56,10 @@ describe('Stage 8: Runs UI Components', () => {
         error: 'Test error message',
         workflowVersion: {
           id: 'version-1',
-          name: 'v1.0',
+          name: 'v1.1',
           workflow: {
             id: 'workflow-1',
-            name: 'Test Workflow',
+            name: 'Error Workflow',
             projectId: 'project-1',
           },
         },
@@ -79,7 +87,7 @@ describe('Stage 8: Runs UI Components', () => {
 
       expect(screen.getByText('Test Workflow')).toBeInTheDocument();
       expect(screen.getByText('v1.0')).toBeInTheDocument();
-      expect(screen.getByText('test@example.com')).toBeInTheDocument();
+      expect(screen.getAllByText('test@example.com')[0]).toBeInTheDocument();
     });
 
     it('should show success badge for successful runs', () => {
@@ -104,14 +112,17 @@ describe('Stage 8: Runs UI Components', () => {
       expect(screen.getByText('500ms')).toBeInTheDocument();
     });
 
-    it('should show download options for successful runs', () => {
+    it('should show download options for successful runs', async () => {
+      const user = userEvent.setup();
       render(<RunsTable runs={mockRuns} />);
 
-      const successRunActions = screen.getAllByRole('button')[0]; // First run's actions button
-      fireEvent.click(successRunActions);
+      const successRunActions = screen.getAllByRole('button')[0];
+      await user.click(successRunActions);
 
-      expect(screen.getByText('Download DOCX')).toBeInTheDocument();
-      expect(screen.getByText('Download PDF')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Download DOCX')).toBeInTheDocument();
+        expect(screen.getByText('Download PDF')).toBeInTheDocument();
+      });
     });
   });
 
@@ -298,10 +309,11 @@ describe('Stage 8: Runs UI Components', () => {
     it('should copy trace as JSON', async () => {
       // Mock clipboard API
       const mockWriteText = vi.fn();
-      Object.assign(navigator, {
-        clipboard: {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
           writeText: mockWriteText,
         },
+        writable: true,
       });
 
       render(<TracePanel trace={mockTrace} />);

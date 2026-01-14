@@ -1,12 +1,12 @@
-import DOMPurify from 'isomorphic-dompurify';
 import { Request, Response, NextFunction } from 'express';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Sanitizes a string by removing all HTML tags and scripts
  * Prevents XSS attacks by stripping dangerous content
  */
 export function sanitizeString(input: string): string {
-  if (typeof input !== 'string') return input;
+  if (typeof input !== 'string') {return input;}
 
   // Remove HTML tags and scripts while keeping text content
   return DOMPurify.sanitize(input, {
@@ -20,8 +20,8 @@ export function sanitizeString(input: string): string {
  * Handles nested objects and arrays
  */
 export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj !== 'object') return obj;
+  if (obj === null || obj === undefined) {return obj;}
+  if (typeof obj !== 'object') {return obj;}
 
   const sanitized: any = Array.isArray(obj) ? [] : {};
 

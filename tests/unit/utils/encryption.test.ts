@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
 import { encrypt, decrypt, redact, redactObject, maskSecret, generateMasterKey, validateMasterKey } from "../../../server/utils/encryption";
 
 describe("Encryption Utilities", () => {
@@ -130,7 +131,7 @@ describe("Encryption Utilities", () => {
       const encrypted = encrypt(plaintext);
 
       // Corrupt the encrypted data
-      const corrupted = encrypted.substring(0, encrypted.length - 4) + "XXXX";
+      const corrupted = `${encrypted.substring(0, encrypted.length - 4)  }XXXX`;
 
       expect(() => decrypt(corrupted)).toThrow("Decryption failed");
     });

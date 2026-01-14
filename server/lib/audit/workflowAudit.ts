@@ -24,8 +24,8 @@ export class WorkflowAudit {
 
         // 1. Detect Cycles (DFS)
         const hasCycle = (nodeId: string): boolean => {
-            if (recursionStack.has(nodeId)) return true;
-            if (visited.has(nodeId)) return false;
+            if (recursionStack.has(nodeId)) {return true;}
+            if (visited.has(nodeId)) {return false;}
 
             visited.add(nodeId);
             recursionStack.add(nodeId);
@@ -39,11 +39,11 @@ export class WorkflowAudit {
 
             let cycleFound = false;
             if (node.next) {
-                if (hasCycle(node.next)) cycleFound = true;
+                if (hasCycle(node.next)) {cycleFound = true;}
             }
             if (node.branches) {
                 for (const branch of node.branches) {
-                    if (hasCycle(branch.next)) cycleFound = true;
+                    if (hasCycle(branch.next)) {cycleFound = true;}
                 }
             }
 

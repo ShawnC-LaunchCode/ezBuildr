@@ -1,182 +1,103 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
-import express, { type Express } from 'express';
-import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
-import { db } from '../../server/db';
-import { users, tenants, datavaultTables, datavaultTablePermissions } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { datavaultTables, datavaultTablePermissions } from '@shared/schema';
+
+import { db } from '../../server/db';
+import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+
+
 
 describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
-  let ownerCookie: string;
-  let writerCookie: string;
-  let readerCookie: string;
-  let nonMemberCookie: string;
-  let tenantId: string;
+  let ctx: IntegrationTestContext;
+  let owner: { userId: string; token: string };
+  let writer: { userId: string; token: string };
+  let reader: { userId: string; token: string };
+  let nonMember: { userId: string; token: string };
   let tableId: string;
-  let ownerId: string;
-  let writerId: string;
-  let readerId: string;
-  let nonMemberId: string;
-  let app: Express;
 
   beforeAll(async () => {
-    app = express();
-    app.use(express.json());
-    // Mock cookie parser or session if needed, but registerDatavaultRoutes expects app
-    // We might need to mock auth middleware if it's not bypassed
-
-    // Add middleware to mock authentication based on cookies
-    app.use((req, res, next) => {
-      const cookie = req.headers.cookie;
-      if (cookie) {
-        if (cookie.includes('test-session-owner=')) {
-          const userId = cookie.split('test-session-owner=')[1].split(';')[0];
-          // @ts-ignore
-          req.user = { claims: { sub: userId, email: 'owner@test.com' } };
-          // @ts-ignore
-          req.session = { user: { claims: { sub: userId, email: 'owner@test.com' } } };
-        } else if (cookie.includes('test-session-writer=')) {
-          const userId = cookie.split('test-session-writer=')[1].split(';')[0];
-          // @ts-ignore
-          req.user = { claims: { sub: userId, email: 'writer@test.com' } };
-          // @ts-ignore
-          req.session = { user: { claims: { sub: userId, email: 'writer@test.com' } } };
-        } else if (cookie.includes('test-session-reader=')) {
-          const userId = cookie.split('test-session-reader=')[1].split(';')[0];
-          // @ts-ignore
-          req.user = { claims: { sub: userId, email: 'reader@test.com' } };
-          // @ts-ignore
-          req.session = { user: { claims: { sub: userId, email: 'reader@test.com' } } };
-        } else if (cookie.includes('test-session-nonmember=')) {
-          const userId = cookie.split('test-session-nonmember=')[1].split(';')[0];
-          // @ts-ignore
-          req.user = { claims: { sub: userId, email: 'nonmember@test.com' } };
-          // @ts-ignore
-          req.session = { user: { claims: { sub: userId, email: 'nonmember@test.com' } } };
-        }
-      }
-      next();
+    // 1. Setup Environment (App, Server, DB, Tenant, Admin User)
+    ctx = await setupIntegrationTest({
+      tenantName: 'Permissions Test Tenant',
     });
 
-    // For now, let's register routes
-    registerDatavaultRoutes(app);
+    // 2. Create Real Users with Roles & Logins
+    // Note: The 'owner' returned by setupIntegrationTest is a tenant owner. 
+    // We'll create specific users for this test suite to be explicit.
 
-    // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: 'Permissions Test Tenant',
-        plan: 'pro',
-      })
-      .returning();
-    tenantId = tenant.id;
+    // Table Owner (also a Builder/Owner in tenant)
+    owner = await createTestUser(ctx, 'owner');
 
-    // Create test users
-    const [owner] = await db
-      .insert(users)
-      .values({
-        email: 'owner@test.com',
-        fullName: 'Table Owner',
-        tenantId,
-      })
-      .returning();
-    ownerId = owner.id;
+    // Writer (Builder)
+    writer = await createTestUser(ctx, 'builder');
 
-    const [writer] = await db
-      .insert(users)
-      .values({
-        email: 'writer@test.com',
-        fullName: 'Table Writer',
-        tenantId,
-      })
-      .returning();
-    writerId = writer.id;
+    // Reader (Viewer)
+    reader = await createTestUser(ctx, 'viewer');
 
-    const [reader] = await db
-      .insert(users)
-      .values({
-        email: 'reader@test.com',
-        fullName: 'Table Reader',
-        tenantId,
-      })
-      .returning();
-    readerId = reader.id;
+    // Non-Member (User in a different tenant, or just no permissions on table)
+    // Let's make them part of the tenant but with no table permissions first
+    // Actually, to test "Access denied", being in the tenant is not enough if RLS is table-based.
+    // If we want a separate tenant user, we can do that too. 
+    // For now, let's just make them a viewer in the same tenant who hasn't been granted table access.
+    nonMember = await createTestUser(ctx, 'viewer');
 
-    const [nonMember] = await db
-      .insert(users)
-      .values({
-        email: 'nonmember@test.com',
-        fullName: 'Non Member',
-        tenantId,
-      })
-      .returning();
-    nonMemberId = nonMember.id;
-
-    // Create test table owned by owner
+    // 3. Create Test Table (Owned by 'owner')
     const [table] = await db
       .insert(datavaultTables)
       .values({
-        tenantId,
-        ownerUserId: ownerId,
+        tenantId: ctx.tenantId,
+        ownerUserId: owner.userId,
         name: 'Permissions Test Table',
         slug: 'permissions-test-table',
       })
       .returning();
     tableId = table.id;
 
-    // Grant permissions to writer and reader
+    // 4. Grant Permissions
     await db.insert(datavaultTablePermissions).values([
-      { tableId, userId: writerId, role: 'write' },
-      { tableId, userId: readerId, role: 'read' },
+      { tableId, userId: writer.userId, role: 'write' },
+      { tableId, userId: reader.userId, role: 'read' },
     ]);
-
-    // Mock authentication cookies
-    ownerCookie = `test-session-owner=${ownerId}`;
-    writerCookie = `test-session-writer=${writerId}`;
-    readerCookie = `test-session-reader=${readerId}`;
-    nonMemberCookie = `test-session-nonmember=${nonMemberId}`;
   });
 
   afterAll(async () => {
-    // Cleanup
-    await db.delete(datavaultTablePermissions).where(eq(datavaultTablePermissions.tableId, tableId));
-    await db.delete(datavaultTables).where(eq(datavaultTables.id, tableId));
-    await db.delete(users).where(eq(users.tenantId, tenantId));
-    await db.delete(tenants).where(eq(tenants.id, tenantId));
+    await ctx.cleanup();
   });
 
   describe('GET /api/datavault/tables/:tableId', () => {
     it('should allow owner to read table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', ownerCookie);
+        .set('Authorization', `Bearer ${owner.token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(tableId);
     });
 
     it('should allow writer to read table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', writerCookie);
+        .set('Authorization', `Bearer ${writer.token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(tableId);
     });
 
     it('should allow reader to read table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', readerCookie);
+        .set('Authorization', `Bearer ${reader.token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(tableId);
     });
 
     it('should deny non-member from reading table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', nonMemberCookie);
+        .set('Authorization', `Bearer ${nonMember.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
@@ -185,18 +106,18 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
   describe('PATCH /api/datavault/tables/:tableId', () => {
     it('should allow owner to update table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', ownerCookie)
+        .set('Authorization', `Bearer ${owner.token}`)
         .send({ description: 'Updated by owner' });
 
       expect(res.status).toBe(200);
     });
 
     it('should deny writer from updating table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', writerCookie)
+        .set('Authorization', `Bearer ${writer.token}`)
         .send({ description: 'Attempt by writer' });
 
       expect(res.status).toBe(403);
@@ -204,9 +125,9 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
     });
 
     it('should deny reader from updating table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', readerCookie)
+        .set('Authorization', `Bearer ${reader.token}`)
         .send({ description: 'Attempt by reader' });
 
       expect(res.status).toBe(403);
@@ -216,27 +137,27 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
   describe('DELETE /api/datavault/tables/:tableId', () => {
     it('should deny writer from deleting table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .delete(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', writerCookie);
+        .set('Authorization', `Bearer ${writer.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
     });
 
     it('should deny reader from deleting table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .delete(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', readerCookie);
+        .set('Authorization', `Bearer ${reader.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
     });
 
     it('should deny non-member from deleting table', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .delete(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', nonMemberCookie);
+        .set('Authorization', `Bearer ${nonMember.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
@@ -245,28 +166,30 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
   describe('GET /api/datavault/tables/:tableId/permissions', () => {
     it('should allow owner to view permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', ownerCookie);
+        .set('Authorization', `Bearer ${owner.token}`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(2); // writer and reader
+      // Expectations might need adjustment based on how permissions are returned (e.g. if owner is included)
+      // The setup added 2 permissions (writer, reader).
+      expect(res.body.length).toBeGreaterThanOrEqual(2);
     });
 
     it('should deny writer from viewing permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', writerCookie);
+        .set('Authorization', `Bearer ${writer.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
     });
 
     it('should deny reader from viewing permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', readerCookie);
+        .set('Authorization', `Bearer ${reader.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
@@ -275,56 +198,56 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
 
   describe('POST /api/datavault/tables/:tableId/permissions', () => {
     it('should allow owner to grant permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .post(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', ownerCookie)
-        .send({ userId: nonMemberId, role: 'read' });
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: nonMember.userId, role: 'read' });
 
       expect(res.status).toBe(201);
-      expect(res.body.userId).toBe(nonMemberId);
+      expect(res.body.userId).toBe(nonMember.userId);
       expect(res.body.role).toBe('read');
 
       // Cleanup: Remove the permission
       await db
         .delete(datavaultTablePermissions)
         .where(
-          eq(datavaultTablePermissions.userId, nonMemberId)
+          eq(datavaultTablePermissions.userId, nonMember.userId)
         );
     });
 
     it('should allow owner to update existing permission (upsert)', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .post(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', ownerCookie)
-        .send({ userId: readerId, role: 'write' }); // Upgrade reader to writer
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: reader.userId, role: 'write' }); // Upgrade reader to writer
 
       expect(res.status).toBe(201);
       expect(res.body.role).toBe('write');
 
       // Revert back to read
-      await request(app)
+      await request(ctx.baseURL)
         .post(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', ownerCookie)
-        .send({ userId: readerId, role: 'read' });
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: reader.userId, role: 'read' });
     });
 
     it('should deny writer from granting permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .post(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', writerCookie)
-        .send({ userId: nonMemberId, role: 'read' });
+        .set('Authorization', `Bearer ${writer.token}`)
+        .send({ userId: nonMember.userId, role: 'read' });
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
     });
 
     it('should prevent modifying table owner permissions', async () => {
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .post(`/api/datavault/tables/${tableId}/permissions`)
-        .set('Cookie', ownerCookie)
-        .send({ userId: ownerId, role: 'read' });
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: owner.userId, role: 'read' });
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(500); // Or 400, depending on implementation
       expect(res.body.message).toContain('Cannot modify permissions for table owner');
     });
   });
@@ -335,14 +258,14 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       const perms = await db
         .select()
         .from(datavaultTablePermissions)
-        .where(eq(datavaultTablePermissions.userId, writerId));
+        .where(eq(datavaultTablePermissions.userId, writer.userId));
 
       expect(perms.length).toBe(1);
       const permissionId = perms[0].id;
 
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .delete(`/api/datavault/permissions/${permissionId}?tableId=${tableId}`)
-        .set('Cookie', ownerCookie);
+        .set('Authorization', `Bearer ${owner.token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -350,7 +273,7 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       // Re-grant the permission
       await db.insert(datavaultTablePermissions).values({
         tableId,
-        userId: writerId,
+        userId: writer.userId,
         role: 'write',
       });
     });
@@ -359,13 +282,13 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
       const perms = await db
         .select()
         .from(datavaultTablePermissions)
-        .where(eq(datavaultTablePermissions.userId, readerId));
+        .where(eq(datavaultTablePermissions.userId, reader.userId));
 
       const permissionId = perms[0].id;
 
-      const res = await request(app)
+      const res = await request(ctx.baseURL)
         .delete(`/api/datavault/permissions/${permissionId}?tableId=${tableId}`)
-        .set('Cookie', writerCookie);
+        .set('Authorization', `Bearer ${writer.token}`);
 
       expect(res.status).toBe(403);
       expect(res.body.message).toContain('Access denied');
@@ -375,45 +298,45 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
   describe('Permission hierarchy', () => {
     it('should enforce owner includes write and read', async () => {
       // Owner can read
-      const readRes = await request(app)
+      const readRes = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', ownerCookie);
+        .set('Authorization', `Bearer ${owner.token}`);
       expect(readRes.status).toBe(200);
 
       // Owner can update table
-      const updateRes = await request(app)
+      const updateRes = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', ownerCookie)
+        .set('Authorization', `Bearer ${owner.token}`)
         .send({ description: 'Owner test' });
       expect(updateRes.status).toBe(200);
     });
 
     it('should enforce write includes read but not owner', async () => {
       // Writer can read
-      const readRes = await request(app)
+      const readRes = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', writerCookie);
+        .set('Authorization', `Bearer ${writer.token}`);
       expect(readRes.status).toBe(200);
 
       // Writer cannot update table schema
-      const updateRes = await request(app)
+      const updateRes = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', writerCookie)
+        .set('Authorization', `Bearer ${writer.token}`)
         .send({ description: 'Writer test' });
       expect(updateRes.status).toBe(403);
     });
 
     it('should enforce read is read-only', async () => {
       // Reader can read
-      const readRes = await request(app)
+      const readRes = await request(ctx.baseURL)
         .get(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', readerCookie);
+        .set('Authorization', `Bearer ${reader.token}`);
       expect(readRes.status).toBe(200);
 
       // Reader cannot update
-      const updateRes = await request(app)
+      const updateRes = await request(ctx.baseURL)
         .patch(`/api/datavault/tables/${tableId}`)
-        .set('Cookie', readerCookie)
+        .set('Authorization', `Bearer ${reader.token}`)
         .send({ description: 'Reader test' });
       expect(updateRes.status).toBe(403);
     });

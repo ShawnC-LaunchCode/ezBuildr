@@ -1,4 +1,5 @@
 ﻿import { motion } from "framer-motion";
+
 import { brand } from "../lib/brand";
 
 export default function AIAnalytics() {

@@ -16,7 +16,7 @@ export class ActivityLogService {
    * List activity logs with filtering, pagination, and sorting
    */
   async list(query: ActivityLogQuery): Promise<ActivityLogResult> {
-    return await this.repo.find(query);
+    return this.repo.find(query);
   }
 
   /**
@@ -51,7 +51,7 @@ export class ActivityLogService {
 
     // Helper to escape CSV values
     const escapeCsv = (value: any): string => {
-      if (value === null || value === undefined) return "";
+      if (value === null || value === undefined) {return "";}
 
       // Convert objects/arrays to JSON strings
       if (typeof value === "object") {
@@ -131,13 +131,13 @@ export class ActivityLogService {
    * Get unique event types for filter dropdowns
    */
   async getUniqueEvents(): Promise<string[]> {
-    return await this.repo.getUniqueEvents();
+    return this.repo.getUniqueEvents();
   }
 
   /**
    * Get unique actors for filter dropdowns
    */
   async getUniqueActors(): Promise<string[]> {
-    return await this.repo.getUniqueActors();
+    return this.repo.getUniqueActors();
   }
 }

@@ -12,22 +12,11 @@
  * - Rate limiting protection
  */
 
-import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type {
-  AIProvider,
-  AIProviderConfig,
-  AIGeneratedWorkflow,
-  AIWorkflowGenerationRequest,
-  AIWorkflowSuggestion,
-  AIWorkflowSuggestionRequest,
-  AITemplateBindingsResponse,
-  AITemplateBindingsRequest,
-  AIServiceError,
-  AIWorkflowRevisionRequest,
-  AIWorkflowRevisionResponse,
-} from '../../shared/types/ai';
+import OpenAI from 'openai';
+
+
 import {
   AIGeneratedWorkflowSchema,
   AIWorkflowSuggestionSchema,
@@ -44,8 +33,23 @@ import {
   AIVisualizeLogicResponseSchema,
 } from '../../shared/types/ai';
 import { createLogger } from '../logger';
-import { workflowQualityValidator } from './WorkflowQualityValidator';
+
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
+import { workflowQualityValidator } from './WorkflowQualityValidator';
+
+import type {
+  AIProvider,
+  AIProviderConfig,
+  AIGeneratedWorkflow,
+  AIWorkflowGenerationRequest,
+  AIWorkflowSuggestion,
+  AIWorkflowSuggestionRequest,
+  AITemplateBindingsResponse,
+  AITemplateBindingsRequest,
+  AIServiceError,
+  AIWorkflowRevisionRequest,
+  AIWorkflowRevisionResponse,
+} from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-service' });
 
@@ -682,7 +686,7 @@ Output ONLY the JSON object, no additional text or markdown.`;
       // Check for Google's "Please retry in X s"
       if (typeof error.message === 'string') {
         const match = error.message.match(/retry in ([0-9.]+)s/);
-        if (match) return Math.ceil(parseFloat(match[1]) * 1000);
+        if (match) {return Math.ceil(parseFloat(match[1]) * 1000);}
       }
       return null;
     };
@@ -822,8 +826,8 @@ Output ONLY the JSON object, no additional text or markdown.`;
       } catch (error: any) {
         // Handle rate limiting specifically
         const isRateLimit = error.status === 429 || error.code === 'rate_limit_exceeded' ||
-          (error.message && error.message.includes('429')) ||
-          (error.message && error.message.includes('Quota exceeded'));
+          (error.message?.includes('429')) ||
+          (error.message?.includes('Quota exceeded'));
 
         if (isRateLimit) {
           const retryAfterMs = getRetryAfter(error);
@@ -1197,8 +1201,8 @@ Output ONLY the JSON object, no additional text or markdown.`;
   ): string {
     const stepDescriptions = steps.map(step => {
       let desc = `- ${step.key} (${step.type})`;
-      if (step.label) desc += `: ${step.label}`;
-      if (step.description) desc += ` - ${step.description}`;
+      if (step.label) {desc += `: ${step.label}`;}
+      if (step.description) {desc += ` - ${step.description}`;}
       if (step.options && step.options.length > 0) {
         desc += ` [Options: ${step.options.join(', ')}]`;
       }
@@ -1449,7 +1453,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
 
     if (sections.length === 0) {
       // No sections to chunk, fall back to single shot
-      return await this.reviseWorkflowSingleShot(request);
+      return this.reviseWorkflowSingleShot(request);
     }
 
     // EDGE CASE: Single massive section that's too large
@@ -1473,7 +1477,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
         }, 'Single section with large content - using two-pass revision strategy');
 
         // Strategy: Ask AI to create a simplified structure first, then fill details
-        return await this.reviseWorkflowInPasses(request);
+        return this.reviseWorkflowInPasses(request);
       }
     }
 

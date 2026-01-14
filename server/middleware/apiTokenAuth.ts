@@ -1,7 +1,10 @@
-import type { Request, Response, NextFunction } from 'express';
-import { datavaultApiTokensService } from '../services/DatavaultApiTokensService';
-import { createLogger } from '../logger';
 import type { DatavaultApiToken } from '@shared/schema';
+
+import { createLogger } from '../logger';
+import { datavaultApiTokensService } from '../services/DatavaultApiTokensService';
+
+import type { Request, Response, NextFunction } from 'express';
+
 
 const logger = createLogger({ module: 'api-token-auth' });
 

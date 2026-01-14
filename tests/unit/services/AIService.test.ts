@@ -1,5 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { AIService } from '../../../server/services/AIService';
 
 // Properly hoist the mock function so it's available in the factory
@@ -36,7 +37,7 @@ describe('AIService Unit Tests', () => {
     it('reviseWorkflow should parse valid JSON response correctly', async () => {
         const mockResponse = {
             updatedWorkflow: {
-                name: 'Revised Flow',
+                title: 'Revised Flow',
                 sections: [{ id: 's1', title: 'Start', order: 0, steps: [] }],
                 logicRules: [],
                 transformBlocks: []
@@ -58,17 +59,22 @@ describe('AIService Unit Tests', () => {
             mode: 'easy' as const
         };
 
-        const result = await aiService.reviseWorkflow(request);
-
-        expect(result.updatedWorkflow.title).toBe('Revised Flow');
-        expect(result.diff.changes).toHaveLength(1);
-        expect(result.explanation?.[0]).toBe('I did good.');
+        try {
+            const result = await aiService.reviseWorkflow(request);
+            expect(result.updatedWorkflow.title).toBe('Revised Flow');
+            expect(result.diff.changes).toHaveLength(1);
+            expect(result.explanation?.[0]).toBe('I did good.');
+        } catch (e: any) {
+            console.error('FULL ERROR:', e);
+            if (e.details) {console.error('DETAILS:', JSON.stringify(e.details, null, 2));}
+            throw e;
+        }
     });
 
     it('reviseWorkflow should handle JSON markdown code blocks', async () => {
         const mockResponse = {
             updatedWorkflow: {
-                name: 'Clean Flow',
+                title: 'Clean Flow',
                 sections: [{ id: 's1', title: 'Start', order: 0, steps: [] }],
                 logicRules: [],
                 transformBlocks: []
@@ -77,7 +83,7 @@ describe('AIService Unit Tests', () => {
             explanation: []
         };
 
-        const rawText = "```json\n" + JSON.stringify(mockResponse) + "\n```";
+        const rawText = `\`\`\`json\n${  JSON.stringify(mockResponse)  }\n\`\`\``;
 
         mockGenerateContent.mockResolvedValue({
             response: {

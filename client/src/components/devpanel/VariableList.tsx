@@ -3,17 +3,18 @@
  * Displays workflow variables with Copy/Insert/Pin actions
  */
 
-import { useState } from "react";
 import { Copy, Plus, Pin, Search } from "lucide-react";
+import React, { useState } from "react";
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DevPanelBus } from "@/lib/devpanelBus";
-import { useDevPanel } from "@/store/devpanel";
+import { cn } from "@/lib/utils";
 import type { ApiWorkflowVariable } from "@/lib/vault-api";
+import { useDevPanel } from "@/store/devpanel";
 
 interface VariableListProps {
   workflowId: string;

@@ -1,8 +1,11 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, asc, isNull } from "drizzle-orm";
+
 import { transformBlocks, transformBlockRuns, type TransformBlock, type InsertTransformBlock, type TransformBlockRun, type InsertTransformBlockRun } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
-import { eq, and, asc, isNull } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for transform block data access
@@ -17,7 +20,7 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<TransformBlock[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(transformBlocks)
       .where(eq(transformBlocks.workflowId, workflowId))
@@ -29,7 +32,7 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
    */
   async findEnabledByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<TransformBlock[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(transformBlocks)
       .where(and(eq(transformBlocks.workflowId, workflowId), eq(transformBlocks.enabled, true)))
@@ -64,7 +67,7 @@ export class TransformBlockRepository extends BaseRepository<typeof transformBlo
       conditions.push(isNull(transformBlocks.sectionId));
     }
 
-    return await database
+    return database
       .select()
       .from(transformBlocks)
       .where(and(...conditions))
@@ -95,7 +98,7 @@ export class TransformBlockRunRepository extends BaseRepository<typeof transform
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<TransformBlockRun[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(transformBlockRuns)
       .where(eq(transformBlockRuns.runId, runId));
@@ -106,7 +109,7 @@ export class TransformBlockRunRepository extends BaseRepository<typeof transform
    */
   async findByBlockId(blockId: string, tx?: DbTransaction): Promise<TransformBlockRun[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(transformBlockRuns)
       .where(eq(transformBlockRuns.blockId, blockId));

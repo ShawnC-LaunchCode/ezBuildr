@@ -1,0 +1,320 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768320211670,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768320211692,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768320212858,"env":"test","workflowId":"16a60760-ee54-4d8c-9e6a-9a5fd2abf5da","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320212958,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"16a60760-ee54-4d8c-9e6a-9a5fd2abf5da","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+    getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+      generateContent: __vite_...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320213169,"env":"test","workflowId":"4423978e-eafe-41fe-9b0e-bf5885d0ed2d","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320213267,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"4423978e-eafe-41fe-9b0e-bf5885d0ed2d","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+    getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+      generateContent: __vite_...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320213436,"env":"test","workflowId":"33eb1b15-f8c2-4eef-a3ce-a02ea80fd693","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320213531,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"33eb1b15-f8c2-4eef-a3ce-a02ea80fd693","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+    getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+      generateContent: __vite_...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320213684,"env":"test","workflowId":"426377dd-50b8-472a-9780-058850285296","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unauthorized access
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320213782,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"426377dd-50b8-472a-9780-058850285296","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unauthorized access
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+    getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+      generateContent: __vite_...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320213932,"env":"test","workflowId":"ab3db257-820d-4bd9-8f06-8f4717ab33d3","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320214031,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"ab3db257-820d-4bd9-8f06-8f4717ab33d3","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320214177,"env":"test","workflowId":"b89c4a6b-bed2-4e57-81e2-8e5981abc5e6","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320214277,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"b89c4a6b-bed2-4e57-81e2-8e5981abc5e6","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320214435,"env":"test","workflowId":"10697a21-082d-4890-9d52-827fc7cd6696","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320214531,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"10697a21-082d-4890-9d52-827fc7cd6696","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+    getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+      generateContent: __vite_...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320214826,"env":"test","workflowId":"255fd42c-6605-44a5-9046-231046dc3f90","userId":"ec9e8628-678a-48d8-b2a6-00bdacd663bc","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320214920,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"255fd42c-6605-44a5-9046-231046dc3f90","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:200:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320215201,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768320215202,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[33m 3933[2mms[22m[39m
+[31m     [31m├ù[31m should create draft version on successful AI edit[39m[33m 618[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 305[2mms[22m[39m
+[31m     [31m├ù[31m should not create version when no changes detected (checksum match)[39m[32m 262[2mms[22m[39m
+[31m     [31m├ù[31m should reject unauthorized access[39m[32m 251[2mms[22m[39m
+[31m     [31m├ù[31m should reject unsafe DataVault operations[39m[32m 249[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[32m 246[2mms[22m[39m
+[31m     [31m├ù[31m should create BEFORE and AFTER snapshots[39m[32m 254[2mms[22m[39m
+[31m     [31m├ù[31m should rollback on validation failure[39m[33m 389[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 8 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:155:8
+    153|         },
+    154|       })
+    155|       .expect(200);
+       |        ^
+    156| 
+    157|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:195:8
+    193|         userMessage: 'Add a phone number field',
+    194|       })
+    195|       .expect(200);
+       |        ^
+    196| 
+    197|     // Verify workflow is now draft
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:212:8
+    210|         userMessage: 'Add contact section',
+    211|       })
+    212|       .expect(200);
+       |        ^
+    213| 
+    214|     const versionId1 = response1.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unauthorized access
+Error: expected 401 "Unauthorized", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:260:8
+    258|         userMessage: 'Add field',
+    259|       })
+    260|       .expect(401);
+       |        ^
+    261|   });
+    262| 
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:292:8
+    290|         userMessage: 'Delete all data',
+    291|       })
+    292|       .expect(400);
+       |        ^
+    293| 
+    294|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:360:8
+    358|         userMessage: 'Add emergency contact section with name and phonΓÇª
+    359|       })
+    360|       .expect(200);
+       |        ^
+    361| 
+    362|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:391:8
+    389|         userMessage: 'Add a simple field',
+    390|       })
+    391|       .expect(200);
+       |        ^
+    392| 
+    393|     const versionId = response.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:458:8
+    456|         userMessage: 'Add backup email field',
+    457|       })
+    458|       .expect(400);
+       |        ^
+    459| 
+    460|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/8]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m8 failed[39m[22m[90m (8)[39m
+[2m   Start at [22m 10:03:29
+[2m   Duration [22m 5.62s[2m (transform 591ms, setup 137ms, import 1.19s, tests 3.93s, environment 0ms)[22m
+

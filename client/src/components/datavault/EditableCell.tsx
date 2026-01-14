@@ -5,11 +5,13 @@
  * Enhanced with loading states, error handling, and accessibility
  */
 
-import { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
 import type { DatavaultColumn } from "@shared/schema";
 
 interface EditableCellProps {
@@ -89,15 +91,16 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
 
   // Format display value based on column type
   const formatDisplayValue = (val: any) => {
-    if (val === null || val === undefined) return "";
+    if (val === null || val === undefined) {return "";}
 
-    switch (column.type) {
+    switch (column.type as string) {
       case "boolean":
+      case "yes_no":
         return val ? "Yes" : "No";
       case "date":
         if (val) {
           const date = new Date(val);
-          return date.toLocaleDateString();
+          return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
         }
         return "";
       case "datetime":
@@ -124,14 +127,23 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
         )}
         onDoubleClick={handleDoubleClick}
         role="gridcell"
-        aria-label={`${column.name}: ${value ? "Yes" : "No"}${readOnly ? " (read-only)" : ""}`}
+        aria-label={`${column.name}: ${formatDisplayValue(value)}${readOnly ? " (read-only)" : ""}`}
       >
         {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground flex-shrink-0" />}
         <Checkbox
           checked={!!value}
-          onCheckedChange={(checked) => {
+          onCheckedChange={async (checked) => {
             if (!readOnly) {
-              onSave(checked);
+              setIsSaving(true);
+              setError(null);
+              try {
+                await onSave(checked);
+              } catch (error) {
+                setError(error instanceof Error ? error.message : "Failed to save");
+                setTimeout(() => setError(null), 3000);
+              } finally {
+                setIsSaving(false);
+              }
             }
           }}
           disabled={readOnly || isSaving}

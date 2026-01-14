@@ -1,6 +1,8 @@
-import { db } from "../db";
-import { auditLogs, type AuditLog } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+
+import { auditLogs, type AuditLog } from "@shared/schema";
+
+import { db } from "../db";
 import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "audit-log-service" });

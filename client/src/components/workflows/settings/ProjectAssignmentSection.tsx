@@ -5,11 +5,11 @@
  * PR4: Loading states and edge case handling
  */
 
-import { useState } from "react";
 import { FolderOpen } from "lucide-react";
+import React, { useState } from "react";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,8 @@ import {
   SelectValue,
   SelectSeparator,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { ConfirmMoveWorkflowModal } from "./ConfirmMoveWorkflowModal";
 
 interface ProjectAssignmentSectionProps {

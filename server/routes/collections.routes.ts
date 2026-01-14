@@ -1,11 +1,16 @@
-import type { Express, Request, Response } from 'express';
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { insertCollectionSchema, insertCollectionFieldSchema, insertRecordSchema } from '@shared/schema';
-import { collectionService } from '../services/CollectionService';
-import { collectionFieldService } from '../services/CollectionFieldService';
-import { recordService } from '../services/RecordService';
 import { z } from 'zod';
+
+import { insertCollectionSchema, insertCollectionFieldSchema, insertRecordSchema } from '@shared/schema';
+
 import { logger } from '../logger';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { collectionFieldService } from '../services/CollectionFieldService';
+import { collectionService } from '../services/CollectionService';
+import { recordService } from '../services/RecordService';
+
+
+
+import type { Express, Request, Response } from 'express';
 
 /**
  * Register collections/datastore routes

@@ -1,4 +1,5 @@
 import { Edit2, CheckCircle2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -21,11 +22,11 @@ export function ReviewSection({
 
     // Helper to format values for display
     const formatValue = (val: any): string => {
-        if (val === null || val === undefined || val === "") return "Not answered";
-        if (typeof val === "boolean") return val ? "Yes" : "No";
-        if (val instanceof Date) return val.toLocaleDateString();
-        if (Array.isArray(val)) return val.join(", ");
-        if (typeof val === "object") return JSON.stringify(val); // Fallback
+        if (val === null || val === undefined || val === "") {return "Not answered";}
+        if (typeof val === "boolean") {return val ? "Yes" : "No";}
+        if (val instanceof Date) {return val.toLocaleDateString();}
+        if (Array.isArray(val)) {return val.join(", ");}
+        if (typeof val === "object") {return JSON.stringify(val);} // Fallback
         return String(val);
     };
 
@@ -44,7 +45,7 @@ export function ReviewSection({
             <div className="space-y-6">
                 {sections.map((section, index) => {
                     // Only show visible sections
-                    if (!visibleSectionIds.includes(section.id)) return null;
+                    if (!visibleSectionIds.includes(section.id)) {return null;}
 
                     const sectionSteps = allSteps.filter(s => s.sectionId === section.id);
                     // Hide sections with no visible steps? For now show all visible sections.
@@ -75,7 +76,7 @@ export function ReviewSection({
                                         // Simplification: Show if value exists or if it's in the list.
 
                                         const val = values[step.id];
-                                        if (val === undefined || val === null || val === "") return null; // Skip empty for conciseness
+                                        if (val === undefined || val === null || val === "") {return null;} // Skip empty for conciseness
 
                                         return (
                                             <div key={step.id} className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 p-4 hover:bg-slate-50/30 transition-colors">

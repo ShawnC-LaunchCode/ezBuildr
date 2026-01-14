@@ -3,9 +3,12 @@
  * Manages reusable API connection configurations for HTTP nodes
  */
 
-import { db } from '../db';
-import { externalConnections, secrets, type ExternalConnection, type InsertExternalConnection } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+
+import { externalConnections, secrets, type ExternalConnection, type InsertExternalConnection } from '@shared/schema';
+
+import { db } from '../db';
+
 import { getSecretValueById } from './secrets';
 
 /**
@@ -99,7 +102,7 @@ export async function getConnection(projectId: string, connectionId: string): Pr
     .leftJoin(secrets, eq(externalConnections.secretId, secrets.id))
     .where(and(eq(externalConnections.id, connectionId), eq(externalConnections.projectId, projectId)));
 
-  if (results.length === 0) return null;
+  if (results.length === 0) {return null;}
 
   const r = results[0];
   return {
@@ -132,7 +135,7 @@ export async function getConnectionByName(projectId: string, name: string): Prom
     .leftJoin(secrets, eq(externalConnections.secretId, secrets.id))
     .where(and(eq(externalConnections.projectId, projectId), eq(externalConnections.name, name)));
 
-  if (results.length === 0) return null;
+  if (results.length === 0) {return null;}
 
   const r = results[0];
   return {
@@ -252,14 +255,14 @@ export async function updateConnection(
   // Build update object
   const updates: Partial<InsertExternalConnection> = {};
 
-  if (input.name !== undefined) updates.name = input.name;
-  if (input.baseUrl !== undefined) updates.baseUrl = input.baseUrl;
-  if (input.authType !== undefined) updates.authType = input.authType;
-  if (input.secretId !== undefined) updates.secretId = input.secretId;
-  if (input.defaultHeaders !== undefined) updates.defaultHeaders = input.defaultHeaders;
-  if (input.timeoutMs !== undefined) updates.timeoutMs = input.timeoutMs;
-  if (input.retries !== undefined) updates.retries = input.retries;
-  if (input.backoffMs !== undefined) updates.backoffMs = input.backoffMs;
+  if (input.name !== undefined) {updates.name = input.name;}
+  if (input.baseUrl !== undefined) {updates.baseUrl = input.baseUrl;}
+  if (input.authType !== undefined) {updates.authType = input.authType;}
+  if (input.secretId !== undefined) {updates.secretId = input.secretId;}
+  if (input.defaultHeaders !== undefined) {updates.defaultHeaders = input.defaultHeaders;}
+  if (input.timeoutMs !== undefined) {updates.timeoutMs = input.timeoutMs;}
+  if (input.retries !== undefined) {updates.retries = input.retries;}
+  if (input.backoffMs !== undefined) {updates.backoffMs = input.backoffMs;}
 
   // Update
   const [result] = await db
@@ -314,7 +317,7 @@ export async function resolveConnection(
   connectionId: string
 ): Promise<ResolvedConnection | null> {
   const connection = await getConnection(projectId, connectionId);
-  if (!connection) return null;
+  if (!connection) {return null;}
 
   let secretValue: string | undefined;
   if (connection.secretId) {

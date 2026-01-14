@@ -1,0 +1,369 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> vitest run --coverage tests/unit/services/AuthService.test.ts tests/unit/server/transferOwnership.test.ts
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+
+stderr | tests/unit/services/AuthService.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: [vitest] No "dbInitPromise" export is defined on the "../../../server/db" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+    at VitestMocker.createError (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:311:17)
+    at Object.get (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:384:16)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:107:34
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  codeFrame: 'vi.mock(import("../../../server/db"), async (importOriginal) => {\n' +
+    '  const actual = await importOriginal()\n' +
+    '  return {\n' +
+    '    ...actual,\n' +
+    '    // your mocked methods\n' +
+    '  }\n' +
+    '})'
+}
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould transfer user-owned project to org
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 27e5b88b-4131-457a-b288-a1f229411b72 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould transfer user-owned project to org
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 27e5b88b-4131-457a-b288-a1f229411b72
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 162c3e06-acd4-4d08-b631-247ad5049654 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of fb544eaf-4bbd-49cb-bd26-b25ba120e681 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 59bd6d36-0470-4613-b249-512821832948 (Access Denied)
+
+{"level":30,"time":1767814412778,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814412782,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":40,"time":1767814412807,"env":"test","module":"auth-service","tokenHash":"9206c2394794b8fc97fcd896f95e40028ab7a15c10279446c23fbdd4b4ae7a1e","msg":"Security: Unknown refresh token used"}
+{"level":40,"time":1767814412809,"env":"test","module":"auth-service","userId":"user-123","tokenHash":"0f45e858fbc4176cdf4e411f88281edefc390ae5afe7df0f44cd9297f0a64580","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1767814412810,"env":"test","module":"auth-service","userId":"user-123","msg":"Security: Expired refresh token used"}
+{"level":30,"time":1767814412814,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814412816,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814412817,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814412818,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 6331604b-cf91-4450-928a-9b5e5f87a211 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould detach workflow from project when transferring to different owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 5f3b153e-eb69-428f-8645-eacd0cb26e5e (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould detach workflow from project when transferring to different owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 5f3b153e-eb69-428f-8645-eacd0cb26e5e
+
+{"level":30,"time":1767814414517,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814414949,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould keep workflow in project when transferring to same owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of a5839322-da57-429d-b7dc-fa2225ef688e (Access Denied)
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould keep workflow in project when transferring to same owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of a5839322-da57-429d-b7dc-fa2225ef688e
+
+ [31mΓ¥»[39m tests/unit/services/AuthService.test.ts [2m([22m[2m113 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 7190[2mms[22m[39m
+         [32mΓ£ô[39m should hash a password using bcrypt with 12 rounds[32m 212[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should generate different hashes for same password [33m 409[2mms[22m[39m
+         [32mΓ£ô[39m should handle empty passwords[32m 205[2mms[22m[39m
+         [32mΓ£ô[39m should handle long passwords[32m 206[2mms[22m[39m
+         [32mΓ£ô[39m should handle unicode characters in password[32m 205[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return true for correct password [33m 405[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return false for incorrect password [33m 414[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should be case-sensitive [33m 417[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle empty password comparison [33m 415[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid email addresses[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails longer than 254 characters (RFC 5321)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails shorter than 3 characters[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with consecutive dots[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without @ symbol[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without domain[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with spaces[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without TLD[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject null or undefined[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with local part longer than 64 characters[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid strong passwords[32m 17[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords shorter than 8 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords longer than 128 characters[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject weak passwords with zxcvbn score < 3[32m 4[2mms[22m[39m
+         [32mΓ£ô[39m should provide helpful feedback for weak passwords[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's email[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's name[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should accept strong password even with user inputs provided[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 8 characters if strong enough[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 128 characters if strong[32m 83[2mms[22m[39m
+         [32mΓ£ô[39m should return score in result object[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid JWT token for a user[32m 5[2mms[22m[39m
+         [32mΓ£ô[39m should include userId, email, tenantId, and role in token payload[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 15 minutes by default[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT_SECRET is not configured[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle null tenantId and role[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify and decode a valid token[32m 1[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should throw error for expired token [33m 1103[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token signature[39m[32m 8[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for malformed token[39m[32m 2[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token[39m[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should extract token from Bearer authorization header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return token if no Bearer prefix[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for undefined header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for empty header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle Bearer with multiple spaces[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return true for JWT-like tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for non-JWT tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for empty token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for null/undefined[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid portal token for an email[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should include email and portal flag in token payload[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 24 hours[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify and decode a valid portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for non-portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for token without email[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for expired portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate password reset token for existing user[32m 211[2mms[22m[39m
+         [32mΓ£ô[39m should return null for non-existent user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should invalidate previous reset tokens[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for used token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should mark token as used[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate verification token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should have 24 hour expiry[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify email with valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should delete token after successful verification[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should create refresh token with 30-day expiry[32m 9[2mms[22m[39m
+         [32mΓ£ô[39m should store device metadata[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for revoked token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should rotate valid token and return new one[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return null for unknown token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens on reuse detection[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke specific token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens for user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired refresh tokens[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired password reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired email verification tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup old login attempts via accountLockoutService[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should use JWT_SECRET if provided[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should warn if JWT_SECRET is less than 32 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject token with modified payload[32m 1[2mms[22m[39m
+[31m         [31m├ù[31m should reject token with valid structure but invalid signature[39m[32m 1[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with special characters [33m 415[2mms[22m[39m
+         [32mΓ£ô[39m should handle password with only spaces[32m 208[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with newlines and tabs [33m 424[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should reject password with null bytes (if validation exists) [33m 420[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with unicode domain (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email starting with dot (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email ending with dot before @ (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with plus addressing[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with subdomain[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with invalid TLD (single char)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should accept email with numeric TLD[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should prevent timing attacks on token validation[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should support full user authentication lifecycle[32m 220[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should support complete password reset workflow [33m 432[2mms[22m[39m
+         [32mΓ£ô[39m should prevent reuse of password reset tokens[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should support multiple valid refresh tokens per user[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all user tokens on security event[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle database connection failures gracefully[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should handle transaction failures[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT signing fails[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should hash password in reasonable time (< 500ms)[32m 221[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should compare password in reasonable time (< 500ms) [33m 418[2mms[22m[39m
+         [32mΓ£ô[39m should create JWT token in < 10ms[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify JWT token in < 10ms[32m 2[2mms[22m[39m
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould prevent non-member from transferring org workflow
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of c6a23c6f-262f-48df-a763-52223e78e5a2 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould transfer database ownership
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 0d77d3a4-6157-4e0e-9d47-4b78d561260e (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould transfer database ownership
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 0d77d3a4-6157-4e0e-9d47-4b78d561260e
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of dac170ee-d36f-4300-ac03-ecc1c6e62902 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of dac170ee-d36f-4300-ac03-ecc1c6e62902
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 IS member of dac170ee-d36f-4300-ac03-ecc1c6e62902
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 IS member of dac170ee-d36f-4300-ac03-ecc1c6e62902
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 8951515c-cf6c-47b1-9f5c-c4e977121e6e (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 is NOT member of 3468787d-4104-4c05-a06f-70c35bf80730 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould only allow transfer to self when targetOwnerType is user
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of ac60694c-c576-4c57-bea9-34726483b951 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould allow transfer from user to self (org member transferring org asset to themselves)
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of e31cea59-b691-4977-bd0e-935f32eb58b3 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/unit/server/transferOwnership.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 13521[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer user-owned project to org [33m 1630[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1187[2mms[22m[39m
+[31m       [31m├ù[31m should allow org member to transfer org-owned project to another org they belong to[39m[33m 1115[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should detach workflow from project when transferring to different owner [33m 1319[2mms[22m[39m
+[31m       [31m├ù[31m should keep workflow in project when transferring to same owner[39m[33m 1345[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent non-member from transferring org workflow [33m 1270[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer database ownership [33m 971[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow org member to transfer org database [33m 1062[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1227[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should only allow transfer to self when targetOwnerType is user [33m 862[2mms[22m[39m
+[31m       [31m├ù[31m should allow transfer from user to self (org member transferring org asset to themselves)[39m[33m 798[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 7 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Project Transfer > should allow org member to transfer org-owned project to another org they belong to
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:157:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/7]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Workflow Transfer > should keep workflow in project when transferring to same owner
+AssertionError: expected null to be '85f63802-984e-4490-b569-867cd9b49884' // Object.is equality
+
+- Expected: 
+"85f63802-984e-4490-b569-867cd9b49884"
+
++ Received: 
+null
+
+ Γ¥» tests/unit/server/transferOwnership.test.ts:227:37
+    225|       expect(transferred.ownerType).toBe('org');
+    226|       expect(transferred.ownerUuid).toBe(testOrgId);
+    227|       expect(transferred.projectId).toBe(testProjectId); // Still in pΓÇª
+       |                                     ^
+    228|     });
+    229| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/7]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Transfer Validation > should allow transfer from user to self (org member transferring org asset to themselves)
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:359:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:507:62
+    505|         const tamperedToken = token.slice(0, -5) + "XXXXX";
+    506| 
+    507|         expect(() => authService.verifyToken(tamperedToken)).toThrow("ΓÇª
+       |                                                              ^
+    508|       });
+    509| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for malformed token
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:511:68
+    509| 
+    510|       it("should throw error for malformed token", () => {
+    511|         expect(() => authService.verifyToken("not.a.valid.token")).toTΓÇª
+       |                                                                    ^
+    512|       });
+    513| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:516:64
+    514|       it("should throw error for invalid token", () => {
+    515|         // Test with a malformed token
+    516|         expect(() => authService.verifyToken("invalid.token")).toThrowΓÇª
+       |                                                                ^
+    517|       });
+    518|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/7]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > Security Edge Cases > Token Manipulation > should reject token with valid structure but invalid signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:1058:58
+    1056|         const fakeToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2ΓÇª
+    1057| 
+    1058|         expect(() => authService.verifyToken(fakeToken)).toThrow("InvaΓÇª
+       |                                                          ^
+    1059|       });
+    1060|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/7]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m117 passed[39m[22m[90m (124)[39m
+[2m   Start at [22m 13:33:26
+[2m   Duration [22m 22.96s[2m (transform 950ms, setup 390ms, import 2.06s, tests 20.71s, environment 0ms)[22m
+

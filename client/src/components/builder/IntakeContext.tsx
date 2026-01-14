@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import React, { createContext, useContext, useMemo } from 'react';
+
 import { variableAPI, workflowAPI, type ApiWorkflowVariable, type ApiWorkflow } from '@/lib/vault-api';
 import { useWorkflow } from '@/lib/vault-hooks';
 
@@ -30,7 +31,7 @@ export function IntakeProvider({
     // 2. Fetch upstream workflow details (if linked)
     const { data: upstreamWorkflow, isLoading: upstreamWfLoading } = useQuery({
         queryKey: ['workflow', upstreamWorkflowId],
-        queryFn: () => workflowAPI.get(upstreamWorkflowId!),
+        queryFn: () => workflowAPI.get(upstreamWorkflowId),
         enabled: !!upstreamWorkflowId,
         staleTime: 1000 * 60 * 5, // 5 mins
     });
@@ -38,7 +39,7 @@ export function IntakeProvider({
     // 3. Fetch upstream variables (if linked)
     const { data: upstreamVariables, isLoading: varsLoading } = useQuery({
         queryKey: ['workflow', upstreamWorkflowId, 'variables'],
-        queryFn: () => variableAPI.list(upstreamWorkflowId!),
+        queryFn: () => variableAPI.list(upstreamWorkflowId),
         enabled: !!upstreamWorkflowId,
     });
 

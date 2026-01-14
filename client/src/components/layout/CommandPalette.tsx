@@ -1,6 +1,4 @@
 
-import * as React from "react";
-import { Link, useLocation } from "wouter";
 import {
     Calculator,
     Calendar,
@@ -17,6 +15,8 @@ import {
     FileText,
     Search
 } from "lucide-react";
+import * as React from "react";
+import { Link, useLocation } from "wouter";
 
 import {
     CommandDialog,

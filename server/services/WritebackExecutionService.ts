@@ -3,6 +3,7 @@
  * Executes DataVault writeback mappings on workflow completion
  */
 
+import { createLogger } from "../logger";
 import {
   datavaultWritebackMappingsRepository,
   stepRepository,
@@ -11,8 +12,8 @@ import {
   projectRepository,
   type DbTransaction,
 } from "../repositories";
+
 import { DatavaultRowsService } from "./DatavaultRowsService";
-import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "writeback-execution-service" });
 
@@ -59,8 +60,12 @@ export class WritebackExecutionService {
         throw new Error("Workflow not found");
       }
 
+      if (!workflow.projectId) {
+        throw new Error("Workflow has no project");
+      }
+
       const project = await projectRepository.findById(workflow.projectId, tx);
-      if (!project || !project.tenantId) {
+      if (!project?.tenantId) {
         throw new Error("Project or tenant not found");
       }
 

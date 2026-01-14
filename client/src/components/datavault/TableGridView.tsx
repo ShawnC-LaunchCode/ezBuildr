@@ -6,20 +6,6 @@
  * PR 9: Added infinite scroll row loading
  */
 
-import React, { useState, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { datavaultAPI } from "@/lib/datavault-api";
-import { datavaultQueryKeys } from "@/lib/datavault-hooks";
-import { useInfiniteRows } from "@/hooks/useInfiniteRows";
-import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
-import { useBatchReferences } from "@/hooks/useBatchReferences";
-import { Loader2 } from "lucide-react";
-import { ColumnHeaderCell } from "./ColumnHeaderCell";
-import { SortableColumnHeader } from "./SortableColumnHeader";
-import { CellRenderer } from "./CellRenderer";
-import { AddRowButton } from "./AddRowButton";
-import { DeleteRowButton } from "./DeleteRowButton";
-import type { DatavaultColumn } from "@shared/schema";
 import {
   DndContext,
   closestCenter,
@@ -35,7 +21,28 @@ import {
   sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import React, { useState, useRef } from "react";
+
 import { useToast } from "@/hooks/use-toast";
+import { useBatchReferences } from "@/hooks/useBatchReferences";
+import { useInfiniteRows } from "@/hooks/useInfiniteRows";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { datavaultAPI } from "@/lib/datavault-api";
+import { datavaultQueryKeys } from "@/lib/datavault-hooks";
+
+
+import type { DatavaultColumn } from "@shared/schema";
+
+import { AddRowButton } from "./AddRowButton";
+import { CellRenderer } from "./CellRenderer";
+import { ColumnHeaderCell } from "./ColumnHeaderCell";
+import { DeleteRowButton } from "./DeleteRowButton";
+import { SortableColumnHeader } from "./SortableColumnHeader";
+
+
+
 
 interface TableGridViewProps {
   tableId: string;
@@ -110,7 +117,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     try {
       // Get current row values
       const row = allRows.find(r => r.row.id === rowId);
-      if (!row) return;
+      if (!row) {return;}
 
       // Update with new value
       const updatedValues = {
@@ -164,7 +171,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
 
   if (schemaLoading || rowsLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex items-center justify-center py-8" role="status" aria-label="Loading">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );

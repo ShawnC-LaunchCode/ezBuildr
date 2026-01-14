@@ -3,8 +3,9 @@
  * API functions for DataVault Phase 1 & Phase 2 (Databases)
  */
 
-import { apiRequest } from "./queryClient";
 import type { DatavaultTable, DatavaultColumn, DatavaultRow, DatavaultRowNote, DatavaultApiToken, DatavaultTablePermission, DatavaultTableRole } from "@shared/schema";
+
+import { apiRequest } from "./queryClient";
 
 export interface ApiDatavaultTableWithStats extends DatavaultTable {
   columnCount: number;
@@ -48,8 +49,8 @@ export const datavaultAPI = {
     scopeId?: string;
   }): Promise<DatavaultDatabase[]> => {
     const queryParams = new URLSearchParams();
-    if (params?.scopeType) queryParams.set('scopeType', params.scopeType);
-    if (params?.scopeId) queryParams.set('scopeId', params.scopeId);
+    if (params?.scopeType) {queryParams.set('scopeType', params.scopeType);}
+    if (params?.scopeId) {queryParams.set('scopeId', params.scopeId);}
 
     const url = `/api/datavault/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
     const res = await apiRequest('GET', url);
@@ -89,6 +90,18 @@ export const datavaultAPI = {
     if (res.status !== 204) {
       await res.json();
     }
+  },
+
+  transferDatabase: async (
+    id: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<DatavaultDatabase> => {
+    const res = await apiRequest('POST', `/api/datavault/databases/${id}/transfer`, {
+      targetOwnerType,
+      targetOwnerUuid,
+    });
+    return res.json();
   },
 
   getTablesInDatabase: async (databaseId: string): Promise<DatavaultTable[]> => {
@@ -203,11 +216,11 @@ export const datavaultAPI = {
     pagination: { limit: number; offset: number; total: number; hasMore: boolean };
   }> => {
     const params = new URLSearchParams();
-    if (options?.limit) params.append('limit', options.limit.toString());
-    if (options?.offset !== undefined) params.append('offset', options.offset.toString());
-    if (options?.showArchived) params.append('showArchived', 'true');
-    if (options?.sortBy) params.append('sortBy', options.sortBy);
-    if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
+    if (options?.limit) {params.append('limit', options.limit.toString());}
+    if (options?.offset !== undefined) {params.append('offset', options.offset.toString());}
+    if (options?.showArchived) {params.append('showArchived', 'true');}
+    if (options?.sortBy) {params.append('sortBy', options.sortBy);}
+    if (options?.sortOrder) {params.append('sortOrder', options.sortOrder);}
     if (options?.filters && options.filters.length > 0) {
       params.append('filters', JSON.stringify(options.filters));
     }

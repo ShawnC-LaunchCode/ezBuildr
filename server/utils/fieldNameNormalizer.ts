@@ -372,7 +372,7 @@ export class FieldNameNormalizer {
     const alternatives: Array<{ variable: string; confidence: number }> = [];
 
     for (const variable of variables) {
-      if (variable === excludeVariable) continue;
+      if (variable === excludeVariable) {continue;}
 
       // Calculate confidence using fuzzy matching
       const normalizedField = this.normalize(field);

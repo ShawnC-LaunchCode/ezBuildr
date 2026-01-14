@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
 
 export interface RecipientGroup {
   id: string;
@@ -66,7 +67,7 @@ export function useGroups() {
   // Mutations
   const createGroupMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
-      return await apiRequest("POST", "/api/recipient-groups", data);
+      return apiRequest("POST", "/api/recipient-groups", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -86,7 +87,7 @@ export function useGroups() {
       id: string;
       data: { name?: string; description?: string };
     }) => {
-      return await apiRequest("PUT", `/api/recipient-groups/${id}`, data);
+      return apiRequest("PUT", `/api/recipient-groups/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -100,7 +101,7 @@ export function useGroups() {
 
   const deleteGroupMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/recipient-groups/${id}`);
+      return apiRequest("DELETE", `/api/recipient-groups/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -120,7 +121,7 @@ export function useGroups() {
       groupId: string;
       recipientIds: string[];
     }) => {
-      return await apiRequest("POST", `/api/recipient-groups/${groupId}/members`, {
+      return apiRequest("POST", `/api/recipient-groups/${groupId}/members`, {
         recipientIds
       });
     },
@@ -143,7 +144,7 @@ export function useGroups() {
       groupId: string;
       recipientId: string;
     }) => {
-      return await apiRequest("DELETE", `/api/recipient-groups/${groupId}/members/${recipientId}`);
+      return apiRequest("DELETE", `/api/recipient-groups/${groupId}/members/${recipientId}`);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups", variables.groupId, "members"] });

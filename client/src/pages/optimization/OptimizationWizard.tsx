@@ -1,6 +1,4 @@
 
-import React, { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
     Loader2,
@@ -13,11 +11,14 @@ import {
     GitBranch,
     Zap
 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useParams, useLocation } from "wouter";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { workflowAPI } from "@/lib/vault-api";
@@ -56,7 +57,7 @@ export default function OptimizationWizard() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ workflow: wf, workflowId })
             });
-            if (!res.ok) throw new Error("Analysis failed");
+            if (!res.ok) {throw new Error("Analysis failed");}
             return res.json();
         }
     });
@@ -112,7 +113,7 @@ export default function OptimizationWizard() {
                                 }`}
                             onClick={() => {
                                 // Allow clicking back, or clicking next if analyzed
-                                if (index <= activeStep || analysis) setActiveStep(index);
+                                if (index <= activeStep || analysis) {setActiveStep(index);}
                             }}
                         >
                             <step.icon className="h-5 w-5" />
@@ -168,7 +169,7 @@ export default function OptimizationWizard() {
 // --- Sub-components (Will expand these) ---
 
 function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void }) {
-    if (!analysis) return null;
+    if (!analysis) {return null;}
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Analysis Overview</h2>

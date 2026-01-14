@@ -14,10 +14,12 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+
 import type { ApiStep, ApiSection } from '@/lib/vault-api';
+
 import { createLogger } from '../logger';
-import { generateRandomValuesForWorkflow, generateRandomValuesForSteps } from '../randomizer/randomFill';
 import { generateAIRandomValues } from '../randomizer/aiRandomFill';
+import { generateRandomValuesForWorkflow, generateRandomValuesForSteps } from '../randomizer/randomFill';
 
 export interface PreviewRun {
   id: string;
@@ -162,7 +164,7 @@ export class PreviewSession {
    */
   getValueByAlias(alias: string): any {
     const step = this.steps.find(s => s.alias === alias);
-    if (!step) return undefined;
+    if (!step) {return undefined;}
     return this.run.values[step.id];
   }
 

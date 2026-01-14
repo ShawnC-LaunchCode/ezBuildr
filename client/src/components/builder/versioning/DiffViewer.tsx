@@ -1,12 +1,13 @@
 
-import React, { useEffect, useState } from "react";
-import { versionAPI, ApiWorkflowVersion } from "@/lib/vault-api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, ArrowRight } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { versionAPI, ApiWorkflowVersion } from "@/lib/vault-api";
 
 interface DiffViewerProps {
     workflowId: string;
@@ -40,7 +41,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
     }, [isOpen, workflowId, version1, version2]);
 
     const loadDiff = async () => {
-        if (!version1 || !version2) return;
+        if (!version1 || !version2) {return;}
         setLoading(true);
         try {
             const result = await versionAPI.diff(version1.id, version2.id);

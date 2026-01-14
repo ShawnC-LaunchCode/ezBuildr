@@ -1,11 +1,13 @@
 
-import { describe, it, expect, beforeAll, afterAll, vi, afterEach } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
-import { registerAllRoutes } from "../../server/routes/index"; // Use the main register function
-import { db } from "../../server/db";
-import { userPersonalizationSettings, users } from "../../shared/schema";
 import { eq } from "drizzle-orm";
+import express, { type Express } from "express";
+import { nanoid } from 'nanoid';
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, vi, afterEach } from "vitest";
+
+import { db } from "../../server/db";
+import { registerAllRoutes } from "../../server/routes/index";
+import { userPersonalizationSettings, users } from "../../shared/schema";
 
 // Mock Google Generative AI
 const { mockGenerateContent } = vi.hoisted(() => ({
@@ -24,15 +26,17 @@ vi.mock("@google/generative-ai", () => {
     };
 });
 
-// Mock Auth
+// Mock Auth - Use static ID matching the DB insert
+const TEST_USER_ID = 'test-user-id-integration';
+
 vi.mock('../../server/middleware/auth', () => ({
     requireAuth: (req: any, res: any, next: any) => {
-        req.user = { id: 'test-user-id', email: 'test@example.com' };
+        req.user = { id: 'test-user-id-integration', email: 'test@example.com' };
         next();
     },
     optionalAuth: (req: any, res: any, next: any) => next(),
     hybridAuth: (req: any, res: any, next: any) => {
-        req.user = { id: 'test-user-id', email: 'test@example.com' };
+        req.user = { id: 'test-user-id-integration', email: 'test@example.com' };
         next();
     },
     optionalHybridAuth: (req: any, res: any, next: any) => next(),
@@ -41,32 +45,34 @@ vi.mock('../../server/middleware/auth', () => ({
 
 describe("Personalization API Integration Tests", () => {
     let app: Express;
-    let baseURL: string;
     let server: any;
 
     beforeAll(async () => {
+        vi.spyOn(console, 'error').mockImplementation((...args) => {
+            process.stdout.write(`[CAPTURED ERROR] ${args.map(a => JSON.stringify(a)).join(' ')}\n`);
+        });
+
         app = express();
         app.use(express.json());
-
-        // Register all routes
         registerAllRoutes(app);
 
-        const port = 0; // Random port
+        const port = 0;
         server = app.listen(port);
-        const addr = server.address();
-        baseURL = `http://localhost:${typeof addr === 'object' ? addr?.port : port}`;
 
-        // Ensure test user exists
+        // Clean up first
+        await db.delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
+        await db.delete(users).where(eq(users.id, TEST_USER_ID));
+
+        // Insert User
         await db.insert(users).values({
-            id: 'test-user-id',
-            email: 'test@example.com',
+            id: TEST_USER_ID,
+            email: `test-${nanoid()}@example.com`,
             authProvider: 'local'
-        }).onConflictDoNothing();
+        });
 
-        // Ensure test user has settings
-        await db.delete(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, 'test-user-id'));
+        // Insert Settings
         await db.insert(userPersonalizationSettings).values({
-            userId: 'test-user-id',
+            userId: TEST_USER_ID,
             tone: 'friendly',
             readingLevel: 'simple',
             language: 'es'
@@ -127,7 +133,7 @@ describe("Personalization API Integration Tests", () => {
             expect(response.status).toBe(200);
 
             // Verify in DB
-            const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, 'test-user-id'));
+            const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, TEST_USER_ID));
             expect(settings.tone).toBe('formal');
         });
     });

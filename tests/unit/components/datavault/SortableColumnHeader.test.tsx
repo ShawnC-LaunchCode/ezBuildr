@@ -5,11 +5,13 @@
 
 // @vitest-environment jsdom
 
+import { DndContext } from '@dnd-kit/core';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+
 import { SortableColumnHeader } from '@/components/datavault/SortableColumnHeader';
-import { DndContext } from '@dnd-kit/core';
+
 
 // Mock useSortable hook
 vi.mock('@dnd-kit/sortable', () => ({
@@ -23,6 +25,15 @@ vi.mock('@dnd-kit/sortable', () => ({
   }),
   SortableContext: ({ children }: any) => children,
   horizontalListSortingStrategy: {},
+}));
+
+// Mock CSS utilities
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: (transform: any) => transform ? 'translate3d(0, 0, 0)' : undefined,
+    },
+  },
 }));
 
 describe('SortableColumnHeader', () => {
@@ -198,6 +209,6 @@ describe('SortableColumnHeader', () => {
     );
 
     const th = container.querySelector('th');
-    expect(th).toHaveClass('bg-gray-50', 'border-b');
+    expect(th).toHaveClass('bg-muted/50', 'border-l', 'text-left');
   });
 });

@@ -1,6 +1,9 @@
 import { randomUUID } from 'crypto';
-import { getDb } from '../../server/db';
+
 import * as schema from '@shared/schema';
+
+import { getDb } from '../../server/db';
+
 import type { SQL } from 'drizzle-orm';
 
 // Generate a unique ID suitable for the database

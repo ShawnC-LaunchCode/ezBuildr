@@ -3,21 +3,9 @@
  * Manage columns for a table: add, edit, delete, reorder
  */
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
+import React, { useState } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,16 +16,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
-import type { DatavaultColumn } from "@shared/schema";
-import { OptionsEditor } from "./OptionsEditor";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { SelectOption } from "@/lib/types/datavault";
+
+import type { DatavaultColumn } from "@shared/schema";
+
+import { OptionsEditor } from "./OptionsEditor";
+
 
 /**
  * Type guard to safely convert unknown jsonb data to SelectOption array
  */
 function isSelectOptionArray(value: unknown): value is SelectOption[] {
-  if (!Array.isArray(value)) return false;
+  if (!Array.isArray(value)) {return false;}
   return value.every(
     (item) =>
       typeof item === 'object' &&
@@ -90,7 +94,7 @@ export function ColumnManager({
   const [editColumnOptions, setEditColumnOptions] = useState<SelectOption[]>([]);
 
   const handleAddColumn = async () => {
-    if (!newColumnName.trim()) return;
+    if (!newColumnName.trim()) {return;}
 
     // Validate select/multiselect have options
     if ((newColumnType === 'select' || newColumnType === 'multiselect') && newColumnOptions.length === 0) {
@@ -113,7 +117,7 @@ export function ColumnManager({
   };
 
   const handleEditColumn = async () => {
-    if (!editDialog || !editColumnName.trim()) return;
+    if (!editDialog || !editColumnName.trim()) {return;}
 
     // Validate select/multiselect have options
     if ((editDialog.type === 'select' || editDialog.type === 'multiselect') && editColumnOptions.length === 0) {
@@ -136,7 +140,7 @@ export function ColumnManager({
   };
 
   const handleDeleteColumn = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     await onDeleteColumn(deleteConfirm.id);
     setDeleteConfirm(null);

@@ -1,9 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db';
+
 import * as schema from '@shared/schema';
 import type { InsertRun, InsertRunLog } from '@shared/schema';
-import { createError } from '../utils/errors';
+
+import { db } from '../db';
 import { logger } from '../logger';
+import { createError } from '../utils/errors';
 
 /**
  * Runs Service
@@ -80,8 +82,7 @@ export async function createRunLogs(data: InsertRunLog[]): Promise<schema.RunLog
   }
 
   try {
-    const logs = await db.insert(schema.runLogs).values(data).returning();
-    return logs;
+    return await db.insert(schema.runLogs).values(data).returning();
   } catch (error) {
     logger.error({ error }, 'Failed to create run logs');
     throw createError.database('Failed to create run logs');
@@ -93,7 +94,7 @@ export async function createRunLogs(data: InsertRunLog[]): Promise<schema.RunLog
  */
 export async function getRunById(runId: string) {
   try {
-    const run = await db.query.runs.findFirst({
+    return await db.query.runs.findFirst({
       where: eq(schema.runs.id, runId),
       with: {
         workflowVersion: {
@@ -110,7 +111,6 @@ export async function getRunById(runId: string) {
         },
       },
     });
-    return run;
   } catch (error) {
     logger.error({ error }, 'Failed to get run');
     throw createError.database('Failed to get run');
@@ -128,12 +128,11 @@ export async function getRunLogs(
   } = {}
 ): Promise<schema.RunLog[]> {
   try {
-    const logs = await db.query.runLogs.findMany({
+    return await db.query.runLogs.findMany({
       where: eq(schema.runLogs.runId, runId),
       orderBy: (runLogs: any, { desc }: any) => [desc(runLogs.createdAt)],
       limit: options.limit || 100,
     });
-    return logs;
   } catch (error) {
     logger.error({ error }, 'Failed to get run logs');
     throw createError.database('Failed to get run logs');
@@ -180,7 +179,7 @@ export async function resumeRunFromNode(
 
     // Parse the graph JSON to find the next nodes
     const graphJson = run.workflowVersion?.graphJson as any;
-    if (!graphJson || !graphJson.nodes || !graphJson.edges) {
+    if (!graphJson?.nodes || !graphJson.edges) {
       throw createError.validation('Invalid workflow graph JSON');
     }
 

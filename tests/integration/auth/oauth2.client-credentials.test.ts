@@ -6,6 +6,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
+import { oauth2Cache } from '../../../server/services/cache';
 import {
   getOAuth2Token,
   invalidateOAuth2Token,
@@ -13,7 +15,6 @@ import {
   testOAuth2Credentials,
   type OAuth2ClientCredentialsConfig,
 } from '../../../server/services/oauth2';
-import { oauth2Cache } from '../../../server/services/cache';
 
 // Mock fetch for OAuth2 token requests
 global.fetch = vi.fn();

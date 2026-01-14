@@ -1,10 +1,12 @@
 import { IncomingMessage } from 'http';
-import { WebSocket } from 'ws';
-import { authService, type JWTPayload } from '../services/AuthService';
-import { db } from '../db';
-import { workflows } from '../../shared/schema';
+
 import { eq, and } from 'drizzle-orm';
+import { WebSocket } from 'ws';
+
+import { workflows } from '../../shared/schema';
+import { db } from '../db';
 import { createLogger } from '../logger';
+import { authService, type JWTPayload } from '../services/AuthService';
 
 const logger = createLogger({ module: 'collab-auth' });
 

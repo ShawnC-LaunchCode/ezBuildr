@@ -4,16 +4,17 @@
  * Shows a live preview of how the branding will look in the intake portal
  */
 
-import { useMemo } from 'react';
-import type { TenantBranding } from '@/lib/vault-api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Eye, Smartphone, Monitor } from 'lucide-react';
+import React, { useMemo , useState } from 'react';
+
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { brandingToThemeTokens } from '@/lib/tenantTheme';
-import { Eye, Smartphone, Monitor } from 'lucide-react';
-import { useState } from 'react';
+import type { TenantBranding } from '@/lib/vault-api';
+
 
 export interface BrandingPreviewProps {
   branding: Partial<TenantBranding>;

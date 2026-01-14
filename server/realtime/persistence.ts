@@ -1,9 +1,11 @@
-import * as Y from 'yjs';
-import { db } from '../db';
-import { collabDocs, collabUpdates, collabSnapshots } from '../../shared/schema';
 import { eq, desc, and, gt, isNull } from 'drizzle-orm';
-import { createLogger } from '../logger';
 import Redis from 'ioredis';
+import * as Y from 'yjs';
+
+import { collabDocs, collabUpdates, collabSnapshots } from '../../shared/schema';
+import { db } from '../db';
+import { createLogger } from '../logger';
+
 
 const logger = createLogger({ module: 'collab-persistence' });
 
@@ -46,7 +48,7 @@ export function initRedis() {
  * Publish update to Redis channel for other instances
  */
 export async function publishUpdate(roomKey: string, update: Uint8Array): Promise<void> {
-  if (!redisPublisher) return;
+  if (!redisPublisher) {return;}
 
   try {
     const base64Update = Buffer.from(update).toString('base64');

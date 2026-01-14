@@ -1,17 +1,20 @@
-import { Router, type Request, Response } from 'express';
-import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import path from 'path';
-import { db } from '../db';
+
+import { eq, and, desc, lt, sql } from 'drizzle-orm';
+import { Router, type Request, Response } from 'express';
+
 import * as schema from '@shared/schema';
-import { hybridAuth } from '../middleware/auth';
-import { requireTenant } from '../middleware/tenant';
-import { requirePermission } from '../middleware/rbac';
-import { createError, formatErrorResponse } from '../utils/errors';
-import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+
+import { db } from '../db';
 import { runGraph } from '../engine';
+import { hybridAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/rbac';
+import { requireTenant } from '../middleware/tenant';
 import { createRun, updateRun, createRunLogs, getRunById, getRunLogs } from '../services/runs';
 import { getTemplateFilePath, templateFileExists, getOutputFilePath, outputFileExists } from '../services/templates';
-import type { AuthRequest } from '../middleware/auth';
+import { createError, formatErrorResponse } from '../utils/errors';
+import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+
 import {
   createRunSchema,
   listRunsQuerySchema,
@@ -26,6 +29,8 @@ import {
   type RunLogEntry,
   type RerunRequest, // Stage 8
 } from './validators/runs';
+
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -98,7 +103,7 @@ router.post(
 
       // Create run record
       const run = await createRun({
-        workflowVersionId: workflowVersion!.id,
+        workflowVersionId: workflowVersion.id,
         inputJson: data.inputJson,
         status: 'pending',
         createdBy: userId,
@@ -110,7 +115,7 @@ router.post(
       try {
         // Run the workflow engine (Stage 8: Always enable debug to capture trace)
         const result = await runGraph({
-          workflowVersion: workflowVersion!,
+          workflowVersion: workflowVersion,
           inputJson: data.inputJson,
           tenantId,
           options: { ...data.options, debug: true }, // Always capture trace for Stage 8
@@ -269,7 +274,7 @@ router.get(
       if (q) {
         const lowerQ = `%${q.toLowerCase()}%`;
         conditions.push(
-          sql`(${schema.runs.id} ILIKE ${lowerQ} OR ${schema.users.email} ILIKE ${lowerQ} OR ${schema.projects.name} ILIKE ${lowerQ} OR ${schema.workflows.name} ILIKE ${lowerQ})`
+          sql`(${schema.runs.id}::text ILIKE ${lowerQ} OR ${schema.users.email} ILIKE ${lowerQ} OR ${schema.projects.name} ILIKE ${lowerQ} OR ${schema.workflows.name} ILIKE ${lowerQ} OR ${schema.runs.inputJson}::text ILIKE ${lowerQ})`
         );
       }
 
@@ -283,8 +288,7 @@ router.get(
 
       // Apply conditions
       if (conditions.length > 0) {
-        // @ts-ignore
-        baseQuery = baseQuery.where(and(...conditions));
+        baseQuery = baseQuery.where(and(...conditions)) as typeof baseQuery;
       }
 
       // Apply ordering and limit
@@ -310,6 +314,7 @@ router.get(
 
       res.json(response);
     } catch (error) {
+      console.error("GET /runs FAILED:", error);
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
@@ -383,7 +388,7 @@ router.get(
       let filteredRuns = runs.filter((run: ExportRunWithRelations) => {
         // Verify tenant through workflow version
         const workflow = run.workflowVersion?.workflow;
-        if (!workflow || !workflow.project) return false;
+        if (!workflow?.project) {return false;}
 
         // Verify tenant access to this workflow's project
         return workflow.project.tenantId === tenantId;
@@ -404,8 +409,8 @@ router.get(
       if (q) {
         const lowerQ = q.toLowerCase();
         filteredRuns = filteredRuns.filter((run: ExportRunWithRelations) => {
-          if (run.id.toLowerCase().includes(lowerQ)) return true;
-          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) return true;
+          if (run.id.toLowerCase().includes(lowerQ)) {return true;}
+          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) {return true;}
           if (run.inputJson && JSON.stringify(run.inputJson).toLowerCase().includes(lowerQ)) {
             return true;
           }
@@ -992,7 +997,7 @@ router.get(
       let filteredRuns = runs.filter((run: ExportRunWithRelations) => {
         // Verify tenant through workflow version
         const workflow = run.workflowVersion?.workflow;
-        if (!workflow || !workflow.project) return false;
+        if (!workflow?.project) {return false;}
 
         // Verify tenant access to this workflow's project
         return workflow.project.tenantId === tenantId;
@@ -1013,8 +1018,8 @@ router.get(
       if (q) {
         const lowerQ = q.toLowerCase();
         filteredRuns = filteredRuns.filter((run: ExportRunWithRelations) => {
-          if (run.id.toLowerCase().includes(lowerQ)) return true;
-          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) return true;
+          if (run.id.toLowerCase().includes(lowerQ)) {return true;}
+          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) {return true;}
           if (run.inputJson && JSON.stringify(run.inputJson).toLowerCase().includes(lowerQ)) {
             return true;
           }

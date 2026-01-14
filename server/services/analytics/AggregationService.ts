@@ -3,7 +3,8 @@
  * Computes aggregated metrics for runs and workflows.
  */
 
-import { db } from "../../db";
+import { eq, and, sql, desc } from "drizzle-orm";
+
 import {
     workflowRunEvents,
     workflowRunMetrics,
@@ -11,7 +12,7 @@ import {
     workflowAnalyticsSnapshots,
     workflowRuns
 } from "../../../shared/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { db } from "../../db";
 import logger from "../../logger";
 
 class AggregationService {
@@ -26,7 +27,7 @@ class AggregationService {
                 .where(eq(workflowRunEvents.runId, runId))
                 .orderBy(workflowRunEvents.timestamp);
 
-            if (events.length === 0) return;
+            if (events.length === 0) {return;}
 
             const startEvent = events[0];
             const endEvent = events[events.length - 1];
@@ -82,8 +83,8 @@ class AggregationService {
     private async updateBlockMetrics(events: typeof workflowRunEvents.$inferSelect[]) {
         // Group events by blockId
         const blockEvents = events.reduce((acc, event) => {
-            if (!event.blockId || !event.versionId) return acc;
-            if (!acc[event.blockId]) acc[event.blockId] = [];
+            if (!event.blockId || !event.versionId) {return acc;}
+            if (!acc[event.blockId]) {acc[event.blockId] = [];}
             acc[event.blockId].push(event);
             return acc;
         }, {} as Record<string, typeof workflowRunEvents.$inferSelect[]>);

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import type { Node, Edge } from 'reactflow';
 
 export interface BuilderNode extends Node {
@@ -108,7 +109,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   duplicateNode: (nodeId) => {
     const state = get();
     const nodeToDuplicate = state.nodes.find(n => n.id === nodeId);
-    if (!nodeToDuplicate) return;
+    if (!nodeToDuplicate) {return;}
 
     const newId = `node_${Date.now()}`;
     // Position slightly offset
@@ -170,7 +171,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   setSaveError: (error) => set({ saveError: error }),
 
   loadGraph: (graphJson) => {
-    if (!graphJson || !graphJson.nodes) {
+    if (!graphJson?.nodes) {
       set({ nodes: [], edges: [] });
       return;
     }

@@ -1,13 +1,17 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import mammoth from 'mammoth';
-import DOMPurify from 'dompurify';
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Loader2, FileEdit } from 'lucide-react';
-import { AIAssistPanel } from './AIAssistPanel';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import DOMPurify from 'dompurify';
+import { Loader2, FileEdit } from 'lucide-react';
+import mammoth from 'mammoth';
+import React, { useState, useEffect, useMemo } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+
+import { AIAssistPanel } from './AIAssistPanel';
+
 
 interface DocumentTemplateEditorProps {
     templateId: string;

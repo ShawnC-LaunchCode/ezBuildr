@@ -1,6 +1,7 @@
 import { Router, Express } from 'express';
-import { templateService } from '../services/TemplateService';
+
 import { requireAuth } from '../middleware/auth';
+import { templateService } from '../services/TemplateService';
 
 const router = Router();
 

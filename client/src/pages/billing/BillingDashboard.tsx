@@ -1,10 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Layout, FileText, Upload } from "lucide-react";
+import React, { useEffect, useState } from 'react';
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 
 interface Subscription {
@@ -42,7 +43,7 @@ export default function BillingDashboard() {
     const fetchBillingData = async () => {
         try {
             const res = await fetch('/api/billing/subscription');
-            if (!res.ok) throw new Error("Failed to load billing data");
+            if (!res.ok) {throw new Error("Failed to load billing data");}
             const data = await res.json();
             setSub(data.subscription);
             setUsage(data.usage);
@@ -71,10 +72,10 @@ export default function BillingDashboard() {
         }
     };
 
-    if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+    if (loading) {return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;}
 
     const getUsagePercent = (used: number = 0, limit: number) => {
-        if (limit === -1) return 0; // Unlimited
+        if (limit === -1) {return 0;} // Unlimited
         return Math.min(100, (used / limit) * 100);
     };
 

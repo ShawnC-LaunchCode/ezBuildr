@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DocumentTemplateService } from '../../../server/services/DocumentTemplateService';
-import { documentTemplateRepository } from '../../../server/repositories/DocumentTemplateRepository';
-import * as templatesModule from '../../../server/services/templates';
+
 import type { Template } from '@shared/schema';
+
+import { documentTemplateRepository } from '../../../server/repositories/DocumentTemplateRepository';
+import { DocumentTemplateService } from '../../../server/services/DocumentTemplateService';
+import * as templatesModule from '../../../server/services/templates';
+
 
 /**
  * Stage 21 PR 2: Document Template Service Tests

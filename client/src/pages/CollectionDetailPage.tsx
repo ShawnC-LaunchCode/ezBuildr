@@ -3,10 +3,29 @@
  * Shows collection details with fields manager and records viewer
  */
 
-import { useState } from "react";
+import { Plus, Loader2, ArrowLeft, Database } from "lucide-react";
+import React, { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
+
+import { CreateFieldModal } from "@/components/collections/CreateFieldModal";
+import { FieldsList } from "@/components/collections/FieldsList";
+import { RecordEditorModal } from "@/components/collections/RecordEditorModal";
+import { RecordsList } from "@/components/collections/RecordsList";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import type { ApiCollectionField, ApiCollectionRecord } from "@/lib/vault-api";
 import {
   useCollection,
   useCollectionFields,
@@ -18,24 +37,6 @@ import {
   useUpdateCollectionRecord,
   useDeleteCollectionRecord,
 } from "@/lib/vault-hooks";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Loader2, ArrowLeft, Database } from "lucide-react";
-import { FieldsList } from "@/components/collections/FieldsList";
-import { CreateFieldModal } from "@/components/collections/CreateFieldModal";
-import { RecordsList } from "@/components/collections/RecordsList";
-import { RecordEditorModal } from "@/components/collections/RecordEditorModal";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import type { ApiCollectionField, ApiCollectionRecord } from "@/lib/vault-api";
 
 export default function CollectionDetailPage() {
   const { id: collectionId } = useParams<{ id: string }>();
@@ -78,7 +79,7 @@ export default function CollectionDetailPage() {
   const [deleteRecordConfirm, setDeleteRecordConfirm] = useState<{ id: string } | null>(null);
 
   const handleCreateField = async (data: Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) => {
-    if (!tenantId || !collectionId) return;
+    if (!tenantId || !collectionId) {return;}
 
     try {
       await createFieldMutation.mutateAsync({
@@ -103,7 +104,7 @@ export default function CollectionDetailPage() {
   };
 
   const handleUpdateField = async (data: Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) => {
-    if (!tenantId || !collectionId || !editingField) return;
+    if (!tenantId || !collectionId || !editingField) {return;}
 
     try {
       await updateFieldMutation.mutateAsync({
@@ -134,7 +135,7 @@ export default function CollectionDetailPage() {
   };
 
   const handleDeleteField = async () => {
-    if (!deleteConfirm || !tenantId || !collectionId) return;
+    if (!deleteConfirm || !tenantId || !collectionId) {return;}
 
     try {
       await deleteFieldMutation.mutateAsync({
@@ -171,7 +172,7 @@ export default function CollectionDetailPage() {
   };
 
   const handleCreateRecord = async (data: Record<string, any>) => {
-    if (!tenantId || !collectionId) return;
+    if (!tenantId || !collectionId) {return;}
 
     try {
       await createRecordMutation.mutateAsync({
@@ -197,7 +198,7 @@ export default function CollectionDetailPage() {
   };
 
   const handleUpdateRecord = async (data: Record<string, any>) => {
-    if (!tenantId || !collectionId || !editingRecord) return;
+    if (!tenantId || !collectionId || !editingRecord) {return;}
 
     try {
       await updateRecordMutation.mutateAsync({
@@ -224,7 +225,7 @@ export default function CollectionDetailPage() {
   };
 
   const handleDeleteRecord = async () => {
-    if (!deleteRecordConfirm || !tenantId || !collectionId) return;
+    if (!deleteRecordConfirm || !tenantId || !collectionId) {return;}
 
     try {
       await deleteRecordMutation.mutateAsync({

@@ -1,8 +1,10 @@
 
-import { Router } from "express";
-import { db } from "../db";
-import { oauthApps, oauthAuthCodes, oauthAccessTokens } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { Router } from "express";
+
+import { oauthApps, oauthAuthCodes, oauthAccessTokens } from "@shared/schema";
+
+import { db } from "../db";
 // import { requireAuth } from "../lib/authz/enforce"; // Require user login for authorization
 
 const router = Router();
@@ -67,7 +69,7 @@ router.post("/approve", async (req, res) => {
     const { client_id, redirect_uri, scope, state, user_id } = req.body; // user_id passed from verified session
 
     // Generate Auth Code
-    const code = "auth_code_" + Math.random().toString(36).substr(2, 15);
+    const code = `auth_code_${  Math.random().toString(36).substr(2, 15)}`;
 
     await db.insert(oauthAuthCodes).values({
         code,
@@ -121,8 +123,8 @@ router.post("/token", async (req, res) => {
     }
 
     // Issue Token
-    const accessToken = "access_" + Math.random().toString(36).substr(2);
-    const refreshToken = "refresh_" + Math.random().toString(36).substr(2);
+    const accessToken = `access_${  Math.random().toString(36).substr(2)}`;
+    const refreshToken = `refresh_${  Math.random().toString(36).substr(2)}`;
 
     await db.insert(oauthAccessTokens).values({
         accessToken,

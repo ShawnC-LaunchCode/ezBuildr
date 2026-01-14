@@ -3,12 +3,13 @@
  * Allows users to configure workflow-specific settings including mode toggle
  */
 
-import { useWorkflowMode, useSetWorkflowMode } from "@/lib/vault-hooks";
+import { Loader2, Code2, Sparkles } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Loader2, Code2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkflowMode, useSetWorkflowMode } from "@/lib/vault-hooks";
 
 interface WorkflowSettingsProps {
   workflowId: string;
@@ -23,7 +24,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
   const source = modeData?.source ?? "user";
 
   const handleModeSwitch = async (targetMode: "easy" | "advanced") => {
-    if (mode === targetMode) return;
+    if (mode === targetMode) {return;}
 
     try {
       await setModeMutation.mutateAsync({
@@ -47,7 +48,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
   };
 
   const handleClearOverride = async () => {
-    if (source === "user") return;
+    if (source === "user") {return;}
 
     try {
       await setModeMutation.mutateAsync({

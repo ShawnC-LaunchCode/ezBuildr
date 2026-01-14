@@ -3,11 +3,14 @@
  * PR3: Full implementation with Summary/Errors/Preview tabs
  */
 
+import { AlertCircle, Download, FileText, CheckCircle2 } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Download, FileText, CheckCircle2 } from "lucide-react";
+
+
 import type { TestStatus, TestResult } from "./types";
 
 interface ResultsPanelProps {

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+
 import type { IntakeConfig } from "../../shared/types/intake";
 
 /**

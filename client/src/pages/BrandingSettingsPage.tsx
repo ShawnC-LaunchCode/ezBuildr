@@ -5,21 +5,6 @@
  * header text, and email sender information.
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { brandingAPI, type TenantBranding } from '@/lib/vault-api';
-import { useBranding } from '@/components/branding';
-import Sidebar from '@/components/layout/Sidebar';
-import Header from '@/components/layout/Header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import {
   Palette,
   Upload,
@@ -35,8 +20,24 @@ import {
   Globe,
   ExternalLink,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'wouter';
+
+import { useBranding } from '@/components/branding';
 import BrandingPreview from '@/components/branding/BrandingPreview';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { isValidHexColor, normalizeHexColor } from '@/lib/colorUtils';
+import { brandingAPI, type TenantBranding } from '@/lib/vault-api';
 
 export default function BrandingSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -69,7 +70,7 @@ export default function BrandingSettingsPage() {
   }, [tenantId]);
 
   const loadBranding = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {return;}
 
     setIsLoading(true);
     try {

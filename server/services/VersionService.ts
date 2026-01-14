@@ -1,11 +1,17 @@
-import { db } from "../db";
-import { workflowVersions, workflows, auditEvents } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { computeChecksum, verifyChecksum } from "../utils/checksum";
-import { workflowDiffService } from "./diff/WorkflowDiffService";
-import { createLogger } from "../logger";
+
+import { workflowVersions, workflows, auditEvents } from "@shared/schema";
 import type { WorkflowVersion } from "@shared/schema";
+
+import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
+import { db } from "../db";
+import { createLogger } from "../logger";
+import { computeChecksum, verifyChecksum } from "../utils/checksum";
+
 import { aclService } from "./AclService";
+import { workflowDiffService } from "./diff/WorkflowDiffService";
+
+
 
 const logger = createLogger({ module: "version-service" });
 
@@ -35,13 +41,11 @@ export class VersionService {
       }
     }
 
-    const versions = await db
+    return db
       .select()
       .from(workflowVersions)
       .where(eq(workflowVersions.workflowId, workflowId))
       .orderBy(desc(workflowVersions.createdAt));
-
-    return versions;
   }
 
   /**
@@ -73,6 +77,13 @@ export class VersionService {
     };
 
     // Basic validation checks
+    const parseResult = WorkflowGraphSchema.safeParse(graphJson);
+    if (!parseResult.success) {
+      result.valid = false;
+      result.errors.push(...parseResult.error.errors.map(e => `Schema Error: ${e.path.join('.')} - ${e.message}`));
+      return result;
+    }
+
     if (!graphJson) {
       result.valid = false;
       result.errors.push("Invalid graph structure: empty");
@@ -164,7 +175,7 @@ export class VersionService {
       const neighbors = adjacency.get(nodeId) || [];
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
-          if (dfs(neighbor)) return true;
+          if (dfs(neighbor)) {return true;}
         } else if (recStack.has(neighbor)) {
           return true; // Cycle detected
         }
@@ -176,7 +187,7 @@ export class VersionService {
 
     for (const node of nodes) {
       if (!visited.has(node.id)) {
-        if (dfs(node.id)) return true;
+        if (dfs(node.id)) {return true;}
       }
     }
 

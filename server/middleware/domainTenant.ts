@@ -1,6 +1,7 @@
-import type { Request, Response, NextFunction } from 'express';
-import { brandingService } from '../services/BrandingService';
 import { createLogger } from '../logger';
+import { brandingService } from '../services/BrandingService';
+
+import type { Request, Response, NextFunction } from 'express';
 
 const logger = createLogger({ module: 'domainTenant-middleware' });
 

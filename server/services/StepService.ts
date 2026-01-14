@@ -1,5 +1,7 @@
-import { stepRepository, sectionRepository } from "../repositories";
 import type { Step, InsertStep } from "@shared/schema";
+
+import { stepRepository, sectionRepository } from "../repositories";
+
 import { workflowService } from "./WorkflowService";
 
 /**
@@ -80,7 +82,7 @@ export class StepService {
       ? Math.max(...existingSteps.map((s) => s.order)) + 1
       : 1;
 
-    return await this.stepRepo.create({
+    return this.stepRepo.create({
       ...data,
       sectionId,
       order: data.order ?? nextOrder,
@@ -122,7 +124,7 @@ export class StepService {
       await this.validateAliasUniqueness(workflowId, data.alias, stepId);
     }
 
-    return await this.stepRepo.update(stepId, data);
+    return this.stepRepo.update(stepId, data);
   }
 
   /**
@@ -180,7 +182,7 @@ export class StepService {
       throw new Error("Section not found");
     }
 
-    return await this.stepRepo.findBySectionId(sectionId);
+    return this.stepRepo.findBySectionId(sectionId);
   }
 
   // ===================================================================
@@ -198,7 +200,7 @@ export class StepService {
     }
 
     // Use the existing method with the workflowId
-    return await this.getSteps(section.workflowId, sectionId, userId);
+    return this.getSteps(section.workflowId, sectionId, userId);
   }
 
   /**
@@ -218,7 +220,7 @@ export class StepService {
       throw new Error("Section does not belong to the specified workflow");
     }
 
-    return await this.stepRepo.findBySectionId(sectionId);
+    return this.stepRepo.findBySectionId(sectionId);
   }
 
   /**
@@ -236,7 +238,7 @@ export class StepService {
     }
 
     // Use the existing method with the workflowId
-    return await this.createStep(section.workflowId, sectionId, userId, data);
+    return this.createStep(section.workflowId, sectionId, userId, data);
   }
 
   /**
@@ -278,7 +280,7 @@ export class StepService {
     }
 
     // Use the existing method with the workflowId
-    return await this.updateStep(stepId, section.workflowId, userId, data);
+    return this.updateStep(stepId, section.workflowId, userId, data);
   }
 
   /**

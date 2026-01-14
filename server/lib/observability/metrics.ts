@@ -55,7 +55,7 @@ class MetricsCollector {
     }
 
     private flush() {
-        if (this.metrics.length === 0) return;
+        if (this.metrics.length === 0) {return;}
 
         // In a real app, push to Prometheus/Datadog here.
         // For now, we just log a summary to avoid flooding logs.

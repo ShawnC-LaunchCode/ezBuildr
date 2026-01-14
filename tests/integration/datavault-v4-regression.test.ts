@@ -3,14 +3,16 @@
  * Comprehensive tests for all v4 features: select/multiselect, autonumber, notes, history, API tokens, permissions
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import request from 'supertest';
+import { eq, and, sql } from 'drizzle-orm';
 import express, { type Express } from 'express';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+
+import { db } from '../../server/db';
 import { setupAuth, _testOnly_setGoogleClient } from '../../server/googleAuth';
 import { registerRoutes } from '../../server/routes';
-import { db } from '../../server/db';
 import { datavaultTables, datavaultColumns, datavaultRows, datavaultRowNotes, datavaultApiTokens, datavaultTablePermissions, tenants, datavaultDatabases, users } from '../../shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+
 
 // Mock userRepository.upsert to prevent overwriting tenantId during login
 vi.mock('../../server/repositories', async (importOriginal) => {
@@ -35,6 +37,8 @@ describe('DataVault v4 Regression Tests', () => {
   let testRowId: string;
   let authCookie: string;
   let otherUserCookie: string;
+  let authToken: string;
+  let otherUserToken: string;
   let testTenantId: string;
 
   beforeAll(async () => {
@@ -77,7 +81,7 @@ describe('DataVault v4 Regression Tests', () => {
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({
       name: 'Test Tenant',
-      slug: 'test-tenant-' + Date.now(),
+      slug: `test-tenant-${  Date.now()}`,
     } as any).returning();
     testTenantId = tenant.id;
 
@@ -131,6 +135,7 @@ describe('DataVault v4 Regression Tests', () => {
     }
 
     authCookie = loginResponse.headers["set-cookie"];
+    authToken = loginResponse.body.token; // Capture JWT token for POST requests
     // Don't overwrite testUserId - it's already set to 'google-user-id' on line 85
 
     // Login as other user
@@ -143,6 +148,7 @@ describe('DataVault v4 Regression Tests', () => {
       throw new Error(`Other user login failed: ${JSON.stringify(otherLoginResponse.body)}`);
     }
     otherUserCookie = otherLoginResponse.headers["set-cookie"];
+    otherUserToken = otherLoginResponse.body.token; // Capture JWT token for POST requests
   });
 
   afterAll(async () => {
@@ -171,7 +177,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
 
     // Create test database, table, and column for each test
-    const uniqueSuffix = Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const uniqueSuffix = `${Date.now()  }-${  Math.floor(Math.random() * 1000)}`;
     const [database] = await db.insert(datavaultDatabases).values({
       name: 'Test Database',
       // slug: 'test-database-' + uniqueSuffix, // Not in schema
@@ -181,7 +187,7 @@ describe('DataVault v4 Regression Tests', () => {
 
     const [table] = await db.insert(datavaultTables).values({
       name: 'Test Table',
-      slug: 'test-table-' + uniqueSuffix,
+      slug: `test-table-${  uniqueSuffix}`,
       ownerUserId: testUserId, // Correct column name
       tenantId: testTenantId,
       databaseId: testDatabaseId,
@@ -203,7 +209,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Status',
           type: 'select',
@@ -226,7 +232,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Tags',
           type: 'multiselect',
@@ -249,7 +255,7 @@ describe('DataVault v4 Regression Tests', () => {
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Status',
           type: 'select',
@@ -266,7 +272,7 @@ describe('DataVault v4 Regression Tests', () => {
       const validResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/rows`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           values: {
             [testColumnId]: 'active',
@@ -279,7 +285,7 @@ describe('DataVault v4 Regression Tests', () => {
       const invalidResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/rows`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           values: {
             [testColumnId]: 'invalid-value',
@@ -294,7 +300,7 @@ describe('DataVault v4 Regression Tests', () => {
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Tags',
           type: 'multiselect',
@@ -311,7 +317,7 @@ describe('DataVault v4 Regression Tests', () => {
       const validResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/rows`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           values: {
             [testColumnId]: ['urgent', 'important'],
@@ -328,7 +334,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Invoice Number',
           type: 'autonumber',
@@ -351,7 +357,7 @@ describe('DataVault v4 Regression Tests', () => {
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Order Number',
           type: 'autonumber',
@@ -369,7 +375,7 @@ describe('DataVault v4 Regression Tests', () => {
       const rowResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/rows`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ values: {} });
 
       expect(rowResponse.status).toBe(201);
@@ -393,7 +399,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           text: 'This is a test note',
         });
@@ -409,20 +415,20 @@ describe('DataVault v4 Regression Tests', () => {
       await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ text: 'Note 1' });
 
       await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ text: 'Note 2' });
 
       // Get all notes
       const response = await request(app)
         .get(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
@@ -433,7 +439,7 @@ describe('DataVault v4 Regression Tests', () => {
       const createResponse = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ text: 'Note to delete' });
 
       const noteId = createResponse.body.id;
@@ -442,7 +448,7 @@ describe('DataVault v4 Regression Tests', () => {
       const deleteResponse = await request(app)
         .delete(`/api/datavault/notes/${noteId}`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       expect(deleteResponse.status).toBe(200);
 
@@ -460,16 +466,16 @@ describe('DataVault v4 Regression Tests', () => {
       const createResponse = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ text: 'Note by user 1' });
 
       const noteId = createResponse.body.id;
 
       // Try to delete with different user (mock different auth)
-      // otherUserCookie is set in beforeAll
+      // otherUserToken is set in beforeAll
       const deleteResponse = await request(app)
         .delete(`/api/datavault/notes/${noteId}`)
-        .set('Cookie', otherUserCookie);
+        .set('Authorization', `Bearer ${otherUserToken}`);
 
       expect(deleteResponse.status).toBe(403);
     });
@@ -482,7 +488,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           label: 'Test Token',
           scopes: ['read', 'write'],
@@ -505,7 +511,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           label: 'Test Token',
           scopes: [], // Empty scopes should fail
@@ -519,7 +525,7 @@ describe('DataVault v4 Regression Tests', () => {
       const createResponse = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           label: 'Token to Revoke',
           scopes: ['read'],
@@ -532,7 +538,7 @@ describe('DataVault v4 Regression Tests', () => {
         .delete(`/api/datavault/tokens/${tokenId}`)
         .send({ databaseId: testDatabaseId }) // Required for auth check
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
@@ -553,7 +559,7 @@ describe('DataVault v4 Regression Tests', () => {
       const createResponse = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/api-tokens`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           label: 'Expired Token',
           scopes: ['read'],
@@ -579,7 +585,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           userId: targetUserId,
           role: 'read',
@@ -595,7 +601,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .get(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toBeDefined();
@@ -609,7 +615,7 @@ describe('DataVault v4 Regression Tests', () => {
       const grantResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           userId: targetUserId,
           role: 'read',
@@ -621,7 +627,7 @@ describe('DataVault v4 Regression Tests', () => {
       const updateResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           userId: targetUserId,
           role: 'write',
@@ -641,7 +647,7 @@ describe('DataVault v4 Regression Tests', () => {
       const grantResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           userId: targetUserId,
           role: 'read',
@@ -653,7 +659,7 @@ describe('DataVault v4 Regression Tests', () => {
       const revokeResponse = await request(app)
         .delete(`/api/datavault/permissions/${permissionId}?tableId=${testTableId}`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       // Revoke returns 200 with message
       expect(revokeResponse.status).toBe(200);
@@ -669,10 +675,10 @@ describe('DataVault v4 Regression Tests', () => {
 
     it('should enforce RBAC - only owners can manage permissions', async () => {
       // Try to grant permission as non-owner
-      // otherUserCookie is set in beforeAll
+      // otherUserToken is set in beforeAll
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
-        .set('Cookie', otherUserCookie)
+        .set('Authorization', `Bearer ${otherUserToken}`)
         .send({
           userId: 'some-user-id',
           role: 'read',
@@ -702,7 +708,7 @@ describe('DataVault v4 Regression Tests', () => {
         .get(`/api/datavault/tables/${testTableId}/rows`)
         .query({ limit: 25, offset: 0 })
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.rows).toHaveLength(25);
@@ -717,7 +723,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Invalid Column',
           type: 'invalid_type',
@@ -734,7 +740,7 @@ describe('DataVault v4 Regression Tests', () => {
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Required Field',
           type: 'text',
@@ -747,7 +753,7 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/rows`)
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ values: {} });
 
       // Improved error handling returns 400
@@ -761,10 +767,10 @@ describe('DataVault v4 Regression Tests', () => {
       const response = await request(app)
         .get('/api/datavault/tables/invalid-uuid/rows')
         .set('Origin', 'http://localhost:5000')
-        .set('Cookie', authCookie);
+        .set('Authorization', `Bearer ${authToken}`);
 
-      // TODO: Improve error handling to return 400 instead of 500
-      expect(response.status).toBe(500);
+      // Error handling improved to return 400 for invalid UUID
+      expect(response.status).toBe(400);
       expect(response.body.message).toBeDefined();
     });
   });

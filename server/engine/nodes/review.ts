@@ -5,8 +5,9 @@
  * Stage 14: E-Signature Node + Document Review Portal
  */
 
-import type { EvalContext } from '../expr';
 import { evaluateExpression } from '../expr';
+
+import type { EvalContext } from '../expr';
 
 /**
  * Review Node Configuration

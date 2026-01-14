@@ -5,9 +5,10 @@
  * Supports webhook notifications and email alerts (stub).
  */
 
-import sli from './sli';
-import logger from '../logger';
 import { db } from '../db';
+import logger from '../logger';
+
+import sli from './sli';
 
 interface AlertConfig {
   webhookUrl?: string;

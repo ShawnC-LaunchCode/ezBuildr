@@ -1,6 +1,7 @@
-import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { userRepository } from "../repositories";
 import { createLogger } from "../logger";
+import { userRepository } from "../repositories";
+
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 
 const logger = createLogger({ module: 'admin-auth' });
 
@@ -46,7 +47,7 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
     // Email, createdAt, and updatedAt should always be present for authenticated users
     req.adminUser = {
       ...dbUser,
-      email: dbUser.email!,
+      email: dbUser.email,
       createdAt: dbUser.createdAt!,
       updatedAt: dbUser.updatedAt!
     };

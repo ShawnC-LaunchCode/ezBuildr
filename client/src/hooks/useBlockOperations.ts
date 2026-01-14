@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
 import type { SurveyPage, Question } from "@shared/schema";
 
 /**
@@ -15,7 +17,7 @@ export function useBlockOperations(surveyId: string) {
 
   const updatePageMutation = useMutation({
     mutationFn: async ({ pageId, data }: { pageId: string; data: Partial<SurveyPage> }) => {
-      return await apiRequest("PUT", `/api/surveys/${surveyId}/pages/${pageId}`, data);
+      return apiRequest("PUT", `/api/surveys/${surveyId}/pages/${pageId}`, data);
     },
     onMutate: async ({ pageId, data }) => {
       // Cancel any outgoing refetches to prevent race conditions
@@ -26,7 +28,7 @@ export function useBlockOperations(surveyId: string) {
 
       // Optimistically update to the new value
       queryClient.setQueryData(["/api/surveys", surveyId, "pages"], (old: any) => {
-        if (!old) return old;
+        if (!old) {return old;}
         return old.map((page: SurveyPage) =>
           page.id === pageId ? { ...page, ...data } : page
         );
@@ -52,7 +54,7 @@ export function useBlockOperations(surveyId: string) {
         const result = await response.json();
         // Update the cache with the actual server response
         queryClient.setQueryData(["/api/surveys", surveyId, "pages"], (old: any) => {
-          if (!old) return old;
+          if (!old) {return old;}
           return old.map((page: any) =>
             page.id === variables.pageId ? { ...page, ...result } : page
           );
@@ -66,7 +68,7 @@ export function useBlockOperations(surveyId: string) {
 
   const duplicatePageMutation = useMutation({
     mutationFn: async (pageId: string) => {
-      return await apiRequest("POST", `/api/pages/${pageId}/duplicate`, {});
+      return apiRequest("POST", `/api/pages/${pageId}/duplicate`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surveys", surveyId, "pages"] });
@@ -89,7 +91,7 @@ export function useBlockOperations(surveyId: string) {
 
   const addQuestionMutation = useMutation({
     mutationFn: async ({ pageId, type }: { pageId: string; type: string }) => {
-      return await apiRequest("POST", `/api/pages/${pageId}/questions`, {
+      return apiRequest("POST", `/api/pages/${pageId}/questions`, {
         type,
         title: `New ${type.replace("_", " ")} Question`,
         required: false,
@@ -115,7 +117,7 @@ export function useBlockOperations(surveyId: string) {
 
   const updateQuestionMutation = useMutation({
     mutationFn: async ({ questionId, data }: { questionId: string; data: Partial<Question> }) => {
-      return await apiRequest("PUT", `/api/questions/${questionId}`, data);
+      return apiRequest("PUT", `/api/questions/${questionId}`, data);
     },
     onMutate: async ({ questionId, data }) => {
       // Cancel any outgoing refetches to prevent race conditions
@@ -126,7 +128,7 @@ export function useBlockOperations(surveyId: string) {
 
       // Optimistically update to the new value
       queryClient.setQueryData(["/api/surveys", surveyId, "pages"], (old: any) => {
-        if (!old) return old;
+        if (!old) {return old;}
         return old.map((page: any) => ({
           ...page,
           questions: page.questions?.map((question: Question) =>
@@ -156,7 +158,7 @@ export function useBlockOperations(surveyId: string) {
         const result = await response.json();
         // Update the cache with the actual server response
         queryClient.setQueryData(["/api/surveys", surveyId, "pages"], (old: any) => {
-          if (!old) return old;
+          if (!old) {return old;}
           return old.map((page: any) => ({
             ...page,
             questions: page.questions?.map((question: Question) =>
@@ -173,7 +175,7 @@ export function useBlockOperations(surveyId: string) {
 
   const duplicateQuestionMutation = useMutation({
     mutationFn: async (questionId: string) => {
-      return await apiRequest("POST", `/api/questions/${questionId}/duplicate`, {});
+      return apiRequest("POST", `/api/questions/${questionId}/duplicate`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surveys", surveyId, "pages"] });
@@ -194,7 +196,7 @@ export function useBlockOperations(surveyId: string) {
 
   const deleteQuestionMutation = useMutation({
     mutationFn: async (questionId: string) => {
-      return await apiRequest("DELETE", `/api/questions/${questionId}`);
+      return apiRequest("DELETE", `/api/questions/${questionId}`);
     },
     onMutate: async (questionId: string) => {
       // Cancel any outgoing refetches
@@ -205,7 +207,7 @@ export function useBlockOperations(surveyId: string) {
 
       // Optimistically remove the question
       queryClient.setQueryData(["/api/surveys", surveyId, "pages"], (old: any) => {
-        if (!old) return old;
+        if (!old) {return old;}
         return old.map((page: any) => ({
           ...page,
           questions: page.questions?.filter((question: Question) => question.id !== questionId) || [],

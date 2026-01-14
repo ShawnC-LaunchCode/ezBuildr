@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import axios from "axios";
+import { Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -15,10 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTemplates } from "@/hooks/useTemplates";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import axios from "axios";
+import { useTemplates } from "@/hooks/useTemplates";
 
 interface Survey {
   id: string;
@@ -71,7 +72,7 @@ export default function AddToSurveyDialog({
   }, [open, toast]);
 
   const handleAdd = async () => {
-    if (!templateId || !surveyId) return;
+    if (!templateId || !surveyId) {return;}
 
     try {
       const result = await insert.mutateAsync({ templateId, surveyId });

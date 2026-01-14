@@ -80,6 +80,15 @@ export const publicAccessModeEnum = pgEnum('public_access_mode', ['open', 'link_
 // Portal Access Mode (For specific runs)
 export const portalAccessModeEnum = pgEnum('portal_access_mode', ['anonymous', 'token', 'portal']);
 
+// Organization role enum
+export const organizationRoleEnum = pgEnum('organization_role', ['admin', 'member']);
+
+// Organization invite status enum
+export const organizationInviteStatusEnum = pgEnum('organization_invite_status', ['pending', 'accepted', 'expired', 'revoked']);
+
+// Owner type enum
+export const ownerTypeEnum = pgEnum('owner_type', ['user', 'org']);
+
 // ===================================================================
 // ENTERPRISE MULTI-TENANCY (Prompts 21+)
 // ===================================================================
@@ -88,12 +97,56 @@ export const portalAccessModeEnum = pgEnum('portal_access_mode', ['anonymous', '
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
-  slug: varchar("slug").unique().notNull(),
+  description: text("description"), // Organization description
+  slug: varchar("slug").unique(), // Optional for non-enterprise orgs
   domain: varchar("domain"), // Optional domain verification for Enterprise
   settings: jsonb("settings").default({}),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(), // Organizations are scoped to tenants
+  createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_organizations_created_by").on(table.createdByUserId),
+  index("idx_organizations_tenant").on(table.tenantId),
+]);
+
+// Organization Memberships table
+export const organizationMemberships = pgTable("organization_memberships", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: uuid("org_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: organizationRoleEnum("role").default('member').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("org_membership_unique_idx").on(table.orgId, table.userId),
+  index("idx_org_memberships_org").on(table.orgId),
+  index("idx_org_memberships_user").on(table.userId),
+  index("idx_org_memberships_role").on(table.role),
+]);
+
+// Organization Invites table
+export const organizationInvites = pgTable("organization_invites", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: uuid("org_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  invitedEmail: varchar("invited_email", { length: 255 }).notNull(),
+  invitedUserId: varchar("invited_user_id").references(() => users.id, { onDelete: 'cascade' }),
+  invitedByUserId: varchar("invited_by_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  status: organizationInviteStatusEnum("status").default('pending').notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  // Email tracking fields (Added Jan 2026)
+  emailSentAt: timestamp("email_sent_at"),
+  emailFailed: boolean("email_failed").default(false),
+  emailError: text("email_error"),
+}, (table) => [
+  uniqueIndex("org_invites_token_unique_idx").on(table.token),
+  index("idx_org_invites_org_email_status").on(table.orgId, table.invitedEmail, table.status),
+  index("idx_org_invites_status").on(table.status),
+  index("idx_org_invites_expires").on(table.expiresAt),
+  index("idx_org_invites_email_failed").on(table.emailFailed, table.createdAt),
+]);
 
 // Workspaces table (The core tenant unit)
 export const workspaces = pgTable("workspaces", {
@@ -198,12 +251,16 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
   lastPasswordChange: timestamp("last_password_change"),
+  isPlaceholder: boolean("is_placeholder").default(false).notNull(),
+  placeholderEmail: varchar("placeholder_email", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("users_email_idx").on(table.email),
   index("users_tenant_idx").on(table.tenantId),
   index("users_tenant_email_idx").on(table.tenantId, table.email),
+  index("idx_users_is_placeholder").on(table.isPlaceholder),
+  index("idx_users_placeholder_email").on(table.placeholderEmail),
 ]);
 
 // User credentials table for local authentication (email/password)
@@ -416,6 +473,8 @@ export const usageRecords = pgTable("usage_records", {
 // =====================================================================
 
 // Surveys table
+// DEPRECATED: Use 'workflows' table instead
+/** @deprecated Use 'workflows' table instead */
 export const surveys = pgTable("surveys", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   title: varchar("title").notNull(),
@@ -444,6 +503,8 @@ export const surveys = pgTable("surveys", {
 ]);
 
 // Survey pages table
+// DEPRECATED: Use 'sections' with 'workflows' instead
+/** @deprecated Use 'sections' with 'workflows' instead */
 export const surveyPages = pgTable("survey_pages", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   surveyId: uuid("survey_id").references(() => surveys.id, { onDelete: 'cascade' }).notNull(),
@@ -453,6 +514,8 @@ export const surveyPages = pgTable("survey_pages", {
 });
 
 // Questions table
+// DEPRECATED: Use 'steps' table instead
+/** @deprecated Use 'steps' table instead */
 export const questions = pgTable("questions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   pageId: uuid("page_id").references(() => surveyPages.id, { onDelete: 'cascade' }).notNull(),
@@ -468,6 +531,7 @@ export const questions = pgTable("questions", {
 });
 
 // Loop group subquestions table
+/** @deprecated Legacy table */
 export const loopGroupSubquestions = pgTable("loop_group_subquestions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   loopQuestionId: uuid("loop_question_id").references(() => questions.id, { onDelete: 'cascade' }).notNull(),
@@ -501,6 +565,8 @@ export const conditionalRules = pgTable("conditional_rules", {
 
 
 // Responses table
+// DEPRECATED: Use 'workflow_runs' instead
+/** @deprecated Use 'workflow_runs' instead */
 export const responses = pgTable("responses", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   surveyId: uuid("survey_id").references(() => surveys.id, { onDelete: 'cascade' }).notNull(),
@@ -516,6 +582,8 @@ export const responses = pgTable("responses", {
 });
 
 // Answers table
+// DEPRECATED: Use 'step_values' instead
+/** @deprecated Use 'step_values' instead */
 export const answers = pgTable("answers", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   responseId: uuid("response_id").references(() => responses.id, { onDelete: 'cascade' }).notNull(),
@@ -1525,6 +1593,8 @@ export const projects = pgTable("projects", {
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
   createdBy: varchar("created_by").references(() => users.id, { onDelete: 'cascade' }), // New field (Stage 24)
   ownerId: varchar("owner_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  ownerType: ownerTypeEnum("owner_type"), // 'user' | 'org'
+  ownerUuid: uuid("owner_uuid"), // UUID of owner (user or org)
   status: projectStatusEnum("status").default('active').notNull(),
   archived: boolean("archived").default(false).notNull(), // DEPRECATED: Use status instead
   createdAt: timestamp("created_at").defaultNow(),
@@ -1534,6 +1604,7 @@ export const projects = pgTable("projects", {
   index("projects_created_by_idx").on(table.createdBy),
   index("projects_creator_idx").on(table.creatorId),
   index("projects_owner_idx").on(table.ownerId),
+  index("idx_projects_owner").on(table.ownerType, table.ownerUuid),
   index("projects_status_idx").on(table.status),
   index("projects_archived_idx").on(table.archived),
 ]);
@@ -1544,8 +1615,8 @@ export const workflows = pgTable("workflows", {
   // Legacy fields (old schema)
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  creatorId: varchar("creator_id").references(() => users.id).notNull(),
-  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  creatorId: varchar("creator_id").references(() => users.id, { onDelete: 'set null' }),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: 'set null' }),
   modeOverride: text("mode_override"),
   publicLink: text("public_link"),
   // New multi-tenant fields (optional for migration)
@@ -1562,6 +1633,8 @@ export const workflows = pgTable("workflows", {
   pinnedVersionId: uuid("pinned_version_id"),
   // Common fields
   status: workflowStatusEnum("status").default('draft').notNull(),
+  ownerType: ownerTypeEnum("owner_type"), // 'user' | 'org'
+  ownerUuid: uuid("owner_uuid"), // UUID of owner (user or org)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   // Stage 15: Templating
@@ -1573,6 +1646,7 @@ export const workflows = pgTable("workflows", {
   index("workflows_slug_idx").on(table.slug),
   index("workflows_pinned_version_idx").on(table.pinnedVersionId),
   index("workflows_source_blueprint_idx").on(table.sourceBlueprintId),
+  index("idx_workflows_owner").on(table.ownerType, table.ownerUuid),
 ]);
 
 // WorkflowVersion table for versioning support
@@ -1633,7 +1707,7 @@ export const templates = pgTable("templates", {
   metadata: jsonb("metadata").default(sql`'{}'::jsonb`), // Stage 22: PDF metadata (fields, pages)
   mapping: jsonb("mapping").default(sql`'{}'::jsonb`),   // Stage 22: PDF field mapping
   currentVersion: integer("current_version").default(1), // Version tracking
-  lastModifiedBy: uuid("last_modified_by"), // .references(() => users.id, { onDelete: 'set null' }), // Who last modified
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id, { onDelete: 'set null' }), // Who last modified
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1649,7 +1723,7 @@ export const templateVersions = pgTable("template_versions", {
   fileRef: varchar("file_ref", { length: 500 }).notNull(), // Snapshot of file at this version
   metadata: jsonb("metadata").default(sql`'{}'::jsonb`), // Snapshot of metadata
   mapping: jsonb("mapping").default(sql`'{}'::jsonb`), // Snapshot of mapping
-  createdBy: uuid("created_by"), // .references(() => users.id, { onDelete: 'set null' }), // Temporary fix for DB push error
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }), // Fixed type mismatch
   createdAt: timestamp("created_at").defaultNow(),
   notes: text("notes"), // Optional notes about what changed
   isActive: boolean("is_active").default(true), // Mark deprecated versions as inactive
@@ -1665,7 +1739,7 @@ export const templateVersions = pgTable("template_versions", {
 export const templateGenerationMetrics = pgTable("template_generation_metrics", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   templateId: uuid("template_id").references(() => templates.id, { onDelete: 'cascade' }).notNull(),
-  runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }),
+  runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }),
   result: varchar("result", { length: 50 }).notNull(), // 'success', 'failure', 'skipped'
   durationMs: integer("duration_ms"),
   errorMessage: text("error_message"),
@@ -1686,7 +1760,7 @@ export const workflowBlueprints = pgTable("workflow_blueprints", {
   description: text("description"),
   graphJson: jsonb("graph_json").notNull(),
   metadata: jsonb("metadata").default(sql`'{}'::jsonb`),
-  sourceWorkflowId: uuid("source_workflow_id"),
+  sourceWorkflowId: uuid("source_workflow_id").references(() => workflows.id),
   isPublic: boolean("is_public").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2152,6 +2226,9 @@ export const workflowRuns = pgTable("workflow_runs", {
   accessMode: portalAccessModeEnum("access_mode").default('anonymous'), // How this run was accessed
   shareToken: varchar("share_token").unique(), // Unique token for read-only public access
   shareTokenExpiresAt: timestamp("share_token_expires_at"), // Expiration for share token
+  // Ownership fields (Added Jan 2026 for org collaboration)
+  ownerType: varchar("owner_type", { length: 50 }), // 'user' or 'org'
+  ownerUuid: uuid("owner_uuid"), // UUID of the owning user or organization
 }, (table) => [
   index("workflow_runs_workflow_idx").on(table.workflowId),
   index("workflow_runs_version_idx").on(table.workflowVersionId),
@@ -2161,6 +2238,8 @@ export const workflowRuns = pgTable("workflow_runs", {
   index("workflow_runs_current_section_idx").on(table.currentSectionId),
   // Added Dec 2025: Optimization for list runs query
   index("workflow_runs_created_at_idx").on(table.createdAt),
+  // Added Jan 2026: Ownership index for org-based queries
+  index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
 ]);
 
 // Step values table (captured values per step in a run)
@@ -3068,12 +3147,15 @@ export const datavaultDatabases = pgTable("datavault_databases", {
   config: jsonb("config").default(sql`'{}'::jsonb`), // Connection details
   scopeType: datavaultScopeTypeEnum("scope_type").notNull().default('account'),
   scopeId: uuid("scope_id"),
+  ownerType: ownerTypeEnum("owner_type"), // 'user' | 'org'
+  ownerUuid: uuid("owner_uuid"), // UUID of owner (user or org)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_databases_tenant").on(table.tenantId),
   index("idx_databases_scope").on(table.scopeType, table.scopeId),
   index("idx_databases_updated").on(table.updatedAt),
+  index("idx_datavault_databases_owner").on(table.ownerType, table.ownerUuid),
 ]);
 
 

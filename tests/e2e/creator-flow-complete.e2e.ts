@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+
 import { test as authTest } from "./fixtures/auth";
 
 /**

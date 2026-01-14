@@ -1,12 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { registerRoutes } from "../../server/routes";
-import { nanoid } from "nanoid";
-import { db } from "../../server/db";
-import * as schema from "@shared/schema";
+
 import { eq } from "drizzle-orm";
+import express, { type Express } from "express";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+
+
+import * as schema from "@shared/schema";
+
+import { db } from "../../server/db";
+import { setupAuth } from "../../server/googleAuth";
+import { registerRoutes } from "../../server/routes";
 import { createGraphWorkflow, createGraphRun, createQuestionNode, createGraph } from "../factories/graphFactory";
 
 describe("Stage 13: Workflow Snapshots & Versioning", () => {
@@ -19,20 +24,19 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
     let workflowId: string;
     let agent: any;
 
-    // Mock setupAuth to allow backdoor login
+    // Hoisted state for auth
+    const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
+
     vi.mock("../../server/googleAuth", async (importOriginal) => {
         const actual = await importOriginal<any>();
         return {
             ...actual,
             setupAuth: (app: Express) => {
-                app.use(actual.getSession());
-
-                // Debug middleware to log cookies and session AND restore req.user
+                // Restore user from state
                 app.use((req, res, next) => {
                     const r = req as any;
-                    if (r.session && r.session.user) {
-                        // Restore req.user from session (mimic passport)
-                        r.user = r.session.user;
+                    if (authState.user) {
+                        r.user = authState.user;
                         r.isAuthenticated = () => true;
                     } else {
                         r.isAuthenticated = () => false;
@@ -41,11 +45,9 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 });
 
                 app.post("/api/auth/google", (req, res) => {
-                    const r = req as any;
-                    // Backdoor login: accept user object directly
+                    // Backdoor login
                     if (req.body.user) {
-                        r.session.user = req.body.user;
-                        r.user = req.body.user;
+                        authState.user = req.body.user;
                         return res.json({ message: "Logged in via backdoor", user: req.body.user });
                     }
                     res.status(400).json({ error: "No user provided" });
@@ -54,11 +56,33 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         };
     });
 
+    // Mock auth middleware to respect req.user set by setupAuth
+    vi.mock("../../server/middleware/auth", async (importOriginal) => {
+        const actual = await importOriginal<any>();
+        return {
+            ...actual,
+            hybridAuth: (req: any, res: any, next: any) => {
+                if (req.user) {
+                    req.tenantId = req.user.tenantId;
+                    req.userId = req.user.id;
+                    req.userRole = req.user.tenantRole;
+                    req.systemRole = req.user.role;
+                    return next();
+                }
+                return actual.hybridAuth(req, res, next);
+            },
+            optionalHybridAuth: (req: any, res: any, next: any) => {
+                if (req.user) {return next();}
+                return actual.optionalHybridAuth(req, res, next);
+            }
+        };
+    });
+
     beforeAll(async () => {
         app = express();
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
-
+        setupAuth(app); // Call setupAuth to attach the middleware
         server = await registerRoutes(app);
 
         const port = await new Promise<number>((resolve) => {
@@ -192,6 +216,10 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
 
         // 7. Verify Run 1 still sees Version 1 Question
         const run1Response = await agent.get(`/api/runs/${run1.id}`);
+        if (run1Response.status !== 200) {
+            console.error("Run Fetch Failed Body:", JSON.stringify(run1Response.body, null, 2));
+            console.error("Run Fetch Failed Text:", run1Response.text);
+        }
         expect(run1Response.status).toBe(200);
         const run1Graph = run1Response.body.workflowVersion.graphJson;
         expect(run1Graph.nodes[0].config.question).toBe('Version 1 Question');

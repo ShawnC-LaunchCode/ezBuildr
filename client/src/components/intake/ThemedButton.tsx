@@ -4,7 +4,7 @@
  * Branded button for intake portals using tenant branding CSS variables
  */
 
-import { ButtonHTMLAttributes, forwardRef } from 'react';
+import React, { ButtonHTMLAttributes, forwardRef } from 'react';
 
 export interface ThemedButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Button variant */
@@ -108,7 +108,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
     };
 
     const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (disabled || isLoading) return;
+      if (disabled || isLoading) {return;}
 
       const target = e.currentTarget;
       if (variant === 'primary') {
@@ -123,7 +123,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
     };
 
     const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (disabled || isLoading) return;
+      if (disabled || isLoading) {return;}
 
       const target = e.currentTarget;
       const variantStyles = getVariantStyles();

@@ -3,8 +3,9 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchAPI, projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, logicRuleAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
+
 import { DevPanelBus } from "./devpanelBus";
+import { fetchAPI, projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, logicRuleAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
 
 // Re-export types for convenience
 export type { ApiStep, ApiSection, ApiProject, ApiWorkflow, ApiBlock, ApiTransformBlock, ApiRun } from "./vault-api";
@@ -129,6 +130,21 @@ export function useDeleteProject() {
   });
 }
 
+export function useTransferProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetOwnerType, targetOwnerUuid }: {
+      id: string;
+      targetOwnerType: 'user' | 'org';
+      targetOwnerUuid: string;
+    }) => projectAPI.transfer(id, targetOwnerType, targetOwnerUuid),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
 // ============================================================================
 // Workflows
 // ============================================================================
@@ -193,20 +209,60 @@ export function useDeleteWorkflow() {
   });
 }
 
+export function useTransferWorkflow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetOwnerType, targetOwnerUuid }: {
+      id: string;
+      targetOwnerType: 'user' | 'org';
+      targetOwnerUuid: string;
+    }) => workflowAPI.transfer(id, targetOwnerType, targetOwnerUuid),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflow(data.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+    },
+  });
+}
+
 export function useReviseWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: {
+    mutationFn: async (data: {
       workflowId: string;
       currentWorkflow: any;
       userInstruction: string;
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
       mode?: 'easy' | 'advanced';
-    }) =>
-      fetchAPI('/api/ai/workflows/revise', {
+    }) => {
+      // 1. Enqueue Job
+      const initRes = await fetchAPI('/api/ai/workflows/revise', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
+      }) as any;
+
+      const { jobId } = initRes;
+      if (!jobId) {throw new Error("Failed to start AI revision job");}
+
+      // 2. Poll for Completion
+      const poll = async (): Promise<any> => {
+        const statusRes = await fetchAPI(`/api/ai/workflows/revise/${jobId}`) as any;
+
+        if (statusRes.status === 'completed') {
+          return statusRes.result;
+        }
+
+        if (statusRes.status === 'failed') {
+          throw new Error(statusRes.error || "AI revision job failed");
+        }
+
+        // Wait 2s and retry
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return poll();
+      };
+
+      return poll();
+    },
     onSuccess: (data) => {
       // User must review and apply manually
     },
@@ -216,7 +272,7 @@ export function useReviseWorkflow() {
 export function useConnectLogic() {
   return useMutation({
     mutationFn: (data: any) =>
-      fetchAPI('/api/ai/workflows/generate-logic', {
+      fetchAPI<{ updatedWorkflow: any; diff: any; explanation: string[]; suggestions?: string[] }>('/api/ai/workflows/generate-logic', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -669,7 +725,7 @@ export function useCreateBlock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workflowId, ...data }: Omit<ApiBlock, "id" | "createdAt" | "updatedAt"> & { workflowId: string }) => {
-      if (workflowId === "undefined") throw new Error("Invalid workflow ID");
+      if (workflowId === "undefined") {throw new Error("Invalid workflow ID");}
       return blockAPI.create(workflowId, data);
     },
     onSuccess: (_, variables) => {
@@ -682,7 +738,7 @@ export function useUpdateBlock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, workflowId, ...data }: Partial<ApiBlock> & { id: string; workflowId: string }) => {
-      if (workflowId === "undefined") throw new Error("Invalid workflow ID");
+      if (workflowId === "undefined") {throw new Error("Invalid workflow ID");}
       return blockAPI.update(id, data);
     },
     onSuccess: (_, variables) => {
@@ -763,7 +819,7 @@ export function useCreateTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workflowId, ...data }: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt"> & { workflowId: string }) => {
-      if (workflowId === "undefined") throw new Error("Invalid workflow ID");
+      if (workflowId === "undefined") {throw new Error("Invalid workflow ID");}
       return transformBlockAPI.create(workflowId, data);
     },
     onSuccess: (_, variables) => {
@@ -776,7 +832,7 @@ export function useUpdateTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, workflowId, ...data }: Partial<ApiTransformBlock> & { id: string; workflowId: string }) => {
-      if (workflowId === "undefined") throw new Error("Invalid workflow ID");
+      if (workflowId === "undefined") {throw new Error("Invalid workflow ID");}
       return transformBlockAPI.update(id, data);
     },
     onSuccess: (_, variables) => {

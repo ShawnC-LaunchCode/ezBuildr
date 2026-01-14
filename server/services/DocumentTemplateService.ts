@@ -1,12 +1,15 @@
-import { documentTemplateRepository } from "../repositories/DocumentTemplateRepository";
-import type { DbTransaction } from "../repositories/BaseRepository";
 import type { Template, InsertTemplate } from "@shared/schema";
+
+import { documentTemplateRepository } from "../repositories/DocumentTemplateRepository";
 import { createError } from "../utils/errors";
+
 import {
   saveTemplateFile,
   deleteTemplateFile,
   templateFileExists,
 } from "./templates";
+
+import type { DbTransaction } from "../repositories/BaseRepository";
 
 /**
  * Stage 21: Document Template Service
@@ -56,7 +59,7 @@ export class DocumentTemplateService {
 
     // Create database record
     try {
-      const template = await documentTemplateRepository.create(
+      return await documentTemplateRepository.create(
         {
           projectId,
           name,
@@ -67,8 +70,6 @@ export class DocumentTemplateService {
         },
         tx
       );
-
-      return template;
     } catch (error) {
       // Rollback: delete uploaded file if DB insert fails
       await deleteTemplateFile(fileRef);
@@ -102,7 +103,7 @@ export class DocumentTemplateService {
    * List templates for a project
    */
   async listTemplates(projectId: string, tx?: DbTransaction): Promise<Template[]> {
-    return await documentTemplateRepository.findByProjectId(projectId, tx);
+    return documentTemplateRepository.findByProjectId(projectId, tx);
   }
 
   /**
@@ -113,7 +114,7 @@ export class DocumentTemplateService {
     type: "docx" | "html",
     tx?: DbTransaction
   ): Promise<Template[]> {
-    return await documentTemplateRepository.findByType(projectId, type, tx);
+    return documentTemplateRepository.findByType(projectId, type, tx);
   }
 
   /**

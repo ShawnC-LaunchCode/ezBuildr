@@ -4,11 +4,12 @@
  */
 
 import { FileText, Archive, Trash2, Play, Move, Link } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 import type { ApiWorkflow } from "@/lib/vault-api";
 import { workflowAPI } from "@/lib/vault-api";
-import { toast } from "@/hooks/use-toast";
 
 interface WorkflowCardProps {
   workflow: ApiWorkflow;

@@ -1,0 +1,205 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+{"level":30,"time":1768088387860,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768088393515,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768088393532,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts[2m > [22m[2mJWT Authentication Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768088393522,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768088393522,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768088393526,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768088393531,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768088393531,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768088393532,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768088393532,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768088394019,"env":"test","module":"user-credentials-repository","userId":"29c07ddf-ea30-44a5-8949-e097fd68c733","msg":"User credentials created"}
+{"level":30,"time":1768088394123,"env":"test","module":"email-queue","jobId":"68d2cbcd-ed83-4dd9-8ad1-f5cb7fcc03ef","to":"test-65lA7KJ3bun0JK5A_UVTf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088394176,"env":"test","module":"auth-routes","userId":"29c07ddf-ea30-44a5-8949-e097fd68c733","email":"test-65lA7KJ3bun0JK5A_UVTf@example.com","msg":"User registered"}
+{"level":30,"time":1768088394816,"env":"test","module":"user-credentials-repository","userId":"bf04056f-88f8-4f83-908a-322668792985","msg":"User credentials created"}
+{"level":30,"time":1768088394920,"env":"test","module":"email-queue","jobId":"9befe398-25fe-46df-bffa-da17b3e4f57c","to":"jwt-test-HzJ40vH0lwWjcjkgVRIbL@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088394972,"env":"test","module":"auth-routes","userId":"bf04056f-88f8-4f83-908a-322668792985","email":"jwt-test-HzJ40vH0lwWjcjkgVRIbL@example.com","msg":"User registered"}
+{"level":30,"time":1768088395559,"env":"test","module":"auth-routes","userId":"bf04056f-88f8-4f83-908a-322668792985","msg":"User logged in successfully"}
+{"level":30,"time":1768088395612,"env":"test","module":"audit-log-service","userId":"bf04056f-88f8-4f83-908a-322668792985","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768088395998,"env":"test","module":"user-credentials-repository","userId":"6b2ed1af-54bc-4e2d-8ae1-9e385cf559c2","msg":"User credentials created"}
+{"level":30,"time":1768088396102,"env":"test","module":"email-queue","jobId":"f4c09639-56be-4889-842d-79df75dd02ac","to":"jwt-test-lxdrMlnta4j9hzopZoGFp@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088396154,"env":"test","module":"auth-routes","userId":"6b2ed1af-54bc-4e2d-8ae1-9e385cf559c2","email":"jwt-test-lxdrMlnta4j9hzopZoGFp@example.com","msg":"User registered"}
+{"level":30,"time":1768088396710,"env":"test","module":"auth-routes","userId":"6b2ed1af-54bc-4e2d-8ae1-9e385cf559c2","msg":"User logged in successfully"}
+{"level":30,"time":1768088396761,"env":"test","module":"audit-log-service","userId":"6b2ed1af-54bc-4e2d-8ae1-9e385cf559c2","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Generation[2m > [22mshould generate valid JWT token on successful login[33m 1171[2mms[22m[39m
+{"level":30,"time":1768088397140,"env":"test","module":"user-credentials-repository","userId":"b775a03a-024f-4423-8557-21a5e3a37a5e","msg":"User credentials created"}
+{"level":30,"time":1768088397248,"env":"test","module":"email-queue","jobId":"123cacdd-09b4-4b70-a633-c9b5d113c5bf","to":"jwt-test-PzElmnlrYRpL_TkY9IT9z@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088397301,"env":"test","module":"auth-routes","userId":"b775a03a-024f-4423-8557-21a5e3a37a5e","email":"jwt-test-PzElmnlrYRpL_TkY9IT9z@example.com","msg":"User registered"}
+{"level":30,"time":1768088397845,"env":"test","module":"auth-routes","userId":"b775a03a-024f-4423-8557-21a5e3a37a5e","msg":"User logged in successfully"}
+{"level":30,"time":1768088397898,"env":"test","module":"audit-log-service","userId":"b775a03a-024f-4423-8557-21a5e3a37a5e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Generation[2m > [22mshould include correct payload in JWT token[33m 1146[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Generation[2m > [22mshould set JWT expiry to 15 minutes[33m 1136[2mms[22m[39m
+{"level":30,"time":1768088398274,"env":"test","module":"user-credentials-repository","userId":"ebfaaed7-d18a-41be-b705-3fb7acade9c2","msg":"User credentials created"}
+{"level":30,"time":1768088398372,"env":"test","module":"email-queue","jobId":"e09ac821-f807-4384-8c6a-8100c4b18588","to":"jwt-test-embGYFYgTMX2SAFbSERS9@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088398422,"env":"test","module":"auth-routes","userId":"ebfaaed7-d18a-41be-b705-3fb7acade9c2","email":"jwt-test-embGYFYgTMX2SAFbSERS9@example.com","msg":"User registered"}
+{"level":30,"time":1768088398937,"env":"test","module":"auth-routes","userId":"ebfaaed7-d18a-41be-b705-3fb7acade9c2","msg":"User logged in successfully"}
+{"level":30,"time":1768088398987,"env":"test","module":"audit-log-service","userId":"ebfaaed7-d18a-41be-b705-3fb7acade9c2","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768088399102,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768088399106,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768088399479,"env":"test","module":"user-credentials-repository","userId":"d7b8260f-b41a-4631-990c-220c8cc15c99","msg":"User credentials created"}
+{"level":30,"time":1768088399585,"env":"test","module":"email-queue","jobId":"c4109e2e-2734-4195-bba4-f7b9dff78a4e","to":"jwt-test-17TmRp6iwFlw1pZra9vFJ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088399636,"env":"test","module":"auth-routes","userId":"d7b8260f-b41a-4631-990c-220c8cc15c99","email":"jwt-test-17TmRp6iwFlw1pZra9vFJ@example.com","msg":"User registered"}
+{"level":30,"time":1768088400156,"env":"test","module":"auth-routes","userId":"d7b8260f-b41a-4631-990c-220c8cc15c99","msg":"User logged in successfully"}
+{"level":30,"time":1768088400210,"env":"test","module":"audit-log-service","userId":"d7b8260f-b41a-4631-990c-220c8cc15c99","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Validation[2m > [22mshould accept valid JWT token on protected routes[33m 1199[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Validation[2m > [22mshould reject request without authorization header[32m 5[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Validation[2m > [22mshould reject request with malformed token[32m 3[2mms[22m[39m
+{"level":40,"time":1768088400316,"env":"test","module":"auth-middleware","error":{"name":"InvalidTokenError","code":"AUTH_003","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768088400316,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Validation[2m > [22mshould accept request with missing Bearer prefix (lenient)[33m 1205[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Validation[2m > [22mshould reject token with invalid signature[32m 6[2mms[22m[39m
+{"level":40,"time":1768088401421,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768088401421,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":40,"time":1768088402528,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768088402528,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Expiration[2m > [22mshould reject expired JWT token[33m 1105[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mJWT Token Expiration[2m > [22mshould return token_expired error code for expired tokens[33m 1108[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mBearer Token Authentication[2m > [22mshould authenticate with Bearer token in Authorization header[32m 114[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mBearer Token Authentication[2m > [22mshould work with Bearer token on POST requests[32m 0[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mBearer Token Authentication[2m > [22mshould work with Bearer token on PUT requests[32m 214[2mms[22m[39m
+{"level":30,"time":1768088403489,"env":"test","module":"user-credentials-repository","userId":"59d3bc19-08e4-4ca7-9706-5afdfa641e15","msg":"User credentials created"}
+{"level":30,"time":1768088403597,"env":"test","module":"email-queue","jobId":"eeaa8ad3-6964-4a22-bca9-ce137fe096ce","to":"jwt-test-f_CgDbA0zyaySjtC_iCOf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088403649,"env":"test","module":"auth-routes","userId":"59d3bc19-08e4-4ca7-9706-5afdfa641e15","email":"jwt-test-f_CgDbA0zyaySjtC_iCOf@example.com","msg":"User registered"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mBearer Token Authentication[2m > [22mshould work with Bearer token on DELETE requests[32m 261[2mms[22m[39m
+{"level":50,"time":1768088403811,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768088404189,"env":"test","module":"user-credentials-repository","userId":"f1b8e2c1-13b7-48a7-b9b1-a3cc057bedc6","msg":"User credentials created"}
+{"level":30,"time":1768088404297,"env":"test","module":"email-queue","jobId":"11370a40-1256-41dd-96a6-cf20b04286ec","to":"user1-hxzRPPe3ePrX2FdOpOn6t@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088404349,"env":"test","module":"auth-routes","userId":"f1b8e2c1-13b7-48a7-b9b1-a3cc057bedc6","email":"user1-hxzRPPe3ePrX2FdOpOn6t@example.com","msg":"User registered"}
+{"level":30,"time":1768088404717,"env":"test","module":"user-credentials-repository","userId":"e06f74fc-27cc-47db-939a-3b2d0f46f7ed","msg":"User credentials created"}
+{"level":30,"time":1768088404822,"env":"test","module":"email-queue","jobId":"109c3609-762e-4930-b160-190a0cd96286","to":"user2-RFK-6BRzFujSoUS4naJx6@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088404879,"env":"test","module":"auth-routes","userId":"e06f74fc-27cc-47db-939a-3b2d0f46f7ed","email":"user2-RFK-6BRzFujSoUS4naJx6@example.com","msg":"User registered"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mCookie-to-Token Exchange[2m > [22mshould exchange valid session cookie for JWT token[33m 689[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mCookie-to-Token Exchange[2m > [22mshould reject token exchange without valid cookie[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mHybrid Authentication Strategy[2m > [22mshould prefer Bearer token over cookie when both present[33m 1166[2mms[22m[39m
+{"level":30,"time":1768088405348,"env":"test","module":"user-credentials-repository","userId":"cae6a291-a9b1-411e-9820-16af0613db2d","msg":"User credentials created"}
+{"level":30,"time":1768088405459,"env":"test","module":"email-queue","jobId":"0205a47e-010a-4953-8707-b5a172c1f8ce","to":"jwt-test-CFF3mShwCyLeHyp2ERpJ1@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088405512,"env":"test","module":"auth-routes","userId":"cae6a291-a9b1-411e-9820-16af0613db2d","email":"jwt-test-CFF3mShwCyLeHyp2ERpJ1@example.com","msg":"User registered"}
+{"level":50,"time":1768088405515,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mHybrid Authentication Strategy[2m > [22mshould fall back to cookie if Bearer token is invalid[33m 537[2mms[22m[39m
+{"level":30,"time":1768088405874,"env":"test","module":"user-credentials-repository","userId":"da527819-d1bf-4512-8ec1-ef4acc5c97e4","msg":"User credentials created"}
+{"level":30,"time":1768088405977,"env":"test","module":"email-queue","jobId":"48461fbc-769b-48e4-ba0c-af45814b4f1d","to":"jwt-test-eL-dZb-zmWQO_iNGuywZC@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088406030,"env":"test","module":"auth-routes","userId":"da527819-d1bf-4512-8ec1-ef4acc5c97e4","email":"jwt-test-eL-dZb-zmWQO_iNGuywZC@example.com","msg":"User registered"}
+{"level":30,"time":1768088406544,"env":"test","module":"auth-routes","userId":"da527819-d1bf-4512-8ec1-ef4acc5c97e4","msg":"User logged in successfully"}
+{"level":30,"time":1768088406596,"env":"test","module":"audit-log-service","userId":"da527819-d1bf-4512-8ec1-ef4acc5c97e4","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mHybrid Authentication Strategy[2m > [22mshould allow GET requests with cookie auth only[33m 1236[2mms[22m[39m
+{"level":30,"time":1768088407120,"env":"test","module":"user-credentials-repository","userId":"4a7df536-fb53-4972-ab13-9cbf8cc7f3f1","msg":"User credentials created"}
+{"level":30,"time":1768088407223,"env":"test","module":"email-queue","jobId":"e34ecf8a-51dc-415d-a1b6-b1176cfffafb","to":"jwt-test-4lfJbhxTC4ABwQ7R3l4q7@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088407275,"env":"test","module":"auth-routes","userId":"4a7df536-fb53-4972-ab13-9cbf8cc7f3f1","email":"jwt-test-4lfJbhxTC4ABwQ7R3l4q7@example.com","msg":"User registered"}
+{"level":50,"time":1768088407280,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mHybrid Authentication Strategy[2m > [22mshould reject POST requests with cookie auth only (mutation-strict)[33m 530[2mms[22m[39m
+ [31m├ù[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mOptional Authentication[2m > [22mshould allow anonymous access to public workflows[33m 465[2mms[22m[39m
+[31m   ΓåÆ expected 200 "OK", got 404 "Not Found"[39m
+{"level":30,"time":1768088408571,"env":"test","module":"user-credentials-repository","userId":"37345ca8-b3f5-4fb8-a755-b6e7c2b36d45","msg":"User credentials created"}
+{"level":30,"time":1768088408680,"env":"test","module":"email-queue","jobId":"14c9357e-0c16-4664-8028-4f2bb0951c8f","to":"jwt-test-odM4qwupMBo_gnLTB5hf8@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088408735,"env":"test","module":"auth-routes","userId":"37345ca8-b3f5-4fb8-a755-b6e7c2b36d45","email":"jwt-test-odM4qwupMBo_gnLTB5hf8@example.com","msg":"User registered"}
+{"level":30,"time":1768088409241,"env":"test","module":"auth-routes","userId":"37345ca8-b3f5-4fb8-a755-b6e7c2b36d45","msg":"User logged in successfully"}
+{"level":30,"time":1768088409295,"env":"test","module":"audit-log-service","userId":"37345ca8-b3f5-4fb8-a755-b6e7c2b36d45","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [31m├ù[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mOptional Authentication[2m > [22mshould attach user info if authenticated on optional auth routes[33m 460[2mms[22m[39m
+[31m   ΓåÆ expected 200 "OK", got 404 "Not Found"[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mToken Refresh Flow[2m > [22mshould refresh access token using refresh token[33m 2302[2mms[22m[39m
+{"level":30,"time":1768088410869,"env":"test","module":"user-credentials-repository","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","msg":"User credentials created"}
+{"level":30,"time":1768088410972,"env":"test","module":"email-queue","jobId":"ee2c7e32-c7bd-42b1-add6-c12e7dcd65e3","to":"jwt-test-LGAVz2fojTw2ZKZf3fXA-@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088411027,"env":"test","module":"auth-routes","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","email":"jwt-test-LGAVz2fojTw2ZKZf3fXA-@example.com","msg":"User registered"}
+{"level":30,"time":1768088411549,"env":"test","module":"auth-routes","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","msg":"User logged in successfully"}
+{"level":30,"time":1768088411609,"env":"test","module":"audit-log-service","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768088411863,"env":"test","module":"auth-service","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","tokenHash":"29ecfd9d682ad31947ea4f78213e6aebfc09858bb39f2d70000414f2249ca914","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1768088411974,"env":"test","module":"auth-service","userId":"ce211bd6-274e-40bb-b198-7075cdc743b3","tokenHash":"55219576412da200d070a59b4b6d763a16848145dbd5bb266b953ccd096458cc","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mToken Refresh Flow[2m > [22mshould rotate refresh token on use[33m 1521[2mms[22m[39m
+{"level":30,"time":1768088412392,"env":"test","module":"user-credentials-repository","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","msg":"User credentials created"}
+{"level":30,"time":1768088412495,"env":"test","module":"email-queue","jobId":"b92c584f-e89f-4116-900d-d14808ab8e56","to":"jwt-test-esyuY85ada2R4mq4VfqGl@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088412547,"env":"test","module":"auth-routes","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","email":"jwt-test-esyuY85ada2R4mq4VfqGl@example.com","msg":"User registered"}
+{"level":30,"time":1768088413063,"env":"test","module":"auth-routes","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","msg":"User logged in successfully"}
+{"level":30,"time":1768088413113,"env":"test","module":"audit-log-service","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768088413595,"env":"test","module":"auth-routes","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","msg":"User logged in successfully"}
+{"level":30,"time":1768088413647,"env":"test","module":"audit-log-service","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768088413909,"env":"test","module":"auth-service","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","tokenHash":"df19dcddd709b10dc99470a12e3115edb8399ad85cc29bfac45f4b240d6c9971","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1768088414012,"env":"test","module":"auth-service","userId":"f73d3cfd-b0fe-4c18-858c-c14c57fafc79","tokenHash":"86b609bedd006ac3372eaadb467ee8602e7c6617f4fe1a58ae01419f151eaab1","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768088414428,"env":"test","module":"user-credentials-repository","userId":"5f6c5d24-09ba-409a-86ea-d2459e80b62d","msg":"User credentials created"}
+{"level":30,"time":1768088414546,"env":"test","module":"email-queue","jobId":"900deb64-868f-47c2-9fb0-59a48680fc67","to":"jwt-test-Z3cOO9sI4SZYp5yYrx4D2@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088414594,"env":"test","module":"auth-routes","userId":"5f6c5d24-09ba-409a-86ea-d2459e80b62d","email":"jwt-test-Z3cOO9sI4SZYp5yYrx4D2@example.com","msg":"User registered"}
+{"level":30,"time":1768088415104,"env":"test","module":"auth-routes","userId":"5f6c5d24-09ba-409a-86ea-d2459e80b62d","msg":"User logged in successfully"}
+{"level":30,"time":1768088415160,"env":"test","module":"audit-log-service","userId":"5f6c5d24-09ba-409a-86ea-d2459e80b62d","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768088415269,"env":"test","module":"auth-service","userId":"5f6c5d24-09ba-409a-86ea-d2459e80b62d","tokenHash":"a70731dbacbd560822e8d7300e550aa10e0015281a1eb909550bcff682fbccf8","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mToken Refresh Flow[2m > [22mshould detect token reuse and revoke all user tokens[33m 2032[2mms[22m[39m
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mLogout Flow[2m > [22mshould revoke refresh token on logout[33m 1258[2mms[22m[39m
+{"level":30,"time":1768088415686,"env":"test","module":"user-credentials-repository","userId":"4940c49e-82e6-4f4b-a120-e25e89d77728","msg":"User credentials created"}
+{"level":30,"time":1768088415792,"env":"test","module":"email-queue","jobId":"84fc6899-00f3-4f34-9d92-aaef7d9a8519","to":"jwt-test-gkWXZVtfnPR1Eyb403iGF@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768088415846,"env":"test","module":"auth-routes","userId":"4940c49e-82e6-4f4b-a120-e25e89d77728","email":"jwt-test-gkWXZVtfnPR1Eyb403iGF@example.com","msg":"User registered"}
+{"level":30,"time":1768088416368,"env":"test","module":"auth-routes","userId":"4940c49e-82e6-4f4b-a120-e25e89d77728","msg":"User logged in successfully"}
+{"level":30,"time":1768088416422,"env":"test","module":"audit-log-service","userId":"4940c49e-82e6-4f4b-a120-e25e89d77728","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+ [32mΓ£ô[39m tests/integration/auth/jwt.authentication.test.ts[2m > [22mJWT Authentication Integration Tests[2m > [22mLogout Flow[2m > [22mshould clear refresh token cookie on logout[33m 1160[2mms[22m[39m
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should allow anonymous access to public workflows
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:466:18
+    464|             const publicRes = await request(ctx.baseURL)
+    465|                 .get(`/public/w/${publicSlug}`)
+    466|                 .expect(200);
+       |                  ^
+    467| 
+    468|             // Public route returns { id, title, publicSettings... }
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should attach user info if authenticated on optional auth routes
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:497:18
+    495|                 .get(`/public/w/${optionalSlug}`)
+    496|                 .set("Authorization", `Bearer ${ctx.authToken}`)
+    497|                 .expect(200);
+       |                  ^
+    498| 
+    499|             // Response should include user context if available (checΓÇª
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m25 passed[39m[22m[90m (27)[39m
+[2m   Start at [22m 17:39:45
+[2m   Duration [22m 31.66s[2m (transform 3.18s, setup 201ms, import 7.02s, tests 23.94s, environment 0ms)[22m
+

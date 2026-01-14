@@ -1,0 +1,775 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/ui/datavault/EditableCell.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/ui/datavault/EditableCell.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+[90mstdout[2m | tests/ui/datavault/EditableCell.test.tsx
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/ui/datavault/EditableCell.test.tsx
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/ui/datavault/EditableCell.test.tsx
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/ui/datavault/TableCard.test.tsx
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/ui/datavault/TableCard.test.tsx [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 1515[2mms[22m[39m
+     [32mΓ£ô[39m should render table name and description[32m 114[2mms[22m[39m
+     [32mΓ£ô[39m should render table slug[32m 11[2mms[22m[39m
+     [32mΓ£ô[39m should render table slug[32m 0[2mms[22m[39m
+     [32mΓ£ô[39m should render column and row counts[32m 23[2mms[22m[39m
+     [32mΓ£ô[39m should call onClick when card is clicked[32m 19[2mms[22m[39m
+[31m     [31m├ù[31m should call onDelete when delete button is clicked[39m[32m 188[2mms[22m[39m
+     [32mΓ£ô[39m should show placeholder when description is missing[32m 7[2mms[22m[39m
+     [32mΓ£ô[39m should format dates correctly[32m 8[2mms[22m[39m
+stderr | tests/ui/datavault/EditableCell.test.tsx > EditableCell Component > Error Handling > reverts value on save error
+Failed to save cell: Error: Network error
+    at C:/Users/scoot/poll/VaultLogic/tests/ui/datavault/EditableCell.test.tsx:204:36
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
+    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:12)
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/integration/datavault.permissions.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+stderr | tests/ui/datavault/EditableCell.test.tsx > EditableCell Component > Error Handling > displays error indicator on save failure
+Failed to save cell: Error: Network error
+    at C:/Users/scoot/poll/VaultLogic/tests/ui/datavault/EditableCell.test.tsx:220:36
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
+    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:12)
+
+stderr | tests/ui/datavault/EditableCell.test.tsx > EditableCell Component > Boolean Type (Checkbox) > shows loading spinner when saving checkbox
+Warning: An update to EditableCell inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at EditableCell (C:/Users/scoot/poll/VaultLogic/client/src/components/datavault/EditableCell.tsx:12:25)
+
+[90mstdout[2m | tests/ui/datavault/EditableCell.test.tsx
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/ui/datavault/EditableCell.test.tsx [2m([22m[2m29 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 2452[2mms[22m[39m
+       [32mΓ£ô[39m renders value in display mode initially[32m 39[2mms[22m[39m
+       [32mΓ£ô[39m shows double-click hint on hover[32m 189[2mms[22m[39m
+       [32mΓ£ô[39m does not show hint for read-only cells[32m 20[2mms[22m[39m
+       [32mΓ£ô[39m includes proper ARIA label with column name and value[32m 17[2mms[22m[39m
+       [32mΓ£ô[39m indicates read-only status in ARIA label[32m 17[2mms[22m[39m
+       [32mΓ£ô[39m is focusable when editable[32m 16[2mms[22m[39m
+       [32mΓ£ô[39m is not focusable when read-only[32m 16[2mms[22m[39m
+       [32mΓ£ô[39m enters edit mode on double-click[32m 53[2mms[22m[39m
+       [32mΓ£ô[39m enters edit mode on Enter key press[32m 33[2mms[22m[39m
+       [32mΓ£ô[39m enters edit mode on Space key press[32m 36[2mms[22m[39m
+       [32mΓ£ô[39m does not enter edit mode when read-only[32m 11[2mms[22m[39m
+       [32mΓ£ô[39m focuses and selects input text on edit mode entry[32m 25[2mms[22m[39m
+       [32mΓ£ô[39m saves on blur[32m 110[2mms[22m[39m
+       [32mΓ£ô[39m saves on Enter key press[32m 99[2mms[22m[39m
+       [32mΓ£ô[39m does not save if value unchanged[32m 32[2mms[22m[39m
+       [32mΓ£ô[39m cancels edit on Escape key press[32m 90[2mms[22m[39m
+       [32mΓ£ô[39m reverts value on save error[32m 88[2mms[22m[39m
+       [32mΓ£ô[39m displays error indicator on save failure[32m 81[2mms[22m[39m
+       [32mΓ£ô[39m renders checkbox for boolean type[32m 38[2mms[22m[39m
+       [32mΓ£ô[39m saves immediately on checkbox change[32m 29[2mms[22m[39m
+       [32mΓ£ô[39m disables checkbox when read-only[32m 23[2mms[22m[39m
+       [32mΓ£ô[39m shows loading spinner when saving checkbox[32m 45[2mms[22m[39m
+       [32mΓ£ô[39m renders number input for number type[32m 38[2mms[22m[39m
+       [32mΓ£ô[39m renders email input for email type[32m 30[2mms[22m[39m
+       [32mΓ£ô[39m renders url input for url type[32m 28[2mms[22m[39m
+       [32mΓ£ô[39m includes placeholder text in edit mode[32m 22[2mms[22m[39m
+       [32mΓ£ô[39m formats date values for display[32m 36[2mms[22m[39m
+[31m       [31m├ù[31m formats boolean values as Yes/No[39m[32m 12[2mms[22m[39m
+       [32mΓ£ô[39m handles null values gracefully[32m 9[2mms[22m[39m
+{"level":50,"time":1768063353188,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353203,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353208,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353211,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353225,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353230,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353236,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353240,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353244,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353248,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353253,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353257,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353260,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353264,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353270,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353273,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353276,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353328,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353379,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353384,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353389,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063353392,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/datavault.permissions.test.ts [2m([22m[2m22 tests[22m[2m | [22m[31m22 failed[39m[2m)[22m[33m 1272[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to read table[39m[32m 22[2mms[22m[39m
+[31m       [31m├ù[31m should allow writer to read table[39m[32m 6[2mms[22m[39m
+[31m       [31m├ù[31m should allow reader to read table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny non-member from reading table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to update table[39m[32m 13[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from updating table[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from updating table[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny non-member from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to view permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from viewing permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from viewing permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to grant permissions[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to update existing permission (upsert)[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from granting permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should prevent modifying table owner permissions[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to revoke permissions[39m[32m 52[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from revoking permissions[39m[32m 51[2mms[22m[39m
+[31m       [31m├ù[31m should enforce owner includes write and read[39m[32m 6[2mms[22m[39m
+[31m       [31m├ù[31m should enforce write includes read but not owner[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should enforce read is read-only[39m[32m 4[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 24 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow owner to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:154:26
+    152|         .set('Cookie', ownerCookie);
+    153| 
+    154|       expect(res.status).toBe(200);
+       |                          ^
+    155|       expect(res.body.id).toBe(tableId);
+    156|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow writer to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:163:26
+    161|         .set('Cookie', writerCookie);
+    162| 
+    163|       expect(res.status).toBe(200);
+       |                          ^
+    164|       expect(res.body.id).toBe(tableId);
+    165|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow reader to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:172:26
+    170|         .set('Cookie', readerCookie);
+    171| 
+    172|       expect(res.status).toBe(200);
+       |                          ^
+    173|       expect(res.body.id).toBe(tableId);
+    174|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should deny non-member from reading table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:181:26
+    179|         .set('Cookie', nonMemberCookie);
+    180| 
+    181|       expect(res.status).toBe(403);
+       |                          ^
+    182|       expect(res.body.message).toContain('Access denied');
+    183|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should allow owner to update table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:193:26
+    191|         .send({ description: 'Updated by owner' });
+    192| 
+    193|       expect(res.status).toBe(200);
+       |                          ^
+    194|     });
+    195| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should deny writer from updating table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:202:26
+    200|         .send({ description: 'Attempt by writer' });
+    201| 
+    202|       expect(res.status).toBe(403);
+       |                          ^
+    203|       expect(res.body.message).toContain('Access denied');
+    204|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should deny reader from updating table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:212:26
+    210|         .send({ description: 'Attempt by reader' });
+    211| 
+    212|       expect(res.status).toBe(403);
+       |                          ^
+    213|       expect(res.body.message).toContain('Access denied');
+    214|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny writer from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:223:26
+    221|         .set('Cookie', writerCookie);
+    222| 
+    223|       expect(res.status).toBe(403);
+       |                          ^
+    224|       expect(res.body.message).toContain('Access denied');
+    225|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny reader from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:232:26
+    230|         .set('Cookie', readerCookie);
+    231| 
+    232|       expect(res.status).toBe(403);
+       |                          ^
+    233|       expect(res.body.message).toContain('Access denied');
+    234|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny non-member from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:241:26
+    239|         .set('Cookie', nonMemberCookie);
+    240| 
+    241|       expect(res.status).toBe(403);
+       |                          ^
+    242|       expect(res.body.message).toContain('Access denied');
+    243|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should allow owner to view permissions
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:252:26
+    250|         .set('Cookie', ownerCookie);
+    251| 
+    252|       expect(res.status).toBe(200);
+       |                          ^
+    253|       expect(Array.isArray(res.body)).toBe(true);
+    254|       expect(res.body.length).toBe(2); // writer and reader
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should deny writer from viewing permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:262:26
+    260|         .set('Cookie', writerCookie);
+    261| 
+    262|       expect(res.status).toBe(403);
+       |                          ^
+    263|       expect(res.body.message).toContain('Access denied');
+    264|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should deny reader from viewing permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:271:26
+    269|         .set('Cookie', readerCookie);
+    270| 
+    271|       expect(res.status).toBe(403);
+       |                          ^
+    272|       expect(res.body.message).toContain('Access denied');
+    273|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[13/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should allow owner to grant permissions
+AssertionError: expected 401 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:283:26
+    281|         .send({ userId: nonMemberId, role: 'read' });
+    282| 
+    283|       expect(res.status).toBe(201);
+       |                          ^
+    284|       expect(res.body.userId).toBe(nonMemberId);
+    285|       expect(res.body.role).toBe('read');
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[14/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should allow owner to update existing permission (upsert)
+AssertionError: expected 401 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:301:26
+    299|         .send({ userId: readerId, role: 'write' }); // Upgrade reader ΓÇª
+    300| 
+    301|       expect(res.status).toBe(201);
+       |                          ^
+    302|       expect(res.body.role).toBe('write');
+    303| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[15/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should deny writer from granting permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:317:26
+    315|         .send({ userId: nonMemberId, role: 'read' });
+    316| 
+    317|       expect(res.status).toBe(403);
+       |                          ^
+    318|       expect(res.body.message).toContain('Access denied');
+    319|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[16/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should prevent modifying table owner permissions
+AssertionError: expected 401 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:327:26
+    325|         .send({ userId: ownerId, role: 'read' });
+    326| 
+    327|       expect(res.status).toBe(500);
+       |                          ^
+    328|       expect(res.body.message).toContain('Cannot modify permissions foΓÇª
+    329|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[17/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/permissions/:permissionId > should allow owner to revoke permissions
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:347:26
+    345|         .set('Cookie', ownerCookie);
+    346| 
+    347|       expect(res.status).toBe(200);
+       |                          ^
+    348|       expect(res.body.success).toBe(true);
+    349| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[18/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/permissions/:permissionId > should deny writer from revoking permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:370:26
+    368|         .set('Cookie', writerCookie);
+    369| 
+    370|       expect(res.status).toBe(403);
+       |                          ^
+    371|       expect(res.body.message).toContain('Access denied');
+    372|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[19/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce owner includes write and read
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:381:30
+    379|         .get(`/api/datavault/tables/${tableId}`)
+    380|         .set('Cookie', ownerCookie);
+    381|       expect(readRes.status).toBe(200);
+       |                              ^
+    382| 
+    383|       // Owner can update table
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[20/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce write includes read but not owner
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:396:30
+    394|         .get(`/api/datavault/tables/${tableId}`)
+    395|         .set('Cookie', writerCookie);
+    396|       expect(readRes.status).toBe(200);
+       |                              ^
+    397| 
+    398|       // Writer cannot update table schema
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[21/24]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce read is read-only
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:411:30
+    409|         .get(`/api/datavault/tables/${tableId}`)
+    410|         .set('Cookie', readerCookie);
+    411|       expect(readRes.status).toBe(200);
+       |                              ^
+    412| 
+    413|       // Reader cannot update
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[22/24]ΓÄ»
+
+ FAIL  tests/ui/datavault/EditableCell.test.tsx > EditableCell Component > Value Formatting > formats boolean values as Yes/No
+Error: expect(element).toHaveAttribute("aria-label", "Verified: Yes") // element.getAttribute("aria-label") === "Verified: Yes"
+
+Expected the element to have attribute:
+  aria-label="Verified: Yes"
+Received:
+  aria-label="Verified: true"
+ Γ¥» tests/ui/datavault/EditableCell.test.tsx:342:20
+    340| 
+    341|       const cell = screen.getByRole('gridcell');
+    342|       expect(cell).toHaveAttribute('aria-label', 'Verified: Yes');
+       |                    ^
+    343|     });
+    344| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[23/24]ΓÄ»
+
+ FAIL  tests/ui/datavault/TableCard.test.tsx > TableCard Component > should call onDelete when delete button is clicked
+TestingLibraryElementError: Unable to find an element with the text: Delete. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative"
+    >
+      <div>
+        <div
+          class="p-4 sm:p-6 flex flex-row items-start justify-between space-y-0 pb-2"
+        >
+          <div
+            class="space-y-1 flex-1 min-w-0 pr-2"
+          >
+            <div
+              class="sm:text-xl md:text-2xl tracking-tight text-lg font-semibold truncate"
+            >
+              Test Table
+            </div>
+            <p
+              class="text-sm text-muted-foreground mb-4 line-clamp-2"
+            >
+              Test table description
+            </p>
+          </div>
+          <button
+            aria-expanded="false"
+            aria-haspopup="menu"
+            aria-label="Actions"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            data-state="closed"
+            id="radix-:r8:"
+            type="button"
+          >
+            <span
+              class="sr-only"
+            >
+              Open menu
+            </span>
+            <svg
+              class="lucide lucide-ellipsis-vertical h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="1"
+              />
+              <circle
+                cx="12"
+                cy="5"
+                r="1"
+              />
+              <circle
+                cx="12"
+                cy="19"
+                r="1"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="p-4 sm:p-6 pt-0"
+        >
+          <p
+            class="text-sm text-muted-foreground mb-4 line-clamp-2"
+          >
+            Test table description
+          </p>
+          <div
+            class="flex items-center space-x-4 text-xs text-muted-foreground"
+          >
+            <div
+              class="flex items-center"
+            >
+              <i
+                class="fas fa-columns mr-1"
+              />
+              <span>
+                5
+                 columns
+              </span>
+            </div>
+            <div
+              class="flex items-center"
+            >
+              <i
+                class="fas fa-database mr-1"
+              />
+              <span>
+                42
+                 rows
+              </span>
+            </div>
+            <div
+              class="flex items-center ml-auto"
+            >
+              <i
+                class="fas fa-clock mr-1"
+              />
+              <span>
+                1/2/2024
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ Γ¥» Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ Γ¥» tests/ui/datavault/TableCard.test.tsx:80:33
+     78| 
+     79|     // Click delete
+     80|     const deleteButton = screen.getByText('Delete');
+       |                                 ^
+     81|     fireEvent.click(deleteButton);
+     82| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[24/24]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m24 failed[39m[22m[2m | [22m[1m[32m35 passed[39m[22m[90m (59)[39m
+[2m   Start at [22m 10:42:28
+[2m   Duration [22m 5.19s[2m (transform 1.32s, setup 531ms, import 4.02s, tests 5.24s, environment 1.87s)[22m
+

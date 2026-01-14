@@ -1,5 +1,5 @@
-import { test, expect } from "./fixtures/auth-fixtures";
-import { requestMagicLink, verifyMagicLink } from "./fixtures/auth-fixtures";
+import { test, expect , requestMagicLink, verifyMagicLink } from "./fixtures/auth-fixtures";
+
 
 /**
  * E2E tests for portal magic link authentication

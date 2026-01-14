@@ -1,7 +1,8 @@
+import { Circle, CheckCircle2, XCircle, AlertCircle, Archive , LucideIcon } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Circle, CheckCircle2, XCircle, AlertCircle, Archive } from "lucide-react";
-import { LucideIcon } from "lucide-react";
+
 
 export type SurveyStatus = "draft" | "open" | "closed" | "active" | "archived";
 

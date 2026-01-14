@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { generateOptionsFromList } from "../../../client/src/lib/choice-utils";
+
 import type { DynamicOptionsConfig, ChoiceOption } from "../../../shared/types/stepConfigs";
 
 describe("choice-utils", () => {

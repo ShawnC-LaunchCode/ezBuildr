@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
     ArrowRight,
@@ -8,12 +7,14 @@ import {
     AlertCircle,
     Plus
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow, useProjectWorkflows, useUpdateWorkflow, queryKeys } from "@/lib/vault-hooks";
 // import { LogicBuilder } from "@/components/builder/logic/LogicBuilder"; // Assuming this exists or we use a simplified version
@@ -65,7 +66,7 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
         // Or we remove it?
         // Let's create a default rule if none exists.
 
-        let newAssignments = [...assignments];
+        const newAssignments = [...assignments];
         const existingIndex = newAssignments.findIndex(a => a.targetWorkflowId === targetId);
 
         if (existingIndex >= 0) {

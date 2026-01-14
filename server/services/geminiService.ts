@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 // Legacy survey imports - DISABLED (survey system removed Nov 2025)
 // import type { Survey, Question, Response, Answer } from "@shared/schema";
 // import { SURVEY_ANALYSIS_PROMPT, fillPromptVariables } from "../config/aiPrompts";

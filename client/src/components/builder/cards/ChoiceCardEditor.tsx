@@ -10,30 +10,36 @@
  * }
  */
 
+import { useQueryClient } from "@tanstack/react-query";
+import { GripVertical, Trash2, Plus, AlertCircle, RefreshCw, Wand2, ExternalLink, Unlink, Link } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { GripVertical, Trash2, Plus, AlertCircle, RefreshCw, Wand2, ExternalLink, Unlink, Link } from "lucide-react";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { SectionHeader } from "./common/EditorField";
-import { useUpdateStep, useWorkflowVariables, useBlocks, useSections, useWorkflow } from "@/lib/vault-hooks";
-import { useTableColumns } from "@/hooks/useTableColumns";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useTableColumns } from "@/hooks/useTableColumns";
 import { blockAPI } from "@/lib/vault-api";
-import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, LegacyRadioConfig, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs"
-;
+import { useUpdateStep, useWorkflowVariables, useBlocks, useSections, useWorkflow } from "@/lib/vault-hooks";
+
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import { TransformSummary } from "../TransformSummary";
+
+import { AliasField } from "./common/AliasField";
+import { SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
+import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, LegacyRadioConfig, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs"
+;
+
 
 interface ChoiceCardEditorProps {
   stepId: string;
@@ -86,12 +92,12 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
 
   // Find the source block to get the table ID and check timing
   const sourceBlock = useMemo(() => {
-    if (!localConfig?.dynamicOptions.listVariable || !blocks || blocks.length === 0) return null;
+    if (!localConfig?.dynamicOptions.listVariable || !blocks || blocks.length === 0) {return null;}
     return blocks.find(b => b.config && b.config.outputKey === localConfig.dynamicOptions.listVariable);
   }, [localConfig?.dynamicOptions.listVariable, blocks]);
 
   const sourceTableId = useMemo(() => {
-    if (!sourceBlock) return null;
+    if (!sourceBlock) {return null;}
     if (sourceBlock.type === 'read_table') {
       return sourceBlock.config.tableId;
     }
@@ -103,22 +109,22 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
 
   // Timing Check
   const timingWarning = useMemo(() => {
-    if (!sourceBlock || !step || !sections.length) return null;
+    if (!sourceBlock || !step || (sections.length === 0)) {return null;}
 
     const blockPhase = sourceBlock.phase;
     const stepSection = sections.find(s => s.id === sectionId);
     const blockSection = sourceBlock.sectionId ? sections.find(s => s.id === sourceBlock.sectionId) : null;
 
-    if (!stepSection) return null;
+    if (!stepSection) {return null;}
 
     // Safe phases
-    if (blockPhase === 'onRunStart') return null;
+    if (blockPhase === 'onRunStart') {return null;}
 
     // Section-based checks
     if (blockPhase === 'onSectionEnter') {
       // If global block (no section), acts like RunStart? No, depends. Usually associated with a section.
       // If blockSection is null, assume it runs ... when? API says sectionId can be null.
-      if (!blockSection) return null; // Assume safe if global?
+      if (!blockSection) {return null;} // Assume safe if global?
 
       if (blockSection.order > stepSection.order) {
         return "Read block runs in a later section.";
@@ -128,9 +134,9 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
     }
 
     if (blockPhase === 'onSectionSubmit' || blockPhase === 'onNext') {
-      if (!blockSection) return "Block runs on submit but has no section?";
+      if (!blockSection) {return "Block runs on submit but has no section?";}
       // Must be strictly previous section
-      if (blockSection.order < stepSection.order) return null;
+      if (blockSection.order < stepSection.order) {return null;}
       return "Read block runs after the page is displayed (on Next/Submit).";
     }
 
@@ -156,7 +162,7 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
 
       if (rawOptions && typeof rawOptions === 'object' && 'type' in rawOptions) {
         // Dynamic Config
-        const dynConfig = rawOptions as DynamicOptionsConfig;
+        const dynConfig = rawOptions;
         if (dynConfig.type === 'static') {
           staticOptions = dynConfig.options || [];
         } else if (dynConfig.type === 'list') {
@@ -264,16 +270,16 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
     // Validation
     const errors: string[] = [];
     if (mode === "static") {
-      if (newConfig.staticOptions.length === 0) errors.push("At least one option is required");
+      if (newConfig.staticOptions.length === 0) {errors.push("At least one option is required");}
       // Check for duplicate aliases
       const aliases = newConfig.staticOptions.map((opt: any) => opt.alias || opt.id);
-      if (new Set(aliases).size !== aliases.length) errors.push("Duplicate aliases found");
+      if (new Set(aliases).size !== aliases.length) {errors.push("Duplicate aliases found");}
     } else {
-      if (!newConfig.dynamicOptions.listVariable) errors.push("List variable is required");
+      if (!newConfig.dynamicOptions.listVariable) {errors.push("List variable is required");}
       // We allow saving with warning
     }
     setErrors(errors);
-    if (errors.length > 0) return;
+    if (errors.length > 0) {return;}
 
     // Construct Payload
     // If we are in "dynamic" mode, we MUST be 'choice' type (Advanced schema)
@@ -478,7 +484,7 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
   };
 
   const linkedBlock = useMemo(() => {
-    if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) return null;
+    if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) {return null;}
     return blocks.find(b => b.id === localConfig.dynamicOptions.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
 
@@ -516,7 +522,7 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
     queryClient.invalidateQueries({ queryKey: ['workflows', workflowId, 'blocks'] });
   };
 
-  if (!localConfig) return null;
+  if (!localConfig) {return null;}
 
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
@@ -636,11 +642,11 @@ export function ChoiceCardEditor({ stepId, sectionId, step, workflowId }: Choice
                       <span className="text-xs font-medium text-blue-900">Linked to List Tools block</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-blue-700">{(linkedBlock.config as any)?.outputListVar || (linkedBlock.config as any)?.outputKey}</span>
+                      <span className="text-xs font-mono text-blue-700">{(linkedBlock.config)?.outputListVar || (linkedBlock.config)?.outputKey}</span>
                     </div>
 
                     {/* Transform Summary (Read-Only) */}
-                    <TransformSummary config={(linkedBlock.config as any)} />
+                    <TransformSummary config={(linkedBlock.config)} />
 
                     {/* Primary Action: Open Block */}
                     <div className="space-y-1.5">

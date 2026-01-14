@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from "vitest";
-import { MfaService } from "../../../server/services/MfaService";
-import speakeasy from "speakeasy";
-import QRCode from "qrcode";
 import bcrypt from "bcrypt";
+import QRCode from "qrcode";
+import speakeasy from "speakeasy";
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from "vitest";
+
+import { MfaService } from "../../../server/services/MfaService";
 
 // Mock dependencies
 vi.mock("../../../server/db", () => ({

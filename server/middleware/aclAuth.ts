@@ -1,7 +1,9 @@
-import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { aclService } from "../services/AclService";
 import type { AccessRole } from "@shared/schema";
+
 import { createLogger } from "../logger";
+import { aclService } from "../services/AclService";
+
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 
 const logger = createLogger({ module: 'acl-auth' });
 

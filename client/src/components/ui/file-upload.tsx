@@ -1,11 +1,13 @@
-import { useState, useRef, useCallback } from "react";
+import { Upload, X, File, Image, FileText, Download } from "lucide-react";
+import React, { useState, useRef, useCallback } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Upload, X, File, Image, FileText, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatFileSize } from "@/lib/formatting";
+
 import type { FileUploadConfig } from "@shared/schema";
 // Define FileMetadata locally if not exported from schema
 interface FileMetadata {
@@ -41,7 +43,7 @@ export function FileUpload({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const validateFile = (file: File): string | null => {
-    if (!config) return null;
+    if (!config) {return null;}
 
     // Check file size
     if (config.maxFileSize && file.size > config.maxFileSize) {
@@ -53,7 +55,7 @@ export function FileUpload({
       const isAccepted = config.acceptedTypes.some(type => {
         if (type.includes('*')) {
           const [category] = type.split('/');
-          return file.type.startsWith(category + '/');
+          return file.type.startsWith(`${category  }/`);
         }
 
         if (type.startsWith('.')) {
@@ -107,7 +109,7 @@ export function FileUpload({
       });
     }
 
-    if (validFiles.length === 0) return;
+    if (validFiles.length === 0) {return;}
 
     setUploading(true);
     setUploadProgress(0);
@@ -220,8 +222,8 @@ export function FileUpload({
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return <Image className="h-4 w-4" />;
-    if (mimeType.includes('pdf')) return <FileText className="h-4 w-4" />;
+    if (mimeType.startsWith('image/')) {return <Image className="h-4 w-4" />;}
+    if (mimeType.includes('pdf')) {return <FileText className="h-4 w-4" />;}
     return <File className="h-4 w-4" />;
   };
 

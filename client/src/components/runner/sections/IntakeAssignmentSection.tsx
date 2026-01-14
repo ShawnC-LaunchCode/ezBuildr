@@ -1,11 +1,14 @@
-import { useMemo } from "react";
 import { CheckCircle2, ArrowRight, GitBranch, AlertCircle, FileText } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import React, { useMemo } from "react";
+
 import { Badge } from "@/components/ui/badge";
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import { useProjectWorkflows } from "@/lib/vault-hooks";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiWorkflow } from "@/lib/vault-api";
+import { useProjectWorkflows } from "@/lib/vault-hooks";
+
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+
 
 interface AssignmentRule {
     targetWorkflowId: string;
@@ -25,16 +28,16 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
 
     // Evaluate assignments
     const assignedWorkflows = useMemo(() => {
-        if (!workflow.intakeConfig?.assignments) return [];
-        if (!projectWorkflows) return [];
+        if (!workflow.intakeConfig?.assignments) {return [];}
+        if (!projectWorkflows) {return [];}
 
         const assignments = workflow.intakeConfig.assignments as AssignmentRule[];
 
         return assignments
             .filter(rule => {
-                if (!rule.enabled) return false;
+                if (!rule.enabled) {return false;}
                 // If no condition, it's always available
-                if (!rule.condition) return true;
+                if (!rule.condition) {return true;}
                 // Evaluate condition against run values
                 // Note: evaluateConditionExpression generic might need 'any' cast if strict types aren't matching
                 try {

@@ -1,9 +1,15 @@
-import { BaseRepository } from "./BaseRepository";
+import { eq, and } from "drizzle-orm";
+
 import { teams, teamMembers } from "@shared/schema";
 import type { Team, InsertTeam, TeamMember, InsertTeamMember } from "@shared/schema";
-import type { DbTransaction } from "./BaseRepository";
-import { eq, and } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository } from "./BaseRepository";
+
+import type { DbTransaction } from "./BaseRepository";
+
+
 
 /**
  * Repository for Team operations
@@ -51,7 +57,7 @@ export class TeamMemberRepository extends BaseRepository<typeof teamMembers, Tea
    */
   async findByTeamId(teamId: string, tx?: DbTransaction): Promise<TeamMember[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(teamMembers)
       .where(eq(teamMembers.teamId, teamId));
@@ -82,7 +88,7 @@ export class TeamMemberRepository extends BaseRepository<typeof teamMembers, Tea
    */
   async findByUserId(userId: string, tx?: DbTransaction): Promise<TeamMember[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(teamMembers)
       .where(eq(teamMembers.userId, userId));

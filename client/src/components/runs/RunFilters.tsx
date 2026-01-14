@@ -3,13 +3,14 @@
  * Stage 8: Filters for status, workflow, date range, and search
  */
 
-import { useState } from 'react';
-import { ListRunsParams } from '@/lib/vault-api';
+import { X, Search } from 'lucide-react';
+import React, { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Search } from 'lucide-react';
+import { ListRunsParams } from '@/lib/vault-api';
 
 interface RunFiltersProps {
   filters: ListRunsParams;

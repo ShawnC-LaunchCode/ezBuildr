@@ -1,10 +1,11 @@
 
+import { eq } from "drizzle-orm";
 import { Router } from "express";
+
+import { userPersonalizationSettings, workflowPersonalizationSettings } from "../../shared/schema";
+import { db } from "../db";
 import { personalizationService } from "../lib/ai/personalization";
 import { hybridAuth } from "../middleware/auth";
-import { db } from "../db";
-import { userPersonalizationSettings, workflowPersonalizationSettings } from "../../shared/schema";
-import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -56,7 +57,7 @@ const getUserContext = async (req: any, res: any, next: any) => {
 router.post("/block", hybridAuth, getUserContext, async (req: any, res) => {
     try {
         const { block } = req.body;
-        if (!block || !block.text) return res.status(400).json({ error: "Block data required" });
+        if (!block?.text) { return res.status(400).json({ error: "Block data required" }); }
 
         const rewrittenText = await personalizationService.rewriteBlockText(
             block.text,
@@ -65,14 +66,15 @@ router.post("/block", hybridAuth, getUserContext, async (req: any, res) => {
 
         res.json({ text: rewrittenText });
     } catch (error) {
-        res.status(500).json({ error: "Personalization failed" });
+        console.error("Personalization Block Error:", error);
+        res.status(500).json({ error: "Personalization failed", details: error instanceof Error ? error.message : String(error) });
     }
 });
 
 router.post("/help", hybridAuth, getUserContext, async (req: any, res) => {
     try {
         const { text } = req.body;
-        if (!text) return res.status(400).json({ error: "Text required" });
+        if (!text) { return res.status(400).json({ error: "Text required" }); }
 
         const helpText = await personalizationService.generateHelpText(
             text,
@@ -81,14 +83,15 @@ router.post("/help", hybridAuth, getUserContext, async (req: any, res) => {
 
         res.json({ text: helpText });
     } catch (error) {
-        res.status(500).json({ error: "Help generation failed" });
+        console.error("Personalization Help Error:", error);
+        res.status(500).json({ error: "Help generation failed", details: error instanceof Error ? error.message : String(error) });
     }
 });
 
 router.post("/clarify", hybridAuth, getUserContext, async (req: any, res) => {
     try {
         const { question, answer } = req.body;
-        if (!question || !answer) return res.status(400).json({ error: "Question and answer required" });
+        if (!question || !answer) { return res.status(400).json({ error: "Question and answer required" }); }
 
         const clarification = await personalizationService.generateClarification(
             question,
@@ -98,7 +101,8 @@ router.post("/clarify", hybridAuth, getUserContext, async (req: any, res) => {
 
         res.json({ clarification });
     } catch (error) {
-        res.status(500).json({ error: "Clarification generation failed" });
+        console.error("Personalization Clarify Error:", error);
+        res.status(500).json({ error: "Clarification generation failed", details: error instanceof Error ? error.message : String(error) });
     }
 });
 
@@ -108,19 +112,21 @@ router.post("/followup", hybridAuth, getUserContext, async (req: any, res) => {
         const result = await personalizationService.generateFollowUp(question, answer, req.personalizationContext);
         res.json({ followup: result });
     } catch (error) {
-        res.status(500).json({ error: "Followup generation failed" });
+        console.error("Personalization Followup Error:", error);
+        res.status(500).json({ error: "Followup generation failed", details: error instanceof Error ? error.message : String(error) });
     }
 });
 
 router.post("/translate", hybridAuth, getUserContext, async (req: any, res) => {
     try {
         const { text, targetLanguage } = req.body;
-        if (!text || !targetLanguage) return res.status(400).json({ error: "Text and targetLanguage required" });
+        if (!text || !targetLanguage) { return res.status(400).json({ error: "Text and targetLanguage required" }); }
 
         const translated = await personalizationService.translateText(text, targetLanguage);
         res.json({ text: translated });
     } catch (error) {
-        res.status(500).json({ error: "Translation failed" });
+        console.error("Personalization Translate Error:", error);
+        res.status(500).json({ error: "Translation failed", details: error instanceof Error ? error.message : String(error) });
     }
 });
 
@@ -130,7 +136,8 @@ router.get("/settings", hybridAuth, async (req: any, res) => {
         const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, req.user.id)).limit(1);
         res.json({ settings });
     } catch (err) {
-        res.status(500).json({ error: "Failed to fetch settings" });
+        console.error("Personalization Settings Fetch Error:", err);
+        res.status(500).json({ error: "Failed to fetch settings", details: err instanceof Error ? err.message : String(err) });
     }
 });
 
@@ -147,7 +154,8 @@ router.post("/settings", hybridAuth, async (req: any, res) => {
         });
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: "Failed to save settings" });
+        console.error("Personalization Settings Save Error:", err);
+        res.status(500).json({ error: "Failed to save settings", details: err instanceof Error ? err.message : String(err) });
     }
 });
 

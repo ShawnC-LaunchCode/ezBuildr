@@ -3,28 +3,13 @@
  * Tests end-to-end execution of writeback and document generation pipelines
  */
 
+import { sql, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from '../../../server/db';
-import { runService } from '../../../server/services/RunService';
-import { workflowService } from '../../../server/services/WorkflowService';
-import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
-import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
-import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
-import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
-import {
-  workflowRepository,
-  sectionRepository,
-  stepRepository,
-  stepValueRepository,
-  workflowRunRepository,
-  projectRepository,
-  datavaultWritebackMappingsRepository,
-  datavaultRowsRepository,
-  documentTemplateRepository,
-  runGeneratedDocumentsRepository,
-} from '../../../server/repositories';
+
 import {
   tenants,
+  users,
   projects,
   workflows,
   sections,
@@ -37,10 +22,31 @@ import {
   templates,
   runGeneratedDocuments,
 } from '@shared/schema';
-import { sql } from 'drizzle-orm';
+
+import { db } from '../../../server/db';
+import {
+  workflowRepository,
+  sectionRepository,
+  stepRepository,
+  stepValueRepository,
+  workflowRunRepository,
+  projectRepository,
+  datavaultWritebackMappingsRepository,
+  datavaultRowsRepository,
+  documentTemplateRepository,
+  runGeneratedDocumentsRepository,
+} from '../../../server/repositories';
+import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
+import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
+import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
+import { runService } from '../../../server/services/RunService';
+import { workflowService } from '../../../server/services/WorkflowService';
+import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
+
+
 
 describe('Runtime Pipelines Integration Tests', () => {
-  const testUserId = 'test-user-123';
+  const testUserId = nanoid(); // Use random ID to prevent collisions
   let testTenantId: string;
   let testProjectId: string;
   let testWorkflowId: string;
@@ -64,6 +70,15 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testTenantId = tenant.id;
+
+    // Create test user
+    const [user] = await db.insert(users).values({
+      id: testUserId,
+      email: 'test-pipeline-user@example.com',
+      tenantId: testTenantId,
+      role: 'admin',
+      tenantRole: 'owner',
+    } as any).returning(); // Cast to any to avoid partial type issues if necessary
 
     // Create test project
     const [project] = await db
@@ -207,16 +222,26 @@ describe('Runtime Pipelines Integration Tests', () => {
 
   afterAll(async () => {
     // Cleanup in reverse order of creation
+    if (testRunId) {await db.delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
+
+    // DataVault cleanup
     await db.delete(datavaultValues).where(sql`1=1`);
     await db.delete(datavaultRows).where(sql`1=1`);
-    await db.delete(datavaultColumns).where(sql`table_id = ${testTableId}`);
-    await db.delete(datavaultTables).where(sql`id = ${testTableId}`);
-    await db.delete(workflowRuns).where(sql`id = ${testRunId}`);
-    await db.delete(steps).where(sql`workflow_id = ${testWorkflowId}`);
-    await db.delete(sections).where(sql`workflow_id = ${testWorkflowId}`);
-    await db.delete(workflows).where(sql`id = ${testWorkflowId}`);
-    await db.delete(projects).where(sql`id = ${testProjectId}`);
-    await db.delete(tenants).where(sql`id = ${testTenantId}`);
+    if (testTableId) {
+      await db.delete(datavaultColumns).where(eq(datavaultColumns.tableId, testTableId));
+      await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
+    }
+
+    if (testWorkflowId) {
+      await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
+      await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+    }
+
+    if (testProjectId) {await db.delete(projects).where(eq(projects.id, testProjectId));}
+
+    // User and tenant cleanup
+    await db.delete(users).where(eq(users.id, testUserId));
+    if (testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
   });
 
   describe('Writeback Execution Pipeline', () => {

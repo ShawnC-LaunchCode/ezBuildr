@@ -10,27 +10,28 @@
  */
 
 import React from "react";
+
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
 // Block Renderers
-import { TextBlockRenderer } from "./TextBlock";
-import { BooleanBlockRenderer } from "./BooleanBlock";
-import { PhoneBlockRenderer } from "./PhoneBlock";
-import { EmailBlockRenderer } from "./EmailBlock";
-import { WebsiteBlockRenderer } from "./WebsiteBlock";
-import { DateBlockRenderer } from "./DateBlock";
-import { TimeBlockRenderer } from "./TimeBlock";
-import { DateTimeBlockRenderer } from "./DateTimeBlock";
-import { NumberBlockRenderer } from "./NumberBlock";
-import { CurrencyBlockRenderer } from "./CurrencyBlock";
 import { ChoiceBlockRenderer } from "./ChoiceBlock";
 import { AddressBlockRenderer } from "./AddressBlock";
-import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
-import { ScaleBlockRenderer } from "./ScaleBlock";
+import { BooleanBlockRenderer } from "./BooleanBlock";
+import { CurrencyBlockRenderer } from "./CurrencyBlock";
+import { DateBlockRenderer } from "./DateBlock";
+import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
+import { EmailBlockRenderer } from "./EmailBlock";
 import { FinalBlockRenderer } from "./FinalBlock";
+import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
+import { NumberBlockRenderer } from "./NumberBlock";
+import { PhoneBlockRenderer } from "./PhoneBlock";
+import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
+import { TextBlockRenderer } from "./TextBlock";
+import { TimeBlockRenderer } from "./TimeBlock";
+import { WebsiteBlockRenderer } from "./WebsiteBlock";
 
 // ============================================================================
 // TYPES

@@ -1,0 +1,535 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/ui/datavault/TableCard.test.tsx
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+[90mstdout[2m | tests/ui/datavault/TableCard.test.tsx
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [32mΓ£ô[39m tests/ui/datavault/TableCard.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1682[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should call onDelete when delete button is clicked [33m 453[2mms[22m[39m
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/integration/datavault.permissions.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":50,"time":1768063466537,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466537,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466552,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466552,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466558,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466558,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466562,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466562,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466577,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466582,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466587,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466591,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466595,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466599,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466604,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0/permissions","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466604,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466609,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0/permissions","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466609,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466613,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0/permissions","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466613,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466617,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466622,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466626,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466631,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466691,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466743,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466746,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466746,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466750,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466750,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768063466754,"env":"test","module":"auth-middleware","cookiePresent":false,"method":"GET","url":"/api/datavault/tables/d9f292fa-3fa6-4d76-95be-bc111bc30bd0","msg":"Cookie strategy failed"}
+{"level":50,"time":1768063466755,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/datavault.permissions.test.ts [2m([22m[2m22 tests[22m[2m | [22m[31m22 failed[39m[2m)[22m[33m 1284[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to read table[39m[32m 21[2mms[22m[39m
+[31m       [31m├ù[31m should allow writer to read table[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow reader to read table[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny non-member from reading table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to update table[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from updating table[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from updating table[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny non-member from deleting table[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to view permissions[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from viewing permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should deny reader from viewing permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to grant permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to update existing permission (upsert)[39m[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from granting permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should prevent modifying table owner permissions[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should allow owner to revoke permissions[39m[32m 60[2mms[22m[39m
+[31m       [31m├ù[31m should deny writer from revoking permissions[39m[32m 53[2mms[22m[39m
+[31m       [31m├ù[31m should enforce owner includes write and read[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should enforce write includes read but not owner[39m[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should enforce read is read-only[39m[32m 4[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 22 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow owner to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:154:26
+    152|         .set('Cookie', ownerCookie);
+    153| 
+    154|       expect(res.status).toBe(200);
+       |                          ^
+    155|       expect(res.body.id).toBe(tableId);
+    156|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow writer to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:163:26
+    161|         .set('Cookie', writerCookie);
+    162| 
+    163|       expect(res.status).toBe(200);
+       |                          ^
+    164|       expect(res.body.id).toBe(tableId);
+    165|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should allow reader to read table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:172:26
+    170|         .set('Cookie', readerCookie);
+    171| 
+    172|       expect(res.status).toBe(200);
+       |                          ^
+    173|       expect(res.body.id).toBe(tableId);
+    174|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId > should deny non-member from reading table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:181:26
+    179|         .set('Cookie', nonMemberCookie);
+    180| 
+    181|       expect(res.status).toBe(403);
+       |                          ^
+    182|       expect(res.body.message).toContain('Access denied');
+    183|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should allow owner to update table
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:193:26
+    191|         .send({ description: 'Updated by owner' });
+    192| 
+    193|       expect(res.status).toBe(200);
+       |                          ^
+    194|     });
+    195| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should deny writer from updating table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:202:26
+    200|         .send({ description: 'Attempt by writer' });
+    201| 
+    202|       expect(res.status).toBe(403);
+       |                          ^
+    203|       expect(res.body.message).toContain('Access denied');
+    204|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > PATCH /api/datavault/tables/:tableId > should deny reader from updating table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:212:26
+    210|         .send({ description: 'Attempt by reader' });
+    211| 
+    212|       expect(res.status).toBe(403);
+       |                          ^
+    213|       expect(res.body.message).toContain('Access denied');
+    214|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny writer from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:223:26
+    221|         .set('Cookie', writerCookie);
+    222| 
+    223|       expect(res.status).toBe(403);
+       |                          ^
+    224|       expect(res.body.message).toContain('Access denied');
+    225|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny reader from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:232:26
+    230|         .set('Cookie', readerCookie);
+    231| 
+    232|       expect(res.status).toBe(403);
+       |                          ^
+    233|       expect(res.body.message).toContain('Access denied');
+    234|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/tables/:tableId > should deny non-member from deleting table
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:241:26
+    239|         .set('Cookie', nonMemberCookie);
+    240| 
+    241|       expect(res.status).toBe(403);
+       |                          ^
+    242|       expect(res.body.message).toContain('Access denied');
+    243|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should allow owner to view permissions
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:252:26
+    250|         .set('Cookie', ownerCookie);
+    251| 
+    252|       expect(res.status).toBe(200);
+       |                          ^
+    253|       expect(Array.isArray(res.body)).toBe(true);
+    254|       expect(res.body.length).toBe(2); // writer and reader
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should deny writer from viewing permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:262:26
+    260|         .set('Cookie', writerCookie);
+    261| 
+    262|       expect(res.status).toBe(403);
+       |                          ^
+    263|       expect(res.body.message).toContain('Access denied');
+    264|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > GET /api/datavault/tables/:tableId/permissions > should deny reader from viewing permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:271:26
+    269|         .set('Cookie', readerCookie);
+    270| 
+    271|       expect(res.status).toBe(403);
+       |                          ^
+    272|       expect(res.body.message).toContain('Access denied');
+    273|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[13/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should allow owner to grant permissions
+AssertionError: expected 401 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:283:26
+    281|         .send({ userId: nonMemberId, role: 'read' });
+    282| 
+    283|       expect(res.status).toBe(201);
+       |                          ^
+    284|       expect(res.body.userId).toBe(nonMemberId);
+    285|       expect(res.body.role).toBe('read');
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[14/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should allow owner to update existing permission (upsert)
+AssertionError: expected 401 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:301:26
+    299|         .send({ userId: readerId, role: 'write' }); // Upgrade reader ΓÇª
+    300| 
+    301|       expect(res.status).toBe(201);
+       |                          ^
+    302|       expect(res.body.role).toBe('write');
+    303| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[15/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should deny writer from granting permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:317:26
+    315|         .send({ userId: nonMemberId, role: 'read' });
+    316| 
+    317|       expect(res.status).toBe(403);
+       |                          ^
+    318|       expect(res.body.message).toContain('Access denied');
+    319|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[16/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > POST /api/datavault/tables/:tableId/permissions > should prevent modifying table owner permissions
+AssertionError: expected 401 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:327:26
+    325|         .send({ userId: ownerId, role: 'read' });
+    326| 
+    327|       expect(res.status).toBe(500);
+       |                          ^
+    328|       expect(res.body.message).toContain('Cannot modify permissions foΓÇª
+    329|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[17/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/permissions/:permissionId > should allow owner to revoke permissions
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:347:26
+    345|         .set('Cookie', ownerCookie);
+    346| 
+    347|       expect(res.status).toBe(200);
+       |                          ^
+    348|       expect(res.body.success).toBe(true);
+    349| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[18/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > DELETE /api/datavault/permissions/:permissionId > should deny writer from revoking permissions
+AssertionError: expected 401 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:370:26
+    368|         .set('Cookie', writerCookie);
+    369| 
+    370|       expect(res.status).toBe(403);
+       |                          ^
+    371|       expect(res.body.message).toContain('Access denied');
+    372|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[19/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce owner includes write and read
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:381:30
+    379|         .get(`/api/datavault/tables/${tableId}`)
+    380|         .set('Cookie', ownerCookie);
+    381|       expect(readRes.status).toBe(200);
+       |                              ^
+    382| 
+    383|       // Owner can update table
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[20/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce write includes read but not owner
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:396:30
+    394|         .get(`/api/datavault/tables/${tableId}`)
+    395|         .set('Cookie', writerCookie);
+    396|       expect(readRes.status).toBe(200);
+       |                              ^
+    397| 
+    398|       // Writer cannot update table schema
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[21/22]ΓÄ»
+
+ FAIL  tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6) > Permission hierarchy > should enforce read is read-only
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/datavault.permissions.test.ts:411:30
+    409|         .get(`/api/datavault/tables/${tableId}`)
+    410|         .set('Cookie', readerCookie);
+    411|       expect(readRes.status).toBe(200);
+       |                              ^
+    412| 
+    413|       // Reader cannot update
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[22/22]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m22 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (30)[39m
+[2m   Start at [22m 10:44:21
+[2m   Duration [22m 5.22s[2m (transform 1.16s, setup 381ms, import 3.69s, tests 2.97s, environment 1.05s)[22m
+

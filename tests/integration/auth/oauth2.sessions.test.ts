@@ -4,17 +4,23 @@
  * Tests session management, device tracking, and multi-device support
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Express } from 'express';
-import express from 'express';
-import { registerAuthRoutes } from '../../../server/routes/auth.routes';
-import { db } from '../../../server/db';
-import { users, tenants, refreshTokens, trustedDevices } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
-import { authService } from '../../../server/services/AuthService';
-import { userCredentialsRepository } from '../../../server/repositories';
+import express from 'express';
 import { nanoid } from 'nanoid';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
+import { users, tenants, refreshTokens, trustedDevices , auditLogs } from '@shared/schema';
+
+
+
+import { db } from '../../../server/db';
+import { userCredentialsRepository } from '../../../server/repositories';
+import { registerAuthRoutes } from '../../../server/routes/auth.routes';
+import { authService } from '../../../server/services/AuthService';
+import { hashToken } from '../../../server/utils/encryption';
+
+import type { Express } from 'express';
 
 describe('OAuth2 Session Management', () => {
   let app: Express;
@@ -34,7 +40,7 @@ describe('OAuth2 Session Management', () => {
 
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({
-      name: 'Session Test Tenant',
+      name: `Session Test Tenant ${nanoid()}`,
       plan: 'pro',
     }).returning();
     testTenantId = tenant.id;
@@ -60,7 +66,7 @@ describe('OAuth2 Session Management', () => {
     testUserId = user.id;
 
     // Create password credentials
-    const passwordHash = await authService.hashPassword('TestPassword123');
+    const passwordHash = await authService.hashPassword('StrongTestUser123!@#');
     await userCredentialsRepository.createCredentials(testUserId, passwordHash);
 
     // Create auth token
@@ -69,7 +75,21 @@ describe('OAuth2 Session Management', () => {
 
   afterAll(async () => {
     if (testTenantId) {
-      await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      afterAll(async () => {
+        if (testTenantId) {
+          // Find all users in this tenant to clean up their dependencies
+          const tenantUsers = await db.select().from(users).where(eq(users.tenantId, testTenantId));
+
+          for (const user of tenantUsers) {
+            await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
+            await db.delete(trustedDevices).where(eq(trustedDevices.userId, user.id));
+            await db.delete(auditLogs).where(eq(auditLogs.userId, user.id));
+          }
+
+          await db.delete(users).where(eq(users.tenantId, testTenantId));
+          await db.delete(tenants).where(eq(tenants.id, testTenantId));
+        }
+      });
     }
   });
 
@@ -203,7 +223,7 @@ describe('OAuth2 Session Management', () => {
       const sessionRecord = await db.query.refreshTokens.findFirst({
         where: and(
           eq(refreshTokens.userId, testUserId),
-          eq(refreshTokens.token, token)
+          eq(refreshTokens.token, hashToken(token))
         ),
       });
 
@@ -236,7 +256,7 @@ describe('OAuth2 Session Management', () => {
       const token = await authService.createRefreshToken(testUserId);
 
       const sessionRecord = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, token),
+        where: eq(refreshTokens.token, hashToken(token)),
       });
 
       const response = await request(app)
@@ -267,7 +287,7 @@ describe('OAuth2 Session Management', () => {
       // Create session for other user
       const otherToken = await authService.createRefreshToken(otherUser.id);
       const otherSession = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, otherToken),
+        where: eq(refreshTokens.token, hashToken(otherToken)),
       });
 
       // Try to revoke other user's session
@@ -314,7 +334,7 @@ describe('OAuth2 Session Management', () => {
         ));
 
       expect(activeSessions.length).toBe(1);
-      expect(activeSessions[0].token).toBe(currentToken);
+      expect(activeSessions[0].token).toBe(hashToken(currentToken));
     });
 
     it('should revoke all trusted devices', async () => {
@@ -529,7 +549,7 @@ describe('OAuth2 Session Management', () => {
       });
 
       const session = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, token),
+        where: eq(refreshTokens.token, hashToken(token)),
       });
 
       expect(session?.ipAddress).toBe('192.168.1.100');
@@ -542,7 +562,7 @@ describe('OAuth2 Session Management', () => {
       });
 
       const session = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, token),
+        where: eq(refreshTokens.token, hashToken(token)),
       });
 
       const metadata = session?.metadata as any;
@@ -553,7 +573,7 @@ describe('OAuth2 Session Management', () => {
       const token = await authService.createRefreshToken(testUserId);
 
       const initialSession = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, token),
+        where: eq(refreshTokens.token, hashToken(token)),
       });
 
       // Wait briefly

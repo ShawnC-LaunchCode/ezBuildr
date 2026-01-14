@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { collectionFields, type CollectionField, type InsertCollectionField } from "@shared/schema";
 import { eq, and, asc } from "drizzle-orm";
+
+import { collectionFields, type CollectionField, type InsertCollectionField } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for collection field data access
@@ -17,7 +20,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
    */
   async findByCollectionId(collectionId: string, tx?: DbTransaction): Promise<CollectionField[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(collectionFields)
       .where(eq(collectionFields.collectionId, collectionId))

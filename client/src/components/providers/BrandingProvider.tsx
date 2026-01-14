@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+
 import type { TenantBranding } from '@shared/types/branding';
+
 import { brandingToThemeTokens, applyThemeTokens, removeThemeTokens } from '../../lib/tenantTheme';
 
 /**

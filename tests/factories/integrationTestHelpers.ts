@@ -1,6 +1,8 @@
 import request from "supertest";
-import type { Application } from "express";
+
 import type { User } from "@shared/schema";
+
+import type { Application } from "express";
 
 /**
  * Integration test helpers for tests that use the real database (Neon)

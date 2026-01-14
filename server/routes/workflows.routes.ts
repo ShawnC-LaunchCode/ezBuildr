@@ -1,12 +1,17 @@
-import type { Express, Request, Response } from "express";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { insertWorkflowSchema } from "@shared/schema";
-import { workflowService } from "../services/WorkflowService";
-import { variableService } from "../services/VariableService";
-import { templateTestService } from "../services/TemplateTestService";
-import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { z } from "zod";
+
+import { insertWorkflowSchema } from "@shared/schema";
+
 import { logger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { logicRuleRepository } from "../repositories/LogicRuleRepository";
+import { templateTestService } from "../services/TemplateTestService";
+import { variableService } from "../services/VariableService";
+import { workflowService } from "../services/WorkflowService";
+
+
+
+import type { Express, Request, Response } from "express";
 
 /**
  * Register workflow-related routes
@@ -582,6 +587,53 @@ export function registerWorkflowRoutes(app: Express): void {
           },
         ],
       });
+    }
+  });
+
+  /**
+   * POST /api/workflows/:workflowId/transfer
+   * Transfer workflow ownership (new ownership model)
+   * Detaches from project if transferring to different owner than project
+   * Body: { targetOwnerType: 'user' | 'org', targetOwnerUuid: string }
+   */
+  app.post('/api/workflows/:workflowId/transfer', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+      }
+
+      const { workflowId } = req.params;
+
+      const schema = z.object({
+        targetOwnerType: z.enum(['user', 'org']),
+        targetOwnerUuid: z.string().uuid(),
+      });
+
+      const { targetOwnerType, targetOwnerUuid } = schema.parse(req.body);
+      const workflow = await workflowService.transferOwnership(
+        workflowId,
+        userId,
+        targetOwnerType,
+        targetOwnerUuid
+      );
+
+      logger.info({ workflowId, targetOwnerType, targetOwnerUuid, userId }, 'Workflow ownership transferred');
+      res.json({ success: true, data: workflow });
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId }, "Error transferring workflow ownership");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to transfer workflow ownership";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
     }
   });
 }

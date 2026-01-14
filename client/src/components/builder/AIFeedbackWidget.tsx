@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import { Star, ThumbsUp, ThumbsDown, AlertCircle, CheckCircle2, AlertTriangle, Lightbulb, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import React, { useState } from 'react';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchAPI } from '@/lib/vault-api';
@@ -116,14 +117,14 @@ export function AIFeedbackWidget({
   };
 
   const getQualityColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400';
+    if (score >= 80) {return 'text-green-600 dark:text-green-400';}
+    if (score >= 70) {return 'text-yellow-600 dark:text-yellow-400';}
     return 'text-red-600 dark:text-red-400';
   };
 
   const getQualityBadgeVariant = (score: number) => {
-    if (score >= 80) return 'default';
-    if (score >= 70) return 'secondary';
+    if (score >= 80) {return 'default';}
+    if (score >= 70) {return 'secondary';}
     return 'destructive';
   };
 

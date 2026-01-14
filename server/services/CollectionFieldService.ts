@@ -1,9 +1,10 @@
+import type { CollectionField, InsertCollectionField } from "@shared/schema";
+
 import {
   collectionFieldRepository,
   collectionRepository,
   type DbTransaction,
 } from "../repositories";
-import type { CollectionField, InsertCollectionField } from "@shared/schema";
 
 /**
  * Service layer for collection field business logic
@@ -173,7 +174,7 @@ export class CollectionFieldService {
       this.validateDefaultValue(data.type, data.defaultValue);
     }
 
-    return await this.fieldRepo.create({
+    return this.fieldRepo.create({
       ...data,
       slug: uniqueSlug,
     }, tx);
@@ -183,14 +184,14 @@ export class CollectionFieldService {
    * Get field by ID
    */
   async getField(fieldId: string, tx?: DbTransaction): Promise<CollectionField | undefined> {
-    return await this.fieldRepo.findById(fieldId, tx);
+    return this.fieldRepo.findById(fieldId, tx);
   }
 
   /**
    * List all fields in a collection
    */
   async listFields(collectionId: string, tx?: DbTransaction): Promise<CollectionField[]> {
-    return await this.fieldRepo.findByCollectionId(collectionId, tx);
+    return this.fieldRepo.findByCollectionId(collectionId, tx);
   }
 
   /**
@@ -227,7 +228,7 @@ export class CollectionFieldService {
       this.validateDefaultValue(data.type, data.defaultValue);
     }
 
-    return await this.fieldRepo.update(fieldId, data, tx);
+    return this.fieldRepo.update(fieldId, data, tx);
   }
 
   /**
@@ -246,7 +247,7 @@ export class CollectionFieldService {
     slug: string,
     tx?: DbTransaction
   ): Promise<CollectionField | undefined> {
-    return await this.fieldRepo.findByCollectionAndSlug(collectionId, slug, tx);
+    return this.fieldRepo.findByCollectionAndSlug(collectionId, slug, tx);
   }
 
   /**

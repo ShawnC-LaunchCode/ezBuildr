@@ -1,8 +1,11 @@
-import { workflowTemplateRepository } from "../repositories/WorkflowTemplateRepository";
-import { documentTemplateService } from "./DocumentTemplateService";
-import type { DbTransaction } from "../repositories/BaseRepository";
 import type { WorkflowTemplate, InsertWorkflowTemplate } from "@shared/schema";
+
+import { workflowTemplateRepository } from "../repositories/WorkflowTemplateRepository";
 import { createError } from "../utils/errors";
+
+import { documentTemplateService } from "./DocumentTemplateService";
+
+import type { DbTransaction } from "../repositories/BaseRepository";
 
 /**
  * Stage 21: Workflow Template Service
@@ -58,7 +61,7 @@ export class WorkflowTemplateService {
     }
 
     // Create mapping
-    const mapping = await workflowTemplateRepository.create(
+    return workflowTemplateRepository.create(
       {
         workflowVersionId,
         templateId,
@@ -67,8 +70,6 @@ export class WorkflowTemplateService {
       },
       tx
     );
-
-    return mapping;
   }
 
   /**
@@ -78,7 +79,7 @@ export class WorkflowTemplateService {
     workflowVersionId: string,
     tx?: DbTransaction
   ): Promise<WorkflowTemplate[]> {
-    return await workflowTemplateRepository.findByWorkflowVersionId(workflowVersionId, tx);
+    return workflowTemplateRepository.findByWorkflowVersionId(workflowVersionId, tx);
   }
 
   /**
@@ -174,7 +175,7 @@ export class WorkflowTemplateService {
 
       // If also updating key, apply that separately
       if (updates.key) {
-        return await workflowTemplateRepository.update(
+        return workflowTemplateRepository.update(
           id,
           { key: updates.key },
           tx
@@ -185,7 +186,7 @@ export class WorkflowTemplateService {
     }
 
     // Otherwise, use regular update
-    return await workflowTemplateRepository.update(id, updates, tx);
+    return workflowTemplateRepository.update(id, updates, tx);
   }
 
   /**

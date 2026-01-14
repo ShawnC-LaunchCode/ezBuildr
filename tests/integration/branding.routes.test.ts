@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import express, { type Express } from 'express';
-import { registerBrandingRoutes } from '../../server/routes/branding.routes';
-import { db } from '../../server/db';
-import { tenants, users, tenantDomains } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import express, { type Express } from 'express';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
+import { tenants, users, tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
+
+import { db } from '../../server/db';
+import { registerBrandingRoutes } from '../../server/routes/branding.routes';
+
+
 
 /**
  * Stage 17: Branding API Routes Integration Tests

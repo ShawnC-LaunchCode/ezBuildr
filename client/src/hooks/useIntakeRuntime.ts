@@ -19,7 +19,7 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
         queryKey: ['workflow', currentWorkflowId],
         queryFn: async () => {
             const res = await fetch(`/api/workflows/${currentWorkflowId}`);
-            if (!res.ok) throw new Error('Failed to fetch workflow');
+            if (!res.ok) {throw new Error('Failed to fetch workflow');}
             return res.json();
         },
         enabled: !!currentWorkflowId,
@@ -33,7 +33,7 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
         queryKey: ['workflow-full', upstreamWorkflowId],
         queryFn: async () => {
             const res = await fetch(`/api/workflows/${upstreamWorkflowId}`);
-            if (!res.ok) throw new Error('Failed to fetch upstream workflow');
+            if (!res.ok) {throw new Error('Failed to fetch upstream workflow');}
             return res.json();
         },
         enabled: !!upstreamWorkflowId,
@@ -51,7 +51,7 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
             // Ideally we have an endpoint /api/workflows/:id/variables or steps
             // Using sections endpoint as proxy
             const sectionsRes = await fetch(`/api/workflows/${upstreamWorkflowId}/sections`);
-            if (!sectionsRes.ok) return [];
+            if (!sectionsRes.ok) {return [];}
             const sections = await sectionsRes.json();
 
             const stepsPromises = sections.map((s: any) =>
@@ -69,7 +69,7 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
         queryKey: ['run', sourceRunId],
         queryFn: async () => {
             const res = await fetch(`/api/runs/${sourceRunId}`);
-            if (!res.ok) throw new Error('Failed to fetch upstream run');
+            if (!res.ok) {throw new Error('Failed to fetch upstream run');}
             return res.json().then(r => r.data); // result.data
         },
         enabled: !!sourceRunId && !!upstreamWorkflowId,
@@ -81,7 +81,7 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
     if (upstreamRun?.values && upstreamSteps) {
         upstreamRun.values.forEach((v: any) => {
             const step = upstreamSteps.find(s => s.id === v.stepId);
-            if (step && step.alias) {
+            if (step?.alias) {
                 intakeValues[step.alias] = v.value;
             }
         });

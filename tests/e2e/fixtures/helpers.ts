@@ -49,7 +49,7 @@ export async function createSurvey(
     throw new Error(`Failed to create survey: ${response.status()} ${await response.text()}`);
   }
 
-  return await response.json();
+  return response.json();
 }
 
 /**
@@ -71,7 +71,7 @@ export async function addSurveyPage(
     throw new Error(`Failed to add page: ${response.status()} ${await response.text()}`);
   }
 
-  return await response.json();
+  return response.json();
 }
 
 /**
@@ -106,7 +106,7 @@ export async function addQuestion(
     throw new Error(`Failed to add question: ${response.status()} ${await response.text()}`);
   }
 
-  return await response.json();
+  return response.json();
 }
 
 /**
@@ -228,7 +228,7 @@ export async function waitForElement(
   selector: string,
   options?: { timeout?: number; state?: "attached" | "detached" | "visible" | "hidden" }
 ) {
-  return await page.waitForSelector(selector, {
+  return page.waitForSelector(selector, {
     timeout: options?.timeout ?? 10000,
     state: options?.state ?? "visible",
   });

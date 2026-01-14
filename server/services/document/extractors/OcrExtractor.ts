@@ -36,6 +36,7 @@
  */
 
 import { logger } from '../../../logger';
+
 import type { IPdfExtractor, ExtractionResult, PdfField } from './IPdfExtractor';
 
 export class OcrExtractor implements IPdfExtractor {

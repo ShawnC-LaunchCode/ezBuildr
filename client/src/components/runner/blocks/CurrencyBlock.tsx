@@ -12,8 +12,10 @@
  */
 
 import React from "react";
+
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
+
 import type { CurrencyConfig } from "@/../../shared/types/stepConfigs";
 
 export interface CurrencyBlockProps {
@@ -35,7 +37,7 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
 
   // Format number with commas and decimals
   const formatCurrency = (num: number | null): string => {
-    if (num === null || num === undefined) return "";
+    if (num === null || num === undefined) {return "";}
 
     if (allowDecimal) {
       return num.toLocaleString("en-US", {
@@ -97,8 +99,8 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
     }
 
     // Enforce min/max
-    if (min !== undefined && parsed < min) return;
-    if (max !== undefined && parsed > max) return;
+    if (min !== undefined && parsed < min) {return;}
+    if (max !== undefined && parsed > max) {return;}
 
     onChange(parsed);
   };

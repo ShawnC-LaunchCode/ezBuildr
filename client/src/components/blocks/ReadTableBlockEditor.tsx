@@ -3,20 +3,23 @@
  * Simplified UX for reading workflow data from DataVault tables
  */
 
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircle, Plus, Trash2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Plus, Trash2 } from "lucide-react";
-import { useWorkflowDataSources } from "@/lib/vault-hooks";
-import { dataSourceAPI } from "@/lib/vault-api";
-import { useQuery } from "@tanstack/react-query";
 import { useTables } from "@/hooks/useDatavaultTables";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import type { ReadTableConfig } from "@shared/types/blocks";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { dataSourceAPI } from "@/lib/vault-api";
+import { useWorkflowDataSources } from "@/lib/vault-hooks";
+
+import type { ReadTableConfig } from "@shared/types/blocks";
+
 
 interface ReadTableBlockEditorProps {
   workflowId: string;
@@ -111,7 +114,7 @@ export function ReadTableBlockEditor({
         {/* 1. DATA SOURCE & TABLE */}
         <div className={cn(
           "space-y-3 p-4 rounded-lg transition-all duration-300 border",
-          isStep1Active ? activeRingClass + " border-green-500 bg-white shadow-sm" : "border-transparent px-0"
+          isStep1Active ? `${activeRingClass  } border-green-500 bg-white shadow-sm` : "border-transparent px-0"
         )}>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Data Source</Label>
@@ -152,7 +155,7 @@ export function ReadTableBlockEditor({
         <div className={cn(
           "space-y-3 rounded-lg transition-all duration-300",
           !step1Complete ? inactiveClass : "",
-          isStep2Active ? activeRingClass + " p-4 border border-green-500 bg-white shadow-sm" : "px-0"
+          isStep2Active ? `${activeRingClass  } p-4 border border-green-500 bg-white shadow-sm` : "px-0"
         )}>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Output Variable</Label>

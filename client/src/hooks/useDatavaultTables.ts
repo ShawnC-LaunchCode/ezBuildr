@@ -1,4 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import * as api from '../lib/api/datavault';
+
+import { datavaultKeys } from './useDatavaultDatabases';
+
 import type {
   DatavaultTable,
   CreateTableInput,
@@ -6,8 +11,6 @@ import type {
   MoveTableInput,
   TableSchema,
 } from '../lib/types/datavault';
-import * as api from '../lib/api/datavault';
-import { datavaultKeys } from './useDatavaultDatabases';
 
 // ============================================================================
 // Query Keys
@@ -39,7 +42,7 @@ export function useTable(id: string | undefined) {
   return useQuery({
     queryKey: id ? tableKeys.table(id) : ['datavault', 'tables', 'null'],
     queryFn: () => {
-      if (!id) throw new Error('Table ID is required');
+      if (!id) {throw new Error('Table ID is required');}
       return api.getTableById(id);
     },
     enabled: !!id,
@@ -50,7 +53,7 @@ export function useTableSchema(tableId: string | undefined) {
   return useQuery({
     queryKey: tableId ? tableKeys.schema(tableId) : ['datavault', 'tables', 'null', 'schema'],
     queryFn: () => {
-      if (!tableId) throw new Error('Table ID is required');
+      if (!tableId) {throw new Error('Table ID is required');}
       return api.getTableSchema(tableId);
     },
     enabled: !!tableId,

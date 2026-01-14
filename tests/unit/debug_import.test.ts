@@ -1,7 +1,8 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { registerAiRoutes } from '../../server/routes/ai.routes';
 
 describe('Debug Test', () => {

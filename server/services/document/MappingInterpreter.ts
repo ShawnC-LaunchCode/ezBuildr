@@ -14,8 +14,8 @@
  * @date December 6, 2025
  */
 
-import type { FinalBlockConfig } from '../../../shared/types/stepConfigs';
 import type { NormalizedData } from './VariableNormalizer';
+import type { FinalBlockConfig } from '../../../shared/types/stepConfigs';
 
 // ============================================================================
 // TYPES
@@ -409,7 +409,7 @@ function normalizeFieldName(name: string): string {
 export function invertMapping(
   mapping: DocumentMapping | undefined | null
 ): Record<string, string> {
-  if (!mapping) return {};
+  if (!mapping) {return {};}
 
   const inverted: Record<string, string> = {};
 
@@ -446,7 +446,7 @@ export function getMappingStats(mapping: DocumentMapping | undefined | null): {
   const variableEntries = entries.filter(([, config]) => config?.type === 'variable');
   const sources = new Set(
     variableEntries
-      .map(([, config]) => config!.source)
+      .map(([, config]) => config.source)
       .filter(Boolean)
   );
 

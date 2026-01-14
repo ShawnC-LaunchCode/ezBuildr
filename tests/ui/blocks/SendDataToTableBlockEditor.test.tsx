@@ -2,7 +2,13 @@
  * Tests for SendDataToTableBlockEditor validation logic
  */
 
+/**
+ * @vitest-environment jsdom
+ */
+
+
 import { describe, it, expect } from 'vitest';
+
 import type { WriteBlockConfig, ColumnMapping } from '@shared/types/blocks';
 
 // Helper functions extracted from SendDataToTableBlockEditor for testing

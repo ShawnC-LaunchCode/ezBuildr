@@ -1,10 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
-import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
-import { nanoid } from "nanoid";
-import { db } from "../../server/db";
-import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
+import * as schema from "@shared/schema";
+
+import { db } from "../../server/db";
+import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+
+
+
+
 
 /**
  * Workflows API Integration Tests
@@ -52,7 +58,7 @@ describe.sequential("Workflows API Integration Tests", () => {
       const viewerEmail = `viewer-${nanoid()}@example.com`;
       const viewerResponse = await request(ctx.baseURL)
         .post("/api/auth/register")
-        .send({ email: viewerEmail, password: "TestPassword123" })
+        .send({ email: viewerEmail, password: "StrongTestPassword123!" })
         .expect(201);
 
       await db.update(schema.users)
@@ -315,10 +321,14 @@ describe.sequential("Workflows API Integration Tests", () => {
         .post("/api/auth/register")
         .send({
           email: email2,
-          password: "TestPassword123",
+          password: "StrongTestPassword123!@#",
           fullName: "Test User 2",
           tenantId: ctx.tenantId,
         });
+
+      if (registerResponse2.status !== 201) {
+        console.log("DEBUG REGISTRATION FAILURE 1:", registerResponse2.status, registerResponse2.body);
+      }
 
       const authToken2 = registerResponse2.body.token;
 
@@ -326,8 +336,12 @@ describe.sequential("Workflows API Integration Tests", () => {
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${authToken2}`)
-        .send({ projectId: targetProjectId })
-        .expect(403);
+        .send({ projectId: targetProjectId });
+
+      if (response.status !== 403) {
+        console.log("DEBUG FAILURE (user does not own):", response.status, response.text);
+      }
+      expect(response.status, `Expected 403 but got ${response.status}. Body: ${response.text}`).toBe(403);
 
       expect(response.body).toHaveProperty("message");
       expect(response.body.message).toContain("Access denied");
@@ -360,16 +374,20 @@ describe.sequential("Workflows API Integration Tests", () => {
         .post("/api/auth/register")
         .send({
           email: email2,
-          password: "TestPassword123",
+          password: "StrongTestPassword123!@#",
           fullName: "Test User 2",
           tenantId: ctx.tenantId,
         });
 
       const authToken2 = registerResponse2.body.token;
-      const user2Id = registerResponse2.body.user.id;
+      const user2Id = registerResponse2.body.user?.id;
 
       await db.update(schema.users)
-        .set({ tenantId: ctx.tenantId, tenantRole: "owner" })
+        .set({
+          tenantId: ctx.tenantId,
+          tenantRole: "owner",
+          emailVerified: true
+        })
         .where(eq(schema.users.id, user2Id));
 
       // Re-login to get updated token
@@ -377,8 +395,16 @@ describe.sequential("Workflows API Integration Tests", () => {
         .post("/api/auth/login")
         .send({
           email: email2,
-          password: "TestPassword123"
+          password: "StrongTestPassword123!@#"
         });
+
+      if (loginResponse2.status !== 200) {
+        throw new Error(`Login failed: ${loginResponse2.status} ${JSON.stringify(loginResponse2.body)}`);
+      }
+      if (!loginResponse2.body.token) {
+        throw new Error("Login succeeded but no token returned");
+      }
+
       const updatedAuthToken2 = loginResponse2.body.token;
 
       // Create a project owned by user 2
@@ -390,14 +416,22 @@ describe.sequential("Workflows API Integration Tests", () => {
           description: "Project owned by user 2",
         });
 
+      if (!projectResponse2.body.id) {
+        throw new Error(`Project creation succeeded (201) but ID is missing. Body: ${JSON.stringify(projectResponse2.body)}`);
+      }
+
       const user2ProjectId = projectResponse2.body.id;
 
       // Try to move user 1's workflow to user 2's project
+      // if (!ctx.authToken) throw new Error("CTX AUTH TOKEN IS MISSING");
+      // throw new Error(`DEBUG TEST TOKEN VALUE: ${ctx.authToken.substring(0, 20)}...`);
+
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ projectId: user2ProjectId })
-        .expect(403);
+        .send({ projectId: user2ProjectId });
+
+      expect(response.status, `Expected 403 but got ${response.status}. Body: ${response.text}`).toBe(403);
 
       expect(response.body).toHaveProperty("message");
       expect(response.body.message).toContain("Access denied");

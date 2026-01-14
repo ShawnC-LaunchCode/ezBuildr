@@ -1,8 +1,11 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from 'framer-motion';
-import type { YesNoAggregation } from '@shared/schema';
-import { chartColors } from '@/styles/chartTheme';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
 import { getYesNoInsight, getSentimentEmoji } from '@/lib/analyticsUtils';
+import { chartColors } from '@/styles/chartTheme';
+
+import type { YesNoAggregation } from '@shared/schema';
+
 
 interface YesNoChartProps {
   data: YesNoAggregation;
@@ -47,7 +50,7 @@ export function YesNoChart({ data }: YesNoChartProps) {
             />
             <Tooltip
               content={({ active, payload }) => {
-                if (active && payload && payload.length) {
+                if (active && payload?.length) {
                   const data = payload[0];
                   const percentage = total > 0 ? ((data.value as number / total) * 100).toFixed(1) : 0;
                   return (

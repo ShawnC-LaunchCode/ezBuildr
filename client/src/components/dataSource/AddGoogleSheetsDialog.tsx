@@ -3,8 +3,10 @@
  * Guided onboarding flow for connecting Google Sheets
  */
 
-import { useState } from "react";
 import { FileSpreadsheet, Plus, CheckCircle } from "lucide-react";
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -13,7 +15,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -228,9 +229,9 @@ export function AddGoogleSheetsDialog({ open, onOpenChange, onComplete }: AddGoo
                         <Button
                             variant="outline"
                             onClick={() => {
-                                if (step === 'select-spreadsheet') setStep('auth');
-                                if (step === 'select-sheet') setStep('select-spreadsheet');
-                                if (step === 'name') setStep('select-sheet');
+                                if (step === 'select-spreadsheet') {setStep('auth');}
+                                if (step === 'select-sheet') {setStep('select-spreadsheet');}
+                                if (step === 'name') {setStep('select-sheet');}
                             }}
                         >
                             Back

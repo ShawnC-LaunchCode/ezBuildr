@@ -1,5 +1,6 @@
-import type { EvalContext } from '../expr';
 import { evaluateExpression } from '../expr';
+
+import type { EvalContext } from '../expr';
 
 /**
  * Branch Node Executor

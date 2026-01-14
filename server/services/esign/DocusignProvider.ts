@@ -14,6 +14,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+
 import {
   IEsignProvider,
   CreateEnvelopeRequest,
@@ -191,7 +192,7 @@ export class DocusignProvider implements IEsignProvider {
       };
       */
     } catch (error) {
-      if (error instanceof EsignApiError) throw error;
+      if (error instanceof EsignApiError) {throw error;}
       throw new EsignApiError(
         `Failed to create DocuSign envelope: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -237,7 +238,7 @@ export class DocusignProvider implements IEsignProvider {
     ];
 
     // Build envelope definition
-    const envelopeDefinition = {
+    return {
       emailSubject: message || 'Please sign this document',
       documents: encodedDocs,
       recipients: {
@@ -253,8 +254,6 @@ export class DocusignProvider implements IEsignProvider {
         },
       }),
     };
-
-    return envelopeDefinition;
   }
 
   /**
@@ -332,7 +331,7 @@ export class DocusignProvider implements IEsignProvider {
       };
       */
     } catch (error) {
-      if (error instanceof EsignApiError) throw error;
+      if (error instanceof EsignApiError) {throw error;}
       throw new EsignApiError(
         `Failed to get envelope status: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -375,7 +374,7 @@ export class DocusignProvider implements IEsignProvider {
 
       throw new EsignApiError('DocuSign void not yet implemented.', 'docusign');
     } catch (error) {
-      if (error instanceof EsignApiError) throw error;
+      if (error instanceof EsignApiError) {throw error;}
       throw new EsignApiError(
         `Failed to void envelope: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -397,7 +396,7 @@ export class DocusignProvider implements IEsignProvider {
 
       // return [Buffer.from(docs)];
     } catch (error) {
-      if (error instanceof EsignApiError) throw error;
+      if (error instanceof EsignApiError) {throw error;}
       throw new EsignApiError(
         `Failed to download documents: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -411,25 +410,54 @@ export class DocusignProvider implements IEsignProvider {
   // --------------------------------------------------------------------------
 
   async verifyWebhookSignature(payload: any, signature: string): Promise<boolean> {
-    // TODO: Implement HMAC verification using webhookSecret
-    // DocuSign uses HMAC-SHA256
+    // DocuSign uses HMAC-SHA256 for webhook signature verification
+    // Reference: https://developers.docusign.com/platform/webhooks/connect/hmac/
 
     if (!this.config.webhookSecret) {
       console.warn('[DocuSign] No webhook secret configured, skipping verification');
+      // In production, you should reject webhooks without verification
+      // For now, we allow it to support development/testing
       return true;
     }
 
-    // Placeholder: Always return true for now
-    return true;
+    if (!signature) {
+      console.warn('[DocuSign] No signature provided in webhook request');
+      return false;
+    }
 
-    // Example implementation:
-    /*
-    const crypto = require('crypto');
-    const hmac = crypto.createHmac('sha256', this.config.webhookSecret);
-    hmac.update(JSON.stringify(payload));
-    const expectedSignature = hmac.digest('base64');
-    return signature === expectedSignature;
-    */
+    try {
+      const crypto = require('crypto');
+
+      // DocuSign sends the payload as JSON string in the body
+      // We need to compute HMAC-SHA256 of the raw payload
+      const payloadString = typeof payload === 'string'
+        ? payload
+        : JSON.stringify(payload);
+
+      // Create HMAC using the webhook secret
+      const hmac = crypto.createHmac('sha256', this.config.webhookSecret);
+      hmac.update(payloadString);
+
+      // DocuSign uses base64 encoding for the signature
+      const expectedSignature = hmac.digest('base64');
+
+      // Use timing-safe comparison to prevent timing attacks
+      const signaturesMatch = crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      );
+
+      if (!signaturesMatch) {
+        console.warn('[DocuSign] Webhook signature verification failed');
+        console.debug('[DocuSign] Expected:', expectedSignature);
+        console.debug('[DocuSign] Received:', signature);
+      }
+
+      return signaturesMatch;
+    } catch (error) {
+      console.error('[DocuSign] Error verifying webhook signature:', error);
+      return false;
+    }
   }
 
   async parseWebhookEvent(payload: any): Promise<SignatureEvent> {
@@ -481,6 +509,8 @@ export function createDocusignProvider(): DocusignProvider | null {
 
   // Check if all required config is present
   if (!config.integrationKey || !config.userId || !config.accountId || !config.privateKey) {
+    // Note: Using console.warn here is intentional - this is a factory function warning
+    // that should be visible during server startup
     console.warn('[DocuSign] Provider not configured - missing environment variables');
     return null;
   }

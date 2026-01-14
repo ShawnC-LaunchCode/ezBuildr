@@ -13,43 +13,43 @@
 -- =====================================================================
 
 DO $$ BEGIN
- CREATE TYPE "public"."tenant_plan" AS ENUM('free', 'pro', 'enterprise');
+ CREATE TYPE "tenant_plan" AS ENUM('free', 'pro', 'enterprise');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."user_tenant_role" AS ENUM('owner', 'builder', 'runner', 'viewer');
+ CREATE TYPE "user_tenant_role" AS ENUM('owner', 'builder', 'runner', 'viewer');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."auth_provider" AS ENUM('local', 'google');
+ CREATE TYPE "auth_provider" AS ENUM('local', 'google');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."version_status" AS ENUM('draft', 'published');
+ CREATE TYPE "version_status" AS ENUM('draft', 'published');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."template_type" AS ENUM('docx', 'html');
+ CREATE TYPE "template_type" AS ENUM('docx', 'html');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."run_status" AS ENUM('pending', 'success', 'error');
+ CREATE TYPE "run_status" AS ENUM('pending', 'success', 'error');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- CREATE TYPE "public"."log_level" AS ENUM('info', 'warn', 'error');
+ CREATE TYPE "log_level" AS ENUM('info', 'warn', 'error');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -195,7 +195,7 @@ UPDATE "workflows" SET "status" = 'draft' WHERE "status" NOT IN ('draft', 'publi
 -- Users to tenants
 DO $$ BEGIN
  ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk"
- FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -203,7 +203,7 @@ END $$;
 -- Projects to tenants
 DO $$ BEGIN
  ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk"
- FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -211,7 +211,7 @@ END $$;
 -- Workflow versions to workflows
 DO $$ BEGIN
  ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_workflow_id_workflows_id_fk"
- FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -219,7 +219,7 @@ END $$;
 -- Workflow versions to users
 DO $$ BEGIN
  ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_created_by_users_id_fk"
- FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+ FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -227,7 +227,7 @@ END $$;
 -- Templates to projects
 DO $$ BEGIN
  ALTER TABLE "templates" ADD CONSTRAINT "templates_project_id_projects_id_fk"
- FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -235,7 +235,7 @@ END $$;
 -- Runs to workflow versions
 DO $$ BEGIN
  ALTER TABLE "runs" ADD CONSTRAINT "runs_workflow_version_id_workflow_versions_id_fk"
- FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -243,7 +243,7 @@ END $$;
 -- Runs to users
 DO $$ BEGIN
  ALTER TABLE "runs" ADD CONSTRAINT "runs_created_by_users_id_fk"
- FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+ FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -251,7 +251,7 @@ END $$;
 -- Secrets to projects
 DO $$ BEGIN
  ALTER TABLE "secrets" ADD CONSTRAINT "secrets_project_id_projects_id_fk"
- FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -259,7 +259,7 @@ END $$;
 -- Audit events to users
 DO $$ BEGIN
  ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_actor_id_users_id_fk"
- FOREIGN KEY ("actor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+ FOREIGN KEY ("actor_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -267,7 +267,7 @@ END $$;
 -- API keys to projects
 DO $$ BEGIN
  ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_project_id_projects_id_fk"
- FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -275,7 +275,7 @@ END $$;
 -- Run logs to runs
 DO $$ BEGIN
  ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_run_id_runs_id_fk"
- FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;
+ FOREIGN KEY ("run_id") REFERENCES "runs"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

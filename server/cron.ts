@@ -1,6 +1,7 @@
 import cron from 'node-cron';
-import { authService } from './services/AuthService';
+
 import { createLogger } from './logger';
+import { authService } from './services/AuthService';
 
 const log = createLogger({ module: 'cron' });
 

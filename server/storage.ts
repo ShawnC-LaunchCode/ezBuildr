@@ -197,15 +197,15 @@ export class DatabaseStorage implements IStorage {
   // ============================================================================
 
   async ping(): Promise<boolean> {
-    return await userRepository.ping();
+    return userRepository.ping();
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return await userRepository.findById(id);
+    return userRepository.findById(id);
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    return await userRepository.upsert(userData);
+    return userRepository.upsert(userData);
   }
 
   // ============================================================================

@@ -4,8 +4,13 @@
  * Includes collision detection and resolution modal (Prompt 31)
  */
 
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Package } from "lucide-react";
+import React, { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -14,15 +19,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { getAllSnips } from "@/lib/snips/registry";
 import { importSnip, validateSnipImport } from "@/lib/snips/importService";
-import { CollisionResolutionModal } from "./CollisionResolutionModal";
+import { getAllSnips } from "@/lib/snips/registry";
 import type { SnipDefinition } from "@/lib/snips/types";
+
+import { CollisionResolutionModal } from "./CollisionResolutionModal";
+
 
 interface AddSnipDialogProps {
     workflowId: string;
@@ -79,7 +82,7 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
     };
 
     const executeImport = async (aliasMappings: Record<string, string>) => {
-        if (!selectedSnipId) return;
+        if (!selectedSnipId) {return;}
 
         setImporting(true);
         try {

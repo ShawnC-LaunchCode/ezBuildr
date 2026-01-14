@@ -1,15 +1,16 @@
+import { like, or , sql } from "drizzle-orm";
+
+import { blocks, transformBlocks } from "@shared/schema";
+import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
+
+import { db } from "../db";
+import { ConflictError } from "../errors/AppError";
 import {
   datavaultColumnsRepository,
   datavaultTablesRepository,
   datavaultRowsRepository,
   type DbTransaction,
 } from "../repositories";
-import { db } from "../db";
-import { blocks, transformBlocks } from "@shared/schema";
-import { like, or } from "drizzle-orm";
-import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
-import { ConflictError } from "../errors/AppError";
-import { sql } from "drizzle-orm";
 
 /**
  * Service layer for DataVault column business logic
@@ -258,7 +259,7 @@ export class DatavaultColumnsService {
     };
 
     // Simulate adding the new reference and check for cycles
-    return await hasCycle(referenceTableId);
+    return hasCycle(referenceTableId);
   }
 
   /**
@@ -333,7 +334,7 @@ export class DatavaultColumnsService {
     const required = data.isPrimaryKey ? true : (data.required ?? false);
     const isUnique = data.isPrimaryKey ? true : (data.isUnique ?? false);
 
-    return await this.columnsRepo.create(
+    return this.columnsRepo.create(
       {
         ...data,
         slug: uniqueSlug,
@@ -356,7 +357,7 @@ export class DatavaultColumnsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
-    return await this.verifyColumnOwnership(columnId, tenantId, tx);
+    return this.verifyColumnOwnership(columnId, tenantId, tx);
   }
 
   /**
@@ -368,7 +369,7 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<DatavaultColumn[]> {
     await this.verifyTableOwnership(tableId, tenantId, tx);
-    return await this.columnsRepo.findByTableId(tableId, tx);
+    return this.columnsRepo.findByTableId(tableId, tx);
   }
 
   /**
@@ -473,7 +474,7 @@ export class DatavaultColumnsService {
       data.isUnique = true;
     }
 
-    return await this.columnsRepo.update(columnId, data, tx);
+    return this.columnsRepo.update(columnId, data, tx);
   }
 
   /**
@@ -544,7 +545,7 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<DatavaultColumn | undefined> {
     await this.verifyTableOwnership(tableId, tenantId, tx);
-    return await this.columnsRepo.findByTableAndSlug(tableId, slug, tx);
+    return this.columnsRepo.findByTableAndSlug(tableId, slug, tx);
   }
   /**
    * Check if column is used in any workflows (blocks or transforms)

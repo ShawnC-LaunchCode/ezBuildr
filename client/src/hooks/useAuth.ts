@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@shared/schema";
-import { authAPI, setAccessToken } from "@/lib/vault-api";
 import { useEffect } from "react";
+
+import { authAPI, setAccessToken } from "@/lib/vault-api";
+
+import type { User } from "@shared/schema";
 
 // Response type from refresh/login
 interface AuthResponse {
@@ -24,12 +26,11 @@ export function useAuth() {
         });
 
         if (!res.ok) {
-          if (res.status === 401) return null;
+          if (res.status === 401) {return null;}
           throw new Error("Failed to refresh session");
         }
 
-        const data = await res.json();
-        return data; // { user, token }
+        return await res.json(); // { user, token }
       } catch (err) {
         return null;
       }

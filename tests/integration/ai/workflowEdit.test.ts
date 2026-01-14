@@ -1,51 +1,87 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import request from 'supertest';
-import express, { type Express } from 'express';
-import { db } from '../../../server/db';
-import { workflows, workflowVersions, projects, users, sections, steps } from '../../../shared/schema';
 import { eq, and } from 'drizzle-orm';
+import express, { type Express } from 'express';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
+import { db } from '../../../server/db';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
+import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditEvents } from '../../../shared/schema';
+
+
+const { mockUserId, mockTenantId, authConfig } = vi.hoisted(() => ({
+  mockUserId: crypto.randomUUID(),
+  mockTenantId: crypto.randomUUID(),
+  authConfig: { shouldFail: false }
+}));
 
 // Mock authentication middleware
 vi.mock('../../../server/middleware/auth', () => ({
   requireAuth: (req: any, res: any, next: any) => {
-    req.userId = 'test-user-id';
+    if (authConfig.shouldFail) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const user = {
+      id: mockUserId,
+      tenantId: mockTenantId,
+      role: 'owner',
+      tenantRole: 'owner',
+    };
+    req.userId = user.id;
+    req.tenantId = user.tenantId;
+    req.user = user;
+    next();
+  },
+  hybridAuth: (req: any, res: any, next: any) => {
+    if (authConfig.shouldFail) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const user = {
+      id: mockUserId,
+      tenantId: mockTenantId,
+      role: 'owner',
+      tenantRole: 'owner',
+    };
+    req.userId = user.id;
+    req.tenantId = user.tenantId;
+    req.user = user;
     next();
   },
 }));
 
 // Mock Gemini API
 vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: () => JSON.stringify({
-            operations: [
-              {
-                op: 'section.create',
-                tempId: 'temp-section-1',
-                title: 'Contact Information',
-                order: 1,
-              },
-              {
-                op: 'step.create',
-                sectionRef: 'temp-section-1',
-                type: 'email',
-                title: 'Email Address',
-                alias: 'email',
-                required: true,
-              },
-            ],
-            summary: ['Created Contact Information section', 'Added Email Address field'],
-            warnings: [],
-            questions: [],
-            confidence: 0.95,
-          }),
-        },
+  GoogleGenerativeAI: vi.fn().mockImplementation(() => {
+    return {
+      getGenerativeModel: vi.fn().mockReturnValue({
+        generateContent: vi.fn().mockResolvedValue({
+          response: {
+            text: () => JSON.stringify({
+              ops: [
+                {
+                  op: 'section.create',
+                  tempId: 'temp-section-1',
+                  title: 'Contact Information',
+                  order: 1,
+                },
+                {
+                  op: 'step.create',
+                  sectionRef: 'temp-section-1',
+                  type: 'email',
+                  title: 'Email Address',
+                  alias: 'email',
+                  required: true,
+                },
+              ],
+              summary: ['Created Contact Information section', 'Added Email Address field'],
+              warnings: [],
+              questions: [],
+              confidence: 0.95,
+            }),
+          },
+        }),
       }),
-    }),
-  })),
+    };
+  }),
 }));
 
 describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
@@ -53,18 +89,31 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   let testUserId: string;
   let testProjectId: string;
   let testWorkflowId: string;
+  let testTenantId: string;
 
   beforeAll(async () => {
+    // Set mock API key
+    process.env.GEMINI_API_KEY = 'test-api-key';
+
     // Setup Express app
     app = express();
     app.use(express.json());
     registerAiWorkflowEditRoutes(app);
 
+    // Create test tenant (with valid UUID to avoid syntax error)
+    const [tenant] = await db.insert(tenants).values({
+      id: mockTenantId,
+      name: 'Test Tenant',
+      plan: 'pro',
+    }).returning();
+    testTenantId = tenant.id;
+
     // Create test user
     const [user] = await db.insert(users).values({
+      id: mockUserId,
       email: 'test@example.com',
       fullName: 'Test User',
-      tenantId: 'test-tenant',
+      tenantId: testTenantId,
     }).returning();
     testUserId = user.id;
 
@@ -76,7 +125,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       creatorId: testUserId,
       createdBy: testUserId,
       ownerId: testUserId,
-      tenantId: 'test-tenant',
+      tenantId: testTenantId,
     }).returning();
     testProjectId = project.id;
   });
@@ -96,11 +145,14 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   afterAll(async () => {
     // Cleanup - delete in correct order (steps -> sections -> workflows -> projects -> users)
     // Steps are deleted via cascade when sections are deleted
+    // Delete audit events first to avoid FK constraint violations
+    await db.delete(auditEvents).where(eq(auditEvents.actorId, testUserId));
     await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
     await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));
     await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
     await db.delete(projects).where(eq(projects.id, testProjectId));
     await db.delete(users).where(eq(users.id, testUserId));
+    await db.delete(tenants).where(eq(tenants.id, testTenantId));
   });
 
   it('should create draft version on successful AI edit', async () => {
@@ -179,21 +231,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
 
     // Mock Gemini to return no operations (no changes)
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(() => ({
-      getGenerativeModel: vi.fn().mockReturnValue({
-        generateContent: vi.fn().mockResolvedValue({
-          response: {
-            text: () => JSON.stringify({
-              operations: [], // No operations
-              summary: [],
-              warnings: [],
-              questions: [],
-              confidence: 1.0,
-            }),
-          },
+    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
+      return {
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: {
+              text: () => JSON.stringify({
+                ops: [], // No operations
+                summary: [],
+                warnings: [],
+                questions: [],
+                confidence: 1.0,
+              }),
+            },
+          }),
         }),
-      }),
-    }) as any);
+      };
+    } as any);
 
     // Second edit with no actual changes
     const response2 = await request(app)
@@ -208,12 +262,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   });
 
   it('should reject unauthorized access', async () => {
-    // Mock auth to fail
-    vi.doMock('../../../server/middleware/auth', () => ({
-      requireAuth: (req: any, res: any, next: any) => {
-        res.status(401).json({ error: 'Unauthorized' });
-      },
-    }));
+    // Enable auth failure
+    authConfig.shouldFail = true;
 
     await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
@@ -221,31 +271,36 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
         userMessage: 'Add field',
       })
       .expect(401);
+
+    // Disable auth failure
+    authConfig.shouldFail = false;
   });
 
   it('should reject unsafe DataVault operations', async () => {
     // Mock Gemini to return unsafe operation
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(() => ({
-      getGenerativeModel: vi.fn().mockReturnValue({
-        generateContent: vi.fn().mockResolvedValue({
-          response: {
-            text: () => JSON.stringify({
-              operations: [
-                {
-                  op: 'datavault.dropTable',
-                  tableId: 'table-123',
-                },
-              ],
-              summary: [],
-              warnings: [],
-              questions: [],
-              confidence: 0.9,
-            }),
-          },
+    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
+      return {
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: {
+              text: () => JSON.stringify({
+                ops: [
+                  {
+                    op: 'datavault.dropTable',
+                    tableId: 'table-123',
+                  },
+                ],
+                summary: [],
+                warnings: [],
+                questions: [],
+                confidence: 0.9,
+              }),
+            },
+          }),
         }),
-      }),
-    }) as any);
+      };
+    } as any);
 
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
@@ -255,65 +310,68 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(400);
 
     expect(response.body.success).toBe(false);
-    expect(response.body.error).toContain('Unsafe DataVault operation');
+    expect(response.body.error).toBe('Failed to apply operations');
+    expect(response.body.details[0]).toContain('Invalid operation schema');
   });
 
   it('should handle multi-operation edits with tempId resolution', async () => {
     // Mock Gemini to return multi-op edit
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(() => ({
-      getGenerativeModel: vi.fn().mockReturnValue({
-        generateContent: vi.fn().mockResolvedValue({
-          response: {
-            text: () => JSON.stringify({
-              operations: [
-                {
-                  op: 'section.create',
-                  tempId: 'temp-section-emergency',
-                  title: 'Emergency Contact',
-                  order: 2,
-                },
-                {
-                  op: 'step.create',
-                  tempId: 'temp-step-emergency-name',
-                  sectionRef: 'temp-section-emergency',
-                  type: 'short_text',
-                  title: 'Emergency Contact Name',
-                  alias: 'emergency_contact_name',
-                  required: true,
-                },
-                {
-                  op: 'step.create',
-                  tempId: 'temp-step-emergency-phone',
-                  sectionRef: 'temp-section-emergency',
-                  type: 'phone',
-                  title: 'Emergency Contact Phone',
-                  alias: 'emergency_contact_phone',
-                  required: true,
-                },
-                {
-                  op: 'logicRule.create',
-                  rule: {
-                    condition: "has_emergency_contact equals true",
-                    action: 'show',
-                    target: { type: 'section', tempId: 'temp-section-emergency' },
+    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
+      return {
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: {
+              text: () => JSON.stringify({
+                ops: [
+                  {
+                    op: 'section.create',
+                    tempId: 'temp-section-emergency',
+                    title: 'Emergency Contact',
+                    order: 2,
                   },
-                },
-              ],
-              summary: [
-                'Created Emergency Contact section',
-                'Added Emergency Contact Name field',
-                'Added Emergency Contact Phone field',
-                'Applied visibility rule to section',
-              ],
-              warnings: [],
-              questions: [],
-              confidence: 0.92,
-            }),
-          },
+                  {
+                    op: 'step.create',
+                    tempId: 'temp-step-emergency-name',
+                    sectionRef: 'temp-section-emergency',
+                    type: 'short_text',
+                    title: 'Emergency Contact Name',
+                    alias: 'emergency_contact_name',
+                    required: true,
+                  },
+                  {
+                    op: 'step.create',
+                    tempId: 'temp-step-emergency-phone',
+                    sectionRef: 'temp-section-emergency',
+                    type: 'phone',
+                    title: 'Emergency Contact Phone',
+                    alias: 'emergency_contact_phone',
+                    required: true,
+                  },
+                  {
+                    op: 'logicRule.create',
+                    rule: {
+                      condition: "has_emergency_contact equals true",
+                      action: 'show',
+                      target: { type: 'section', tempId: 'temp-section-emergency' },
+                    },
+                  },
+                ],
+                summary: [
+                  'Created Emergency Contact section',
+                  'Added Emergency Contact Name field',
+                  'Added Emergency Contact Phone field',
+                  'Applied visibility rule to section',
+                ],
+                warnings: [],
+                questions: [],
+                confidence: 0.92,
+              }),
+            },
+          }),
         }),
-      }),
-    }) as any);
+      };
+    } as any);
 
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
@@ -340,9 +398,15 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(createdSteps.some(s => s.alias === 'emergency_contact_name')).toBe(true);
     expect(createdSteps.some(s => s.alias === 'emergency_contact_phone')).toBe(true);
 
-    // Verify visibility rule was applied
-    expect(createdSections[0].visibleIf).toBeDefined();
-    expect((createdSections[0].visibleIf as any).op).toBe('equals');
+    // Verify structure of the visibility rule
+    const conditionGroup = createdSections[0].visibleIf as any;
+    expect(conditionGroup).toBeDefined();
+    // New format is a ConditionGroup
+    expect(conditionGroup.type).toBe('group');
+    expect(conditionGroup.conditions).toHaveLength(1);
+    expect(conditionGroup.conditions[0].variable).toBe('has_emergency_contact');
+    expect(conditionGroup.conditions[0].operator).toBe('equals');
+    expect(conditionGroup.conditions[0].value).toBe(true);
   });
 
   it('should create BEFORE and AFTER snapshots', async () => {
@@ -388,30 +452,32 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     });
 
     // Now try to create duplicate
-    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(() => ({
-      getGenerativeModel: vi.fn().mockReturnValue({
-        generateContent: vi.fn().mockResolvedValue({
-          response: {
-            text: () => JSON.stringify({
-              operations: [
-                {
-                  op: 'step.create',
-                  sectionId: section.id,
-                  type: 'short_text',
-                  title: 'Backup Email',
-                  alias: 'email', // Duplicate!
-                  required: false,
-                },
-              ],
-              summary: [],
-              warnings: [],
-              questions: [],
-              confidence: 0.85,
-            }),
-          },
+    vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
+      return {
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: {
+              text: () => JSON.stringify({
+                ops: [
+                  {
+                    op: 'step.create',
+                    sectionId: section.id,
+                    type: 'short_text',
+                    title: 'Backup Email',
+                    alias: 'email', // Duplicate!
+                    required: false,
+                  },
+                ],
+                summary: [],
+                warnings: [],
+                questions: [],
+                confidence: 0.85,
+              }),
+            },
+          }),
         }),
-      }),
-    }) as any);
+      };
+    } as any);
 
     const response = await request(app)
       .post(`/api/workflows/${testWorkflowId}/ai/edit`)
@@ -421,7 +487,8 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(400);
 
     expect(response.body.success).toBe(false);
-    expect(response.body.error).toContain("Step alias 'email' already exists");
+    expect(response.body.error).toBe('Failed to apply operations');
+    expect(response.body.details[0]).toContain("Step alias 'email' already exists");
 
     // Verify no version was created
     expect(response.body.data?.versionId).toBeUndefined();

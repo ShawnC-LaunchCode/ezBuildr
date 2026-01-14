@@ -3,10 +3,11 @@
  * Displays list of fields in a collection with edit/delete actions
  */
 
+import { Pencil, Trash2, Type, Hash, ToggleLeft, Calendar, FileIcon, List, Braces } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Pencil, Trash2, Type, Hash, ToggleLeft, Calendar, FileIcon, List, Braces } from "lucide-react";
 import type { ApiCollectionField } from "@/lib/vault-api";
 
 interface FieldsListProps {

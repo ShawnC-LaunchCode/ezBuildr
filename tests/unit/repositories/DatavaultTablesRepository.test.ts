@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DatavaultTablesRepository } from '../../../server/repositories/DatavaultTablesRepository';
+
 import type { DatavaultTable, InsertDatavaultTable } from '@shared/schema';
+
+import { DatavaultTablesRepository } from '../../../server/repositories/DatavaultTablesRepository';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultTablesRepository Tests
@@ -23,7 +25,7 @@ describe('DatavaultTablesRepository', () => {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn(function (this: any) {
+      orderBy: vi.fn(() => {
         return Promise.resolve(mockReturnValue);
       }),
       insert: vi.fn().mockReturnThis(),
@@ -32,7 +34,7 @@ describe('DatavaultTablesRepository', () => {
       update: vi.fn().mockReturnThis(),
       set: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
-      limit: vi.fn(function (this: any) {
+      limit: vi.fn(() => {
         return Promise.resolve(mockReturnValue);
       }),
       then: vi.fn((resolve) => resolve(mockReturnValue)),

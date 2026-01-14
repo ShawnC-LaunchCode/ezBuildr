@@ -10,7 +10,7 @@ import type { YesNoAggregation, ChoiceAggregation, TextAggregation } from '@shar
  */
 export function getYesNoInsight(data: YesNoAggregation): string {
   const total = data.yes + data.no;
-  if (total === 0) return 'No responses yet';
+  if (total === 0) {return 'No responses yet';}
 
   const yesPercent = Math.round((data.yes / total) * 100);
   const noPercent = Math.round((data.no / total) * 100);
@@ -28,7 +28,7 @@ export function getYesNoInsight(data: YesNoAggregation): string {
  * Generate insight text for Multiple Choice and Radio questions
  */
 export function getChoiceInsight(data: ChoiceAggregation[]): string {
-  if (!data || data.length === 0) return 'No responses yet';
+  if (!data || data.length === 0) {return 'No responses yet';}
 
   // Find the most popular option
   const topChoice = data.reduce((max, current) =>
@@ -101,7 +101,7 @@ export function getInsightText(
  * Calculate percentage with proper rounding
  */
 export function calculatePercentage(value: number, total: number): number {
-  if (total === 0) return 0;
+  if (total === 0) {return 0;}
   return Math.round((value / total) * 100);
 }
 
@@ -121,9 +121,9 @@ export function formatLargeNumber(num: number): string {
  * Get sentiment emoji based on Yes/No ratio
  */
 export function getSentimentEmoji(yesPercent: number): string {
-  if (yesPercent >= 80) return '🎉';
-  if (yesPercent >= 60) return '👍';
-  if (yesPercent >= 40) return '😐';
-  if (yesPercent >= 20) return '👎';
+  if (yesPercent >= 80) {return '🎉';}
+  if (yesPercent >= 60) {return '👍';}
+  if (yesPercent >= 40) {return '😐';}
+  if (yesPercent >= 20) {return '👎';}
   return '😔';
 }

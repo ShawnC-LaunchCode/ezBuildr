@@ -4,12 +4,12 @@
  * RBAC: Owner/Builder can manage secrets; Runner/Viewer have no access
  */
 
-import type { Express, Request, Response } from 'express';
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { requireProjectRole } from '../middleware/aclAuth';
-import { aclService } from '../services/AclService';
 import { z } from 'zod';
+
 import { logger } from '../logger';
+import { requireProjectRole } from '../middleware/aclAuth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { aclService } from '../services/AclService';
 import {
   listSecrets,
   getSecretMetadata,
@@ -20,6 +20,8 @@ import {
   type CreateSecretInput,
   type UpdateSecretInput,
 } from '../services/secrets';
+
+import type { Express, Request, Response } from 'express';
 
 /**
  * Validation schemas

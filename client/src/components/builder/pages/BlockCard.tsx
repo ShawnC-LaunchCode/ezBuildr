@@ -4,21 +4,12 @@
  * Used in the inline page view
  */
 
-import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, FileText, Code2, Database, CheckCircle, GitBranch, Trash2, ChevronDown, ChevronRight, ArrowRight, ArrowLeft } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { useDeleteStep, useDeleteBlock, useDeleteTransformBlock, useUpdateStep, useUpdateTransformBlock } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState } from "react";
+
 import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
-import { getBlockByType } from "@/lib/blockRegistry";
-import type { PageItem } from "@/lib/dnd";
 import {
   TextCardEditor,
   BooleanCardEditor,
@@ -34,6 +25,16 @@ import {
   FinalBlockEditor,
   SignatureBlockEditor,
 } from "@/components/builder/cards";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { getBlockByType } from "@/lib/blockRegistry";
+import type { PageItem } from "@/lib/dnd";
+import { cn } from "@/lib/utils";
+import { useDeleteStep, useDeleteBlock, useDeleteTransformBlock, useUpdateStep, useUpdateTransformBlock } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface BlockCardProps {
   item: PageItem;
@@ -74,7 +75,7 @@ function getBlockSummary(block: any): string | null {
       const config = block.config || {};
       const mode = config.mode === 'create' ? 'Insert' : config.mode === 'update' ? 'Update' : 'Upsert';
       const mappingCount = config.columnMappings?.length || 0;
-      if (!mappingCount) return null;
+      if (!mappingCount) {return null;}
       return `${mode} ${mappingCount} field${mappingCount === 1 ? '' : 's'}`;
     }
 
@@ -95,7 +96,7 @@ function getBlockSummary(block: any): string | null {
     if (block.type === 'external_send') {
       const config = block.config || {};
       const mappingCount = config.payloadMappings?.length || 0;
-      if (!mappingCount) return null;
+      if (!mappingCount) {return null;}
       return `${mappingCount} field${mappingCount === 1 ? '' : 's'}`;
     }
 
@@ -166,7 +167,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
 
   // Helper to check if read/write blocks are configured
   const isReadWriteConfigured = () => {
-    if (item.kind !== 'block') return true;
+    if (item.kind !== 'block') {return true;}
     const { type, config } = item.data;
     if (type === 'read_table') {
       return !!(config?.tableId && config?.outputKey);

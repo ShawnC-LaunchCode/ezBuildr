@@ -1,8 +1,11 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { users, workflows, type User, type UpsertUser } from "@shared/schema";
-import { db } from "../db";
 import { eq, sql, count, getTableColumns } from "drizzle-orm";
+
+import { users, workflows, type User, type UpsertUser } from "@shared/schema";
+
+import { db } from "../db";
 import { logger } from "../logger";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for user-related database operations
@@ -46,12 +49,12 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
           };
 
           // Only include fields that are explicitly provided
-          if (userData.firstName !== undefined) updateData.firstName = userData.firstName;
-          if (userData.lastName !== undefined) updateData.lastName = userData.lastName;
-          if (userData.profileImageUrl !== undefined) updateData.profileImageUrl = userData.profileImageUrl;
+          if (userData.firstName !== undefined) {updateData.firstName = userData.firstName;}
+          if (userData.lastName !== undefined) {updateData.lastName = userData.lastName;}
+          if (userData.profileImageUrl !== undefined) {updateData.profileImageUrl = userData.profileImageUrl;}
           // Update auth provider and verification status if provided (e.g. linking Google account)
-          if (userData.authProvider) updateData.authProvider = userData.authProvider;
-          if (userData.emailVerified !== undefined) updateData.emailVerified = userData.emailVerified;
+          if (userData.authProvider) {updateData.authProvider = userData.authProvider;}
+          if (userData.emailVerified !== undefined) {updateData.emailVerified = userData.emailVerified;}
 
           // Note: We intentionally don't update email or role here to preserve existing values
 
@@ -105,9 +108,9 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             updatedAt: new Date(),
           };
 
-          if (userData.firstName !== undefined) updateData.firstName = userData.firstName;
-          if (userData.lastName !== undefined) updateData.lastName = userData.lastName;
-          if (userData.profileImageUrl !== undefined) updateData.profileImageUrl = userData.profileImageUrl;
+          if (userData.firstName !== undefined) {updateData.firstName = userData.firstName;}
+          if (userData.lastName !== undefined) {updateData.lastName = userData.lastName;}
+          if (userData.profileImageUrl !== undefined) {updateData.profileImageUrl = userData.profileImageUrl;}
 
           const [updatedUser] = await database
             .update(users)
@@ -128,7 +131,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    */
   async findAllUsers(tx?: DbTransaction): Promise<User[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(users)
       .orderBy(users.createdAt);

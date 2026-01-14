@@ -1,9 +1,11 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
+
 import { WriteRunner } from "../../../server/lib/writes/WriteRunner";
 import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository } from "../../../server/repositories";
-import { datavaultTablesService } from "../../../server/services/DatavaultTablesService";
 import { datavaultRowsService } from "../../../server/services/DatavaultRowsService";
-import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { datavaultTablesService } from "../../../server/services/DatavaultTablesService";
 
 // Mock DB
 vi.mock("../../../server/db", () => ({
@@ -61,7 +63,8 @@ describe("WriteRunner", () => {
             userParams: {
                 id: "u-1"
             }
-        }
+        },
+        userId: "u-1"
     };
 
     beforeEach(() => {
@@ -91,7 +94,7 @@ describe("WriteRunner", () => {
             // Specific overrides if needed
         });
 
-        it("should resolve values and call createRowWithValues", async () => {
+        it("should resolve values and call datavaultRowsService.createRow", async () => {
             const config: any = {
                 id: "block-1",
                 workflowId: "wf-1",
@@ -140,12 +143,16 @@ describe("WriteRunner", () => {
                 { columnId: "col-last", value: "Doe" },
                 { columnId: "col-age", value: 30 }
             ];
-            expect(datavaultRowsRepository.createRowWithValues).toHaveBeenCalledWith(
-                expect.objectContaining({ tableId: "table-users", tenantId: mockTenantId }),
-                expect.arrayContaining([
-                    expect.objectContaining({ columnId: "col-first", value: "John" }),
-                    expect.objectContaining({ columnId: "col-age", value: 30 })
-                ])
+            expect(datavaultRowsService.createRow).toHaveBeenCalledWith(
+                "table-users",
+                mockTenantId,
+                expect.objectContaining({
+                    "col-first": "John",
+                    "col-last": "Doe",
+                    "col-age": 30
+                }),
+                mockContext.data.userParams.id, // userId
+                expect.anything() // tx
             );
         });
 
@@ -161,7 +168,7 @@ describe("WriteRunner", () => {
 
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("preview-simulated-id");
-            expect(datavaultRowsRepository.createRowWithValues).not.toHaveBeenCalled();
+            expect(datavaultRowsService.createRow).not.toHaveBeenCalled();
         });
     });
 
@@ -189,9 +196,18 @@ describe("WriteRunner", () => {
             expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
                 "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
             );
-            expect(datavaultRowsRepository.updateRowValues).toHaveBeenCalledWith(
+            // It calls findRowByColumnValue (repository) directly for finding ID
+            expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
+                "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
+            );
+
+            // Then calls service execution
+            expect(datavaultRowsService.updateRow).toHaveBeenCalledWith(
                 "row-existing-1",
-                [{ columnId: "col-status", value: "Active" }]
+                mockTenantId,
+                expect.objectContaining({ "col-status": "Active" }),
+                mockContext.data.userParams.id,
+                expect.anything()
             );
         });
 

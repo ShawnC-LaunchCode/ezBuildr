@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DatavaultRowsRepository } from '../../../server/repositories/DatavaultRowsRepository';
+
 import type { DatavaultRow, DatavaultValue, InsertDatavaultRow } from '@shared/schema';
+
+import { DatavaultRowsRepository } from '../../../server/repositories/DatavaultRowsRepository';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultRowsRepository Tests
@@ -50,8 +52,8 @@ describe('DatavaultRowsRepository', () => {
     mockDb.transaction.mockImplementation(async (fn: any) => await fn(mockDb));
 
     // Helper to set return value for chained calls
-    (mockDb as any)._setMockReturnValue = (value: any) => {
-      (mockDb as any)._mockReturnValue = value;
+    (mockDb)._setMockReturnValue = (value: any) => {
+      (mockDb)._mockReturnValue = value;
       mockReturnValue = value;
       // Also update execute return value
       mockDb.execute.mockResolvedValue(value);

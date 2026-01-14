@@ -8,7 +8,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { RepeaterService } from '../../../server/services/RepeaterService';
+
 import type { RepeaterConfig, RepeaterValue } from '../../../shared/types/repeater';
 
 describe('RepeaterService', () => {

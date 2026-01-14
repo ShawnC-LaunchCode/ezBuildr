@@ -4,14 +4,15 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { documentRunsAPI } from '@/lib/vault-api';
+
+import { JsonViewer } from '@/components/shared/JsonViewer';
+import { LoadingState } from '@/components/shared/LoadingState';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
-import { LoadingState } from '@/components/shared/LoadingState';
-import { JsonViewer } from '@/components/shared/JsonViewer';
+import { documentRunsAPI } from '@/lib/vault-api';
 
 export default function RunsCompare() {
   const [_location, setLocation] = useLocation();

@@ -1,8 +1,11 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { motion } from 'framer-motion';
-import type { ChoiceAggregation } from '@shared/schema';
-import { chartColors, getMultipleChoiceColor } from '@/styles/chartTheme';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+
 import { getChoiceInsight } from '@/lib/analyticsUtils';
+import { chartColors, getMultipleChoiceColor } from '@/styles/chartTheme';
+
+import type { ChoiceAggregation } from '@shared/schema';
+
 
 interface MultipleChoiceChartProps {
   data: ChoiceAggregation[];
@@ -22,7 +25,7 @@ export function MultipleChoiceChart({ data }: MultipleChoiceChartProps) {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
 
     // Only show label if slice is large enough (> 5%)
-    if (percent < 0.05) return null;
+    if (percent < 0.05) {return null;}
 
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -75,7 +78,7 @@ export function MultipleChoiceChart({ data }: MultipleChoiceChartProps) {
             </Pie>
             <Tooltip
               content={({ active, payload }) => {
-                if (active && payload && payload.length) {
+                if (active && payload?.length) {
                   const data = payload[0].payload;
                   return (
                     <motion.div

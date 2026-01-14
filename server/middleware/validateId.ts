@@ -1,6 +1,8 @@
-import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+
 import { createLogger } from '../logger';
+
+import type { Request, Response, NextFunction } from 'express';
 
 const logger = createLogger({ module: 'validate-id-middleware' });
 
@@ -30,11 +32,11 @@ const idSchema = z.string().min(1, 'ID cannot be empty').refine(
   (id) => {
     // Check if it's a valid UUID
     const uuidResult = uuidSchema.safeParse(id);
-    if (uuidResult.success) return true;
+    if (uuidResult.success) {return true;}
 
     // Check if it's a valid nanoid
     const nanoidResult = nanoidSchema.safeParse(id);
-    if (nanoidResult.success) return true;
+    if (nanoidResult.success) {return true;}
 
     return false;
   },

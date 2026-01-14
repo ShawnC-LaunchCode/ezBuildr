@@ -14,12 +14,15 @@
  */
 
 import { Job } from 'bull';
-import { getDocumentGenerationQueue, DocumentGenerationJobData, DocumentGenerationJobResult } from './DocumentGenerationQueue';
-import { EnhancedDocumentEngine } from '../services/document/EnhancedDocumentEngine';
-import { logger } from '../logger';
-import { db } from '../db';
-import { runGeneratedDocuments, workflowRuns } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { runGeneratedDocuments, workflowRuns } from '../../shared/schema';
+import { db } from '../db';
+import { logger } from '../logger';
+import { EnhancedDocumentEngine } from '../services/document/EnhancedDocumentEngine';
+
+import { getDocumentGenerationQueue, DocumentGenerationJobData, DocumentGenerationJobResult } from './DocumentGenerationQueue';
+
 
 // ============================================================================
 // WORKER CONFIGURATION

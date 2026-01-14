@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { brand } from "../lib/brand";
 import { Scale, Briefcase, Settings } from "lucide-react";
+
+import { brand } from "../lib/brand";
 
 const audiences = [
     {

@@ -1,0 +1,832 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w11_7d03aa8c
+
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w11_7d03aa8c
+
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w10_cc5d6a3b
+
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w10_cc5d6a3b
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768250897211,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768250897247,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768250897294,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250897323,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w9_5969b07f
+
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w9_5969b07f
+
+{"level":30,"time":1768250898113,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250898156,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w8_6e416fa7
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w8_6e416fa7
+
+{"level":30,"time":1768250898391,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250898436,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250898856,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898858,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898869,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898871,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898877,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898906,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898909,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768250898912,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w4_cf9e2f2b
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w7_6e746566
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w6_62ea239c
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w5_10bffed6
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w4_cf9e2f2b
+
+{"level":30,"time":1768250899400,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w6_62ea239c
+
+{"level":30,"time":1768250899407,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w7_6e746566
+
+{"level":30,"time":1768250899408,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w5_10bffed6
+
+{"level":30,"time":1768250899427,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250899438,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768250899445,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250899450,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250899464,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w3_7562ab69
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w0_bfad697c
+
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w1_bf621d23
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w2_9e11d7ba
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w3_7562ab69
+
+{"level":30,"time":1768250903997,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0_bfad697c
+
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w1_bf621d23
+
+{"level":30,"time":1768250904009,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250904010,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w2_9e11d7ba
+
+{"level":30,"time":1768250904018,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768250904025,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250904039,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250904044,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768250904051,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/integration/auth/oauth2.client-credentials.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+{"level":50,"time":1768250935359,"env":"test","status":401,"statusText":"Unauthorized","error":"Invalid client credentials","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token request failed"}
+{"level":50,"time":1768250935360,"env":"test","error":"OAuth2 token request failed: 401 Unauthorized","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935361,"env":"test","data":{"token_type":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","expires_in":3600},"msg":"Invalid OAuth2 token response"}
+{"level":50,"time":1768250935361,"env":"test","error":"Invalid OAuth2 token response: missing access_token or token_type","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935362,"env":"test","data":{"access_token":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","expires_in":3600},"msg":"Invalid OAuth2 token response"}
+{"level":50,"time":1768250935362,"env":"test","error":"Invalid OAuth2 token response: missing access_token or token_type","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935363,"env":"test","error":"Network error: ECONNREFUSED","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935467,"env":"test","error":"Invalid credentials","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":50,"time":1768250935467,"env":"test","error":"ECONNREFUSED","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935468,"env":"test","status":400,"statusText":"Bad Request","error":"Invalid grant_type","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token request failed"}
+{"level":50,"time":1768250935468,"env":"test","error":"OAuth2 token request failed: 400 Bad Request","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935469,"env":"test","status":401,"statusText":"Unauthorized","error":"Client authentication failed","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token request failed"}
+{"level":50,"time":1768250935469,"env":"test","error":"OAuth2 token request failed: 401 Unauthorized","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935469,"env":"test","status":403,"statusText":"Forbidden","error":"Access denied","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token request failed"}
+{"level":50,"time":1768250935469,"env":"test","error":"OAuth2 token request failed: 403 Forbidden","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935469,"env":"test","status":500,"statusText":"Internal Server Error","error":"Server error","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token request failed"}
+{"level":50,"time":1768250935469,"env":"test","error":"OAuth2 token request failed: 500 Internal Server Error","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935470,"env":"test","error":"Unexpected token in JSON","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":50,"time":1768250935470,"env":"test","error":"Request timeout","tokenUrl":"ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó","msg":"OAuth2 token fetch error"}
+{"level":30,"time":1768250935471,"env":"test","msg":"DB: closing pool..."}
+{"level":30,"time":1768250935471,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/oauth2.client-credentials.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w10_cc5d6a3b
+
+ [32mΓ£ô[39m tests/integration/auth/oauth2.client-credentials.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 39870[2mms[22m[39m
+stderr | tests/integration/auth.routes.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+{"level":30,"time":1768250971584,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768250971584,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth.routes.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w11_7d03aa8c
+
+ [32mΓ£ô[39m tests/integration/auth.routes.test.ts [2m([22m[2m41 tests[22m[2m)[22m[33m 76146[2mms[22m[39m
+stderr | tests/integration/auth/oauth2.callback.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+{"level":30,"time":1768251008372,"env":"test","connectionId":"3fc6f714-079c-41ea-9053-dc8a3c2acbfd","projectId":"b6def835-a7d4-4f29-b91d-8c2ef7eb67b8","name":"Test OAuth2 Connection","type":"oauth2_3leg","msg":"Connection created:"}
+{"level":30,"time":1768251009473,"env":"test","connectionId":"7ebb7677-6978-4cfe-9b58-38d858246186","projectId":"b6def835-a7d4-4f29-b91d-8c2ef7eb67b8","name":"Status Test Connection","type":"oauth2_3leg","msg":"Connection created:"}
+{"level":30,"time":1768251010179,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251010179,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/oauth2.callback.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w9_5969b07f
+
+ [32mΓ£ô[39m tests/integration/auth/oauth2.callback.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 113008[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should initiate OAuth2 3-legged flow and generate authorization URL [33m 326[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should track OAuth2 connection status [33m 349[2mms[22m[39m
+{"level":30,"time":1768251017895,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251018907,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251018916,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251018924,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251018945,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251023535,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251023536,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768251023536,"env":"test","msg":"DB: closing pool..."}
+{"level":30,"time":1768251023536,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/auth.middleware.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+stderr | tests/integration/auth/oauth2.google.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+stderr | tests/integration/auth/oauth2.google.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: Cannot use a pool after calling end on the pool
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768251044011,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w8_6e416fa7
+
+ [31mΓ¥»[39m tests/integration/auth/oauth2.google.test.ts [2m([22m[2m14 tests[22m[2m | [22m[33m14 skipped[39m[2m)[22m[33m 146503[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should successfully authenticate with valid Google ID token
+       [2m[90mΓåô[39m[22m should return 400 when ID token is missing
+       [2m[90mΓåô[39m[22m should return 403 when Origin header is invalid
+       [2m[90mΓåô[39m[22m should return 401 when Google token verification fails
+       [2m[90mΓåô[39m[22m should return 401 when email is not verified by Google
+       [2m[90mΓåô[39m[22m should update existing user on subsequent logins
+       [2m[90mΓåô[39m[22m should create refresh token record in database
+       [2m[90mΓåô[39m[22m should support both "token" and "idToken" fields
+       [2m[90mΓåô[39m[22m should respect rate limiting
+       [2m[90mΓåô[39m[22m should handle missing profile information gracefully
+       [2m[90mΓåô[39m[22m should verify valid Google ID token
+       [2m[90mΓåô[39m[22m should throw error when token verification fails
+       [2m[90mΓåô[39m[22m should throw error when email is not verified
+       [2m[90mΓåô[39m[22m should throw error when payload is null
+stderr | tests/integration/auth.routes.real.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+stderr | tests/integration/auth.routes.real.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: Cannot use a pool after calling end on the pool
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768251079005,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w5_10bffed6
+
+ [31mΓ¥»[39m tests/integration/auth.routes.real.test.ts [2m([22m[2m26 tests[22m[2m | [22m[33m26 skipped[39m[2m)[22m[33m 180473[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should register a new user successfully
+       [2m[90mΓåô[39m[22m should return 400 for invalid email format
+       [2m[90mΓåô[39m[22m should return 400 for weak password
+       [2m[90mΓåô[39m[22m should return 409 for duplicate email
+       [2m[90mΓåô[39m[22m should set httpOnly refresh token cookie
+       [2m[90mΓåô[39m[22m should login with valid credentials
+       [2m[90mΓåô[39m[22m should return 401 for invalid password
+       [2m[90mΓåô[39m[22m should return 401 for non-existent user
+       [2m[90mΓåô[39m[22m should return 403 for unverified email
+       [2m[90mΓåô[39m[22m should record failed login attempt
+       [2m[90mΓåô[39m[22m should return requiresMfa=true for MFA-enabled users
+       [2m[90mΓåô[39m[22m should lock account after 5 failed attempts
+       [2m[90mΓåô[39m[22m should logout and clear refresh token cookie
+       [2m[90mΓåô[39m[22m should refresh access token with valid refresh token
+       [2m[90mΓåô[39m[22m should return 401 for missing refresh token
+       [2m[90mΓåô[39m[22m should rotate refresh token after use
+       [2m[90mΓåô[39m[22m should send password reset email for existing user
+       [2m[90mΓåô[39m[22m should not reveal if email exists (security)
+       [2m[90mΓåô[39m[22m should reset password with valid token
+       [2m[90mΓåô[39m[22m should return 400 for invalid token
+       [2m[90mΓåô[39m[22m should return 400 for weak new password
+       [2m[90mΓåô[39m[22m should return current user for valid token
+       [2m[90mΓåô[39m[22m should return 401 for missing token
+       [2m[90mΓåô[39m[22m should return 401 for invalid token
+         [2m[90mΓåô[39m[22m should complete MFA login with valid TOTP code
+         [2m[90mΓåô[39m[22m should reject invalid MFA code
+stderr | tests/integration/auth/oauth2.sessions.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: insert or update on table "users" violates foreign key constraint "users_tenant_id_tenants_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 303,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (tenant_id)=(53f2ba90-49b5-487f-aeb5-1a0c0ff00aee) is not present in table "tenants".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'users',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'users_tenant_id_tenants_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+stderr | tests/integration/auth/oauth2.sessions.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: Cannot use a pool after calling end on the pool
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768251115000,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w4_cf9e2f2b
+
+ [31mΓ¥»[39m tests/integration/auth/oauth2.sessions.test.ts [2m([22m[2m25 tests[22m[2m | [22m[33m25 skipped[39m[2m)[22m[33m 216514[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should list all active sessions for current user
+       [2m[90mΓåô[39m[22m should mark current session as current
+       [2m[90mΓåô[39m[22m should return empty array when user has no active sessions
+       [2m[90mΓåô[39m[22m should not include expired sessions
+       [2m[90mΓåô[39m[22m should not include revoked sessions
+       [2m[90mΓåô[39m[22m should parse device name from user agent
+       [2m[90mΓåô[39m[22m should return 401 for unauthenticated request
+       [2m[90mΓåô[39m[22m should revoke a specific session
+       [2m[90mΓåô[39m[22m should return 404 for non-existent session
+       [2m[90mΓåô[39m[22m should prevent revoking current session
+       [2m[90mΓåô[39m[22m should prevent revoking another user's session
+       [2m[90mΓåô[39m[22m should return 401 for unauthenticated request
+       [2m[90mΓåô[39m[22m should revoke all sessions except current
+       [2m[90mΓåô[39m[22m should revoke all trusted devices
+       [2m[90mΓåô[39m[22m should return 400 when no active session found
+       [2m[90mΓåô[39m[22m should return 401 for unauthenticated request
+         [2m[90mΓåô[39m[22m should mark current device as trusted
+         [2m[90mΓåô[39m[22m should update existing trusted device expiry
+         [2m[90mΓåô[39m[22m should list all trusted devices
+         [2m[90mΓåô[39m[22m should not include revoked devices
+         [2m[90mΓåô[39m[22m should revoke a trusted device
+         [2m[90mΓåô[39m[22m should return 404 for non-existent device
+       [2m[90mΓåô[39m[22m should track IP address for sessions
+       [2m[90mΓåô[39m[22m should track user agent for sessions
+       [2m[90mΓåô[39m[22m should update lastUsedAt on token refresh
+ [31mΓ¥»[39m tests/integration/auth/oauth2.token-refresh.test.ts [2m([22m[2m25 tests[22m[2m | [22m[33m25 skipped[39m[2m)[22m[33m 240006[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should refresh access token with valid refresh token
+       [2m[90mΓåô[39m[22m should rotate refresh token after use
+       [2m[90mΓåô[39m[22m should return 401 when refresh token is missing
+       [2m[90mΓåô[39m[22m should return 401 for invalid refresh token
+       [2m[90mΓåô[39m[22m should return 401 for expired refresh token
+       [2m[90mΓåô[39m[22m should return 401 for revoked refresh token
+       [2m[90mΓåô[39m[22m should return 401 when user is not found
+       [2m[90mΓåô[39m[22m should update refresh token metadata on rotation
+       [2m[90mΓåô[39m[22m should handle concurrent refresh token requests (token reuse detection)
+       [2m[90mΓåô[39m[22m should set secure cookie in production
+       [2m[90mΓåô[39m[22m should set proper cookie attributes
+       [2m[90mΓåô[39m[22m should include user role information in response
+       [2m[90mΓåô[39m[22m should create refresh token on login
+       [2m[90mΓåô[39m[22m should revoke refresh token on logout
+       [2m[90mΓåô[39m[22m should handle logout without refresh token gracefully
+       [2m[90mΓåô[39m[22m should support multiple active refresh tokens per user
+       [2m[90mΓåô[39m[22m should revoke all user tokens on password reset
+       [2m[90mΓåô[39m[22m should use cryptographically strong random tokens
+       [2m[90mΓåô[39m[22m should hash refresh tokens before storing in database
+       [2m[90mΓåô[39m[22m should prevent refresh token reuse after rotation
+       [2m[90mΓåô[39m[22m should validate token ownership
+       [2m[90mΓåô[39m[22m should set HttpOnly flag to prevent XSS
+       [2m[90mΓåô[39m[22m should set SameSite=Strict to prevent CSRF
+       [2m[90mΓåô[39m[22m should set proper cookie path
+       [2m[90mΓåô[39m[22m should set appropriate expiry (30 days)
+ [31mΓ¥»[39m tests/integration/auth.flows.real.test.ts [2m([22m[2m11 tests[22m[2m | [22m[33m11 skipped[39m[2m)[22m[33m 240005[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should complete registration, verify email, then login
+       [2m[90mΓåô[39m[22m should lock account after 5 failed attempts, then unlock after waiting
+       [2m[90mΓåô[39m[22m should record all login attempts
+       [2m[90mΓåô[39m[22m should complete MFA setup and login with TOTP
+       [2m[90mΓåô[39m[22m should login with backup code when TOTP unavailable
+       [2m[90mΓåô[39m[22m should complete full password reset flow
+       [2m[90mΓåô[39m[22m should invalidate all sessions after password reset
+       [2m[90mΓåô[39m[22m should rotate refresh token on each use
+       [2m[90mΓåô[39m[22m should detect and prevent refresh token reuse (token theft)
+       [2m[90mΓåô[39m[22m should list all active sessions
+       [2m[90mΓåô[39m[22m should revoke specific session
+ [31mΓ¥»[39m tests/integration/auth/session.management.integration.test.ts [2m([22m[2m18 tests[22m[2m | [22m[33m18 skipped[39m[2m)[22m[33m 240005[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should create refresh token on login
+       [2m[90mΓåô[39m[22m should track device metadata in session
+       [2m[90mΓåô[39m[22m should create separate sessions for multiple device logins
+       [2m[90mΓåô[39m[22m should list all active sessions for user
+       [2m[90mΓåô[39m[22m should mark current session correctly
+       [2m[90mΓåô[39m[22m should not include revoked sessions
+       [2m[90mΓåô[39m[22m should order sessions by last used (most recent first)
+       [2m[90mΓåô[39m[22m should require authentication
+       [2m[90mΓåô[39m[22m should revoke specific session
+       [2m[90mΓåô[39m[22m should prevent revoking current session
+       [2m[90mΓåô[39m[22m should not allow revoking other users sessions
+       [2m[90mΓåô[39m[22m should return 404 for non-existent session ID
+       [2m[90mΓåô[39m[22m should revoke all sessions except current
+       [2m[90mΓåô[39m[22m should revoke all trusted devices
+       [2m[90mΓåô[39m[22m should require active session
+       [2m[90mΓåô[39m[22m should reject refresh token after 30 days
+       [2m[90mΓåô[39m[22m should handle multiple concurrent logins
+       [2m[90mΓåô[39m[22m should handle concurrent token refreshes
+ [31mΓ¥»[39m tests/integration/auth/protected.routes.test.ts [2m([22m[2m33 tests[22m[2m | [22m[33m33 skipped[39m[2m)[22m[33m 240005[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should allow access with valid Bearer token
+       [2m[90mΓåô[39m[22m should reject access without Authorization header
+       [2m[90mΓåô[39m[22m should reject access with empty Bearer token
+       [2m[90mΓåô[39m[22m should reject access with malformed Authorization header
+       [2m[90mΓåô[39m[22m should reject access with wrong token type
+       [2m[90mΓåô[39m[22m should allow POST with valid Bearer token
+       [2m[90mΓåô[39m[22m should reject POST without Bearer token
+       [2m[90mΓåô[39m[22m should reject POST with invalid token
+       [2m[90mΓåô[39m[22m should allow PUT with valid Bearer token
+       [2m[90mΓåô[39m[22m should reject PUT without Bearer token
+       [2m[90mΓåô[39m[22m should allow DELETE with valid Bearer token
+       [2m[90mΓåô[39m[22m should reject DELETE without Bearer token
+       [2m[90mΓåô[39m[22m should allow PATCH with valid Bearer token
+       [2m[90mΓåô[39m[22m should reject PATCH without Bearer token
+       [2m[90mΓåô[39m[22m should handle Bearer token with extra spaces
+       [2m[90mΓåô[39m[22m should handle token with newlines
+       [2m[90mΓåô[39m[22m should handle very long invalid token
+       [2m[90mΓåô[39m[22m should handle empty Authorization header
+       [2m[90mΓåô[39m[22m should handle Authorization header with only Bearer
+       [2m[90mΓåô[39m[22m should handle multiple Authorization headers
+       [2m[90mΓåô[39m[22m should reject token with SQL injection attempt
+       [2m[90mΓåô[39m[22m should reject token with XSS attempt
+       [2m[90mΓåô[39m[22m should reject token with missing userId
+       [2m[90mΓåô[39m[22m should reject token with non-existent userId
+       [2m[90mΓåô[39m[22m should not allow user to access another user's resources
+       [2m[90mΓåô[39m[22m should inject userId into request context
+       [2m[90mΓåô[39m[22m should inject tenantId into request context
+       [2m[90mΓåô[39m[22m should inject role into request context
+       [2m[90mΓåô[39m[22m should not apply general rate limiting to authenticated requests
+       [2m[90mΓåô[39m[22m should handle request with both Bearer token and cookies
+       [2m[90mΓåô[39m[22m should prioritize Bearer token over cookie when both present
+       [2m[90mΓåô[39m[22m should allow unauthenticated access to optional auth routes
+       [2m[90mΓåô[39m[22m should enhance optional auth routes with user context when authenticated
+ [31mΓ¥»[39m tests/integration/auth/auth.middleware.integration.test.ts [2m([22m[2m27 tests[22m[2m | [22m[33m27 skipped[39m[2m)[22m[33m 240006[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should allow access with valid JWT Bearer token
+       [2m[90mΓåô[39m[22m should return 401 when no token provided
+       [2m[90mΓåô[39m[22m should return 401 with invalid token
+       [2m[90mΓåô[39m[22m should return 401 with expired token
+       [2m[90mΓåô[39m[22m should proceed without authentication if no token provided
+       [2m[90mΓåô[39m[22m should authenticate with JWT Bearer token
+       [2m[90mΓåô[39m[22m should authenticate with refresh token cookie (GET only)
+       [2m[90mΓåô[39m[22m should reject cookie auth for POST requests (mutation-strict)
+       [2m[90mΓåô[39m[22m should reject cookie auth for PUT requests
+       [2m[90mΓåô[39m[22m should reject cookie auth for DELETE requests
+       [2m[90mΓåô[39m[22m should allow cookie auth for HEAD requests
+       [2m[90mΓåô[39m[22m should prioritize JWT over cookie when both present
+       [2m[90mΓåô[39m[22m should return 401 when no auth provided
+       [2m[90mΓåô[39m[22m should return 401 when both JWT and cookie are invalid
+       [2m[90mΓåô[39m[22m should authenticate with JWT if provided
+       [2m[90mΓåô[39m[22m should authenticate with cookie if JWT not provided
+       [2m[90mΓåô[39m[22m should proceed anonymously if no auth provided
+       [2m[90mΓåô[39m[22m should proceed anonymously if both JWT and cookie are invalid
+       [2m[90mΓåô[39m[22m should only allow safe methods for cookie auth
+       [2m[90mΓåô[39m[22m should ignore cookies when Bearer token present
+       [2m[90mΓåô[39m[22m should attach userId to request
+       [2m[90mΓåô[39m[22m should attach userEmail to request
+       [2m[90mΓåô[39m[22m should return consistent error format for missing token
+       [2m[90mΓåô[39m[22m should return consistent error format for invalid token
+       [2m[90mΓåô[39m[22m should return consistent error format for expired token
+       [2m[90mΓåô[39m[22m should handle malformed JWT gracefully
+       [2m[90mΓåô[39m[22m should handle JWT with wrong algorithm
+ [31mΓ¥»[39m tests/integration/auth/jwt.authentication.test.ts [2m([22m[2m27 tests[22m[2m | [22m[33m27 skipped[39m[2m)[22m[33m 240006[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should generate valid JWT token on successful login
+       [2m[90mΓåô[39m[22m should include correct payload in JWT token
+       [2m[90mΓåô[39m[22m should set JWT expiry to 15 minutes
+       [2m[90mΓåô[39m[22m should accept valid JWT token on protected routes
+       [2m[90mΓåô[39m[22m should reject request without authorization header
+       [2m[90mΓåô[39m[22m should reject request with malformed token
+       [2m[90mΓåô[39m[22m should accept request with missing Bearer prefix (lenient)
+       [2m[90mΓåô[39m[22m should reject token with invalid signature
+       [2m[90mΓåô[39m[22m should reject expired JWT token
+       [2m[90mΓåô[39m[22m should return token_expired error code for expired tokens
+       [2m[90mΓåô[39m[22m should authenticate with Bearer token in Authorization header
+       [2m[90mΓåô[39m[22m should work with Bearer token on POST requests
+       [2m[90mΓåô[39m[22m should work with Bearer token on PUT requests
+       [2m[90mΓåô[39m[22m should work with Bearer token on DELETE requests
+       [2m[90mΓåô[39m[22m should exchange valid session cookie for JWT token
+       [2m[90mΓåô[39m[22m should reject token exchange without valid cookie
+       [2m[90mΓåô[39m[22m should prefer Bearer token over cookie when both present
+       [2m[90mΓåô[39m[22m should fall back to cookie if Bearer token is invalid
+       [2m[90mΓåô[39m[22m should allow GET requests with cookie auth only
+       [2m[90mΓåô[39m[22m should reject POST requests with cookie auth only (mutation-strict)
+       [2m[90mΓåô[39m[22m should allow anonymous access to public workflows
+       [2m[90mΓåô[39m[22m should attach user info if authenticated on optional auth routes
+       [2m[90mΓåô[39m[22m should refresh access token using refresh token
+       [2m[90mΓåô[39m[22m should rotate refresh token on use
+       [2m[90mΓåô[39m[22m should detect token reuse and revoke all user tokens
+       [2m[90mΓåô[39m[22m should revoke refresh token on logout
+       [2m[90mΓåô[39m[22m should clear refresh token cookie on logout
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 9 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth.flows.real.test.ts [ tests/integration/auth.flows.real.test.ts ]
+ FAIL  tests/integration/auth.routes.real.test.ts [ tests/integration/auth.routes.real.test.ts ]
+ FAIL  tests/integration/auth/auth.middleware.integration.test.ts [ tests/integration/auth/auth.middleware.integration.test.ts ]
+ FAIL  tests/integration/auth/jwt.authentication.test.ts [ tests/integration/auth/jwt.authentication.test.ts ]
+ FAIL  tests/integration/auth/oauth2.google.test.ts [ tests/integration/auth/oauth2.google.test.ts ]
+ FAIL  tests/integration/auth/oauth2.sessions.test.ts [ tests/integration/auth/oauth2.sessions.test.ts ]
+ FAIL  tests/integration/auth/oauth2.token-refresh.test.ts [ tests/integration/auth/oauth2.token-refresh.test.ts ]
+ FAIL  tests/integration/auth/protected.routes.test.ts [ tests/integration/auth/protected.routes.test.ts ]
+ FAIL  tests/integration/auth/session.management.integration.test.ts [ tests/integration/auth/session.management.integration.test.ts ]
+Error: Hook timed out in 120000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ Γ¥» tests/setup.ts:99:1
+     97| 
+     98| // Global test hooks
+     99| beforeAll(async () => {
+       | ^
+    100|   // Conditionally load jest-dom for UI tests (JSDOM environment)
+    101|   if (typeof window !== 'undefined') {
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/15]ΓÄ»
+
+ FAIL  tests/integration/auth.flows.real.test.ts [ tests/integration/auth.flows.real.test.ts ]
+ FAIL  tests/integration/auth/auth.middleware.integration.test.ts [ tests/integration/auth/auth.middleware.integration.test.ts ]
+ FAIL  tests/integration/auth/jwt.authentication.test.ts [ tests/integration/auth/jwt.authentication.test.ts ]
+ FAIL  tests/integration/auth/oauth2.token-refresh.test.ts [ tests/integration/auth/oauth2.token-refresh.test.ts ]
+ FAIL  tests/integration/auth/protected.routes.test.ts [ tests/integration/auth/protected.routes.test.ts ]
+ FAIL  tests/integration/auth/session.management.integration.test.ts [ tests/integration/auth/session.management.integration.test.ts ]
+Error: Hook timed out in 120000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ Γ¥» tests/setup.ts:165:1
+    163| });
+    164| 
+    165| afterAll(async () => {
+       | ^
+    166|   // Cleanup test database
+    167|   console.log("≡ƒº╣ Cleaning up test environment...");
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/15]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[32m86 passed[39m[22m[2m | [22m[33m206 skipped[39m[90m (292)[39m
+[2m   Start at [22m 14:48:14
+[2m   Duration [22m 248.65s[2m (transform 15.09s, setup 2.81s, import 48.21s, tests 2212.55s, environment 3ms)[22m
+

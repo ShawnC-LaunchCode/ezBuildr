@@ -1,4 +1,5 @@
 import confetti from "canvas-confetti";
+
 import { useUserPreferences } from "./useUserPreferences";
 
 export type ConfettiPreset = "success" | "ai" | "party" | "gentle";

@@ -1,3 +1,5 @@
+import type { AccessRole } from "@shared/schema";
+
 import {
   teamMemberRepository,
   projectAccessRepository,
@@ -6,7 +8,6 @@ import {
   workflowRepository,
   type DbTransaction,
 } from "../repositories";
-import type { AccessRole } from "@shared/schema";
 
 /**
  * Service for Access Control List (ACL) resolution

@@ -2,10 +2,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import * as schema from "@shared/schema";
-import type { Pool } from 'pg';
+
+import { logger } from './logger';
+
 import type { Pool as NeonPool } from '@neondatabase/serverless';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { NeonDatabase } from 'drizzle-orm/neon-serverless';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Pool } from 'pg';
+
 
 type DrizzleDB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
@@ -16,7 +20,7 @@ let dbInitPromise: Promise<void>;
 
 // Initialize database connection
 async function initializeDatabase() {
-  if (dbInitialized) return;
+  if (dbInitialized) {return;}
 
   const databaseUrl = process.env.DATABASE_URL;
   const isDatabaseConfigured = !!databaseUrl && databaseUrl !== 'undefined' && databaseUrl !== '';
@@ -28,10 +32,13 @@ async function initializeDatabase() {
   }
 
   // Detect if we're using Neon serverless or local PostgreSQL
-  const isNeonDatabase = isDatabaseConfigured && (
-    databaseUrl!.includes('neon.tech') || databaseUrl!.includes('neon.co')
-  );
+  // In TEST environment, we force 'pg' (local/TCP) driver because Neon Serverless (WebSockets)
+  // does not support 'search_path' in startup options, which is required for schema isolation.
+  const isNeonDatabase = isDatabaseConfigured &&
+    process.env.NODE_ENV !== 'test' &&
+    (databaseUrl.includes('neon.tech') || databaseUrl.includes('neon.co'));
 
+  logger.info(`DB: initializing... ${isNeonDatabase ? "Neon" : "Local"}`);
   if (isNeonDatabase) {
     // Use Neon serverless driver for cloud databases
     const { Pool: NeonPoolClass, neonConfig } = await import('@neondatabase/serverless');
@@ -44,14 +51,18 @@ async function initializeDatabase() {
     _db = drizzleNeon(pool as any, { schema });
   } else {
     // Use standard PostgreSQL driver for local databases
+    logger.debug("DB: importing pg...");
     const pg = await import('pg');
+    logger.debug("DB: creating pool...");
     pool = new pg.default.Pool({ connectionString: databaseUrl });
-
+    logger.debug("DB: importing drizzle...");
     const { drizzle: drizzlePg } = await import('drizzle-orm/node-postgres');
     _db = drizzlePg(pool as any, { schema });
+    logger.debug("DB: created.");
   }
 
   dbInitialized = true;
+  logger.info("DB: initialized flag set.");
 }
 
 // Start initialization immediately only if database is configured
@@ -59,10 +70,21 @@ async function initializeDatabase() {
 // For tests, we might initialize later manually
 const initialDatabaseUrl = process.env.DATABASE_URL;
 const isInitialConfigured = !!initialDatabaseUrl && initialDatabaseUrl !== 'undefined' && initialDatabaseUrl !== '';
+const isTest = process.env.NODE_ENV === 'test';
 
-dbInitPromise = isInitialConfigured
+if (isInitialConfigured) {
+  if (isTest) {
+    console.log("DB: Skipping auto-init because NODE_ENV=test");
+  } else {
+    console.log("DB: Auto-initializing...");
+  }
+} else {
+  console.log("DB: Not auto-initializing because DATABASE_URL is missing/empty");
+}
+
+dbInitPromise = (isInitialConfigured && !isTest)
   ? initializeDatabase()
-  : Promise.resolve(); // Don't reject immediately to avoid unhandled rejection errors in tests
+  : Promise.resolve();
 
 // Getter to ensure db is initialized before use
 function getDb() {
@@ -70,6 +92,17 @@ function getDb() {
     throw new Error("Database not initialized. Call await initializeDatabase() first.");
   }
   return _db;
+}
+
+// Close database connection (useful for tests)
+async function closeDatabase() {
+  if (pool) {
+    logger.info("DB: closing pool...");
+    await pool.end();
+    dbInitialized = false;
+    _db = null;
+    logger.info("DB: pool closed.");
+  }
 }
 
 // Create a getter for db that returns the initialized database
@@ -90,4 +123,4 @@ const db = new Proxy({} as DrizzleDB, {
   }
 });
 
-export { pool, db, getDb, initializeDatabase, dbInitPromise };
+export { pool, db, getDb, initializeDatabase, closeDatabase, dbInitPromise };

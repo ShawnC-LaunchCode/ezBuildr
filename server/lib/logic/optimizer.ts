@@ -17,18 +17,16 @@ export class LogicOptimizer {
      * Optimize a condition expression
      */
     static optimize(expression: ConditionExpression): ConditionExpression {
-        if (!expression) return null;
+        if (!expression) {return null;}
 
         // 1. Flatten nested groups (AND inside AND)
-        let optimized = this.flattenGroups(expression);
-
         // 2. Remove redundant conditions
         // optimized = this.removeRedundancies(optimized);
 
         // 3. Simplify constants
         // optimized = this.simplifyConstants(optimized);
 
-        return optimized;
+        return this.flattenGroups(expression);
     }
 
     /**

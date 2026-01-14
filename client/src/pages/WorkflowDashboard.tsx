@@ -3,9 +3,45 @@
  * Lists projects and workflows, allows creation, shows hierarchy
  */
 
-import { useState } from "react";
-import { Link } from "wouter";
 import { Plus, Workflow as WorkflowIcon, Folder } from "lucide-react";
+import React, { useState } from "react";
+import { Link } from "wouter";
+
+import { useToast } from "@/hooks/use-toast";
+import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import type { ApiProject, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProjects,
   useUnfiledWorkflows,
@@ -18,41 +54,6 @@ import {
   useDeleteWorkflow,
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
-import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
-import type { ApiProject, ApiWorkflow } from "@/lib/vault-api";
 
 export default function WorkflowDashboard() {
   // Dialog states
@@ -131,7 +132,7 @@ export default function WorkflowDashboard() {
   };
 
   const handleDeleteProject = async () => {
-    if (!deleteProjectId) return;
+    if (!deleteProjectId) {return;}
 
     try {
       await deleteProjectMutation.mutateAsync(deleteProjectId);
@@ -160,7 +161,7 @@ export default function WorkflowDashboard() {
   };
 
   const handleDeleteWorkflow = async () => {
-    if (!deleteWorkflowId) return;
+    if (!deleteWorkflowId) {return;}
 
     try {
       await deleteWorkflowMutation.mutateAsync(deleteWorkflowId);
@@ -190,7 +191,7 @@ export default function WorkflowDashboard() {
   };
 
   const handleMoveWorkflow = async () => {
-    if (!movingWorkflow) return;
+    if (!movingWorkflow) {return;}
 
     try {
       await moveWorkflowMutation.mutateAsync({

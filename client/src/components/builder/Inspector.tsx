@@ -2,14 +2,16 @@
  * Inspector - Right panel with tabs for Properties, Blocks, Logic
  */
 
+import { Settings, Blocks, GitBranch, Code } from "lucide-react";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 import { BlocksPanel } from "./BlocksPanel";
 // const BlocksPanel = ({ workflowId }: { workflowId: string }) => <div className="p-4 text-sm text-muted-foreground">Blocks Panel is currently unavailable.</div>;
-import { TransformBlocksPanel } from "./TransformBlocksPanel";
-import { StepPropertiesPanel } from "./StepPropertiesPanel";
 import { LogicPanel } from "./LogicPanel";
-import { Settings, Blocks, GitBranch, Code } from "lucide-react";
+import { StepPropertiesPanel } from "./StepPropertiesPanel";
+import { TransformBlocksPanel } from "./TransformBlocksPanel";
 
 export function Inspector({ workflowId }: { workflowId: string }) {
   const { inspectorTab, setInspectorTab, selection } = useWorkflowBuilder();

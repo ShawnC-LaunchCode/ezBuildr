@@ -3,10 +3,10 @@
  * Displays a single row note with author, timestamp, and optional delete button
  */
 
-import { useState } from "react";
 import { formatDistanceToNow, format } from "date-fns";
 import { Trash2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,8 +18,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { DatavaultRowNote } from "@shared/schema";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+
+import type { DatavaultRowNote } from "@shared/schema";
 
 interface NoteItemProps {
   note: DatavaultRowNote;

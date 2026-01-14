@@ -113,7 +113,7 @@ export function decrypt(encryptedB64: string): string {
  * Returns a fixed-length masked string
  */
 export function redact(value: string | null | undefined): string {
-  if (!value) return '(empty)';
+  if (!value) {return '(empty)';}
   return '••••••••';
 }
 

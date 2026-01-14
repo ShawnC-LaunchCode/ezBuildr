@@ -1,0 +1,414 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+{"level":30,"time":1767879189200,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1767879194732,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1767879194747,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1767879194740,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1767879194740,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1767879194744,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1767879194747,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1767879194747,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1767879194747,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1767879194747,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1767879195214,"env":"test","module":"user-credentials-repository","userId":"cd1c5cbf-8f23-401b-bdc7-ed51e5eb2ab8","msg":"User credentials created"}
+{"level":30,"time":1767879195323,"env":"test","module":"email-queue","jobId":"75dea858-99e3-4f4b-841f-dcff13b166a3","to":"test-e5rMyhRxYY_Pj3Eal_HUz@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879195378,"env":"test","module":"auth-routes","userId":"cd1c5cbf-8f23-401b-bdc7-ed51e5eb2ab8","email":"test-e5rMyhRxYY_Pj3Eal_HUz@example.com","msg":"User registered"}
+{"level":30,"time":1767879196038,"env":"test","module":"user-credentials-repository","userId":"6e512db8-b050-430b-9abe-50cdf40c2e16","msg":"User credentials created"}
+{"level":30,"time":1767879196146,"env":"test","module":"email-queue","jobId":"8f35a22e-0d7e-42e4-9fb6-6d88e133aa0a","to":"protected-test-GO5UGC-tDNvwq4g6NV-OC@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879196199,"env":"test","module":"auth-routes","userId":"6e512db8-b050-430b-9abe-50cdf40c2e16","email":"protected-test-GO5UGC-tDNvwq4g6NV-OC@example.com","msg":"User registered"}
+{"level":30,"time":1767879196790,"env":"test","module":"auth-routes","userId":"6e512db8-b050-430b-9abe-50cdf40c2e16","msg":"User logged in successfully"}
+{"level":30,"time":1767879196846,"env":"test","module":"audit-log-service","userId":"6e512db8-b050-430b-9abe-50cdf40c2e16","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879197339,"env":"test","module":"user-credentials-repository","userId":"64cece07-888e-44b4-9c84-b2015b4ae2c6","msg":"User credentials created"}
+{"level":30,"time":1767879197450,"env":"test","module":"email-queue","jobId":"63bdefa6-a6dd-4455-ba8a-63e245a683bc","to":"protected-test-vFz4C3K3XovQTki0ooLbt@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879197504,"env":"test","module":"auth-routes","userId":"64cece07-888e-44b4-9c84-b2015b4ae2c6","email":"protected-test-vFz4C3K3XovQTki0ooLbt@example.com","msg":"User registered"}
+{"level":30,"time":1767879198088,"env":"test","module":"auth-routes","userId":"64cece07-888e-44b4-9c84-b2015b4ae2c6","msg":"User logged in successfully"}
+{"level":30,"time":1767879198159,"env":"test","module":"audit-log-service","userId":"64cece07-888e-44b4-9c84-b2015b4ae2c6","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879198163,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879198536,"env":"test","module":"user-credentials-repository","userId":"60161caf-de34-4aaf-9e8a-83da24ffe6cf","msg":"User credentials created"}
+{"level":30,"time":1767879198647,"env":"test","module":"email-queue","jobId":"4b0bfa7d-dc37-4f9d-bd06-8f86ccdf95f6","to":"protected-test-zJeTRPW_F1P29vqKIq9a_@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879198701,"env":"test","module":"auth-routes","userId":"60161caf-de34-4aaf-9e8a-83da24ffe6cf","email":"protected-test-zJeTRPW_F1P29vqKIq9a_@example.com","msg":"User registered"}
+{"level":30,"time":1767879199281,"env":"test","module":"auth-routes","userId":"60161caf-de34-4aaf-9e8a-83da24ffe6cf","msg":"User logged in successfully"}
+{"level":30,"time":1767879199336,"env":"test","module":"audit-log-service","userId":"60161caf-de34-4aaf-9e8a-83da24ffe6cf","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879199341,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879199721,"env":"test","module":"user-credentials-repository","userId":"801f00e6-5b27-4775-b674-6873b61fe7a8","msg":"User credentials created"}
+{"level":30,"time":1767879199831,"env":"test","module":"email-queue","jobId":"76cf5a20-f53c-49d7-888a-e74134e7acba","to":"protected-test-Wt3FZQlQVmC9lNSR5Pa6a@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879199885,"env":"test","module":"auth-routes","userId":"801f00e6-5b27-4775-b674-6873b61fe7a8","email":"protected-test-Wt3FZQlQVmC9lNSR5Pa6a@example.com","msg":"User registered"}
+{"level":30,"time":1767879200488,"env":"test","module":"auth-routes","userId":"801f00e6-5b27-4775-b674-6873b61fe7a8","msg":"User logged in successfully"}
+{"level":30,"time":1767879200542,"env":"test","module":"audit-log-service","userId":"801f00e6-5b27-4775-b674-6873b61fe7a8","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879200545,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879200923,"env":"test","module":"user-credentials-repository","userId":"002bc14e-7c09-4d32-a19c-8395ab943788","msg":"User credentials created"}
+{"level":30,"time":1767879201031,"env":"test","module":"email-queue","jobId":"05d2a55c-8d46-4429-921f-c46ca5f88483","to":"protected-test-DHQlBO2JFUQ3HSlcy8jyR@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879201082,"env":"test","module":"auth-routes","userId":"002bc14e-7c09-4d32-a19c-8395ab943788","email":"protected-test-DHQlBO2JFUQ3HSlcy8jyR@example.com","msg":"User registered"}
+{"level":30,"time":1767879201676,"env":"test","module":"auth-routes","userId":"002bc14e-7c09-4d32-a19c-8395ab943788","msg":"User logged in successfully"}
+{"level":30,"time":1767879201730,"env":"test","module":"audit-log-service","userId":"002bc14e-7c09-4d32-a19c-8395ab943788","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879201733,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879202111,"env":"test","module":"user-credentials-repository","userId":"687c0562-72f8-4e9e-af8f-678e374dce76","msg":"User credentials created"}
+{"level":30,"time":1767879202217,"env":"test","module":"email-queue","jobId":"f408d13f-7dc2-41e0-9557-2f00dc3d92f5","to":"protected-test-9RS3D_wEK7pyv5qG2GQDm@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879202272,"env":"test","module":"auth-routes","userId":"687c0562-72f8-4e9e-af8f-678e374dce76","email":"protected-test-9RS3D_wEK7pyv5qG2GQDm@example.com","msg":"User registered"}
+{"level":30,"time":1767879202857,"env":"test","module":"auth-routes","userId":"687c0562-72f8-4e9e-af8f-678e374dce76","msg":"User logged in successfully"}
+{"level":30,"time":1767879202912,"env":"test","module":"audit-log-service","userId":"687c0562-72f8-4e9e-af8f-678e374dce76","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1767879202964,"env":"test","module":"tenant-middleware","userId":"687c0562-72f8-4e9e-af8f-678e374dce76","path":"/","msg":"User does not have an associated tenant"}
+{"level":30,"time":1767879203343,"env":"test","module":"user-credentials-repository","userId":"f8d31634-b288-412f-a759-b4d8070152cf","msg":"User credentials created"}
+{"level":30,"time":1767879203455,"env":"test","module":"email-queue","jobId":"5fd1123f-9dba-4dba-8d8e-7dc8d2911aa9","to":"protected-test-UhP1NgdsjC4hpNdUJ_6oS@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879203510,"env":"test","module":"auth-routes","userId":"f8d31634-b288-412f-a759-b4d8070152cf","email":"protected-test-UhP1NgdsjC4hpNdUJ_6oS@example.com","msg":"User registered"}
+{"level":30,"time":1767879204095,"env":"test","module":"auth-routes","userId":"f8d31634-b288-412f-a759-b4d8070152cf","msg":"User logged in successfully"}
+{"level":30,"time":1767879204149,"env":"test","module":"audit-log-service","userId":"f8d31634-b288-412f-a759-b4d8070152cf","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879204152,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879204527,"env":"test","module":"user-credentials-repository","userId":"68a51d67-3883-41b5-8ecb-d1e5d6006028","msg":"User credentials created"}
+{"level":30,"time":1767879204634,"env":"test","module":"email-queue","jobId":"0512c72e-6fe8-4085-aaea-4fcba312e5dc","to":"protected-test-zWciQxeHODexE1aHcDGbn@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879204689,"env":"test","module":"auth-routes","userId":"68a51d67-3883-41b5-8ecb-d1e5d6006028","email":"protected-test-zWciQxeHODexE1aHcDGbn@example.com","msg":"User registered"}
+{"level":30,"time":1767879205287,"env":"test","module":"auth-routes","userId":"68a51d67-3883-41b5-8ecb-d1e5d6006028","msg":"User logged in successfully"}
+{"level":30,"time":1767879205340,"env":"test","module":"audit-log-service","userId":"68a51d67-3883-41b5-8ecb-d1e5d6006028","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879205344,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879205726,"env":"test","module":"user-credentials-repository","userId":"418be16f-21f9-4edc-8782-2b73298a5ff4","msg":"User credentials created"}
+{"level":30,"time":1767879205831,"env":"test","module":"email-queue","jobId":"6cc335d5-d4ac-45f8-b309-ebfe2d716c1d","to":"protected-test-fJhdjqeLiOgy-0MVD5Ju4@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879205885,"env":"test","module":"auth-routes","userId":"418be16f-21f9-4edc-8782-2b73298a5ff4","email":"protected-test-fJhdjqeLiOgy-0MVD5Ju4@example.com","msg":"User registered"}
+{"level":30,"time":1767879206473,"env":"test","module":"auth-routes","userId":"418be16f-21f9-4edc-8782-2b73298a5ff4","msg":"User logged in successfully"}
+{"level":30,"time":1767879206529,"env":"test","module":"audit-log-service","userId":"418be16f-21f9-4edc-8782-2b73298a5ff4","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879206962,"env":"test","module":"user-credentials-repository","userId":"a9a40684-1d90-4ef0-b2b2-faf604061f68","msg":"User credentials created"}
+{"level":30,"time":1767879207069,"env":"test","module":"email-queue","jobId":"734e7f8e-7521-411a-b109-2369532b3a06","to":"protected-test-ORUR4MBip-ouy2HT1_e3Z@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879207123,"env":"test","module":"auth-routes","userId":"a9a40684-1d90-4ef0-b2b2-faf604061f68","email":"protected-test-ORUR4MBip-ouy2HT1_e3Z@example.com","msg":"User registered"}
+{"level":30,"time":1767879207714,"env":"test","module":"auth-routes","userId":"a9a40684-1d90-4ef0-b2b2-faf604061f68","msg":"User logged in successfully"}
+{"level":30,"time":1767879207766,"env":"test","module":"audit-log-service","userId":"a9a40684-1d90-4ef0-b2b2-faf604061f68","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879207770,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879208134,"env":"test","module":"user-credentials-repository","userId":"00d6b502-b835-4b57-962a-e87bb98b3ec6","msg":"User credentials created"}
+{"level":30,"time":1767879208243,"env":"test","module":"email-queue","jobId":"80e7f802-50c4-4460-9ee7-78660b7d7209","to":"protected-test-Mca0Jz1rGGVJQ4fJl-nWw@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879208297,"env":"test","module":"auth-routes","userId":"00d6b502-b835-4b57-962a-e87bb98b3ec6","email":"protected-test-Mca0Jz1rGGVJQ4fJl-nWw@example.com","msg":"User registered"}
+{"level":30,"time":1767879208878,"env":"test","module":"auth-routes","userId":"00d6b502-b835-4b57-962a-e87bb98b3ec6","msg":"User logged in successfully"}
+{"level":30,"time":1767879208932,"env":"test","module":"audit-log-service","userId":"00d6b502-b835-4b57-962a-e87bb98b3ec6","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1767879208991,"env":"test","module":"tenant-middleware","userId":"00d6b502-b835-4b57-962a-e87bb98b3ec6","path":"/","msg":"User does not have an associated tenant"}
+{"level":30,"time":1767879209387,"env":"test","module":"user-credentials-repository","userId":"fd0648a9-ca7f-494e-b103-6b46a9e8ca69","msg":"User credentials created"}
+{"level":30,"time":1767879209497,"env":"test","module":"email-queue","jobId":"8841fae9-7acb-4f0c-b650-70a8784e7dbe","to":"protected-test-eugBxhkFzGfAEs_H4Kmox@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879209552,"env":"test","module":"auth-routes","userId":"fd0648a9-ca7f-494e-b103-6b46a9e8ca69","email":"protected-test-eugBxhkFzGfAEs_H4Kmox@example.com","msg":"User registered"}
+{"level":30,"time":1767879210138,"env":"test","module":"auth-routes","userId":"fd0648a9-ca7f-494e-b103-6b46a9e8ca69","msg":"User logged in successfully"}
+{"level":30,"time":1767879210190,"env":"test","module":"audit-log-service","userId":"fd0648a9-ca7f-494e-b103-6b46a9e8ca69","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879210193,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879210564,"env":"test","module":"user-credentials-repository","userId":"2b6a17c3-eb52-4f78-9b9f-ecec42b62d2b","msg":"User credentials created"}
+{"level":30,"time":1767879210672,"env":"test","module":"email-queue","jobId":"ce1364ce-22f1-486c-b76f-498ecce3ee58","to":"protected-test-OkLQYX3ua-q9Rp1pvlfdV@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879210733,"env":"test","module":"auth-routes","userId":"2b6a17c3-eb52-4f78-9b9f-ecec42b62d2b","email":"protected-test-OkLQYX3ua-q9Rp1pvlfdV@example.com","msg":"User registered"}
+{"level":30,"time":1767879211327,"env":"test","module":"auth-routes","userId":"2b6a17c3-eb52-4f78-9b9f-ecec42b62d2b","msg":"User logged in successfully"}
+{"level":30,"time":1767879211380,"env":"test","module":"audit-log-service","userId":"2b6a17c3-eb52-4f78-9b9f-ecec42b62d2b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879212454,"env":"test","module":"user-credentials-repository","userId":"c4242d05-df8b-4eaf-8535-bef3cd7d8d75","msg":"User credentials created"}
+{"level":30,"time":1767879212564,"env":"test","module":"email-queue","jobId":"2a0bac90-3332-4693-a32a-768c2f0429ae","to":"protected-test-OSxK-Fn73XYeGE0O5G_M9@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879212617,"env":"test","module":"auth-routes","userId":"c4242d05-df8b-4eaf-8535-bef3cd7d8d75","email":"protected-test-OSxK-Fn73XYeGE0O5G_M9@example.com","msg":"User registered"}
+{"level":30,"time":1767879213205,"env":"test","module":"auth-routes","userId":"c4242d05-df8b-4eaf-8535-bef3cd7d8d75","msg":"User logged in successfully"}
+{"level":30,"time":1767879213259,"env":"test","module":"audit-log-service","userId":"c4242d05-df8b-4eaf-8535-bef3cd7d8d75","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879213262,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879213641,"env":"test","module":"user-credentials-repository","userId":"df857ceb-5900-475b-be2d-d62253c47f8c","msg":"User credentials created"}
+{"level":30,"time":1767879213747,"env":"test","module":"email-queue","jobId":"c8488d05-1689-46e0-8b07-233d8685f2f9","to":"protected-test-d3mZdnuDZmmJTVW8x8H2J@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879213802,"env":"test","module":"auth-routes","userId":"df857ceb-5900-475b-be2d-d62253c47f8c","email":"protected-test-d3mZdnuDZmmJTVW8x8H2J@example.com","msg":"User registered"}
+{"level":30,"time":1767879214381,"env":"test","module":"auth-routes","userId":"df857ceb-5900-475b-be2d-d62253c47f8c","msg":"User logged in successfully"}
+{"level":30,"time":1767879214434,"env":"test","module":"audit-log-service","userId":"df857ceb-5900-475b-be2d-d62253c47f8c","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879214437,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879214825,"env":"test","module":"user-credentials-repository","userId":"0f3d378e-df03-4557-8955-dada7553039a","msg":"User credentials created"}
+{"level":30,"time":1767879214935,"env":"test","module":"email-queue","jobId":"f196885d-fb49-4245-86f8-e9568370c0be","to":"protected-test-UzN-PE8633AMdRPw22nsf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879214989,"env":"test","module":"auth-routes","userId":"0f3d378e-df03-4557-8955-dada7553039a","email":"protected-test-UzN-PE8633AMdRPw22nsf@example.com","msg":"User registered"}
+{"level":30,"time":1767879215571,"env":"test","module":"auth-routes","userId":"0f3d378e-df03-4557-8955-dada7553039a","msg":"User logged in successfully"}
+{"level":30,"time":1767879215625,"env":"test","module":"audit-log-service","userId":"0f3d378e-df03-4557-8955-dada7553039a","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879216002,"env":"test","module":"user-credentials-repository","userId":"f14cfd9b-2365-4516-b559-a1750f629f98","msg":"User credentials created"}
+{"level":30,"time":1767879216111,"env":"test","module":"email-queue","jobId":"2ba505a4-762f-4feb-9d93-7fe2d6c02f18","to":"protected-test-VFwA3jdJH20rDWTlSppdH@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879216165,"env":"test","module":"auth-routes","userId":"f14cfd9b-2365-4516-b559-a1750f629f98","email":"protected-test-VFwA3jdJH20rDWTlSppdH@example.com","msg":"User registered"}
+{"level":30,"time":1767879216746,"env":"test","module":"auth-routes","userId":"f14cfd9b-2365-4516-b559-a1750f629f98","msg":"User logged in successfully"}
+{"level":30,"time":1767879216798,"env":"test","module":"audit-log-service","userId":"f14cfd9b-2365-4516-b559-a1750f629f98","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879216801,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879217169,"env":"test","module":"user-credentials-repository","userId":"8ac02221-db49-4e8d-b76d-561f7830665f","msg":"User credentials created"}
+{"level":30,"time":1767879217276,"env":"test","module":"email-queue","jobId":"4a0da36c-1ab8-4225-a296-ec6c0ebe9084","to":"protected-test-iWGO2Sh9vTiLLoGmqlvwk@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879217330,"env":"test","module":"auth-routes","userId":"8ac02221-db49-4e8d-b76d-561f7830665f","email":"protected-test-iWGO2Sh9vTiLLoGmqlvwk@example.com","msg":"User registered"}
+{"level":30,"time":1767879217924,"env":"test","module":"auth-routes","userId":"8ac02221-db49-4e8d-b76d-561f7830665f","msg":"User logged in successfully"}
+{"level":30,"time":1767879217978,"env":"test","module":"audit-log-service","userId":"8ac02221-db49-4e8d-b76d-561f7830665f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879217981,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879218347,"env":"test","module":"user-credentials-repository","userId":"7fbc9c37-aea9-4b36-8ca7-c95e83154567","msg":"User credentials created"}
+{"level":30,"time":1767879218456,"env":"test","module":"email-queue","jobId":"eebedf78-1ca1-4aa7-813b-80b3adfe780e","to":"protected-test-0jYSEmPQTCbQ8Qq8gWNg5@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879218510,"env":"test","module":"auth-routes","userId":"7fbc9c37-aea9-4b36-8ca7-c95e83154567","email":"protected-test-0jYSEmPQTCbQ8Qq8gWNg5@example.com","msg":"User registered"}
+{"level":30,"time":1767879219098,"env":"test","module":"auth-routes","userId":"7fbc9c37-aea9-4b36-8ca7-c95e83154567","msg":"User logged in successfully"}
+{"level":30,"time":1767879219149,"env":"test","module":"audit-log-service","userId":"7fbc9c37-aea9-4b36-8ca7-c95e83154567","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879219152,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879219528,"env":"test","module":"user-credentials-repository","userId":"d946267e-48b1-411b-bf35-9e15bbb09119","msg":"User credentials created"}
+{"level":30,"time":1767879219636,"env":"test","module":"email-queue","jobId":"83d83ec3-dffd-4cbd-865f-44d172ab01b4","to":"protected-test-bK2A8UFOxe0qufsmuq9uU@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879219689,"env":"test","module":"auth-routes","userId":"d946267e-48b1-411b-bf35-9e15bbb09119","email":"protected-test-bK2A8UFOxe0qufsmuq9uU@example.com","msg":"User registered"}
+{"level":30,"time":1767879220275,"env":"test","module":"auth-routes","userId":"d946267e-48b1-411b-bf35-9e15bbb09119","msg":"User logged in successfully"}
+{"level":30,"time":1767879220329,"env":"test","module":"audit-log-service","userId":"d946267e-48b1-411b-bf35-9e15bbb09119","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879220332,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879220708,"env":"test","module":"user-credentials-repository","userId":"bf97a91a-f217-4b2d-84d0-932925f3b4a9","msg":"User credentials created"}
+{"level":30,"time":1767879220815,"env":"test","module":"email-queue","jobId":"d3177e61-1b9e-49b6-b80b-bcde0ff57cc5","to":"protected-test-AI31RguSvEikCQKkXeQ2x@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879220869,"env":"test","module":"auth-routes","userId":"bf97a91a-f217-4b2d-84d0-932925f3b4a9","email":"protected-test-AI31RguSvEikCQKkXeQ2x@example.com","msg":"User registered"}
+{"level":30,"time":1767879221450,"env":"test","module":"auth-routes","userId":"bf97a91a-f217-4b2d-84d0-932925f3b4a9","msg":"User logged in successfully"}
+{"level":30,"time":1767879221504,"env":"test","module":"audit-log-service","userId":"bf97a91a-f217-4b2d-84d0-932925f3b4a9","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879221508,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879221878,"env":"test","module":"user-credentials-repository","userId":"90540762-475f-4cf8-ab1f-c33291edb3b9","msg":"User credentials created"}
+{"level":30,"time":1767879221987,"env":"test","module":"email-queue","jobId":"7fea195f-0497-46e1-8dd9-917d910fee65","to":"protected-test-ANOQJ25gh8-RSDtUl9heo@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879222047,"env":"test","module":"auth-routes","userId":"90540762-475f-4cf8-ab1f-c33291edb3b9","email":"protected-test-ANOQJ25gh8-RSDtUl9heo@example.com","msg":"User registered"}
+{"level":30,"time":1767879222633,"env":"test","module":"auth-routes","userId":"90540762-475f-4cf8-ab1f-c33291edb3b9","msg":"User logged in successfully"}
+{"level":30,"time":1767879222700,"env":"test","module":"audit-log-service","userId":"90540762-475f-4cf8-ab1f-c33291edb3b9","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1767879222702,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1767879223072,"env":"test","module":"user-credentials-repository","userId":"94be98e7-6867-4d8a-8a07-0cd14dfa11ab","msg":"User credentials created"}
+{"level":30,"time":1767879223182,"env":"test","module":"email-queue","jobId":"4b345787-a73a-41cd-930e-b4c2a28e6c08","to":"protected-test-lCkY6Vm-mAQc00TqfUyrI@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879223235,"env":"test","module":"auth-routes","userId":"94be98e7-6867-4d8a-8a07-0cd14dfa11ab","email":"protected-test-lCkY6Vm-mAQc00TqfUyrI@example.com","msg":"User registered"}
+{"level":30,"time":1767879223819,"env":"test","module":"auth-routes","userId":"94be98e7-6867-4d8a-8a07-0cd14dfa11ab","msg":"User logged in successfully"}
+{"level":30,"time":1767879223872,"env":"test","module":"audit-log-service","userId":"94be98e7-6867-4d8a-8a07-0cd14dfa11ab","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879224249,"env":"test","module":"user-credentials-repository","userId":"049f5b2e-296c-4a0d-a220-ff11693648d6","msg":"User credentials created"}
+{"level":30,"time":1767879224354,"env":"test","module":"email-queue","jobId":"f89af28d-3a3c-462a-b60b-f3839442dffa","to":"protected-test-o3WxKrC78Ha1QFJFzsZ3x@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879224409,"env":"test","module":"auth-routes","userId":"049f5b2e-296c-4a0d-a220-ff11693648d6","email":"protected-test-o3WxKrC78Ha1QFJFzsZ3x@example.com","msg":"User registered"}
+{"level":30,"time":1767879224992,"env":"test","module":"auth-routes","userId":"049f5b2e-296c-4a0d-a220-ff11693648d6","msg":"User logged in successfully"}
+{"level":30,"time":1767879225046,"env":"test","module":"audit-log-service","userId":"049f5b2e-296c-4a0d-a220-ff11693648d6","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879225523,"env":"test","module":"user-credentials-repository","userId":"bfa64c30-440b-40b1-b7fc-ec047ec4a0b2","msg":"User credentials created"}
+{"level":30,"time":1767879225629,"env":"test","module":"email-queue","jobId":"cb56261f-cd7f-4afb-b05f-919d5fbe2f01","to":"protected-test-a-DO0KBAOhn413A0N5A6f@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879225684,"env":"test","module":"auth-routes","userId":"bfa64c30-440b-40b1-b7fc-ec047ec4a0b2","email":"protected-test-a-DO0KBAOhn413A0N5A6f@example.com","msg":"User registered"}
+{"level":30,"time":1767879226275,"env":"test","module":"auth-routes","userId":"bfa64c30-440b-40b1-b7fc-ec047ec4a0b2","msg":"User logged in successfully"}
+{"level":30,"time":1767879226332,"env":"test","module":"audit-log-service","userId":"bfa64c30-440b-40b1-b7fc-ec047ec4a0b2","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879226708,"env":"test","module":"user-credentials-repository","userId":"b7680eb3-88d2-4343-9066-517b8bf0ed46","msg":"User credentials created"}
+{"level":30,"time":1767879226816,"env":"test","module":"email-queue","jobId":"db787313-6b76-4eb7-8d33-8f85a866d939","to":"user2-OBTal0ldpQ4q95QFvOl2F@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879226869,"env":"test","module":"auth-routes","userId":"b7680eb3-88d2-4343-9066-517b8bf0ed46","email":"user2-OBTal0ldpQ4q95QFvOl2F@example.com","msg":"User registered"}
+{"level":30,"time":1767879227401,"env":"test","module":"auth-routes","userId":"b7680eb3-88d2-4343-9066-517b8bf0ed46","msg":"User logged in successfully"}
+{"level":30,"time":1767879227458,"env":"test","module":"audit-log-service","userId":"b7680eb3-88d2-4343-9066-517b8bf0ed46","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1767879227516,"env":"test","module":"tenant-middleware","userId":"bfa64c30-440b-40b1-b7fc-ec047ec4a0b2","path":"/","msg":"User does not have an associated tenant"}
+{"level":30,"time":1767879227883,"env":"test","module":"user-credentials-repository","userId":"fad2ee21-aaf1-414c-8d7e-f88ace749f7e","msg":"User credentials created"}
+{"level":30,"time":1767879227997,"env":"test","module":"email-queue","jobId":"03fabec6-95e8-4688-b69d-5d5275e4211a","to":"protected-test-bkrwYfe7SRhM6Xgvs5ZpD@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879228055,"env":"test","module":"auth-routes","userId":"fad2ee21-aaf1-414c-8d7e-f88ace749f7e","email":"protected-test-bkrwYfe7SRhM6Xgvs5ZpD@example.com","msg":"User registered"}
+{"level":30,"time":1767879228630,"env":"test","module":"auth-routes","userId":"fad2ee21-aaf1-414c-8d7e-f88ace749f7e","msg":"User logged in successfully"}
+{"level":30,"time":1767879228684,"env":"test","module":"audit-log-service","userId":"fad2ee21-aaf1-414c-8d7e-f88ace749f7e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879229163,"env":"test","module":"user-credentials-repository","userId":"5c7221d3-e54f-4003-b515-2ce40705f4e6","msg":"User credentials created"}
+{"level":30,"time":1767879229277,"env":"test","module":"email-queue","jobId":"7d8a6bce-271a-44ab-83cf-f1f10ac9adaf","to":"protected-test-6Nawiv44diTDEGlGZlq8h@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879229330,"env":"test","module":"auth-routes","userId":"5c7221d3-e54f-4003-b515-2ce40705f4e6","email":"protected-test-6Nawiv44diTDEGlGZlq8h@example.com","msg":"User registered"}
+{"level":30,"time":1767879229924,"env":"test","module":"auth-routes","userId":"5c7221d3-e54f-4003-b515-2ce40705f4e6","msg":"User logged in successfully"}
+{"level":30,"time":1767879229981,"env":"test","module":"audit-log-service","userId":"5c7221d3-e54f-4003-b515-2ce40705f4e6","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879230453,"env":"test","module":"user-credentials-repository","userId":"cc406783-a87d-445f-8a29-239536152c0c","msg":"User credentials created"}
+{"level":30,"time":1767879230566,"env":"test","module":"email-queue","jobId":"7d7ef75d-d174-4ff0-935a-0741c19559e5","to":"protected-test-sr93Mw0MS6SYwR6KTGMvK@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879230621,"env":"test","module":"auth-routes","userId":"cc406783-a87d-445f-8a29-239536152c0c","email":"protected-test-sr93Mw0MS6SYwR6KTGMvK@example.com","msg":"User registered"}
+{"level":30,"time":1767879231204,"env":"test","module":"auth-routes","userId":"cc406783-a87d-445f-8a29-239536152c0c","msg":"User logged in successfully"}
+{"level":30,"time":1767879231258,"env":"test","module":"audit-log-service","userId":"cc406783-a87d-445f-8a29-239536152c0c","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879231733,"env":"test","module":"user-credentials-repository","userId":"080eea9f-d597-4990-9761-26a469fbc6b4","msg":"User credentials created"}
+{"level":30,"time":1767879231844,"env":"test","module":"email-queue","jobId":"10f7d8d1-32bc-4c55-8bca-92e1d27c3d12","to":"protected-test-Ygmlz9fsy4KqXp5NpFh7d@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879231897,"env":"test","module":"auth-routes","userId":"080eea9f-d597-4990-9761-26a469fbc6b4","email":"protected-test-Ygmlz9fsy4KqXp5NpFh7d@example.com","msg":"User registered"}
+{"level":30,"time":1767879232478,"env":"test","module":"auth-routes","userId":"080eea9f-d597-4990-9761-26a469fbc6b4","msg":"User logged in successfully"}
+{"level":30,"time":1767879232533,"env":"test","module":"audit-log-service","userId":"080eea9f-d597-4990-9761-26a469fbc6b4","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879233324,"env":"test","module":"user-credentials-repository","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","msg":"User credentials created"}
+{"level":30,"time":1767879233431,"env":"test","module":"email-queue","jobId":"af6e6c1e-81d6-406e-8080-b1f05b801175","to":"protected-test-XgBZVdgx2jNq7-W96QQ1q@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879233484,"env":"test","module":"auth-routes","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","email":"protected-test-XgBZVdgx2jNq7-W96QQ1q@example.com","msg":"User registered"}
+{"level":30,"time":1767879234074,"env":"test","module":"auth-routes","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","msg":"User logged in successfully"}
+{"level":30,"time":1767879234130,"env":"test","module":"audit-log-service","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879234607,"env":"test","module":"auth-routes","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","msg":"User logged in successfully"}
+{"level":30,"time":1767879234662,"env":"test","module":"audit-log-service","userId":"aebd646f-a2e8-49d1-a22d-010524696ba7","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879235145,"env":"test","module":"user-credentials-repository","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","msg":"User credentials created"}
+{"level":30,"time":1767879235253,"env":"test","module":"email-queue","jobId":"331f3fa4-ef1d-439d-b649-977b79ce28ae","to":"protected-test-sxXIDe2PPVzxim0dV985w@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879235308,"env":"test","module":"auth-routes","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","email":"protected-test-sxXIDe2PPVzxim0dV985w@example.com","msg":"User registered"}
+{"level":30,"time":1767879235884,"env":"test","module":"auth-routes","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","msg":"User logged in successfully"}
+{"level":30,"time":1767879235939,"env":"test","module":"audit-log-service","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879236409,"env":"test","module":"auth-routes","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","msg":"User logged in successfully"}
+{"level":30,"time":1767879236462,"env":"test","module":"audit-log-service","userId":"2af8ed78-1927-48b5-8d7f-bf18fa06d73f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879236829,"env":"test","module":"user-credentials-repository","userId":"c3676a21-9353-43a0-968d-5a2100f6c754","msg":"User credentials created"}
+{"level":30,"time":1767879236939,"env":"test","module":"email-queue","jobId":"59508ecf-2a7e-4c0f-a30a-0ba3d9b940c9","to":"user2-IcWGuYYWpXIQPurtW650u@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879236998,"env":"test","module":"auth-routes","userId":"c3676a21-9353-43a0-968d-5a2100f6c754","email":"user2-IcWGuYYWpXIQPurtW650u@example.com","msg":"User registered"}
+{"level":30,"time":1767879237528,"env":"test","module":"auth-routes","userId":"c3676a21-9353-43a0-968d-5a2100f6c754","msg":"User logged in successfully"}
+{"level":30,"time":1767879237603,"env":"test","module":"audit-log-service","userId":"c3676a21-9353-43a0-968d-5a2100f6c754","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879238085,"env":"test","module":"user-credentials-repository","userId":"4883cf54-92d4-482e-bd77-4534ce7fc5e1","msg":"User credentials created"}
+{"level":30,"time":1767879238198,"env":"test","module":"email-queue","jobId":"66b43852-fcbc-49d2-a4f4-e556a15b583b","to":"protected-test-HbGY7BtRf_OC82tiplBH6@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879238249,"env":"test","module":"auth-routes","userId":"4883cf54-92d4-482e-bd77-4534ce7fc5e1","email":"protected-test-HbGY7BtRf_OC82tiplBH6@example.com","msg":"User registered"}
+{"level":30,"time":1767879238830,"env":"test","module":"auth-routes","userId":"4883cf54-92d4-482e-bd77-4534ce7fc5e1","msg":"User logged in successfully"}
+{"level":30,"time":1767879238881,"env":"test","module":"audit-log-service","userId":"4883cf54-92d4-482e-bd77-4534ce7fc5e1","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879239418,"env":"test","module":"intake-service","runId":"d8c88672-53b8-4c1c-bd43-04f792bb05ce","slug":"public-Bvwkbsvf_tDchlgSS_g07","msg":"Created intake run"}
+{"level":30,"time":1767879239842,"env":"test","module":"user-credentials-repository","userId":"ce2c9630-0d9a-4418-ae87-3e5041361690","msg":"User credentials created"}
+{"level":30,"time":1767879239947,"env":"test","module":"email-queue","jobId":"ec9eb151-b904-46a0-912f-bf0f41231549","to":"protected-test-y0Ac7WmTo6JzA_hwWAuuJ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767879240000,"env":"test","module":"auth-routes","userId":"ce2c9630-0d9a-4418-ae87-3e5041361690","email":"protected-test-y0Ac7WmTo6JzA_hwWAuuJ@example.com","msg":"User registered"}
+{"level":30,"time":1767879240588,"env":"test","module":"auth-routes","userId":"ce2c9630-0d9a-4418-ae87-3e5041361690","msg":"User logged in successfully"}
+{"level":30,"time":1767879240643,"env":"test","module":"audit-log-service","userId":"ce2c9630-0d9a-4418-ae87-3e5041361690","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1767879241224,"env":"test","module":"intake-service","runId":"79f7bbe9-c8a5-4e86-a868-1b3003c47518","slug":"optional-BZrNjceTUGbs6Hk_-D3Ju","userId":"ce2c9630-0d9a-4418-ae87-3e5041361690","msg":"Created intake run"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests
+Cleanup error: error: update or delete on table "users" violates foreign key constraint "workflow_versions_created_by_users_id_fk" on table "workflow_versions"
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.cleanup (C:/Users/scoot/poll/VaultLogic/tests/helpers/integrationTestHelper.ts:154:9)
+    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth/protected.routes.test.ts:37:9 {
+  length: 376,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (id)=(cd1c5cbf-8f23-401b-bdc7-ed51e5eb2ab8) is still referenced from table "workflow_versions".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'workflow_versions',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'workflow_versions_created_by_users_id_fk',
+  file: 'ri_triggers.c',
+  line: '2612',
+  routine: 'ri_ReportViolation'
+}
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/auth/protected.routes.test.ts [2m([22m[2m33 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[33m 77449[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow access with valid Bearer token [33m 1296[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access without Authorization header [33m 1206[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access with empty Bearer token [33m 1178[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access with malformed Authorization header [33m 1203[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access with wrong token type [33m 1189[2mms[22m[39m
+[31m       [31m├ù[31m should allow POST with valid Bearer token[39m[33m 1232[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject POST without Bearer token [33m 1188[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject POST with invalid token [33m 1191[2mms[22m[39m
+[31m       [31m├ù[31m should allow PUT with valid Bearer token[39m[33m 1246[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject PUT without Bearer token [33m 1180[2mms[22m[39m
+[31m       [31m├ù[31m should allow DELETE with valid Bearer token[39m[33m 1221[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject DELETE without Bearer token [33m 1201[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow PATCH with valid Bearer token [33m 1893[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject PATCH without Bearer token [33m 1176[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle Bearer token with extra spaces [33m 1175[2mms[22m[39m
+[31m       [31m├ù[31m should handle token with newlines[39m[33m 1190[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle very long invalid token [33m 1174[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle empty Authorization header [33m 1180[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle Authorization header with only Bearer [33m 1171[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle multiple Authorization headers [33m 1182[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with SQL injection attempt [33m 1175[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with XSS attempt [33m 1194[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with missing userId [33m 1173[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with non-existent userId [33m 1279[2mms[22m[39m
+[31m       [31m├ù[31m should not allow user to access another user's resources[39m[33m 2362[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject userId into request context [33m 1276[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject tenantId into request context [33m 1291[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject role into request context [33m 1284[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not apply general rate limiting to authenticated requests [33m 1580[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle request with both Bearer token and cookies [33m 1825[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prioritize Bearer token over cookie when both present [33m 2938[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow unauthenticated access to optional auth routes [33m 1760[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should enhance optional auth routes with user context when authenticated [33m 1930[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests
+Error: Hook timed out in 30000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ Γ¥» tests/integration/auth/protected.routes.test.ts:36:5
+     34|     });
+     35| 
+     36|     afterAll(async () => {
+       |     ^
+     37|         await ctx.cleanup();
+     38|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/6]ΓÄ»
+
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 5 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > POST Protected Routes > should allow POST with valid Bearer token
+Error: expected 201 "Created", got 403 "Forbidden"
+ Γ¥» tests/integration/auth/protected.routes.test.ts:123:18
+    121|                 .set("Authorization", `Bearer ${userToken}`)
+    122|                 .send({ name: "Test Project" })
+    123|                 .expect(201);
+       |                  ^
+    124| 
+    125|             expect(res.body.id).toBeDefined();
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/6]ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PUT Protected Routes > should allow PUT with valid Bearer token
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/protected.routes.test.ts:150:18
+    148|                 .set("Authorization", `Bearer ${userToken}`)
+    149|                 .send({ firstName: "Updated" })
+    150|                 .expect(200);
+       |                  ^
+    151|         });
+    152| 
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/index.js:1102:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/6]ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > DELETE Protected Routes > should allow DELETE with valid Bearer token
+Error: expected 201 "Created", got 403 "Forbidden"
+ Γ¥» tests/integration/auth/protected.routes.test.ts:168:18
+    166|                 .set("Authorization", `Bearer ${userToken}`)
+    167|                 .send({ name: "Delete Test Project" })
+    168|                 .expect(201);
+       |                  ^
+    169| 
+    170|             // Delete it
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/6]ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > Token Edge Cases > should handle token with newlines
+TypeError: Invalid character in header content ["Authorization"]
+ Γ¥» Test.Request.request node_modules/superagent/lib/node/index.js:791:39
+ Γ¥» Test.Request.end node_modules/superagent/lib/node/index.js:909:8
+ Γ¥» Test.end node_modules/supertest/lib/test.js:136:11
+ Γ¥» node_modules/superagent/lib/request-base.js:265:12
+ Γ¥» Test.RequestBase.then node_modules/superagent/lib/request-base.js:249:31
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/6]ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > Cross-User Authorization > should not allow user to access another user's resources
+Error: expected 201 "Created", got 403 "Forbidden"
+ Γ¥» tests/integration/auth/protected.routes.test.ts:346:18
+    344|                     ownerUuid: ctx.orgId
+    345|                 })
+    346|                 .expect(201);
+       |                  ^
+    347| 
+    348|             // User2 tries to delete User1's project
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/6]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m28 passed[39m[22m[90m (33)[39m
+[2m   Start at [22m 07:33:06
+[2m   Duration [22m 84.86s[2m (transform 3.05s, setup 260ms, import 6.76s, tests 77.45s, environment 0ms)[22m
+

@@ -5,22 +5,28 @@
  * for third-party API integrations (e.g., external services)
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Express } from 'express';
-import express from 'express';
-import { registerConnectionsV2Routes } from '../../../server/routes/connections-v2.routes';
-import { hybridAuth } from '../../../server/middleware/auth';
-import { db } from '../../../server/db';
-import { users, tenants, projects, connections, secrets } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import express from 'express';
+import { nanoid } from 'nanoid';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
+
+
+import { users, tenants, projects, connections, secrets } from '@shared/schema';
+
+import { db } from '../../../server/db';
+import { hybridAuth } from '../../../server/middleware/auth';
+import { registerConnectionsV2Routes } from '../../../server/routes/connections-v2.routes';
 import { authService } from '../../../server/services/AuthService';
 import {
   generateOAuth2AuthorizationUrl,
   validateOAuth2State,
   cleanupOAuth2State,
 } from '../../../server/services/oauth2';
-import { nanoid } from 'nanoid';
+
+import type { Express } from 'express';
+
 
 describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let app: Express;

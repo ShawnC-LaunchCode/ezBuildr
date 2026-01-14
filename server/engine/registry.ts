@@ -1,16 +1,3 @@
-import type { EvalContext } from './expr';
-import {
-  executeQuestionNode,
-  type QuestionNodeConfig,
-  type QuestionNodeInput,
-  type QuestionNodeOutput,
-} from './nodes/question';
-import {
-  executeComputeNode,
-  type ComputeNodeConfig,
-  type ComputeNodeInput,
-  type ComputeNodeOutput,
-} from './nodes/compute';
 import {
   executeBranchNode,
   type BranchNodeConfig,
@@ -18,35 +5,11 @@ import {
   type BranchNodeOutput,
 } from './nodes/branch';
 import {
-  executeTemplateNode,
-  type TemplateNodeConfig,
-  type TemplateNodeInput,
-  type TemplateNodeOutput,
-} from './nodes/template';
-import {
-  executeHttpNode,
-  type HttpNodeConfig,
-  type HttpNodeInput,
-  type HttpNodeOutput,
-} from './nodes/http';
-import {
-  executeReviewNode,
-  type ReviewNodeConfig,
-  type ReviewNodeInput,
-  type ReviewNodeOutput,
-} from './nodes/review';
-import {
-  executeEsignNode,
-  type EsignNodeConfig,
-  type EsignNodeInput,
-  type EsignNodeOutput,
-} from './nodes/esign';
-import {
-  executeWebhookNode,
-  type WebhookNodeConfig,
-  type WebhookNodeInput,
-  type WebhookNodeOutput,
-} from './nodes/webhook';
+  executeComputeNode,
+  type ComputeNodeConfig,
+  type ComputeNodeInput,
+  type ComputeNodeOutput,
+} from './nodes/compute';
 import {
   executeQueryNode,
   executeWriteNode,
@@ -58,11 +21,49 @@ import {
   type WriteNodeInput,
 } from './nodes/data';
 import {
+  executeEsignNode,
+  type EsignNodeConfig,
+  type EsignNodeInput,
+  type EsignNodeOutput,
+} from './nodes/esign';
+import {
   executeFinalNode,
   type FinalBlockConfig,
   type FinalBlockInput,
   type FinalBlockOutput,
 } from './nodes/final';
+import {
+  executeHttpNode,
+  type HttpNodeConfig,
+  type HttpNodeInput,
+  type HttpNodeOutput,
+} from './nodes/http';
+import {
+  executeQuestionNode,
+  type QuestionNodeConfig,
+  type QuestionNodeInput,
+  type QuestionNodeOutput,
+} from './nodes/question';
+import {
+  executeReviewNode,
+  type ReviewNodeConfig,
+  type ReviewNodeInput,
+  type ReviewNodeOutput,
+} from './nodes/review';
+import {
+  executeTemplateNode,
+  type TemplateNodeConfig,
+  type TemplateNodeInput,
+  type TemplateNodeOutput,
+} from './nodes/template';
+import {
+  executeWebhookNode,
+  type WebhookNodeConfig,
+  type WebhookNodeInput,
+  type WebhookNodeOutput,
+} from './nodes/webhook';
+
+import type { EvalContext } from './expr';
 
 /**
  * Node Executor Registry
@@ -81,7 +82,7 @@ export type NodeConfig =
   | EsignNodeConfig
   | WebhookNodeConfig
   | QueryNodeConfig
-  | QueryNodeConfig
+   
   | WriteNodeConfig
   | FinalBlockConfig;
 
@@ -95,8 +96,8 @@ export type NodeOutput =
   | EsignNodeOutput
   | WebhookNodeOutput
   | QueryNodeOutput
-  | QueryNodeOutput
-  | WriteNodeOutput
+   
+   
   | FinalBlockOutput;
 
 export interface Node {
@@ -132,7 +133,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         userAnswer: userInputs?.[node.id],
       };
-      return await executeQuestionNode(questionInput);
+      return executeQuestionNode(questionInput);
     }
 
     case 'compute': {
@@ -141,7 +142,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         config: node.config as ComputeNodeConfig,
         context,
       };
-      return await executeComputeNode(computeInput);
+      return executeComputeNode(computeInput);
     }
 
     case 'branch': {
@@ -150,7 +151,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         config: node.config as BranchNodeConfig,
         context,
       };
-      return await executeBranchNode(branchInput);
+      return executeBranchNode(branchInput);
     }
 
     case 'template': {
@@ -160,7 +161,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         tenantId,
       };
-      return await executeTemplateNode(templateInput);
+      return executeTemplateNode(templateInput);
     }
 
     case 'http': {
@@ -173,7 +174,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         projectId: input.projectId,
       };
-      return await executeHttpNode(httpInput);
+      return executeHttpNode(httpInput);
     }
 
     case 'review': {
@@ -189,7 +190,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         tenantId,
         projectId: input.projectId,
       };
-      return await executeReviewNode(reviewInput);
+      return executeReviewNode(reviewInput);
     }
 
     case 'esign': {
@@ -206,7 +207,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         projectId: input.projectId,
         outputRefs: input.outputRefs,
       };
-      return await executeEsignNode(esignInput);
+      return executeEsignNode(esignInput);
     }
 
     case 'webhook': {
@@ -216,7 +217,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         projectId: input.projectId,
       };
-      return await executeWebhookNode(webhookInput);
+      return executeWebhookNode(webhookInput);
     }
 
     case 'query': {
@@ -226,7 +227,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         tenantId,
       };
-      return await executeQueryNode(queryInput);
+      return executeQueryNode(queryInput);
     }
 
     case 'write': {
@@ -236,7 +237,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         context,
         tenantId,
       };
-      return await executeWriteNode(writeInput);
+      return executeWriteNode(writeInput);
     }
 
     case 'final': {
@@ -248,7 +249,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         runId: input.runId,
         workflowVersionId: input.workflowId, // Assuming input.workflowId is distinct from version, but likely close enough for now or need to check call site
       };
-      return await executeFinalNode(finalInput);
+      return executeFinalNode(finalInput);
     }
 
     default:

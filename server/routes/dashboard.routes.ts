@@ -1,8 +1,9 @@
-import type { Express, Request, Response } from "express";
+import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { createLogger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'dashboard-routes' });
 

@@ -1,7 +1,8 @@
-import type { Express, Request, Response } from "express";
+import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { userPreferencesService } from "../services/UserPreferencesService";
-import { createLogger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "user-preferences-routes" });
 

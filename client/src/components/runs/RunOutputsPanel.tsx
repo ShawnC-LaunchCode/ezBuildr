@@ -11,10 +11,7 @@
  * - Retry failed PDF conversions
  */
 
-import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import {
   FileText,
   Download,
@@ -24,7 +21,11 @@ import {
   Clock,
   RefreshCw,
 } from 'lucide-react';
+import React from 'react';
 import { toast } from 'sonner';
+
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 
 interface RunOutput {
   id: string;
@@ -195,7 +196,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
       <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
         <p className="text-red-900 dark:text-red-100 flex items-center gap-2">
           <AlertCircle className="h-4 w-4" />
-          Error: {(error as Error).message}
+          Error: {(error).message}
         </p>
       </div>
     );

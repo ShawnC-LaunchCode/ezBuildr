@@ -1,6 +1,7 @@
 
-import { registerMigration, WorkflowSchema } from "../registry";
 import { ValidationRule } from "@shared/validation/ValidationRule";
+
+import { registerMigration, WorkflowSchema } from "../registry";
 
 /**
  * Migration: 1.1.0 -> 1.2.0
@@ -15,7 +16,7 @@ registerMigration("1.1.0", {
         const newSchema = { ...schema };
         newSchema.version = "1.2.0";
 
-        if (!newSchema.steps) return newSchema;
+        if (!newSchema.steps) {return newSchema;}
 
         newSchema.steps = newSchema.steps.map(step => {
             const newStep = { ...step };

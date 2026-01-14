@@ -38,7 +38,7 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => {
     const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
+    return hex.length === 1 ? `0${  hex}` : hex;
   };
 
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -49,7 +49,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
  */
 export function lightenColor(hex: string, percent: number): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return hex;
+  if (!rgb) {return hex;}
 
   const amount = (percent / 100) * 255;
   return rgbToHex(
@@ -64,7 +64,7 @@ export function lightenColor(hex: string, percent: number): string {
  */
 export function darkenColor(hex: string, percent: number): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return hex;
+  if (!rgb) {return hex;}
 
   const factor = 1 - percent / 100;
   return rgbToHex(rgb.r * factor, rgb.g * factor, rgb.b * factor);
@@ -76,7 +76,7 @@ export function darkenColor(hex: string, percent: number): string {
  */
 export function getLuminance(hex: string): number {
   const rgb = hexToRgb(hex);
-  if (!rgb) return 0;
+  if (!rgb) {return 0;}
 
   const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((val) => {
     const sRGB = val / 255;

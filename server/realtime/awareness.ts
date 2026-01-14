@@ -1,7 +1,9 @@
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { AuthenticatedUser } from './auth';
+
 import { createLogger } from '../logger';
+
+import { AuthenticatedUser } from './auth';
 
 const logger = createLogger({ module: 'collab-awareness' });
 

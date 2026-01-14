@@ -1,0 +1,2970 @@
+openapi: 3.0.3
+info:
+  title: ezBuildr API
+  description: |
+    **ezBuildr** is a comprehensive enterprise workflow automation platform that combines visual workflow building,
+    conditional logic, custom code execution (JavaScript/Python), and advanced data management.
+
+    ## Key Features
+    - **Visual Workflow Builder**: Drag-and-drop interface with 15+ question types
+    - **DataVault**: Complete data management platform with databases, tables, permissions
+    - **Custom Scripting**: Lifecycle & document hooks with 40+ helper functions
+    - **Two-tier Visibility Logic**: Workflow rules + step-level expressions
+    - **AI-Powered Generation**: OpenAI, Anthropic, Google Gemini support
+    - **HTTP/API Integration**: OAuth2 + encrypted secrets (AES-256-GCM)
+    - **E-Signature & Reviews**: DocuSign, HelloSign, native signatures
+    - **Portal System**: Magic link authentication for external users
+    - **Enterprise Features**: Multi-tenant workspaces, RBAC, Stripe billing
+    - **Document Generation**: PDF/DOCX with template variables
+
+    ## Authentication
+
+    ezBuildr supports multiple authentication methods:
+
+    1. **Session Authentication** (Cookie-based)
+       - Used for web application access
+       - Obtained via Google OAuth2 login
+
+    2. **Bearer Token Authentication**
+       - Used for API access and workflow runs
+       - Format: `Authorization: Bearer <token>`
+       - Tokens available:
+         - **Run Token**: For workflow execution (obtained when creating a run)
+         - **JWT Token**: For general API access (obtained via `/api/auth/token`)
+
+    3. **Hybrid Authentication**
+       - Many endpoints accept both session and bearer token authentication
+
+    4. **Public Access**
+       - Anonymous workflow runs via public links (no authentication required)
+
+    ## Rate Limiting
+
+    API endpoints are rate-limited to prevent abuse:
+    - General API: 100 requests/15 minutes
+    - Create operations: 50 requests/15 minutes
+    - Batch operations: 20 requests/15 minutes
+    - Delete operations: 30 requests/15 minutes
+    - Test endpoints: 10 requests/minute
+
+    ## Error Responses
+
+    All error responses follow this format:
+    ```json
+    {
+      "message": "Error description",
+      "errors": ["Detailed error 1", "Detailed error 2"],
+      "details": { /* Additional context */ }
+    }
+    ```
+
+    Common HTTP status codes:
+    - `200 OK`: Success
+    - `201 Created`: Resource created
+    - `204 No Content`: Success with no response body
+    - `400 Bad Request`: Invalid input
+    - `401 Unauthorized`: Authentication required
+    - `403 Forbidden`: Access denied
+    - `404 Not Found`: Resource not found
+    - `429 Too Many Requests`: Rate limit exceeded
+    - `500 Internal Server Error`: Server error
+
+  version: 1.7.0
+  contact:
+    name: ezBuildr Support
+    url: https://github.com/ShawnC-LaunchCode/VaultLogic
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:5000
+    description: Local development
+  - url: https://api.ezbuildr.com
+    description: Production
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Workflows
+    description: Workflow CRUD operations, sections, steps, and configuration
+  - name: Runs
+    description: Workflow execution, step values, navigation, and completion
+  - name: Blocks
+    description: Transform blocks, query blocks, and validation logic
+  - name: Lifecycle Hooks
+    description: Custom JavaScript/Python scripts executed during workflow phases
+  - name: Document Hooks
+    description: Custom scripts for document transformation
+  - name: DataVault
+    description: Data management platform - databases, tables, rows, permissions
+  - name: Connections
+    description: API connections, OAuth2, and secrets management
+  - name: AI
+    description: AI-powered workflow generation and optimization
+  - name: Templates
+    description: Workflow templates, marketplace, and sharing
+  - name: Documents
+    description: Document generation, e-signature, and reviews
+  - name: Analytics
+    description: Workflow analytics, metrics, and reporting
+  - name: Portal
+    description: External user portal with magic link authentication
+  - name: Teams
+    description: Team management and access control
+  - name: Projects
+    description: Project management and organization
+  - name: Versioning
+    description: Workflow versions and snapshots
+  - name: Admin
+    description: System administration and diagnostics
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer token authentication for API access.
+        Use either a JWT token (from `/api/auth/token`) or a run token (from creating a workflow run).
+
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Session cookie obtained via Google OAuth2 login
+
+  schemas:
+    # ===================================================================
+    # COMMON SCHEMAS
+    # ===================================================================
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        errors:
+          type: array
+          items:
+            type: string
+          description: Detailed error messages
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+
+    PaginationParams:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+          description: Number of items per page
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Number of items to skip
+
+    PaginationResponse:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+          description: Total number of items
+        hasMore:
+          type: boolean
+          description: Whether more items are available
+
+    # ===================================================================
+    # WORKFLOW SCHEMAS
+    # ===================================================================
+
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Workflow ID
+        title:
+          type: string
+          description: Workflow title
+        description:
+          type: string
+          nullable: true
+          description: Workflow description
+        status:
+          type: string
+          enum: [draft, active, archived]
+          description: Workflow status
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent project ID
+        publicLink:
+          type: string
+          nullable: true
+          description: Public access slug
+        creatorId:
+          type: string
+          description: Creator user ID
+        ownerId:
+          type: string
+          description: Owner user ID
+        ownerType:
+          type: string
+          enum: [user, org]
+          description: Owner type
+        ownerUuid:
+          type: string
+          format: uuid
+          description: Owner UUID
+        modeOverride:
+          type: string
+          enum: [easy, advanced]
+          nullable: true
+          description: UI mode override
+        intakeConfig:
+          type: object
+          nullable: true
+          properties:
+            allowPrefill:
+              type: boolean
+            allowedPrefillKeys:
+              type: array
+              items:
+                type: string
+            requireCaptcha:
+              type: boolean
+            captchaType:
+              type: string
+              enum: [simple, recaptcha]
+            sendEmailReceipt:
+              type: boolean
+            receiptEmailVar:
+              type: string
+            receiptTemplateId:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - status
+        - creatorId
+        - ownerId
+
+    WorkflowCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [draft, active, archived]
+          default: draft
+      required:
+        - title
+
+    WorkflowUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        status:
+          type: string
+          enum: [draft, active, archived]
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+          description: Full workflow content replacement (from AI)
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        order:
+          type: integer
+        skipLogic:
+          type: object
+          nullable: true
+        visibleIf:
+          type: string
+          nullable: true
+          description: Visibility expression
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workflowId
+        - title
+        - order
+
+    Step:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - short_text
+            - long_text
+            - email
+            - phone
+            - website
+            - number
+            - currency
+            - address
+            - boolean
+            - multiple_choice
+            - radio
+            - checkbox
+            - scale
+            - date
+            - date_time
+            - time
+            - display
+            - multi_field
+            - signature
+            - file_upload
+            - computed
+        alias:
+          type: string
+          nullable: true
+          description: Variable name for this step
+        required:
+          type: boolean
+          default: false
+        config:
+          type: object
+          description: Step-specific configuration (varies by type)
+        visibleIf:
+          type: string
+          nullable: true
+          description: Step-level visibility expression
+        defaultValue:
+          type: object
+          nullable: true
+          description: Default value for this step
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sectionId
+        - type
+        - order
+
+    WorkflowVariable:
+      type: object
+      properties:
+        stepId:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        type:
+          type: string
+        sectionTitle:
+          type: string
+        order:
+          type: integer
+      description: Step with alias (variable) for use in logic/transforms
+
+    # ===================================================================
+    # RUN SCHEMAS
+    # ===================================================================
+
+    WorkflowRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        runToken:
+          type: string
+          description: Bearer token for this run
+        createdBy:
+          type: string
+          nullable: true
+          description: User ID (null for anonymous)
+        currentSectionId:
+          type: string
+          format: uuid
+          nullable: true
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workflowId
+        - runToken
+        - completed
+
+    StepValue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        stepId:
+          type: string
+          format: uuid
+        value:
+          description: Step value (type varies by step type)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - runId
+        - stepId
+        - value
+
+    RunCreateRequest:
+      type: object
+      properties:
+        initialValues:
+          type: object
+          additionalProperties: true
+          description: Initial step values (alias -> value)
+        snapshotId:
+          type: string
+          format: uuid
+          description: Load values from snapshot
+        randomize:
+          type: boolean
+          description: Generate random test data via AI
+
+    SectionSubmitRequest:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            type: object
+            properties:
+              stepId:
+                type: string
+                format: uuid
+              value:
+                description: Step value
+            required:
+              - stepId
+              - value
+      required:
+        - values
+
+    SectionSubmitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+          description: Validation errors (if any)
+
+    # ===================================================================
+    # LIFECYCLE HOOK SCHEMAS
+    # ===================================================================
+
+    LifecycleHook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Section ID (for beforePage/afterPage hooks)
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phase:
+          type: string
+          enum: [beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated]
+          description: |
+            Hook execution phase:
+            - `beforePage`: Before section is displayed
+            - `afterPage`: After section is submitted
+            - `beforeFinalBlock`: Before final documents section
+            - `afterDocumentsGenerated`: After all documents are generated
+        language:
+          type: string
+          enum: [javascript, python]
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32768
+          description: Hook code (max 32KB)
+        inputKeys:
+          type: array
+          items:
+            type: string
+          description: Input variable whitelist
+        outputKeys:
+          type: array
+          items:
+            type: string
+          description: Output variable whitelist
+        enabled:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+          description: Execution order (ascending)
+        timeoutMs:
+          type: integer
+          minimum: 100
+          maximum: 3000
+          default: 1000
+          description: Execution timeout in milliseconds
+        mutationMode:
+          type: boolean
+          default: false
+          description: Allow hook to modify workflow data
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workflowId
+        - name
+        - phase
+        - language
+        - code
+
+    LifecycleHookCreate:
+      type: object
+      properties:
+        sectionId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phase:
+          type: string
+          enum: [beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated]
+        language:
+          type: string
+          enum: [javascript, python]
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32768
+        inputKeys:
+          type: array
+          items:
+            type: string
+          default: []
+        outputKeys:
+          type: array
+          items:
+            type: string
+          default: []
+        enabled:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+          default: 0
+        timeoutMs:
+          type: integer
+          minimum: 100
+          maximum: 3000
+          default: 1000
+        mutationMode:
+          type: boolean
+          default: false
+      required:
+        - name
+        - phase
+        - language
+        - code
+
+    LifecycleHookTest:
+      type: object
+      properties:
+        testData:
+          type: object
+          additionalProperties: true
+          description: Test input data
+        context:
+          type: object
+          properties:
+            workflowId:
+              type: string
+              format: uuid
+            runId:
+              type: string
+              format: uuid
+            phase:
+              type: string
+            sectionId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+            metadata:
+              type: object
+              additionalProperties: true
+      required:
+        - testData
+
+    ScriptExecutionLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        scriptType:
+          type: string
+          enum: [lifecycle, document]
+        scriptId:
+          type: string
+          format: uuid
+        scriptName:
+          type: string
+        phase:
+          type: string
+        status:
+          type: string
+          enum: [success, error, timeout]
+        consoleOutput:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: string
+                enum: [log, warn, error]
+              message:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        errorMessage:
+          type: string
+          nullable: true
+        durationMs:
+          type: integer
+        executedAt:
+          type: string
+          format: date-time
+
+    # ===================================================================
+    # DOCUMENT HOOK SCHEMAS
+    # ===================================================================
+
+    DocumentHook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Document template ID (null for all documents)
+        name:
+          type: string
+        phase:
+          type: string
+          enum: [beforeGeneration, afterGeneration]
+        language:
+          type: string
+          enum: [javascript, python]
+        code:
+          type: string
+        inputKeys:
+          type: array
+          items:
+            type: string
+        outputKeys:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        order:
+          type: integer
+        timeoutMs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ===================================================================
+    # DATAVAULT SCHEMAS
+    # ===================================================================
+
+    DatavaultDatabase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        tenantId:
+          type: string
+          format: uuid
+        scopeType:
+          type: string
+          enum: [account, project, workflow]
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        archived:
+          type: boolean
+        ownerUserId:
+          type: string
+          nullable: true
+        ownerType:
+          type: string
+          enum: [user, org]
+        ownerUuid:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DatavaultTable:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        databaseId:
+          type: string
+          format: uuid
+          nullable: true
+        tenantId:
+          type: string
+          format: uuid
+        ownerUserId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DatavaultColumn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        type:
+          type: string
+          enum: [text, number, date, boolean, select, multiselect, autonumber, reference]
+        required:
+          type: boolean
+        orderIndex:
+          type: integer
+        config:
+          type: object
+          description: Type-specific configuration
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DatavaultRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        data:
+          type: object
+          additionalProperties: true
+          description: Row data (columnSlug -> value)
+        archived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+
+    DatavaultTablePermission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        role:
+          type: string
+          enum: [owner, write, read]
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  # ===================================================================
+  # AUTHENTICATION ENDPOINTS
+  # ===================================================================
+
+  /api/auth/google:
+    get:
+      tags: [Authentication]
+      summary: Initiate Google OAuth2 login
+      description: Redirects to Google OAuth2 consent screen
+      responses:
+        '302':
+          description: Redirect to Google OAuth2
+
+  /api/auth/google/callback:
+    get:
+      tags: [Authentication]
+      summary: Google OAuth2 callback
+      description: Handles OAuth2 callback and establishes session
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+      responses:
+        '302':
+          description: Redirect to application with session cookie
+
+  /api/auth/token:
+    post:
+      tags: [Authentication]
+      summary: Generate JWT token
+      description: Generate a JWT token for API access
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: JWT token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: JWT bearer token
+                  expiresIn:
+                    type: string
+                    example: "7d"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout
+      description: Destroy session and logout user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+        '401':
+          description: Unauthorized
+
+  # ===================================================================
+  # WORKFLOW ENDPOINTS
+  # ===================================================================
+
+  /api/workflows:
+    get:
+      tags: [Workflows]
+      summary: List workflows
+      description: Get all workflows for authenticated user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Workflows retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workflow'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Workflows]
+      summary: Create workflow
+      description: Create a new workflow
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowCreate'
+      responses:
+        '201':
+          description: Workflow created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+
+  /api/workflows/{workflowId}:
+    get:
+      tags: [Workflows]
+      summary: Get workflow
+      description: Get workflow with full details (sections, steps, rules)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Workflow'
+                  - type: object
+                    properties:
+                      sections:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/Section'
+                            - type: object
+                              properties:
+                                steps:
+                                  type: array
+                                  items:
+                                    $ref: '#/components/schemas/Step'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Workflow not found
+
+    put:
+      tags: [Workflows]
+      summary: Update workflow
+      description: Update workflow properties or full content
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowUpdate'
+      responses:
+        '200':
+          description: Workflow updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Workflow not found
+
+    delete:
+      tags: [Workflows]
+      summary: Delete workflow
+      description: Delete workflow and all related data
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Workflow deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Workflow not found
+
+  /api/workflows/{workflowId}/variables:
+    get:
+      tags: [Workflows]
+      summary: Get workflow variables
+      description: Get all steps with aliases (variables) for use in logic/transforms
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Variables retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowVariable'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Workflow not found
+
+  # ===================================================================
+  # LIFECYCLE HOOKS ENDPOINTS
+  # ===================================================================
+
+  /api/workflows/{workflowId}/lifecycle-hooks:
+    get:
+      tags: [Lifecycle Hooks]
+      summary: List lifecycle hooks
+      description: Get all lifecycle hooks for a workflow
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hooks retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LifecycleHook'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+    post:
+      tags: [Lifecycle Hooks]
+      summary: Create lifecycle hook
+      description: |
+        Create a new lifecycle hook for executing custom JavaScript/Python code during workflow phases.
+
+        **Available Phases:**
+        - `beforePage`: Executed before section is displayed to user
+        - `afterPage`: Executed after section is submitted
+        - `beforeFinalBlock`: Executed before final documents section
+        - `afterDocumentsGenerated`: Executed after all documents are generated
+
+        **Helper Functions (40+ available):**
+        - Date: `helpers.date.format()`, `helpers.date.addDays()`, etc.
+        - String: `helpers.string.capitalize()`, `helpers.string.slugify()`, etc.
+        - Number: `helpers.number.round()`, `helpers.number.formatCurrency()`, etc.
+        - Array: `helpers.array.unique()`, `helpers.array.sum()`, etc.
+        - Object: `helpers.object.get()`, `helpers.object.set()`, etc.
+        - Math: `helpers.math.random()`, `helpers.math.average()`, etc.
+        - Console: `helpers.console.log()`, `helpers.console.warn()`, etc.
+        - HTTP: `helpers.http.get()`, `helpers.http.post()`, etc. (proxied)
+
+        **Example (JavaScript):**
+        ```javascript
+        const firstName = input.firstName;
+        const lastName = input.lastName;
+        const fullName = `${firstName} ${lastName}`.toUpperCase();
+
+        helpers.console.log('Generated full name:', fullName);
+        emit({ fullName });
+        ```
+
+        **Example (Python):**
+        ```python
+        first_name = input['firstName']
+        last_name = input['lastName']
+        full_name = f"{first_name} {last_name}".upper()
+
+        helpers.console.log('Generated full name:', full_name)
+        emit({'fullName': full_name})
+        ```
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleHookCreate'
+            examples:
+              beforePage:
+                summary: Before Page Hook
+                description: Validate data before showing section
+                value:
+                  name: "Pre-flight validation"
+                  phase: "beforePage"
+                  sectionId: "123e4567-e89b-12d3-a456-426614174000"
+                  language: "javascript"
+                  code: |
+                    const age = input.age;
+                    if (age < 18) {
+                      throw new Error('Must be 18 or older');
+                    }
+                    emit({ validated: true });
+                  inputKeys: ["age"]
+                  outputKeys: ["validated"]
+                  timeoutMs: 1000
+              afterDocuments:
+                summary: After Documents Hook
+                description: Send notification after documents are generated
+                value:
+                  name: "Email notification"
+                  phase: "afterDocumentsGenerated"
+                  language: "javascript"
+                  code: |
+                    const email = input.userEmail;
+                    const docs = context.documents;
+
+                    helpers.console.log(`Sending ${docs.length} documents to ${email}`);
+
+                    // Send via HTTP helper
+                    await helpers.http.post('https://api.sendgrid.com/v3/mail/send', {
+                      to: email,
+                      subject: 'Your documents are ready',
+                      text: `${docs.length} documents have been generated`
+                    });
+
+                    emit({ emailSent: true });
+                  inputKeys: ["userEmail"]
+                  outputKeys: ["emailSent"]
+                  timeoutMs: 3000
+      responses:
+        '201':
+          description: Hook created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LifecycleHook'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  /api/lifecycle-hooks/{hookId}:
+    put:
+      tags: [Lifecycle Hooks]
+      summary: Update lifecycle hook
+      description: Update lifecycle hook properties
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phase:
+                  type: string
+                  enum: [beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated]
+                language:
+                  type: string
+                  enum: [javascript, python]
+                code:
+                  type: string
+                inputKeys:
+                  type: array
+                  items:
+                    type: string
+                outputKeys:
+                  type: array
+                  items:
+                    type: string
+                enabled:
+                  type: boolean
+                order:
+                  type: integer
+                timeoutMs:
+                  type: integer
+                mutationMode:
+                  type: boolean
+      responses:
+        '200':
+          description: Hook updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LifecycleHook'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Hook not found
+
+    delete:
+      tags: [Lifecycle Hooks]
+      summary: Delete lifecycle hook
+      description: Delete lifecycle hook
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hook deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Hook not found
+
+  /api/lifecycle-hooks/{hookId}/test:
+    post:
+      tags: [Lifecycle Hooks]
+      summary: Test lifecycle hook
+      description: |
+        Test a lifecycle hook with sample data before deploying it.
+
+        Returns execution result including:
+        - Output data
+        - Console logs
+        - Execution time
+        - Any errors
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleHookTest'
+            example:
+              testData:
+                firstName: "John"
+                lastName: "Doe"
+                age: 25
+              context:
+                workflowId: "123e4567-e89b-12d3-a456-426614174000"
+                phase: "beforePage"
+      responses:
+        '200':
+          description: Test executed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      output:
+                        type: object
+                        additionalProperties: true
+                      console:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            level:
+                              type: string
+                            message:
+                              type: string
+                      durationMs:
+                        type: integer
+                      error:
+                        type: string
+                        nullable: true
+              examples:
+                success:
+                  summary: Successful execution
+                  value:
+                    success: true
+                    data:
+                      output:
+                        fullName: "JOHN DOE"
+                        validated: true
+                      console:
+                        - level: "log"
+                          message: "Generated full name: JOHN DOE"
+                      durationMs: 45
+                      error: null
+                error:
+                  summary: Execution error
+                  value:
+                    success: true
+                    data:
+                      output: null
+                      console: []
+                      durationMs: 12
+                      error: "Must be 18 or older"
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Hook not found
+
+  /api/runs/{runId}/script-console:
+    get:
+      tags: [Lifecycle Hooks]
+      summary: Get script execution logs
+      description: Get all script execution logs for a workflow run (for debugging)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScriptExecutionLog'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+    delete:
+      tags: [Lifecycle Hooks]
+      summary: Clear script execution logs
+      description: Clear all script execution logs for a run
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Logs cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  # ===================================================================
+  # DOCUMENT HOOKS ENDPOINTS
+  # ===================================================================
+
+  /api/workflows/{workflowId}/document-hooks:
+    get:
+      tags: [Document Hooks]
+      summary: List document hooks
+      description: Get all document hooks for a workflow
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hooks retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentHook'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+    post:
+      tags: [Document Hooks]
+      summary: Create document hook
+      description: |
+        Create a new document hook for transforming documents before/after generation.
+
+        **Available Phases:**
+        - `beforeGeneration`: Transform data before document is generated
+        - `afterGeneration`: Transform document after generation (manipulate binary)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Specific document ID (null for all documents)
+                name:
+                  type: string
+                phase:
+                  type: string
+                  enum: [beforeGeneration, afterGeneration]
+                language:
+                  type: string
+                  enum: [javascript, python]
+                code:
+                  type: string
+                inputKeys:
+                  type: array
+                  items:
+                    type: string
+                outputKeys:
+                  type: array
+                  items:
+                    type: string
+                enabled:
+                  type: boolean
+                order:
+                  type: integer
+                timeoutMs:
+                  type: integer
+              required:
+                - name
+                - phase
+                - language
+                - code
+      responses:
+        '201':
+          description: Hook created
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  /api/document-hooks/{hookId}:
+    put:
+      tags: [Document Hooks]
+      summary: Update document hook
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phase:
+                  type: string
+                  enum: [beforeGeneration, afterGeneration]
+                code:
+                  type: string
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Hook updated
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Hook not found
+
+    delete:
+      tags: [Document Hooks]
+      summary: Delete document hook
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hook deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Hook not found
+
+  /api/document-hooks/{hookId}/test:
+    post:
+      tags: [Document Hooks]
+      summary: Test document hook
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: hookId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testData:
+                  type: object
+                  additionalProperties: true
+                context:
+                  type: object
+      responses:
+        '200':
+          description: Test executed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  # ===================================================================
+  # RUN ENDPOINTS
+  # ===================================================================
+
+  /api/workflows/{workflowId}/runs:
+    get:
+      tags: [Runs]
+      summary: List runs for workflow
+      description: Get all runs for a specific workflow
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Runs retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowRun'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Workflow not found
+
+    post:
+      tags: [Runs]
+      summary: Create run
+      description: |
+        Create a new workflow run. Returns a `runToken` for subsequent API calls.
+
+        **Authentication Options:**
+        - Authenticated: Use session or bearer token (creates creator-owned run)
+        - Anonymous: Include `?publicLink=<slug>` query parameter (no auth required)
+
+        **Initial Values:**
+        - Can pre-populate step values using `initialValues` object (alias -> value)
+        - Can load from snapshot using `snapshotId`
+        - Can generate random test data using `randomize: true` (requires AI configured)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - {}
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: publicLink
+          schema:
+            type: string
+          description: Public link slug for anonymous runs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunCreateRequest'
+      responses:
+        '201':
+          description: Run created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      runId:
+                        type: string
+                        format: uuid
+                      runToken:
+                        type: string
+                        description: Bearer token for this run
+                      currentSectionId:
+                        type: string
+                        format: uuid
+                        nullable: true
+        '401':
+          description: Unauthorized (for authenticated runs)
+        '403':
+          description: Workflow not active or not public
+        '404':
+          description: Workflow not found
+
+  /api/workflows/public/{publicLinkSlug}/start:
+    post:
+      tags: [Runs]
+      summary: Start anonymous run
+      description: Start an anonymous workflow run from a public link slug (no authentication required)
+      parameters:
+        - in: path
+          name: publicLinkSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                initialValues:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Run started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      runId:
+                        type: string
+                        format: uuid
+                      runToken:
+                        type: string
+                      workflowId:
+                        type: string
+                        format: uuid
+        '403':
+          description: Workflow not active or not public
+        '404':
+          description: Public link not found
+
+  /api/runs/{runId}:
+    get:
+      tags: [Runs]
+      summary: Get run
+      description: Get workflow run details
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Run retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/WorkflowRun'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  /api/runs/{runId}/values:
+    get:
+      tags: [Runs]
+      summary: Get run with values
+      description: Get workflow run with all step values
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Run retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/WorkflowRun'
+                      - type: object
+                        properties:
+                          values:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/StepValue'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+    post:
+      tags: [Runs]
+      summary: Save step value
+      description: Save or update a single step value
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stepId:
+                  type: string
+                  format: uuid
+                value:
+                  description: Step value (type varies)
+              required:
+                - stepId
+                - value
+      responses:
+        '200':
+          description: Value saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  /api/runs/{runId}/values/bulk:
+    post:
+      tags: [Runs]
+      summary: Bulk save step values
+      description: Save multiple step values at once
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      stepId:
+                        type: string
+                        format: uuid
+                      value:
+                        description: Step value
+                    required:
+                      - stepId
+                      - value
+              required:
+                - values
+      responses:
+        '200':
+          description: Values saved
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  /api/runs/{runId}/sections/{sectionId}/submit:
+    post:
+      tags: [Runs]
+      summary: Submit section
+      description: |
+        Submit section values with validation. Executes validation and transform blocks.
+
+        Returns validation errors if any, otherwise marks section as complete.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: sectionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionSubmitRequest'
+      responses:
+        '200':
+          description: Section submitted (may contain validation errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionSubmitResponse'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+  /api/runs/{runId}/next:
+    post:
+      tags: [Runs]
+      summary: Navigate to next section
+      description: |
+        Navigate to next section. Executes branch blocks to determine next section.
+
+        Returns next section ID or indicates workflow completion.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Next section determined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      nextSectionId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                      completed:
+                        type: boolean
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  /api/runs/{runId}/complete:
+    put:
+      tags: [Runs]
+      summary: Complete run
+      description: |
+        Mark workflow run as complete. Triggers:
+        - Final validation
+        - Transform blocks execution
+        - Document generation (if configured)
+        - Lifecycle hooks (beforeFinalBlock, afterDocumentsGenerated)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Run completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          description: Missing required values or validation failed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  /api/runs/{runId}/documents:
+    get:
+      tags: [Runs, Documents]
+      summary: Get generated documents
+      description: Get all generated documents for a workflow run
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Documents retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        documentUrl:
+                          type: string
+                        fileType:
+                          type: string
+                          enum: [pdf, docx]
+                        createdAt:
+                          type: string
+                          format: date-time
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  /api/runs/{runId}/generate-documents:
+    post:
+      tags: [Runs, Documents]
+      summary: Generate documents
+      description: Trigger document generation for a run (idempotent)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document generation triggered
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Run not found
+
+  # ===================================================================
+  # DATAVAULT ENDPOINTS
+  # ===================================================================
+
+  /api/datavault/databases:
+    get:
+      tags: [DataVault]
+      summary: List databases
+      description: |
+        Get all databases for authenticated tenant.
+
+        Can filter by scope (account, project, workflow).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: scopeType
+          schema:
+            type: string
+            enum: [account, project, workflow]
+        - in: query
+          name: scopeId
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Databases retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatavaultDatabase'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+
+    post:
+      tags: [DataVault]
+      summary: Create database
+      description: Create a new DataVault database
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 1000
+                scopeType:
+                  type: string
+                  enum: [account, project, workflow]
+                scopeId:
+                  type: string
+                  format: uuid
+              required:
+                - name
+                - scopeType
+      responses:
+        '201':
+          description: Database created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatavaultDatabase'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /api/datavault/databases/{id}:
+    get:
+      tags: [DataVault]
+      summary: Get database
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Database retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatavaultDatabase'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Database not found
+
+    patch:
+      tags: [DataVault]
+      summary: Update database
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                scopeType:
+                  type: string
+                  enum: [account, project, workflow]
+                scopeId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Database updated
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Database not found
+
+    delete:
+      tags: [DataVault]
+      summary: Delete database
+      description: Delete database (tables will be moved to main folder)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Database deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Database not found
+
+  /api/datavault/tables:
+    get:
+      tags: [DataVault]
+      summary: List tables
+      description: Get all tables for authenticated tenant
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: stats
+          schema:
+            type: boolean
+          description: Include row count statistics
+      responses:
+        '200':
+          description: Tables retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatavaultTable'
+        '401':
+          description: Unauthorized
+
+    post:
+      tags: [DataVault]
+      summary: Create table
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                databaseId:
+                  type: string
+                  format: uuid
+                  nullable: true
+              required:
+                - name
+                - slug
+      responses:
+        '201':
+          description: Table created
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /api/datavault/tables/{tableId}:
+    get:
+      tags: [DataVault]
+      summary: Get table
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: columns
+          schema:
+            type: boolean
+          description: Include column definitions
+      responses:
+        '200':
+          description: Table retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatavaultTable'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied
+        '404':
+          description: Table not found
+
+    patch:
+      tags: [DataVault]
+      summary: Update table
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Table updated
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (owner only)
+        '404':
+          description: Table not found
+
+    delete:
+      tags: [DataVault]
+      summary: Delete table
+      description: Delete table and all rows (cascades to columns and values)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Table deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (owner only)
+        '404':
+          description: Table not found
+
+  /api/datavault/tables/{tableId}/rows:
+    get:
+      tags: [DataVault]
+      summary: List rows
+      description: |
+        Get rows with pagination, sorting, and archiving support.
+
+        **Pagination:**
+        - `limit`: Max 100 rows per page (default: 50)
+        - `offset`: Number of rows to skip (default: 0)
+
+        **Sorting:**
+        - `sortBy`: Column slug or 'createdAt'/'updatedAt'
+        - `sortOrder`: 'asc' or 'desc'
+
+        **Archiving:**
+        - `showArchived`: Include archived rows (default: false)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - in: query
+          name: showArchived
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Rows retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DatavaultRow'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (read permission required)
+        '404':
+          description: Table not found
+
+    post:
+      tags: [DataVault]
+      summary: Create row
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values:
+                  type: object
+                  additionalProperties: true
+                  description: Column values (columnId -> value)
+              required:
+                - values
+      responses:
+        '201':
+          description: Row created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  row:
+                    $ref: '#/components/schemas/DatavaultRow'
+        '400':
+          description: Invalid input or validation failed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (write permission required)
+        '404':
+          description: Table not found
+
+  /api/datavault/rows/{rowId}:
+    get:
+      tags: [DataVault]
+      summary: Get row
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: rowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Row retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatavaultRow'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Row not found
+
+    patch:
+      tags: [DataVault]
+      summary: Update row
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: rowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values:
+                  type: object
+                  additionalProperties: true
+              required:
+                - values
+      responses:
+        '204':
+          description: Row updated
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (write permission required)
+        '404':
+          description: Row not found
+
+    delete:
+      tags: [DataVault]
+      summary: Delete row
+      description: Permanently delete row (references to this row will be set to NULL)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: rowId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Row deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (write permission required)
+        '404':
+          description: Row not found
+
+  /api/datavault/tables/{tableId}/permissions:
+    get:
+      tags: [DataVault]
+      summary: Get table permissions
+      description: Get all permissions for a table (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Permissions retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatavaultTablePermission'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (owner only)
+
+    post:
+      tags: [DataVault]
+      summary: Grant table permission
+      description: Grant or update permission for a user (owner only)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: tableId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                role:
+                  type: string
+                  enum: [owner, write, read]
+              required:
+                - userId
+                - role
+      responses:
+        '201':
+          description: Permission granted
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Access denied (owner only)
+
+# Continue with more endpoints...
+# Due to length constraints, this represents the structure and key endpoints.
+# The full spec would include all 66+ route files with complete documentation.

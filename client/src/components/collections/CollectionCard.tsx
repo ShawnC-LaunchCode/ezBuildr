@@ -4,8 +4,9 @@
  */
 
 import { Database, Trash2, Pencil } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
+import { Badge } from "@/components/ui/badge";
 import type { ApiCollectionWithStats } from "@/lib/vault-api";
 
 interface CollectionCardProps {

@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
-import { useRoute } from "wouter";
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Download, FileText, CheckCircle2, AlertCircle, Play } from "lucide-react";
+import React, { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useRoute } from "wouter";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Assuming Alert exists
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Assuming Alert exists
 
 interface GeneratedDocument {
     id: string;

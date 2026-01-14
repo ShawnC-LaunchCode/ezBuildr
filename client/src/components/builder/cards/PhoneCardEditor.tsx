@@ -3,13 +3,17 @@
  * Editor for phone number blocks
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
 import { Separator } from "@/components/ui/separator";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { SwitchField, SectionHeader } from "./common/EditorField";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
 
 interface PhoneCardEditorProps {
@@ -31,14 +35,14 @@ export function PhoneCardEditor({ stepId, sectionId, step }: PhoneCardEditorProp
   const config = step.config as PhoneConfig | undefined;
 
   const [localConfig, setLocalConfig] = useState({
-    format: (config?.format || "US") as "US" | "international",
+    format: (config?.format || "US"),
     validateFormat: true, // Always validate in easy mode
     showFormattingMask: true, // Show formatting by default
   });
 
   useEffect(() => {
     setLocalConfig({
-      format: (config?.format || "US") as "US" | "international",
+      format: (config?.format || "US"),
       validateFormat: true,
       showFormattingMask: true,
     });

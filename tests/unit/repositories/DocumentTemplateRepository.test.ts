@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DocumentTemplateRepository } from '../../../server/repositories/DocumentTemplateRepository';
+
 import type { Template, InsertTemplate } from '@shared/schema';
+
+import { DocumentTemplateRepository } from '../../../server/repositories/DocumentTemplateRepository';
 
 /**
  * Stage 21 PR 2: Document Template Repository Tests

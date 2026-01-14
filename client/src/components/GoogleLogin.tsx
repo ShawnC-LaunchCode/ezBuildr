@@ -1,9 +1,10 @@
 import { GoogleLogin as GoogleOAuthLogin, googleLogout } from '@react-oauth/google';
+import { LogOut } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface GoogleLoginProps {
   onSuccess?: () => void;

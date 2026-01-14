@@ -36,8 +36,8 @@ export type { BuildEnvelopeRequest } from './EnvelopeBuilder';
 export { SignatureBlockService } from './SignatureBlockService';
 
 // Initialize providers on module load
-import { EsignProviderFactory } from './EsignProvider';
 import { createDocusignProvider } from './DocusignProvider';
+import { EsignProviderFactory } from './EsignProvider';
 
 /**
  * Initialize all configured e-signature providers

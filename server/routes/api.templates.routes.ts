@@ -1,5 +1,6 @@
-import type { Express } from "express";
 import templatesRouter from "../api/templates";
+
+import type { Express } from "express";
 
 /**
  * Register Stage 4 Templates API routes

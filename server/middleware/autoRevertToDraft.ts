@@ -1,6 +1,7 @@
-import type { Request, Response, NextFunction } from "express";
-import { workflowService } from "../services/WorkflowService";
 import { createLogger } from "../logger";
+import { workflowService } from "../services/WorkflowService";
+
+import type { Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: "auto-revert-middleware" });
 

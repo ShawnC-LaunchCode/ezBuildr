@@ -1,5 +1,6 @@
 
 import { describe, it, expect } from "vitest";
+
 import { workflowOptimizationService } from "../../server/services/ai/WorkflowOptimizationService";
 import { WorkflowJSON } from "../../shared/types/workflow";
 

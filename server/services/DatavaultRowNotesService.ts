@@ -1,12 +1,15 @@
+import DOMPurify from 'isomorphic-dompurify';
+
+import type { DatavaultRowNote, InsertDatavaultRowNote } from "@shared/schema";
+
+import { db } from "../db";
 import {
   datavaultRowNotesRepository,
   datavaultRowsRepository,
   datavaultTablesRepository,
   type DbTransaction,
 } from "../repositories";
-import type { DatavaultRowNote, InsertDatavaultRowNote } from "@shared/schema";
-import { db } from "../db";
-import DOMPurify from 'isomorphic-dompurify';
+
 
 /**
  * Service layer for DataVault row notes business logic
@@ -78,7 +81,7 @@ export class DatavaultRowNotesService {
     await this.verifyRowOwnership(rowId, tenantId, tx);
 
     // Get notes
-    return await this.notesRepo.findByRowIdAndTenant(rowId, tenantId, tx);
+    return this.notesRepo.findByRowIdAndTenant(rowId, tenantId, tx);
   }
 
   /**

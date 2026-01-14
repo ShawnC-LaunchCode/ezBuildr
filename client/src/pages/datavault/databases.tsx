@@ -4,20 +4,16 @@
  * DataVault Phase 2: Databases feature
  */
 
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-import {
-  useDatavaultDatabases,
-  useCreateDatavaultDatabase,
-  useDeleteDatavaultDatabase,
-} from "@/lib/datavault-hooks";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Loader2, Search, Plus, Database as DatabaseIcon } from "lucide-react";
-import { DatabaseCard } from "@/components/datavault/DatabaseCard";
-import { CreateDatabaseModal } from "@/components/datavault/CreateDatabaseModal";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
+import { CreateDatabaseModal } from "@/components/datavault/CreateDatabaseModal";
+import { DatabaseCard } from "@/components/datavault/DatabaseCard";
+import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,8 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Header from "@/components/layout/Header";
-import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useDatavaultDatabases,
+  useCreateDatavaultDatabase,
+  useDeleteDatavaultDatabase,
+  useTransferDatavaultDatabase,
+} from "@/lib/datavault-hooks";
 
 export default function DataVaultDatabasesPage() {
   const [, setLocation] = useLocation();
@@ -38,10 +41,12 @@ export default function DataVaultDatabasesPage() {
   const { data: databases, isLoading } = useDatavaultDatabases();
   const createDatabaseMutation = useCreateDatavaultDatabase();
   const deleteDatabaseMutation = useDeleteDatavaultDatabase();
+  const transferDatabaseMutation = useTransferDatavaultDatabase();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [transferringDatabase, setTransferringDatabase] = useState<{ id: string; name: string } | null>(null);
 
   // Filter databases by search query
   const filteredDatabases = databases?.filter((database) => {
@@ -77,7 +82,7 @@ export default function DataVaultDatabasesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     try {
       await deleteDatabaseMutation.mutateAsync(deleteConfirm.id);
@@ -94,6 +99,32 @@ export default function DataVaultDatabasesPage() {
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleTransfer = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
+    if (!transferringDatabase) {return;}
+
+    try {
+      await transferDatabaseMutation.mutateAsync({
+        id: transferringDatabase.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+
+      toast({
+        title: "Database transferred",
+        description: `${transferringDatabase.name} has been transferred successfully. All tables remain in the database.`,
+      });
+
+      setTransferringDatabase(null);
+    } catch (error) {
+      toast({
+        title: "Failed to transfer database",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -186,6 +217,7 @@ export default function DataVaultDatabasesPage() {
                     key={database.id}
                     database={database}
                     onClick={() => handleDatabaseClick(database.id)}
+                    onTransfer={(id, name) => setTransferringDatabase({ id, name })}
                     onDelete={() => setDeleteConfirm({ id: database.id, name: database.name })}
                   />
                 ))}
@@ -253,6 +285,18 @@ export default function DataVaultDatabasesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Ownership Dialog */}
+      {transferringDatabase && (
+        <TransferOwnershipDialog
+          open={!!transferringDatabase}
+          onOpenChange={(open) => !open && setTransferringDatabase(null)}
+          assetType="database"
+          assetName={transferringDatabase.name}
+          onTransfer={handleTransfer}
+          isPending={transferDatabaseMutation.isPending}
+        />
+      )}
     </div>
   );
 }

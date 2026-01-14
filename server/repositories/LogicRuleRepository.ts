@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { logicRules, type LogicRule, type InsertLogicRule } from "@shared/schema";
 import { eq, asc } from "drizzle-orm";
+
+import { logicRules, type LogicRule, type InsertLogicRule } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for logic rule data access
@@ -20,7 +23,7 @@ export class LogicRuleRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<LogicRule[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(logicRules)
       .where(eq(logicRules.workflowId, workflowId))

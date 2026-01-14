@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import type {
   TenantBranding,
   TenantDomain,
@@ -28,7 +29,7 @@ export function useTenantBranding(tenantId: string | undefined) {
   return useQuery({
     queryKey: ['tenants', tenantId, 'branding'],
     queryFn: async (): Promise<TenantBranding | null> => {
-      if (!tenantId) throw new Error('Tenant ID is required');
+      if (!tenantId) {throw new Error('Tenant ID is required');}
 
       const response = await fetch(`/api/tenants/${tenantId}/branding`, {
         credentials: 'include',
@@ -88,7 +89,7 @@ export function useTenantDomains(tenantId: string | undefined) {
   return useQuery({
     queryKey: ['tenants', tenantId, 'domains'],
     queryFn: async (): Promise<TenantDomain[]> => {
-      if (!tenantId) throw new Error('Tenant ID is required');
+      if (!tenantId) {throw new Error('Tenant ID is required');}
 
       const response = await fetch(`/api/tenants/${tenantId}/domains`, {
         credentials: 'include',

@@ -1,0 +1,90 @@
+
+Running 2 tests using 2 workers
+
+Creation Workflow...
+Creation Workflow...
+Create Workflow Status: 201
+Create Workflow Status: 201
+Creating Section for 799a3121-2fc0-49c6-8946-3d1634e83094...
+Creating Section for c4927b6b-2c2c-4f64-94ba-3f4c13e08127...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Waiting for Page text...
+Page text found.
+Waiting for Page text...
+Page text found.
+Step: Adding List Tools block
+Looking for Add Logic button...
+Waiting for List Tool block...
+Step: Verifying Operator Labels
+  Γ£ÿ  1 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence (15.9s)
+  Γ£ÿ  2 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) (1.0m)
+
+
+  1) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Equals (strict)' })
+    Expected: visible
+    Error: strict mode violation: getByRole('option', { name: 'Equals (strict)' }) resolved to 2 elements:
+        1) <div role="option" tabindex="-1" data-highlighted="" aria-selected="true" data-state="checked" aria-labelledby="radix-:r8p:" data-radix-collection-item="" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-xs">ΓÇª</div> aka getByRole('option', { name: 'Equals (strict)', exact: true })
+        2) <div role="option" tabindex="-1" aria-selected="false" data-state="unchecked" aria-labelledby="radix-:r8r:" data-radix-collection-item="" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-xs">ΓÇª</div> aka getByRole('option', { name: 'Not Equals (strict)' })
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Equals (strict)' })[22m
+
+
+      128 |
+      129 |         // Assert Labels
+    > 130 |         await expect(page.getByRole('option', { name: "Equals (strict)" })).toBeVisible();
+          |                                                                             ^
+      131 |         await expect(page.getByRole('option', { name: "contains (case-insensitive)" })).toBeVisible();
+      132 |
+      133 |         await page.keyboard.press('Escape'); // Close dropdown
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:130:77
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Save Changes' })[22m
+
+
+      183 |
+      184 |         // Save
+    > 185 |         await page.getByRole('button', { name: "Save Changes" }).click();
+          |                                                                  ^
+      186 |
+      187 |         // Re-open
+      188 |         await blockItem.click();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:185:66
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\error-context.md
+
+  2 failed
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 

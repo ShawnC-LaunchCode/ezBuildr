@@ -5,8 +5,37 @@
  * DataVault Phase 2: PR 6
  */
 
-import { useState, useEffect } from "react";
+import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2, FolderInput } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+
+import { Breadcrumbs } from "@/components/common/Breadcrumbs";
+import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
+import { CreateTableModal } from "@/components/datavault/CreateTableModal";
+import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
+import { InfiniteEditableDataGrid } from "@/components/datavault/InfiniteEditableDataGrid";
+import { MoveTableModal } from "@/components/datavault/MoveTableModal";
+import { RowEditorModal } from "@/components/datavault/RowEditorModal";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import {
   useDatavaultDatabase,
@@ -24,34 +53,6 @@ import {
   useDatavaultDatabases,
   useMoveDatavaultTable,
 } from "@/lib/datavault-hooks";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2, FolderInput } from "lucide-react";
-import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
-import { InfiniteEditableDataGrid } from "@/components/datavault/InfiniteEditableDataGrid";
-import { Breadcrumbs } from "@/components/common/Breadcrumbs";
-import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
-import { RowEditorModal } from "@/components/datavault/RowEditorModal";
-import { CreateTableModal } from "@/components/datavault/CreateTableModal";
-import { MoveTableModal } from "@/components/datavault/MoveTableModal";
-import Header from "@/components/layout/Header";
-import Sidebar from "@/components/layout/Sidebar";
 
 export default function DatabaseDetailPage() {
   const { databaseId } = useParams<{ databaseId: string }>();
@@ -119,7 +120,7 @@ export default function DatabaseDetailPage() {
   };
 
   const handleMoveTable = async (targetDatabaseId: string | null) => {
-    if (!activeTableId || !activeTable) return;
+    if (!activeTableId || !activeTable) {return;}
 
     try {
       await moveTableMutation.mutateAsync({ tableId: activeTableId, databaseId: targetDatabaseId });
@@ -145,7 +146,7 @@ export default function DatabaseDetailPage() {
   };
 
   const handleAddColumn = async (data: { name: string; type: string; required: boolean }) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
 
     try {
       await createColumnMutation.mutateAsync({ tableId: activeTableId, ...data });
@@ -160,7 +161,7 @@ export default function DatabaseDetailPage() {
   };
 
   const handleUpdateColumn = async (columnId: string, data: { name: string; required: boolean }) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
 
     try {
       await updateColumnMutation.mutateAsync({ columnId, tableId: activeTableId, ...data });
@@ -176,7 +177,7 @@ export default function DatabaseDetailPage() {
   };
 
   const handleDeleteColumn = async (columnId: string) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
 
     try {
       await deleteColumnMutation.mutateAsync({ columnId, tableId: activeTableId });
@@ -191,12 +192,12 @@ export default function DatabaseDetailPage() {
   };
 
   const handleReorderColumns = async (columnIds: string[]) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
     await reorderColumnsMutation.mutateAsync({ tableId: activeTableId, columnIds });
   };
 
   const handleAddRow = async (values: Record<string, any>) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
 
     try {
       await createRowMutation.mutateAsync({ tableId: activeTableId, values });
@@ -212,13 +213,13 @@ export default function DatabaseDetailPage() {
   };
 
   const handleCreateRow = async (values: Record<string, any>) => {
-    if (!activeTableId) return;
+    if (!activeTableId) {return;}
 
     await createRowMutation.mutateAsync({ tableId: activeTableId, values });
   };
 
   const handleUpdateRow = async (values: Record<string, any>) => {
-    if (!activeTableId || !editingRow) return;
+    if (!activeTableId || !editingRow) {return;}
 
     try {
       await updateRowMutation.mutateAsync({ rowId: editingRow.id, tableId: activeTableId, values });
@@ -234,7 +235,7 @@ export default function DatabaseDetailPage() {
   };
 
   const handleDeleteRow = async () => {
-    if (!activeTableId || !deleteRowConfirm) return;
+    if (!activeTableId || !deleteRowConfirm) {return;}
 
     try {
       await deleteRowMutation.mutateAsync({ rowId: deleteRowConfirm, tableId: activeTableId });

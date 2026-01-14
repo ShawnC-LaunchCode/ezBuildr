@@ -1,7 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
+
 import type { ApiStep, ApiSection } from '@/lib/vault-api';
-import { PreviewVariableResolver } from './PreviewVariableResolver';
+
 import { mockIntegration } from './MockIntegrationLayer';
+import { PreviewVariableResolver } from './PreviewVariableResolver';
 
 export interface TraceEntry {
     id: string;

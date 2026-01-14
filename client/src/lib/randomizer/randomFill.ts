@@ -15,6 +15,7 @@
  */
 
 import type { ApiStep } from '@/lib/vault-api';
+
 import type {
   ChoiceAdvancedConfig,
   MultiFieldConfig,
@@ -268,7 +269,7 @@ function randomLastName(): string {
  * Generate random value for a text block
  */
 function generateTextValue(step: ApiStep): string {
-  const config = step.config as any;
+  const config = step.config;
 
   // Check variant for advanced mode
   if (config?.variant === 'long') {
@@ -287,7 +288,7 @@ function generateTextValue(step: ApiStep): string {
  * Generate random value for a boolean block
  */
 function generateBooleanValue(step: ApiStep): boolean | string {
-  const config = step.config as BooleanAdvancedConfig | any;
+  const config = step.config;
   const value = randomBoolean();
 
   // Advanced mode: check if storing as alias
@@ -302,7 +303,7 @@ function generateBooleanValue(step: ApiStep): boolean | string {
  * Generate random value for a choice block
  */
 function generateChoiceValue(step: ApiStep): string | string[] {
-  const config = step.config as ChoiceAdvancedConfig | any;
+  const config = step.config;
 
   // Handle advanced mode
   if (config?.options && Array.isArray(config.options)) {
@@ -370,7 +371,7 @@ function generateChoiceValue(step: ApiStep): string | string[] {
  * Generate random value for a scale block
  */
 function generateScaleValue(step: ApiStep): number {
-  const config = step.config as ScaleConfig | any;
+  const config = step.config;
 
   const min = config?.min ?? 1;
   const max = config?.max ?? 10;
@@ -383,7 +384,7 @@ function generateScaleValue(step: ApiStep): number {
  * Generate random value for a number block
  */
 function generateNumberValue(step: ApiStep): number {
-  const config = step.config as NumberConfig | any;
+  const config = step.config;
 
   const min = config?.min ?? 0;
   const max = config?.max ?? 9999;
@@ -396,7 +397,7 @@ function generateNumberValue(step: ApiStep): number {
  * Generate random value for a currency block
  */
 function generateCurrencyValue(step: ApiStep): number {
-  const config = step.config as CurrencyConfig | any;
+  const config = step.config;
 
   const min = config?.min ?? 0;
   const max = config?.max ?? 10000;
@@ -409,7 +410,7 @@ function generateCurrencyValue(step: ApiStep): number {
  * Generate random value for an address block
  */
 function generateAddressValue(step: ApiStep): object {
-  const config = step.config as AddressConfig | any;
+  const config = step.config;
 
   return {
     street: randomStreet(),
@@ -423,7 +424,7 @@ function generateAddressValue(step: ApiStep): object {
  * Generate random value for a multi-field block
  */
 function generateMultiFieldValue(step: ApiStep): object {
-  const config = step.config as MultiFieldConfig | any;
+  const config = step.config;
 
   // Handle predefined layouts
   if (config?.layout === 'first_last') {

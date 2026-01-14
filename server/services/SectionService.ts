@@ -1,5 +1,7 @@
-import { sectionRepository, workflowRepository, stepRepository } from "../repositories";
 import type { Section, InsertSection } from "@shared/schema";
+
+import { sectionRepository, workflowRepository, stepRepository } from "../repositories";
+
 import { workflowService } from "./WorkflowService";
 
 /**
@@ -39,7 +41,7 @@ export class SectionService {
       ? Math.max(...existingSections.map((s) => s.order)) + 1
       : 1;
 
-    return await this.sectionRepo.create({
+    return this.sectionRepo.create({
       ...data,
       workflowId,
       order: data.order ?? nextOrder,
@@ -62,7 +64,7 @@ export class SectionService {
       throw new Error("Section not found");
     }
 
-    return await this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, data);
   }
 
   /**
@@ -100,7 +102,7 @@ export class SectionService {
    */
   async getSections(workflowId: string, userId: string): Promise<Section[]> {
     await this.workflowSvc.verifyAccess(workflowId, userId);
-    return await this.sectionRepo.findByWorkflowId(workflowId);
+    return this.sectionRepo.findByWorkflowId(workflowId);
   }
 
   /**
@@ -108,7 +110,7 @@ export class SectionService {
    * Used for preview/run token authentication
    */
   async getSectionsByWorkflowId(workflowId: string): Promise<Section[]> {
-    return await this.sectionRepo.findByWorkflowId(workflowId);
+    return this.sectionRepo.findByWorkflowId(workflowId);
   }
 
   /**
@@ -144,7 +146,7 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId);
-    return await this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, data);
   }
 
   /**

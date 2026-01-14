@@ -1,14 +1,15 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, TrendingUp, TrendingDown, Star, Award, BarChart3, Activity, Users, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import React, { useState } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { cn } from '@/lib/utils';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiRequest } from '@/lib/queryClient';
+import { cn } from '@/lib/utils';
 
 interface FeedbackStats {
   totalFeedback: number;
@@ -64,7 +65,7 @@ export function AIPerformanceMonitor() {
     queryKey: ['/api/admin/ai-settings/feedback/stats', timeRange, selectedOperationType],
     queryFn: async () => {
       const params = new URLSearchParams({ days: timeRange });
-      if (selectedOperationType) params.append('operationType', selectedOperationType);
+      if (selectedOperationType) {params.append('operationType', selectedOperationType);}
 
       const res = await apiRequest('GET', `/api/admin/ai-settings/feedback/stats?${params}`);
       const data = await res.json();
@@ -77,7 +78,7 @@ export function AIPerformanceMonitor() {
     queryKey: ['/api/admin/ai-settings/feedback/recent', selectedOperationType],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '20' });
-      if (selectedOperationType) params.append('operationType', selectedOperationType);
+      if (selectedOperationType) {params.append('operationType', selectedOperationType);}
 
       const res = await apiRequest('GET', `/api/admin/ai-settings/feedback/recent?${params}`);
       const data = await res.json();
@@ -86,15 +87,15 @@ export function AIPerformanceMonitor() {
   });
 
   const getRatingColor = (rating: number) => {
-    if (rating >= 4.5) return 'text-green-600 dark:text-green-400';
-    if (rating >= 3.5) return 'text-blue-600 dark:text-blue-400';
-    if (rating >= 2.5) return 'text-yellow-600 dark:text-yellow-400';
+    if (rating >= 4.5) {return 'text-green-600 dark:text-green-400';}
+    if (rating >= 3.5) {return 'text-blue-600 dark:text-blue-400';}
+    if (rating >= 2.5) {return 'text-yellow-600 dark:text-yellow-400';}
     return 'text-red-600 dark:text-red-400';
   };
 
   const getQualityColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400';
+    if (score >= 80) {return 'text-green-600 dark:text-green-400';}
+    if (score >= 70) {return 'text-yellow-600 dark:text-yellow-400';}
     return 'text-red-600 dark:text-red-400';
   };
 
@@ -261,8 +262,8 @@ export function AIPerformanceMonitor() {
                     <Tooltip
                       labelFormatter={formatDate}
                       formatter={(value: number, name: string) => {
-                        if (name === 'avgRating') return [value.toFixed(1), 'Avg Rating'];
-                        if (name === 'avgQualityScore') return [value?.toFixed(0) || 'N/A', 'Avg Quality'];
+                        if (name === 'avgRating') {return [value.toFixed(1), 'Avg Rating'];}
+                        if (name === 'avgQualityScore') {return [value?.toFixed(0) || 'N/A', 'Avg Quality'];}
                         return [value, name];
                       }}
                     />
@@ -375,8 +376,8 @@ export function AIPerformanceMonitor() {
                       <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
                       <Tooltip
                         formatter={(value: number, name: string) => {
-                          if (name === 'avgRating') return [value.toFixed(1), 'Avg Rating'];
-                          if (name === 'avgQualityScore') return [value?.toFixed(0) || 'N/A', 'Avg Quality'];
+                          if (name === 'avgRating') {return [value.toFixed(1), 'Avg Rating'];}
+                          if (name === 'avgQualityScore') {return [value?.toFixed(0) || 'N/A', 'Avg Quality'];}
                           return [value, name];
                         }}
                       />

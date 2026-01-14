@@ -6,14 +6,13 @@ export default defineConfig({
     name: 'integration-tests',
     globals: true,
     environment: 'node',
-    setupFiles: ['./tests/setup.auth.ts'],
+    setupFiles: ['./tests/setup.ts', './tests/setup.auth.ts'],
     include: [
       'tests/integration/auth.routes.real.test.ts',
       'tests/integration/auth.flows.real.test.ts',
       'tests/integration/session.management.real.test.ts',
       'tests/integration/mfa.flow.real.test.ts',
       'tests/integration/trusted.devices.real.test.ts',
-      'tests/unit/middleware/auth.middleware.test.ts',
     ],
     coverage: {
       provider: 'v8',
@@ -34,8 +33,17 @@ export default defineConfig({
         statements: 85,
       },
     },
-    testTimeout: 30000, // Longer timeout for integration tests
-    hookTimeout: 30000,
+    testTimeout: 60000,
+    hookTimeout: 120000,
+    fileParallelism: true,
+    pool: 'forks',
+  },
+  poolOptions: {
+    forks: {
+      singleFork: false,
+      minForks: 1,
+      maxForks: 4,
+    },
   },
   resolve: {
     alias: {

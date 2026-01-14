@@ -3,14 +3,16 @@
  * Full Afterpattern-style visual builder using React Flow
  */
 
-import { useEffect, useState } from 'react';
-import { useParams, useLocation } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
-import { ReactFlowProvider } from 'reactflow';
 import { ArrowLeft, Share2, History, Clock, BarChart3 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ReactFlowProvider } from 'reactflow';
+import { useParams, useLocation } from 'wouter';
+
+import { DropoffList } from '@/components/analytics/DropoffList';
+import { WorkflowHealthPanel } from '@/components/analytics/WorkflowHealthPanel';
+import { ShareWorkflowDialog } from '@/components/dashboard/ShareWorkflowDialog';
+import { WorkflowHistoryDialog } from '@/components/history/WorkflowHistoryDialog';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,20 +29,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { blueprintAPI } from '@/lib/vault-api';
 
 import { BuilderCanvas } from './visual-builder/components/BuilderCanvas';
-import { NodeSidebar } from './visual-builder/components/NodeSidebar';
-import { Toolbar } from './visual-builder/components/Toolbar';
-import { PreviewPanel } from './visual-builder/components/PreviewPanel';
 import { ConnectionsPanel } from './visual-builder/components/ConnectionsPanel';
-import { ShareWorkflowDialog } from '@/components/dashboard/ShareWorkflowDialog';
-import { WorkflowHistoryDialog } from '@/components/history/WorkflowHistoryDialog';
-
-import { useBuilderStore } from './visual-builder/store/useBuilderStore';
+import { NodeSidebar } from './visual-builder/components/NodeSidebar';
+import { PreviewPanel } from './visual-builder/components/PreviewPanel';
+import { Toolbar } from './visual-builder/components/Toolbar';
 import { useWorkflowGraph, useUpdateWorkflow } from './visual-builder/hooks/useWorkflowAPI';
-import { WorkflowHealthPanel } from '@/components/analytics/WorkflowHealthPanel';
-import { DropoffList } from '@/components/analytics/DropoffList';
+import { useBuilderStore } from './visual-builder/store/useBuilderStore';
+
 
 export default function VisualWorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function VisualWorkflowBuilder() {
   const [selectedVersion, setSelectedVersion] = useState<string>('current');
 
   const { data: workflow, isLoading } = useWorkflowGraph(workflowId);
-  const updateWorkflow = useUpdateWorkflow(workflowId!);
+  const updateWorkflow = useUpdateWorkflow(workflowId);
   const { user } = useAuth();
 
   // Safe default: If we can't verify owner, assume read-only if it's not our own
@@ -77,7 +78,7 @@ export default function VisualWorkflowBuilder() {
   } = useBuilderStore();
 
   const handleSaveTemplate = async () => {
-    if (!templateName.trim() || !workflowId) return;
+    if (!templateName.trim() || !workflowId) {return;}
 
     try {
       await blueprintAPI.create({ name: templateName, sourceWorkflowId: workflowId });
@@ -138,7 +139,7 @@ export default function VisualWorkflowBuilder() {
       // Duplicate: Cmd+D
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
         e.preventDefault();
-        if (isReadOnly) return;
+        if (isReadOnly) {return;}
         if (selectedNodeId) {
           duplicateNode(selectedNodeId);
           toast({ title: 'Duplicated', description: 'Block duplicated.' });
@@ -148,7 +149,7 @@ export default function VisualWorkflowBuilder() {
       // Delete: Backspace or Delete
       if (e.key === 'Backspace' || e.key === 'Delete') {
         // Warning: destructive action. Only if node selected.
-        if (isReadOnly) return;
+        if (isReadOnly) {return;}
         if (selectedNodeId) {
           // In a real app we might want confirmation, but for power users direct delete is common.
           deleteNode(selectedNodeId);
@@ -170,7 +171,7 @@ export default function VisualWorkflowBuilder() {
 
   // Auto-save on changes (debounced)
   useEffect(() => {
-    if (!isDirty || !workflowId || isReadOnly) return;
+    if (!isDirty || !workflowId || isReadOnly) {return;}
 
     const timeoutId = setTimeout(async () => {
       try {
@@ -265,7 +266,7 @@ export default function VisualWorkflowBuilder() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => {
-                  setTemplateName(workflow.name + ' Template');
+                  setTemplateName(`${workflow.name  } Template`);
                   setShowSaveTemplateDialog(true);
                 }}>
                   Save as Template
@@ -277,7 +278,7 @@ export default function VisualWorkflowBuilder() {
 
         {/* Toolbar */}
         <Toolbar
-          workflowId={workflowId!}
+          workflowId={workflowId}
           workflowStatus={workflow.status}
           onRunPreview={() => setShowPreview(!showPreview)}
           readOnly={isReadOnly}
@@ -313,7 +314,7 @@ export default function VisualWorkflowBuilder() {
           {showPreview ? (
             <div className="w-96 bg-muted/30 overflow-y-auto">
               <PreviewPanel
-                workflowId={workflowId!}
+                workflowId={workflowId}
                 onClose={() => setShowPreview(false)}
               />
             </div>
@@ -334,7 +335,7 @@ export default function VisualWorkflowBuilder() {
       <ShareWorkflowDialog
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
-        workflowId={workflowId!}
+        workflowId={workflowId}
         workflowTitle={workflow?.name || ''}
       />
       <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
@@ -365,7 +366,7 @@ export default function VisualWorkflowBuilder() {
       <WorkflowHistoryDialog
         open={showHistoryDialog}
         onOpenChange={setShowHistoryDialog}
-        workflowId={workflowId!}
+        workflowId={workflowId}
       />
 
       <Dialog open={showInsights} onOpenChange={setShowInsights}>
@@ -387,7 +388,7 @@ export default function VisualWorkflowBuilder() {
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Health Overview (30d)</h3>
               </div>
               <WorkflowHealthPanel
-                workflowId={workflowId!}
+                workflowId={workflowId}
                 versionId={selectedVersion === 'current' ? undefined : selectedVersion}
               />
             </div>
@@ -397,7 +398,7 @@ export default function VisualWorkflowBuilder() {
               <div className="md:col-span-2 space-y-3">
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Conversion Funnel</h3>
                 <DropoffList
-                  workflowId={workflowId!}
+                  workflowId={workflowId}
                   versionId={selectedVersion === 'current' ? workflow?.currentVersionId! : selectedVersion}
                 />
               </div>

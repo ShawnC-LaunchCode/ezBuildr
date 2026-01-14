@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Link } from "wouter";
 import { ArrowRight, BookOpen } from "lucide-react";
+import { Link } from "wouter";
+
 import { brand } from "../lib/brand";
 
 export default function FinalCTA() {

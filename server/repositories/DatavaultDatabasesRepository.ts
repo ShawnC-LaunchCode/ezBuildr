@@ -1,8 +1,11 @@
+import { eq, and, desc, sql, or, inArray, getTableColumns } from 'drizzle-orm';
+
+import { datavaultDatabases, datavaultTables, workflowDataSources, projects, workflows, projectAccess, workflowAccess, organizations } from '../../shared/schema';
 import { db } from '../db';
-import { datavaultDatabases, datavaultTables, workflowDataSources, projects, workflows, projectAccess, workflowAccess } from '../../shared/schema';
-import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
-import type { DatavaultDatabase, InsertDatavaultDatabase, DatavaultScopeType } from '../../shared/schema';
+import { getAccessibleOwnershipFilter } from '../utils/ownershipAccess';
+
 import type { DbTransaction } from './BaseRepository';
+import type { DatavaultDatabase, InsertDatavaultDatabase, DatavaultScopeType } from '../../shared/schema';
 
 export class DatavaultDatabasesRepository {
 
@@ -21,6 +24,9 @@ export class DatavaultDatabasesRepository {
    * Find databases visible to user (Account scope OR Project scope with access OR Workflow scope with access)
    */
   async findByTenantAndUser(tenantId: string, userId: string): Promise<DatavaultDatabase[]> {
+    // Get user's org memberships for org-owned database access
+    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+
     // 1. Get projects user has access to
     const sharedProjectIds = db
       .select({ id: projectAccess.projectId })
@@ -33,43 +39,83 @@ export class DatavaultDatabasesRepository {
       .from(workflowAccess)
       .where(eq(workflowAccess.principalId, userId));
 
-    return db
-      .select()
+    const scopeConditions = [
+      // Account Scope: Visible to everyone in tenant
+      eq(datavaultDatabases.scopeType, 'account'),
+
+      // Project Scope: User owns project OR has shared access
+      and(
+        eq(datavaultDatabases.scopeType, 'project'),
+        or(
+          inArray(
+            datavaultDatabases.scopeId,
+            db.select({ id: projects.id }).from(projects).where(
+              or(
+                eq(projects.ownerId, userId), // Legacy
+                eq(projects.createdBy, userId), // Legacy
+                and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, userId)), // New model
+                ...(orgIds.length > 0 ? [and(eq(projects.ownerType, 'org'), inArray(projects.ownerUuid, orgIds))] : [])
+              )
+            )
+          ),
+          inArray(datavaultDatabases.scopeId, sharedProjectIds)
+        )
+      ),
+
+      // Workflow Scope: User created/owns workflow OR has shared access
+      and(
+        eq(datavaultDatabases.scopeType, 'workflow'),
+        or(
+          inArray(
+            datavaultDatabases.scopeId,
+            db.select({ id: workflows.id }).from(workflows).where(
+              or(
+                eq(workflows.creatorId, userId), // Legacy
+                eq(workflows.ownerId, userId), // Legacy
+                and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId)), // New model
+                ...(orgIds.length > 0 ? [and(eq(workflows.ownerType, 'org'), inArray(workflows.ownerUuid, orgIds))] : [])
+              )
+            )
+          ),
+          inArray(datavaultDatabases.scopeId, sharedWorkflowIds)
+        )
+      ),
+
+      // Direct ownership: User-owned
+      and(eq(datavaultDatabases.ownerType, 'user'), eq(datavaultDatabases.ownerUuid, userId)),
+    ];
+
+    // Add org-owned condition if user is member of any orgs
+    if (orgIds.length > 0) {
+      scopeConditions.push(
+        and(eq(datavaultDatabases.ownerType, 'org'), inArray(datavaultDatabases.ownerUuid, orgIds))
+      );
+    }
+
+    // Join with organizations to get owner name
+    const results = await db
+      .select({
+        ...getTableColumns(datavaultDatabases),
+        ownerName: organizations.name,
+      })
       .from(datavaultDatabases)
+      .leftJoin(
+        organizations,
+        and(
+          eq(datavaultDatabases.ownerType, 'org'),
+          eq(datavaultDatabases.ownerUuid, organizations.id)
+        )
+      )
       .where(
         and(
           eq(datavaultDatabases.tenantId, tenantId),
-          or(
-            // Account Scope: Visible to everyone in tenant
-            eq(datavaultDatabases.scopeType, 'account'),
-
-            // Project Scope: User owns project OR has shared access
-            and(
-              eq(datavaultDatabases.scopeType, 'project'),
-              or(
-                inArray(
-                  datavaultDatabases.scopeId,
-                  db.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, userId))
-                ),
-                inArray(datavaultDatabases.scopeId, sharedProjectIds)
-              )
-            ),
-
-            // Workflow Scope: User created/owns workflow OR has shared access
-            and(
-              eq(datavaultDatabases.scopeType, 'workflow'),
-              or(
-                inArray(
-                  datavaultDatabases.scopeId,
-                  db.select({ id: workflows.id }).from(workflows).where(or(eq(workflows.creatorId, userId), eq(workflows.ownerId, userId)))
-                ),
-                inArray(datavaultDatabases.scopeId, sharedWorkflowIds)
-              )
-            )
-          )
+          or(...scopeConditions)
         )
       )
       .orderBy(desc(datavaultDatabases.updatedAt));
+
+    // Results already have all database columns + ownerName at top level
+    return results as any;
   }
 
   /**
@@ -117,7 +163,7 @@ export class DatavaultDatabasesRepository {
    */
   async findByIdWithStats(id: string) {
     const database = await this.findById(id);
-    if (!database) return null;
+    if (!database) {return null;}
 
     const tableCount = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -224,6 +270,8 @@ export class DatavaultDatabasesRepository {
         config: datavaultDatabases.config,
         scopeType: datavaultDatabases.scopeType,
         scopeId: datavaultDatabases.scopeId,
+        ownerType: datavaultDatabases.ownerType,
+        ownerUuid: datavaultDatabases.ownerUuid,
         createdAt: datavaultDatabases.createdAt,
         updatedAt: datavaultDatabases.updatedAt,
       })

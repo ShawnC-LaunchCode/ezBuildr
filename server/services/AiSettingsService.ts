@@ -1,6 +1,8 @@
-import { db } from "../db";
-import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
 import { eq, and } from "drizzle-orm";
+
+import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
+
+import { db } from "../db";
 
 export const DEFAULT_SYSTEM_PROMPT = `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
 
@@ -46,10 +48,9 @@ export class AiSettingsService {
      * Get global AI settings
      */
     async getGlobalSettings() {
-        const settings = await db.query.aiSettings.findFirst({
+        return db.query.aiSettings.findFirst({
             where: eq(aiSettings.scope, "global"),
         });
-        return settings;
     }
 
     /**
@@ -60,7 +61,7 @@ export class AiSettingsService {
         const existing = await this.getGlobalSettings();
 
         if (existing) {
-            return await db
+            return db
                 .update(aiSettings)
                 .set({
                     systemPrompt,
@@ -70,7 +71,7 @@ export class AiSettingsService {
                 .where(eq(aiSettings.id, existing.id))
                 .returning();
         } else {
-            return await db
+            return db
                 .insert(aiSettings)
                 .values({
                     scope: "global",

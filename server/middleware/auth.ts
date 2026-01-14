@@ -1,10 +1,11 @@
-import type { Request, Response, NextFunction } from 'express';
-import { authService, type JWTPayload } from '../services/AuthService';
-import { parseCookies } from "../utils/cookies";
+import { UnauthorizedError, InvalidTokenError, TokenExpiredError } from '../errors/AuthErrors';
 import { createLogger } from '../logger';
 import { userRepository } from '../repositories';
-import { UnauthorizedError, InvalidTokenError, TokenExpiredError } from '../errors/AuthErrors';
+import { authService, type JWTPayload } from '../services/AuthService';
+import { parseCookies } from "../utils/cookies";
 import { sendErrorResponse } from '../utils/responses';
+
+import type { Request, Response, NextFunction } from 'express';
 
 const logger = createLogger({ module: 'auth-middleware' });
 
@@ -65,7 +66,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
     const authHeader = req.headers.authorization;
     const token = authService.extractTokenFromHeader(authHeader);
 
-    if (!token) return next();
+    if (!token) {return next();}
 
     const payload = authService.verifyToken(token);
     await attachUserToRequest(req, payload);
@@ -91,11 +92,13 @@ async function jwtStrategy(req: Request): Promise<boolean> {
     if (token && authService.looksLikeJwt(token)) {
       const payload = authService.verifyToken(token);
       await attachUserToRequest(req, payload);
+      logger.debug({ userId: payload.userId }, 'Authenticated via JWT Strategy');
       return true;
     }
   } catch (error) {
     // Token valid but verification failed (expired/invalid)
     // We catch this so we can try the next strategy
+    logger.warn({ error, token: req.headers.authorization }, 'JWT Strategy verification failed');
   }
   return false;
 }
@@ -103,16 +106,19 @@ async function jwtStrategy(req: Request): Promise<boolean> {
 /**
  * Strategy: Refresh Token Cookie
  * Checks cookie for valid RefreshToken (Safe Methods Only)
+ *
+ * @param req Express Request
+ * @returns boolean true if authenticated
  */
 async function cookieStrategy(req: Request): Promise<boolean> {
   // 1. Strict Method Check: Only allow cookie auth for safe methods
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-  if (!safeMethods.includes(req.method)) return false;
+  if (!safeMethods.includes(req.method)) {return false;}
 
   // 2. Precedence Check: If a Bearer header exists, ignore cookies (JWT wins)
   // This prevents ambiguity if a client sends both
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) return false;
+  if (authHeader?.startsWith('Bearer ')) {return false;}
 
   try {
     const cookies = parseCookies(req.headers.cookie || '');
@@ -133,11 +139,20 @@ async function cookieStrategy(req: Request): Promise<boolean> {
           logger.debug({ userId }, 'Authenticated via Refresh Token Cookie (Hybrid)');
           return true;
         }
+      } else {
+        logger.warn('Cookie strategy: Invalid refresh token');
       }
+    } else {
+      // logger.debug('Cookie strategy: No refresh token cookie');
     }
   } catch (error) {
-    // Cookie invalid or DB error
+    logger.error({ error }, 'Cookie strategy error');
   }
+  // logger.debug({
+  //   cookiePresent: !!parseCookies(req.headers.cookie || '')['refresh_token'],
+  //   method: req.method,
+  //   url: req.url
+  // }, 'Cookie strategy failed');
   return false;
 }
 
@@ -212,8 +227,19 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
       if (user?.tenantId) {
         req.tenantId = user.tenantId;
         req.userRole = user.tenantRole;
+        logger.debug({ userId: req.userId, tenantId: req.tenantId }, 'Hydrated tenantId from DB');
+      } else {
+        logger.debug({ userId: req.userId }, 'User has no tenantId in DB');
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      logger.warn({ error: e, userId: req.userId }, 'Failed to hydrate user');
+    }
+  } else {
+    logger.debug({
+      userId: req.userId,
+      hasTenantId: !!(req as AuthRequest).tenantId,
+      source: 'token'
+    }, 'User attached from token');
   }
 }
 

@@ -6,9 +6,11 @@
  */
 
 import type { Express } from "express";
+
 // import { isAuthenticated } from "../googleAuth";
 const isAuthenticated = (req: any, res: any, next: any) => next();
 import { logger } from "../logger";
+
 import {
   errorHandler,
   asyncHandler,
@@ -315,7 +317,7 @@ function exampleComplexErrors(app: Express) {
     asyncHandler(async (req: any, res) => {
       const userId = req.user.claims.sub;
       const { teamId } = req.params;
-      const { email } = validateInput(addMemberSchema, req.body) as { email: string };
+      const { email } = validateInput(addMemberSchema, req.body);
 
       // Check if team exists
       const team = await getTeam(teamId);

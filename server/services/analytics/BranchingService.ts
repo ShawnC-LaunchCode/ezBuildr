@@ -3,9 +3,10 @@
  * Analyzes the most common paths users take through the workflow.
  */
 
-import { db } from "../../db";
-import { workflowRunEvents } from "../../../shared/schema";
 import { eq, sql } from "drizzle-orm";
+
+import { workflowRunEvents } from "../../../shared/schema";
+import { db } from "../../db";
 
 export interface BranchNode {
     id: string; // pageId

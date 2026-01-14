@@ -3,15 +3,18 @@
  * Stage 8: Display runs with status, workflow, duration, and actions
  */
 
+import { formatDistanceToNow } from 'date-fns';
+import { Download, Eye, MoreVertical, PlayCircle, FileText } from 'lucide-react';
+import React from 'react';
 import { Link } from 'wouter';
-import { DocumentRun } from '@/lib/vault-api';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, Eye, MoreVertical, PlayCircle, FileText } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { documentRunsAPI } from '@/lib/vault-api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DocumentRun , documentRunsAPI } from '@/lib/vault-api';
+
+
 
 interface RunsTableProps {
   runs: DocumentRun[];
@@ -32,9 +35,9 @@ export function RunsTable({ runs }: RunsTableProps) {
   };
 
   const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (!ms) {return '-';}
+    if (ms < 1000) {return `${ms}ms`;}
+    if (ms < 60000) {return `${(ms / 1000).toFixed(1)}s`;}
     return `${(ms / 60000).toFixed(1)}m`;
   };
 

@@ -7,16 +7,18 @@
  * - pdf-lib: For field extraction and filling
  */
 
-import path from 'path';
-import fs from 'fs/promises';
+import { exec } from 'child_process';
 import { createWriteStream } from 'fs';
-import { pipeline } from 'stream/promises';
+import fs from 'fs/promises';
 import os from 'os';
+import path from 'path';
+import { pipeline } from 'stream/promises';
+import { promisify } from 'util';
+
+import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
+
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
@@ -54,8 +56,7 @@ export class PdfService {
             // This command removes restrictions (like filling prevention)
             await execAsync(`qpdf --decrypt "${inputPath}" "${outputPath}"`);
 
-            const unlockedBuffer = await fs.readFile(outputPath);
-            return unlockedBuffer;
+            return await fs.readFile(outputPath);
         } catch (error: any) {
             logger.error({ error }, 'Failed to unlock PDF with qpdf');
             // Fallback: If qpdf fails or isn't installed, return original buffer
@@ -119,7 +120,7 @@ export class PdfService {
                     }
                 }
 
-                if (pageIndex === -1) pageIndex = 0;
+                if (pageIndex === -1) {pageIndex = 0;}
 
                 let options: string[] | undefined;
                 if (field instanceof PDFDropdown) {
@@ -145,7 +146,7 @@ export class PdfService {
             };
         } catch (error: any) {
             logger.error({ error }, 'Failed to extract PDF fields');
-            throw createError.internal('Failed to parse PDF: ' + error.message);
+            throw createError.internal(`Failed to parse PDF: ${  error.message}`);
         }
     }
 
@@ -159,7 +160,7 @@ export class PdfService {
             const form = pdfDoc.getForm();
 
             for (const [fieldName, value] of Object.entries(mapping)) {
-                if (value === undefined || value === null || value === '') continue;
+                if (value === undefined || value === null || value === '') {continue;}
 
                 try {
                     const field = form.getField(fieldName);
@@ -189,15 +190,15 @@ export class PdfService {
             return Buffer.from(await pdfDoc.save());
         } catch (error: any) {
             logger.error({ error }, 'Failed to fill PDF');
-            throw createError.internal('Failed to generate PDF: ' + error.message);
+            throw createError.internal(`Failed to generate PDF: ${  error.message}`);
         }
     }
 
     private getFieldType(field: any): PdfField['type'] {
-        if (field instanceof PDFTextField) return 'text';
-        if (field instanceof PDFCheckBox) return 'checkbox';
-        if (field instanceof PDFDropdown) return 'dropdown';
-        if (field instanceof PDFRadioGroup) return 'radio';
+        if (field instanceof PDFTextField) {return 'text';}
+        if (field instanceof PDFCheckBox) {return 'checkbox';}
+        if (field instanceof PDFDropdown) {return 'dropdown';}
+        if (field instanceof PDFRadioGroup) {return 'radio';}
         return 'unknown';
     }
 }

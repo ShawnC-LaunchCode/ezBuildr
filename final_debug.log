@@ -1,0 +1,514 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> vitest run --coverage tests/unit/services/AuthService.test.ts tests/unit/server/transferOwnership.test.ts tests/integration/api.workflows.test.ts
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+
+stderr | tests/unit/services/AuthService.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: [vitest] No "dbInitPromise" export is defined on the "../../../server/db" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+    at VitestMocker.createError (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:311:17)
+    at Object.get (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/startModuleRunner.DpqpB8k3.js:384:16)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:107:34
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  codeFrame: 'vi.mock(import("../../../server/db"), async (importOriginal) => {\n' +
+    '  const actual = await importOriginal()\n' +
+    '  return {\n' +
+    '    ...actual,\n' +
+    '    // your mocked methods\n' +
+    '  }\n' +
+    '})'
+}
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1767814642659,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould transfer user-owned project to org
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 236fb109-8af9-43e7-8c90-4dc9396a2894 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould transfer user-owned project to org
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 236fb109-8af9-43e7-8c90-4dc9396a2894 with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould transfer user-owned project to org
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 236fb109-8af9-43e7-8c90-4dc9396a2894
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of a4e260b1-66b0-46fb-b8c7-410808ee3cb5 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org a4e260b1-66b0-46fb-b8c7-410808ee3cb5 with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of f9c3b0bd-69e5-4dfe-8c74-6107b692dc87 (Access Denied)
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts[2m > [22m[2mAuthService[2m > [22m[2mJWT Token Management[2m > [22m[2mverifyToken()[2m > [22m[2mshould throw error for invalid token signature
+[22m[39mDEBUG: verifyToken threw: Invalid or malformed token InvalidTokenError
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 5cf0188f-f22a-41f1-a10a-a5e565c69047 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 5cf0188f-f22a-41f1-a10a-a5e565c69047 with role member
+
+{"level":30,"time":1767814646067,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814646070,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":40,"time":1767814646093,"env":"test","module":"auth-service","tokenHash":"9206c2394794b8fc97fcd896f95e40028ab7a15c10279446c23fbdd4b4ae7a1e","msg":"Security: Unknown refresh token used"}
+{"level":40,"time":1767814646095,"env":"test","module":"auth-service","userId":"user-123","tokenHash":"0f45e858fbc4176cdf4e411f88281edefc390ae5afe7df0f44cd9297f0a64580","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":40,"time":1767814646096,"env":"test","module":"auth-service","userId":"user-123","msg":"Security: Expired refresh token used"}
+{"level":30,"time":1767814646100,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814646102,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814646103,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+{"level":30,"time":1767814646104,"env":"test","module":"auth-service","msg":"Cleaned up expired tokens and old login attempts"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 1ae5cf7b-f518-4a2c-adb8-a29a746dd66d (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mProject Transfer[2m > [22m[2mshould allow org member to transfer org-owned project to another org they belong to
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 1ae5cf7b-f518-4a2c-adb8-a29a746dd66d with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould detach workflow from project when transferring to different owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of c1168988-68d7-4e96-8ece-686e3139d4f0 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould detach workflow from project when transferring to different owner
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org c1168988-68d7-4e96-8ece-686e3139d4f0 with role member
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould detach workflow from project when transferring to different owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of c1168988-68d7-4e96-8ece-686e3139d4f0
+
+{"level":30,"time":1767814647729,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1767814647745,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.workflows.test.ts[2m > [22m[2mWorkflows API Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1767814647735,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1767814647736,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1767814647741,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1767814647744,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1767814647744,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1767814647745,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1767814647745,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1767814647819,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814648188,"env":"test","module":"user-credentials-repository","userId":"daxZhmRH6HNK6IhlymgTF","msg":"User credentials created"}
+{"level":30,"time":1767814648256,"env":"test","module":"auth-service","email":"reset@example.com","msg":"Password reset email sent"}
+{"level":30,"time":1767814648292,"env":"test","module":"email-queue","jobId":"1cee7c6e-aabe-4a82-85e9-fb96352cb907","to":"test-pyVoWCDBQtxbADJN3mQYu@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould keep workflow in project when transferring to same owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 5665a233-2ccd-4d1b-a72d-61fa062d105e (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould keep workflow in project when transferring to same owner
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 5665a233-2ccd-4d1b-a72d-61fa062d105e with role member
+
+{"level":30,"time":1767814648351,"env":"test","module":"auth-routes","userId":"daxZhmRH6HNK6IhlymgTF","email":"test-pyVoWCDBQtxbADJN3mQYu@example.com","msg":"User registered"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould keep workflow in project when transferring to same owner
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 5665a233-2ccd-4d1b-a72d-61fa062d105e
+
+[90mstdout[2m | tests/unit/services/AuthService.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/unit/services/AuthService.test.ts [2m([22m[2m113 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 7315[2mms[22m[39m
+         [32mΓ£ô[39m should hash a password using bcrypt with 12 rounds[32m 227[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should generate different hashes for same password [33m 413[2mms[22m[39m
+         [32mΓ£ô[39m should handle empty passwords[32m 205[2mms[22m[39m
+         [32mΓ£ô[39m should handle long passwords[32m 206[2mms[22m[39m
+         [32mΓ£ô[39m should handle unicode characters in password[32m 207[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return true for correct password [33m 410[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should return false for incorrect password [33m 428[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should be case-sensitive [33m 430[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle empty password comparison [33m 427[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid email addresses[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails longer than 254 characters (RFC 5321)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails shorter than 3 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with consecutive dots[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without @ symbol[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without domain[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with spaces[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails without TLD[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject null or undefined[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject emails with local part longer than 64 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should accept valid strong passwords[32m 20[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords shorter than 8 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject passwords longer than 128 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject weak passwords with zxcvbn score < 3[32m 6[2mms[22m[39m
+         [32mΓ£ô[39m should provide helpful feedback for weak passwords[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's email[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should reject password containing user's name[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should accept strong password even with user inputs provided[32m 4[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 8 characters if strong enough[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should accept password with exactly 128 characters if strong[32m 105[2mms[22m[39m
+         [32mΓ£ô[39m should return score in result object[32m 3[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid JWT token for a user[32m 5[2mms[22m[39m
+         [32mΓ£ô[39m should include userId, email, tenantId, and role in token payload[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 15 minutes by default[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT_SECRET is not configured[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle null tenantId and role[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should verify and decode a valid token[32m 2[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should throw error for expired token [33m 1103[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token signature[39m[32m 11[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for malformed token[39m[32m 2[2mms[22m[39m
+[31m         [31m├ù[31m should throw error for invalid token[39m[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should extract token from Bearer authorization header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return token if no Bearer prefix[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for undefined header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for empty header[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle Bearer with multiple spaces[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return true for JWT-like tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for non-JWT tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for empty token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for null/undefined[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should create a valid portal token for an email[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should include email and portal flag in token payload[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should set token expiry to 24 hours[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify and decode a valid portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for non-portal token[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for token without email[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error for expired portal token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate password reset token for existing user[32m 220[2mms[22m[39m
+         [32mΓ£ô[39m should return null for non-existent user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should invalidate previous reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return null for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for used token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should mark token as used[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should generate verification token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should have 24 hour expiry[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify email with valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for invalid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return false for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should delete token after successful verification[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should create refresh token with 30-day expiry[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should store device metadata[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return userId for valid token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for revoked token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should rotate valid token and return new one[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return null for unknown token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens on reuse detection[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should return null for expired token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke specific token[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all tokens for user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired refresh tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired password reset tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup expired email verification tokens[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should cleanup old login attempts via accountLockoutService[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should use JWT_SECRET if provided[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should warn if JWT_SECRET is less than 32 characters[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject token with modified payload[32m 1[2mms[22m[39m
+[31m         [31m├ù[31m should reject token with valid structure but invalid signature[39m[32m 2[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with special characters [33m 431[2mms[22m[39m
+         [32mΓ£ô[39m should handle password with only spaces[32m 213[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should handle password with newlines and tabs [33m 424[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should reject password with null bytes (if validation exists) [33m 419[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with unicode domain (security fix)[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should reject email starting with dot (security fix)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject email ending with dot before @ (security fix)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with plus addressing[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should handle email with subdomain[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should reject email with invalid TLD (single char)[32m 0[2mms[22m[39m
+         [32mΓ£ô[39m should accept email with numeric TLD[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should prevent timing attacks on token validation[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should support full user authentication lifecycle[32m 214[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should support complete password reset workflow [33m 437[2mms[22m[39m
+         [32mΓ£ô[39m should prevent reuse of password reset tokens[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should support multiple valid refresh tokens per user[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should revoke all user tokens on security event[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should handle database connection failures gracefully[32m 2[2mms[22m[39m
+         [32mΓ£ô[39m should handle transaction failures[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should throw error if JWT signing fails[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should hash password in reasonable time (< 500ms)[32m 210[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should compare password in reasonable time (< 500ms) [33m 418[2mms[22m[39m
+         [32mΓ£ô[39m should create JWT token in < 10ms[32m 1[2mms[22m[39m
+         [32mΓ£ô[39m should verify JWT token in < 10ms[32m 1[2mms[22m[39m
+{"level":30,"time":1767814649222,"env":"test","module":"user-credentials-repository","userId":"KzCXDheOCjJUuFISSwqnl","msg":"User credentials created"}
+{"level":30,"time":1767814649324,"env":"test","module":"email-queue","jobId":"3a204733-ca12-4d8d-9478-33ee335cf16c","to":"viewer-qMySFyWe8Qks3zbPVULjz@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1767814649377,"env":"test","module":"auth-routes","userId":"KzCXDheOCjJUuFISSwqnl","email":"viewer-qMySFyWe8Qks3zbPVULjz@example.com","msg":"User registered"}
+{"level":40,"time":1767814649478,"env":"test","module":"rbac-middleware","userId":"KzCXDheOCjJUuFISSwqnl","userRole":"viewer","permission":"workflow:create","path":"/projects/1e70d0a1-e94e-40fb-a83c-8aa33b287106/workflows","msg":"Permission denied"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould prevent non-member from transferring org workflow
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 9746bc92-e3ee-4c83-a9ea-70df9673f06d (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mWorkflow Transfer[2m > [22m[2mshould prevent non-member from transferring org workflow
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 9746bc92-e3ee-4c83-a9ea-70df9673f06d with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould transfer database ownership
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 07e412cd-d593-49dd-b3d0-ba19f7d64cc2 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould transfer database ownership
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 07e412cd-d593-49dd-b3d0-ba19f7d64cc2 with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould transfer database ownership
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of 07e412cd-d593-49dd-b3d0-ba19f7d64cc2
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of dd3ffe5a-4d9d-472f-bbd8-88a795929578 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org dd3ffe5a-4d9d-472f-bbd8-88a795929578 with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 IS member of dd3ffe5a-4d9d-472f-bbd8-88a795929578
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 IS member of dd3ffe5a-4d9d-472f-bbd8-88a795929578
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould allow org member to transfer org database
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 IS member of dd3ffe5a-4d9d-472f-bbd8-88a795929578
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of fd6054b3-5f51-42be-9da3-6b44d07b2299 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org fd6054b3-5f51-42be-9da3-6b44d07b2299 with role member
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mDatabase Transfer[2m > [22m[2mshould prevent transfer to org if user is not a member
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000031 is NOT member of 53ae86c0-a209-4b30-a4f2-f65686ccb475 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould only allow transfer to self when targetOwnerType is user
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of 37cc2ccd-c648-4da5-a912-2b535e1962ed (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould only allow transfer to self when targetOwnerType is user
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org 37cc2ccd-c648-4da5-a912-2b535e1962ed with role member
+
+{"level":50,"time":1767814654593,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+{"level":50,"time":1767814654797,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+{"level":50,"time":1767814654998,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould allow transfer from user to self (org member transferring org asset to themselves)
+[22m[39m[isOrgMember] User 00000000-0000-0000-0000-000000000032 is NOT member of b6fc89b7-771d-496b-aaca-d2530e2826f2 (Access Denied)
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts[2m > [22m[2mTransfer Ownership[2m > [22m[2mTransfer Validation[2m > [22m[2mshould allow transfer from user to self (org member transferring org asset to themselves)
+[22m[39m[OrganizationService] Adding member 00000000-0000-0000-0000-000000000032 to org b6fc89b7-771d-496b-aaca-d2530e2826f2 with role member
+
+{"level":50,"time":1767814655192,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+{"level":50,"time":1767814655392,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/unit/server/transferOwnership.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 13591[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer user-owned project to org [33m 1571[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1225[2mms[22m[39m
+[31m       [31m├ù[31m should allow org member to transfer org-owned project to another org they belong to[39m[33m 1136[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should detach workflow from project when transferring to different owner [33m 1323[2mms[22m[39m
+[31m       [31m├ù[31m should keep workflow in project when transferring to same owner[39m[33m 1318[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent non-member from transferring org workflow [33m 1254[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer database ownership [33m 988[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow org member to transfer org database [33m 1081[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1201[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should only allow transfer to self when targetOwnerType is user [33m 894[2mms[22m[39m
+[31m       [31m├ù[31m should allow transfer from user to self (org member transferring org asset to themselves)[39m[33m 816[2mms[22m[39m
+{"level":50,"time":1767814655588,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+{"level":50,"time":1767814655776,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+{"level":50,"time":1767814655967,"env":"test","error":{"length":153,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $7 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"userId":"daxZhmRH6HNK6IhlymgTF","msg":"Error creating workflow"}
+stderr | tests/integration/api.workflows.test.ts > Workflows API Integration Tests
+Cleanup error: error: update or delete on table "users" violates foreign key constraint "workflow_versions_created_by_users_id_fk" on table "workflow_versions"
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.cleanup (C:/Users/scoot/poll/VaultLogic/tests/helpers/integrationTestHelper.ts:144:9)
+    at C:/Users/scoot/poll/VaultLogic/tests/integration/api.workflows.test.ts:29:5 {
+  length: 361,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (id)=(daxZhmRH6HNK6IhlymgTF) is still referenced from table "workflow_versions".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'workflow_versions',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'workflow_versions_created_by_users_id_fk',
+  file: 'ri_triggers.c',
+  line: '2612',
+  routine: 'ri_ReportViolation'
+}
+
+[90mstdout[2m | tests/integration/api.workflows.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/api.workflows.test.ts [2m([22m[2m17 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[33m 9005[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create a new draft workflow [33m 345[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject without permission [33m 622[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should list workflows [33m 501[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should filter by status [33m 504[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should search by name [33m 857[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should update draft workflow [33m 672[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not allow editing published workflow [33m 825[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should publish workflow [33m 706[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should list workflow versions [33m 849[2mms[22m[39m
+[31m       [31m├ù[31m should move workflow to a project[39m[32m 202[2mms[22m[39m
+[31m       [31m├ù[31m should move workflow to Main Folder (projectId = null)[39m[32m 204[2mms[22m[39m
+[31m       [31m├ù[31m should reject move to non-existent project[39m[32m 201[2mms[22m[39m
+[31m       [31m├ù[31m should reject move without authentication[39m[32m 194[2mms[22m[39m
+[31m       [31m├ù[31m should reject move of workflow user does not own[39m[32m 199[2mms[22m[39m
+[31m       [31m├ù[31m should reject move with invalid projectId format[39m[32m 197[2mms[22m[39m
+[31m       [31m├ù[31m should reject move without projectId in body[39m[32m 188[2mms[22m[39m
+[31m       [31m├ù[31m should reject move to project user does not have access to[39m[32m 191[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 15 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should move workflow to a project
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should move workflow to Main Folder (projectId = null)
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move to non-existent project
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move without authentication
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move of workflow user does not own
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move with invalid projectId format
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move without projectId in body
+ FAIL  tests/integration/api.workflows.test.ts > Workflows API Integration Tests > PUT /api/workflows/:id/move > should reject move to project user does not have access to
+Error: Failed to create workflow: 500
+ Γ¥» tests/integration/api.workflows.test.ts:229:15
+    227| 
+    228|       if (workflowResponse.status !== 201) {
+    229|         throw new Error(`Failed to create workflow: ${workflowResponseΓÇª
+       |               ^
+    230|       }
+    231|       workflowId = workflowResponse.body.id;
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/15]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Project Transfer > should allow org member to transfer org-owned project to another org they belong to
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:157:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/15]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Workflow Transfer > should keep workflow in project when transferring to same owner
+AssertionError: expected null to be '178e4bf4-fcaf-4bd1-9dcd-84090324cdb8' // Object.is equality
+
+- Expected: 
+"178e4bf4-fcaf-4bd1-9dcd-84090324cdb8"
+
++ Received: 
+null
+
+ Γ¥» tests/unit/server/transferOwnership.test.ts:227:37
+    225|       expect(transferred.ownerType).toBe('org');
+    226|       expect(transferred.ownerUuid).toBe(testOrgId);
+    227|       expect(transferred.projectId).toBe(testProjectId); // Still in pΓÇª
+       |                                     ^
+    228|     });
+    229| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/15]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Transfer Validation > should allow transfer from user to self (org member transferring org asset to themselves)
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:359:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/15]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:514:62
+    512|         }
+    513| 
+    514|         expect(() => authService.verifyToken(tamperedToken)).toThrow("ΓÇª
+       |                                                              ^
+    515|       });
+    516| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/15]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for malformed token
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:518:68
+    516| 
+    517|       it("should throw error for malformed token", () => {
+    518|         expect(() => authService.verifyToken("not.a.valid.token")).toTΓÇª
+       |                                                                    ^
+    519|       });
+    520| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/15]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > JWT Token Management > verifyToken() > should throw error for invalid token
+
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m15 failed[39m[22m[2m | [22m[1m[32m126 passed[39m[22m[90m (141)[39m
+[2m   Start at [22m 13:37:19
+[2m   Duration [22m 22.85s[2m (transform 3.46s, setup 610ms, import 8.53s, tests 29.91s, environment 0ms)[22m
+
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:523:64
+    521|       it("should throw error for invalid token", () => {
+    522|         // Test with a malformed token
+    523|         expect(() => authService.verifyToken("invalid.token")).toThrowΓÇª
+       |                                                                ^
+    524|       });
+    525|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/15]ΓÄ»
+
+ FAIL  tests/unit/services/AuthService.test.ts > AuthService > Security Edge Cases > Token Manipulation > should reject token with valid structure but invalid signature
+AssertionError: expected [Function] to throw error including 'Invalid token' but got 'Invalid or malformed token'
+
+Expected: "Invalid token"
+Received: "Invalid or malformed token"
+
+ Γ¥» tests/unit/services/AuthService.test.ts:1065:58
+    1063|         const fakeToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2ΓÇª
+    1064| 
+    1065|         expect(() => authService.verifyToken(fakeToken)).toThrow("InvaΓÇª
+       |                                                          ^
+    1066|       });
+    1067|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/15]ΓÄ»
+

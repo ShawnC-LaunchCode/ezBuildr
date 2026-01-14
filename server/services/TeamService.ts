@@ -1,10 +1,11 @@
+import type { Team, InsertTeam, TeamMember, InsertTeamMember, TeamRole } from "@shared/schema";
+
 import {
   teamRepository,
   teamMemberRepository,
   userRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Team, InsertTeam, TeamMember, InsertTeamMember, TeamRole } from "@shared/schema";
 
 /**
  * Service layer for team-related business logic
@@ -30,7 +31,7 @@ export class TeamService {
   async createTeam(data: { name: string }, creatorId: string, tx?: DbTransaction): Promise<Team> {
     // Get creator's tenant context
     const creator = await this.userRepo.findById(creatorId, tx);
-    if (!creator || !creator.tenantId) {
+    if (!creator?.tenantId) {
       throw new Error("Creator does not belong to a tenant");
     }
 
@@ -59,7 +60,7 @@ export class TeamService {
    * Get all teams a user has access to (as member or admin)
    */
   async getUserTeams(userId: string, tx?: DbTransaction) {
-    return await this.teamRepo.findByUserId(userId, tx);
+    return this.teamRepo.findByUserId(userId, tx);
   }
 
   /**
@@ -139,10 +140,10 @@ export class TeamService {
 
     if (existingMember) {
       // Update existing member's role
-      return await this.teamMemberRepo.updateRole(teamId, data.userId, data.role, tx);
+      return this.teamMemberRepo.updateRole(teamId, data.userId, data.role, tx);
     } else {
       // Add new member
-      return await this.teamMemberRepo.create(
+      return this.teamMemberRepo.create(
         {
           teamId,
           userId: data.userId,
@@ -196,7 +197,7 @@ export class TeamService {
       throw new Error("Access denied - team admin access required");
     }
 
-    return await this.teamRepo.update(
+    return this.teamRepo.update(
       teamId,
       {
         name: data.name,

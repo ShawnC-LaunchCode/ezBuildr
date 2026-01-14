@@ -1,14 +1,17 @@
-import { useState } from "react";
 import { Plus, Trash2, Code, AlertCircle, Copy, Database, List } from "lucide-react";
+import React, { useState } from "react";
+
+import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker"; // Ensure this path is correct
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker"; // Ensure this path is correct
+
 import type {
     ValidateConfig,
     ValidateRule,
@@ -17,7 +20,8 @@ import type {
     ForEachRule,
     LegacyValidateRule
 } from "@shared/types/blocks";
-import { Badge } from "@/components/ui/badge";
+
+
 import { ValidationRulesEditor } from "../builder/ValidationRulesEditor";
 
 interface ValidateBlockEditorProps {
@@ -324,7 +328,7 @@ function ForEachRuleEditor({ rule, onChange, workflowId }: { rule: ForEachRule, 
                 ))}
                 <Button variant="secondary" size="sm" className="w-full h-6 text-[10px]" onClick={() => {
                     // Add a simple assert rule by default
-                    const newSub = [...rule.rules, { assert: { key: rule.itemAlias + '.field', op: 'is_not_empty' }, message: 'Required' } as LegacyValidateRule];
+                    const newSub = [...rule.rules, { assert: { key: `${rule.itemAlias  }.field`, op: 'is_not_empty' }, message: 'Required' } as LegacyValidateRule];
                     onChange({ ...rule, rules: newSub });
                 }}>
                     + Add Item Check (JSON)

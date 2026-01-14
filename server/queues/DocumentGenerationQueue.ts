@@ -30,7 +30,9 @@
  */
 
 import Bull, { Job, Queue } from 'bull';
+
 import { logger } from '../logger';
+
 import type { FinalBlockRenderOptions, FinalBlockRenderResult } from '../services/document/EnhancedDocumentEngine';
 
 // ============================================================================

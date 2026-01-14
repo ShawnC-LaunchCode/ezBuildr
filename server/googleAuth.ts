@@ -1,12 +1,15 @@
-import { OAuth2Client, type TokenPayload } from "google-auth-library";
-import type { Express } from "express";
-import rateLimit from "express-rate-limit";
-import { userRepository } from "./repositories";
-import { createLogger } from "./logger";
-import { templateSharingService } from "./services/TemplateSharingService";
-import { authService } from "./services/AuthService";
-import type { AppUser } from "./types";
 import { serialize } from "cookie";
+import rateLimit from "express-rate-limit";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
+
+import { createLogger } from "./logger";
+import { userRepository } from "./repositories";
+import { authService } from "./services/AuthService";
+import { templateSharingService } from "./services/TemplateSharingService";
+
+import type { AppUser } from "./types";
+import type { Express } from "express";
+
 
 const logger = createLogger({ module: 'auth' });
 
@@ -41,7 +44,7 @@ async function upsertUser(payload: TokenPayload) {
     const { getDb } = await import('./db');
     const { tenants } = await import('@shared/schema');
     const db = getDb();
-    if (!db) throw new Error("Database not initialized");
+    if (!db) {throw new Error("Database not initialized");}
     const [defaultTenant] = await db.select().from(tenants).limit(1);
 
     if (!defaultTenant) {
@@ -50,7 +53,7 @@ async function upsertUser(payload: TokenPayload) {
     }
 
     const userData = {
-      id: payload.sub!,
+      id: payload.sub,
       email: payload.email || "",
       firstName: payload.given_name || null,
       lastName: payload.family_name || null,
@@ -82,7 +85,7 @@ export async function verifyGoogleToken(token: string): Promise<TokenPayload> {
     });
 
     const payload = ticket.getPayload();
-    if (!payload) throw new Error("Invalid token payload");
+    if (!payload) {throw new Error("Invalid token payload");}
 
     if (!payload.email_verified) {
       logger.warn({ email: payload.email }, 'Email not verified by Google');
@@ -108,7 +111,7 @@ const authRateLimit = rateLimit({
 // Helper function to validate Origin/Referer
 function validateOrigin(req: any): boolean {
   const origin = req.get('Origin') || req.get('Referer');
-  if (!origin) return false;
+  if (!origin) {return false;}
 
   try {
     const originUrl = new URL(origin);
@@ -155,8 +158,8 @@ export async function setupAuth(app: Express) {
       const payload = await verifyGoogleToken(googleToken);
       await upsertUser(payload);
 
-      const dbUser = await userRepository.findById(payload.sub!);
-      if (!dbUser) throw new Error('User not found after upsert');
+      const dbUser = await userRepository.findById(payload.sub);
+      if (!dbUser) {throw new Error('User not found after upsert');}
 
       // Accept pending shares
       try {

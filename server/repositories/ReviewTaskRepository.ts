@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { reviewTasks, type ReviewTask, type InsertReviewTask } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+import { reviewTasks, type ReviewTask, type InsertReviewTask } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for review task data access
@@ -21,7 +24,7 @@ export class ReviewTaskRepository extends BaseRepository<
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<ReviewTask[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(reviewTasks)
       .where(eq(reviewTasks.runId, runId))
@@ -33,7 +36,7 @@ export class ReviewTaskRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<ReviewTask[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(reviewTasks)
       .where(eq(reviewTasks.workflowId, workflowId))
@@ -45,7 +48,7 @@ export class ReviewTaskRepository extends BaseRepository<
    */
   async findByReviewerId(reviewerId: string, tx?: DbTransaction): Promise<ReviewTask[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(reviewTasks)
       .where(eq(reviewTasks.reviewerId, reviewerId))
@@ -57,7 +60,7 @@ export class ReviewTaskRepository extends BaseRepository<
    */
   async findPendingByProjectId(projectId: string, tx?: DbTransaction): Promise<ReviewTask[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(reviewTasks)
       .where(

@@ -6,10 +6,11 @@
  * and automatic skip logic.
  */
 
+import { createLogger } from "../logger";
 import { sectionRepository, stepRepository, stepValueRepository } from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
+
 import type { Section } from "../../shared/schema";
-import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "intake-navigation" });
 

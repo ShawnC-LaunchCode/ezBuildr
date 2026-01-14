@@ -1,10 +1,12 @@
 import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import { z } from "zod";
+
+import { logger } from "../logger";
+import { authService } from "../services/AuthService";
 import { portalAuthService } from "../services/PortalAuthService";
 import { portalService } from "../services/PortalService";
-import { authService } from "../services/AuthService";
-import { z } from "zod";
-import { logger } from "../logger";
+
 
 const router = Router();
 
@@ -40,7 +42,7 @@ const sendMagicLinkSchema = z.object({
 // Middleware to check portal token (Bearer Auth)
 const requirePortalAuth = (req: Request, res: Response, next: Function) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -93,7 +95,7 @@ router.post("/auth/send", ipLimiter, magicLinkLimiter, async (req, res) => {
 router.post("/auth/verify", async (req, res) => {
     try {
         const { token } = req.body;
-        if (!token) return res.status(400).json({ error: "Token required" });
+        if (!token) {return res.status(400).json({ error: "Token required" });}
 
         const user = await portalAuthService.verifyMagicLink(token);
         if (!user) {
@@ -139,7 +141,7 @@ router.get("/runs", requirePortalAuth, async (req, res) => {
  */
 router.get("/me", (req, res) => {
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
+    if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
         try {
             const { email } = authService.verifyPortalToken(token);

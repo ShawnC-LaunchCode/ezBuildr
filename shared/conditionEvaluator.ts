@@ -289,12 +289,12 @@ function evaluateOperator(
  */
 function isEqual(a: any, b: any): boolean {
   // Handle null/undefined
-  if (a == null && b == null) return true;
-  if (a == null || b == null) return false;
+  if (a == null && b == null) {return true;}
+  if (a == null || b == null) {return false;}
 
   // Handle arrays
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
+    if (a.length !== b.length) {return false;}
     return a.every((val, idx) => isEqual(val, b[idx]));
   }
 
@@ -302,7 +302,7 @@ function isEqual(a: any, b: any): boolean {
   if (typeof a === "object" && typeof b === "object") {
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
+    if (keysA.length !== keysB.length) {return false;}
     return keysA.every((key) => isEqual(a[key], b[key]));
   }
 
@@ -329,9 +329,9 @@ function isEqual(a: any, b: any): boolean {
  * Convert value to string
  */
 function toString(value: any): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object") return JSON.stringify(value);
+  if (value == null) {return "";}
+  if (typeof value === "string") {return value;}
+  if (typeof value === "object") {return JSON.stringify(value);}
   return String(value);
 }
 
@@ -339,8 +339,8 @@ function toString(value: any): string {
  * Convert value to number
  */
 function toNumber(value: any): number {
-  if (value == null) return 0;
-  if (typeof value === "number") return value;
+  if (value == null) {return 0;}
+  if (typeof value === "number") {return value;}
   if (typeof value === "string") {
     // Handle date strings
     if (value.includes("-") || value.includes("/")) {
@@ -352,8 +352,8 @@ function toNumber(value: any): number {
     const num = parseFloat(value);
     return isNaN(num) ? 0 : num;
   }
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (value instanceof Date) return value.getTime();
+  if (typeof value === "boolean") {return value ? 1 : 0;}
+  if (value instanceof Date) {return value.getTime();}
   return 0;
 }
 
@@ -361,13 +361,13 @@ function toNumber(value: any): number {
  * Convert value to boolean
  */
 function toBoolean(value: any): boolean {
-  if (value == null) return false;
-  if (typeof value === "boolean") return value;
+  if (value == null) {return false;}
+  if (typeof value === "boolean") {return value;}
   if (typeof value === "string") {
     const lower = value.toLowerCase().trim();
     return lower === "true" || lower === "yes" || lower === "1";
   }
-  if (typeof value === "number") return value !== 0;
+  if (typeof value === "number") {return value !== 0;}
   return !!value;
 }
 
@@ -375,10 +375,10 @@ function toBoolean(value: any): boolean {
  * Check if value is empty
  */
 function isEmpty(value: any): boolean {
-  if (value == null) return true;
-  if (typeof value === "string") return value.trim() === "";
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "object") return Object.keys(value).length === 0;
+  if (value == null) {return true;}
+  if (typeof value === "string") {return value.trim() === "";}
+  if (Array.isArray(value)) {return value.length === 0;}
+  if (typeof value === "object") {return Object.keys(value).length === 0;}
   return false;
 }
 
@@ -386,8 +386,8 @@ function isEmpty(value: any): boolean {
  * Convert value to array
  */
 function toArray(value: any): any[] {
-  if (value == null) return [];
-  if (Array.isArray(value)) return value;
+  if (value == null) {return [];}
+  if (Array.isArray(value)) {return value;}
   return [value];
 }
 
@@ -397,14 +397,14 @@ function toArray(value: any): any[] {
  * @param path - Key or dot-notation path (e.g. "user.email" or "list.rowCount")
  */
 export function getValueByPath(data: any, path: string): any {
-  if (data == null) return undefined;
+  if (data == null) {return undefined;}
 
   // Direct match priority (in case key contains dots)
-  if (path in data) return data[path];
+  if (path in data) {return data[path];}
 
   // Split by dot and traverse
   const parts = path.split('.');
-  if (parts.length === 1) return data[path]; // Fallback for simple keys not in data
+  if (parts.length === 1) {return data[path];} // Fallback for simple keys not in data
 
   let current = data;
   for (const part of parts) {
@@ -574,9 +574,9 @@ function getOperatorLabel(operator: ComparisonOperator): string {
 }
 
 function formatValue(value: any): string {
-  if (value == null) return "null";
-  if (typeof value === "string") return `"${value}"`;
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (Array.isArray(value)) return `[${value.join(", ")}]`;
+  if (value == null) {return "null";}
+  if (typeof value === "string") {return `"${value}"`;}
+  if (typeof value === "boolean") {return value ? "Yes" : "No";}
+  if (Array.isArray(value)) {return `[${value.join(", ")}]`;}
   return String(value);
 }

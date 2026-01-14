@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 
 // Mock the db module

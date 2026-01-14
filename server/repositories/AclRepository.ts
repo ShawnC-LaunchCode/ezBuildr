@@ -1,4 +1,5 @@
-import { BaseRepository } from "./BaseRepository";
+import { eq, and, inArray } from "drizzle-orm";
+
 import { projectAccess, workflowAccess } from "@shared/schema";
 import type {
   ProjectAccess,
@@ -7,9 +8,14 @@ import type {
   InsertWorkflowAccess,
   PrincipalType,
 } from "@shared/schema";
-import type { DbTransaction } from "./BaseRepository";
-import { eq, and, inArray } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository } from "./BaseRepository";
+
+import type { DbTransaction } from "./BaseRepository";
+
+
 
 /**
  * Repository for Project Access (ACL) operations
@@ -28,7 +34,7 @@ export class ProjectAccessRepository extends BaseRepository<
    */
   async findByProjectId(projectId: string, tx?: DbTransaction): Promise<ProjectAccess[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(projectAccess)
       .where(eq(projectAccess.projectId, projectId));
@@ -65,10 +71,10 @@ export class ProjectAccessRepository extends BaseRepository<
     teamIds: string[],
     tx?: DbTransaction
   ): Promise<ProjectAccess[]> {
-    if (teamIds.length === 0) return [];
+    if (teamIds.length === 0) {return [];}
 
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(projectAccess)
       .where(
@@ -149,7 +155,7 @@ export class WorkflowAccessRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowAccess[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowAccess)
       .where(eq(workflowAccess.workflowId, workflowId));
@@ -186,10 +192,10 @@ export class WorkflowAccessRepository extends BaseRepository<
     teamIds: string[],
     tx?: DbTransaction
   ): Promise<WorkflowAccess[]> {
-    if (teamIds.length === 0) return [];
+    if (teamIds.length === 0) {return [];}
 
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowAccess)
       .where(

@@ -1,9 +1,11 @@
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import fs from 'fs/promises';
-import { docxHelpers } from '../docxHelpers';
+
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
+import { docxHelpers } from '../docxHelpers';
 
 export interface TemplateParserOptions {
     templatePath: string;
@@ -17,11 +19,11 @@ export class TemplateParser {
      */
     private createExpressionParser(tag: string) {
         const getNestedValue = (obj: any, path: string): any => {
-            if (!path) return obj;
+            if (!path) {return obj;}
             const keys = path.split('.');
             let current = obj;
             for (const key of keys) {
-                if (current == null) return undefined;
+                if (current == null) {return undefined;}
                 current = current[key];
             }
             return current;
@@ -91,6 +93,7 @@ export class TemplateParser {
             });
 
             // Set data and render
+            // Set data and render
             doc.setData(templateData);
 
             try {
@@ -109,10 +112,10 @@ export class TemplateParser {
             // Log the raw error for debugging
             logger.error({ error, props: error.properties }, 'Template rendering raw error');
 
-            if (error.code && error.status) throw error; // Re-throw known errors
+            if (error.code && error.status) {throw error;} // Re-throw known errors
 
             // If it's a MultiError from docxtemplater that wasn't caught by handleRenderError
-            if (error.properties && error.properties.errors) {
+            if (error.properties?.errors) {
                 const errorDetails = error.properties.errors
                     .map((err: any) => `${err.name}: ${err.message}`)
                     .join(' | ');
@@ -126,13 +129,13 @@ export class TemplateParser {
     private handleRenderError(error: any) {
         logger.error({ error, errors: error.properties?.errors }, 'Docxtemplater render error');
 
-        if (error.properties && error.properties.errors) {
+        if (error.properties?.errors) {
             const errorDetails = error.properties.errors
                 .map((err: any) => {
                     const parts = [err.name];
-                    if (err.message) parts.push(err.message);
-                    if (err.properties?.id) parts.push(`at ${err.properties.id}`);
-                    if (err.properties?.explanation) parts.push(`(${err.properties.explanation})`);
+                    if (err.message) {parts.push(err.message);}
+                    if (err.properties?.id) {parts.push(`at ${err.properties.id}`);}
+                    if (err.properties?.explanation) {parts.push(`(${err.properties.explanation})`);}
                     return parts.join(': ');
                 })
                 .join(' | ');

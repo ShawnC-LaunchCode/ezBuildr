@@ -4,10 +4,12 @@
  * DataVault Phase 2: Databases feature
  */
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { MoreVertical, Table, Trash2, Edit, FolderOpen, ArrowRightLeft } from "lucide-react";
+import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,16 +17,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Table, Trash2, Edit, FolderOpen } from "lucide-react";
 import type { DatavaultDatabase } from "@/lib/datavault-api";
 
 interface DatabaseCardProps {
   database: DatavaultDatabase;
   onClick: () => void;
+  onTransfer?: (id: string, name: string) => void;
   onDelete: () => void;
 }
 
-export function DatabaseCard({ database, onClick, onDelete }: DatabaseCardProps) {
+export function DatabaseCard({ database, onClick, onTransfer, onDelete }: DatabaseCardProps) {
   const [showActions, setShowActions] = useState(false);
 
   const scopeColors = {
@@ -86,6 +88,15 @@ export function DatabaseCard({ database, onClick, onDelete }: DatabaseCardProps)
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
+                {onTransfer && (
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onTransfer(database.id, database.name);
+                  }}>
+                    <ArrowRightLeft className="mr-2 h-4 w-4" />
+                    Transfer
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"

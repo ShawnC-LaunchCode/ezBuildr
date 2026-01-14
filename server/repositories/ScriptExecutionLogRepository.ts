@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc } from "drizzle-orm";
+
 import {
   scriptExecutionLog,
   type ScriptExecutionLog,
   type InsertScriptExecutionLog,
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for script execution log data access
@@ -24,7 +27,7 @@ export class ScriptExecutionLogRepository extends BaseRepository<
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<ScriptExecutionLog[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(scriptExecutionLog)
       .where(eq(scriptExecutionLog.runId, runId))
@@ -40,7 +43,7 @@ export class ScriptExecutionLogRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<ScriptExecutionLog[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(scriptExecutionLog)
       .where(

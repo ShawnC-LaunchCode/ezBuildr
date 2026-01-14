@@ -1,14 +1,16 @@
-import type { Express } from "express";
 import { createServer, type Server } from "http";
+
 import { setupAuth } from "./googleAuth";
-import { userRepository } from "./repositories";
-import { registerAllRoutes } from "./routes/index";
-import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabServer";
 import { startRollupWorker } from "./jobs/metricsRollup";
-import { registerDiagnosticRoutes } from "./routes/diagnostic.routes";
 import { logger } from "./lib/observability/logger";
 import { metrics } from "./lib/observability/metrics";
+import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabServer";
+import { userRepository } from "./repositories";
+import { registerDiagnosticRoutes } from "./routes/diagnostic.routes";
 import healthRouter from "./routes/health";
+import { registerAllRoutes } from "./routes/index";
+
+import type { Express } from "express";
 
 /**
  * Main route registration function

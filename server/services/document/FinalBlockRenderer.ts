@@ -14,15 +14,19 @@
  * @date December 6, 2025
  */
 
-import path from 'path';
 import { promises as fs } from 'fs';
-import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
-import type { EnhancedGenerationResult, FinalBlockRenderResult } from './EnhancedDocumentEngine.js';
-import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
-import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
+import path from 'path';
+
 import { createLogger } from '../../logger.js';
 import { createError } from '../../utils/errors.js';
 import { documentHookService } from '../scripting/DocumentHookService.js';
+
+import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
+import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
+
+import type { EnhancedGenerationResult, FinalBlockRenderResult } from './EnhancedDocumentEngine.js';
+import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
+
 
 const logger = createLogger({ module: 'finalBlock-renderer' });
 
@@ -433,9 +437,7 @@ export function createTemplateResolver(
 
     // Construct full path to template file
     const templatesDir = path.join(process.cwd(), 'server', 'files');
-    const templatePath = path.join(templatesDir, template.fileRef);
-
-    return templatePath;
+    return path.join(templatesDir, template.fileRef);
   };
 }
 

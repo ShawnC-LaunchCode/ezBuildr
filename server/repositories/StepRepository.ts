@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { steps, sections, type Step, type InsertStep } from "@shared/schema";
 import { eq, asc, inArray, and } from "drizzle-orm";
+
+import { steps, sections, type Step, type InsertStep } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for step data access
@@ -28,7 +31,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       conditions.push(eq(steps.isVirtual, false));
     }
 
-    return await database
+    return database
       .select()
       .from(steps)
       .where(and(...conditions))
@@ -46,16 +49,57 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
     includeVirtual = false
   ): Promise<Step[]> {
     const database = this.getDb(tx);
-    if (sectionIds.length === 0) return [];
+    if (sectionIds.length === 0) {return [];}
 
     const conditions = [inArray(steps.sectionId, sectionIds)];
     if (!includeVirtual) {
       conditions.push(eq(steps.isVirtual, false));
     }
 
-    return await database
+    return database
       .select()
       .from(steps)
+      .where(and(...conditions))
+      .orderBy(asc(steps.order));
+  }
+
+  /**
+   * Find all steps for a workflow (by joining with sections)
+   * By default, excludes virtual steps (computed steps from transform blocks)
+   * Set includeVirtual=true to include virtual steps
+   */
+  async findByWorkflowId(
+    workflowId: string,
+    tx?: DbTransaction,
+    includeVirtual = false
+  ): Promise<Step[]> {
+    const database = this.getDb(tx);
+
+    const conditions = [eq(sections.workflowId, workflowId)];
+    if (!includeVirtual) {
+      conditions.push(eq(steps.isVirtual, false));
+    }
+
+    return database
+      .select({
+        id: steps.id,
+        sectionId: steps.sectionId,
+        type: steps.type,
+        title: steps.title,
+        description: steps.description,
+        required: steps.required,
+        options: steps.options,
+        alias: steps.alias,
+        defaultValue: steps.defaultValue,
+        order: steps.order,
+        isVirtual: steps.isVirtual,
+        visibleIf: steps.visibleIf,
+        repeaterConfig: steps.repeaterConfig,
+        createdAt: steps.createdAt,
+        updatedAt: steps.updatedAt,
+      })
+      .from(steps)
+      .innerJoin(sections, eq(steps.sectionId, sections.id))
       .where(and(...conditions))
       .orderBy(asc(steps.order));
   }

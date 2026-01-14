@@ -9,15 +9,18 @@
  * - Error handling with detailed messages
  */
 
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
+import { exec } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { exec } from 'child_process';
 import { promisify } from 'util';
-import { createError } from '../utils/errors';
-import { docxHelpers } from './docxHelpers';
+
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+
 import { logger } from '../logger';
+import { createError } from '../utils/errors';
+
+import { docxHelpers } from './docxHelpers';
 
 const execAsync = promisify(exec);
 
@@ -88,13 +91,13 @@ function createExpressionParser(tag: string) {
  * Example: "user.address.city" -> scope.user.address.city
  */
 function getNestedValue(obj: any, path: string): any {
-  if (!path) return obj;
+  if (!path) {return obj;}
 
   const keys = path.split('.');
   let current = obj;
 
   for (const key of keys) {
-    if (current == null) return undefined;
+    if (current == null) {return undefined;}
     current = current[key];
   }
 
@@ -153,13 +156,13 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
       doc.render();
     } catch (error: any) {
       // Enhanced error handling
-      if (error.properties && error.properties.errors) {
+      if (error.properties?.errors) {
         const errorDetails = error.properties.errors
           .map((err: any) => {
             const parts = [err.name];
-            if (err.message) parts.push(err.message);
-            if (err.properties?.id) parts.push(`at ${err.properties.id}`);
-            if (err.properties?.explanation) parts.push(`- ${err.properties.explanation}`);
+            if (err.message) {parts.push(err.message);}
+            if (err.properties?.id) {parts.push(`at ${err.properties.id}`);}
+            if (err.properties?.explanation) {parts.push(`- ${err.properties.explanation}`);}
             return parts.join(': ');
           })
           .join(' | ');
@@ -238,8 +241,8 @@ export async function convertDocxToPdf2(docxPath: string): Promise<string> {
 
     const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       (libre.default as any)(docxBuffer, '.pdf', undefined, (err: Error | null, result: Buffer) => {
-        if (err) reject(err);
-        else resolve(result);
+        if (err) {reject(err);}
+        else {resolve(result);}
       });
     });
 
@@ -318,7 +321,7 @@ export async function extractPlaceholders2(
       const content = match[1].trim();
 
       // Skip closing tags
-      if (content.startsWith('/')) continue;
+      if (content.startsWith('/')) {continue;}
 
       // Parse content
       const parts = content.split(/\s+/);

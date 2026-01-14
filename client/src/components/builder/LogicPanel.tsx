@@ -4,13 +4,16 @@
  * This component wraps the LogicBuilder and handles API calls to persist changes.
  */
 
-import { useMemo } from "react";
-import { LogicBuilder } from "@/components/logic";
-import { useSections, useUpdateSection, useStep, useUpdateStep } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
-import type { ConditionExpression } from "@shared/types/conditions";
 import { Info } from "lucide-react";
+import React, { useMemo } from "react";
+
+import { LogicBuilder } from "@/components/logic";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { useSections, useUpdateSection, useStep, useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
+
 
 interface LogicPanelProps {
   workflowId: string;
@@ -28,7 +31,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
 
   // Find the selected section from the cached list
   const section = useMemo(() => {
-    if (selection?.type !== "section" || !sections) return null;
+    if (selection?.type !== "section" || !sections) {return null;}
     return sections.find((s) => s.id === selection.id) || null;
   }, [selection, sections]);
 

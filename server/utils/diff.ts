@@ -142,17 +142,17 @@ function generateSummary(diff: VersionDiff): string[] {
     const added = diff.bindingsDiff.filter(c => c.type === 'added').length;
     const removed = diff.bindingsDiff.filter(c => c.type === 'removed').length;
     const changed = diff.bindingsDiff.filter(c => c.type === 'changed').length;
-    if (added > 0) summary.push(`Added ${added} binding(s)`);
-    if (removed > 0) summary.push(`Removed ${removed} binding(s)`);
-    if (changed > 0) summary.push(`Modified ${changed} binding(s)`);
+    if (added > 0) {summary.push(`Added ${added} binding(s)`);}
+    if (removed > 0) {summary.push(`Removed ${removed} binding(s)`);}
+    if (changed > 0) {summary.push(`Modified ${changed} binding(s)`);}
   }
 
   // Template changes
   if (diff.templatesDiff.length > 0) {
     const added = diff.templatesDiff.filter(c => c.type === 'added').length;
     const removed = diff.templatesDiff.filter(c => c.type === 'removed').length;
-    if (added > 0) summary.push(`Added ${added} template(s)`);
-    if (removed > 0) summary.push(`Removed ${removed} template(s)`);
+    if (added > 0) {summary.push(`Added ${added} template(s)`);}
+    if (removed > 0) {summary.push(`Removed ${removed} template(s)`);}
   }
 
   if (summary.length === 0) {

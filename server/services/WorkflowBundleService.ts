@@ -1,9 +1,11 @@
 
 import AdmZip from "adm-zip";
+
 import { db } from "../db";
-import { workflowService } from "./WorkflowService";
+
 import { versionService } from "./VersionService";
 import { workflowClonerService } from "./WorkflowClonerService";
+import { workflowService } from "./WorkflowService";
 
 export class WorkflowBundleService {
 
@@ -50,8 +52,7 @@ export class WorkflowBundleService {
         targetProjectId: string
     ): Promise<string> {
         const zip = new AdmZip(buffer);
-        // @ts-ignore - getEntry exists in adm-zip but types are missing
-        const manifestEntry = zip.getEntry("manifest.json");
+        const manifestEntry = zip.getEntries().find(e => e.entryName === "manifest.json");
 
         if (!manifestEntry) {
             throw new Error("Invalid bundle: missing manifest.json");

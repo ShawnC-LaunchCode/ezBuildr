@@ -6,27 +6,18 @@
  * PR 10: UX polish - skeleton loading, keyboard shortcuts (⌘K)
  */
 
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-import {
-  useDatavaultTables,
-  useCreateDatavaultTable,
-  useDeleteDatavaultTable,
-  useCreateDatavaultColumn,
-  useDatavaultDatabases,
-  useMoveDatavaultTable,
-} from "@/lib/datavault-hooks";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Plus, Sparkles, Database as DatabaseIcon } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
 import { CreateTableModal } from "@/components/datavault/CreateTableModal";
+import { TablesListSkeleton } from "@/components/datavault/LoadingSkeleton";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import { TableCard } from "@/components/datavault/TableCard";
 import { TemplateCard } from "@/components/datavault/TemplateCard";
-import { TablesListSkeleton } from "@/components/datavault/LoadingSkeleton";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,8 +28,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Header from "@/components/layout/Header";
-import Sidebar from "@/components/layout/Sidebar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useDatavaultTables,
+  useCreateDatavaultTable,
+  useDeleteDatavaultTable,
+  useCreateDatavaultColumn,
+  useDatavaultDatabases,
+  useMoveDatavaultTable,
+} from "@/lib/datavault-hooks";
 
 // Template definitions for "Coming Soon" cards
 const TABLE_TEMPLATES = [
@@ -134,7 +135,7 @@ export default function DataVaultTablesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     try {
       await deleteTableMutation.mutateAsync(deleteConfirm.id);
@@ -155,7 +156,7 @@ export default function DataVaultTablesPage() {
   };
 
   const handleMoveTable = async (targetDatabaseId: string | null) => {
-    if (!moveTable) return;
+    if (!moveTable) {return;}
 
     try {
       await moveTableMutation.mutateAsync({ tableId: moveTable.id, databaseId: targetDatabaseId });

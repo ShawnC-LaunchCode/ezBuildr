@@ -1,7 +1,9 @@
 import express from "express";
-import { lifecycleHookService } from "../services/scripting/LifecycleHookService";
-import { hybridAuth } from "../middleware/auth";
 import { z } from "zod";
+
+import { hybridAuth } from "../middleware/auth";
+import { lifecycleHookService } from "../services/scripting/LifecycleHookService";
+
 import type { AuthRequest } from "../middleware/auth";
 
 const router = express.Router();

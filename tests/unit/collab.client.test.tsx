@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
-import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useCollabClient } from "@/hooks/collab/useCollabClient";
-import { useComments } from "@/hooks/collab/useComments";
-import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
-import { CommentsPanel } from "@/components/collab/CommentsPanel";
-import type { CollabUser } from '@/hooks/collab/useCollabClient';
-import type { Comment } from '@/hooks/collab/useComments';
+import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as Y from 'yjs';
+
+import { CommentsPanel } from "@/components/collab/CommentsPanel";
+import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
+import { useCollabClient } from "@/hooks/collab/useCollabClient";
+import type { CollabUser } from '@/hooks/collab/useCollabClient';
+import { useComments } from "@/hooks/collab/useComments";
+import type { Comment } from '@/hooks/collab/useComments';
+
 
 // Mock WebSocket
 class MockWebSocket {
@@ -23,7 +25,7 @@ class MockWebSocket {
   constructor(url: string) {
     this.url = url;
     setTimeout(() => {
-      if (this.onopen) this.onopen({});
+      if (this.onopen) {this.onopen({});}
     }, 0);
   }
 
@@ -33,7 +35,7 @@ class MockWebSocket {
 
   close() {
     this.readyState = WebSocket.CLOSED;
-    if (this.onclose) this.onclose({});
+    if (this.onclose) {this.onclose({});}
   }
 }
 

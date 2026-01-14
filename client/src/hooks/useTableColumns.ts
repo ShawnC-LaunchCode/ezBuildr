@@ -1,7 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { DatavaultColumn } from '../lib/types/datavault';
+
 import * as api from '../lib/api/datavault';
+
 import { tableKeys } from './useDatavaultTables';
+
+import type { DatavaultColumn } from '../lib/types/datavault';
 
 // ============================================================================
 // Column Queries
@@ -11,7 +14,7 @@ export function useTableColumns(tableId: string | undefined) {
   return useQuery({
     queryKey: tableId ? tableKeys.columns(tableId) : ['datavault', 'tables', 'null', 'columns'],
     queryFn: () => {
-      if (!tableId) throw new Error('Table ID is required');
+      if (!tableId) {throw new Error('Table ID is required');}
       return api.getTableColumns(tableId);
     },
     enabled: !!tableId,

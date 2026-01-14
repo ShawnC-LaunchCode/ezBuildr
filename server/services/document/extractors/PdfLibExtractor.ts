@@ -15,9 +15,12 @@
  */
 
 import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
+
 import { logger } from '../../../logger';
-import type { IPdfExtractor, ExtractionResult, PdfField, PdfMetadata } from './IPdfExtractor';
+
 import { FieldValidator } from './IPdfExtractor';
+
+import type { IPdfExtractor, ExtractionResult, PdfField, PdfMetadata } from './IPdfExtractor';
 
 export class PdfLibExtractor implements IPdfExtractor {
   readonly name = 'pdf-lib';
@@ -85,7 +88,7 @@ export class PdfLibExtractor implements IPdfExtractor {
             try {
               const foundIndex = pages.findIndex(p => {
                 // Compare refs
-                if (p.ref === pageRef) return true;
+                if (p.ref === pageRef) {return true;}
 
                 const pRef = p.ref as any;
                 const wRef = pageRef as any;
@@ -190,10 +193,10 @@ export class PdfLibExtractor implements IPdfExtractor {
   }
 
   private getFieldType(field: any): PdfField['type'] {
-    if (field instanceof PDFTextField) return 'text';
-    if (field instanceof PDFCheckBox) return 'checkbox';
-    if (field instanceof PDFDropdown) return 'dropdown';
-    if (field instanceof PDFRadioGroup) return 'radio';
+    if (field instanceof PDFTextField) {return 'text';}
+    if (field instanceof PDFCheckBox) {return 'checkbox';}
+    if (field instanceof PDFDropdown) {return 'dropdown';}
+    if (field instanceof PDFRadioGroup) {return 'radio';}
     return 'unknown';
   }
 }

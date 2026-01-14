@@ -1,12 +1,15 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, asc, isNull, or } from "drizzle-orm";
+
 import {
   lifecycleHooks,
   type LifecycleHook,
   type InsertLifecycleHook,
 } from "@shared/schema";
 import type { LifecycleHookPhase } from "@shared/types/scripting";
-import { eq, and, asc, isNull, or } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for lifecycle hook data access
@@ -25,7 +28,7 @@ export class LifecycleHookRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<LifecycleHook[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(lifecycleHooks)
       .where(eq(lifecycleHooks.workflowId, workflowId))
@@ -37,7 +40,7 @@ export class LifecycleHookRepository extends BaseRepository<
    */
   async findEnabledByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<LifecycleHook[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(lifecycleHooks)
       .where(and(eq(lifecycleHooks.workflowId, workflowId), eq(lifecycleHooks.enabled, true)))
@@ -67,7 +70,7 @@ export class LifecycleHookRepository extends BaseRepository<
     // If sectionId is null, only include workflow-level hooks
     if (sectionId) {
       // Include hooks that match the section OR are workflow-level (null sectionId)
-      return await database
+      return database
         .select()
         .from(lifecycleHooks)
         .where(
@@ -83,7 +86,7 @@ export class LifecycleHookRepository extends BaseRepository<
     } else {
       // Only workflow-level hooks
       conditions.push(isNull(lifecycleHooks.sectionId));
-      return await database
+      return database
         .select()
         .from(lifecycleHooks)
         .where(and(...conditions))

@@ -14,7 +14,7 @@ registerMigration("1.2.0", {
         const newSchema = { ...schema };
         newSchema.version = "1.3.0";
 
-        if (!newSchema.steps) return newSchema;
+        if (!newSchema.steps) {return newSchema;}
 
         newSchema.steps = newSchema.steps.map(step => {
             const newStep = { ...step };

@@ -4,14 +4,16 @@
  */
 
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
 import axios from "axios";
+import DOMPurify from "isomorphic-dompurify";
+import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import DOMPurify from "isomorphic-dompurify";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 
 interface FinalDocumentsSectionProps {
   runId: string;
@@ -107,10 +109,10 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     enabled: !!isValidRunId, // Only fetch if runId is valid
     refetchInterval: (query) => {
       // Only refetch if runId is valid
-      if (!isValidRunId) return false;
+      if (!isValidRunId) {return false;}
 
       // If no documents yet, refetch every 2 seconds until they're ready
-      const docs = query.state.data as GeneratedDocument[] | undefined;
+      const docs = query.state.data;
       if (!docs || docs.length === 0) {
         return 2000;
       }
@@ -120,9 +122,9 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
   });
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
+    if (!bytes) {return '';}
     const kb = bytes / 1024;
-    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    if (kb < 1024) {return `${kb.toFixed(1)} KB`;}
     const mb = kb / 1024;
     return `${mb.toFixed(1)} MB`;
   };

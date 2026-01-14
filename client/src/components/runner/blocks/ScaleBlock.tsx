@@ -10,10 +10,12 @@
  * Storage: number (whole number)
  */
 
-import React from "react";
-import { Slider } from "@/components/ui/slider";
 import { Star } from "lucide-react";
+import React from "react";
+
+import { Slider } from "@/components/ui/slider";
 import type { Step } from "@/types";
+
 import type { ScaleConfig } from "@/../../shared/types/stepConfigs";
 
 export interface ScaleBlockProps {

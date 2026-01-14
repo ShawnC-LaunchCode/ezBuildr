@@ -1,11 +1,12 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, FileText, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Loader2, FileText, ChevronRight } from "lucide-react";
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { useConfetti } from "@/hooks/useConfetti";
 
 interface Template {

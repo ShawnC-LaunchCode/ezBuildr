@@ -1,5 +1,5 @@
-import { test, expect } from "./fixtures/auth-fixtures";
-import { setAuthToken, clearAuthToken } from "./fixtures/auth-fixtures";
+import { test, expect , setAuthToken, clearAuthToken } from "./fixtures/auth-fixtures";
+
 
 /**
  * E2E tests for token-based workflow access

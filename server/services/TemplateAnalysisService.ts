@@ -11,10 +11,13 @@
  * Provides validation against sample data and coverage analysis
  */
 
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import fs from 'fs/promises';
+
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+
 import { createError } from '../utils/errors';
+
 import { docxHelpers } from './docxHelpers';
 import { templateFileExists, getTemplateFilePath } from './templates';
 
@@ -235,7 +238,7 @@ function extractAllPlaceholders(text: string): PlaceholderInfo[] {
  * Calculate max nesting depth
  */
 function calculateMaxDepth(loops: LoopInfo[]): number {
-  if (loops.length === 0) return 0;
+  if (loops.length === 0) {return 0;}
   return Math.max(...loops.map((l) => l.depth)) + 1;
 }
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { Loader2, Download, TrendingUp, Users, CheckCircle2, Clock } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -16,8 +16,10 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
-import { Loader2, Download, TrendingUp, Users, CheckCircle2, Clock } from "lucide-react";
-import { motion } from "framer-motion";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
 
 interface GroupStat {
   group: string;

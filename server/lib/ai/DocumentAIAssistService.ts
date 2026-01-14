@@ -1,10 +1,13 @@
 
+import { createRequire } from 'module';
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { logger } from "../../logger"; // Adjust path if needed (../../logger)
-import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
-import { createRequire } from 'module';
+import PizZip from 'pizzip';
+
+import { logger } from "../../logger"; // Adjust path if needed (../../logger)
+
 const require = createRequire(import.meta.url);
 const pdfLib = require('pdf-parse');
 
@@ -89,7 +92,7 @@ export class DocumentAIAssistService {
      * Suggest mappings for a list of template variables against existing workflow variables
      */
     async suggestMappings(templateVariables: Partial<AnalyzedVariable>[], workflowVariables: any[]): Promise<MappingSuggestion[]> {
-        if (!this.model) return [];
+        if (!this.model) {return [];}
 
         const prompt = `
         You are a Document Automation Expert.Match the Template Variables to the Workflow Variables.
@@ -119,7 +122,7 @@ export class DocumentAIAssistService {
      * Suggest aliases, formatting, and conditions
      */
     async suggestImprovements(templateVariables: string[], textSample?: string): Promise<any> {
-        if (!this.model) return {};
+        if (!this.model) {return {};}
 
         const prompt = `
          Analyze these template variables and suggest improvements.

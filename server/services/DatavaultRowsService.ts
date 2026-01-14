@@ -1,11 +1,12 @@
+import type { DatavaultRow, InsertDatavaultRow, DatavaultColumn } from "@shared/schema";
+
+import { db } from "../db";
 import {
   datavaultRowsRepository,
   datavaultTablesRepository,
   datavaultColumnsRepository,
   type DbTransaction,
 } from "../repositories";
-import type { DatavaultRow, InsertDatavaultRow, DatavaultColumn } from "@shared/schema";
-import { db } from "../db";
 
 /**
  * Service layer for DataVault row business logic
@@ -97,17 +98,17 @@ export class DatavaultRowsService {
         return typeof value === 'string' ? value : Number(value);
 
       case 'boolean':
-        if (typeof value === 'boolean') return value;
+        if (typeof value === 'boolean') {return value;}
         if (typeof value === 'string') {
           const lower = value.toLowerCase();
-          if (lower === 'true' || lower === '1' || lower === 'yes') return true;
-          if (lower === 'false' || lower === '0' || lower === 'no') return false;
+          if (lower === 'true' || lower === '1' || lower === 'yes') {return true;}
+          if (lower === 'false' || lower === '0' || lower === 'no') {return false;}
         }
         return Boolean(value);
 
       case 'date':
       case 'datetime':
-        if (value instanceof Date) return value.toISOString();
+        if (value instanceof Date) {return value.toISOString();}
         const date = new Date(value);
         if (isNaN(date.getTime())) {
           throw new Error(`Column '${column.name}' must be a valid date`);
@@ -115,7 +116,7 @@ export class DatavaultRowsService {
         return date.toISOString();
 
       case 'json':
-        if (typeof value === 'object') return value;
+        if (typeof value === 'object') {return value;}
         try {
           return JSON.parse(String(value));
         } catch {
@@ -282,7 +283,7 @@ export class DatavaultRowsService {
       return this._createRowImpl(tableId, tenantId, values, createdBy, tx);
     }
 
-    return await db.transaction(async (newTx: DbTransaction) => {
+    return db.transaction(async (newTx: DbTransaction) => {
       return this._createRowImpl(tableId, tenantId, values, createdBy, newTx);
     });
   }
@@ -333,7 +334,7 @@ export class DatavaultRowsService {
     const row = await this.verifyRowOwnership(rowId, tenantId, tx);
     const result = await this.rowsRepo.getRowWithValues(rowId, tx);
 
-    if (!result) return null;
+    if (!result) {return null;}
 
     // Transform values array into Record<columnId, value>
     const valuesRecord: Record<string, any> = {};
@@ -360,7 +361,7 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   ) {
     await this.verifyTableOwnership(tableId, tenantId, tx);
-    return await this.rowsRepo.getRowsWithValues(tableId, options, tx);
+    return this.rowsRepo.getRowsWithValues(tableId, options, tx);
   }
 
   /**
@@ -368,7 +369,7 @@ export class DatavaultRowsService {
    */
   async countRows(tableId: string, tenantId: string, tx?: DbTransaction): Promise<number> {
     await this.verifyTableOwnership(tableId, tenantId, tx);
-    return await this.rowsRepo.countByTableId(tableId, tx);
+    return this.rowsRepo.countByTableId(tableId, tx);
   }
 
   /**
@@ -387,7 +388,7 @@ export class DatavaultRowsService {
       return this._updateRowImpl(rowId, tenantId, values, updatedBy, tx);
     }
 
-    return await db.transaction(async (newTx: DbTransaction) => {
+    return db.transaction(async (newTx: DbTransaction) => {
       return this._updateRowImpl(rowId, tenantId, values, updatedBy, newTx);
     });
   }
@@ -422,7 +423,7 @@ export class DatavaultRowsService {
     tx?: DbTransaction
   ): Promise<Array<{ referencingTableId: string; referencingColumnId: string; referenceCount: number }>> {
     await this.verifyRowOwnership(rowId, tenantId, tx);
-    return await this.rowsRepo.getRowReferences(rowId, tx);
+    return this.rowsRepo.getRowReferences(rowId, tx);
   }
 
   /**
@@ -444,14 +445,14 @@ export class DatavaultRowsService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    if (rowIds.length === 0) return;
+    if (rowIds.length === 0) {return;}
 
     // If transaction provided, use it; otherwise create a new one
     if (tx) {
       return this._bulkDeleteRowsImpl(rowIds, tenantId, tx);
     }
 
-    return await db.transaction(async (newTx: DbTransaction) => {
+    return db.transaction(async (newTx: DbTransaction) => {
       return this._bulkDeleteRowsImpl(rowIds, tenantId, newTx);
     });
   }
@@ -492,7 +493,7 @@ export class DatavaultRowsService {
   ): Promise<Map<string, { displayValue: string; row: any }>> {
     const resultMap = new Map<string, { displayValue: string; row: any }>();
 
-    if (requests.length === 0) return resultMap;
+    if (requests.length === 0) {return resultMap;}
 
     // Verify all tables belong to tenant
     const uniqueTableIds = [...new Set(requests.map(r => r.tableId))];
@@ -521,7 +522,7 @@ export class DatavaultRowsService {
           displayValue = String(data.values[displayColumnSlug]);
         } else {
           // Fallback to row ID if no display column specified
-          displayValue = rowId.substring(0, 8) + '...';
+          displayValue = `${rowId.substring(0, 8)  }...`;
         }
 
         resultMap.set(rowId, {
@@ -575,7 +576,7 @@ export class DatavaultRowsService {
     rowIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    if (rowIds.length === 0) return;
+    if (rowIds.length === 0) {return;}
 
     // Verify all rows belong to tenant
     await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
@@ -592,7 +593,7 @@ export class DatavaultRowsService {
     rowIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    if (rowIds.length === 0) return;
+    if (rowIds.length === 0) {return;}
 
     // Verify all rows belong to tenant
     await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);

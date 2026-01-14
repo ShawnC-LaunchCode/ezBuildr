@@ -133,7 +133,7 @@ describe('SendDataToTableBlockEditor Config Validation', () => {
     ];
 
     const columnCounts = mappings.reduce((acc, m) => {
-      if (m.columnId) acc[m.columnId] = (acc[m.columnId] || 0) + 1;
+      if (m.columnId) {acc[m.columnId] = (acc[m.columnId] || 0) + 1;}
       return acc;
     }, {} as Record<string, number>);
 

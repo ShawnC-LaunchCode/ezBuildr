@@ -53,10 +53,10 @@ export function findMissingValues(
   // Check each step in the workflow to see if it has a value in the snapshot
   for (const step of currentSteps) {
     // Skip virtual steps (computed values)
-    if (step.isVirtual) continue;
+    if (step.isVirtual) {continue;}
 
     // Skip final_documents and other system blocks
-    if (step.type === 'final_documents') continue;
+    if (step.type === 'final_documents') {continue;}
 
     // Determine the key used in snapshot (prefer alias, fall back to ID)
     const key = step.alias || step.id;
@@ -111,7 +111,7 @@ export function findFirstMissingStep(
   missingValues: MissingValue[],
   allSteps: Step[]
 ): Step | null {
-  if (missingValues.length === 0) return null;
+  if (missingValues.length === 0) {return null;}
 
   // Get missing step IDs
   const missingStepIds = new Set(missingValues.map(mv => mv.stepId));
@@ -119,7 +119,7 @@ export function findFirstMissingStep(
   // Filter to missing steps only
   const missingSteps = allSteps.filter(step => missingStepIds.has(step.id));
 
-  if (missingSteps.length === 0) return null;
+  if (missingSteps.length === 0) {return null;}
 
   // Sort by section order, then step order
   missingSteps.sort((a, b) => {

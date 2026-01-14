@@ -1,15 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
+import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
-import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
-import { db } from '../../server/db';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import {
   datavaultApiTokens,
   datavaultDatabases,
   tenants,
   users,
 } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+
+import { db } from '../../server/db';
+import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
 import { hashToken, generateApiToken } from '../../server/utils/encryption';
 
 /**

@@ -1,0 +1,269 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> cross-env VITEST_INTEGRATION=true vitest run --coverage tests/integration/api.templates-runs.test.ts tests/integration/dataBlocks.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768340927287,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768340929175,"env":"test","msg":"DB: initializing... Local"}
+{"level":20,"time":1768340929176,"env":"test","msg":"DB: importing pg..."}
+{"level":20,"time":1768340929176,"env":"test","msg":"DB: creating pool..."}
+{"level":20,"time":1768340929176,"env":"test","msg":"DB: importing drizzle..."}
+{"level":20,"time":1768340929218,"env":"test","msg":"DB: created."}
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768340929218,"env":"test","msg":"DB: initialized flag set."}
+{"level":40,"time":1768340930584,"env":"test","workflowId":"f39073b7-ba01-40c2-b50b-9246dd5ebae2","msg":"No current or pinned version found for workflow, run might be unstable"}
+{"level":20,"time":1768340930886,"env":"test","type":"run_started","projectId":"edc1a6eb-3500-4a7e-a9ca-4faeff9a9228","workflowId":"f39073b7-ba01-40c2-b50b-9246dd5ebae2","runId":"0b3d7dd8-f12d-4115-9453-f93a9678bcee","msg":"Metrics event emitted"}
+{"level":50,"time":1768340930937,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"0b3d7dd8-f12d-4115-9453-f93a9678bcee","workflowId":"f39073b7-ba01-40c2-b50b-9246dd5ebae2","versionId":"draft","type":"run.start","timestamp":"2026-01-13T21:48:50.887Z","isPreview":false,"payload":{"accessMode":"anonymous"}},"msg":"Failed to record analytics event"}
+{"level":20,"time":1768340931920,"env":"test","module":"intake-question-visibility","sectionId":"af6ef8d1-1df5-4979-b06a-d1bc2e3dc9bb","questionCount":1,"msg":"Evaluation context loaded"}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39mΓ£à OpenAPI specification loaded successfully
+
+{"level":50,"time":1768340932507,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"0b3d7dd8-f12d-4115-9453-f93a9678bcee","workflowId":"f39073b7-ba01-40c2-b50b-9246dd5ebae2","versionId":"draft","type":"block.start","blockId":"4898902a-d60f-47ca-95d2-b9138517e58a","pageId":"af6ef8d1-1df5-4979-b06a-d1bc2e3dc9bb","timestamp":"2026-01-13T21:48:52.461Z","isPreview":false,"payload":{"blockType":"write"}},"msg":"Failed to record analytics event"}
+{"level":30,"time":1768340932561,"env":"test","module":"write-runner","operation":"write_start","mode":"create","config":{"mode":"create","tableId":"1e9af891-fd37-423d-9c23-3934331eaeee","dataSourceId":"d9c1f765-fe4b-4c1e-b773-bf0b06fe4d4b","columnMappings":[{"value":"{{2626d7da-23fc-46e8-84b1-0a5cd45a234b}}","columnId":"903d5525-53d5-4767-9736-61296e0e3186"}]},"tableId":"1e9af891-fd37-423d-9c23-3934331eaeee","preview":false,"msg":"Starting write execution"}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w1
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w1 (Reused: true)
+
+{"level":30,"time":1768340932946,"env":"test","msg":"DB: initializing... Local"}
+{"level":20,"time":1768340932946,"env":"test","msg":"DB: importing pg..."}
+{"level":20,"time":1768340932946,"env":"test","msg":"DB: creating pool..."}
+{"level":20,"time":1768340932947,"env":"test","msg":"DB: importing drizzle..."}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":20,"time":1768340932986,"env":"test","msg":"DB: created."}
+{"level":30,"time":1768340932986,"env":"test","msg":"DB: initialized flag set."}
+{"level":50,"time":1768340933048,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"0b3d7dd8-f12d-4115-9453-f93a9678bcee","workflowId":"f39073b7-ba01-40c2-b50b-9246dd5ebae2","versionId":"draft","type":"block.complete","blockId":"4898902a-d60f-47ca-95d2-b9138517e58a","pageId":"af6ef8d1-1df5-4979-b06a-d1bc2e3dc9bb","timestamp":"2026-01-13T21:48:53.001Z","isPreview":false,"payload":{"blockType":"write"}},"msg":"Failed to record analytics event"}
+{"level":30,"time":1768340933501,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768340933527,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts[2m > [22m[2mTemplates and Runs API Integration Tests
+[22m[39m≡ƒôÜ API Documentation available at /api-docs
+[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768340933513,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768340933514,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768340933520,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768340933526,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768340933526,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768340933526,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768340933526,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":40,"time":1768340933908,"env":"test","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","msg":"No current or pinned version found for workflow, run might be unstable"}
+{"level":30,"time":1768340934003,"env":"test","module":"user-credentials-repository","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"User credentials created"}
+{"level":30,"time":1768340934099,"env":"test","module":"email-queue","jobId":"6eace648-aa58-46cd-bfcb-e5937b74b0c5","to":"test-YMavQi5JsEFAt90zGP3NE@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768340934154,"env":"test","module":"auth-routes","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","email":"test-YMavQi5JsEFAt90zGP3NE@example.com","msg":"User registered"}
+{"level":20,"time":1768340934210,"env":"test","type":"run_started","projectId":"edc1a6eb-3500-4a7e-a9ca-4faeff9a9228","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","msg":"Metrics event emitted"}
+{"level":50,"time":1768340934257,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","versionId":"draft","type":"run.start","timestamp":"2026-01-13T21:48:54.210Z","isPreview":false,"payload":{"accessMode":"anonymous"}},"msg":"Failed to record analytics event"}
+{"level":20,"time":1768340934370,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340934371,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340934371,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/","msg":"Tenant validation successful"}
+{"level":20,"time":1768340934371,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"project:create","path":"/","msg":"Permission check passed"}
+{"level":20,"time":1768340934498,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340934498,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340934498,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/workflows","msg":"Tenant validation successful"}
+{"level":20,"time":1768340934498,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/workflows","msg":"Permission check passed"}
+{"level":20,"time":1768340934857,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340934857,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340934858,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/publish","msg":"Tenant validation successful"}
+{"level":20,"time":1768340934858,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:publish","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/publish","msg":"Permission check passed"}
+{"level":20,"time":1768340935098,"env":"test","module":"intake-question-visibility","sectionId":"ccdb1885-9f2f-4536-b084-d166038d970c","questionCount":1,"msg":"Evaluation context loaded"}
+{"level":20,"time":1768340935215,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935215,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935215,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935215,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":20,"time":1768340935370,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935371,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935371,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935371,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":50,"time":1768340935442,"env":"test","error":{"code":1,"killed":false,"signal":null,"cmd":"qpdf --decrypt \"C:\\Users\\scoot\\AppData\\Local\\Temp\\locked-1768340935421.pdf\" \"C:\\Users\\scoot\\AppData\\Local\\Temp\\unlocked-1768340935421.pdf\"","stdout":"","stderr":"'qpdf' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"},"msg":"Failed to unlock PDF with qpdf"}
+{"level":40,"time":1768340935442,"env":"test","msg":"Returning original PDF buffer due to unlock failure"}
+{"level":50,"time":1768340935444,"env":"test","error":{},"msg":"Failed to extract PDF fields"}
+{"level":50,"time":1768340935444,"env":"test","error":{"error":{"code":"INTERNAL_ERROR","message":""}},"msg":"PDF processing failed"}
+{"level":50,"time":1768340935444,"env":"test","error":{"error":{"code":"VALIDATION_ERROR","message":""}},"body":{"name":"Test Template"},"params":{"projectId":"b4340fa4-f548-4213-9a95-f9f9d6502d35"},"file":{"fieldname":"file","originalname":"test.pdf","encoding":"7bit","mimetype":"application/pdf","buffer":{"type":"Buffer","data":[37,80,68,70]},"size":4},"msg":"Error creating template"}
+{"level":20,"time":1768340935500,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935501,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935501,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935501,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":50,"time":1768340935549,"env":"test","error":{"error":{"code":"VALIDATION_ERROR","message":""}},"body":{"name":"Test Template"},"params":{"projectId":"b4340fa4-f548-4213-9a95-f9f9d6502d35"},"msg":"Error creating template"}
+{"level":20,"time":1768340935601,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935601,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935601,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935601,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":50,"time":1768340935695,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","versionId":"draft","type":"block.start","blockId":"f88d1331-9a00-455c-ad9b-a99e4ee8dbc0","pageId":"ccdb1885-9f2f-4536-b084-d166038d970c","timestamp":"2026-01-13T21:48:55.641Z","isPreview":false,"payload":{"blockType":"query"}},"msg":"Failed to record analytics event"}
+{"level":30,"time":1768340935745,"env":"test","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","queryId":"4cd45266-4ace-4826-89b2-a53ea9bc4061","outputVar":"my_results","msg":"Executing query block"}
+{"level":20,"time":1768340935751,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935751,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935751,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935751,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:view","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":20,"time":1768340935897,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340935897,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340935897,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340935897,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":20,"time":1768340936037,"env":"test","blockId":"f88d1331-9a00-455c-ad9b-a99e4ee8dbc0","virtualStepId":"adddaf73-3908-424a-9b04-47497f877d31","rowCount":1,"msg":"Persisted query block output"}
+{"level":20,"time":1768340936044,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936044,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936044,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/templates/12ee2140-27f2-4676-94a6-bc2b2bb20e61","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936044,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:view","path":"/templates/12ee2140-27f2-4676-94a6-bc2b2bb20e61","msg":"Permission check passed"}
+{"level":50,"time":1768340936082,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","versionId":"draft","type":"block.complete","blockId":"f88d1331-9a00-455c-ad9b-a99e4ee8dbc0","pageId":"ccdb1885-9f2f-4536-b084-d166038d970c","timestamp":"2026-01-13T21:48:56.037Z","isPreview":false,"payload":{"blockType":"query"}},"msg":"Failed to record analytics event"}
+{"level":20,"time":1768340936148,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936148,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936148,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936148,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":20,"time":1768340936296,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936296,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936296,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/templates/903ef572-b499-4174-b5a4-9430e6f64c29/placeholders","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936296,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:view","path":"/templates/903ef572-b499-4174-b5a4-9430e6f64c29/placeholders","msg":"Permission check passed"}
+{"level":20,"time":1768340936401,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936401,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936401,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936401,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":50,"time":1768340936425,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","versionId":"draft","type":"block.start","blockId":"b3f05e56-7989-4029-b66e-161ec8471272","pageId":"ccdb1885-9f2f-4536-b084-d166038d970c","timestamp":"2026-01-13T21:48:56.082Z","isPreview":false,"payload":{"blockType":"validate"}},"msg":"Failed to record analytics event"}
+{"level":20,"time":1768340936598,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936598,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936598,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/templates/e77697a2-ba3c-48c8-b3c4-d5c3f19221a0","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936598,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:edit","path":"/templates/e77697a2-ba3c-48c8-b3c4-d5c3f19221a0","msg":"Permission check passed"}
+{"level":20,"time":1768340936754,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936755,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936755,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936755,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:create","path":"/projects/b4340fa4-f548-4213-9a95-f9f9d6502d35/templates","msg":"Permission check passed"}
+{"level":50,"time":1768340936777,"env":"test","error":{"length":137,"name":"error","severity":"ERROR","code":"22P02","where":"unnamed portal parameter $2 = '...'","file":"uuid.c","line":"138","routine":"string_to_uuid"},"input":{"runId":"1c11b9d4-8a23-40ab-93e0-c2cda6af9812","workflowId":"9b3060ff-b95a-41b3-a258-6f007a37fa0a","versionId":"draft","type":"block.complete","blockId":"b3f05e56-7989-4029-b66e-161ec8471272","pageId":"ccdb1885-9f2f-4536-b084-d166038d970c","timestamp":"2026-01-13T21:48:56.426Z","isPreview":false,"payload":{"blockType":"validate"}},"msg":"Failed to record analytics event"}
+{"level":20,"time":1768340936903,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340936903,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340936903,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/templates/0277c630-c9c6-4c1f-b68b-5f3e99bf956d","msg":"Tenant validation successful"}
+{"level":20,"time":1768340936903,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:delete","path":"/templates/0277c630-c9c6-4c1f-b68b-5f3e99bf956d","msg":"Permission check passed"}
+{"level":20,"time":1768340937068,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340937068,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340937068,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/templates/0277c630-c9c6-4c1f-b68b-5f3e99bf956d","msg":"Tenant validation successful"}
+{"level":20,"time":1768340937068,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"template:view","path":"/templates/0277c630-c9c6-4c1f-b68b-5f3e99bf956d","msg":"Permission check passed"}
+{"level":20,"time":1768340937174,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340937174,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340937174,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340937174,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":30,"time":1768340937277,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768340937277,"env":"test","msg":"DB: pool closed."}
+ [32mΓ£ô[39m tests/integration/dataBlocks.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 8541[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should write data to DataVault via WriteBlock [33m 3286[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should query data from DataVault via QueryBlock and use in Logic [33m 3590[2mms[22m[39m
+{"level":20,"time":1768340937469,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340937469,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340937469,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340937469,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":20,"time":1768340937748,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340937748,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340937748,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340937748,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":20,"time":1768340938011,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938011,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938011,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/runs","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938011,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"run:view","path":"/runs","msg":"Permission check passed"}
+{"level":20,"time":1768340938116,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938116,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938116,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938116,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":20,"time":1768340938370,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938370,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938371,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/runs","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938371,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"run:view","path":"/runs","msg":"Permission check passed"}
+{"level":20,"time":1768340938469,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938469,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938469,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938470,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":20,"time":1768340938720,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938720,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938720,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/runs/5a446fae-fcba-43d9-8a3a-981bdc40c3e5","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938720,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"run:view","path":"/runs/5a446fae-fcba-43d9-8a3a-981bdc40c3e5","msg":"Permission check passed"}
+{"level":20,"time":1768340938881,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340938881,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340938881,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Tenant validation successful"}
+{"level":20,"time":1768340938881,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"workflow:run","path":"/workflows/3e36412b-5d46-4a73-9531-9136e931d177/run","msg":"Permission check passed"}
+{"level":20,"time":1768340939130,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","msg":"Hydrated tenantId from DB"}
+{"level":20,"time":1768340939130,"env":"test","module":"auth-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","msg":"Authenticated via JWT Strategy"}
+{"level":20,"time":1768340939130,"env":"test","module":"tenant-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","tenantId":"97d30e94-ae2a-4b94-bd9f-e7f3926f2a1b","path":"/runs/70fd9ce7-b268-4dda-9559-e640f0796b02/logs","msg":"Tenant validation successful"}
+{"level":20,"time":1768340939130,"env":"test","module":"rbac-middleware","userId":"9da23d2e-54b9-4d60-b816-a18a1dd47eed","userRole":"owner","permission":"run:view","path":"/runs/70fd9ce7-b268-4dda-9559-e640f0796b02/logs","msg":"Permission check passed"}
+{"level":30,"time":1768340939545,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/api.templates-runs.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768340939545,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/api.templates-runs.test.ts [2m([22m[2m15 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 7025[2mms[22m[39m
+         [32mΓ£ô[39m should create template with file upload[32m 164[2mms[22m[39m
+         [32mΓ£ô[39m should reject non-docx files[32m 127[2mms[22m[39m
+         [32mΓ£ô[39m should reject without file[32m 104[2mms[22m[39m
+         [32mΓ£ô[39m should list templates[32m 298[2mms[22m[39m
+         [32mΓ£ô[39m should get template by ID[32m 249[2mms[22m[39m
+         [32mΓ£ô[39m should extract placeholders[32m 255[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should update template name [33m 347[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should delete template [33m 423[2mms[22m[39m
+         [32mΓ£ô[39m should execute workflow[32m 284[2mms[22m[39m
+         [32mΓ£ô[39m should include logs in debug mode[32m 283[2mms[22m[39m
+[31m         [31m├ù[31m should reject without required permission[39m[32m 9[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should list runs [33m 366[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should filter by workflowId [33m 354[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should get run by ID [33m 410[2mms[22m[39m
+         [33m[2mΓ£ô[22m[39m should get run logs [33m 458[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.templates-runs.test.ts > Templates and Runs API Integration Tests > Runs API > POST /api/workflows/:id/run > should reject without required permission
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/api.templates-runs.test.ts:289:12
+    287|           .post("/api/auth/register")
+    288|           .send({ email: viewerEmail, password: "TestPassword123" })
+    289|           .expect(201);
+       |            ^
+    290| 
+    291|         await db.update(schema.users)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m16 passed[39m[22m[90m (17)[39m
+[2m   Start at [22m 15:48:44
+[2m   Duration [22m 23.26s[2m (transform 4.16s, setup 390ms, import 11.18s, tests 15.57s, environment 0ms)[22m
+

@@ -1,4 +1,5 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc, sql, inArray, asc, isNull, isNotNull, or, like, gt, lt, gte, lte } from "drizzle-orm";
+
 import {
   datavaultRows,
   datavaultValues,
@@ -9,9 +10,11 @@ import {
   type DatavaultValue,
   type InsertDatavaultValue,
 } from "@shared/schema";
-import { eq, and, desc, sql, inArray, asc, isNull, isNotNull, or, like, gt, lt, gte, lte } from "drizzle-orm";
+
 import { db } from "../db";
 import { createLogger } from "../logger";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 const logger = createLogger({ module: "datavault-rows-repository" });
 
@@ -122,7 +125,7 @@ export class DatavaultRowsRepository extends BaseRepository<
     const offset = options?.offset || 0;
     query = query.limit(limit).offset(offset) as any;
 
-    return await query;
+    return query;
   }
 
   /**
@@ -148,7 +151,7 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
 
     const row = await this.findById(rowId, tx);
-    if (!row) return null;
+    if (!row) {return null;}
 
     const values = await database
       .select()
@@ -180,7 +183,7 @@ export class DatavaultRowsRepository extends BaseRepository<
 
     // Get rows (with sorting and archive filtering)
     const rows = await this.findByTableId(tableId, options, tx);
-    if (rows.length === 0) return [];
+    if (rows.length === 0) {return [];}
 
     const rowIds = rows.map((r) => r.id);
 
@@ -397,9 +400,9 @@ export class DatavaultRowsRepository extends BaseRepository<
     // Use PostgreSQL function to get next value from sequence
     // This is atomic and prevents race conditions
     const res = await database.execute(
-      sql`SELECT public.datavault_get_next_auto_number(${tableId}::UUID, ${columnId}::UUID, ${startValue}::INTEGER) as next_value`
+      sql`SELECT datavault_get_next_auto_number(${tableId}::UUID, ${columnId}::UUID, ${startValue}::INTEGER) as next_value`
     );
-    const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
+    const result = Array.isArray(res) ? res[0] : (res)?.rows?.[0] || res;
 
     return result?.next_value ?? startValue;
   }
@@ -437,7 +440,7 @@ export class DatavaultRowsRepository extends BaseRepository<
     // Call the database function with all parameters
     // SQL Signature: (tenant, table, column, context_key, min_digits, prefix, format)
     const res = await database.execute(
-      sql`SELECT public.datavault_get_next_autonumber(
+      sql`SELECT datavault_get_next_autonumber(
         ${tenantId}::UUID,
         ${tableId}::UUID,
         ${columnId}::UUID,
@@ -448,7 +451,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       ) as next_value`
     );
 
-    const result = Array.isArray(res) ? res[0] : (res as any)?.rows?.[0] || res;
+    const result = Array.isArray(res) ? res[0] : (res)?.rows?.[0] || res;
     const nextValue = result?.next_value;
     if (!nextValue) {
       throw new Error('Failed to generate autonumber value');
@@ -467,7 +470,7 @@ export class DatavaultRowsRepository extends BaseRepository<
 
     // Call PostgreSQL function to drop the sequence
     await database.execute(
-      sql`SELECT public.datavault_cleanup_sequence(${columnId}::UUID)`
+      sql`SELECT datavault_cleanup_sequence(${columnId}::UUID)`
     );
   }
 
@@ -524,11 +527,11 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
     const resultMap = new Map<string, { row: DatavaultRow; values: Record<string, any> }>();
 
-    if (requests.length === 0) return resultMap;
+    if (requests.length === 0) {return resultMap;}
 
     // Flatten all rowIds across all requests
     const allRowIds = requests.flatMap(req => req.rowIds);
-    if (allRowIds.length === 0) return resultMap;
+    if (allRowIds.length === 0) {return resultMap;}
 
     // Fetch all rows in a single query
     const rows = await database
@@ -536,7 +539,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       .from(datavaultRows)
       .where(inArray(datavaultRows.id, allRowIds));
 
-    if (rows.length === 0) return resultMap;
+    if (rows.length === 0) {return resultMap;}
 
     // Fetch all values for these rows in a single query
     const values = await database
@@ -662,7 +665,7 @@ export class DatavaultRowsRepository extends BaseRepository<
           eq(datavaultRows.tableId, tableId),
           eq(datavaultRows.tableId, tableId),
           // Tenant check implicit via tableId ownership verification (tables are tenant scoped)
-          eq(datavaultValues.value, value as any)
+          eq(datavaultValues.value, value)
         ) as any
       )
       .limit(1);

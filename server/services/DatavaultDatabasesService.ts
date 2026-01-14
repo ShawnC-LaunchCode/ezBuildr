@@ -1,6 +1,7 @@
-import { datavaultDatabasesRepository } from '../repositories/DatavaultDatabasesRepository';
-import type { DatavaultDatabase, DatavaultScopeType } from '../../shared/schema';
 import { NotFoundError, UnauthorizedError, BadRequestError } from '../middleware/errorHandler';
+import { datavaultDatabasesRepository } from '../repositories/DatavaultDatabasesRepository';
+
+import type { DatavaultDatabase, DatavaultScopeType } from '../../shared/schema';
 
 interface CreateDatabaseInput {
   tenantId: string;
@@ -57,9 +58,18 @@ export class DatavaultDatabasesService {
   /**
    * Create a new database
    */
-  async createDatabase(input: CreateDatabaseInput): Promise<DatavaultDatabase> {
+  async createDatabase(input: CreateDatabaseInput & { ownerType?: 'user' | 'org'; ownerUuid?: string; creatorId?: string }): Promise<DatavaultDatabase> {
     // Validate scope
     this.validateScope(input.scopeType, input.scopeId);
+
+    // Validate ownership if provided
+    if (input.ownerType && input.ownerUuid && input.creatorId) {
+      const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
+      const canCreate = await canCreateWithOwnership(input.creatorId, input.ownerType, input.ownerUuid);
+      if (!canCreate) {
+        throw new Error('Access denied: You do not have permission to create assets with this ownership');
+      }
+    }
 
     return datavaultDatabasesRepository.create({
       tenantId: input.tenantId,
@@ -67,6 +77,8 @@ export class DatavaultDatabasesService {
       description: input.description,
       scopeType: input.scopeType,
       scopeId: input.scopeId,
+      ownerType: input.ownerType,
+      ownerUuid: input.ownerUuid,
     });
   }
 
@@ -139,6 +151,59 @@ export class DatavaultDatabasesService {
     if ((scopeType === 'project' || scopeType === 'workflow') && !scopeId) {
       throw new BadRequestError(`${scopeType} scope requires a scope ID`);
     }
+  }
+
+  /**
+   * Transfer database ownership (new ownership model)
+   * Cascades to all child tables (tables inherit database ownership)
+   *
+   * @param databaseId - Database to transfer
+   * @param userId - User requesting transfer
+   * @param targetOwnerType - 'user' or 'org'
+   * @param targetOwnerUuid - UUID of target owner
+   */
+  async transferOwnership(
+    databaseId: string,
+    userId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ) {
+    const { transferService } = await import('./TransferService');
+    const { canAccessAsset } = await import('../utils/ownershipAccess');
+
+    // Get database
+    const database = await datavaultDatabasesRepository.findById(databaseId);
+    if (!database) {
+      throw new NotFoundError('Database not found');
+    }
+
+    // Verify user has access to database
+    const hasAccess = await canAccessAsset(userId, database.ownerType, database.ownerUuid);
+    if (!hasAccess) {
+      throw new Error('Access denied: You do not have permission to transfer this database');
+    }
+
+    // Validate transfer permissions
+    await transferService.validateTransfer(
+      userId,
+      database.ownerType,
+      database.ownerUuid,
+      targetOwnerType,
+      targetOwnerUuid
+    );
+
+    // Update database ownership
+    // FIX #4: Tables inherit ownership from database (by design)
+    // - datavault_tables has NO owner_type/owner_uuid columns
+    // - Access control happens at database level via DatavaultDatabasesRepository.findByTenantAndUser()
+    // - Table queries ALWAYS join to parent database to check ownership
+    // - This is intentional: tables cannot have different ownership than their database
+    // - If this changes in future, add owner columns to datavault_tables and cascade here
+
+    return datavaultDatabasesRepository.update(databaseId, {
+      ownerType: targetOwnerType,
+      ownerUuid: targetOwnerUuid,
+    });
   }
 }
 

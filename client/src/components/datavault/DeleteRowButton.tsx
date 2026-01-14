@@ -3,8 +3,9 @@
  * Button to delete a row from the table
  */
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Trash2, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,9 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Loader2 } from "lucide-react";
-import { datavaultAPI } from "@/lib/datavault-api";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { datavaultAPI } from "@/lib/datavault-api";
 
 interface DeleteRowButtonProps {
   tableId: string;
@@ -61,6 +62,8 @@ export function DeleteRowButton({ tableId, rowId, onDelete }: DeleteRowButtonPro
         size="sm"
         variant="ghost"
         className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+        aria-label="Delete row"
+        title="Delete row"
       >
         <Trash2 className="w-4 h-4" />
       </Button>

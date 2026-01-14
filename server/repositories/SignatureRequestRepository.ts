@@ -1,4 +1,5 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc, lt } from "drizzle-orm";
+
 import {
   signatureRequests,
   signatureEvents,
@@ -7,8 +8,10 @@ import {
   type SignatureEvent,
   type InsertSignatureEvent
 } from "@shared/schema";
-import { eq, and, desc, lt } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for signature request data access
@@ -28,7 +31,7 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<SignatureRequest[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(signatureRequests)
       .where(eq(signatureRequests.runId, runId))
@@ -40,7 +43,7 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<SignatureRequest[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(signatureRequests)
       .where(eq(signatureRequests.workflowId, workflowId))
@@ -87,7 +90,7 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async findPendingByProjectId(projectId: string, tx?: DbTransaction): Promise<SignatureRequest[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(signatureRequests)
       .where(
@@ -104,7 +107,7 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async findExpired(tx?: DbTransaction): Promise<SignatureRequest[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(signatureRequests)
       .where(
@@ -165,7 +168,7 @@ export class SignatureRequestRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<SignatureEvent[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(signatureEvents)
       .where(eq(signatureEvents.signatureRequestId, signatureRequestId))

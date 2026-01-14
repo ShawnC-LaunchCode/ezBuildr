@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
+import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
-import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
-import { db } from '../../server/db';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import {
   datavaultTables,
   datavaultRows,
@@ -10,7 +10,10 @@ import {
   tenants,
   users,
 } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+
+import { db } from '../../server/db';
+import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
+
 
 /**
  * DataVault v4 Micro-Phase 3: Row Notes Integration Tests

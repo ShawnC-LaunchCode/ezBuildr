@@ -4,9 +4,11 @@
  */
 
 import crypto from 'crypto';
-import { oauth2Cache } from './cache';
-import { redactObject, encrypt, decrypt } from '../utils/encryption';
+
 import { logger } from '../logger';
+import { redactObject, encrypt, decrypt } from '../utils/encryption';
+
+import { oauth2Cache } from './cache';
 
 /**
  * OAuth2 token response

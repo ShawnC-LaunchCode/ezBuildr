@@ -1,7 +1,9 @@
-import PizZip from 'pizzip';
-import { TemplateParser } from './TemplateParser';
-import { logger } from '../../logger';
 import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+
+import { logger } from '../../logger';
+
+import { TemplateParser } from './TemplateParser';
 
 export interface ScanResult {
     fixed: boolean;
@@ -191,14 +193,14 @@ export class TemplateScanner {
     }
 
     private extractErrors(error: any): string[] {
-        if (error.properties && error.properties.errors) {
+        if (error.properties?.errors) {
             return error.properties.errors.map((e: any) => e.message || e.name);
         }
         return [error.message];
     }
 
     private extractErrorContext(xml: string, error: any): any {
-        if (!error.properties) return null;
+        if (!error.properties) {return null;}
 
         // Handle Multi error
         if (error.properties.errors && Array.isArray(error.properties.errors)) {
@@ -207,10 +209,10 @@ export class TemplateScanner {
 
         // Try to find the tag in the XML
         const tag = error.properties.xtag;
-        if (!tag) return null;
+        if (!tag) {return null;}
 
         const index = xml.indexOf(tag);
-        if (index === -1) return `Tag '${tag}' not found in XML`;
+        if (index === -1) {return `Tag '${tag}' not found in XML`;}
 
         // Return 100 chars before and after
         const start = Math.max(0, index - 100);

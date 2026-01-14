@@ -5,7 +5,10 @@
  * Provides validation, instance management, and data flattening.
  */
 
+import { createLogger } from "../logger";
 import { evaluateCondition, type ConditionExpression, type EvaluationContext } from "../workflows/conditions";
+
+import type { ListVariable } from "../../shared/types/query";
 import type {
   RepeaterConfig,
   RepeaterValue,
@@ -14,8 +17,6 @@ import type {
   RepeaterFieldValidation,
   FlattenedRepeaterData,
 } from "../../shared/types/repeater";
-import type { ListVariable } from "../../shared/types/query";
-import { createLogger } from "../logger";
 
 const logger = createLogger({ module: "repeater-service" });
 
@@ -157,8 +158,8 @@ export class RepeaterService {
     const count = Math.min(list.rowCount || list.rows.length, max);
 
     for (let i = 0; i < count; i++) {
-      const row = list.rows[i] as Record<string, any>;
-      if (!row) continue;
+      const row = list.rows[i];
+      if (!row) {continue;}
 
       const values: Record<string, any> = {};
 

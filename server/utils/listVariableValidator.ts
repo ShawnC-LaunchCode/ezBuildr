@@ -4,6 +4,7 @@
  */
 
 import type { ListVariable } from "@shared/types/blocks";
+
 import { logger } from "../logger";
 
 /**
@@ -71,7 +72,7 @@ export function validateListVariable(
     return null;
   }
 
-  return value as ListVariable;
+  return value;
 }
 
 /**

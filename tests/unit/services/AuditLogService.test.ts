@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { auditLogService, SecurityEventType } from "../../../server/services/AuditLogService";
+
 import { db } from "../../../server/db";
+import { auditLogService, SecurityEventType } from "../../../server/services/AuditLogService";
 
 // Mock the database
 vi.mock("../../../server/db", () => ({

@@ -8,6 +8,7 @@
  */
 
 import { Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,15 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
 import {
   getBlocksByCategory,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   type BlockRegistryEntry,
 } from "@/lib/blockRegistry";
+import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface QuestionAddMenuProps {
   sectionId: string;

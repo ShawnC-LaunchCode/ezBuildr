@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
 import { eq, and, desc, inArray, count, sql } from "drizzle-orm";
+
+import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for workflow run data access
@@ -20,7 +23,7 @@ export class WorkflowRunRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowRuns)
       .where(eq(workflowRuns.workflowId, workflowId))
@@ -35,7 +38,7 @@ export class WorkflowRunRepository extends BaseRepository<
     if (workflowIds.length === 0) {
       return [];
     }
-    return await database
+    return database
       .select()
       .from(workflowRuns)
       .where(inArray(workflowRuns.workflowId, workflowIds))
@@ -47,7 +50,7 @@ export class WorkflowRunRepository extends BaseRepository<
    */
   async findCompletedByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowRuns)
       .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.completed, true)))

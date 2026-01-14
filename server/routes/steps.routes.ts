@@ -1,12 +1,15 @@
-import type { Express, Request, Response, NextFunction } from "express";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { z } from "zod";
+
 import { insertStepSchema } from "@shared/schema";
-import { stepService } from "../services/StepService";
+
+import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
-import { z } from "zod";
-import { createLogger } from "../logger";
-import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { stepService } from "../services/StepService";
+
+import type { Express, Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: "steps-routes" });
 

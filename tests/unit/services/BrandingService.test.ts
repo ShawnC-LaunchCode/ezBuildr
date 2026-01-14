@@ -1,9 +1,11 @@
+import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BrandingService } from '../../../server/services/BrandingService';
-import { db } from '../../../server/db';
+
 import { tenants, tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
-import { eq } from 'drizzle-orm';
+
+import { db } from '../../../server/db';
+import { BrandingService } from '../../../server/services/BrandingService';
 
 /**
  * Stage 17: BrandingService Tests

@@ -1,9 +1,12 @@
-import { db } from '../db';
-import { tenants, tenantDomains } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { tenants, tenantDomains } from '@shared/schema';
+
+import { db } from '../db';
 
 type TenantDomain = typeof tenantDomains.$inferSelect;
 import { createLogger } from '../logger';
+
 import type { TenantBranding } from '@shared/types/branding';
 
 const logger = createLogger({ module: 'BrandingService' });

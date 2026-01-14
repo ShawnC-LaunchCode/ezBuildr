@@ -24,7 +24,7 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsOptions) {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!enabled) return;
+      if (!enabled) {return;}
 
       // Don't trigger shortcuts when typing in inputs, textareas, or contenteditable
       const target = event.target as HTMLElement;
@@ -85,9 +85,9 @@ export function formatShortcut(shortcut: KeyboardShortcut): string {
   const parts: string[] = [];
   const modKey = getModifierKey();
 
-  if (shortcut.ctrl) parts.push(modKey);
-  if (shortcut.shift) parts.push("Shift");
-  if (shortcut.alt) parts.push("Alt");
+  if (shortcut.ctrl) {parts.push(modKey);}
+  if (shortcut.shift) {parts.push("Shift");}
+  if (shortcut.alt) {parts.push("Alt");}
   parts.push(shortcut.key.toUpperCase());
 
   return parts.join(" + ");

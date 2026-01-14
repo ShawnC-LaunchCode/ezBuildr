@@ -91,7 +91,7 @@ export function yesno(b: boolean | null | undefined): string {
  * Capitalize first letter of each word
  */
 export function titleCase(s: string | null | undefined): string {
-  if (!s) return '';
+  if (!s) {return '';}
 
   return s
     .toLowerCase()

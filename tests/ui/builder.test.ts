@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import { useBuilderStore } from '../../client/src/pages/visual-builder/store/useBuilderStore';
 
 describe('Visual Workflow Builder Store', () => {

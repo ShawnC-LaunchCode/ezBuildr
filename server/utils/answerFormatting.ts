@@ -50,7 +50,7 @@ export function extractTextValue(value: any): string {
  * @returns Formatted string representation of the answer
  */
 export function formatAnswerValue(value: any, questionType: string): string {
-  if (!value) return '';
+  if (!value) {return '';}
 
   switch (questionType) {
     case 'short_text':

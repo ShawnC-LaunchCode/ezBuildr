@@ -5,7 +5,8 @@
  * Useful for preview and testing
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+
 import IntakeLayout from './IntakeLayout';
 import IntakeProgressBar from './IntakeProgressBar';
 import ThemedButton from './ThemedButton';

@@ -75,14 +75,14 @@ CREATE TABLE IF NOT EXISTS "datavault_values" (
 -- DataVault Tables foreign keys
 DO $$ BEGIN
   ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_tenant_id_tenants_id_fk"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
   ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_owner_user_id_users_id_fk"
-  FOREIGN KEY ("owner_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -90,7 +90,7 @@ END $$;
 -- DataVault Columns foreign keys
 DO $$ BEGIN
   ALTER TABLE "datavault_columns" ADD CONSTRAINT "datavault_columns_table_id_datavault_tables_id_fk"
-  FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -98,21 +98,21 @@ END $$;
 -- DataVault Rows foreign keys
 DO $$ BEGIN
   ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_table_id_datavault_tables_id_fk"
-  FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
   ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_created_by_users_id_fk"
-  FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
   ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_updated_by_users_id_fk"
-  FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -120,14 +120,14 @@ END $$;
 -- DataVault Values foreign keys
 DO $$ BEGIN
   ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_row_id_datavault_rows_id_fk"
-  FOREIGN KEY ("row_id") REFERENCES "public"."datavault_rows"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("row_id") REFERENCES "datavault_rows"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
   ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_column_id_datavault_columns_id_fk"
-  FOREIGN KEY ("column_id") REFERENCES "public"."datavault_columns"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("column_id") REFERENCES "datavault_columns"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;

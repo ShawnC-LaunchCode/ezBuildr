@@ -1,11 +1,12 @@
 import { useSyncExternalStore, useCallback } from 'react';
+
 import { PreviewEnvironment, PreviewRunState } from './PreviewEnvironment';
 
 export function usePreviewEnvironment(env: PreviewEnvironment | null) {
     // Use useSyncExternalStore to prevent infinite loops with getState()
     const subscribe = useCallback(
         (callback: () => void) => {
-            if (!env) return () => {};
+            if (!env) {return () => {};}
             return env.subscribe(callback);
         },
         [env]

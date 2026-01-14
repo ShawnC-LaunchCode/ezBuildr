@@ -1,6 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
+
+import { Card, CardContent } from "@/components/ui/card";
 
 interface EmptyStateProps {
   icon: LucideIcon;

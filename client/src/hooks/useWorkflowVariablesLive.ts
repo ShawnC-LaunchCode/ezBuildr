@@ -3,10 +3,11 @@
  * Provides auto-refresh and event-driven invalidation for Dev Window
  */
 
-import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWorkflowVariables, queryKeys } from "@/lib/vault-hooks";
+import { useEffect } from "react";
+
 import { DevPanelBus } from "@/lib/devpanelBus";
+import { useWorkflowVariables, queryKeys } from "@/lib/vault-hooks";
 
 interface UseWorkflowVariablesLiveOptions {
   /**
@@ -34,7 +35,7 @@ export function useWorkflowVariablesLive(
 
   // Listen to workflow update events from the bus
   useEffect(() => {
-    if (!workflowId || !enabled) return;
+    if (!workflowId || !enabled) {return;}
 
     const unsubscribe = DevPanelBus.onWorkflowUpdate(() => {
       // Invalidate immediately when workflow changes
@@ -50,7 +51,7 @@ export function useWorkflowVariablesLive(
 
   // Enable refetch interval for live updates
   useEffect(() => {
-    if (!workflowId || !enabled) return;
+    if (!workflowId || !enabled) {return;}
 
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: queryKeys.variables(workflowId) });

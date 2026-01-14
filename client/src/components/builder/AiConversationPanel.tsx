@@ -1,15 +1,16 @@
+import { Loader2, Sparkles, Send, Check, X, Paperclip, FileText } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, Send, Check, X, Paperclip, FileText } from "lucide-react";
-import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/vault-api";
+import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
 
 interface Message {
     role: 'user' | 'assistant';
@@ -68,7 +69,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         // Prevent flickering: only disable if leaving the main container, not entering a child
-        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        if (e.currentTarget.contains(e.relatedTarget as Node)) {return;}
         setIsDragging(false);
     };
 
@@ -77,7 +78,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         setIsDragging(false);
 
         const files = Array.from(e.dataTransfer.files);
-        if (files.length === 0) return;
+        if (files.length === 0) {return;}
 
         setUploading(true);
         const newContextFiles: UploadedFile[] = [];
@@ -109,7 +110,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     // Use fetch directly to handle FormData correctly (apiRequest forces JSON)
                     const token = getAccessToken();
                     const headers: Record<string, string> = {};
-                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                    if (token) {headers['Authorization'] = `Bearer ${token}`;}
 
                     const res = await fetch('/api/ai/doc/extract-text', {
                         method: 'POST',
@@ -142,7 +143,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     };
 
     const handleSend = async () => {
-        if (!input.trim() && contextFiles.length === 0) return;
+        if (!input.trim() && contextFiles.length === 0) {return;}
 
         // Construct full message with context
         let fullMessage = input;
@@ -193,7 +194,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 userInstruction: fullMessage, // Send the full context to AI
                 conversationHistory: history,
                 mode: mode
-            }) as any;
+            });
 
             // Auto-apply if in easy mode
             if (mode === 'easy' && result.updatedWorkflow) {
@@ -241,7 +242,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     };
 
     const handleApply = async () => {
-        if (!proposedWorkflow) return;
+        if (!proposedWorkflow) {return;}
         try {
             await updateMutation.mutateAsync({
                 id: workflowId,
@@ -326,7 +327,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                             </div>
 
-                            {msg.diff && msg.diff.changes && msg.diff.changes.length > 0 && (
+                            {msg.diff?.changes && msg.diff.changes.length > 0 && (
                                 <Card className={cn(
                                     "w-full max-w-[80%] mt-1 p-3 border shadow-sm self-start",
                                     msg.status === 'applied' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900" :

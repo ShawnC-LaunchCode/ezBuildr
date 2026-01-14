@@ -1,5 +1,5 @@
-import { metrics } from "../observability/metrics";
 import { logger } from "../observability/logger";
+import { metrics } from "../observability/metrics";
 
 export class Profiler {
     /**

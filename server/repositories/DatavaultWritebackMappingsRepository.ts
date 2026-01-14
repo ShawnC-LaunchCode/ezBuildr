@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and } from "drizzle-orm";
+
 import {
   datavaultWritebackMappings,
   type DatavaultWritebackMapping,
   type InsertDatavaultWritebackMapping,
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault writeback mappings data access
@@ -25,7 +28,7 @@ export class DatavaultWritebackMappingsRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<DatavaultWritebackMapping[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultWritebackMappings)
       .where(eq(datavaultWritebackMappings.workflowId, workflowId));
@@ -36,7 +39,7 @@ export class DatavaultWritebackMappingsRepository extends BaseRepository<
    */
   async findByTableId(tableId: string, tx?: DbTransaction): Promise<DatavaultWritebackMapping[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultWritebackMappings)
       .where(eq(datavaultWritebackMappings.tableId, tableId));

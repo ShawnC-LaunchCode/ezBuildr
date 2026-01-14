@@ -1,8 +1,10 @@
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { promisify } from 'util';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+
+import multer from 'multer';
+
 import { logger } from '../logger';
 
 const unlinkAsync = promisify(fs.unlink);
@@ -74,7 +76,7 @@ export const upload = multerInstance({
 
 // Validate file upload configuration
 export function validateFileUploadConfig(config: any) {
-  if (!config) return true; // No restrictions
+  if (!config) {return true;} // No restrictions
 
   const errors: string[] = [];
 
@@ -103,7 +105,7 @@ export function isFileTypeAccepted(mimeType: string, acceptedTypes?: string[]): 
     if (type.includes('*')) {
       // Handle wildcards like 'image/*'
       const [category] = type.split('/');
-      return mimeType.startsWith(category + '/');
+      return mimeType.startsWith(`${category  }/`);
     }
 
     if (type.startsWith('.')) {

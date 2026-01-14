@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { Mail } from "lucide-react";
+import React, { useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { Mail } from "lucide-react";
 
 export default function PortalLogin() {
     const [email, setEmail] = useState("");
@@ -14,7 +15,7 @@ export default function PortalLogin() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email) return;
+        if (!email) {return;}
 
         setLoading(true);
         try {

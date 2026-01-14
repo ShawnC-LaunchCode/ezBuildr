@@ -4,14 +4,16 @@
  * DataVault Phase 2: PR 13
  */
 
-import { useParams, useLocation } from "wouter";
-import { useDatavaultDatabase } from "@/lib/datavault-hooks";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Database as DatabaseIcon, Settings } from "lucide-react";
-import { DatabaseSettings } from "@/components/datavault/DatabaseSettings";
+import React from "react";
+import { useParams, useLocation } from "wouter";
+
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
+import { DatabaseSettings } from "@/components/datavault/DatabaseSettings";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
+import { useDatavaultDatabase } from "@/lib/datavault-hooks";
 
 export default function DatabaseSettingsPage() {
   const { databaseId } = useParams<{ databaseId: string }>();

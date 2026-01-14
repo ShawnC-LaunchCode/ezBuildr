@@ -14,11 +14,13 @@
  * @date December 2025
  */
 
+import { PenTool, FileText, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import React, { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { PenTool, FileText, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import type { Step } from "@/types";
+
 import type { SignatureBlockConfig } from "@/../../shared/types/stepConfigs";
 
 // ============================================================================
@@ -66,7 +68,7 @@ export function SignatureBlockRenderer({
 
   // Replace variables in text fields (basic implementation)
   const replaceVariables = (text: string): string => {
-    if (!text) return text;
+    if (!text) {return text;}
 
     let result = text;
     Object.entries(stepValues).forEach(([key, value]) => {
@@ -91,7 +93,7 @@ export function SignatureBlockRenderer({
 
   // Handle signature initiation in preview mode
   const handlePreviewSign = async () => {
-    if (!preview) return;
+    if (!preview) {return;}
 
     setIsSimulating(true);
 
@@ -104,7 +106,7 @@ export function SignatureBlockRenderer({
 
   // Handle decline in preview mode
   const handlePreviewDecline = async () => {
-    if (!preview) return;
+    if (!preview) {return;}
 
     setIsSimulating(true);
     await new Promise(resolve => setTimeout(resolve, 500));

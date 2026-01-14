@@ -5,13 +5,14 @@
  * Used for testing branding configuration
  */
 
-import { useEffect, useState } from 'react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+
 import { BrandingProvider } from '@/components/branding';
 import IntakeDemo from '@/components/intake/IntakeDemo';
-import { useAuth } from '@/hooks/useAuth';
-import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Extracts tenant ID from:

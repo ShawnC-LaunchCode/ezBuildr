@@ -3,9 +3,9 @@
  * Manages unified integration connections with OAuth2 3-legged flow support
  */
 
-import { db } from '../db';
-import { connections, projects } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+
+import { connections, projects } from '@shared/schema';
 import {
   Connection,
   CreateConnectionInput,
@@ -14,7 +14,11 @@ import {
   ResolvedConnection,
   OAuth2State
 } from '@shared/types/connections';
-import { getSecretValue } from './secrets';
+
+import { db } from '../db';
+import { logger } from '../logger';
+import { encrypt, decrypt } from '../utils/encryption';
+
 import {
   generateOAuth2AuthorizationUrl,
   exchangeOAuth2Code,
@@ -22,8 +26,7 @@ import {
   OAuth2ThreeLegConfig,
   OAuth2ThreeLegTokenResponse
 } from './oauth2';
-import { encrypt, decrypt } from '../utils/encryption';
-import { logger } from '../logger';
+import { getSecretValue } from './secrets';
 
 /**
  * TYPE SAFETY FIX: Valid connection types

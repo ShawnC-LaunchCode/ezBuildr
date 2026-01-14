@@ -4,10 +4,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
+
+import { db } from '../../server/db';
 import { datavaultColumnsService } from '../../server/services/DatavaultColumnsService';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
-import { db } from '../../server/db';
+import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
 
 describe('DataVault Autonumber Integration Tests', () => {
   let tenantId: string;

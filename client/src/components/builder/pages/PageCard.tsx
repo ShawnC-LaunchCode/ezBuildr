@@ -4,16 +4,16 @@
  * Includes toolbars for adding questions and logic
  */
 
-import { useState, useEffect, useRef } from "react";
-import { useSortable } from "@dnd-kit/sortable";
+import { useSortable , SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect, useRef } from "react";
+
+import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,19 +21,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
-import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { combinePageItems, getNextOrder } from "@/lib/dnd";
-import { QuestionAddMenu } from "./QuestionAddMenu";
-import { LogicAddMenu } from "./LogicAddMenu";
-import { BlockCard } from "./BlockCard";
-import { QuestionCard } from "../questions/QuestionCard";
-import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
 import { UI_LABELS } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
+import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
+
+import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
+import { QuestionCard } from "../questions/QuestionCard";
+
+import { BlockCard } from "./BlockCard";
+import { LogicAddMenu } from "./LogicAddMenu";
+import { QuestionAddMenu } from "./QuestionAddMenu";
 
 interface PageCardProps {
   workflowId: string;
@@ -64,7 +66,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
   const prevItemsLengthRef = useRef<number>(0);
 
   // Check if this is a Final Documents section
-  const isFinalDocumentsSection = (page.config as any)?.finalBlock === true;
+  const isFinalDocumentsSection = (page.config)?.finalBlock === true;
 
   // For Final Documents sections, filter out all steps (they shouldn't exist, but if they do, hide them)
   // The only step should be the system step of type 'final_documents' which is hidden anyway
@@ -114,7 +116,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       const stepInThisPage = steps.find((s) => s.id === selection.id);
       if (stepInThisPage) {
         // Expand and auto-focus
-        setExpandedStepIds((prev) => new Set(prev).add(selection.id!));
+        setExpandedStepIds((prev) => new Set(prev).add(selection.id));
         setAutoFocusStepId(selection.id);
 
         // Clear auto-focus after a short delay
@@ -132,7 +134,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       const blockInThisPage = allPageBlocks.find((b) => b.id === selection.id);
       if (blockInThisPage) {
         // Expand the block
-        setExpandedBlockIds((prev) => new Set(prev).add(selection.id!));
+        setExpandedBlockIds((prev) => new Set(prev).add(selection.id));
       }
     }
     prevSelectionRef.current = selection;

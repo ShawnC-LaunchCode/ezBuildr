@@ -86,11 +86,11 @@ export const Helpers = {
 
   // Array helpers
   includes: (arr: any[], v: any): boolean => {
-    if (!Array.isArray(arr)) return false;
+    if (!Array.isArray(arr)) {return false;}
     return arr.includes(v);
   },
   count: (arr: any[]): number => {
-    if (!Array.isArray(arr)) return 0;
+    if (!Array.isArray(arr)) {return 0;}
     return arr.length;
   },
 
@@ -125,16 +125,16 @@ export const Helpers = {
     return null;
   },
   isEmpty: (v: any): boolean => {
-    if (v === null || v === undefined) return true;
-    if (typeof v === 'string') return v.trim().length === 0;
-    if (Array.isArray(v)) return v.length === 0;
-    if (typeof v === 'object') return Object.keys(v).length === 0;
+    if (v === null || v === undefined) {return true;}
+    if (typeof v === 'string') {return v.trim().length === 0;}
+    if (Array.isArray(v)) {return v.length === 0;}
+    if (typeof v === 'object') {return Object.keys(v).length === 0;}
     return false;
   },
   not: (v: any): boolean => !v,
 
   // PDF Helpers
-  checkbox: (v: any): string => !!v ? 'X' : '',
+  checkbox: (v: any): string => v ? 'X' : '',
 };
 
 // List of all allowed helper names for validation

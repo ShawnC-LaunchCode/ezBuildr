@@ -2,11 +2,13 @@
  * NodeCard - Visual representation of workflow nodes in React Flow
  */
 
-import { memo } from 'react';
-import { Handle, Position, type NodeProps } from 'reactflow';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calculator, GitBranch, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { memo } from 'react';
+import { Handle, Position, type NodeProps } from 'reactflow';
+
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
 import type { BuilderNode } from '../store/useBuilderStore';
 
 // Node type colors

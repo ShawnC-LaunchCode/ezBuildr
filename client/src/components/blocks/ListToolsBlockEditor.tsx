@@ -3,15 +3,17 @@
  * Applies multiple operations in sequence: filter → sort → offset/limit → select → dedupe
  */
 
+import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, ChevronDown, ChevronRight } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
+import { FilterBuilderUI, SortBuilderUI, RangeControlsUI, AdvancedTransformUI } from "@/components/builder/transforms";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSteps } from "@/lib/vault-hooks";
-import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, ChevronDown, ChevronRight } from "lucide-react";
-import { FilterBuilderUI, SortBuilderUI, RangeControlsUI, AdvancedTransformUI } from "@/components/builder/transforms";
+
 import type {
   ListToolsConfig,
   ListToolsFilterGroup,

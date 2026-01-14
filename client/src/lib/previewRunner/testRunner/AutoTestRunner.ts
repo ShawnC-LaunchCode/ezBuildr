@@ -1,7 +1,7 @@
+import { generateRandomValuesForWorkflow } from '../../randomizer/randomFill';
 import { PreviewEnvironment, PreviewConfig } from '../PreviewEnvironment';
 import { PreviewRouter } from '../PreviewRouter';
 import { PreviewVariableResolver } from '../PreviewVariableResolver';
-import { generateRandomValuesForWorkflow } from '../../randomizer/randomFill';
 
 export interface AutoTestConfig {
     runs: number;
@@ -68,7 +68,7 @@ export class AutoTestRunner {
         env.setValues(randomValues);
 
         const visitedPages: string[] = [];
-        let scriptErrors = 0;
+        const scriptErrors = 0;
 
         // 3. Navigate through workflow (Simulate "Next" clicks)
         // Limit to 50 steps to prevent infinite loops logic

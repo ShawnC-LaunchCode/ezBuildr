@@ -3,19 +3,20 @@
  * Shows a form to create a new workflow, then redirects to the builder
  */
 
-import { useState } from "react";
-import { useLocation } from "wouter";
 import { ArrowLeft, Sparkles, LayoutTemplate } from "lucide-react";
+import React, { useState } from "react";
+import { useLocation } from "wouter";
+
+import { TemplateBrowserDialog } from "@/components/templates/TemplateBrowserDialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCreateWorkflow } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
-import { TemplateBrowserDialog } from "@/components/templates/TemplateBrowserDialog";
 import { blueprintAPI, ApiBlueprint } from "@/lib/vault-api";
+import { useCreateWorkflow } from "@/lib/vault-hooks";
 
 export default function NewWorkflow() {
   const [, navigate] = useLocation();

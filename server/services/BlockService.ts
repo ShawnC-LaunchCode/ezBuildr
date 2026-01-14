@@ -1,10 +1,11 @@
+import type { Block, InsertBlock } from "@shared/schema";
+import type { BlockPhase } from "@shared/types/blocks";
+
 import {
   blockRepository,
   workflowRepository,
   sectionRepository,
 } from "../repositories";
-import type { Block, InsertBlock } from "@shared/schema";
-import type { BlockPhase } from "@shared/types/blocks";
 
 /**
  * Service layer for block-related business logic
@@ -69,7 +70,7 @@ export class BlockService {
       await this.verifySectionBelongsToWorkflow(data.sectionId, workflowId);
     }
 
-    return await this.blockRepo.create({
+    return this.blockRepo.create({
       ...data,
       workflowId,
     });
@@ -101,10 +102,10 @@ export class BlockService {
     await this.verifyWorkflowOwnership(workflowId, userId);
 
     if (phase) {
-      return await this.blockRepo.findByWorkflowPhase(workflowId, phase);
+      return this.blockRepo.findByWorkflowPhase(workflowId, phase);
     }
 
-    return await this.blockRepo.findAllByWorkflowId(workflowId);
+    return this.blockRepo.findAllByWorkflowId(workflowId);
   }
 
   /**
@@ -122,7 +123,7 @@ export class BlockService {
       await this.verifySectionBelongsToWorkflow(updates.sectionId, block.workflowId);
     }
 
-    return await this.blockRepo.update(blockId, updates);
+    return this.blockRepo.update(blockId, updates);
   }
 
   /**
@@ -180,7 +181,7 @@ export class BlockService {
     }
 
     // Just get workflow-scoped blocks for this phase
-    return await this.blockRepo.findByWorkflowPhase(workflowId, phase);
+    return this.blockRepo.findByWorkflowPhase(workflowId, phase);
   }
 }
 

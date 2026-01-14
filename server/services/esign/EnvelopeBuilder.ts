@@ -14,6 +14,7 @@
  */
 
 import path from 'path';
+
 import type {
   IEsignProvider,
   CreateEnvelopeRequest,
@@ -105,9 +106,7 @@ export class EnvelopeBuilder {
     };
 
     // 5. Call provider to create envelope
-    const response = await this.provider.createEnvelope(envelopeRequest);
-
-    return response;
+    return this.provider.createEnvelope(envelopeRequest);
   }
 
   // --------------------------------------------------------------------------
@@ -203,7 +202,7 @@ export class EnvelopeBuilder {
    * Replace {{variable}} placeholders with actual values
    */
   private substituteVariables(template: string, variableData: Record<string, any>): string {
-    if (!template) return template;
+    if (!template) {return template;}
 
     let result = template;
 
@@ -255,11 +254,9 @@ export class EnvelopeBuilder {
       return Infinity; // All done
     }
 
-    const minRoutingOrder = Math.min(
+    return Math.min(
       ...incompleteBlocks.map(block => block.config.routingOrder)
     );
-
-    return minRoutingOrder;
   }
 
   /**

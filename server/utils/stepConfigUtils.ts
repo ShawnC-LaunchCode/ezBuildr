@@ -11,13 +11,13 @@
  * @date December 2025
  */
 
-import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
 import type {
   AddressValue,
   MultiFieldValue,
   ChoiceValue,
   FileUploadValue,
 } from '@shared/types/stepConfigs';
+import { validateStepConfig } from '@shared/validation/stepConfigSchemas';
 
 // ============================================================================
 // CONFIG VALIDATION
@@ -73,7 +73,7 @@ export function validateAndNormalizeConfig(
  * @returns Normalized config
  */
 function normalizeConfig(stepType: string, config: any): any {
-  if (!config) return config;
+  if (!config) {return config;}
 
   // Type-specific normalization
   switch (stepType) {
@@ -236,7 +236,7 @@ function sanitizeWebsiteValue(value: any, config?: any): string {
 
   // Add protocol if required and missing
   if (config?.requireProtocol && !url.match(/^[a-z]+:\/\//i)) {
-    url = 'https://' + url;
+    url = `https://${  url}`;
   }
 
   return url;
@@ -526,7 +526,7 @@ function validateWebsite(value: any, config: any, errors: string[]): void {
   }
 
   try {
-    const url = new URL(value.startsWith('http') ? value : 'https://' + value);
+    const url = new URL(value.startsWith('http') ? value : `https://${  value}`);
 
     if (config?.requireProtocol && !value.match(/^[a-z]+:\/\//i)) {
       errors.push('URL must include protocol (http:// or https://)');

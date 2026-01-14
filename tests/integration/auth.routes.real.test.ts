@@ -1,9 +1,16 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
-import type { Express } from "express";
-import { createTestApp } from "../helpers/testApp";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+
+import { users, loginAttempts } from "@shared/schema";
+
+import { db } from "../../server/db";
+import { createTestApp ,
+} from "../helpers/testApp";
 import {
-  cleanAuthTables,
+  cleanAuthTables, // Keeping import if needed for heavy reset, but favoring specific
+  cleanTestUser,
+  deleteTestUser,
   createVerifiedUser,
   createUserWithMfa,
   randomEmail,
@@ -11,9 +18,12 @@ import {
   generateTotpCode,
   createPasswordResetToken
 } from "../helpers/testUtils";
-import { db } from "../../server/db";
-import { users, loginAttempts } from "@shared/schema";
-import { eq } from "drizzle-orm";
+
+import type { Express } from "express";
+
+
+
+
 
 /**
  * REAL Auth Routes Integration Tests
@@ -22,17 +32,33 @@ import { eq } from "drizzle-orm";
 
 describe("Auth Routes Integration Tests (REAL)", () => {
   let app: Express;
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
+  // Helper to track user creation
+  const trackUser = (userId: string) => {
+    createdUserIds.push(userId);
+    return userId;
+  };
 
   beforeAll(async () => {
     app = createTestApp();
   });
 
-  beforeEach(async () => {
-    await cleanAuthTables();
-  });
+  // NO GLOBAL CLEANUP to allow parallel runs
+  // beforeEach(async () => {
+  //   await cleanAuthTables();
+  // });
 
   afterEach(async () => {
-    await cleanAuthTables();
+    // specific cleanup for users created in this test block
+    // We clean in reverse order of creation just in case
+    while (createdUserIds.length > 0) {
+      const userId = createdUserIds.pop();
+      if (userId) {
+        await deleteTestUser(userId);
+      }
+    }
   });
 
   describe("POST /api/auth/register", () => {
@@ -50,11 +76,11 @@ describe("Auth Routes Integration Tests (REAL)", () => {
         });
 
       expect(response.status).toBe(201);
-      expect((response.body as any).message).toContain("Registration successful");
-      expect((response.body as any).token).toBeDefined();
-      expect((response.body as any).user).toBeDefined();
-      expect((response.body as any).user.email).toBe(email);
-      expect((response.body as any).user.emailVerified).toBe(false);
+      expect((response.body).message).toContain("Registration successful");
+      expect((response.body).token).toBeDefined();
+      expect((response.body).user).toBeDefined();
+      expect((response.body).user.email).toBe(email);
+      expect((response.body).user.emailVerified).toBe(false);
 
       // Verify user was created in database
       const user = await db.query.users.findFirst({
@@ -62,6 +88,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       });
       expect(user).toBeDefined();
       expect(user!.email).toBe(email);
+      trackUser(user!.id);
     });
 
     it("should return 400 for invalid email format", async () => {
@@ -99,6 +126,11 @@ describe("Auth Routes Integration Tests (REAL)", () => {
         .post("/api/auth/register")
         .send({ email, password, firstName: "First" });
 
+      const user = await db.query.users.findFirst({
+        where: eq(users.email, email),
+      });
+      if (user) {trackUser(user.id);}
+
       // Try to register again with same email
       const response = await request(app)
         .post("/api/auth/register")
@@ -129,17 +161,18 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("POST /api/auth/login", () => {
     it("should login with valid credentials", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const response = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
 
       expect(response.status).toBe(200);
-      expect((response.body as any).message).toBe("Login successful");
-      expect((response.body as any).token).toBeDefined();
-      expect((response.body as any).user).toBeDefined();
-      expect((response.body as any).user.email).toBe(email);
+      expect((response.body).message).toBe("Login successful");
+      expect((response.body).token).toBeDefined();
+      expect((response.body).user).toBeDefined();
+      expect((response.body).user.email).toBe(email);
 
       // Verify refresh token cookie is set
       const cookies = (response.headers as any)['set-cookie'] as string[] | undefined;
@@ -149,7 +182,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should return 401 for invalid password", async () => {
-      const { email } = await createVerifiedUser();
+      const { email, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const response = await request(app)
         .post("/api/auth/login")
@@ -194,7 +228,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should record failed login attempt", async () => {
-      const { email } = await createVerifiedUser();
+      const { email, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       await request(app)
         .post("/api/auth/login")
@@ -214,7 +249,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should return requiresMfa=true for MFA-enabled users", async () => {
-      const { email, password } = await createUserWithMfa();
+      const { email, password, userId } = await createUserWithMfa();
+      trackUser(userId);
 
       const response = await request(app)
         .post("/api/auth/login")
@@ -227,7 +263,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should lock account after 5 failed attempts", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Make 5 failed login attempts
       for (let i = 0; i < 5; i++) {
@@ -255,7 +292,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("POST /api/auth/logout", () => {
     it("should logout and clear refresh token cookie", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login first
       const loginResponse = await request(app)
@@ -284,7 +322,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("POST /api/auth/refresh-token", () => {
     it("should refresh access token with valid refresh token", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login to get refresh token
       const loginResponse = await request(app)
@@ -322,7 +361,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should rotate refresh token after use", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -356,7 +396,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("POST /api/auth/forgot-password", () => {
     it("should send password reset email for existing user", async () => {
-      const { email } = await createVerifiedUser();
+      const { email, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const response = await request(app)
         .post("/api/auth/forgot-password")
@@ -379,7 +420,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("POST /api/auth/reset-password", () => {
     it("should reset password with valid token", async () => {
-      const { email, password: oldPassword } = await createVerifiedUser();
+      const { email, password: oldPassword, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Generate reset token
       const token = await createPasswordResetToken(email);
@@ -424,7 +466,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     });
 
     it("should return 400 for weak new password", async () => {
-      const { email } = await createVerifiedUser();
+      const { email, userId } = await createVerifiedUser();
+      trackUser(userId);
       const token = await createPasswordResetToken(email);
 
       const response = await request(app)
@@ -441,7 +484,8 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
   describe("GET /api/auth/me", () => {
     it("should return current user for valid token", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const loginResponse = await request(app)
         .post("/api/auth/login")
@@ -477,6 +521,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
     describe("POST /api/auth/mfa/verify-login", () => {
       it("should complete MFA login with valid TOTP code", async () => {
         const { email, password, totpSecret, userId } = await createUserWithMfa();
+        trackUser(userId);
 
         // Step 1: Login (should require MFA)
         const loginResponse = await request(app)
@@ -502,6 +547,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
 
       it("should reject invalid MFA code", async () => {
         const { userId } = await createUserWithMfa();
+        trackUser(userId);
 
         const response = await request(app)
           .post("/api/auth/mfa/verify-login")

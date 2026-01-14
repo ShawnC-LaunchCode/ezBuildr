@@ -1,7 +1,8 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { registerAiRoutes } from '@server/routes/ai.routes';
 
 // Mock AIService
@@ -37,7 +38,7 @@ vi.mock('../../server/middleware/rbac', () => ({
 }));
 
 const mockWorkflow = {
-    name: 'Test Flow',
+    title: 'Test Flow',
     sections: [
         {
             id: 'section-1',
@@ -84,7 +85,7 @@ describe('AI Logic Routes', () => {
             if (res.status !== 200) {
                 console.error('Logic Test Failed:', JSON.stringify(res.body, null, 2));
                 // Also log text in case body is empty or not JSON
-                if (!res.body || Object.keys(res.body).length === 0) console.error('Response Text:', res.text);
+                if (!res.body || Object.keys(res.body).length === 0) {console.error('Response Text:', res.text);}
             }
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);

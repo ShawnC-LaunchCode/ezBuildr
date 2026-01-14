@@ -1,6 +1,9 @@
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
+
 import { records, type CollectionRecord, type InsertCollectionRecord } from "@shared/schema";
+
 import { eq, and, desc, sql, SQL } from "drizzle-orm";
+
 import { db } from "../db";
 
 /**
@@ -53,7 +56,7 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
    */
   async findByTenantId(tenantId: string, tx?: DbTransaction): Promise<CollectionRecord[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(records)
       .where(eq(records.tenantId, tenantId))
@@ -81,7 +84,7 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
       );
     }
 
-    return await database
+    return database
       .select()
       .from(records)
       .where(and(...conditions))

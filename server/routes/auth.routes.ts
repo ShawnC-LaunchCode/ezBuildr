@@ -1,22 +1,15 @@
-import type { Express, Request, Response } from "express";
-import rateLimit from "express-rate-limit"; // Import rateLimit
-import type { User } from "@shared/schema";
-import { userRepository, userCredentialsRepository } from "../repositories";
-import { createLogger } from "../logger";
-import { authService } from "../services/AuthService";
-import { accountLockoutService } from "../services/AccountLockoutService";
-import { mfaService } from "../services/MfaService";
-import { auditLogService } from "../services/AuditLogService";
-import { metricsService } from "../services/MetricsService";
-import { hybridAuth, optionalHybridAuth, type AuthRequest } from "../middleware/auth";
-import { parseCookies } from "../utils/cookies"; // Import parseCookies
-import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
-import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
-import { nanoid } from "nanoid";
+import crypto from "crypto";
+
 import { serialize } from "cookie";
-import { db } from "../db";
-import { refreshTokens, trustedDevices, tenants } from "@shared/schema";
 import { eq, and, gt, ne, desc } from "drizzle-orm";
+import rateLimit from "express-rate-limit"; // Import rateLimit
+import { nanoid } from "nanoid";
+
+import type { User } from "@shared/schema";
+import { refreshTokens, trustedDevices, tenants, users } from "@shared/schema";
+
+import { RATE_LIMIT_CONFIG, LOCKOUT_CONFIG } from "../config/auth";
+import { db } from "../db";
 import {
   InvalidCredentialsError,
   AccountLockedError,
@@ -25,8 +18,23 @@ import {
   UnauthorizedError,
   AuthProviderMismatchError
 } from "../errors/AuthErrors";
+import { createLogger } from "../logger";
+import { userRepository, userCredentialsRepository } from "../repositories";
+import { authService } from "../services/AuthService";
+import { accountLockoutService } from "../services/AccountLockoutService";
+import { metricsService } from "../services/MetricsService";
+import { mfaService } from "../services/MfaService";
+import { auditLogService } from "../services/AuditLogService";
+import { hybridAuth, optionalHybridAuth, type AuthRequest } from "../middleware/auth";
+import { parseCookies } from "../utils/cookies"; // Import parseCookies
+import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
+import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
+
+
+
 import { send, sendErrorResponse, sendSuccessResponse } from "../utils/responses";
-import { RATE_LIMIT_CONFIG, LOCKOUT_CONFIG } from "../config/auth";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'auth-routes' });
 
@@ -42,6 +50,9 @@ const logger = createLogger({ module: 'auth-routes' });
 async function validateCredentials(email: string, password: string, req: Request): Promise<User> {
   const user = await userRepository.findByEmail(email);
   if (!user) {
+    logger.error({ email }, 'DEBUG: ValidateCredentials - User not found');
+    try { require('fs').appendFileSync('C:/Users/scoot/.gemini/antigravity/brain/3315c2f7-366b-486b-905d-767da30cccc9/debug_auth.log', `\n[${new Date().toISOString()}] USER NOT FOUND: ${email}`); } catch (e) { }
+
     // Record failed attempt even if user doesn't exist (prevents enumeration)
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
@@ -60,12 +71,18 @@ async function validateCredentials(email: string, password: string, req: Request
 
   const credentials = await userCredentialsRepository.findByUserId(user.id);
   if (!credentials) {
+    logger.error({ userId: user.id }, 'DEBUG: ValidateCredentials - Credentials not found');
+    try { require('fs').appendFileSync('C:/Users/scoot/.gemini/antigravity/brain/3315c2f7-366b-486b-905d-767da30cccc9/debug_auth.log', `\n[${new Date().toISOString()}] CREDENTIALS NOT FOUND: ${user.id}`); } catch (e) { }
+
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
   }
 
   const isMatch = await authService.comparePassword(password, credentials.passwordHash);
   if (!isMatch) {
+    logger.error({ email }, 'DEBUG: ValidateCredentials - Password mismatch');
+    try { require('fs').appendFileSync('C:/Users/scoot/.gemini/antigravity/brain/3315c2f7-366b-486b-905d-767da30cccc9/debug_auth.log', `\n[${new Date().toISOString()}] PASSWORD MISMATCH: ${email}`); } catch (e) { }
+
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
   }
@@ -198,18 +215,18 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const { email, password, firstName, lastName, tenantId, tenantRole } = req.body;
 
-      if (!email || !password) return res.status(400).json({ message: 'Email and password required', error: 'missing_fields' });
-      if (!authService.validateEmail(email)) return res.status(400).json({ message: 'Invalid email format', error: 'invalid_email' });
+      if (!email || !password) {return res.status(400).json({ message: 'Email and password required', error: 'missing_fields' });}
+      if (!authService.validateEmail(email)) {return res.status(400).json({ message: 'Invalid email format', error: 'invalid_email' });}
 
       // Pass user inputs to prevent personal info in password
       const userInputs = [email, firstName, lastName].filter(Boolean);
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
-      if (!pwdValidation.valid) return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' });
+      if (!pwdValidation.valid) {return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' });}
 
       const existingUser = await userRepository.findByEmail(email);
-      if (existingUser) return res.status(409).json({ message: 'User already exists', error: 'user_exists' });
+      if (existingUser) {return res.status(409).json({ message: 'User already exists', error: 'user_exists' });}
 
-      const userId = nanoid();
+      const userId = crypto.randomUUID();
       const user = await userRepository.create({
         id: userId,
         email,
@@ -267,8 +284,15 @@ export function registerAuthRoutes(app: Express): void {
    * Refactored with helper functions for better readability and maintainability
    */
   app.post('/api/auth/login', authRateLimit, async (req: Request, res: Response) => {
-    const startTime = Date.now();
+    try {
+      // DEBUG LOG TO FILE
+      const fs = require('fs');
+      const logPath = 'C:/Users/scoot/.gemini/antigravity/brain/3315c2f7-366b-486b-905d-767da30cccc9/debug_auth.log';
+      fs.appendFileSync(logPath, `\n[${new Date().toISOString()}] LOGIN HIT: ${JSON.stringify(req.body)}`);
+    } catch (e) { }
 
+    console.log("DEBUG: LOGIN HANDLER HIT");
+    const startTime = Date.now();
     try {
       const { email, password } = req.body;
 
@@ -320,6 +344,9 @@ export function registerAuthRoutes(app: Express): void {
 
     } catch (error) {
       logger.error({ error }, 'Login failed');
+      // DEBUG: Print error to console for test inspection
+      console.error('Login Failed DEBUG:', error);
+
 
       // Audit log: Failed login (if we have user context)
       if (error instanceof Error && 'userId' in error && typeof (error as any).userId === 'string') {
@@ -368,7 +395,7 @@ export function registerAuthRoutes(app: Express): void {
       const result = await authService.rotateRefreshToken(refreshToken);
 
       if (!result) {
-        res.setHeader('Set-Cookie', serialize('refresh_token', '', { path: '/', maxAge: 0 }));
+        res.setHeader('Set-Cookie', serialize('refresh_token', '', { path: '/', maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' }));
         metricsService.recordSessionOperation('expired');
         metricsService.recordAuthLatency(startTime, 'refresh', 401);
         return res.status(401).json({ message: 'Invalid refresh token' });
@@ -414,7 +441,7 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/forgot-password', authRateLimit, async (req: Request, res: Response) => {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email required" });
+    if (!email) {return res.status(400).json({ message: "Email required" });}
 
     try {
       await authService.generatePasswordResetToken(email);
@@ -430,19 +457,19 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/reset-password', authRateLimit, async (req: Request, res: Response) => {
     const { token, newPassword } = req.body;
-    if (!token || !newPassword) return res.status(400).json({ message: "Token and password required" });
+    if (!token || !newPassword) {return res.status(400).json({ message: "Token and password required" });}
 
     try {
       // Verify token first to get user info
       const userId = await authService.verifyPasswordResetToken(token);
-      if (!userId) return res.status(400).json({ message: "Invalid token" });
+      if (!userId) {return res.status(400).json({ message: "Invalid token" });}
 
       // Get user to pass email to password validation
       const user = await userRepository.findById(userId);
       const userInputs = user ? [user.email, user.firstName, user.lastName].filter(Boolean) as string[] : [];
 
       const pwdValidation = authService.validatePasswordStrength(newPassword, userInputs);
-      if (!pwdValidation.valid) return res.status(400).json({ message: pwdValidation.message });
+      if (!pwdValidation.valid) {return res.status(400).json({ message: pwdValidation.message });}
 
       const passwordHash = await authService.hashPassword(newPassword);
       await userCredentialsRepository.updatePassword(userId, passwordHash);
@@ -464,11 +491,11 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/verify-email', authRateLimit, async (req: Request, res: Response) => {
     const { token } = req.body;
-    if (!token) return res.status(400).json({ message: "Token required" });
+    if (!token) {return res.status(400).json({ message: "Token required" });}
 
     try {
       const success = await authService.verifyEmail(token);
-      if (!success) return res.status(400).json({ message: "Invalid or expired token" });
+      if (!success) {return res.status(400).json({ message: "Invalid or expired token" });}
       res.json({ message: "Email verified successfully" });
     } catch (error) {
       logger.error({ error }, "Email verification error");
@@ -481,7 +508,7 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/resend-verification', authRateLimit, async (req: Request, res: Response) => {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email required" });
+    if (!email) {return res.status(400).json({ message: "Email required" });}
 
     try {
       const user = await userRepository.findByEmail(email);
@@ -511,10 +538,10 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/me', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const user = await userRepository.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) {return res.status(404).json({ message: "User not found" });}
 
       res.json({
         id: user.id,
@@ -542,7 +569,7 @@ export function registerAuthRoutes(app: Express): void {
     const cookies = parseCookies(req.headers.cookie);
     const refreshToken = cookies['refresh_token'];
 
-    if (refreshToken) await authService.revokeRefreshToken(refreshToken);
+    if (refreshToken) {await authService.revokeRefreshToken(refreshToken);}
 
     // Audit log: Logout (if user is authenticated)
     const userId = (req as AuthRequest).userId;
@@ -578,10 +605,10 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/token', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized", code: "unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized", code: "unauthorized" });}
 
       const user = await userRepository.findById(userId);
-      if (!user) return res.status(404).json({ message: 'User not found' });
+      if (!user) {return res.status(404).json({ message: 'User not found' });}
 
       const token = authService.createToken(user);
       res.json({ token, expiresIn: '15m' });
@@ -601,10 +628,10 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/mfa/setup', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const user = await userRepository.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) {return res.status(404).json({ message: "User not found" });}
 
       // Check if MFA is already enabled
       if (user.mfaEnabled) {
@@ -637,10 +664,10 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/mfa/verify', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const { token } = req.body;
-      if (!token) return res.status(400).json({ message: "TOTP token required" });
+      if (!token) {return res.status(400).json({ message: "TOTP token required" });}
 
       const success = await mfaService.verifyAndEnableMfa(userId, token);
 
@@ -762,7 +789,7 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/mfa/status', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const mfaEnabled = await mfaService.isMfaEnabled(userId);
       const backupCodesRemaining = mfaEnabled
@@ -786,13 +813,13 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/mfa/disable', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const { password } = req.body;
-      if (!password) return res.status(400).json({ message: "Password required to disable MFA" });
+      if (!password) {return res.status(400).json({ message: "Password required to disable MFA" });}
 
       const user = await userRepository.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) {return res.status(404).json({ message: "User not found" });}
 
       // Verify password
       if (user.authProvider === 'local') {
@@ -836,10 +863,10 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/mfa/backup-codes/regenerate', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const user = await userRepository.findById(userId);
-      if (!user || !user.mfaEnabled) {
+      if (!user?.mfaEnabled) {
         return res.status(400).json({ message: "MFA is not enabled" });
       }
 
@@ -868,7 +895,7 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/sessions', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       // Get current session token to identify which is current
       const cookies = parseCookies(req.headers.cookie || '');
@@ -912,7 +939,7 @@ export function registerAuthRoutes(app: Express): void {
   app.delete('/api/auth/sessions/all', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       // Get current session token
       const cookies = parseCookies(req.headers.cookie || '');
@@ -963,7 +990,7 @@ export function registerAuthRoutes(app: Express): void {
   app.delete('/api/auth/sessions/:sessionId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const { sessionId } = req.params;
 
@@ -1018,7 +1045,7 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/trust-device', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const deviceFingerprint = generateDeviceFingerprint(req);
       const deviceName = parseDeviceName(req.headers['user-agent']);
@@ -1077,7 +1104,7 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/trusted-devices', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const devices = await db.query.trustedDevices.findMany({
         where: and(
@@ -1117,7 +1144,7 @@ export function registerAuthRoutes(app: Express): void {
   app.delete('/api/auth/trusted-devices/:deviceId', hybridAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      if (!userId) {return res.status(401).json({ message: "Unauthorized" });}
 
       const { deviceId } = req.params;
 
@@ -1157,10 +1184,16 @@ export function registerAuthRoutes(app: Express): void {
         // Try to find existing dev user
         let user = await userRepository.findByEmail('dev@example.com');
 
+        // Fix for legacy 'dev-user' ID causing UUID errors
+        if (user && user.id === 'dev-user') {
+          await db.delete(users).where(eq(users.id, 'dev-user'));
+          user = undefined;
+        }
+
         // Create dev user if doesn't exist
         if (!user) {
           user = await userRepository.create({
-            id: 'dev-user',
+            id: '11111111-1111-1111-1111-111111111111', // Valid UUID
             email: 'dev@example.com',
             firstName: 'Dev',
             lastName: 'User',
@@ -1193,8 +1226,8 @@ export function registerAuthRoutes(app: Express): void {
           sameSite: 'strict'
         }));
 
-        if (req.method === 'GET') res.redirect('/dashboard');
-        else res.json({ user, token });
+        if (req.method === 'GET') {res.redirect('/dashboard');}
+        else {res.json({ user, token });}
       } catch (error) {
         logger.error({ error }, 'Dev login failed');
         res.status(500).json({ message: 'Dev login failed' });

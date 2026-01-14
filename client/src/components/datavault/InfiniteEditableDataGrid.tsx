@@ -4,16 +4,20 @@
  * Includes cell-level auto-save functionality
  */
 
-import { useEffect, useRef } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Plus } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
-import { EditableDataGrid } from "./EditableDataGrid";
-import { Loader2, Plus } from "lucide-react";
-import type { DatavaultColumn } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
+
 import { DATAVAULT_CONFIG } from "@shared/config";
+import type { DatavaultColumn } from "@shared/schema";
+
+import { EditableDataGrid } from "./EditableDataGrid";
+
 
 interface InfiniteEditableDataGridProps {
   tableId: string;
@@ -74,7 +78,7 @@ export function InfiniteEditableDataGrid({
       // Get current row values
       const allRows = data?.pages.flatMap((page) => page.rows) || [];
       const row = allRows.find((r) => r.row.id === rowId);
-      if (!row) throw new Error("Row not found");
+      if (!row) {throw new Error("Row not found");}
 
       // Update only the changed cell
       const updatedValues = {
@@ -102,7 +106,7 @@ export function InfiniteEditableDataGrid({
       queryClient.setQueryData(
         [...datavaultQueryKeys.tableRows(tableId), "infinite"],
         (old: any) => {
-          if (!old) return old;
+          if (!old) {return old;}
           return {
             ...old,
             pages: old.pages.map((page: any) => ({

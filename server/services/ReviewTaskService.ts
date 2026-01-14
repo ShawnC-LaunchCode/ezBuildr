@@ -1,6 +1,8 @@
-import { reviewTaskRepository, workflowRepository, projectRepository } from "../repositories";
 import type { ReviewTask, InsertReviewTask } from "@shared/schema";
+
+import { reviewTaskRepository, workflowRepository, projectRepository } from "../repositories";
 import { createError } from "../utils/errors";
+
 import { aclService as defaultAclService } from "./AclService";
 
 /**
@@ -42,12 +44,10 @@ export class ReviewTaskService {
     }
 
     // Create the review task
-    const task = await this.reviewTaskRepo.create(data);
-
     // TODO: Send notification email to reviewer
     // This would integrate with the email service to notify the reviewer
 
-    return task;
+    return this.reviewTaskRepo.create(data);
   }
 
   /**
@@ -79,7 +79,7 @@ export class ReviewTaskService {
    * Get review tasks for a user (as reviewer)
    */
   async getTasksForReviewer(reviewerId: string): Promise<ReviewTask[]> {
-    return await this.reviewTaskRepo.findByReviewerId(reviewerId);
+    return this.reviewTaskRepo.findByReviewerId(reviewerId);
   }
 
   /**
@@ -98,7 +98,7 @@ export class ReviewTaskService {
       throw createError.forbidden("Access denied - insufficient permissions for this project");
     }
 
-    return await this.reviewTaskRepo.findPendingByProjectId(projectId);
+    return this.reviewTaskRepo.findPendingByProjectId(projectId);
   }
 
   /**
@@ -124,16 +124,14 @@ export class ReviewTaskService {
     }
 
     // Update task status
-    const updated = await this.reviewTaskRepo.updateStatus(
+    // TODO: Trigger workflow resume
+    // This will be handled by the run resume mechanism
+
+    return this.reviewTaskRepo.updateStatus(
       taskId,
       'approved',
       comment
     );
-
-    // TODO: Trigger workflow resume
-    // This will be handled by the run resume mechanism
-
-    return updated;
   }
 
   /**
@@ -162,15 +160,13 @@ export class ReviewTaskService {
     }
 
     // Update task status
-    const updated = await this.reviewTaskRepo.updateStatus(
+    // TODO: Send notification to workflow creator
+
+    return this.reviewTaskRepo.updateStatus(
       taskId,
       'changes_requested',
       comment
     );
-
-    // TODO: Send notification to workflow creator
-
-    return updated;
   }
 
   /**
@@ -194,15 +190,13 @@ export class ReviewTaskService {
     }
 
     // Update task status
-    const updated = await this.reviewTaskRepo.updateStatus(
+    // TODO: Mark workflow run as failed
+
+    return this.reviewTaskRepo.updateStatus(
       taskId,
       'rejected',
       comment
     );
-
-    // TODO: Mark workflow run as failed
-
-    return updated;
   }
 
   /**
@@ -216,14 +210,14 @@ export class ReviewTaskService {
   ): Promise<ReviewTask> {
     switch (decision) {
       case 'approved':
-        return await this.approveTask(taskId, userId, comment);
+        return this.approveTask(taskId, userId, comment);
       case 'changes_requested':
         if (!comment) {
           throw createError.validation("Comment is required when requesting changes");
         }
-        return await this.requestChanges(taskId, userId, comment);
+        return this.requestChanges(taskId, userId, comment);
       case 'rejected':
-        return await this.rejectTask(taskId, userId, comment);
+        return this.rejectTask(taskId, userId, comment);
       default:
         throw createError.validation("Invalid decision");
     }

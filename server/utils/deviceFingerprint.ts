@@ -1,6 +1,8 @@
 import crypto from 'crypto';
-import type { Request } from 'express';
+
 import { UAParser } from 'ua-parser-js';
+
+import type { Request } from 'express';
 
 /**
  * Generate a stable device fingerprint from request
@@ -22,7 +24,7 @@ export function generateDeviceFingerprint(req: Request): string {
  * Parse User-Agent into friendly device name
  */
 export function parseDeviceName(userAgent: string | undefined): string {
-  if (!userAgent) return 'Unknown Device';
+  if (!userAgent) {return 'Unknown Device';}
 
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
@@ -60,8 +62,8 @@ export function parseDeviceInfo(userAgent: string | undefined): {
   const result = parser.getResult();
 
   let deviceType: 'mobile' | 'tablet' | 'desktop' = 'desktop';
-  if (result.device.type === 'mobile') deviceType = 'mobile';
-  else if (result.device.type === 'tablet') deviceType = 'tablet';
+  if (result.device.type === 'mobile') {deviceType = 'mobile';}
+  else if (result.device.type === 'tablet') {deviceType = 'tablet';}
 
   return {
     browser: result.browser.name || 'Unknown',
@@ -78,7 +80,7 @@ export function parseDeviceInfo(userAgent: string | undefined): {
  * In production, use MaxMind GeoIP2 or similar
  */
 export function getLocationFromIP(ip: string | undefined): string {
-  if (!ip) return 'Unknown Location';
+  if (!ip) {return 'Unknown Location';}
 
   // Placeholder: In production, integrate with GeoIP service
   // For now, return a default

@@ -1,10 +1,16 @@
 
 import { describe, it, expect, vi } from 'vitest';
-import { BlockRunner } from '../../server/services/BlockRunner';
+
 import type { ValidateConfig, BlockContext, CompareRule, ConditionalRequiredRule, ForEachRule } from '@shared/types/blocks';
 
+import { BlockRunner } from '../../server/services/BlockRunner';
+
 // Mock dependencies to avoid loading real DB/Repositories
-vi.mock('../../server/db', () => ({ db: {} }));
+vi.mock('../../server/db', () => ({
+    db: {},
+    initializeDatabase: vi.fn(),
+    dbInitPromise: Promise.resolve()
+}));
 vi.mock('../../server/repositories', () => ({
     workflowQueriesRepository: {},
     stepValueRepository: {}

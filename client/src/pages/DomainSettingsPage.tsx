@@ -4,16 +4,6 @@
  * Manage custom domains and subdomains for tenant intake portals
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { brandingAPI, type TenantDomain } from '@/lib/vault-api';
-import Sidebar from '@/components/layout/Sidebar';
-import Header from '@/components/layout/Header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Globe,
   Plus,
@@ -24,6 +14,12 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'wouter';
+
+import AddDomainModal from '@/components/branding/AddDomainModal';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +30,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import AddDomainModal from '@/components/branding/AddDomainModal';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { brandingAPI, type TenantDomain } from '@/lib/vault-api';
 
 export default function DomainSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function DomainSettingsPage() {
   }, [tenantId]);
 
   const loadDomains = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {return;}
 
     setIsLoading(true);
     try {
@@ -76,7 +77,7 @@ export default function DomainSettingsPage() {
   };
 
   const handleAddDomain = async (domain: string) => {
-    if (!tenantId) return;
+    if (!tenantId) {return;}
 
     try {
       await brandingAPI.addDomain(tenantId, domain);
@@ -98,7 +99,7 @@ export default function DomainSettingsPage() {
   };
 
   const handleDeleteDomain = async () => {
-    if (!tenantId || !domainToDelete) return;
+    if (!tenantId || !domainToDelete) {return;}
 
     setIsDeleting(true);
     try {

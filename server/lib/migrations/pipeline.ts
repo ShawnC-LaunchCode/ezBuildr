@@ -1,6 +1,7 @@
+import { z } from "zod";
+
 import { db } from "../../db";
 import { logger } from "../observability/logger";
-import { z } from "zod";
 
 /**
  * Migration Pipeline

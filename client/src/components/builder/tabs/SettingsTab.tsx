@@ -6,20 +6,15 @@
  * PR4: Loading states and enhanced UX
  */
 
-import { useState, useEffect } from "react";
 import { Save, Link as LinkIcon, Palette, Settings as SettingsIcon, Eye, Copy, Check, FileText, ArrowRight, Database } from "lucide-react";
-import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
+import React, { useState, useEffect } from "react";
+
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
-import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -27,7 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
+import { useToast } from "@/hooks/use-toast";
 import type { ApiWorkflow } from "@/lib/vault-api";
+import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
+
+import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
 interface SettingsTabProps {
   workflowId: string;
@@ -162,7 +165,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
           description: "Workflow settings have been updated successfully",
         });
         // Update slug in UI if it changed (sanitization/uniqueness)
-        if (updated.slug) setSlug(updated.slug);
+        if (updated.slug) {setSlug(updated.slug);}
       },
       onError: (error: Error) => {
         toast({
@@ -308,7 +311,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
                   checked={isIntake}
                   onCheckedChange={(checked) => {
                     setIsIntake(checked);
-                    if (checked) setUpstreamWorkflowId(null); // Clear upstream if becoming intake
+                    if (checked) {setUpstreamWorkflowId(null);} // Clear upstream if becoming intake
                   }}
                 />
               </div>

@@ -3,9 +3,10 @@
  * Analyzes where users abandon the workflow.
  */
 
-import { db } from "../../db";
-import { workflowRunEvents } from "../../../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+
+import { workflowRunEvents } from "../../../shared/schema";
+import { db } from "../../db";
 
 export interface FunnelStep {
     stepId: string; // pageId or blockId
@@ -75,7 +76,7 @@ class DropoffService {
         for (const row of pageViews.rows as any[]) {
             funnel[row.pageId] = {
                 stepId: row.pageId,
-                label: 'Page ' + row.pageId.substring(0, 8), // Todo: Join with Sections table for real title
+                label: `Page ${  row.pageId.substring(0, 8)}`, // Todo: Join with Sections table for real title
                 visitors: Number(row.visitors),
                 dropoffs: 0,
                 dropoffRate: 0

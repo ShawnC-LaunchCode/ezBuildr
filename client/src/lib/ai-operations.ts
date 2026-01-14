@@ -1,7 +1,7 @@
 
+import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useCreateSection, useCreateStep, useUpdateStep, useUpdateWorkflow } from "@/lib/vault-hooks";
-import { toast } from "@/hooks/use-toast";
 
 /**
  * AI Operations Application Logic
@@ -47,7 +47,7 @@ export async function applyAiSuggestions(
     }
 ) {
     console.log("Applying AI Suggestions:", suggestions);
-    let sectionMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs
+    const sectionMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs
 
     try {
         // 1. Create New Sections
@@ -109,11 +109,11 @@ export async function applyAiSuggestions(
 
 function normalizeStepType(type: string): string {
     const t = type.toLowerCase();
-    if (t.includes("text") || t.includes("string")) return "text";
-    if (t.includes("number") || t.includes("int")) return "number";
-    if (t.includes("bool") || t.includes("toggle")) return "boolean";
-    if (t.includes("choice") || t.includes("option") || t.includes("select")) return "select";
-    if (t.includes("date")) return "date";
-    if (t.includes("email")) return "email";
+    if (t.includes("text") || t.includes("string")) {return "text";}
+    if (t.includes("number") || t.includes("int")) {return "number";}
+    if (t.includes("bool") || t.includes("toggle")) {return "boolean";}
+    if (t.includes("choice") || t.includes("option") || t.includes("select")) {return "select";}
+    if (t.includes("date")) {return "date";}
+    if (t.includes("email")) {return "email";}
     return "text"; // Default fallback
 }

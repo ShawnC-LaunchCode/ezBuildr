@@ -1,8 +1,10 @@
-import type { Express, Request, Response } from "express";
+import { z } from "zod";
+
+import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { versionService } from "../services/VersionService";
-import { z } from "zod";
-import { createLogger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "versions-routes" });
 

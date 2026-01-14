@@ -26,6 +26,7 @@ export interface IntakeConfig {
   sendEmailReceipt?: boolean;
   receiptEmailVar?: string;       // Variable key that contains user's email
   receiptTemplateId?: string;     // Optional email template ID for future use
+  excludeFromReceipt?: string[];  // NEW: List of field aliases to exclude from receipt (e.g. sensitive data)
 }
 
 /**

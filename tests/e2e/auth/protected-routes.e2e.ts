@@ -1,5 +1,5 @@
-import { test, expect } from "./fixtures/auth-fixtures";
-import { clearAuthToken } from "./fixtures/auth-fixtures";
+import { test, expect , clearAuthToken } from "./fixtures/auth-fixtures";
+
 
 /**
  * E2E tests for protected route access
@@ -32,7 +32,7 @@ test.describe("Protected Route Access", () => {
       const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:5174";
       const isRedirected =
         currentUrl.includes("login") ||
-        currentUrl === baseURL + "/" ||
+        currentUrl === `${baseURL  }/` ||
         currentUrl === baseURL;
 
       // If not redirected, verify we can't access protected data

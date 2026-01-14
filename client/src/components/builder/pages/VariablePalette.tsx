@@ -3,13 +3,14 @@
  * Lists available variables/aliases with insert and copy helpers
  */
 
-import { useWorkflowVariables } from "@/lib/vault-hooks";
+import { Copy, ChevronRight } from "lucide-react";
+import React, { useMemo } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Copy, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMemo } from "react";
+import { useWorkflowVariables } from "@/lib/vault-hooks";
 
 interface VariablePaletteProps {
   workflowId: string;

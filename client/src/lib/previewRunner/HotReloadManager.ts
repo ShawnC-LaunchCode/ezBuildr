@@ -1,6 +1,8 @@
-import { PreviewEnvironment } from './PreviewEnvironment';
 import type { ApiSection, ApiStep } from '@/lib/vault-api';
+
 import { createLogger } from '../logger';
+
+import { PreviewEnvironment } from './PreviewEnvironment';
 
 /**
  * HotReloadManager
@@ -30,7 +32,7 @@ export class HotReloadManager {
      * Handle a schema update from the Builder
      */
     handleUpdate(workflowId: string, sections: ApiSection[], steps: ApiStep[]) {
-        if (!this.env) return;
+        if (!this.env) {return;}
 
         // Verify workflow match
         if (this.env.getState().workflowId !== workflowId) {

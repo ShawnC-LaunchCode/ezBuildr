@@ -1,0 +1,94 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> vitest run --coverage tests/unit/server/transferOwnership.test.ts
+
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+[90mstdout[2m | tests/unit/server/transferOwnership.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/unit/server/transferOwnership.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 13867[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer user-owned project to org [33m 1624[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1193[2mms[22m[39m
+[31m       [31m├ù[31m should allow org member to transfer org-owned project to another org they belong to[39m[33m 1133[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should detach workflow from project when transferring to different owner [33m 1349[2mms[22m[39m
+[31m       [31m├ù[31m should keep workflow in project when transferring to same owner[39m[33m 1361[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent non-member from transferring org workflow [33m 1289[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should transfer database ownership [33m 998[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow org member to transfer org database [33m 1129[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent transfer to org if user is not a member [33m 1261[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should only allow transfer to self when targetOwnerType is user [33m 908[2mms[22m[39m
+[31m       [31m├ù[31m should allow transfer from user to self (org member transferring org asset to themselves)[39m[33m 863[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 3 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Project Transfer > should allow org member to transfer org-owned project to another org they belong to
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:157:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/3]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Workflow Transfer > should keep workflow in project when transferring to same owner
+AssertionError: expected null to be 'd0ea0ccf-61c6-4f60-978a-7101b4f145a7' // Object.is equality
+
+- Expected: 
+"d0ea0ccf-61c6-4f60-978a-7101b4f145a7"
+
++ Received: 
+null
+
+ Γ¥» tests/unit/server/transferOwnership.test.ts:227:37
+    225|       expect(transferred.ownerType).toBe('org');
+    226|       expect(transferred.ownerUuid).toBe(testOrgId);
+    227|       expect(transferred.projectId).toBe(testProjectId); // Still in pΓÇª
+       |                                     ^
+    228|     });
+    229| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/3]ΓÄ»
+
+ FAIL  tests/unit/server/transferOwnership.test.ts > Transfer Ownership > Transfer Validation > should allow transfer from user to self (org member transferring org asset to themselves)
+Error: Access denied - you do not have permission to access this project
+ Γ¥» ProjectService.verifyOwnership server/services/ProjectService.ts:50:11
+     48|     }
+     49| 
+     50|     throw new Error("Access denied - you do not have permission to accΓÇª
+       |           ^
+     51|   }
+     52| 
+ Γ¥» ProjectService.transferOwnership server/services/ProjectService.ts:274:21
+ Γ¥» tests/unit/server/transferOwnership.test.ts:359:27
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/3]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 13:31:32
+[2m   Duration [22m 23.22s[2m (transform 600ms, setup 235ms, import 1.10s, tests 13.87s, environment 0ms)[22m
+

@@ -1,9 +1,10 @@
-import type { Express, Request, Response } from "express";
+import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+
+import type { Express, Request, Response } from "express";
 // DEPRECATED: Legacy survey export service - disabled as part of survey system removal (Nov 2025)
 // import { exportService } from "../services/exportService";
 // import type { ExportOptions } from "../services/exportService";
-import { createLogger } from "../logger";
 
 const logger = createLogger({ module: 'export-routes' });
 

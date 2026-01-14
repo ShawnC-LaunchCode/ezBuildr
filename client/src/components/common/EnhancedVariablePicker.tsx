@@ -3,14 +3,15 @@
  * Supports selecting variables and list properties (list.count, list.rows[0].column, etc.)
  */
 
-import { useWorkflowVariables } from "@/lib/vault-hooks";
+import { Copy, ChevronRight, ChevronDown, ListIcon } from "lucide-react";
+import React, { useMemo, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Copy, ChevronRight, ChevronDown, ListIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useWorkflowVariables } from "@/lib/vault-hooks";
 
 interface EnhancedVariablePickerProps {
   workflowId: string;
@@ -51,7 +52,7 @@ export function EnhancedVariablePicker({
       description: `Variable path "${path}" copied to clipboard`,
       duration: 2000,
     });
-    if (onCopy) onCopy(path);
+    if (onCopy) {onCopy(path);}
   };
 
   const isListType = (type: string) => {

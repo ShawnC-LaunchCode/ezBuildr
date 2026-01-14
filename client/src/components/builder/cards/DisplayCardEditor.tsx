@@ -12,11 +12,14 @@
  * Note: Display blocks should NOT have "required" toggle (nothing to require)
  */
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
 import { Separator } from "@/components/ui/separator";
-import { LabelField } from "./common/LabelField";
-import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+
 import type { DisplayConfig, DisplayAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 interface DisplayCardEditorProps {

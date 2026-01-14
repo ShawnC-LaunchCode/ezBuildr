@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { TransformList } from './TransformList';
-import { GraphView } from './GraphView';
-import { AIAssistPanel } from './AIAssistPanel';
-import { TransformPlayground } from './TransformPlayground';
+
 import { useWorkflowGraph } from '@/hooks/useWorkflowGraph';
+
+import { AIAssistPanel } from './AIAssistPanel';
+import { GraphView } from './GraphView';
+import { TransformList } from './TransformList';
+import { TransformPlayground } from './TransformPlayground';
+
 
 export const TransformEditor: React.FC = () => {
     const [viewMode, setViewMode] = useState<'list' | 'graph' | 'playground'>('list');

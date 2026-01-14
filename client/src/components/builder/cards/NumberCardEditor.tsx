@@ -3,16 +3,20 @@
  * Unified editor for number and currency blocks
  */
 
-import { useState, useEffect } from "react";
-import { Separator } from "@/components/ui/separator";
+import React, { useState, useEffect } from "react";
+
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 interface NumberCardEditorProps {

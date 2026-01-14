@@ -7,7 +7,8 @@
  * - Error budget burn rate
  */
 
-import { db } from '../db';
+import { eq, and, gte, lte, isNull, or, sql, desc } from 'drizzle-orm';
+
 import {
   sliConfigs,
   sliWindows,
@@ -17,7 +18,7 @@ import {
   type InsertSliWindow,
   type SliConfig,
 } from '../../shared/schema';
-import { eq, and, gte, lte, isNull, or, sql, desc } from 'drizzle-orm';
+import { db } from '../db';
 import logger from '../logger';
 
 export interface SliResult {
@@ -282,7 +283,7 @@ async function getRollupsForWindow(params: {
     conditions.push(eq(metricsRollups.workflowId, params.workflowId));
   }
 
-  return await db
+  return db
     .select()
     .from(metricsRollups)
     .where(and(...conditions))
@@ -303,7 +304,7 @@ export async function getRecentWindows(params: {
     conditions.push(eq(sliWindows.workflowId, params.workflowId));
   }
 
-  return await db
+  return db
     .select()
     .from(sliWindows)
     .where(and(...conditions))

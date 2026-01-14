@@ -1,11 +1,14 @@
-import type { Express, Request, Response } from "express";
+import { desc, gte, sql, and, eq } from "drizzle-orm";
+
+import { aiWorkflowFeedback } from "../../shared/schema";
+import { db } from "../db";
+import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
 import { aiSettingsService } from "../services/AiSettingsService";
-import { createLogger } from "../logger";
-import { db } from "../db";
-import { aiWorkflowFeedback } from "../../shared/schema";
-import { desc, gte, sql, and, eq } from "drizzle-orm";
+
+import type { Express, Request, Response } from "express";
+
 
 const logger = createLogger({ module: 'admin-ai-settings' });
 
@@ -161,6 +164,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
 
             // Time series data (daily)
             const dailyStats = allFeedback.reduce((acc, f) => {
+                if (!f.createdAt) {return acc;}
                 const date = f.createdAt.toISOString().split('T')[0];
                 if (!acc[date]) {
                     acc[date] = { date, count: 0, totalRating: 0, totalQualityScore: 0, qualityScoreCount: 0 };

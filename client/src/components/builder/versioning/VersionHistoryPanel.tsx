@@ -1,8 +1,11 @@
 
-import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { ApiWorkflowVersion, versionAPI } from "@/lib/vault-api";
+import { Loader2, GitCommit, RotateCcw, FileDiff, Sparkles } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Sheet,
     SheetContent,
@@ -10,10 +13,8 @@ import {
     SheetTitle,
     SheetDescription
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, GitCommit, RotateCcw, FileDiff, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ApiWorkflowVersion, versionAPI } from "@/lib/vault-api";
 
 interface VersionHistoryPanelProps {
     workflowId: string;
@@ -92,7 +93,7 @@ export function VersionHistoryPanel({
                                                     const isAiGenerated = version.migrationInfo &&
                                                         typeof version.migrationInfo === 'object' &&
                                                         'aiMetadata' in version.migrationInfo &&
-                                                        (version.migrationInfo as any).aiMetadata?.aiGenerated;
+                                                        (version.migrationInfo).aiMetadata?.aiGenerated;
 
                                                     return (
                                     <div

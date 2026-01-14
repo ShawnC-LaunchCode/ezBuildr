@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
+
+import type { LogicRule } from "@shared/schema";
 import {
   evaluateRules,
   calculateNextSection,
@@ -7,7 +9,6 @@ import {
   getEffectiveRequiredSteps,
   type LogicOperator,
 } from "@shared/workflowLogic";
-import type { LogicRule } from "@shared/schema";
 
 describe("workflowLogic", () => {
   describe("evaluateRules", () => {

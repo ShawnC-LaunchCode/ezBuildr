@@ -10,20 +10,7 @@
  * - Integration with TemplateAnalysisService
  */
 
-import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Button } from '../../../components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../../../components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { Badge } from '../../../components/ui/badge';
-import { Textarea } from '../../../components/ui/textarea';
-import { Label } from '../../../components/ui/label';
 import {
   Code,
   PlayCircle,
@@ -33,7 +20,22 @@ import {
   FileCode,
   Database,
 } from 'lucide-react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
+
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../../../components/ui/dialog';
+import { Label } from '../../../components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Textarea } from '../../../components/ui/textarea';
+
 
 interface TemplateTestRunnerProps {
   templateId: string;
@@ -209,7 +211,7 @@ export function TemplateTestRunner({
               <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-red-900 dark:text-red-100">
                   <AlertCircle className="h-4 w-4 inline mr-2" />
-                  Error: {(analysisError as Error).message}
+                  Error: {(analysisError).message}
                 </p>
               </div>
             ) : analysis ? (

@@ -5,10 +5,12 @@
  * Integrates page conditions, question visibility, and validation.
  */
 
+import type { Step } from "@shared/schema";
+
+import { validatePage, type PageValidationResult } from "./validation";
+
 import type { IntakeNavigationService } from "../services/IntakeNavigationService";
 import type { IntakeQuestionVisibilityService } from "../services/IntakeQuestionVisibilityService";
-import { validatePage, type PageValidationResult } from "./validation";
-import type { Step } from "@shared/schema";
 
 export interface IntakeRunnerState {
   /** Current page index (0-based) */

@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { datavaultTables, datavaultColumns, datavaultTablePermissions, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
 import { eq, and, desc, sql, asc, or, inArray } from "drizzle-orm";
+
+import { datavaultTables, datavaultColumns, datavaultTablePermissions, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault table data access
@@ -22,7 +25,7 @@ export class DatavaultTablesRepository extends BaseRepository<
    */
   async findByTenantId(tenantId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultTables)
       .where(eq(datavaultTables.tenantId, tenantId))
@@ -41,7 +44,7 @@ export class DatavaultTablesRepository extends BaseRepository<
       .from(datavaultTablePermissions)
       .where(eq(datavaultTablePermissions.userId, userId));
 
-    return await database
+    return database
       .select()
       .from(datavaultTables)
       .where(
@@ -90,7 +93,7 @@ export class DatavaultTablesRepository extends BaseRepository<
       .where(and(eq(datavaultTables.tenantId, tenantId), eq(datavaultTables.slug, slug)));
 
     if (excludeId) {
-      query = (query as any).where(sql`${datavaultTables.id} != ${excludeId}`) as any;
+      query = (query as any).where(sql`${datavaultTables.id} != ${excludeId}`);
     }
 
     const [result] = await query.limit(1);
@@ -102,7 +105,7 @@ export class DatavaultTablesRepository extends BaseRepository<
    */
   async findByOwnerId(ownerUserId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultTables)
       .where(eq(datavaultTables.ownerUserId, ownerUserId))

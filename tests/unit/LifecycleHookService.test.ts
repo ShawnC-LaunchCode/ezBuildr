@@ -6,12 +6,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { LifecycleHookService } from '../../server/services/scripting/LifecycleHookService';
+
+import type { LifecycleHook } from '@shared/types/scripting';
+
 import { lifecycleHookRepository } from '../../server/repositories/LifecycleHookRepository';
 import { scriptExecutionLogRepository } from '../../server/repositories/ScriptExecutionLogRepository';
 import { workflowRepository } from '../../server/repositories/WorkflowRepository';
+import { LifecycleHookService } from '../../server/services/scripting/LifecycleHookService';
 import { scriptEngine } from '../../server/services/scripting/ScriptEngine';
-import type { LifecycleHook } from '@shared/types/scripting';
+
 
 // Mock dependencies
 vi.mock('../../server/repositories/LifecycleHookRepository');

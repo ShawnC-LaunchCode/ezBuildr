@@ -1,13 +1,17 @@
 
 process.env.GEMINI_API_KEY = 'test-key';
 
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { registerRoutes } from "../../server/routes";
-import { nanoid } from "nanoid";
+
+import express, { type Express } from "express";
 import multer from "multer";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
+
+
+import { registerRoutes } from "../../server/routes";
+
 
 // Mock Google Generative AI
 const { mockGenerateContent, multerState } = vi.hoisted(() => ({
@@ -56,8 +60,22 @@ vi.mock("multer", () => {
     mockMulter.memoryStorage = () => { };
     // @ts-ignore
     mockMulter.diskStorage = () => { };
+    // @ts-ignore
+    mockMulter.memoryStorage = () => { };
+
+    class MockMulterError extends Error {
+        code: string;
+        constructor(code: string) {
+            super(code);
+            this.code = code;
+        }
+    }
+    // @ts-ignore
+    mockMulter.MulterError = MockMulterError;
+
     return {
-        default: mockMulter
+        default: mockMulter,
+        MulterError: MockMulterError
     };
 });
 
@@ -135,10 +153,14 @@ describe("AI Document Assistant API Integration Tests", () => {
                 .attach("file", dummyDocx, "test.docx");
 
             if (response.status !== 200) {
-                console.log("FAIL_STATUS: " + response.status);
+                console.log(`FAIL_STATUS: ${  response.status}`);
+                // Log text unconditionally because body might be empty if HTML
+                console.error("AI Analysis Failed Text:", response.text);
                 try {
-                    console.log("FAIL_BODY: " + JSON.stringify(response.body));
-                } catch (e) { console.log("FAIL_BODY: " + response.text); }
+                    console.log(`FAIL_BODY: ${  JSON.stringify(response.body)}`);
+                } catch (e) {
+                    console.error("AI Analysis Failed Body Error:", e);
+                }
             }
             expect(response.status).toBe(200);
 

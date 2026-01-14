@@ -1,7 +1,8 @@
-import type { Express, Request, Response } from "express";
+import { logger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { workflowRepository } from "../repositories";
-import { logger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 /**
  * Temporary debug routes to diagnose access issues

@@ -3,22 +3,23 @@
  * Configure Final Documents blocks for document generation
  */
 
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import { FileText, Eye, HelpCircle, ExternalLink, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Eye, HelpCircle, ExternalLink, CheckCircle } from "lucide-react";
-import { useUpdateSection } from "@/lib/vault-hooks";
 import type { ApiSection } from "@/lib/vault-api";
+import { useUpdateSection } from "@/lib/vault-hooks";
 
 interface FinalDocumentsSectionEditorProps {
   section: ApiSection;
@@ -39,7 +40,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   const isEasyMode = mode === 'easy';
 
   // Get config from section or use defaults
-  const config = section.config as any || {
+  const config = section.config || {
     finalBlock: true,
     templates: [],
     screenTitle: "Your Completed Documents",
@@ -64,7 +65,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   const { data: templatesData } = useQuery({
     queryKey: ["project-templates", workflow?.projectId],
     queryFn: async () => {
-      if (!workflow?.projectId) return { items: [] };
+      if (!workflow?.projectId) {return { items: [] };}
       const response = await axios.get(`/api/projects/${workflow.projectId}/templates`);
       return response.data;
     },

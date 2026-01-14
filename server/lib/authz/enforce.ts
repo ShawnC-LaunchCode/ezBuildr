@@ -1,5 +1,6 @@
 
 import { Request, Response, NextFunction } from "express";
+
 import { checkPermission } from "./checkPermission";
 
 export function requireWorkspace(req: Request, res: Response, next: NextFunction) {

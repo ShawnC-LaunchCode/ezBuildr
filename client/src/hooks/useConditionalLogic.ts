@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+
 import { evaluatePageConditionalLogic } from "@shared/conditionalLogic";
 import type { ConditionalRule, QuestionWithSubquestions } from "@shared/schema";
 
@@ -26,7 +27,7 @@ export function useConditionalLogic(
       return;
     }
 
-    if (!conditionalRules.length) {
+    if (conditionalRules.length === 0) {
       // If no rules, all questions are visible
       const allVisible: Record<string, boolean> = {};
       currentPageQuestions.forEach(q => {

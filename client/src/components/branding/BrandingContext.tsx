@@ -6,14 +6,16 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+
 import type { TenantBranding } from '@shared/types/branding';
-import { brandingAPI } from '../../lib/vault-api';
+
 import {
   brandingToThemeTokens,
   applyThemeTokens,
   removeThemeTokens,
   type ExtendedThemeTokens,
 } from '../../lib/tenantTheme';
+import { brandingAPI } from '../../lib/vault-api';
 
 /**
  * Branding context value

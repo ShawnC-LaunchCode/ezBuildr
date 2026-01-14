@@ -1,5 +1,4 @@
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     Search,
@@ -12,7 +11,10 @@ import {
     Tag,
     Grid
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -21,12 +23,10 @@ import {
     DialogDescription,
     DialogFooter
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { blueprintAPI, ApiBlueprint } from '@/lib/vault-api';
 

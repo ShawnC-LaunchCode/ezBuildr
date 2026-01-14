@@ -3,16 +3,18 @@
  * Handles DOCX template rendering and PDF conversion using docxtemplater
  */
 
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import path from 'path';
 import { exec } from 'child_process';
+import fsSync from 'fs';
+import fs from 'fs/promises';
+import path from 'path';
 import { promisify } from 'util';
-import { formatters } from '../utils/formatters';
-import { createError } from '../utils/errors';
+
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
+
 import { logger } from '../logger';
+import { createError } from '../utils/errors';
+import { formatters } from '../utils/formatters';
 
 const execAsync = promisify(exec);
 
@@ -77,7 +79,7 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
     try {
       doc.render(templateData);
     } catch (error: any) {
-      if (error.properties && error.properties.errors) {
+      if (error.properties?.errors) {
         console.error('Docxtemplater MultiError:', JSON.stringify(error.properties.errors, null, 2));
         const errorMessages = error.properties.errors
           .map((e: any) => e.message)
@@ -159,8 +161,8 @@ export async function convertDocxToPdf(docxPath: string): Promise<string> {
         callback: (err: Error | null, result: Buffer) => void
       ) => void);
       convert(docxBuffer, '.pdf', undefined, (err: Error | null, result: Buffer) => {
-        if (err) reject(err);
-        else resolve(result);
+        if (err) {reject(err);}
+        else {resolve(result);}
       });
     });
 

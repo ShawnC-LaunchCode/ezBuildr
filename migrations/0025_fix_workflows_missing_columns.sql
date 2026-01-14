@@ -123,7 +123,7 @@ END $$;
 -- Users to tenants
 DO $$ BEGIN
   ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -131,7 +131,7 @@ END $$;
 -- Projects to tenants
 DO $$ BEGIN
   ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -139,7 +139,7 @@ END $$;
 -- Workflows to projects
 DO $$ BEGIN
   ALTER TABLE "workflows" ADD CONSTRAINT "workflows_project_id_projects_id_fk"
-  FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;

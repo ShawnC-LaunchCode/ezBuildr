@@ -3,11 +3,12 @@
  * PR2: Full implementation with JSON validation
  */
 
-import { useState, useCallback } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { RotateCcw, AlignLeft } from "lucide-react";
+import React, { useState, useCallback } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface SampleDataEditorProps {

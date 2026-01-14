@@ -1,6 +1,7 @@
 
-import { BillingProvider, CreateCustomerParams, CreateSubscriptionParams } from "./BillingProvider";
 import { createLogger } from "../../../logger";
+
+import { BillingProvider, CreateCustomerParams, CreateSubscriptionParams } from "./BillingProvider";
 
 const logger = createLogger({ module: 'stripe-provider' });
 

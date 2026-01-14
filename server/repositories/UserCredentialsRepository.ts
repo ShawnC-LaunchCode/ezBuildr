@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { userCredentials, type UserCredentials, type InsertUserCredentials } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { userCredentials, type UserCredentials, type InsertUserCredentials } from "@shared/schema";
+
 import { createLogger } from "../logger";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 const logger = createLogger({ module: 'user-credentials-repository' });
 
@@ -23,6 +26,9 @@ export class UserCredentialsRepository extends BaseRepository<typeof userCredent
       .select()
       .from(userCredentials)
       .where(eq(userCredentials.userId, userId));
+
+
+
     return credentials;
   }
 

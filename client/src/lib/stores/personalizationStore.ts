@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+
 import type { UserPersonalizationSettings } from '@shared/schema';
 
 // Define the store state

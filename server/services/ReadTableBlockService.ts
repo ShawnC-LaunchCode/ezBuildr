@@ -1,13 +1,15 @@
+import type { Block } from "@shared/schema";
+import type { ReadTableConfig } from "@shared/types/blocks";
+
+import { logger } from "../logger";
 import {
   blockRepository,
   workflowRepository,
   stepRepository,
   sectionRepository,
 } from "../repositories";
-import type { Block } from "@shared/schema";
-import type { ReadTableConfig } from "@shared/types/blocks";
+
 import { workflowService } from "./WorkflowService";
-import { logger } from "../logger";
 
 /**
  * Service layer for read table block business logic
@@ -75,10 +77,10 @@ export class ReadTableBlockService {
 
     let maxOrder = -1;
     for (const step of sectionSteps) {
-      if (step.order > maxOrder) maxOrder = step.order;
+      if (step.order > maxOrder) {maxOrder = step.order;}
     }
     for (const b of sectionBlocks) {
-      if (b.order > maxOrder) maxOrder = b.order;
+      if (b.order > maxOrder) {maxOrder = b.order;}
     }
 
     const newOrder = maxOrder + 1;
@@ -130,7 +132,7 @@ export class ReadTableBlockService {
     }
   ): Promise<Block> {
     const block = await this.blockRepo.findById(blockId);
-    if (!block) throw new Error("Block not found");
+    if (!block) {throw new Error("Block not found");}
 
     await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
@@ -159,7 +161,7 @@ export class ReadTableBlockService {
       });
     }
 
-    return await this.blockRepo.update(blockId, {
+    return this.blockRepo.update(blockId, {
       config: newConfig,
       enabled: data.enabled
     });

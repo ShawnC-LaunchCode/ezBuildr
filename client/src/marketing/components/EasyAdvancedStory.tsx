@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { brand } from "../lib/brand";
 import { Check, Code2, Sparkles } from "lucide-react";
+
+import { brand } from "../lib/brand";
 
 export default function EasyAdvancedStory() {
     return (

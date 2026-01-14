@@ -2,8 +2,8 @@
  * Hook for validating expressions with debouncing
  */
 
-import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 

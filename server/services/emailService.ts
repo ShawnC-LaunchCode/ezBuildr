@@ -128,7 +128,7 @@ export async function sendIntakeReceipt(
     if (summary && Object.keys(summary).length > 0) {
       summaryHtml = "<h3>Your Submission</h3><ul>";
       for (const [key, value] of Object.entries(summary)) {
-        if (key.toLowerCase().match(/(password|ssn|credit|card)/)) continue;
+        if (key.toLowerCase().match(/(password|ssn|credit|card)/)) {continue;}
         summaryHtml += `<li><strong>${key}:</strong> ${String(value).substring(0, 100)}</li>`;
       }
       summaryHtml += "</ul>";
@@ -137,8 +137,8 @@ export async function sendIntakeReceipt(
     let downloadHtml = "";
     if (downloadLinks?.pdf || downloadLinks?.docx) {
       downloadHtml = "<h3>Your Documents</h3>";
-      if (downloadLinks.pdf) downloadHtml += `<p><a href="${downloadLinks.pdf}">Download PDF</a></p>`;
-      if (downloadLinks.docx) downloadHtml += `<p><a href="${downloadLinks.docx}">Download DOCX</a></p>`;
+      if (downloadLinks.pdf) {downloadHtml += `<p><a href="${downloadLinks.pdf}">Download PDF</a></p>`;}
+      if (downloadLinks.docx) {downloadHtml += `<p><a href="${downloadLinks.docx}">Download DOCX</a></p>`;}
     }
 
     const subject = `Confirmation: ${workflowName}`;

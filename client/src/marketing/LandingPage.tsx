@@ -1,11 +1,13 @@
-﻿import Hero from "./components/Hero";
+﻿import logo from "@/assets/images/logo.png";
+import { GoogleLogin } from "@/components/GoogleLogin";
+import { Button } from "@/components/ui/button";
+
 import EasyAdvancedStory from "./components/EasyAdvancedStory";
 import FeatureGrid from "./components/FeatureGrid";
-import TargetAudience from "./components/TargetAudience";
 import FinalCTA from "./components/FinalCTA";
-import { Button } from "@/components/ui/button";
-import { GoogleLogin } from "@/components/GoogleLogin";
-import logo from "@/assets/images/logo.png";
+import Hero from "./components/Hero";
+import TargetAudience from "./components/TargetAudience";
+
 
 export default function LandingPage() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;

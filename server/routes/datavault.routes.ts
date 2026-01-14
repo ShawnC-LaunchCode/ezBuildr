@@ -1,4 +1,13 @@
-import type { Express, Request, Response } from 'express';
+import { z } from 'zod';
+
+import { DATAVAULT_CONFIG } from '@shared/config';
+import {
+  insertDatavaultTableSchema,
+  insertDatavaultColumnSchema,
+  insertDatavaultRowSchema,
+} from '@shared/schema';
+
+import { logger } from '../logger';
 import { hybridAuth, type AuthRequest, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
 import {
   apiLimiter,
@@ -8,23 +17,17 @@ import {
   strictLimiter,
 } from '../middleware/rateLimiter';
 import {
-  insertDatavaultTableSchema,
-  insertDatavaultColumnSchema,
-  insertDatavaultRowSchema,
-} from '@shared/schema';
-import {
   datavaultTablesService,
   datavaultColumnsService,
   datavaultRowsService,
   datavaultRowNotesService,
   datavaultTablePermissionsService,
 } from '../services';
-import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { AclService } from '../services/AclService';
-import { z } from 'zod';
-import { logger } from '../logger';
-import { DATAVAULT_CONFIG } from '@shared/config';
+import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { validationMessages } from '../utils/validationMessages';
+
+import type { Express, Request, Response } from 'express';
 
 const aclService = new AclService();
 
@@ -749,7 +752,7 @@ export function registerDatavaultRoutes(app: Express): void {
 
       const showArchived = req.query.showArchived === 'true';
       const sortBy = req.query.sortBy as string | undefined;
-      const sortOrder = (req.query.sortOrder === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
+      const sortOrder = (req.query.sortOrder === 'desc' ? 'desc' : 'asc');
 
       // Use new getRowsWithOptions method that supports archiving and sorting
       const result = await datavaultRowsService.getRowsWithOptions(
@@ -805,7 +808,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(201).json(result);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault row');
-      if (error instanceof Error) logger.debug({ error: error.message }, 'Row creation error message');
+      if (error instanceof Error) {logger.debug({ error: error.message }, 'Row creation error message');}
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -1319,6 +1322,53 @@ export function registerDatavaultRoutes(app: Express): void {
       const status = message.includes('Access denied') ? 403 :
         message.includes('not found') ? 404 : 500;
       res.status(status).json({ message });
+    }
+  });
+
+  /**
+   * POST /api/datavault/databases/:databaseId/transfer
+   * Transfer database ownership (new ownership model)
+   * Tables inherit ownership from database
+   * Body: { targetOwnerType: 'user' | 'org', targetOwnerUuid: string }
+   */
+  app.post('/api/datavault/databases/:databaseId/transfer', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+      }
+
+      const { databaseId } = req.params;
+
+      const schema = z.object({
+        targetOwnerType: z.enum(['user', 'org']),
+        targetOwnerUuid: z.string().uuid(),
+      });
+
+      const { targetOwnerType, targetOwnerUuid } = schema.parse(req.body);
+      const database = await datavaultDatabasesService.transferOwnership(
+        databaseId,
+        userId,
+        targetOwnerType,
+        targetOwnerUuid
+      );
+
+      logger.info({ databaseId, targetOwnerType, targetOwnerUuid, userId }, 'Database ownership transferred');
+      res.json({ success: true, data: database });
+    } catch (error) {
+      logger.error({ error, databaseId: req.params.databaseId }, "Error transferring database ownership");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to transfer database ownership";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
     }
   });
 }

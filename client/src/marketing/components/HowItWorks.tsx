@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { MessageSquare, Bot, Rocket } from "lucide-react";
+
 import { brand } from "../lib/brand";
 
 const steps = [

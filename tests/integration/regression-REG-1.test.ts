@@ -8,9 +8,16 @@
  * - Preview/snapshot/live parity
  */
 
+import { eq, and } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
 import { db } from "../../server/db";
+import { intakeNavigationService } from "../../server/services/IntakeNavigationService";
+import { runService } from "../../server/services/RunService";
+import { evaluateVisibility } from "../../server/workflows/conditionAdapter";
 import {
+    tenants,
     organizations,
     users,
     projects,
@@ -24,11 +31,6 @@ import {
     datavaultTables as tablesSchema,
     datavaultRows as table_rows
 } from "../../shared/schema";
-import { v4 as uuidv4 } from "uuid";
-import { eq, and } from "drizzle-orm";
-import { runService } from "../../server/services/RunService";
-import { intakeNavigationService } from "../../server/services/IntakeNavigationService";
-import { evaluateVisibility } from "../../server/workflows/conditionAdapter";
 
 // Helper to evaluate visibility expressions
 function evaluateVisibilityExpression(expr: string | undefined, data: Record<string, any>): boolean {
@@ -44,9 +46,16 @@ describe("REG-1: Workflow Logic Regression", () => {
 
     beforeAll(async () => {
         // Setup tenant and user
+        const rootTenantId = uuidv4();
+        await db.insert(tenants).values({
+            id: rootTenantId,
+            name: "Root Tenant"
+        });
+
         tenantId = uuidv4();
         await db.insert(organizations).values({
             id: tenantId,
+            tenantId: rootTenantId,
             name: "Regression Test Tenant",
             slug: `reg-test-${tenantId}`
         });
@@ -55,7 +64,6 @@ describe("REG-1: Workflow Logic Regression", () => {
         await db.insert(users).values({
             id: userId,
             email: `regression-${userId}@test.com`,
-
             role: "admin",
             tenantRole: "owner",
             fullName: "Regression Tester",
@@ -65,9 +73,7 @@ describe("REG-1: Workflow Logic Regression", () => {
         projectId = uuidv4();
         await db.insert(projects).values({
             id: projectId,
-
             title: "Regression Project",
-
             creatorId: userId,
             ownerId: userId
         });
@@ -199,7 +205,7 @@ describe("REG-1: Workflow Logic Regression", () => {
             // Required question is hidden, should not block
             const allSteps = await db.select().from(steps).where(eq(steps.sectionId, sectionId));
             const visibleRequiredSteps = allSteps.filter(s => {
-                if (!s.required) return false;
+                if (!s.required) { return false; }
                 if (s.visibleIf) {
                     return evaluateVisibilityExpression((s.visibleIf as any) || "", data);
                 }
@@ -241,11 +247,11 @@ describe("REG-1: Workflow Logic Regression", () => {
 
             const allSteps = await db.select().from(steps).where(eq(steps.sectionId, sectionId));
             const missingRequired = allSteps.filter(s => {
-                if (!s.required) return false;
+                if (!s.required) { return false; }
                 // Check visibility
                 if (s.visibleIf) {
                     const visible = evaluateVisibilityExpression((s.visibleIf as unknown as string) || "", data);
-                    if (!visible) return false; // Hidden, not required
+                    if (!visible) { return false; } // Hidden, not required
                 }
                 // Check if value exists
                 return !(s.alias && data[s.alias] !== undefined && data[s.alias] !== null);
@@ -325,7 +331,7 @@ describe("REG-1: Workflow Logic Regression", () => {
 
             // Check section visibility
             const section2 = await db.select().from(sections).where(eq(sections.id, section2Id)).then(r => r[0]);
-            const isVisible = evaluateVisibilityExpression((section2.visibleIf as unknown as string) || "", data);
+            const isVisible = evaluateVisibilityExpression((section2.visibleIf as string) || "", data);
 
             expect(isVisible).toBe(false); // Section 2 should be hidden
 
@@ -335,7 +341,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 .orderBy(sections.order);
 
             const visibleSections = allSections.filter(s => {
-                if (!s.visibleIf) return true;
+                if (!s.visibleIf) { return true; }
                 return evaluateVisibilityExpression((s.visibleIf as unknown as string) || "", data);
             });
 
@@ -410,14 +416,14 @@ describe("REG-1: Workflow Logic Regression", () => {
 
             // Check section visibility
             const section2 = await db.select().from(sections).where(eq(sections.id, section2Id)).then(r => r[0]);
-            const isVisible = evaluateVisibilityExpression((section2.visibleIf as unknown as string) || "", data);
+            const isVisible = evaluateVisibilityExpression((section2.visibleIf as string) || "", data);
 
             expect(isVisible).toBe(true); // Section 2 should be visible
 
             // Check required steps on visible section
             const stepsOnSection2 = await db.select().from(steps).where(eq(steps.sectionId, section2Id));
             const missingRequired = stepsOnSection2.filter(s => {
-                if (!s.required) return false;
+                if (!s.required) { return false; }
                 return !(s.alias && data[s.alias] !== undefined);
             });
 

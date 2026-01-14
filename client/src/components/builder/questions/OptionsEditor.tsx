@@ -7,12 +7,6 @@
  * 3. From Table Column: Convenience path to read from a table column
  */
 
-import { useState, useEffect } from "react";
-import { Plus, X, GripVertical, Database, List as ListIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DndContext,
   closestCenter,
@@ -30,7 +24,15 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Plus, X, GripVertical, Database, List as ListIcon } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
 import type { DynamicOptionsConfig, DynamicOptionsSourceType } from "@/../../shared/types/stepConfigs";
 
 export interface OptionItemData {
@@ -68,8 +70,8 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
 
   // Static options
   const normalizeOptions = (opts: any): OptionItemData[] => {
-    if (!opts) return [];
-    if (!Array.isArray(opts)) return [];
+    if (!opts) {return [];}
+    if (!Array.isArray(opts)) {return [];}
     return opts.map((opt, index) => {
       if (typeof opt === 'string') {
         return {
@@ -100,11 +102,11 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
     if (typeof options === 'object' && 'type' in options && options.type === 'list') {
       return {
         listVariable: options.listVariable || '',
-        labelColumnId: options.labelColumnId || '',
-        valueColumnId: options.valueColumnId || '',
+        labelPath: options.labelPath || '',
+        valuePath: options.valuePath || '',
       };
     }
-    return { listVariable: '', labelColumnId: '', valueColumnId: '' };
+    return { listVariable: '', labelPath: '', valuePath: '' };
   });
 
   // Table column source state
@@ -217,8 +219,8 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
       onChange({
         type: 'list',
         listVariable: listConfig.listVariable || '',
-        labelColumnId: listConfig.labelColumnId || '',
-        valueColumnId: listConfig.valueColumnId || '',
+        labelPath: listConfig.labelPath || '',
+        valuePath: listConfig.valuePath || '',
       } as DynamicOptionsConfig);
     } else if (newType === 'table_column') {
       onChange({
@@ -242,8 +244,8 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
     onChange({
       type: 'list',
       listVariable: newConfig.listVariable,
-      labelColumnId: newConfig.labelColumnId,
-      valueColumnId: newConfig.valueColumnId,
+      labelPath: newConfig.labelPath,
+      valuePath: newConfig.valuePath,
     } as DynamicOptionsConfig);
   };
 
@@ -409,8 +411,8 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
                 id={`list-label-${elementId}`}
                 placeholder="e.g. full_name"
                 className="h-8 text-xs"
-                value={listConfig.labelColumnId}
-                onChange={(e) => handleListConfigChange('labelColumnId', e.target.value)}
+                value={listConfig.labelPath}
+                onChange={(e) => handleListConfigChange('labelPath', e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -421,8 +423,8 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
                 id={`list-value-${elementId}`}
                 placeholder="e.g. user_id"
                 className="h-8 text-xs"
-                value={listConfig.valueColumnId}
-                onChange={(e) => handleListConfigChange('valueColumnId', e.target.value)}
+                value={listConfig.valuePath}
+                onChange={(e) => handleListConfigChange('valuePath', e.target.value)}
               />
             </div>
           </div>

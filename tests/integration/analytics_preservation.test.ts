@@ -1,10 +1,12 @@
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { db, initializeDatabase } from '../../server/db';
-import { users, systemStats } from '@shared/schema';
-import { userRepository } from '../../server/repositories/UserRepository';
-import { systemStatsRepository } from '../../server/repositories/SystemStatsRepository';
 import { eq } from 'drizzle-orm';
+import { describe, it, expect, beforeAll } from 'vitest';
+
+import { users, systemStats } from '@shared/schema';
+
+import { db, initializeDatabase } from '../../server/db';
+import { systemStatsRepository } from '../../server/repositories/SystemStatsRepository';
+import { userRepository } from '../../server/repositories/UserRepository';
 
 describe('Analytics Preservation', () => {
     beforeAll(async () => {

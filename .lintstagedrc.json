@@ -1,0 +1,9 @@
+{
+  "*.{ts,tsx}": [
+    "eslint --max-warnings 0 --fix",
+    "bash -c 'npm run type-check'"
+  ],
+  "*.{js,jsx}": [
+    "eslint --max-warnings 0 --fix"
+  ]
+}

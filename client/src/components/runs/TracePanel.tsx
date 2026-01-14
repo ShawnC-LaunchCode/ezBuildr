@@ -3,15 +3,16 @@
  * Stage 8: Display node-by-node execution trace with filters
  */
 
-import { useState } from 'react';
-import { TraceEntry } from '@/lib/vault-api';
+import { CheckCircle2, XCircle, Circle, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { JsonViewer } from '@/components/shared/JsonViewer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, XCircle, Circle, ChevronRight } from 'lucide-react';
-import { JsonViewer } from '@/components/shared/JsonViewer';
+import { Switch } from '@/components/ui/switch';
+import { TraceEntry } from '@/lib/vault-api';
 
 interface TracePanelProps {
   trace: TraceEntry[];

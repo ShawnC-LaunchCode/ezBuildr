@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+import type { Step } from "@shared/schema";
+
 import {
   validateField,
   validatePage,
@@ -7,7 +10,6 @@ import {
   type FieldValidationConfig,
   type PageValidationResult,
 } from "../../../server/workflows/validation";
-import type { Step } from "@shared/schema";
 
 // Mock the repeater service
 vi.mock("../../../server/services/RepeaterService", () => ({

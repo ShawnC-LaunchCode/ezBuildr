@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
-import { usePersonalizationStore } from '../../../lib/stores/personalizationStore';
 import { Sparkles, X, MessageSquare, HelpCircle, CornerDownRight, Languages, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Select,
     SelectContent,
@@ -12,8 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { usePersonalizationStore } from '../../../lib/stores/personalizationStore';
 
 interface FloatingAIAssistProps {
     currentBlockText?: string;
@@ -26,10 +28,10 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
     const [loading, setLoading] = useState(false);
     const [aiResponse, setAiResponse] = useState<string | null>(null);
 
-    if (!settings) return null; // Wait for settings to load
+    if (!settings) {return null;} // Wait for settings to load
 
     const handleRewrite = async () => {
-        if (!currentBlockText) return;
+        if (!currentBlockText) {return;}
         setLoading(true);
         try {
             // Trigger rewrite via API
@@ -52,7 +54,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
     };
 
     const handleExplain = async () => {
-        if (!currentBlockText) return;
+        if (!currentBlockText) {return;}
         setLoading(true);
         try {
             const res = await fetch('/api/ai/personalize/help', {
@@ -63,7 +65,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
             const data = await res.json();
             if (data.text) {
                 setAiResponse(data.text);
-                if (onHelp) onHelp(data.text);
+                if (onHelp) {onHelp(data.text);}
             }
         } catch (e) {
             setAiResponse("Sorry, I couldn't explain that.");

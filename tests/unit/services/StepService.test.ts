@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
 import { StepService } from "../../../server/services/StepService";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
+
 import type { InsertStep } from "../../../shared/schema";
 
 describe("StepService", () => {
@@ -44,12 +46,11 @@ describe("StepService", () => {
         createTestStep(section.id, { order: 2 }),
       ];
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: any = {
         type: "short_text",
         title: "New Step",
         required: false,
         options: {},
-        order: 1,
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 3 });

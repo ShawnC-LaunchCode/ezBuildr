@@ -15,10 +15,12 @@
  */
 
 import React from "react";
+
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Step } from "@/types";
+
 import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
 
 export interface BooleanBlockProps {
@@ -36,8 +38,8 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
   let displayStyle: "toggle" | "radio" | "checkbox" | "buttons" = "buttons";
 
   if (step.type === "yes_no") {
-    trueLabel = (step.config as any)?.yesLabel || "Yes";
-    falseLabel = (step.config as any)?.noLabel || "No";
+    trueLabel = (step.config)?.yesLabel || "Yes";
+    falseLabel = (step.config)?.noLabel || "No";
   } else if (step.type === "true_false") {
     const config = step.config as TrueFalseConfig;
     trueLabel = config?.trueLabel || "True";

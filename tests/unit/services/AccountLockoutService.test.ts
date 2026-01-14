@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { User } from "../../../shared/schema";
+
 import { AccountLockoutService } from "../../../server/services/AccountLockoutService";
+
+import type { User } from "../../../shared/schema";
 
 // Mock dependencies
 vi.mock("../../../server/db", () => ({

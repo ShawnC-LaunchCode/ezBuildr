@@ -1,9 +1,9 @@
-CREATE TYPE "public"."anonymous_access_type" AS ENUM('disabled', 'unlimited', 'one_per_ip', 'one_per_session');--> statement-breakpoint
-CREATE TYPE "public"."condition_operator" AS ENUM('equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than', 'between', 'is_empty', 'is_not_empty');--> statement-breakpoint
-CREATE TYPE "public"."conditional_action" AS ENUM('show', 'hide', 'require', 'make_optional');--> statement-breakpoint
-CREATE TYPE "public"."question_type" AS ENUM('short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'loop_group');--> statement-breakpoint
-CREATE TYPE "public"."survey_status" AS ENUM('draft', 'open', 'closed');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('admin', 'creator');--> statement-breakpoint
+CREATE TYPE "anonymous_access_type" AS ENUM('disabled', 'unlimited', 'one_per_ip', 'one_per_session');--> statement-breakpoint
+CREATE TYPE "condition_operator" AS ENUM('equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than', 'between', 'is_empty', 'is_not_empty');--> statement-breakpoint
+CREATE TYPE "conditional_action" AS ENUM('show', 'hide', 'require', 'make_optional');--> statement-breakpoint
+CREATE TYPE "question_type" AS ENUM('short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'loop_group');--> statement-breakpoint
+CREATE TYPE "survey_status" AS ENUM('draft', 'open', 'closed');--> statement-breakpoint
+CREATE TYPE "user_role" AS ENUM('admin', 'creator');--> statement-breakpoint
 CREATE TABLE "analytics_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"response_id" uuid NOT NULL,
@@ -161,28 +161,28 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "public"."responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_page_id_survey_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "public"."survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "anonymous_response_tracking" ADD CONSTRAINT "anonymous_response_tracking_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "anonymous_response_tracking" ADD CONSTRAINT "anonymous_response_tracking_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "public"."responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "answers" ADD CONSTRAINT "answers_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "public"."responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "answers" ADD CONSTRAINT "answers_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "public"."questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "answers" ADD CONSTRAINT "answers_subquestion_id_loop_group_subquestions_id_fk" FOREIGN KEY ("subquestion_id") REFERENCES "public"."loop_group_subquestions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_condition_question_id_questions_id_fk" FOREIGN KEY ("condition_question_id") REFERENCES "public"."questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_question_id_questions_id_fk" FOREIGN KEY ("target_question_id") REFERENCES "public"."questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_page_id_survey_pages_id_fk" FOREIGN KEY ("target_page_id") REFERENCES "public"."survey_pages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "files" ADD CONSTRAINT "files_answer_id_answers_id_fk" FOREIGN KEY ("answer_id") REFERENCES "public"."answers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "global_recipients" ADD CONSTRAINT "global_recipients_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "loop_group_subquestions" ADD CONSTRAINT "loop_group_subquestions_loop_question_id_questions_id_fk" FOREIGN KEY ("loop_question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "questions" ADD CONSTRAINT "questions_page_id_survey_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "public"."survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "recipients" ADD CONSTRAINT "recipients_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "responses" ADD CONSTRAINT "responses_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "responses" ADD CONSTRAINT "responses_recipient_id_recipients_id_fk" FOREIGN KEY ("recipient_id") REFERENCES "public"."recipients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "survey_pages" ADD CONSTRAINT "survey_pages_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "public"."surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "surveys" ADD CONSTRAINT "surveys_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_page_id_survey_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "anonymous_response_tracking" ADD CONSTRAINT "anonymous_response_tracking_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "anonymous_response_tracking" ADD CONSTRAINT "anonymous_response_tracking_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "answers" ADD CONSTRAINT "answers_response_id_responses_id_fk" FOREIGN KEY ("response_id") REFERENCES "responses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "answers" ADD CONSTRAINT "answers_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "answers" ADD CONSTRAINT "answers_subquestion_id_loop_group_subquestions_id_fk" FOREIGN KEY ("subquestion_id") REFERENCES "loop_group_subquestions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_condition_question_id_questions_id_fk" FOREIGN KEY ("condition_question_id") REFERENCES "questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_question_id_questions_id_fk" FOREIGN KEY ("target_question_id") REFERENCES "questions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_page_id_survey_pages_id_fk" FOREIGN KEY ("target_page_id") REFERENCES "survey_pages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "files" ADD CONSTRAINT "files_answer_id_answers_id_fk" FOREIGN KEY ("answer_id") REFERENCES "answers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "global_recipients" ADD CONSTRAINT "global_recipients_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "loop_group_subquestions" ADD CONSTRAINT "loop_group_subquestions_loop_question_id_questions_id_fk" FOREIGN KEY ("loop_question_id") REFERENCES "questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "questions" ADD CONSTRAINT "questions_page_id_survey_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recipients" ADD CONSTRAINT "recipients_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "responses" ADD CONSTRAINT "responses_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "responses" ADD CONSTRAINT "responses_recipient_id_recipients_id_fk" FOREIGN KEY ("recipient_id") REFERENCES "recipients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "survey_pages" ADD CONSTRAINT "survey_pages_survey_id_surveys_id_fk" FOREIGN KEY ("survey_id") REFERENCES "surveys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "analytics_survey_event_idx" ON "analytics_events" USING btree ("survey_id","event");--> statement-breakpoint
 CREATE INDEX "analytics_response_event_idx" ON "analytics_events" USING btree ("response_id","event");--> statement-breakpoint
 CREATE INDEX "analytics_question_event_idx" ON "analytics_events" USING btree ("question_id","event");--> statement-breakpoint

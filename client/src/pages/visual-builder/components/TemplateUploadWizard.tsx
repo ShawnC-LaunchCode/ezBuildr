@@ -1,6 +1,12 @@
 
-import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { Upload, FileText, Loader2, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,13 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Upload, FileText, Loader2, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+
 
 interface TemplateUploadWizardProps {
     projectId: string;
@@ -49,7 +51,7 @@ export function TemplateUploadWizard({
         mutationFn: async () => {
             // Just analyze first, don't save to DB yet (or save as draft?)
             // We'll analyze the file buffer directly
-            if (!file) throw new Error("No file");
+            if (!file) {throw new Error("No file");}
 
             const formData = new FormData();
             formData.append('file', file);
@@ -84,7 +86,7 @@ export function TemplateUploadWizard({
     // 3. Final Save
     const saveMutation = useMutation({
         mutationFn: async () => {
-            if (!file || !name) throw new Error("Missing data");
+            if (!file || !name) {throw new Error("Missing data");}
 
             const formData = new FormData();
             formData.append('name', name);
@@ -99,7 +101,7 @@ export function TemplateUploadWizard({
                 body: formData,
             });
 
-            if (!response.ok) throw new Error("Failed to save");
+            if (!response.ok) {throw new Error("Failed to save");}
             return response.json();
         },
         onSuccess: () => {
@@ -123,7 +125,7 @@ export function TemplateUploadWizard({
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
             setFile(selectedFile);
-            if (!name) setName(selectedFile.name.replace(/\.[^/.]+$/, ''));
+            if (!name) {setName(selectedFile.name.replace(/\.[^/.]+$/, ''));}
         }
     };
 

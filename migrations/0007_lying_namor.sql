@@ -1,50 +1,50 @@
-CREATE TYPE "public"."auth_provider" AS ENUM('local', 'google');--> statement-breakpoint
-CREATE TYPE "public"."autonumber_reset_policy" AS ENUM('never', 'yearly');--> statement-breakpoint
-CREATE TYPE "public"."block_phase" AS ENUM('onRunStart', 'onSectionEnter', 'onSectionSubmit', 'onNext', 'onRunComplete');--> statement-breakpoint
-CREATE TYPE "public"."block_type" AS ENUM('prefill', 'validate', 'branch', 'create_record', 'update_record', 'find_record', 'delete_record', 'query', 'write', 'external_send', 'read_table', 'list_tools');--> statement-breakpoint
-CREATE TYPE "public"."collection_field_type" AS ENUM('text', 'number', 'boolean', 'date', 'datetime', 'file', 'select', 'multi_select', 'json');--> statement-breakpoint
-CREATE TYPE "public"."connection_type" AS ENUM('api_key', 'bearer', 'oauth2_client_credentials', 'oauth2_3leg');--> statement-breakpoint
-CREATE TYPE "public"."data_source_type" AS ENUM('native', 'postgres', 'google_sheets', 'airtable', 'external');--> statement-breakpoint
-CREATE TYPE "public"."datavault_column_type" AS ENUM('text', 'number', 'boolean', 'date', 'datetime', 'email', 'phone', 'url', 'json', 'auto_number', 'autonumber', 'reference', 'select', 'multiselect');--> statement-breakpoint
-CREATE TYPE "public"."datavault_scope_type" AS ENUM('account', 'project', 'workflow');--> statement-breakpoint
-CREATE TYPE "public"."datavault_table_role" AS ENUM('owner', 'write', 'read');--> statement-breakpoint
-CREATE TYPE "public"."document_hook_phase" AS ENUM('beforeGeneration', 'afterGeneration');--> statement-breakpoint
-CREATE TYPE "public"."email_queue_status" AS ENUM('pending', 'processing', 'completed', 'failed');--> statement-breakpoint
-CREATE TYPE "public"."external_destination_type" AS ENUM('webhook', 'google_sheets', 'airtable', 'zapier', 'make');--> statement-breakpoint
-CREATE TYPE "public"."lifecycle_hook_phase" AS ENUM('beforePage', 'afterPage', 'beforeFinalBlock', 'afterDocumentsGenerated');--> statement-breakpoint
-CREATE TYPE "public"."log_level" AS ENUM('info', 'warn', 'error');--> statement-breakpoint
-CREATE TYPE "public"."logic_rule_target_type" AS ENUM('section', 'step');--> statement-breakpoint
-CREATE TYPE "public"."metrics_event_type" AS ENUM('run_started', 'run_succeeded', 'run_failed', 'pdf_succeeded', 'pdf_failed', 'docx_succeeded', 'docx_failed', 'queue_enqueued', 'queue_dequeued');--> statement-breakpoint
-CREATE TYPE "public"."output_file_type" AS ENUM('docx', 'pdf');--> statement-breakpoint
-CREATE TYPE "public"."output_status" AS ENUM('pending', 'ready', 'failed');--> statement-breakpoint
-CREATE TYPE "public"."portal_access_mode" AS ENUM('anonymous', 'token', 'portal');--> statement-breakpoint
-CREATE TYPE "public"."project_status" AS ENUM('active', 'archived');--> statement-breakpoint
-CREATE TYPE "public"."public_access_mode" AS ENUM('open', 'link_only', 'domain_restricted');--> statement-breakpoint
-CREATE TYPE "public"."review_task_status" AS ENUM('pending', 'approved', 'changes_requested', 'rejected');--> statement-breakpoint
-CREATE TYPE "public"."rollup_bucket" AS ENUM('1m', '5m', '1h', '1d');--> statement-breakpoint
-CREATE TYPE "public"."run_status" AS ENUM('pending', 'success', 'error', 'waiting_review', 'waiting_signature');--> statement-breakpoint
-CREATE TYPE "public"."script_execution_status" AS ENUM('success', 'error', 'timeout');--> statement-breakpoint
-CREATE TYPE "public"."secret_type" AS ENUM('api_key', 'bearer', 'oauth2', 'basic_auth');--> statement-breakpoint
-CREATE TYPE "public"."signature_event_type" AS ENUM('sent', 'viewed', 'signed', 'declined');--> statement-breakpoint
-CREATE TYPE "public"."signature_provider" AS ENUM('native', 'docusign', 'hellosign');--> statement-breakpoint
-CREATE TYPE "public"."signature_request_status" AS ENUM('pending', 'signed', 'declined', 'expired');--> statement-breakpoint
-CREATE TYPE "public"."sli_window" AS ENUM('1d', '7d', '30d');--> statement-breakpoint
-CREATE TYPE "public"."step_type" AS ENUM('short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'loop_group', 'computed', 'js_question', 'repeater', 'final_documents', 'signature_block', 'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final', 'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice', 'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced', 'address_advanced', 'multi_field', 'display_advanced');--> statement-breakpoint
-CREATE TYPE "public"."subscription_status" AS ENUM('active', 'past_due', 'canceled', 'trialing', 'incomplete', 'incomplete_expired', 'unpaid');--> statement-breakpoint
-CREATE TYPE "public"."template_access" AS ENUM('use', 'edit');--> statement-breakpoint
-CREATE TYPE "public"."template_type" AS ENUM('docx', 'html', 'pdf');--> statement-breakpoint
-CREATE TYPE "public"."tenant_plan" AS ENUM('free', 'pro', 'enterprise');--> statement-breakpoint
-CREATE TYPE "public"."transform_block_language" AS ENUM('javascript', 'python');--> statement-breakpoint
-CREATE TYPE "public"."transform_block_run_status" AS ENUM('success', 'timeout', 'error');--> statement-breakpoint
-CREATE TYPE "public"."transform_block_type" AS ENUM('map', 'rename', 'compute', 'conditional', 'loop', 'script');--> statement-breakpoint
-CREATE TYPE "public"."user_tenant_role" AS ENUM('owner', 'builder', 'runner', 'viewer');--> statement-breakpoint
-CREATE TYPE "public"."version_status" AS ENUM('draft', 'published');--> statement-breakpoint
-CREATE TYPE "public"."webhook_event" AS ENUM('workflow_run.started', 'workflow_run.page_completed', 'workflow_run.completed', 'document.generated', 'signature.completed', 'signature.declined');--> statement-breakpoint
-CREATE TYPE "public"."workflow_status" AS ENUM('draft', 'active', 'archived');--> statement-breakpoint
-CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'editor', 'contributor', 'viewer');--> statement-breakpoint
-ALTER TYPE "public"."conditional_action" ADD VALUE 'skip_to';--> statement-breakpoint
-ALTER TYPE "public"."survey_status" ADD VALUE 'active';--> statement-breakpoint
-ALTER TYPE "public"."survey_status" ADD VALUE 'archived';--> statement-breakpoint
+CREATE TYPE "auth_provider" AS ENUM('local', 'google');--> statement-breakpoint
+CREATE TYPE "autonumber_reset_policy" AS ENUM('never', 'yearly');--> statement-breakpoint
+CREATE TYPE "block_phase" AS ENUM('onRunStart', 'onSectionEnter', 'onSectionSubmit', 'onNext', 'onRunComplete');--> statement-breakpoint
+CREATE TYPE "block_type" AS ENUM('prefill', 'validate', 'branch', 'create_record', 'update_record', 'find_record', 'delete_record', 'query', 'write', 'external_send', 'read_table', 'list_tools');--> statement-breakpoint
+CREATE TYPE "collection_field_type" AS ENUM('text', 'number', 'boolean', 'date', 'datetime', 'file', 'select', 'multi_select', 'json');--> statement-breakpoint
+CREATE TYPE "connection_type" AS ENUM('api_key', 'bearer', 'oauth2_client_credentials', 'oauth2_3leg');--> statement-breakpoint
+CREATE TYPE "data_source_type" AS ENUM('native', 'postgres', 'google_sheets', 'airtable', 'external');--> statement-breakpoint
+CREATE TYPE "datavault_column_type" AS ENUM('text', 'number', 'boolean', 'date', 'datetime', 'email', 'phone', 'url', 'json', 'auto_number', 'autonumber', 'reference', 'select', 'multiselect');--> statement-breakpoint
+CREATE TYPE "datavault_scope_type" AS ENUM('account', 'project', 'workflow');--> statement-breakpoint
+CREATE TYPE "datavault_table_role" AS ENUM('owner', 'write', 'read');--> statement-breakpoint
+CREATE TYPE "document_hook_phase" AS ENUM('beforeGeneration', 'afterGeneration');--> statement-breakpoint
+CREATE TYPE "email_queue_status" AS ENUM('pending', 'processing', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "external_destination_type" AS ENUM('webhook', 'google_sheets', 'airtable', 'zapier', 'make');--> statement-breakpoint
+CREATE TYPE "lifecycle_hook_phase" AS ENUM('beforePage', 'afterPage', 'beforeFinalBlock', 'afterDocumentsGenerated');--> statement-breakpoint
+CREATE TYPE "log_level" AS ENUM('info', 'warn', 'error');--> statement-breakpoint
+CREATE TYPE "logic_rule_target_type" AS ENUM('section', 'step');--> statement-breakpoint
+CREATE TYPE "metrics_event_type" AS ENUM('run_started', 'run_succeeded', 'run_failed', 'pdf_succeeded', 'pdf_failed', 'docx_succeeded', 'docx_failed', 'queue_enqueued', 'queue_dequeued');--> statement-breakpoint
+CREATE TYPE "output_file_type" AS ENUM('docx', 'pdf');--> statement-breakpoint
+CREATE TYPE "output_status" AS ENUM('pending', 'ready', 'failed');--> statement-breakpoint
+CREATE TYPE "portal_access_mode" AS ENUM('anonymous', 'token', 'portal');--> statement-breakpoint
+CREATE TYPE "project_status" AS ENUM('active', 'archived');--> statement-breakpoint
+CREATE TYPE "public_access_mode" AS ENUM('open', 'link_only', 'domain_restricted');--> statement-breakpoint
+CREATE TYPE "review_task_status" AS ENUM('pending', 'approved', 'changes_requested', 'rejected');--> statement-breakpoint
+CREATE TYPE "rollup_bucket" AS ENUM('1m', '5m', '1h', '1d');--> statement-breakpoint
+CREATE TYPE "run_status" AS ENUM('pending', 'success', 'error', 'waiting_review', 'waiting_signature');--> statement-breakpoint
+CREATE TYPE "script_execution_status" AS ENUM('success', 'error', 'timeout');--> statement-breakpoint
+CREATE TYPE "secret_type" AS ENUM('api_key', 'bearer', 'oauth2', 'basic_auth');--> statement-breakpoint
+CREATE TYPE "signature_event_type" AS ENUM('sent', 'viewed', 'signed', 'declined');--> statement-breakpoint
+CREATE TYPE "signature_provider" AS ENUM('native', 'docusign', 'hellosign');--> statement-breakpoint
+CREATE TYPE "signature_request_status" AS ENUM('pending', 'signed', 'declined', 'expired');--> statement-breakpoint
+CREATE TYPE "sli_window" AS ENUM('1d', '7d', '30d');--> statement-breakpoint
+CREATE TYPE "step_type" AS ENUM('short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'loop_group', 'computed', 'js_question', 'repeater', 'final_documents', 'signature_block', 'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final', 'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice', 'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced', 'address_advanced', 'multi_field', 'display_advanced');--> statement-breakpoint
+CREATE TYPE "subscription_status" AS ENUM('active', 'past_due', 'canceled', 'trialing', 'incomplete', 'incomplete_expired', 'unpaid');--> statement-breakpoint
+CREATE TYPE "template_access" AS ENUM('use', 'edit');--> statement-breakpoint
+CREATE TYPE "template_type" AS ENUM('docx', 'html', 'pdf');--> statement-breakpoint
+CREATE TYPE "tenant_plan" AS ENUM('free', 'pro', 'enterprise');--> statement-breakpoint
+CREATE TYPE "transform_block_language" AS ENUM('javascript', 'python');--> statement-breakpoint
+CREATE TYPE "transform_block_run_status" AS ENUM('success', 'timeout', 'error');--> statement-breakpoint
+CREATE TYPE "transform_block_type" AS ENUM('map', 'rename', 'compute', 'conditional', 'loop', 'script');--> statement-breakpoint
+CREATE TYPE "user_tenant_role" AS ENUM('owner', 'builder', 'runner', 'viewer');--> statement-breakpoint
+CREATE TYPE "version_status" AS ENUM('draft', 'published');--> statement-breakpoint
+CREATE TYPE "webhook_event" AS ENUM('workflow_run.started', 'workflow_run.page_completed', 'workflow_run.completed', 'document.generated', 'signature.completed', 'signature.declined');--> statement-breakpoint
+CREATE TYPE "workflow_status" AS ENUM('draft', 'active', 'archived');--> statement-breakpoint
+CREATE TYPE "workspace_role" AS ENUM('owner', 'admin', 'editor', 'contributor', 'viewer');--> statement-breakpoint
+ALTER TYPE "conditional_action" ADD VALUE IF NOT EXISTS 'skip_to';--> statement-breakpoint
+ALTER TYPE "survey_status" ADD VALUE IF NOT EXISTS 'active';--> statement-breakpoint
+ALTER TYPE "survey_status" ADD VALUE IF NOT EXISTS 'archived';--> statement-breakpoint
 CREATE TABLE "account_locks" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" varchar NOT NULL,
@@ -1256,22 +1256,21 @@ CREATE TABLE "workspaces" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-ALTER TABLE "global_recipients" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "recipients" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
-DROP TABLE "global_recipients" CASCADE;--> statement-breakpoint
-DROP TABLE "recipients" CASCADE;--> statement-breakpoint
-ALTER TABLE "users" DROP CONSTRAINT "users_email_unique";--> statement-breakpoint
-ALTER TABLE "answers" DROP CONSTRAINT "answers_question_id_questions_id_fk";
+
+DROP TABLE IF EXISTS "global_recipients" CASCADE;--> statement-breakpoint
+DROP TABLE IF EXISTS "recipients" CASCADE;--> statement-breakpoint
+ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_email_unique";--> statement-breakpoint
+ALTER TABLE "answers" DROP CONSTRAINT IF EXISTS "answers_question_id_questions_id_fk";
 --> statement-breakpoint
-ALTER TABLE "answers" DROP CONSTRAINT "answers_subquestion_id_loop_group_subquestions_id_fk";
+ALTER TABLE "answers" DROP CONSTRAINT IF EXISTS "answers_subquestion_id_loop_group_subquestions_id_fk";
 --> statement-breakpoint
-ALTER TABLE "conditional_rules" DROP CONSTRAINT "conditional_rules_condition_question_id_questions_id_fk";
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_condition_question_id_questions_id_fk";
 --> statement-breakpoint
-ALTER TABLE "conditional_rules" DROP CONSTRAINT "conditional_rules_target_question_id_questions_id_fk";
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_target_question_id_questions_id_fk";
 --> statement-breakpoint
-ALTER TABLE "conditional_rules" DROP CONSTRAINT "conditional_rules_target_page_id_survey_pages_id_fk";
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_target_page_id_survey_pages_id_fk";
 --> statement-breakpoint
-ALTER TABLE "responses" DROP CONSTRAINT "responses_recipient_id_recipients_id_fk";
+ALTER TABLE "responses" DROP CONSTRAINT IF EXISTS "responses_recipient_id_recipients_id_fk";
 --> statement-breakpoint
 ALTER TABLE "surveys" ALTER COLUMN "anonymous_access_type" SET DEFAULT 'unlimited';--> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "email" SET DATA TYPE varchar(255);--> statement-breakpoint
@@ -1279,193 +1278,365 @@ ALTER TABLE "users" ALTER COLUMN "email" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "first_name" SET DATA TYPE varchar(255);--> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "last_name" SET DATA TYPE varchar(255);--> statement-breakpoint
 ALTER TABLE "users" ALTER COLUMN "profile_image_url" SET DATA TYPE varchar(500);--> statement-breakpoint
-ALTER TABLE "loop_group_subquestions" ADD COLUMN "loop_config" jsonb;--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "workspace_id" uuid;--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "is_public" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "public_access_mode" "public_access_mode" DEFAULT 'link_only';--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "public_slug" varchar;--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "allowed_domains" jsonb;--> statement-breakpoint
-ALTER TABLE "surveys" ADD COLUMN "public_settings" jsonb;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "full_name" varchar(255);--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "tenant_id" uuid;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "tenant_role" "user_tenant_role";--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "auth_provider" "auth_provider" DEFAULT 'local' NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "default_mode" text DEFAULT 'easy' NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "email_verified" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "mfa_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "last_password_change" timestamp;--> statement-breakpoint
-ALTER TABLE "account_locks" ADD CONSTRAINT "account_locks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_actor_id_users_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "block_metrics" ADD CONSTRAINT "block_metrics_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "block_metrics" ADD CONSTRAINT "block_metrics_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "blocks" ADD CONSTRAINT "blocks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "blocks" ADD CONSTRAINT "blocks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "blocks" ADD CONSTRAINT "blocks_virtual_step_id_steps_id_fk" FOREIGN KEY ("virtual_step_id") REFERENCES "public"."steps"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collab_snapshots" ADD CONSTRAINT "collab_snapshots_doc_id_collab_docs_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."collab_docs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collab_updates" ADD CONSTRAINT "collab_updates_doc_id_collab_docs_id_fk" FOREIGN KEY ("doc_id") REFERENCES "public"."collab_docs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collection_fields" ADD CONSTRAINT "collection_fields_collection_id_collections_id_fk" FOREIGN KEY ("collection_id") REFERENCES "public"."collections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "collections" ADD CONSTRAINT "collections_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "connections" ADD CONSTRAINT "connections_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "connections" ADD CONSTRAINT "connections_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "customer_billing_info" ADD CONSTRAINT "customer_billing_info_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_api_tokens" ADD CONSTRAINT "datavault_api_tokens_database_id_datavault_databases_id_fk" FOREIGN KEY ("database_id") REFERENCES "public"."datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_api_tokens" ADD CONSTRAINT "datavault_api_tokens_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_columns" ADD CONSTRAINT "datavault_columns_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_databases" ADD CONSTRAINT "datavault_databases_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_column_id_datavault_columns_id_fk" FOREIGN KEY ("column_id") REFERENCES "public"."datavault_columns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_row_id_datavault_rows_id_fk" FOREIGN KEY ("row_id") REFERENCES "public"."datavault_rows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_table_permissions" ADD CONSTRAINT "datavault_table_permissions_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_table_permissions" ADD CONSTRAINT "datavault_table_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_owner_user_id_users_id_fk" FOREIGN KEY ("owner_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_database_id_datavault_databases_id_fk" FOREIGN KEY ("database_id") REFERENCES "public"."datavault_databases"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_row_id_datavault_rows_id_fk" FOREIGN KEY ("row_id") REFERENCES "public"."datavault_rows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_column_id_datavault_columns_id_fk" FOREIGN KEY ("column_id") REFERENCES "public"."datavault_columns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "document_hooks" ADD CONSTRAINT "document_hooks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "email_verification_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "external_connections" ADD CONSTRAINT "external_connections_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "external_connections" ADD CONSTRAINT "external_connections_secret_id_secrets_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secrets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "external_destinations" ADD CONSTRAINT "external_destinations_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "lifecycle_hooks" ADD CONSTRAINT "lifecycle_hooks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "lifecycle_hooks" ADD CONSTRAINT "lifecycle_hooks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_condition_step_id_steps_id_fk" FOREIGN KEY ("condition_step_id") REFERENCES "public"."steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_target_step_id_steps_id_fk" FOREIGN KEY ("target_step_id") REFERENCES "public"."steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_target_section_id_sections_id_fk" FOREIGN KEY ("target_section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "mfa_backup_codes" ADD CONSTRAINT "mfa_backup_codes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "mfa_secrets" ADD CONSTRAINT "mfa_secrets_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_apps_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_apps"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_apps" ADD CONSTRAINT "oauth_apps_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_client_id_oauth_apps_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_apps"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_access" ADD CONSTRAINT "project_access_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "records" ADD CONSTRAINT "records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "records" ADD CONSTRAINT "records_collection_id_collections_id_fk" FOREIGN KEY ("collection_id") REFERENCES "public"."collections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "records" ADD CONSTRAINT "records_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "records" ADD CONSTRAINT "records_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "resource_permissions" ADD CONSTRAINT "resource_permissions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "resource_permissions" ADD CONSTRAINT "resource_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_reviewer_id_users_id_fk" FOREIGN KEY ("reviewer_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_template_id_workflow_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."workflow_templates"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_outputs" ADD CONSTRAINT "run_outputs_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "run_outputs" ADD CONSTRAINT "run_outputs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "runs" ADD CONSTRAINT "runs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "runs" ADD CONSTRAINT "runs_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "script_execution_log" ADD CONSTRAINT "script_execution_log_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "secrets" ADD CONSTRAINT "secrets_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sections" ADD CONSTRAINT "sections_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_events" ADD CONSTRAINT "signature_events_signature_request_id_signature_requests_id_fk" FOREIGN KEY ("signature_request_id") REFERENCES "public"."signature_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "step_values" ADD CONSTRAINT "step_values_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "step_values" ADD CONSTRAINT "step_values_step_id_steps_id_fk" FOREIGN KEY ("step_id") REFERENCES "public"."steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "steps" ADD CONSTRAINT "steps_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "subscription_seats" ADD CONSTRAINT "subscription_seats_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "subscription_seats" ADD CONSTRAINT "subscription_seats_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_billing_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."billing_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "survey_templates" ADD CONSTRAINT "survey_templates_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "teams" ADD CONSTRAINT "teams_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "template_generation_metrics" ADD CONSTRAINT "template_generation_metrics_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "template_generation_metrics" ADD CONSTRAINT "template_generation_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "template_shares" ADD CONSTRAINT "template_shares_template_id_survey_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."survey_templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "template_shares" ADD CONSTRAINT "template_shares_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "template_versions" ADD CONSTRAINT "template_versions_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "templates" ADD CONSTRAINT "templates_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "tenant_domains" ADD CONSTRAINT "tenant_domains_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transform_block_runs" ADD CONSTRAINT "transform_block_runs_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transform_block_runs" ADD CONSTRAINT "transform_block_runs_block_id_transform_blocks_id_fk" FOREIGN KEY ("block_id") REFERENCES "public"."transform_blocks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_virtual_step_id_steps_id_fk" FOREIGN KEY ("virtual_step_id") REFERENCES "public"."steps"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "trusted_devices" ADD CONSTRAINT "trusted_devices_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "user_credentials" ADD CONSTRAINT "user_credentials_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "user_personalization_settings" ADD CONSTRAINT "user_personalization_settings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "webhook_events" ADD CONSTRAINT "webhook_events_subscription_id_webhook_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."webhook_subscriptions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "webhook_subscriptions" ADD CONSTRAINT "webhook_subscriptions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_access" ADD CONSTRAINT "workflow_access_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_analytics_snapshots" ADD CONSTRAINT "workflow_analytics_snapshots_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_analytics_snapshots" ADD CONSTRAINT "workflow_analytics_snapshots_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_blueprints" ADD CONSTRAINT "workflow_blueprints_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_blueprints" ADD CONSTRAINT "workflow_blueprints_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_data_sources" ADD CONSTRAINT "workflow_data_sources_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_data_sources" ADD CONSTRAINT "workflow_data_sources_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_personalization_settings" ADD CONSTRAINT "workflow_personalization_settings_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_current_section_id_sections_id_fk" FOREIGN KEY ("current_section_id") REFERENCES "public"."sections"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_snapshots" ADD CONSTRAINT "workflow_snapshots_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_snapshots" ADD CONSTRAINT "workflow_snapshots_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_templates" ADD CONSTRAINT "workflow_templates_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "public"."workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_templates" ADD CONSTRAINT "workflow_templates_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_base_id_workflows_id_fk" FOREIGN KEY ("base_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workflows" ADD CONSTRAINT "workflows_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_invitations" ADD CONSTRAINT "workspace_invitations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_invitations" ADD CONSTRAINT "workspace_invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspaces" ADD CONSTRAINT "workspaces_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "loop_group_subquestions" ADD COLUMN IF NOT EXISTS "loop_config" jsonb;--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "workspace_id" uuid;--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "is_public" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "public_access_mode" "public_access_mode" DEFAULT 'link_only';--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "public_slug" varchar;--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "allowed_domains" jsonb;--> statement-breakpoint
+ALTER TABLE "surveys" ADD COLUMN IF NOT EXISTS "public_settings" jsonb;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "full_name" varchar(255);--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tenant_id" uuid;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tenant_role" "user_tenant_role";--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "auth_provider" "auth_provider" DEFAULT 'local' NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "default_mode" text DEFAULT 'easy' NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verified" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mfa_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_password_change" timestamp;--> statement-breakpoint
+ALTER TABLE "account_locks" DROP CONSTRAINT IF EXISTS "account_locks_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "account_locks" ADD CONSTRAINT "account_locks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "api_keys" DROP CONSTRAINT IF EXISTS "api_keys_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_events" DROP CONSTRAINT IF EXISTS "audit_events_actor_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_actor_id_users_id_fk" FOREIGN KEY ("actor_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_logs" DROP CONSTRAINT IF EXISTS "audit_logs_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "audit_logs" DROP CONSTRAINT IF EXISTS "audit_logs_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "block_metrics" DROP CONSTRAINT IF EXISTS "block_metrics_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "block_metrics" ADD CONSTRAINT "block_metrics_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "block_metrics" DROP CONSTRAINT IF EXISTS "block_metrics_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "block_metrics" ADD CONSTRAINT "block_metrics_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blocks" DROP CONSTRAINT IF EXISTS "blocks_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "blocks" ADD CONSTRAINT "blocks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blocks" DROP CONSTRAINT IF EXISTS "blocks_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "blocks" ADD CONSTRAINT "blocks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "blocks" DROP CONSTRAINT IF EXISTS "blocks_virtual_step_id_steps_id_fk";--> statement-breakpoint
+ALTER TABLE "blocks" ADD CONSTRAINT "blocks_virtual_step_id_steps_id_fk" FOREIGN KEY ("virtual_step_id") REFERENCES "steps"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collab_docs" DROP CONSTRAINT IF EXISTS "collab_docs_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collab_docs" DROP CONSTRAINT IF EXISTS "collab_docs_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "workflow_versions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collab_docs" DROP CONSTRAINT IF EXISTS "collab_docs_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "collab_docs" ADD CONSTRAINT "collab_docs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collab_snapshots" DROP CONSTRAINT IF EXISTS "collab_snapshots_doc_id_collab_docs_id_fk";--> statement-breakpoint
+ALTER TABLE "collab_snapshots" ADD CONSTRAINT "collab_snapshots_doc_id_collab_docs_id_fk" FOREIGN KEY ("doc_id") REFERENCES "collab_docs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collab_updates" DROP CONSTRAINT IF EXISTS "collab_updates_doc_id_collab_docs_id_fk";--> statement-breakpoint
+ALTER TABLE "collab_updates" ADD CONSTRAINT "collab_updates_doc_id_collab_docs_id_fk" FOREIGN KEY ("doc_id") REFERENCES "collab_docs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collection_fields" DROP CONSTRAINT IF EXISTS "collection_fields_collection_id_collections_id_fk";--> statement-breakpoint
+ALTER TABLE "collection_fields" ADD CONSTRAINT "collection_fields_collection_id_collections_id_fk" FOREIGN KEY ("collection_id") REFERENCES "collections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "collections" DROP CONSTRAINT IF EXISTS "collections_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "collections" ADD CONSTRAINT "collections_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "connections" DROP CONSTRAINT IF EXISTS "connections_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "connections" ADD CONSTRAINT "connections_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "connections" DROP CONSTRAINT IF EXISTS "connections_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "connections" ADD CONSTRAINT "connections_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "customer_billing_info" DROP CONSTRAINT IF EXISTS "customer_billing_info_organization_id_organizations_id_fk";--> statement-breakpoint
+ALTER TABLE "customer_billing_info" ADD CONSTRAINT "customer_billing_info_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_api_tokens" DROP CONSTRAINT IF EXISTS "datavault_api_tokens_database_id_datavault_databases_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_api_tokens" ADD CONSTRAINT "datavault_api_tokens_database_id_datavault_databases_id_fk" FOREIGN KEY ("database_id") REFERENCES "datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_api_tokens" DROP CONSTRAINT IF EXISTS "datavault_api_tokens_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_api_tokens" ADD CONSTRAINT "datavault_api_tokens_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_columns" DROP CONSTRAINT IF EXISTS "datavault_columns_table_id_datavault_tables_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_columns" ADD CONSTRAINT "datavault_columns_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_databases" DROP CONSTRAINT IF EXISTS "datavault_databases_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_databases" ADD CONSTRAINT "datavault_databases_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" DROP CONSTRAINT IF EXISTS "datavault_number_sequences_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" DROP CONSTRAINT IF EXISTS "datavault_number_sequences_table_id_datavault_tables_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" DROP CONSTRAINT IF EXISTS "datavault_number_sequences_column_id_datavault_columns_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_number_sequences" ADD CONSTRAINT "datavault_number_sequences_column_id_datavault_columns_id_fk" FOREIGN KEY ("column_id") REFERENCES "datavault_columns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" DROP CONSTRAINT IF EXISTS "datavault_row_notes_row_id_datavault_rows_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_row_id_datavault_rows_id_fk" FOREIGN KEY ("row_id") REFERENCES "datavault_rows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" DROP CONSTRAINT IF EXISTS "datavault_row_notes_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" DROP CONSTRAINT IF EXISTS "datavault_row_notes_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_row_notes" ADD CONSTRAINT "datavault_row_notes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_rows" DROP CONSTRAINT IF EXISTS "datavault_rows_table_id_datavault_tables_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_rows" DROP CONSTRAINT IF EXISTS "datavault_rows_created_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_rows" DROP CONSTRAINT IF EXISTS "datavault_rows_updated_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_rows" ADD CONSTRAINT "datavault_rows_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_table_permissions" DROP CONSTRAINT IF EXISTS "datavault_table_permissions_table_id_datavault_tables_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_table_permissions" ADD CONSTRAINT "datavault_table_permissions_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_table_permissions" DROP CONSTRAINT IF EXISTS "datavault_table_permissions_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_table_permissions" ADD CONSTRAINT "datavault_table_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_tables" DROP CONSTRAINT IF EXISTS "datavault_tables_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_tables" DROP CONSTRAINT IF EXISTS "datavault_tables_owner_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_owner_user_id_users_id_fk" FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_tables" DROP CONSTRAINT IF EXISTS "datavault_tables_database_id_datavault_databases_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_tables" ADD CONSTRAINT "datavault_tables_database_id_datavault_databases_id_fk" FOREIGN KEY ("database_id") REFERENCES "datavault_databases"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_values" DROP CONSTRAINT IF EXISTS "datavault_values_row_id_datavault_rows_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_row_id_datavault_rows_id_fk" FOREIGN KEY ("row_id") REFERENCES "datavault_rows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datavault_values" DROP CONSTRAINT IF EXISTS "datavault_values_column_id_datavault_columns_id_fk";--> statement-breakpoint
+ALTER TABLE "datavault_values" ADD CONSTRAINT "datavault_values_column_id_datavault_columns_id_fk" FOREIGN KEY ("column_id") REFERENCES "datavault_columns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "document_hooks" DROP CONSTRAINT IF EXISTS "document_hooks_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "document_hooks" ADD CONSTRAINT "document_hooks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_verification_tokens" DROP CONSTRAINT IF EXISTS "email_verification_tokens_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "email_verification_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "external_connections" DROP CONSTRAINT IF EXISTS "external_connections_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "external_connections" ADD CONSTRAINT "external_connections_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "external_connections" DROP CONSTRAINT IF EXISTS "external_connections_secret_id_secrets_id_fk";--> statement-breakpoint
+ALTER TABLE "external_connections" ADD CONSTRAINT "external_connections_secret_id_secrets_id_fk" FOREIGN KEY ("secret_id") REFERENCES "secrets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "external_destinations" DROP CONSTRAINT IF EXISTS "external_destinations_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "external_destinations" ADD CONSTRAINT "external_destinations_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lifecycle_hooks" DROP CONSTRAINT IF EXISTS "lifecycle_hooks_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "lifecycle_hooks" ADD CONSTRAINT "lifecycle_hooks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "lifecycle_hooks" DROP CONSTRAINT IF EXISTS "lifecycle_hooks_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "lifecycle_hooks" ADD CONSTRAINT "lifecycle_hooks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "logic_rules" DROP CONSTRAINT IF EXISTS "logic_rules_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "logic_rules" DROP CONSTRAINT IF EXISTS "logic_rules_condition_step_id_steps_id_fk";--> statement-breakpoint
+ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_condition_step_id_steps_id_fk" FOREIGN KEY ("condition_step_id") REFERENCES "steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "logic_rules" DROP CONSTRAINT IF EXISTS "logic_rules_target_step_id_steps_id_fk";--> statement-breakpoint
+ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_target_step_id_steps_id_fk" FOREIGN KEY ("target_step_id") REFERENCES "steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "logic_rules" DROP CONSTRAINT IF EXISTS "logic_rules_target_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "logic_rules" ADD CONSTRAINT "logic_rules_target_section_id_sections_id_fk" FOREIGN KEY ("target_section_id") REFERENCES "sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_events" DROP CONSTRAINT IF EXISTS "metrics_events_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_events" DROP CONSTRAINT IF EXISTS "metrics_events_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_events" DROP CONSTRAINT IF EXISTS "metrics_events_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_events" DROP CONSTRAINT IF EXISTS "metrics_events_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_events" ADD CONSTRAINT "metrics_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_rollups" DROP CONSTRAINT IF EXISTS "metrics_rollups_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_rollups" DROP CONSTRAINT IF EXISTS "metrics_rollups_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metrics_rollups" DROP CONSTRAINT IF EXISTS "metrics_rollups_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "metrics_rollups" ADD CONSTRAINT "metrics_rollups_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "mfa_backup_codes" DROP CONSTRAINT IF EXISTS "mfa_backup_codes_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "mfa_backup_codes" ADD CONSTRAINT "mfa_backup_codes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "mfa_secrets" DROP CONSTRAINT IF EXISTS "mfa_secrets_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "mfa_secrets" ADD CONSTRAINT "mfa_secrets_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" DROP CONSTRAINT IF EXISTS "oauth_access_tokens_client_id_oauth_apps_client_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_apps_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "oauth_apps"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" DROP CONSTRAINT IF EXISTS "oauth_access_tokens_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" DROP CONSTRAINT IF EXISTS "oauth_access_tokens_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_apps" DROP CONSTRAINT IF EXISTS "oauth_apps_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_apps" ADD CONSTRAINT "oauth_apps_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_auth_codes" DROP CONSTRAINT IF EXISTS "oauth_auth_codes_client_id_oauth_apps_client_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_client_id_oauth_apps_client_id_fk" FOREIGN KEY ("client_id") REFERENCES "oauth_apps"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_auth_codes" DROP CONSTRAINT IF EXISTS "oauth_auth_codes_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "password_reset_tokens" DROP CONSTRAINT IF EXISTS "password_reset_tokens_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_access" DROP CONSTRAINT IF EXISTS "project_access_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "project_access" ADD CONSTRAINT "project_access_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" DROP CONSTRAINT IF EXISTS "projects_creator_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" DROP CONSTRAINT IF EXISTS "projects_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" DROP CONSTRAINT IF EXISTS "projects_created_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" DROP CONSTRAINT IF EXISTS "projects_owner_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "records" DROP CONSTRAINT IF EXISTS "records_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "records" ADD CONSTRAINT "records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "records" DROP CONSTRAINT IF EXISTS "records_collection_id_collections_id_fk";--> statement-breakpoint
+ALTER TABLE "records" ADD CONSTRAINT "records_collection_id_collections_id_fk" FOREIGN KEY ("collection_id") REFERENCES "collections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "records" DROP CONSTRAINT IF EXISTS "records_created_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "records" ADD CONSTRAINT "records_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "records" DROP CONSTRAINT IF EXISTS "records_updated_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "records" ADD CONSTRAINT "records_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "refresh_tokens" DROP CONSTRAINT IF EXISTS "refresh_tokens_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "resource_permissions" DROP CONSTRAINT IF EXISTS "resource_permissions_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "resource_permissions" ADD CONSTRAINT "resource_permissions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "resource_permissions" DROP CONSTRAINT IF EXISTS "resource_permissions_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "resource_permissions" ADD CONSTRAINT "resource_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_tasks" DROP CONSTRAINT IF EXISTS "review_tasks_run_id_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_tasks" DROP CONSTRAINT IF EXISTS "review_tasks_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_tasks" DROP CONSTRAINT IF EXISTS "review_tasks_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_tasks" DROP CONSTRAINT IF EXISTS "review_tasks_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_tasks" DROP CONSTRAINT IF EXISTS "review_tasks_reviewer_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_reviewer_id_users_id_fk" FOREIGN KEY ("reviewer_id") REFERENCES "users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_generated_documents" DROP CONSTRAINT IF EXISTS "run_generated_documents_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_generated_documents" DROP CONSTRAINT IF EXISTS "run_generated_documents_template_id_workflow_templates_id_fk";--> statement-breakpoint
+ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_template_id_workflow_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "workflow_templates"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_logs" DROP CONSTRAINT IF EXISTS "run_logs_run_id_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "run_logs" ADD CONSTRAINT "run_logs_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_outputs" DROP CONSTRAINT IF EXISTS "run_outputs_run_id_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "run_outputs" ADD CONSTRAINT "run_outputs_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_outputs" DROP CONSTRAINT IF EXISTS "run_outputs_workflow_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "run_outputs" ADD CONSTRAINT "run_outputs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "runs" DROP CONSTRAINT IF EXISTS "runs_workflow_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "runs" ADD CONSTRAINT "runs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "runs" DROP CONSTRAINT IF EXISTS "runs_created_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "runs" ADD CONSTRAINT "runs_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "script_execution_log" DROP CONSTRAINT IF EXISTS "script_execution_log_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "script_execution_log" ADD CONSTRAINT "script_execution_log_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "secrets" DROP CONSTRAINT IF EXISTS "secrets_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "secrets" ADD CONSTRAINT "secrets_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sections" DROP CONSTRAINT IF EXISTS "sections_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "sections" ADD CONSTRAINT "sections_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signature_events" DROP CONSTRAINT IF EXISTS "signature_events_signature_request_id_signature_requests_id_fk";--> statement-breakpoint
+ALTER TABLE "signature_events" ADD CONSTRAINT "signature_events_signature_request_id_signature_requests_id_fk" FOREIGN KEY ("signature_request_id") REFERENCES "signature_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signature_requests" DROP CONSTRAINT IF EXISTS "signature_requests_run_id_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signature_requests" DROP CONSTRAINT IF EXISTS "signature_requests_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signature_requests" DROP CONSTRAINT IF EXISTS "signature_requests_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signature_requests" DROP CONSTRAINT IF EXISTS "signature_requests_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "signature_requests" ADD CONSTRAINT "signature_requests_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_configs" DROP CONSTRAINT IF EXISTS "sli_configs_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_configs" DROP CONSTRAINT IF EXISTS "sli_configs_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_configs" DROP CONSTRAINT IF EXISTS "sli_configs_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_configs" ADD CONSTRAINT "sli_configs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_windows" DROP CONSTRAINT IF EXISTS "sli_windows_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_windows" DROP CONSTRAINT IF EXISTS "sli_windows_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sli_windows" DROP CONSTRAINT IF EXISTS "sli_windows_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "sli_windows" ADD CONSTRAINT "sli_windows_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "step_values" DROP CONSTRAINT IF EXISTS "step_values_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "step_values" ADD CONSTRAINT "step_values_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "step_values" DROP CONSTRAINT IF EXISTS "step_values_step_id_steps_id_fk";--> statement-breakpoint
+ALTER TABLE "step_values" ADD CONSTRAINT "step_values_step_id_steps_id_fk" FOREIGN KEY ("step_id") REFERENCES "steps"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "steps" DROP CONSTRAINT IF EXISTS "steps_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "steps" ADD CONSTRAINT "steps_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscription_seats" DROP CONSTRAINT IF EXISTS "subscription_seats_subscription_id_subscriptions_id_fk";--> statement-breakpoint
+ALTER TABLE "subscription_seats" ADD CONSTRAINT "subscription_seats_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "subscriptions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscription_seats" DROP CONSTRAINT IF EXISTS "subscription_seats_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "subscription_seats" ADD CONSTRAINT "subscription_seats_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_organization_id_organizations_id_fk";--> statement-breakpoint
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_plan_id_billing_plans_id_fk";--> statement-breakpoint
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_billing_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "billing_plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "survey_templates" DROP CONSTRAINT IF EXISTS "survey_templates_creator_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "survey_templates" ADD CONSTRAINT "survey_templates_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team_members" DROP CONSTRAINT IF EXISTS "team_members_team_id_teams_id_fk";--> statement-breakpoint
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team_members" DROP CONSTRAINT IF EXISTS "team_members_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "teams" DROP CONSTRAINT IF EXISTS "teams_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "teams" ADD CONSTRAINT "teams_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "template_generation_metrics" DROP CONSTRAINT IF EXISTS "template_generation_metrics_template_id_templates_id_fk";--> statement-breakpoint
+ALTER TABLE "template_generation_metrics" ADD CONSTRAINT "template_generation_metrics_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "template_generation_metrics" DROP CONSTRAINT IF EXISTS "template_generation_metrics_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "template_generation_metrics" ADD CONSTRAINT "template_generation_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "template_shares" DROP CONSTRAINT IF EXISTS "template_shares_template_id_survey_templates_id_fk";--> statement-breakpoint
+ALTER TABLE "template_shares" ADD CONSTRAINT "template_shares_template_id_survey_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "survey_templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "template_shares" DROP CONSTRAINT IF EXISTS "template_shares_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "template_shares" ADD CONSTRAINT "template_shares_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "template_versions" DROP CONSTRAINT IF EXISTS "template_versions_template_id_templates_id_fk";--> statement-breakpoint
+ALTER TABLE "template_versions" ADD CONSTRAINT "template_versions_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "templates" DROP CONSTRAINT IF EXISTS "templates_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "templates" ADD CONSTRAINT "templates_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "tenant_domains" DROP CONSTRAINT IF EXISTS "tenant_domains_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "tenant_domains" ADD CONSTRAINT "tenant_domains_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transform_block_runs" DROP CONSTRAINT IF EXISTS "transform_block_runs_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "transform_block_runs" ADD CONSTRAINT "transform_block_runs_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transform_block_runs" DROP CONSTRAINT IF EXISTS "transform_block_runs_block_id_transform_blocks_id_fk";--> statement-breakpoint
+ALTER TABLE "transform_block_runs" ADD CONSTRAINT "transform_block_runs_block_id_transform_blocks_id_fk" FOREIGN KEY ("block_id") REFERENCES "transform_blocks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transform_blocks" DROP CONSTRAINT IF EXISTS "transform_blocks_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transform_blocks" DROP CONSTRAINT IF EXISTS "transform_blocks_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transform_blocks" DROP CONSTRAINT IF EXISTS "transform_blocks_virtual_step_id_steps_id_fk";--> statement-breakpoint
+ALTER TABLE "transform_blocks" ADD CONSTRAINT "transform_blocks_virtual_step_id_steps_id_fk" FOREIGN KEY ("virtual_step_id") REFERENCES "steps"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "trusted_devices" DROP CONSTRAINT IF EXISTS "trusted_devices_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "trusted_devices" ADD CONSTRAINT "trusted_devices_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "usage_records" DROP CONSTRAINT IF EXISTS "usage_records_organization_id_organizations_id_fk";--> statement-breakpoint
+ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "usage_records" DROP CONSTRAINT IF EXISTS "usage_records_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_credentials" DROP CONSTRAINT IF EXISTS "user_credentials_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "user_credentials" ADD CONSTRAINT "user_credentials_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_personalization_settings" DROP CONSTRAINT IF EXISTS "user_personalization_settings_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "user_personalization_settings" ADD CONSTRAINT "user_personalization_settings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_preferences" DROP CONSTRAINT IF EXISTS "user_preferences_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_events" DROP CONSTRAINT IF EXISTS "webhook_events_subscription_id_webhook_subscriptions_id_fk";--> statement-breakpoint
+ALTER TABLE "webhook_events" ADD CONSTRAINT "webhook_events_subscription_id_webhook_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "webhook_subscriptions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_subscriptions" DROP CONSTRAINT IF EXISTS "webhook_subscriptions_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "webhook_subscriptions" ADD CONSTRAINT "webhook_subscriptions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_access" DROP CONSTRAINT IF EXISTS "workflow_access_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_access" ADD CONSTRAINT "workflow_access_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_analytics_snapshots" DROP CONSTRAINT IF EXISTS "workflow_analytics_snapshots_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_analytics_snapshots" ADD CONSTRAINT "workflow_analytics_snapshots_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_analytics_snapshots" DROP CONSTRAINT IF EXISTS "workflow_analytics_snapshots_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_analytics_snapshots" ADD CONSTRAINT "workflow_analytics_snapshots_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_blueprints" DROP CONSTRAINT IF EXISTS "workflow_blueprints_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_blueprints" ADD CONSTRAINT "workflow_blueprints_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_blueprints" DROP CONSTRAINT IF EXISTS "workflow_blueprints_creator_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_blueprints" ADD CONSTRAINT "workflow_blueprints_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_data_sources" DROP CONSTRAINT IF EXISTS "workflow_data_sources_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_data_sources" ADD CONSTRAINT "workflow_data_sources_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_data_sources" DROP CONSTRAINT IF EXISTS "workflow_data_sources_data_source_id_datavault_databases_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_data_sources" ADD CONSTRAINT "workflow_data_sources_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_personalization_settings" DROP CONSTRAINT IF EXISTS "workflow_personalization_settings_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_personalization_settings" ADD CONSTRAINT "workflow_personalization_settings_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_queries" DROP CONSTRAINT IF EXISTS "workflow_queries_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_queries" DROP CONSTRAINT IF EXISTS "workflow_queries_data_source_id_datavault_databases_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_data_source_id_datavault_databases_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "datavault_databases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_queries" DROP CONSTRAINT IF EXISTS "workflow_queries_table_id_datavault_tables_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_queries" ADD CONSTRAINT "workflow_queries_table_id_datavault_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "datavault_tables"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_events" DROP CONSTRAINT IF EXISTS "workflow_run_events_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_events" ADD CONSTRAINT "workflow_run_events_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_run_id_workflow_runs_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" DROP CONSTRAINT IF EXISTS "workflow_run_metrics_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_version_id_workflow_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_runs" DROP CONSTRAINT IF EXISTS "workflow_runs_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_runs" DROP CONSTRAINT IF EXISTS "workflow_runs_workflow_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_runs" DROP CONSTRAINT IF EXISTS "workflow_runs_current_section_id_sections_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_runs" ADD CONSTRAINT "workflow_runs_current_section_id_sections_id_fk" FOREIGN KEY ("current_section_id") REFERENCES "sections"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_snapshots" DROP CONSTRAINT IF EXISTS "workflow_snapshots_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_snapshots" ADD CONSTRAINT "workflow_snapshots_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_snapshots" DROP CONSTRAINT IF EXISTS "workflow_snapshots_workflow_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_snapshots" ADD CONSTRAINT "workflow_snapshots_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_templates" DROP CONSTRAINT IF EXISTS "workflow_templates_workflow_version_id_workflow_versions_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_templates" ADD CONSTRAINT "workflow_templates_workflow_version_id_workflow_versions_id_fk" FOREIGN KEY ("workflow_version_id") REFERENCES "workflow_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_templates" DROP CONSTRAINT IF EXISTS "workflow_templates_template_id_templates_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_templates" ADD CONSTRAINT "workflow_templates_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_versions" DROP CONSTRAINT IF EXISTS "workflow_versions_workflow_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_versions" DROP CONSTRAINT IF EXISTS "workflow_versions_base_id_workflows_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_base_id_workflows_id_fk" FOREIGN KEY ("base_id") REFERENCES "workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_versions" DROP CONSTRAINT IF EXISTS "workflow_versions_created_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workflow_versions" ADD CONSTRAINT "workflow_versions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflows" DROP CONSTRAINT IF EXISTS "workflows_creator_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workflows" ADD CONSTRAINT "workflows_creator_id_users_id_fk" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflows" DROP CONSTRAINT IF EXISTS "workflows_owner_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workflows" ADD CONSTRAINT "workflows_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflows" DROP CONSTRAINT IF EXISTS "workflows_project_id_projects_id_fk";--> statement-breakpoint
+ALTER TABLE "workflows" ADD CONSTRAINT "workflows_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_invitations" DROP CONSTRAINT IF EXISTS "workspace_invitations_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "workspace_invitations" ADD CONSTRAINT "workspace_invitations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_invitations" DROP CONSTRAINT IF EXISTS "workspace_invitations_invited_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workspace_invitations" ADD CONSTRAINT "workspace_invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_members" DROP CONSTRAINT IF EXISTS "workspace_members_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_members" DROP CONSTRAINT IF EXISTS "workspace_members_user_id_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_members" DROP CONSTRAINT IF EXISTS "workspace_members_invited_by_users_id_fk";--> statement-breakpoint
+ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspaces" DROP CONSTRAINT IF EXISTS "workspaces_organization_id_organizations_id_fk";--> statement-breakpoint
+ALTER TABLE "workspaces" ADD CONSTRAINT "workspaces_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_locks_user_idx" ON "account_locks" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "account_locks_until_idx" ON "account_locks" USING btree ("locked_until");--> statement-breakpoint
 CREATE INDEX "api_keys_project_idx" ON "api_keys" USING btree ("project_id");--> statement-breakpoint
@@ -1718,16 +1889,24 @@ CREATE INDEX "invitation_token_idx" ON "workspace_invitations" USING btree ("tok
 CREATE INDEX "invitation_ws_email_idx" ON "workspace_invitations" USING btree ("workspace_id","email");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_member_idx" ON "workspace_members" USING btree ("workspace_id","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_org_slug_idx" ON "workspaces" USING btree ("organization_id","slug");--> statement-breakpoint
-ALTER TABLE "answers" ADD CONSTRAINT "answers_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "answers" ADD CONSTRAINT "answers_subquestion_id_loop_group_subquestions_id_fk" FOREIGN KEY ("subquestion_id") REFERENCES "public"."loop_group_subquestions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_condition_question_id_questions_id_fk" FOREIGN KEY ("condition_question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_question_id_questions_id_fk" FOREIGN KEY ("target_question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_page_id_survey_pages_id_fk" FOREIGN KEY ("target_page_id") REFERENCES "public"."survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "surveys" ADD CONSTRAINT "surveys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "answers" DROP CONSTRAINT IF EXISTS "answers_question_id_questions_id_fk";--> statement-breakpoint
+ALTER TABLE "answers" ADD CONSTRAINT "answers_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "answers" DROP CONSTRAINT IF EXISTS "answers_subquestion_id_loop_group_subquestions_id_fk";--> statement-breakpoint
+ALTER TABLE "answers" ADD CONSTRAINT "answers_subquestion_id_loop_group_subquestions_id_fk" FOREIGN KEY ("subquestion_id") REFERENCES "loop_group_subquestions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_condition_question_id_questions_id_fk";--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_condition_question_id_questions_id_fk" FOREIGN KEY ("condition_question_id") REFERENCES "questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_target_question_id_questions_id_fk";--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_question_id_questions_id_fk" FOREIGN KEY ("target_question_id") REFERENCES "questions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conditional_rules" DROP CONSTRAINT IF EXISTS "conditional_rules_target_page_id_survey_pages_id_fk";--> statement-breakpoint
+ALTER TABLE "conditional_rules" ADD CONSTRAINT "conditional_rules_target_page_id_survey_pages_id_fk" FOREIGN KEY ("target_page_id") REFERENCES "survey_pages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "surveys" DROP CONSTRAINT IF EXISTS "surveys_workspace_id_workspaces_id_fk";--> statement-breakpoint
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_tenant_id_tenants_id_fk";--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE cascade ON UPDATE no action NOT VALID;--> statement-breakpoint
 CREATE INDEX "surveys_workspace_idx" ON "surveys" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "users_tenant_idx" ON "users" USING btree ("tenant_id");--> statement-breakpoint
 CREATE INDEX "users_tenant_email_idx" ON "users" USING btree ("tenant_id","email");--> statement-breakpoint
 ALTER TABLE "responses" DROP COLUMN "recipient_id";--> statement-breakpoint
+ALTER TABLE "surveys" DROP CONSTRAINT IF EXISTS "surveys_public_slug_unique";--> statement-breakpoint
 ALTER TABLE "surveys" ADD CONSTRAINT "surveys_public_slug_unique" UNIQUE("public_slug");

@@ -1,12 +1,15 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, asc, isNull, or } from "drizzle-orm";
+
 import {
   documentHooks,
   type DocumentHook,
   type InsertDocumentHook,
 } from "@shared/schema";
 import type { DocumentHookPhase } from "@shared/types/scripting";
-import { eq, and, asc, isNull, or } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for document hook data access
@@ -25,7 +28,7 @@ export class DocumentHookRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<DocumentHook[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(documentHooks)
       .where(eq(documentHooks.workflowId, workflowId))
@@ -37,7 +40,7 @@ export class DocumentHookRepository extends BaseRepository<
    */
   async findEnabledByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<DocumentHook[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(documentHooks)
       .where(and(eq(documentHooks.workflowId, workflowId), eq(documentHooks.enabled, true)))
@@ -67,7 +70,7 @@ export class DocumentHookRepository extends BaseRepository<
     // If documentId is null, only include global hooks
     if (documentId) {
       // Include hooks that match the document OR are global (null finalBlockDocumentId)
-      return await database
+      return database
         .select()
         .from(documentHooks)
         .where(
@@ -83,7 +86,7 @@ export class DocumentHookRepository extends BaseRepository<
     } else {
       // Only global hooks
       conditions.push(isNull(documentHooks.finalBlockDocumentId));
-      return await database
+      return database
         .select()
         .from(documentHooks)
         .where(and(...conditions))

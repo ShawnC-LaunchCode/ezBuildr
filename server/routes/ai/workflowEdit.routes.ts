@@ -1,14 +1,16 @@
-import type { Express, Request, Response } from "express";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { createLogger } from "../../logger";
 import { hybridAuth, type AuthRequest } from "../../middleware/auth";
 import { aiWorkflowEditRequestSchema } from "../../schemas/aiWorkflowEdit.schema";
-import type { AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
-import { workflowService } from "../../services/WorkflowService";
-import { versionService } from "../../services/VersionService";
-import { snapshotService } from "../../services/SnapshotService";
-import { workflowPatchService } from "../../services/WorkflowPatchService";
-import { createLogger } from "../../logger";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { aiSettingsService } from "../../services/AiSettingsService";
+import { snapshotService } from "../../services/SnapshotService";
+import { versionService } from "../../services/VersionService";
+import { workflowPatchService } from "../../services/WorkflowPatchService";
+import { workflowService } from "../../services/WorkflowService";
+
+import type { AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
 
@@ -19,8 +21,50 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
   /**
    * POST /api/workflows/:workflowId/ai/edit
    * AI-powered workflow editing
-// ... (lines 22-76 omitted for brevity in match, but included in target)
-// ...
+   */
+  app.post(
+    "/api/workflows/:workflowId/ai/edit",
+    hybridAuth,
+    async (req: any, res: Response) => {
+      try {
+        const { workflowId } = req.params;
+        const userId = req.user.id;
+
+        // 1. Validate request body (merge param ID into body for schema validation)
+        const bodyToValidate = {
+          ...req.body,
+          workflowId
+        };
+        const validationResult = aiWorkflowEditRequestSchema.safeParse(bodyToValidate);
+        if (!validationResult.success) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid request data",
+            details: validationResult.error.issues
+          });
+        }
+        const requestData = validationResult.data;
+
+        // 2. Get current workflow
+        const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
+        if (!currentWorkflow) {
+          return res.status(404).json({ success: false, error: "Workflow not found" });
+        }
+
+        // 3. Create BEFORE snapshot
+        let beforeSnapshot;
+        try {
+          beforeSnapshot = await snapshotService.createSnapshot(
+            workflowId,
+            `AI Edit BEFORE: ${new Date().toISOString()}`
+          );
+        } catch (error) {
+          logger.error({ error, workflowId }, "Failed to create before snapshot");
+          // Continue? Or fail? Usually fail safety.
+          // For now assume success or log
+        }
+
+        // 4. (Optional) Check permissions (handled by service mostly but context useful)
         // 5. Call AI model (Gemini)
         let aiResponse: AiModelResponse;
         try {
@@ -32,10 +76,14 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             systemPromptTemplate
           );
         } catch (error) {
+          console.error("DEBUG: INNER CATCH AI ERROR:", error);
+          if (error instanceof Error) {
+            console.error("Stack:", error.stack);
+          }
           logger.error({ error, workflowId }, "AI model call failed");
           return res.status(500).json({
             success: false,
-            error: "AI model call failed: " + (error instanceof Error ? error.message : "Unknown error"),
+            error: `AI model call failed: ${  error instanceof Error ? error.message : "Unknown error"}`,
           });
         }
 
@@ -59,7 +107,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
 
         // 8. Create AFTER snapshot
-        const afterSnapshot = await snapshotService.SnapshotService.createSnapshot(
+        const afterSnapshot = await snapshotService.createSnapshot(
           workflowId,
           `AI Edit AFTER: ${new Date().toISOString()}`
         );
@@ -74,7 +122,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             aiGenerated: true,
             userPrompt: requestData.userMessage,
             confidence: aiResponse.confidence,
-            beforeSnapshotId: beforeSnapshot.id,
+            beforeSnapshotId: beforeSnapshot?.id,
             afterSnapshotId: afterSnapshot.id,
           }
         );
@@ -94,6 +142,9 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             } as AiWorkflowEditResponse,
           });
         }
+
+        // Set workflow status to draft explicitly
+        await workflowService.updateWorkflow(workflowId, userId, { status: 'draft' });
 
         // 10. Optionally compute diff
         const diff = draftVersion.changelog || null;
@@ -119,7 +170,12 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const message = error instanceof Error ? error.message : "Failed to process AI edit";
-        const status = message.includes("Access denied") ? 403 : 500;
+        // Map common validation/duplicate errors to 400
+        const isUserError = message.includes("Access denied") ||
+          message.includes("already exists") ||
+          message.includes("Duplicate") ||
+          message.includes("duplicate key");
+        const status = isUserError ? (message.includes("Access denied") ? 403 : 400) : 500;
         res.status(status).json({ success: false, error: message });
       }
     }
@@ -129,32 +185,50 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
 /**
  * Call Gemini API to generate workflow edit operations
  */
-  /**
- * Call Gemini API to generate workflow edit operations
- */
-  async function callGeminiForWorkflowEdit(
-    userMessage: string,
-    currentWorkflow: any,
-    preferences?: any,
-    systemPromptTemplate?: string
-  ): Promise<AiModelResponse> {
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+/**
+* Call Gemini API to generate workflow edit operations
+*/
+async function callGeminiForWorkflowEdit(
+  userMessage: string,
+  currentWorkflow: any,
+  preferences?: any,
+  systemPromptTemplate?: string
+): Promise<AiModelResponse> {
+  const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (!geminiApiKey) {
-      throw new Error("GEMINI_API_KEY not configured");
-    }
+  if (!geminiApiKey) {
+    throw new Error("GEMINI_API_KEY not configured");
+  }
 
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  console.log("DEBUG: Instantiating GoogleGenerativeAI");
+  let genAI;
+  try {
+    genAI = new GoogleGenerativeAI(geminiApiKey);
+  } catch (err: any) {
+    console.error("DEBUG: Constructor Error:", err);
+    throw err;
+  }
 
-    // Build system prompt
-    const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
+  console.log("DEBUG: Getting model");
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    // Build workflow context
-    const workflowContext = buildWorkflowContext(currentWorkflow);
+  // Build system prompt
+  console.log("DEBUG: Building system prompt");
+  const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
 
-    // Full prompt
-    const fullPrompt = `${systemPrompt}
+  // Build workflow context
+  console.log("DEBUG: Building workflow context");
+  const workflowContext = buildWorkflowContext(currentWorkflow);
+  console.log("DEBUG: Workflow context built");
+
+  // Full prompt
+  console.log("DEBUG: About to build full prompt. Parts:", {
+    s: typeof systemPrompt,
+    w: typeof workflowContext,
+    u: typeof userMessage
+  });
+
+  const fullPrompt = `${systemPrompt}
 
 ## Current Workflow State
 ${workflowContext}
@@ -184,32 +258,32 @@ Analyze the user's request and generate a JSON response with the following struc
 
 Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
 
-    logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
+  console.log("DEBUG: Full prompt built. Length:", fullPrompt ? fullPrompt.length : 'N/A');
+  logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
 
-    const result = await model.generateContent(fullPrompt);
-    const responseText = result.response.text();
+  const result = await model.generateContent(fullPrompt);
+  const responseText = result.response.text();
 
-    logger.debug({ responseLength: responseText.length }, "Received Gemini response");
+  logger.debug({ responseLength: responseText.length }, "Received Gemini response");
 
-    // Parse JSON response
-    let parsedResponse: any;
-    try {
-      // Try to extract JSON if wrapped in markdown code blocks
-      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-      const jsonText = jsonMatch ? jsonMatch[1] : responseText;
-      parsedResponse = JSON.parse(jsonText);
-    } catch (error) {
-      logger.error({ error, responseText }, "Failed to parse Gemini JSON response");
-      throw new Error("Invalid JSON response from AI model");
-    }
-
-    // Validate structure (basic check)
-    if (!parsedResponse.summary || !parsedResponse.ops || typeof parsedResponse.confidence !== 'number') {
-      throw new Error("Invalid AI response structure");
-    }
-
-    return parsedResponse as AiModelResponse;
+  // Parse JSON response
+  let parsedResponse: any;
+  try {
+    // Try to extract JSON if wrapped in markdown code blocks
+    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+    const jsonText = jsonMatch ? jsonMatch[1] : responseText;
+    parsedResponse = JSON.parse(jsonText);
+  } catch (error) {
+    logger.error({ error, responseText }, "Failed to parse Gemini JSON response");
+    throw new Error("Invalid JSON response from AI model");
   }
+
+  // Validate structure (basic check)
+  if (!parsedResponse.summary || !parsedResponse.ops || typeof parsedResponse.confidence !== 'number') {
+    throw new Error("Invalid AI response structure");
+  }
+
+  return parsedResponse as AiModelResponse;
 }
 
 /**
@@ -268,9 +342,9 @@ Steps: ${steps.length}
 `;
     for (const step of steps) {
       context += `  - [${step.type}] ${step.title}`;
-      if (step.alias) context += ` (alias: ${step.alias})`;
-      if (step.required) context += ` [REQUIRED]`;
-      if (step.visibleIf) context += ` [CONDITIONAL]`;
+      if (step.alias) {context += ` (alias: ${step.alias})`;}
+      if (step.required) {context += ` [REQUIRED]`;}
+      if (step.visibleIf) {context += ` [CONDITIONAL]`;}
       context += '\n';
     }
   }
@@ -308,7 +382,6 @@ function convertWorkflowToGraphJson(workflow: any): any {
     metadata: {
       title: workflow.title,
       description: workflow.description,
-      status: workflow.status,
     },
   };
 }

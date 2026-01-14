@@ -1,8 +1,11 @@
-import { db } from '../db';
-import { emailTemplateMetadata } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { createLogger } from '../logger';
+
+import { emailTemplateMetadata } from '@shared/schema';
 import type { EmailTemplateMetadata } from '@shared/types/branding';
+
+import { db } from '../db';
+import { createLogger } from '../logger';
+
 
 const logger = createLogger({ module: 'EmailTemplateMetadataService' });
 
@@ -93,10 +96,10 @@ export class EmailTemplateMetadataService {
         updatedAt: new Date(),
       };
 
-      if (metadata.name !== undefined) updateData.name = metadata.name;
-      if (metadata.description !== undefined) updateData.description = metadata.description;
-      if (metadata.subjectPreview !== undefined) updateData.subjectPreview = metadata.subjectPreview;
-      if (metadata.brandingTokens !== undefined) updateData.brandingTokens = metadata.brandingTokens;
+      if (metadata.name !== undefined) {updateData.name = metadata.name;}
+      if (metadata.description !== undefined) {updateData.description = metadata.description;}
+      if (metadata.subjectPreview !== undefined) {updateData.subjectPreview = metadata.subjectPreview;}
+      if (metadata.brandingTokens !== undefined) {updateData.brandingTokens = metadata.brandingTokens;}
 
       const [updatedTemplate] = await db
         .update(emailTemplateMetadata)
@@ -186,8 +189,8 @@ export class EmailTemplateMetadataService {
       const allTemplates = await this.listEmailTemplates();
 
       const filtered = allTemplates.filter((template) => {
-        if (!template.brandingTokens) return false;
-        const tokens = template.brandingTokens as Record<string, boolean>;
+        if (!template.brandingTokens) {return false;}
+        const tokens = template.brandingTokens;
         return tokens[tokenKey] === true;
       });
 

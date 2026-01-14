@@ -1,8 +1,11 @@
 
-import { db } from "../db";
-import { workflows, sections, steps, blocks, workflowVersions, projects } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+
+import { workflows, sections, steps, blocks, workflowVersions, projects } from "@shared/schema";
+
+import { db } from "../db";
 import { createLogger } from "../logger";
+
 import type { DbTransaction } from "../repositories";
 
 const logger = createLogger({ module: "workflow-cloner" });
@@ -22,7 +25,7 @@ export class WorkflowClonerService {
     ) {
         logger.info({ originalWorkflowId, userId, targetProjectId }, "Cloning workflow");
 
-        return await db.transaction(async (tx: DbTransaction) => {
+        return db.transaction(async (tx: DbTransaction) => {
             // 1. Fetch original workflow
             const [originalWorkflow] = await tx
                 .select()

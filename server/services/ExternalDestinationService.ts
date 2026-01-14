@@ -1,11 +1,13 @@
 
-import { db } from "../db";
+import { eq, and } from "drizzle-orm";
+
 import {
     externalDestinations,
     type ExternalDestination,
     type InsertExternalDestination
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+
+import { db } from "../db";
 import { logger } from "../logger";
 
 export class ExternalDestinationService {

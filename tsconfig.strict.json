@@ -1,0 +1,38 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Strict mode flags
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    // Additional strict checks that complement the above
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    // Ensure we catch issues early
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    // Strict zones - new code paths that must use strict mode
+    "server/services/scripting/**/*",
+    "server/routes/lifecycle-hooks.routes.ts",
+    "server/routes/document-hooks.routes.ts",
+    "server/repositories/LifecycleHookRepository.ts",
+    "server/repositories/DocumentHookRepository.ts",
+    "server/repositories/ScriptExecutionLogRepository.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

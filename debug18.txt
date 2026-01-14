@@ -1,0 +1,157 @@
+
+Running 4 tests using 4 workers
+
+Creation Workflow...
+Creation Workflow...
+Creation Workflow...
+Creation Workflow...
+Create Workflow Status: 201
+Creating Section for 07cd8470-3791-46f7-9b13-a75c2d0e674b...
+Create Workflow Status: 201
+Creating Section for 75d23670-3982-4a87-ad21-606c4e7bd0c9...
+Create Workflow Status: 201
+Creating Section for b932117b-2193-407d-b512-f3dbcb95d6e4...
+Create Workflow Status: 201
+Creating Section for 8378bc10-c2f4-4043-90da-1697b46dfac4...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Create Section Status: 201
+Navigating to Builder...
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Waiting for Page text...
+Waiting for Page text...
+Page text found.
+Page text found.
+Step: Adding List Tools block
+Waiting for Page text...
+Looking for Add Logic button...
+Page text found.
+Waiting for Page text...
+Page text found.
+Waiting for List Tool block...
+  Γ£ÿ  1 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence (1.1m)
+  Γ£ÿ  2 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:171:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) (1.1m)
+  Γ£ÿ  3 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:197:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) (1.1m)
+  Γ£ÿ  4 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:275:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) (1.1m)
+
+
+  1) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.waitFor: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first() to be visible[22m
+
+
+      101 |         // Use generic node locator (only 1 block exists)
+      102 |         const blockItem = page.locator('.react-flow__node').first();
+    > 103 |         await blockItem.waitFor();
+          |                         ^
+      104 |
+      105 |         // Open Editor
+      106 |         await blockItem.dblclick();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:103:25
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:171:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.dblclick: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first()[22m
+
+
+      178 |         // Use generic node locator (only 1 block exists)
+      179 |         const blockItem = page.locator('.react-flow__node').first();
+    > 180 |         await blockItem.dblclick();
+          |                         ^
+      181 |
+      182 |         // Set Range: Limit 0
+      183 |         await page.getByText("Range").click();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:180:25
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\error-context.md
+
+  3) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:197:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.dblclick: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first()[22m
+
+
+      204 |         // Use generic node locator (only 1 block exists)
+      205 |         const blockItem = page.locator('.react-flow__node').first();
+    > 206 |         await blockItem.dblclick();
+          |                         ^
+      207 |         const dialog = page.getByRole('dialog');
+      208 |         await dialog.waitFor();
+      209 |
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:206:25
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\error-context.md
+
+  4) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:275:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.dblclick: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.react-flow__node').first()[22m
+
+
+      295 |         // Use generic node locator (only 1 block exists)
+      296 |         const blockItem = page.locator('.react-flow__node').first();
+    > 297 |         await blockItem.dblclick();
+          |                         ^
+      298 |         const dialog = page.getByRole('dialog');
+      299 |         await dialog.waitFor();
+      300 |
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:297:25
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\error-context.md
+
+  4 failed
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:171:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:197:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:275:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) 

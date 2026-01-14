@@ -1,13 +1,15 @@
+import type { Block } from "@shared/schema";
+import type { ListToolsConfig } from "@shared/types/blocks";
+
+import { logger } from "../logger";
 import {
   blockRepository,
   workflowRepository,
   stepRepository,
   sectionRepository,
 } from "../repositories";
-import type { Block } from "@shared/schema";
-import type { ListToolsConfig } from "@shared/types/blocks";
+
 import { workflowService } from "./WorkflowService";
-import { logger } from "../logger";
 
 /**
  * Service layer for list tools block business logic
@@ -69,7 +71,7 @@ export class ListToolsBlockService {
       type: 'computed',
       title: `List Tools: ${data.name}`,
       description: `Virtual step for list tools block: ${data.name}`,
-      alias: data.config.outputKey,
+      alias: data.config.outputListVar,
       required: false,
       order: -1,
       isVirtual: true,
@@ -90,8 +92,8 @@ export class ListToolsBlockService {
     logger.info({
       blockId: block.id,
       virtualStepId: virtualStep.id,
-      outputVar: data.config.outputKey,
-      operation: data.config.operation
+      outputVar: data.config.outputListVar,
+      sourceVar: data.config.sourceListVar
     }, "Created list tools block with virtual step");
 
     return block;
@@ -111,7 +113,7 @@ export class ListToolsBlockService {
     }
   ): Promise<Block> {
     const block = await this.blockRepo.findById(blockId);
-    if (!block) throw new Error("Block not found");
+    if (!block) {throw new Error("Block not found");}
 
     await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
@@ -124,12 +126,12 @@ export class ListToolsBlockService {
 
     // Update virtual step if output key changes
     if (
-      data.config?.outputKey &&
-      data.config.outputKey !== currentConfig.outputKey &&
+      data.config?.outputListVar &&
+      data.config.outputListVar !== currentConfig.outputListVar &&
       block.virtualStepId
     ) {
       await this.stepRepo.update(block.virtualStepId, {
-        alias: data.config.outputKey,
+        alias: data.config.outputListVar,
         title: `List Tools: ${data.name || 'Updated List Tools'}`
       });
     } else if (data.name && block.virtualStepId) {
@@ -139,7 +141,7 @@ export class ListToolsBlockService {
       });
     }
 
-    return await this.blockRepo.update(blockId, {
+    return this.blockRepo.update(blockId, {
       config: newConfig,
       enabled: data.enabled
     });

@@ -1,0 +1,173 @@
+graph TB
+    subgraph "Client Layer"
+        DatavaultUI[DataVault UI<br/>React Components]
+        DatabaseList[Database List]
+        TableView[Table View<br/>Infinite Scroll]
+        RowEditor[Row Editor Modal]
+        PermissionsUI[Permissions Manager]
+        ApiTokenUI[API Token Manager]
+    end
+
+    subgraph "API Layer"
+        DatabaseRoutes[Database Routes<br/>/api/databases]
+        TableRoutes[Table Routes<br/>/api/tables]
+        RowRoutes[Row Routes<br/>/api/tables/:id/rows]
+        PermissionRoutes[Permission Routes<br/>/api/tables/:id/permissions]
+        TokenRoutes[Token Routes<br/>/api/projects/:id/api-tokens]
+        NoteRoutes[Note Routes<br/>/api/tables/:id/rows/:rid/notes]
+    end
+
+    subgraph "Service Layer"
+        DatabaseService[DatavaultDatabasesService]
+        TableService[DatavaultTablesService]
+        RowService[DatavaultRowsService]
+        PermissionService[DatavaultTablePermissionsService]
+        TokenService[DatavaultApiTokensService]
+        NoteService[DatavaultRowNotesService]
+        AclService[ACL Service]
+    end
+
+    subgraph "Repository Layer"
+        DatabaseRepo[(DatabaseRepository)]
+        TableRepo[(TableRepository)]
+        RowRepo[(RowRepository)]
+        PermissionRepo[(PermissionRepository)]
+    end
+
+    subgraph "Database Schema"
+        DatabasesTable[(databases<br/>id, projectId, name)]
+        TablesTable[(tables<br/>id, databaseId, name, columns)]
+        RowsTable[(table_rows<br/>id, tableId, data JSONB)]
+        PermissionsTable[(table_permissions<br/>tableId, userId, teamId, permissions)]
+        ApiTokensTable[(api_tokens<br/>id, projectId, token)]
+        NotesTable[(row_notes<br/>id, tableId, rowId, note)]
+    end
+
+    %% UI to API
+    DatavaultUI --> DatabaseList
+    DatavaultUI --> TableView
+    DatavaultUI --> RowEditor
+    DatavaultUI --> PermissionsUI
+    DatavaultUI --> ApiTokenUI
+
+    DatabaseList --> DatabaseRoutes
+    TableView --> TableRoutes
+    TableView --> RowRoutes
+    RowEditor --> RowRoutes
+    PermissionsUI --> PermissionRoutes
+    ApiTokenUI --> TokenRoutes
+    TableView --> NoteRoutes
+
+    %% API to Services
+    DatabaseRoutes --> DatabaseService
+    TableRoutes --> TableService
+    RowRoutes --> RowService
+    PermissionRoutes --> PermissionService
+    TokenRoutes --> TokenService
+    NoteRoutes --> NoteService
+
+    %% Service Dependencies
+    DatabaseService --> AclService
+    TableService --> DatabaseService
+    TableService --> AclService
+    RowService --> TableService
+    RowService --> PermissionService
+    RowService --> AclService
+    PermissionService --> AclService
+    NoteService --> RowService
+
+    %% Services to Repositories
+    DatabaseService --> DatabaseRepo
+    TableService --> TableRepo
+    RowService --> RowRepo
+    PermissionService --> PermissionRepo
+
+    %% Repositories to Database
+    DatabaseRepo --> DatabasesTable
+    TableRepo --> TablesTable
+    RowRepo --> RowsTable
+    PermissionRepo --> PermissionsTable
+    TokenService --> ApiTokensTable
+    NoteService --> NotesTable
+
+    %% Database Relationships
+    DatabasesTable -->|1:N| TablesTable
+    TablesTable -->|1:N| RowsTable
+    TablesTable -->|1:N| PermissionsTable
+    TablesTable -->|1:N| NotesTable
+
+    subgraph "Column Types & Features"
+        ColumnTypes[Column Types:<br/>text, number, date,<br/>boolean, select,<br/>multiselect, autonumber]
+        Features[Features:<br/>Infinite Scroll<br/>Filtering<br/>Sorting<br/>Bulk Operations<br/>Optimistic Updates<br/>Row Comments]
+    end
+
+    TableView -.-> ColumnTypes
+    TableView -.-> Features
+
+    subgraph "Permission Model"
+        PermissionLevels[Permissions:<br/>canView<br/>canCreate<br/>canUpdate<br/>canDelete]
+        PermissionScope[Scope:<br/>User-level<br/>Team-level]
+        PermissionCheck{Permission<br/>Check}
+    end
+
+    PermissionService --> PermissionLevels
+    PermissionService --> PermissionScope
+    AclService --> PermissionCheck
+
+    subgraph "API Token Flow"
+        TokenGeneration[Token Generation:<br/>UUID v4<br/>Optional Expiry]
+        TokenAuth[Token Auth:<br/>Bearer Token<br/>Project Scope]
+        TokenValidation{Token<br/>Validation}
+    end
+
+    TokenService --> TokenGeneration
+    TokenAuth --> TokenValidation
+    TokenValidation --> RowService
+
+    subgraph "Row Data Structure"
+        JsonbData[JSONB Data:<br/>Flexible Schema<br/>Dynamic Columns<br/>Index Support]
+        DataValidation[Validation:<br/>Type Checking<br/>Required Fields<br/>Unique Constraints]
+    end
+
+    RowsTable --> JsonbData
+    RowService --> DataValidation
+
+    subgraph "Integration with Workflows"
+        QueryBlock[Query Block<br/>Read DataVault Data]
+        SendDataBlock[Send Data Block<br/>Write to DataVault]
+        ReadTableBlock[Read Table Block<br/>Fetch Rows]
+    end
+
+    QueryBlock -.->|Read| RowService
+    SendDataBlock -.->|Write| RowService
+    ReadTableBlock -.->|Read| RowService
+
+    subgraph "Infinite Scroll Implementation"
+        Pagination[Pagination:<br/>Offset-based<br/>Page Size: 50]
+        LazyLoad[Lazy Loading:<br/>Load on Scroll<br/>Virtual Scrolling]
+        Caching[Client Cache:<br/>TanStack Query<br/>Optimistic Updates]
+    end
+
+    TableView --> Pagination
+    TableView --> LazyLoad
+    TableView --> Caching
+
+    subgraph "Notes & Collaboration"
+        NoteThread[Note Thread:<br/>Per Row<br/>User Attribution<br/>Timestamps]
+        NoteNotification[Notifications:<br/>@mentions<br/>Activity Feed]
+    end
+
+    NoteService --> NoteThread
+    NoteThread -.-> NoteNotification
+
+    %% Styling
+    style DatavaultUI fill:#61dafb,stroke:#333,stroke-width:2px
+    style DatabaseService fill:#68a063,stroke:#333,stroke-width:2px
+    style TableService fill:#68a063,stroke:#333,stroke-width:2px
+    style RowService fill:#68a063,stroke:#333,stroke-width:2px
+    style DatabasesTable fill:#336791,stroke:#333,stroke-width:2px
+    style TablesTable fill:#336791,stroke:#333,stroke-width:2px
+    style RowsTable fill:#336791,stroke:#333,stroke-width:2px
+    style PermissionCheck fill:#ff6b6b,stroke:#333,stroke-width:2px
+    style TokenValidation fill:#ff6b6b,stroke:#333,stroke-width:2px
+    style JsonbData fill:#ffd43b,stroke:#333,stroke-width:2px

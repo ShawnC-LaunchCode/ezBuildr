@@ -4,7 +4,7 @@
  * Branded input for intake portals using tenant branding CSS variables
  */
 
-import { InputHTMLAttributes, forwardRef, TextareaHTMLAttributes } from 'react';
+import React, { InputHTMLAttributes, forwardRef, TextareaHTMLAttributes } from 'react';
 
 export interface ThemedInputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Input label */

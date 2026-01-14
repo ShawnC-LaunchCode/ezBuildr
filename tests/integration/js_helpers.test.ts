@@ -1,13 +1,20 @@
 
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
-import { registerRoutes } from "../../server/routes";
-import { db } from "../../server/db";
-import { tenants, users, workflows, sections, steps, stepValues } from "@shared/schema";
-import { setupAuth } from "../../server/googleAuth";
-import { nanoid } from "nanoid";
 import { eq, and } from "drizzle-orm";
+import express, { type Express } from "express";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+
+import { tenants, users, workflows, sections, steps, stepValues } from "@shared/schema";
+
+import { db } from "../../server/db";
+import { setupAuth } from "../../server/googleAuth";
+import { registerRoutes } from "../../server/routes";
+
+
+
+// Hoisted state for auth
+const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
 
 // Mock auth middleware to allow bypassing Google auth
 vi.mock("../../server/googleAuth", async (importOriginal: any) => {
@@ -15,11 +22,11 @@ vi.mock("../../server/googleAuth", async (importOriginal: any) => {
     return {
         ...actual,
         setupAuth: (app: Express) => {
-            app.use(actual.getSession());
+            // Restore user from state
             app.use((req, res, next) => {
                 const r = req as any;
-                if (r.session && r.session.user) {
-                    r.user = r.session.user;
+                if (authState.user) {
+                    r.user = authState.user;
                     r.isAuthenticated = () => true;
                 } else {
                     r.isAuthenticated = () => false;
@@ -28,15 +35,34 @@ vi.mock("../../server/googleAuth", async (importOriginal: any) => {
             });
 
             app.post("/api/auth/mock-login", (req, res) => {
-                const r = req as any;
                 if (req.body.user) {
-                    r.session.user = req.body.user;
-                    r.user = req.body.user;
+                    authState.user = req.body.user;
                     return res.json({ message: "Logged in", user: req.body.user });
                 }
                 res.status(400).json({ error: "No user provided" });
             });
         },
+    };
+});
+
+// Mock auth middleware to respect req.user set by setupAuth
+vi.mock("../../server/middleware/auth", async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        ...actual,
+        hybridAuth: (req: any, res: any, next: any) => {
+            if (req.user) {
+                req.tenantId = req.user.tenantId;
+                req.userId = req.user.id;
+                return next();
+            }
+            console.log("JS_HELPERS MOCK AUTH: No req.user found!");
+            return actual.hybridAuth(req, res, next);
+        },
+        optionalHybridAuth: (req: any, res: any, next: any) => {
+            if (req.user) {return next();}
+            return actual.optionalHybridAuth(req, res, next);
+        }
     };
 });
 
@@ -51,6 +77,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         app = express();
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
+        setupAuth(app); // Call setupAuth to attach the middleware
         await registerRoutes(app);
         agent = request.agent(app);
 
@@ -134,7 +161,7 @@ describe("Detailed Verification: JS Helper Availability", () => {
         // 3. Create a Run
         const runRes = await agent.post(`/api/workflows/${workflowId}/runs`).send({});
         expect(runRes.status).toBe(201); // 201 Created
-        const runId = runRes.body.id;
+        const runId = runRes.body.data.runId;
 
         // 4. Submit the section (triggering execution)
         const submitRes = await agent.post(`/api/runs/${runId}/sections/${section.id}/submit`).send({

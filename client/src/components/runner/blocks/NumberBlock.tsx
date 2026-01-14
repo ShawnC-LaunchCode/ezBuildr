@@ -11,8 +11,10 @@
  */
 
 import React from "react";
+
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
+
 import type { NumberConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 export interface NumberBlockProps {
@@ -59,8 +61,8 @@ export function NumberBlockRenderer({ step, value, onChange, readOnly }: NumberB
     }
 
     // Enforce min/max
-    if (min !== undefined && parsed < min) return;
-    if (max !== undefined && parsed > max) return;
+    if (min !== undefined && parsed < min) {return;}
+    if (max !== undefined && parsed > max) {return;}
 
     onChange(parsed);
   };

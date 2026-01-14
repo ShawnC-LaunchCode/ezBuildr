@@ -63,7 +63,7 @@ export function evaluateRules(
 
     if (conditionMet) {
       const targetId = rule.targetSectionId;
-      if (!targetId) return;
+      if (!targetId) {return;}
 
       switch (rule.action) {
         case 'show':
@@ -86,7 +86,7 @@ export function evaluateRules(
 
     if (conditionMet) {
       const targetId = rule.targetStepId;
-      if (!targetId) return;
+      if (!targetId) {return;}
 
       switch (rule.action) {
         case 'show':

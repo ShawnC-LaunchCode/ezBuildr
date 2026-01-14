@@ -395,7 +395,7 @@ export function createInitialExpression(): ConditionGroup {
  * Check if expression has any valid conditions
  */
 export function hasValidConditions(expression: ConditionExpression): boolean {
-  if (!expression) return false;
+  if (!expression) {return false;}
 
   function checkGroup(group: ConditionGroup): boolean {
     return group.conditions.some((item) => {
@@ -416,7 +416,7 @@ export function hasValidConditions(expression: ConditionExpression): boolean {
  * Count total conditions in expression
  */
 export function countConditions(expression: ConditionExpression): number {
-  if (!expression) return 0;
+  if (!expression) {return 0;}
 
   function countInGroup(group: ConditionGroup): number {
     return group.conditions.reduce((count, item) => {

@@ -13,9 +13,11 @@
  * 3. Register error handler middleware at the end of route definitions
  */
 
-import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
+
 import { logger } from "../logger";
+
+import type { Request, Response, NextFunction } from "express";
 
 // ============================================================================
 // Custom Error Classes
@@ -150,9 +152,9 @@ function isUnauthorizedError(message: string): boolean {
 function classifyError(error: Error): number {
   const message = error.message;
 
-  if (isNotFoundError(message)) return 404;
-  if (isForbiddenError(message)) return 403;
-  if (isUnauthorizedError(message)) return 401;
+  if (isNotFoundError(message)) {return 404;}
+  if (isForbiddenError(message)) {return 403;}
+  if (isUnauthorizedError(message)) {return 401;}
 
   return 500;
 }

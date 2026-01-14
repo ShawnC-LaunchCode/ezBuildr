@@ -1,13 +1,14 @@
-import {
-  datavaultTablePermissionsRepository,
-  datavaultTablesRepository,
-  type DbTransaction,
-} from "../repositories";
 import type {
   DatavaultTablePermission,
   InsertDatavaultTablePermission,
   DatavaultTableRole,
 } from "@shared/schema";
+
+import {
+  datavaultTablePermissionsRepository,
+  datavaultTablesRepository,
+  type DbTransaction,
+} from "../repositories";
 
 /**
  * Permission level flags for RBAC
@@ -120,7 +121,7 @@ export class DatavaultTablePermissionsService {
   ): Promise<DatavaultTablePermission[]> {
     // Only owners can view permissions
     await this.requirePermission(userId, tableId, tenantId, "owner", tx);
-    return await this.permissionsRepo.findByTableId(tableId, tx);
+    return this.permissionsRepo.findByTableId(tableId, tx);
   }
 
   /**
@@ -148,8 +149,7 @@ export class DatavaultTablePermissionsService {
       throw new Error("Cannot modify permissions for table owner");
     }
 
-    const result = await this.permissionsRepo.upsert(data, tx);
-    return result;
+    return this.permissionsRepo.upsert(data, tx);
   }
 
   /**
@@ -196,7 +196,7 @@ export class DatavaultTablePermissionsService {
     const permissions = await this.permissionsRepo.findByUserId(userId, tx);
 
     // Map permissions to include flags
-    return await Promise.all(
+    return Promise.all(
       permissions.map(async (permission) => {
         const flags = await this.checkTablePermission(userId, permission.tableId, tenantId, tx);
         return {

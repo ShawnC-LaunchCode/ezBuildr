@@ -1,8 +1,11 @@
-import { Router } from "express";
-import { db } from "../db";
-import { surveys } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { Router } from "express";
+
+import { workflows } from "@shared/schema";
+
+import { db } from "../db";
 import { WebhookDispatcher } from "../lib/webhooks/dispatcher";
+
 
 const router = Router();
 
@@ -11,8 +14,9 @@ router.get("/w/:slug", async (req, res) => {
     try {
         const { slug } = req.params;
 
-        const workflow = await db.query.surveys.findFirst({
-            where: eq(surveys.publicSlug, slug)
+        // Use workflows table instead of legacy surveys
+        const workflow: any = await db.query.workflows.findFirst({
+            where: eq(workflows.slug, slug)
         });
 
         if (!workflow) {
@@ -57,13 +61,13 @@ router.post("/w/:slug/complete", async (req, res) => {
     const { runId, payload } = req.body;
 
     // Find workflow to get workspaceId
-    const workflow = await db.query.surveys.findFirst({
-        where: eq(surveys.publicSlug, slug)
+    const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.slug, slug)
     });
 
     if (workflow) {
         // Trigger Webhook
-        await WebhookDispatcher.dispatch(workflow.workspaceId!, 'run.completed', {
+        await WebhookDispatcher.dispatch(workflow.workspaceId, 'run.completed', {
             event: 'run.completed',
             workflowId: workflow.id,
             runId: runId,

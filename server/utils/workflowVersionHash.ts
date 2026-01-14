@@ -9,6 +9,7 @@
  */
 
 import crypto from 'crypto';
+
 import { Step } from "@shared/schema";
 
 /**
@@ -38,9 +39,7 @@ export function generateWorkflowVersionHash(steps: Step[]): string {
 
   // Generate hash
   const json = JSON.stringify(structure);
-  const hash = crypto.createHash('sha256').update(json).digest('hex');
-
-  return hash;
+  return crypto.createHash('sha256').update(json).digest('hex');
 }
 
 /**
@@ -51,7 +50,7 @@ export function generateWorkflowVersionHash(steps: Step[]): string {
  * @returns true if hashes match
  */
 export function isVersionHashMatch(hash1: string | null, hash2: string | null): boolean {
-  if (!hash1 || !hash2) return false;
+  if (!hash1 || !hash2) {return false;}
   return hash1 === hash2;
 }
 

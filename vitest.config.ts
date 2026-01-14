@@ -50,19 +50,19 @@ export default defineConfig({
         statements: 18,
       },
     },
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    hookTimeout: 120000,
+    fileParallelism: true,
     pool: "forks", // Use forks to isolate tests
-    poolOptions: {
-      forks: {
-        // Use environment variable to control parallelization
-        // Unit tests: parallel (safe)
-        // Integration tests: sequential (DB conflicts)
-        singleFork: process.env.VITEST_INTEGRATION === 'true',
-        minForks: 1,
-        maxForks: process.env.CI ? 4 : 8, // More forks locally
-      }
-    },
+  },
+  poolOptions: {
+    forks: {
+      // Use environment variable to control parallelization
+      // Unit tests: parallel (safe)
+      // Integration tests: parallel (safe with schema isolation)
+      singleFork: false,
+      minForks: 1,
+      maxForks: 4, // Limit concurrency to avoid DB overload
+    }
   },
   resolve: {
     alias: {
@@ -71,4 +71,4 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
-});
+} as any);

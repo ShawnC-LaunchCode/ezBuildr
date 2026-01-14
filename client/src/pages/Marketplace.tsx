@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import Sidebar from "@/components/layout/Sidebar";
-import { useToast } from "@/hooks/use-toast";
 import { Search, Download, Star } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from 'react';
 import { useLocation } from "wouter";
+
+import Sidebar from "@/components/layout/Sidebar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+
 
 // Types
 interface Template {
@@ -32,11 +34,11 @@ export default function Marketplace() {
         queryKey: ['templates', category, searchTerm],
         queryFn: async () => {
             const params = new URLSearchParams();
-            if (searchTerm) params.append('search', searchTerm);
-            if (category !== 'all') params.append('category', category);
+            if (searchTerm) {params.append('search', searchTerm);}
+            if (category !== 'all') {params.append('category', category);}
 
             const res = await fetch(`/api/templates?${params.toString()}`);
-            if (!res.ok) throw new Error('Failed to fetch templates');
+            if (!res.ok) {throw new Error('Failed to fetch templates');}
             return res.json();
         }
     });
@@ -59,7 +61,7 @@ export default function Marketplace() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId })
             });
-            if (!res.ok) throw new Error('Failed to install template');
+            if (!res.ok) {throw new Error('Failed to install template');}
             return res.json();
         },
         onSuccess: (workflow) => {

@@ -3,17 +3,9 @@
  * PR1: Added tab-based navigation structure
  */
 
-import { useParams, useLocation } from "wouter";
-import { useState, useEffect, useMemo } from "react";
-import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWorkflow, useCreateRun, useSetWorkflowMode, queryKeys } from "@/lib/vault-hooks";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { usePreviewStore } from "@/store/preview";
-import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/hooks/useAuth";
+import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database , GitCommit, Sparkles, GitGraph } from "lucide-react";
+
 import { CollaborationProvider, useCollaboration } from "@/components/collab/CollaborationContext";
 import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
 import { IntakeProvider } from "@/components/builder/IntakeContext";
@@ -51,15 +43,24 @@ import { VersionHistoryPanel } from "@/components/builder/versioning/VersionHist
 import { DiffViewer } from "@/components/builder/versioning/DiffViewer";
 import { PublishWorkflowDialog } from "@/components/builder/versioning/PublishWorkflowDialog";
 import { ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
-import { GitCommit, Sparkles, GitGraph } from "lucide-react";
-import { AIAssistPanel } from "@/components/builder/AIAssistPanel";
-import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
-import { PreviewRunner } from "@/components/preview/PreviewRunner";
 
+import React, { useState, useEffect, useMemo } from "react";
+import { useParams, useLocation } from "wouter";
+
+import { AIAssistPanel } from "@/components/builder/AIAssistPanel";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { AiConversationPanel } from "@/components/builder/AiConversationPanel";
-import Sidebar from "@/components/layout/Sidebar";
+import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import Sidebar from "@/components/layout/Sidebar";
+import { PreviewRunner } from "@/components/preview/PreviewRunner";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toggle } from "@/components/ui/toggle";
+import { useAuth } from "@/hooks/useAuth";
+import { useWorkflow, useCreateRun, useSetWorkflowMode, queryKeys, useSections, useLogicRules, useTransformBlocks } from "@/lib/vault-hooks";
+import { usePreviewStore } from "@/store/preview";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
@@ -68,10 +69,9 @@ export default function WorkflowBuilder() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
-  // Use data from workflow response instead of separate API calls (performance optimization)
-  const sections = workflow?.sections;
-  const logicRules = workflow?.logicRules;
-  const transformBlocks = workflow?.transformBlocks;
+  const { data: sections } = useSections(workflowId);
+  const { data: logicRules } = useLogicRules(workflowId);
+  const { data: transformBlocks } = useTransformBlocks(workflowId);
   const workflowMode = workflow ? { mode: workflow.modeOverride || 'easy' } : undefined;
   const modeLoading = isLoading;
   const { data: versions } = useVersions(workflowId);
@@ -130,7 +130,7 @@ export default function WorkflowBuilder() {
   const versionLabel = latestPublished ? `Draft (v${latestPublished.versionNumber} +)` : "Draft (v1)";
 
   const handlePublish = async (notes: string) => {
-    if (!workflowId) return;
+    if (!workflowId) {return;}
     try {
       await publishMutation.mutateAsync({ workflowId, graphJson: {}, notes });
       toast({ title: "Workflow Published", description: "New version created successfully." });
@@ -166,18 +166,18 @@ export default function WorkflowBuilder() {
   const collabUser = useMemo(() => ({
     id: user?.id ? String(user.id) : `anon-${Math.random().toString(36).substr(2, 5)}`,
     name: user?.firstName || 'Guest User',
-    color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+    color: `#${  Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
     email: user?.email
   }), [user?.id, user?.firstName, user?.email]);
 
   // ... Render ...
-  if (isLoading || modeLoading) return <div className="h-screen flex items-center justify-center"><Skeleton className="h-12 w-64" /></div>;
-  if (!workflow) return <div className="h-screen flex items-center justify-center"><p className="text-muted-foreground">Workflow not found</p></div>;
+  if (isLoading || modeLoading) {return <div className="h-screen flex items-center justify-center"><Skeleton className="h-12 w-64" /></div>;}
+  if (!workflow) {return <div className="h-screen flex items-center justify-center"><p className="text-muted-foreground">Workflow not found</p></div>;}
 
   if (isPreviewMode) {
     return (
       <PreviewRunner
-        workflowId={workflowId!}
+        workflowId={workflowId}
         onExit={() => setIsPreviewMode(false)}
       />
     );
@@ -189,13 +189,13 @@ export default function WorkflowBuilder() {
 
   return (
     <CollaborationProvider config={{
-      workflowId: workflowId!,
+      workflowId: workflowId,
       tenantId: user?.tenantId || "",
       token: collabToken || "",
       enabled: isCollabReady,
       user: collabUser
     }}>
-      <IntakeProvider workflowId={workflowId!}>
+      <IntakeProvider workflowId={workflowId}>
         <CollabSync mode={mode} />
 
         <ResizableBuilderLayout
@@ -253,10 +253,10 @@ export default function WorkflowBuilder() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'easy' })}>
+                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId, modeOverride: 'easy' })}>
                           Switch to Easy Mode
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId!, modeOverride: 'advanced' })}>
+                        <DropdownMenuItem onClick={() => setWorkflowModeMutation.mutate({ workflowId: workflowId, modeOverride: 'advanced' })}>
                           Switch to Advanced Mode
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -264,7 +264,7 @@ export default function WorkflowBuilder() {
 
                     <div className="border-l pl-2 ml-2">
                       <ActivateToggle
-                        workflowId={workflowId!}
+                        workflowId={workflowId}
                         currentStatus={workflow.status}
                         // @ts-ignore
                         onStatusChange={(s) => {
@@ -293,7 +293,7 @@ export default function WorkflowBuilder() {
                   </div>
                 </div>
                 <BuilderTabNav
-                  workflowId={workflowId!}
+                  workflowId={workflowId}
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
                   isIntake={workflow.intakeConfig?.isIntake}
@@ -304,43 +304,43 @@ export default function WorkflowBuilder() {
               <div className="flex-1 flex flex-col overflow-hidden relative">
                 {activeTab === "sections" && (
                   <SectionsTab
-                    workflowId={workflowId!}
+                    workflowId={workflowId}
                     mode={mode}
                   />
                 )}
 
-                {activeTab === "templates" && <TemplatesTab workflowId={workflowId!} />}
+                {activeTab === "templates" && <TemplatesTab workflowId={workflowId} />}
 
                 {activeTab === "data-sources" && (
                   <DataSourcesTab
-                    workflowId={workflowId!}
+                    workflowId={workflowId}
                     onCollectionsClick={() => setCollectionsDrawerOpen(true)}
                   />
                 )}
 
                 {activeTab === "review" && (
-                  <ReviewTab workflowId={workflowId!} />
+                  <ReviewTab workflowId={workflowId} />
                 )}
 
                 {activeTab === "snapshots" && (
                   <SnapshotsTab
-                    workflowId={workflowId!}
+                    workflowId={workflowId}
                   />
                 )}
 
-                {activeTab === "settings" && <SettingsTab workflowId={workflowId!} />}
+                {activeTab === "settings" && <SettingsTab workflowId={workflowId} />}
 
-                {activeTab === "assignment" && <AssignmentTab workflowId={workflowId!} />}
+                {activeTab === "assignment" && <AssignmentTab workflowId={workflowId} />}
               </div>
 
-              <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId!} />
+              <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId} />
 
               {/* Versioning Components */}
               <VersionHistoryPanel
-                workflowId={workflowId!}
+                workflowId={workflowId}
                 isOpen={historyOpen}
                 onClose={() => setHistoryOpen(false)}
-                onRestore={(v) => restoreMutation.mutate({ workflowId: workflowId!, versionId: v.id })}
+                onRestore={(v) => restoreMutation.mutate({ workflowId: workflowId, versionId: v.id })}
                 onDiff={handleDiff}
               />
 
@@ -352,7 +352,7 @@ export default function WorkflowBuilder() {
               />
 
               <DiffViewer
-                workflowId={workflowId!}
+                workflowId={workflowId}
                 version1={diffBaseVersion}
                 version2={diffTargetVersion}
                 isOpen={diffOpen}
@@ -360,7 +360,7 @@ export default function WorkflowBuilder() {
               />
 
               <LogicInspectorPanel
-                workflowId={workflowId!}
+                workflowId={workflowId}
                 currentWorkflow={workflow}
                 isOpen={logicPanelOpen}
                 onClose={() => setLogicPanelOpen(false)}
@@ -371,7 +371,7 @@ export default function WorkflowBuilder() {
 
           rightPanel={
             <AiConversationPanel
-              workflowId={workflowId!}
+              workflowId={workflowId}
               currentWorkflow={workflow}
               transformBlocks={transformBlocks}
             />

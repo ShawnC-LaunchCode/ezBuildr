@@ -1,10 +1,11 @@
+import type { CollectionRecord, InsertRecord, CollectionField } from "@shared/schema";
+
 import {
   recordRepository,
   collectionRepository,
   collectionFieldRepository,
   type DbTransaction,
 } from "../repositories";
-import type { CollectionRecord, InsertRecord, CollectionField } from "@shared/schema";
 
 /**
  * Service layer for record business logic
@@ -221,7 +222,7 @@ export class RecordService {
     // Validate record data
     await this.validateRecordData(data.collectionId, enrichedData, tx);
 
-    return await this.recordRepo.create({
+    return this.recordRepo.create({
       ...data,
       data: enrichedData,
       createdBy: userId,
@@ -233,7 +234,7 @@ export class RecordService {
    * Get record by ID
    */
   async getRecord(recordId: string, tenantId: string, tx?: DbTransaction): Promise<CollectionRecord> {
-    return await this.verifyRecordOwnership(recordId, tenantId, undefined, tx);
+    return this.verifyRecordOwnership(recordId, tenantId, undefined, tx);
   }
 
   /**
@@ -256,7 +257,7 @@ export class RecordService {
       throw new Error("Collection not found or access denied");
     }
 
-    return await this.recordRepo.findByCollectionId(collectionId, options, tx);
+    return this.recordRepo.findByCollectionId(collectionId, options, tx);
   }
 
   /**
@@ -280,7 +281,7 @@ export class RecordService {
     // Validate merged data
     await this.validateRecordData(record.collectionId, mergedData, tx);
 
-    return await this.recordRepo.update(
+    return this.recordRepo.update(
       recordId,
       {
         data: mergedData,
@@ -307,7 +308,7 @@ export class RecordService {
       throw new Error("Collection not found or access denied");
     }
 
-    return await this.recordRepo.countByCollectionId(collectionId, tx);
+    return this.recordRepo.countByCollectionId(collectionId, tx);
   }
 
   /**
@@ -324,7 +325,7 @@ export class RecordService {
       throw new Error("Collection not found or access denied");
     }
 
-    return await this.recordRepo.findByFilters(collectionId, filters, tx);
+    return this.recordRepo.findByFilters(collectionId, filters, tx);
   }
 
   /**

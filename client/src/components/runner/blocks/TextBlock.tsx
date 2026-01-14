@@ -16,9 +16,11 @@
  */
 
 import React from "react";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Step } from "@/types";
+
 import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 export interface TextBlockProps {
@@ -38,12 +40,12 @@ export function TextBlockRenderer({ step, value, onChange, readOnly }: TextBlock
 
   if (step.type === "short_text") {
     variant = "short";
-    maxLength = (step.config as any)?.maxLength;
-    placeholder = (step.config as any)?.placeholder || "Your answer...";
+    maxLength = (step.config)?.maxLength;
+    placeholder = (step.config)?.placeholder || "Your answer...";
   } else if (step.type === "long_text") {
     variant = "long";
-    maxLength = (step.config as any)?.maxLength;
-    placeholder = (step.config as any)?.placeholder || "Your answer...";
+    maxLength = (step.config)?.maxLength;
+    placeholder = (step.config)?.placeholder || "Your answer...";
   } else if (step.type === "text") {
     const config = step.config as TextAdvancedConfig;
     variant = config?.variant || "short";

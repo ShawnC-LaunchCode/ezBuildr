@@ -4,21 +4,23 @@
  * Stage 19: Collections / Datastore System
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from '../../server/db';
-import { tenants, users, projects } from '@shared/schema';
-import { collectionService } from '../../server/services/CollectionService';
-import { collectionFieldService } from '../../server/services/CollectionFieldService';
-import { recordService } from '../../server/services/RecordService';
 import { eq } from 'drizzle-orm';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { tenants, users, projects } from '@shared/schema';
+
+import { db } from '../../server/db';
+import { collectionFieldService } from '../../server/services/CollectionFieldService';
+import { collectionService } from '../../server/services/CollectionService';
+import { recordService } from '../../server/services/RecordService';
 
 describe('Collections System E2E Tests', () => {
   let testTenantId: string;
   let testUserId: string;
   let testProjectId: string;
   let testCollectionId: string;
-  let testFieldIds: string[] = [];
-  let testRecordIds: string[] = [];
+  const testFieldIds: string[] = [];
+  const testRecordIds: string[] = [];
   let testFieldSlug: string;
 
   beforeAll(async () => {
@@ -94,8 +96,8 @@ describe('Collections System E2E Tests', () => {
       const collection = await collectionService.getCollection(testCollectionId, testTenantId);
 
       expect(collection).toBeDefined();
-      expect(collection!.id).toBe(testCollectionId);
-      expect(collection!.name).toBe('Customers');
+      expect(collection.id).toBe(testCollectionId);
+      expect(collection.name).toBe('Customers');
     });
 
     it('should update a collection', async () => {

@@ -1,19 +1,21 @@
-﻿import { useAuth } from "@/hooks/useAuth";
-import { useUserPreferences } from "@/hooks/useUserPreferences";
-import { useAccountPreferences, useUpdateAccountPreferences } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import Sidebar from "@/components/layout/Sidebar";
+﻿import { Settings, Sparkles, Moon, Sun, Lightbulb, RotateCcw, Layers, Shield, Smartphone, QrCode, Lock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+
 import Header from "@/components/layout/Header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Settings, Sparkles, Moon, Sun, Lightbulb, RotateCcw, Layers, Shield, Smartphone, QrCode, Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { Mode } from "@/lib/mode";
 import { authAPI } from "@/lib/vault-api";
+import { useAccountPreferences, useUpdateAccountPreferences } from "@/lib/vault-hooks";
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();

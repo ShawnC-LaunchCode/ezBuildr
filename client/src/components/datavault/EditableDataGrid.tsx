@@ -4,21 +4,6 @@
  * Supports different column types and validation
  */
 
-import { useState, useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, MoreVertical, GripVertical, FileText } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { EditableCell } from "./EditableCell";
-import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
-import { RowDetailDrawer } from "./RowDetailDrawer";
-import type { DatavaultColumn } from "@shared/schema";
 import {
   DndContext,
   closestCenter,
@@ -36,6 +21,26 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Edit2, Trash2, MoreVertical, GripVertical, FileText } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+
+import type { DatavaultColumn } from "@shared/schema";
+
+import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
+import { EditableCell } from "./EditableCell";
+import { RowDetailDrawer } from "./RowDetailDrawer";
+
+
 
 interface EditableDataGridProps {
   columns: DatavaultColumn[];
@@ -285,10 +290,10 @@ export function EditableDataGrid({
 
   // Check if a column should be highlighted as missing required value in empty row
   const isEmptyRowColumnMissingRequired = (columnId: string) => {
-    if (!emptyRowTouched) return false;
+    if (!emptyRowTouched) {return false;}
 
     const column = sortedColumns.find((col) => col.id === columnId);
-    if (!column || !column.required) return false;
+    if (!column?.required) {return false;}
 
     const value = emptyRowValues[columnId];
     return value === undefined || value === null || value === '';

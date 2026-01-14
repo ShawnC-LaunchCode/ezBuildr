@@ -5,7 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { AIService } from '../../server/services/AIService';
+
 import type { AIProviderConfig } from '../../shared/types/ai';
 
 // Mock OpenAI and Anthropic SDKs
@@ -41,7 +43,7 @@ describe('AIService', () => {
           {
             message: {
               content: JSON.stringify({
-                name: 'Test Workflow',
+                title: 'Test Workflow',
                 description: 'A test workflow',
                 sections: [
                   {
@@ -101,7 +103,7 @@ describe('AIService', () => {
           {
             message: {
               content: JSON.stringify({
-                name: 'Test Workflow',
+                title: 'Test Workflow',
                 sections: [
                   {
                     id: 'section_1',
@@ -148,7 +150,7 @@ describe('AIService', () => {
           {
             message: {
               content: JSON.stringify({
-                name: 'Test Workflow',
+                title: 'Test Workflow',
                 sections: [
                   {
                     id: 'section_1',
@@ -202,7 +204,7 @@ describe('AIService', () => {
           {
             message: {
               content: JSON.stringify({
-                name: 'Test Workflow',
+                title: 'Test Workflow',
                 sections: [
                   {
                     id: 'section_1',
@@ -269,6 +271,11 @@ describe('AIService', () => {
         },
       } as any;
 
+      // Use manual mock for setTimeout to avoid fake timer issues and race conditions
+      const originalSetTimeout = global.setTimeout;
+      // @ts-ignore
+      global.setTimeout = vi.fn((cb) => cb());
+
       try {
         await openaiService.generateWorkflow({
           description: 'Test',
@@ -277,6 +284,8 @@ describe('AIService', () => {
         expect.fail('Should have thrown rate limit error');
       } catch (error: any) {
         expect(error.code).toBe('RATE_LIMIT');
+      } finally {
+        global.setTimeout = originalSetTimeout;
       }
     });
 
@@ -334,7 +343,7 @@ describe('AIService', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              name: 'Test Workflow',
+              title: 'Test Workflow',
               description: 'A test workflow',
               sections: [
                 {
@@ -382,8 +391,8 @@ describe('AIService', () => {
         content: [
           {
             type: 'text',
-            text: '```json\n' + JSON.stringify({
-              name: 'Test Workflow',
+            text: `\`\`\`json\n${  JSON.stringify({
+              title: 'Test Workflow',
               sections: [
                 {
                   id: 'section_1',
@@ -394,7 +403,7 @@ describe('AIService', () => {
               ],
               logicRules: [],
               transformBlocks: [],
-            }) + '\n```',
+            })  }\n\`\`\``,
           },
         ],
       };

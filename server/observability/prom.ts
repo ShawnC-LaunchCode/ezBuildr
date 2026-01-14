@@ -13,8 +13,9 @@
  * - prom-client
  */
 
-import type { Express } from 'express';
 import logger from '../logger';
+
+import type { Express } from 'express';
 
 /**
  * Initialize Prometheus metrics collection

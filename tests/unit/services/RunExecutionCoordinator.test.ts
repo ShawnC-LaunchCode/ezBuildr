@@ -1,11 +1,14 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RunExecutionCoordinator } from '../../../server/services/runs/RunExecutionCoordinator';
-import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
-import { stepRepository, stepValueRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
+
 import { JsQuestionConfig } from '@shared/types/steps';
-import { RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
+
+import { stepRepository, stepValueRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
 import { logicService } from '../../../server/services/LogicService';
+import { RunExecutionCoordinator } from '../../../server/services/runs/RunExecutionCoordinator';
+import { RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
+import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
+
 
 // Mock dependencies
 vi.mock('../../../server/services/scripting/ScriptEngine', () => ({

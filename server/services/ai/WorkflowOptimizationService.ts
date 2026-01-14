@@ -1,4 +1,6 @@
 
+import { v4 as uuidv4 } from "uuid";
+
 import {
     OptimizationIssue,
     OptimizationResult,
@@ -8,7 +10,6 @@ import {
     OptimizationCategory,
 } from "@shared/types/optimization";
 import { WorkflowJSON, WorkflowPage, WorkflowBlock } from "@shared/types/workflow";
-import { v4 as uuidv4 } from "uuid";
 
 export class WorkflowOptimizationService {
     /**
@@ -147,7 +148,7 @@ export class WorkflowOptimizationService {
         blocks.forEach(b => {
             if (b.title && b.type !== 'display') {
                 const key = b.title.trim().toLowerCase();
-                if (!titleMap.has(key)) titleMap.set(key, []);
+                if (!titleMap.has(key)) {titleMap.set(key, []);}
                 titleMap.get(key)!.push(b.id);
             }
         });
@@ -238,10 +239,10 @@ export class WorkflowOptimizationService {
 
     private applySplitPage(workflow: WorkflowJSON, payload: { pageId: string, splitAtIndex: number }) {
         const pageIndex = workflow.pages.findIndex(p => p.id === payload.pageId);
-        if (pageIndex === -1) return;
+        if (pageIndex === -1) {return;}
 
         const page = workflow.pages[pageIndex];
-        if (payload.splitAtIndex >= page.blocks.length) return;
+        if (payload.splitAtIndex >= page.blocks.length) {return;}
 
         const blocksToMove = page.blocks.splice(payload.splitAtIndex);
 
@@ -263,7 +264,7 @@ export class WorkflowOptimizationService {
         const sourceIdx = workflow.pages.findIndex(p => p.id === payload.sourcePageId);
         const targetIdx = workflow.pages.findIndex(p => p.id === payload.targetPageId);
 
-        if (sourceIdx === -1 || targetIdx === -1) return;
+        if (sourceIdx === -1 || targetIdx === -1) {return;}
 
         const sourcePage = workflow.pages[sourceIdx];
         const targetPage = workflow.pages[targetIdx];
@@ -300,7 +301,7 @@ export class WorkflowOptimizationService {
             }
         }
 
-        if (!block) return;
+        if (!block) {return;}
 
         // Insert into target
         const targetPage = workflow.pages.find(p => p.id === payload.targetPageId);
@@ -325,7 +326,7 @@ export class WorkflowOptimizationService {
         // Simple Cyclomatic Complexity (count branches)
         let complexity = 1;
         blocks.forEach(b => {
-            if (b.visibleIf) complexity++;
+            if (b.visibleIf) {complexity++;}
             if (b.type === 'branch') {
                 const branches = b.config?.branches || []; // Cast safely
                 complexity += branches.length;
@@ -335,7 +336,7 @@ export class WorkflowOptimizationService {
         return {
             totalPages: pages.length,
             totalBlocks: blocks.length,
-            avgBlocksPerPage: pages.length ? Number((blocks.length / pages.length).toFixed(1)) : 0,
+            avgBlocksPerPage: (pages.length > 0) ? Number((blocks.length / pages.length).toFixed(1)) : 0,
             estimatedCompletionTimeMs: blocks.length * 15000,
             cyclomaticComplexity: complexity,
             unusedVariablesCount: 0, // Not implemented deeply
@@ -356,7 +357,7 @@ export class WorkflowOptimizationService {
         });
 
         // Penalize complexity
-        if (metrics.cyclomaticComplexity > 50) score -= 10;
+        if (metrics.cyclomaticComplexity > 50) {score -= 10;}
 
         return Math.max(0, Math.min(100, Math.round(score)));
     }
@@ -365,7 +366,7 @@ export class WorkflowOptimizationService {
         let blocks: WorkflowBlock[] = [];
         const pages = workflow.pages || [];
         pages.forEach((p) => {
-            if (p.blocks) blocks = blocks.concat(p.blocks);
+            if (p.blocks) {blocks = blocks.concat(p.blocks);}
         });
         return blocks;
     }

@@ -1,7 +1,11 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { projects, type Project, type InsertProject } from "@shared/schema";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, or, inArray, getTableColumns } from "drizzle-orm";
+
+import { projects, organizations, type Project, type InsertProject } from "@shared/schema";
+
 import { db } from "../db";
+import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for project data access
@@ -12,15 +16,57 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
   }
 
   /**
-   * Find projects by creator ID
+   * Find projects by creator ID (includes user-owned and org-owned)
    */
   async findByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Project[]> {
     const database = this.getDb(tx);
-    return await database
-      .select()
+
+    // Get user's org memberships for org-owned project access
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+
+    // Build conditions for ownership access
+    // Prioritize new ownership model to avoid duplicates
+    const conditions = [];
+
+    // Primary: New ownership model
+    conditions.push(
+      and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, creatorId))
+    );
+
+    // Org-owned via new model
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(eq(projects.ownerType, 'org'), inArray(projects.ownerUuid, orgIds))
+      );
+    }
+
+    // Fallback: Legacy ownership (only for projects without new ownership)
+    conditions.push(
+      and(
+        eq(projects.ownerType, null as any),
+        or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId))
+      )
+    );
+
+    // Join with organizations to get owner name
+    const results = await database
+      .select({
+        ...getTableColumns(projects),
+        ownerName: organizations.name,
+      })
       .from(projects)
-      .where(eq(projects.createdBy, creatorId))
+      .leftJoin(
+        organizations,
+        and(
+          eq(projects.ownerType, 'org'),
+          eq(projects.ownerUuid, organizations.id)
+        )
+      )
+      .where(or(...conditions))
       .orderBy(desc(projects.updatedAt));
+
+    // Results already have all project columns + ownerName at top level
+    return results as any;
   }
 
   /**
@@ -28,7 +74,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
    */
   async findByStatus(status: 'active' | 'archived', tx?: DbTransaction): Promise<Project[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(projects)
       .where(eq(projects.status, status))
@@ -44,7 +90,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     tx?: DbTransaction
   ): Promise<Project[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(projects)
       .where(and(eq(projects.createdBy, creatorId), eq(projects.status, status)))
@@ -52,10 +98,52 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
   }
 
   /**
-   * Find active (non-archived) projects by creator
+   * Find active (non-archived) projects by creator (includes user-owned and org-owned)
    */
   async findActiveByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Project[]> {
-    return this.findByCreatorAndStatus(creatorId, 'active', tx);
+    const database = this.getDb(tx);
+
+    // Get user's org memberships for org-owned project access
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+
+    // Build conditions for ownership access
+    // Prioritize new ownership model to avoid duplicates
+    const conditions = [];
+
+    // Primary: New ownership model
+    conditions.push(
+      and(
+        eq(projects.ownerType, 'user'),
+        eq(projects.ownerUuid, creatorId),
+        eq(projects.status, 'active')
+      )
+    );
+
+    // Org-owned via new model
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(
+          eq(projects.ownerType, 'org'),
+          inArray(projects.ownerUuid, orgIds),
+          eq(projects.status, 'active')
+        )
+      );
+    }
+
+    // Fallback: Legacy ownership (only for projects without new ownership)
+    conditions.push(
+      and(
+        eq(projects.ownerType, null as any),
+        or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId)),
+        eq(projects.status, 'active')
+      )
+    );
+
+    return database
+      .select()
+      .from(projects)
+      .where(or(...conditions))
+      .orderBy(desc(projects.updatedAt));
   }
 }
 

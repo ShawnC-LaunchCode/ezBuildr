@@ -3,8 +3,8 @@
  * Toggle for marking a field as required
  */
 
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface RequiredToggleProps {
   checked: boolean;

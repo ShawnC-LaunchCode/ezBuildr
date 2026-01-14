@@ -3,12 +3,15 @@
  * Draggable column header with type icon and reorder handle
  */
 
-import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
+import React from "react";
+
 import type { DatavaultColumn } from "@shared/schema";
+
+import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
+
 
 interface SortableColumnHeaderProps {
   column: DatavaultColumn;

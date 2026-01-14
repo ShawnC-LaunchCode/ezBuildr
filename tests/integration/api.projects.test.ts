@@ -1,12 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { registerRoutes } from "../../server/routes";
-import { nanoid } from "nanoid";
-import { db } from "../../server/db";
-import * as schema from "@shared/schema";
+
 import { eq } from "drizzle-orm";
+import express, { type Express } from "express";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
+
+import * as schema from "@shared/schema";
+
+import { db } from "../../server/db";
+import { registerRoutes } from "../../server/routes";
+
 
 /**
  * Projects API Integration Tests
@@ -54,7 +59,7 @@ describe.sequential("Projects API Integration Tests", () => {
       .post("/api/auth/register")
       .send({
         email,
-        password: "TestPassword123",
+        password: "TestPassword123!@#Strong",
         firstName: "Test",
         lastName: "User",
       })
@@ -251,7 +256,7 @@ describe.sequential("Projects API Integration Tests", () => {
         .post("/api/auth/register")
         .send({
           email,
-          password: "TestPassword123",
+          password: "TestPassword123!@#Strong",
         })
         .expect(201);
 

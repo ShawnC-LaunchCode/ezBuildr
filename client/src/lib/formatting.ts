@@ -9,18 +9,18 @@
  * formatFileSize(1536000) => "1.5 MB"
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  if (bytes < 0) return 'Invalid size';
+  if (bytes === 0) {return '0 Bytes';}
+  if (bytes < 0) {return 'Invalid size';}
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   if (i >= sizes.length) {
-    return (bytes / Math.pow(k, sizes.length - 1)).toFixed(2) + ' ' + sizes[sizes.length - 1];
+    return `${(bytes / Math.pow(k, sizes.length - 1)).toFixed(2)  } ${  sizes[sizes.length - 1]}`;
   }
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
 }
 
 /**
@@ -61,9 +61,9 @@ export function formatRelativeTime(date: string | Date): string {
   const now = new Date();
   const seconds = Math.floor((now.getTime() - d.getTime()) / 1000);
 
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 60) {return 'just now';}
+  if (seconds < 3600) {return `${Math.floor(seconds / 60)}m ago`;}
+  if (seconds < 86400) {return `${Math.floor(seconds / 3600)}h ago`;}
+  if (seconds < 604800) {return `${Math.floor(seconds / 86400)}d ago`;}
   return d.toLocaleDateString();
 }

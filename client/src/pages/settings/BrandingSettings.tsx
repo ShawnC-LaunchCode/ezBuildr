@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useTenantBranding, useUpdateTenantBranding } from '../../hooks/useBrandingAPI';
+
 import type { TenantBranding } from '@shared/types/branding';
+
+import { useTenantBranding, useUpdateTenantBranding } from '../../hooks/useBrandingAPI';
 
 /**
  * Stage 17: Branding Settings Page (PLACEHOLDER)

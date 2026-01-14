@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and } from "drizzle-orm";
+
 import {
   datavaultTablePermissions,
   type DatavaultTablePermission,
   type InsertDatavaultTablePermission,
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault table permissions data access
@@ -25,7 +28,7 @@ export class DatavaultTablePermissionsRepository extends BaseRepository<
    */
   async findByTableId(tableId: string, tx?: DbTransaction): Promise<DatavaultTablePermission[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultTablePermissions)
       .where(eq(datavaultTablePermissions.tableId, tableId));
@@ -58,7 +61,7 @@ export class DatavaultTablePermissionsRepository extends BaseRepository<
    */
   async findByUserId(userId: string, tx?: DbTransaction): Promise<DatavaultTablePermission[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultTablePermissions)
       .where(eq(datavaultTablePermissions.userId, userId));

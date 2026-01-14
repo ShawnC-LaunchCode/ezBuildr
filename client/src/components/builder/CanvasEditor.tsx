@@ -2,17 +2,18 @@
  * Canvas Editor - Section/Step editor in center pane
  */
 
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { useSections, useSteps, useUpdateSection, useUpdateStep, useCreateStep } from "@/lib/vault-hooks";
+import { Workflow } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Workflow } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { UI_LABELS } from "@/lib/labels";
+import { useSections, useSteps, useUpdateSection, useUpdateStep, useCreateStep } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 export function CanvasEditor({ workflowId }: { workflowId: string }) {
   const { selection, mode } = useWorkflowBuilder();
@@ -34,7 +35,7 @@ export function CanvasEditor({ workflowId }: { workflowId: string }) {
 
   if (selection.type === "section") {
     const section = sections?.find((s) => s.id === selection.id);
-    if (!section) return null;
+    if (!section) {return null;}
     return <SectionCanvas section={section} workflowId={workflowId} />;
   }
 
@@ -100,7 +101,7 @@ function StepEmptyState({ sectionId }: { sectionId: string }) {
   const createStepMutation = useCreateStep();
 
   // Only show if no steps
-  if (!steps || steps.length > 0) return null;
+  if (!steps || steps.length > 0) {return null;}
 
   const handleQuickAdd = async (type: string, title: string) => {
     await createStepMutation.mutateAsync({

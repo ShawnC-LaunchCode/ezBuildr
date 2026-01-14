@@ -1,11 +1,14 @@
-import type { Express, Request, Response, NextFunction } from "express";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { insertSectionSchema } from "@shared/schema";
-import { sectionService } from "../services/SectionService";
-import { sectionRepository } from "../repositories/SectionRepository";
 import { z } from "zod";
+
+import { insertSectionSchema } from "@shared/schema";
+
 import { createLogger } from "../logger";
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { sectionRepository } from "../repositories/SectionRepository";
+import { sectionService } from "../services/SectionService";
+
+import type { Express, Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: "sections-routes" });
 

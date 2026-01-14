@@ -4,18 +4,25 @@
  * Tests refresh token flows, token rotation, and session management
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import request from 'supertest';
-import type { Express } from 'express';
-import express from 'express';
-import { registerAuthRoutes } from '../../../server/routes/auth.routes';
-import { db } from '../../../server/db';
-import { users, tenants, refreshTokens, userCredentials } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
-import { authService } from '../../../server/services/AuthService';
-import { userRepository, userCredentialsRepository } from '../../../server/repositories';
-import { nanoid } from 'nanoid';
 import { serialize } from 'cookie';
+import { eq, and, inArray } from 'drizzle-orm';
+import express from 'express';
+import { nanoid } from 'nanoid';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
+
+
+import { users, tenants, refreshTokens, userCredentials, auditLogs } from '@shared/schema';
+
+import { db } from '../../../server/db';
+import { userRepository, userCredentialsRepository } from '../../../server/repositories';
+import { registerAuthRoutes } from '../../../server/routes/auth.routes';
+import { authService } from '../../../server/services/AuthService';
+import { hashToken } from '../../../server/utils/encryption';
+
+import type { Express } from 'express';
+
 
 describe('OAuth2 Token Refresh Flow', () => {
   let app: Express;
@@ -35,7 +42,7 @@ describe('OAuth2 Token Refresh Flow', () => {
 
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({
-      name: 'Token Refresh Test Tenant',
+      name: `Token Refresh Test Tenant ${nanoid()}`,
       plan: 'pro',
     }).returning();
     testTenantId = tenant.id;
@@ -74,6 +81,13 @@ describe('OAuth2 Token Refresh Flow', () => {
   afterAll(async () => {
     // Clean up
     if (testTenantId) {
+      // Find users and delete their audit logs first
+      const tenantUsers = await db.select({ id: users.id }).from(users).where(eq(users.tenantId, testTenantId));
+      if (tenantUsers.length > 0) {
+        const userIds = tenantUsers.map(u => u.id);
+        // Delete related data first to avoid FK violations
+        await db.delete(auditLogs).where(inArray(auditLogs.userId, userIds));
+      }
       await db.delete(tenants).where(eq(tenants.id, testTenantId));
     }
   });
@@ -90,7 +104,7 @@ describe('OAuth2 Token Refresh Flow', () => {
         user: {
           id: testUserId,
           email: testUserEmail,
-          role: 'owner',
+          role: 'creator',
         },
       });
 
@@ -121,7 +135,7 @@ describe('OAuth2 Token Refresh Flow', () => {
 
       // Old token should be revoked in database
       const oldToken = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, testRefreshToken),
+        where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
       expect(oldToken?.revoked).toBe(true);
 
@@ -182,9 +196,10 @@ describe('OAuth2 Token Refresh Flow', () => {
 
     it('should return 401 for revoked refresh token', async () => {
       // Revoke the token
+      // Revoke the token
       await db.update(refreshTokens)
         .set({ revoked: true })
-        .where(eq(refreshTokens.token, testRefreshToken));
+        .where(eq(refreshTokens.token, hashToken(testRefreshToken)));
 
       const response = await request(app)
         .post('/api/auth/refresh-token')
@@ -203,7 +218,7 @@ describe('OAuth2 Token Refresh Flow', () => {
         .set('Cookie', `refresh_token=${testRefreshToken}`);
 
       expect(response.status).toBe(401);
-      expect(response.body.message).toBe('User not found');
+      expect(response.body.message).toBe('Invalid refresh token'); // Cascading delete removes token, so validation fails
     });
 
     it('should update refresh token metadata on rotation', async () => {
@@ -290,7 +305,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       expect(response.body.user).toMatchObject({
         id: testUserId,
         email: testUserEmail,
-        role: 'owner',
+        role: 'creator',
       });
     });
   });
@@ -327,8 +342,9 @@ describe('OAuth2 Token Refresh Flow', () => {
       expect(response.body.message).toBe('Logout successful');
 
       // Verify token is revoked
+      // Verify token is revoked
       const token = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, testRefreshToken),
+        where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
       expect(token?.revoked).toBe(true);
 
@@ -459,7 +475,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       // Token belongs to testUserId, not otherUser
       // The system should verify the token belongs to the correct user
       const token = await db.query.refreshTokens.findFirst({
-        where: eq(refreshTokens.token, testRefreshToken),
+        where: eq(refreshTokens.token, hashToken(testRefreshToken)),
       });
 
       expect(token?.userId).toBe(testUserId);

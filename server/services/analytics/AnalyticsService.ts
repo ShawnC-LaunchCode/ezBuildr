@@ -3,10 +3,11 @@
  * Core service for ingesting workflow execution events and retrieving run timelines.
  */
 
-import { db } from "../../db";
-import { workflowRunEvents, workflowRuns, workflowVersions } from "../../../shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
+
+import { workflowRunEvents, workflowRuns, workflowVersions } from "../../../shared/schema";
+import { db } from "../../db";
 import logger from "../../logger";
 
 // Validation schema for incoming events
@@ -38,12 +39,15 @@ class AnalyticsService {
             // Basic validation
             const data = eventSchema.parse(input);
 
-            // Skip storing preview events or draft runs (non-UUID versions) in database
-            if (data.isPreview || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.versionId)) {
-                logger.debug({ event: data }, "Skipping preview/draft analytics event");
+            // Skip storing preview events (non-UUID versions other than 'draft') in database
+            // We allow 'draft' for runs initiated from a workflow without a published version
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.versionId);
+            if (data.isPreview || (!isUuid && data.versionId !== 'draft')) {
+                logger.debug({ event: data }, "Skipping preview/invalid analytics event");
                 return;
             }
 
+            // Redaction logic can be added here
             // Redaction logic can be added here
             // For now, we assume payload is safe or mocked
 
@@ -87,7 +91,7 @@ class AnalyticsService {
      */
     async recordEvents(inputs: AnalyticsEventInput[]) {
         // optimize with single insert
-        if (inputs.length === 0) return;
+        if (inputs.length === 0) {return;}
 
         try {
             const values = inputs.map(input => ({

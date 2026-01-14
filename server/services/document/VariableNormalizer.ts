@@ -239,7 +239,7 @@ export function normalizeAddress(
   address: AddressValue | null | undefined,
   prefix?: string
 ): NormalizedData {
-  if (!address) return {};
+  if (!address) {return {};}
 
   const result: NormalizedData = {};
   const fields = ['street', 'street2', 'city', 'state', 'zip', 'country'] as const;
@@ -278,7 +278,7 @@ export function normalizeMultiField(
   multiField: MultiFieldValue | null | undefined,
   prefix?: string
 ): NormalizedData {
-  if (!multiField) return {};
+  if (!multiField) {return {};}
 
   const result: NormalizedData = {};
 
@@ -308,7 +308,7 @@ export function normalizeChoice(
   choice: string | string[] | null | undefined,
   delimiter: string = ', '
 ): string {
-  if (!choice) return '';
+  if (!choice) {return '';}
   if (Array.isArray(choice)) {
     return choice.join(delimiter);
   }

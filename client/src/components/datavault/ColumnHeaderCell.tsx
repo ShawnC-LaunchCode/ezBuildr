@@ -4,14 +4,16 @@
  * Note: For draggable headers, use SortableColumnHeader instead
  */
 
-import type { DatavaultColumn } from "@shared/schema";
-import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+import type { DatavaultColumn } from "@shared/schema";
+
+import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
 
 interface ColumnHeaderCellProps {
   column: DatavaultColumn;

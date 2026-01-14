@@ -10,12 +10,25 @@ import type {
   ValidateScriptResult,
   ScriptLanguage,
 } from "@shared/types/scripting";
-import { executeCodeWithHelpers } from "../../utils/enhancedSandboxExecutor";
-import { buildScriptContext } from "./ScriptContext";
-import { helperLibrary } from "./HelperLibrary";
+
+import { getValidationConfigForEnvironment } from "../../config/scriptValidation";
 import { logger } from "../../logger";
+import { executeCodeWithHelpers } from "../../utils/enhancedSandboxExecutor";
+
+import { ASTValidator } from "./ASTValidator";
+import { helperLibrary } from "./HelperLibrary";
+import { buildScriptContext } from "./ScriptContext";
+
 
 export class ScriptEngine {
+  private astValidator: ASTValidator;
+
+  constructor() {
+    // Initialize AST validator with environment-based config
+    const validationConfig = getValidationConfigForEnvironment();
+    this.astValidator = new ASTValidator(validationConfig);
+  }
+
   /**
    * Execute script with full context and helpers
    */
@@ -93,14 +106,13 @@ export class ScriptEngine {
   }
 
   /**
-   * Validate script syntax without execution
-   * Currently performs basic validation - could be enhanced with AST parsing
+   * Validate script syntax and security using AST parsing
    */
   async validate(params: ValidateScriptParams): Promise<ValidateScriptResult> {
     const { language, code } = params;
 
     try {
-      // Basic validation: code size
+      // Basic validation: code size (32KB limit)
       if (code.length > 32 * 1024) {
         return {
           valid: false,
@@ -116,77 +128,75 @@ export class ScriptEngine {
         };
       }
 
+      // Perform AST-based validation
+      let validationResult;
+
       if (language === "javascript") {
-        // Basic validation: check for obviously malicious patterns first
-        const dangerousPatterns = [
-          /require\s*\(/,
-          /import\s+/,
-          /eval\s*\(/,
-          /Function\s*\(/,
-          /process\./,
-          /global\./,
-          /__proto__/,
-          /constructor\s*\(/,
-        ];
+        // Use AST validator for JavaScript
+        validationResult = this.astValidator.validateJavaScript(code);
 
-        for (const pattern of dangerousPatterns) {
-          if (pattern.test(code)) {
-            return {
-              valid: false,
-              error: `Potentially unsafe code pattern detected: ${pattern.toString()}`,
-            };
-          }
-        }
+        // Log validation results
+        logger.debug({
+          valid: validationResult.valid,
+          violations: validationResult.violations?.length || 0,
+          warnings: validationResult.warnings?.length || 0,
+          complexity: validationResult.complexity,
+        }, "JavaScript AST validation completed");
 
-        // Syntax validation: Use Function constructor in a safe, non-executing way
-        // SECURITY NOTE: This validates syntax ONLY - function is never executed
-        // TODO: Replace with AST parser (acorn/esprima) for enhanced security
-        // Current approach is safe because:
-        // 1. Dangerous patterns already checked above
-        // 2. Function is never called (only constructed)
-        // 3. Wrapped in try-catch for error containment
-        // 4. Sandboxed execution happens later in vm2/vm module
-        // 5. This code only runs during validation, not execution
-        try {
-          // Create function without calling it - this validates syntax only
-          // The function signature matches our execution environment
-          const validationFn = new Function('input', 'context', 'helpers', code);
-          // Ensure function was created successfully but NEVER call it
-          if (typeof validationFn !== 'function') {
-            return {
-              valid: false,
-              error: 'Failed to validate code structure',
-            };
-          }
-          // Function constructor succeeded - syntax is valid
-        } catch (syntaxError) {
+        // Return validation result
+        if (!validationResult.valid) {
           return {
             valid: false,
-            error: syntaxError instanceof Error
-              ? `JavaScript syntax error: ${syntaxError.message}`
-              : "Syntax error in JavaScript code",
+            error: validationResult.error,
           };
         }
+
+        // Log warnings but still return valid
+        if (validationResult.warnings && validationResult.warnings.length > 0) {
+          logger.info({
+            warnings: validationResult.warnings,
+          }, "Script validation warnings");
+        }
+
+        return {
+          valid: true,
+          warnings: validationResult.warnings,
+        };
       } else if (language === "python") {
-        // Python syntax validation would require running Python parser
-        // For now, just check for basic structure
-        if (!code.includes("emit(")) {
+        // Use pattern-based validation for Python
+        validationResult = this.astValidator.validatePython(code);
+
+        logger.debug({
+          valid: validationResult.valid,
+          violations: validationResult.violations?.length || 0,
+          warnings: validationResult.warnings?.length || 0,
+        }, "Python validation completed");
+
+        if (!validationResult.valid) {
           return {
             valid: false,
-            error: "Python code must call emit() to produce output",
+            error: validationResult.error,
           };
         }
+
+        if (validationResult.warnings && validationResult.warnings.length > 0) {
+          logger.info({
+            warnings: validationResult.warnings,
+          }, "Script validation warnings");
+        }
+
+        return {
+          valid: true,
+          warnings: validationResult.warnings,
+        };
       } else {
         return {
           valid: false,
           error: `Unsupported language: ${language}`,
         };
       }
-
-      return {
-        valid: true,
-      };
     } catch (error) {
+      logger.error({ error }, "Script validation failed with exception");
       return {
         valid: false,
         error: error instanceof Error ? error.message : "Unknown validation error",

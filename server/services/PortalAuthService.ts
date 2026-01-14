@@ -1,9 +1,12 @@
-import { db } from "../db";
-import { portalTokens, users } from "@shared/schema";
-import { eq, and, gt } from "drizzle-orm";
-import { logger } from "../logger";
-import { v4 as uuidv4 } from "uuid";
 import crypto from 'crypto';
+
+import { eq, and, gt } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
+
+import { portalTokens, users } from "@shared/schema";
+
+import { db } from "../db";
+import { logger } from "../logger";
 import { hashToken } from "../utils/encryption";
 
 /**

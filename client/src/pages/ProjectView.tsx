@@ -3,30 +3,11 @@
  * Displays a single project with its contained workflows
  */
 
-import { useState } from "react";
-import { Link, useParams, useLocation } from "wouter";
 import { ArrowLeft, Plus, Edit } from "lucide-react";
-import {
-  useProject,
-  useUpdateProject,
-  useArchiveProject,
-  useDeleteProject,
-  useCreateWorkflow,
-  useUpdateWorkflow,
-  useDeleteWorkflow,
-  useMoveWorkflow,
-} from "@/lib/vault-hooks";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import React, { useState } from "react";
+import { Link, useParams, useLocation } from "wouter";
+
+import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,12 +18,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import type { ApiWorkflow } from "@/lib/vault-api";
+import {
+  useProject,
+  useUpdateProject,
+  useArchiveProject,
+  useDeleteProject,
+  useCreateWorkflow,
+  useUpdateWorkflow,
+  useDeleteWorkflow,
+  useMoveWorkflow,
+} from "@/lib/vault-hooks";
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
@@ -98,7 +99,7 @@ export default function ProjectView() {
 
     try {
       await updateProjectMutation.mutateAsync({
-        id: id!,
+        id: id,
         ...editProject,
       });
       toast({ title: "Success", description: "Project updated successfully" });
@@ -139,7 +140,7 @@ export default function ProjectView() {
   };
 
   const handleDeleteWorkflow = async () => {
-    if (!deleteWorkflowId) return;
+    if (!deleteWorkflowId) {return;}
 
     try {
       await deleteWorkflowMutation.mutateAsync(deleteWorkflowId);

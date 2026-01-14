@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import * as api from '../lib/api/datavault';
+
 import { DATAVAULT_CONFIG } from '@shared/config';
+
+import * as api from '../lib/api/datavault';
 
 /**
  * Hook to fetch a single referenced row and extract its display value
@@ -29,7 +31,7 @@ export function useReferenceRow(
         displayValue = String(row.data[displayColumnSlug]);
       } else {
         // Fallback to row ID if no display column specified or value not found
-        displayValue = rowId.substring(0, 8) + '...';
+        displayValue = `${rowId.substring(0, 8)  }...`;
       }
 
       return {

@@ -1,0 +1,508 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
+
+{"level":30,"time":1768086893034,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº¬ Setting up test environment...
+
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768086900905,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts[2m > [22m[2mJWT Authentication Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768086900924,"env":"test","msg":"Real-time collaboration server initialized"}
+{"level":30,"time":1768086900913,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768086900914,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768086900919,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768086900923,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768086900923,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768086900924,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768086900924,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768086901474,"env":"test","module":"user-credentials-repository","userId":"433ca6b4-24d1-4a96-9507-b1fe4a05c984","msg":"User credentials created"}
+{"level":30,"time":1768086901580,"env":"test","module":"email-queue","jobId":"0e3291d7-28e5-4c16-9061-db68e90de127","to":"test-Z_12LczIMxGuDmitE8wRK@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768086901636,"env":"test","module":"auth-routes","userId":"433ca6b4-24d1-4a96-9507-b1fe4a05c984","email":"test-Z_12LczIMxGuDmitE8wRK@example.com","msg":"User registered"}
+{"level":50,"time":1768086902014,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+{"level":50,"time":1768086902021,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768086902029,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768086902187,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+{"level":40,"time":1768086902197,"env":"test","module":"auth-middleware","error":{"name":"InvalidTokenError","code":"AUTH_003","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768086902198,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":40,"time":1768086903305,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768086903305,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":40,"time":1768086904448,"env":"test","module":"auth-middleware","error":{"name":"TokenExpiredError","code":"AUTH_002","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768086904448,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768086905068,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/auth/jwt.authentication.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/auth/jwt.authentication.test.ts [2m([22m[2m27 tests[22m[2m | [22m[31m20 failed[39m[2m)[22m[33m 5345[2mms[22m[39m
+[31m       [31m├ù[31m should generate valid JWT token on successful login[39m[32m 16[2mms[22m[39m
+[31m       [31m├ù[31m should include correct payload in JWT token[39m[32m 8[2mms[22m[39m
+[31m       [31m├ù[31m should set JWT expiry to 15 minutes[39m[32m 9[2mms[22m[39m
+[31m       [31m├ù[31m should accept valid JWT token on protected routes[39m[32m 167[2mms[22m[39m
+       [32mΓ£ô[39m should reject request without authorization header[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should reject request with malformed token[32m 8[2mms[22m[39m
+[31m       [31m├ù[31m should reject request with missing Bearer prefix[39m[32m 159[2mms[22m[39m
+       [32mΓ£ô[39m should reject token with invalid signature[32m 10[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject expired JWT token [33m 1107[2mms[22m[39m
+[31m       [31m├ù[31m should return token_expired error code for expired tokens[39m[33m 1151[2mms[22m[39m
+       [32mΓ£ô[39m should authenticate with Bearer token in Authorization header[32m 114[2mms[22m[39m
+       [32mΓ£ô[39m should work with Bearer token on POST requests[32m 117[2mms[22m[39m
+[31m       [31m├ù[31m should work with Bearer token on PUT requests[39m[32m 69[2mms[22m[39m
+[31m       [31m├ù[31m should work with Bearer token on DELETE requests[39m[32m 299[2mms[22m[39m
+[31m       [31m├ù[31m should exchange valid session cookie for JWT token[39m[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should reject token exchange without valid cookie[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should prefer Bearer token over cookie when both present[39m[32m 8[2mms[22m[39m
+[31m       [31m├ù[31m should fall back to cookie if Bearer token is invalid[39m[32m 8[2mms[22m[39m
+[31m       [31m├ù[31m should allow GET requests with cookie auth only[39m[32m 10[2mms[22m[39m
+[31m       [31m├ù[31m should reject POST requests with cookie auth only (mutation-strict)[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow anonymous access to public workflows[39m[32m 67[2mms[22m[39m
+[31m       [31m├ù[31m should attach user info if authenticated on optional auth routes[39m[32m 57[2mms[22m[39m
+[31m       [31m├ù[31m should refresh access token using refresh token[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should rotate refresh token on use[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should detect token reuse and revoke all user tokens[39m[32m 9[2mms[22m[39m
+[31m       [31m├ù[31m should revoke refresh token on logout[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should clear refresh token cookie on logout[39m[32m 10[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 20 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Generation > should generate valid JWT token on successful login
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:54:18
+     52|                 .post("/api/auth/register")
+     53|                 .send(testUser)
+     54|                 .expect(201);
+       |                  ^
+     55| 
+     56|             // Verify email
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Generation > should include correct payload in JWT token
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:90:18
+     88|                 .post("/api/auth/register")
+     89|                 .send(testUser)
+     90|                 .expect(201);
+       |                  ^
+     91| 
+     92|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Generation > should set JWT expiry to 15 minutes
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:122:18
+    120|                 .post("/api/auth/register")
+    121|                 .send(testUser)
+    122|                 .expect(201);
+       |                  ^
+    123| 
+    124|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Validation > should accept valid JWT token on protected routes
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:153:18
+    151|                     password: testUser.password,
+    152|                 })
+    153|                 .expect(200);
+       |                  ^
+    154| 
+    155|             const meRes = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Validation > should reject request with missing Bearer prefix
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:183:18
+    181|                     password: testUser.password,
+    182|                 })
+    183|                 .expect(200);
+       |                  ^
+    184| 
+    185|             await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > JWT Token Expiration > should return token_expired error code for expired tokens
+AssertionError: expected { code: 'AUTH_008', ΓÇª(3) } to be 'token_expired' // Object.is equality
+
+- Expected: 
+"token_expired"
+
++ Received: 
+{
+  "code": "AUTH_008",
+  "details": {
+    "errorType": "UnauthorizedError",
+  },
+  "message": "Authentication required",
+  "timestamp": "2026-01-10T23:15:04.448Z",
+}
+
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:237:36
+    235|                 .expect(401);
+    236| 
+    237|             expect(res.body.error).toBe("token_expired");
+       |                                    ^
+    238|         });
+    239|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Bearer Token Authentication > should work with Bearer token on PUT requests
+Error: expected 200 "OK", got 404 "Not Found"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:268:18
+    266|                 .set("Authorization", `Bearer ${ctx.authToken}`)
+    267|                 .send({ firstName: "Updated" })
+    268|                 .expect(200);
+       |                  ^
+    269| 
+    270|             expect(updateRes.body).toBeDefined();
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/index.js:1102:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Bearer Token Authentication > should work with Bearer token on DELETE requests
+Error: expected 200 "OK", got 204 "No Content"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:285:18
+    283|                 .delete(`/api/projects/${projectRes.body.id}`)
+    284|                 .set("Authorization", `Bearer ${ctx.authToken}`)
+    285|                 .expect(200);
+       |                  ^
+    286|         });
+    287|     });
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:847:12
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/index.js:1102:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Cookie-to-Token Exchange > should exchange valid session cookie for JWT token
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:295:18
+    293|                 .post("/api/auth/register")
+    294|                 .send(testUser)
+    295|                 .expect(201);
+       |                  ^
+    296| 
+    297|             const cookies = registerRes.headers['set-cookie'];
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Hybrid Authentication Strategy > should prefer Bearer token over cookie when both present
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:330:18
+    328|                     email: `user1-${nanoid()}@example.com`,
+    329|                 })
+    330|                 .expect(201);
+       |                  ^
+    331| 
+    332|             const user2Res = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Hybrid Authentication Strategy > should fall back to cookie if Bearer token is invalid
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:358:18
+    356|                 .post("/api/auth/register")
+    357|                 .send(testUser)
+    358|                 .expect(201);
+       |                  ^
+    359| 
+    360|             const cookies = registerRes.headers['set-cookie'];
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Hybrid Authentication Strategy > should allow GET requests with cookie auth only
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:377:18
+    375|                 .post("/api/auth/register")
+    376|                 .send(testUser)
+    377|                 .expect(201);
+       |                  ^
+    378| 
+    379|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Hybrid Authentication Strategy > should reject POST requests with cookie auth only (mutation-strict)
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:406:18
+    404|                 .post("/api/auth/register")
+    405|                 .send(testUser)
+    406|                 .expect(201);
+       |                  ^
+    407| 
+    408|             const cookies = registerRes.headers['set-cookie'];
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[13/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should allow anonymous access to public workflows
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:432:18
+    430|                     publicLink: `public-${nanoid()}`,
+    431|                 })
+    432|                 .expect(201);
+       |                  ^
+    433| 
+    434|             // Access without authentication
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[14/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Optional Authentication > should attach user info if authenticated on optional auth routes
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:451:18
+    449|                     publicLink: `optional-${nanoid()}`,
+    450|                 })
+    451|                 .expect(201);
+       |                  ^
+    452| 
+    453|             // Access with authentication
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[15/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Token Refresh Flow > should refresh access token using refresh token
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:469:18
+    467|                 .post("/api/auth/register")
+    468|                 .send(testUser)
+    469|                 .expect(201);
+       |                  ^
+    470| 
+    471|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[16/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Token Refresh Flow > should rotate refresh token on use
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:503:18
+    501|                 .post("/api/auth/register")
+    502|                 .send(testUser)
+    503|                 .expect(201);
+       |                  ^
+    504| 
+    505|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[17/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Token Refresh Flow > should detect token reuse and revoke all user tokens
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:544:18
+    542|                 .post("/api/auth/register")
+    543|                 .send(testUser)
+    544|                 .expect(201);
+       |                  ^
+    545| 
+    546|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[18/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Logout Flow > should revoke refresh token on logout
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:595:18
+    593|                 .post("/api/auth/register")
+    594|                 .send(testUser)
+    595|                 .expect(201);
+       |                  ^
+    596| 
+    597|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[19/20]ΓÄ»
+
+ FAIL  tests/integration/auth/jwt.authentication.test.ts > JWT Authentication Integration Tests > Logout Flow > should clear refresh token cookie on logout
+Error: expected 201 "Created", got 400 "Bad Request"
+ Γ¥» tests/integration/auth/jwt.authentication.test.ts:628:18
+    626|                 .post("/api/auth/register")
+    627|                 .send(testUser)
+    628|                 .expect(201);
+       |                  ^
+    629| 
+    630|             await db.update(db.query.users as any)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[20/20]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m20 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (27)[39m
+[2m   Start at [22m 17:14:50
+[2m   Duration [22m 15.21s[2m (transform 4.96s, setup 205ms, import 9.27s, tests 5.35s, environment 0ms)[22m
+

@@ -6,16 +6,19 @@
  * NOTE: These are integration tests that require database connectivity
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { describeWithDb } from '../../helpers/dbTestHelper';
-import { db } from '../../../server/db';
-import { workflowTemplates, workflowVersions, workflows, projects, templates, users, tenants } from '../../../shared/schema';
-import { WorkflowTemplateService } from '../../../server/services/WorkflowTemplateService';
-import { eq } from 'drizzle-orm';
-import { createError } from '../../../server/utils/errors';
-import { documentTemplateService } from '../../../server/services/DocumentTemplateService';
-import { createTestFactory } from '../../helpers/testFactory';
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+import { db } from '../../../server/db';
+import { documentTemplateService } from '../../../server/services/DocumentTemplateService';
+import { WorkflowTemplateService } from '../../../server/services/WorkflowTemplateService';
+import { createError } from '../../../server/utils/errors';
+import { workflowTemplates, workflowVersions, workflows, projects, templates, users, tenants } from '../../../shared/schema';
+import { describeWithDb } from '../../helpers/dbTestHelper';
+import { createTestFactory } from '../../helpers/testFactory';
+
 
 // Mock DocumentTemplateService
 vi.mock('../../../server/services/DocumentTemplateService', () => ({

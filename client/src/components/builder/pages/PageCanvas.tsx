@@ -4,9 +4,6 @@
  * Supports drag-and-drop for both sections and steps (including cross-section)
  */
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DndContext,
   closestCenter,
@@ -26,12 +23,18 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps, useCreateSection, useWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
-import { PageCard } from "./PageCard";
+import { Plus } from "lucide-react";
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import { UI_LABELS } from "@/lib/labels";
-import { QuestionCard } from "../questions/QuestionCard";
 import type { ApiStep } from "@/lib/vault-api";
+import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps, useCreateSection, useWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
+
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
+import { QuestionCard } from "../questions/QuestionCard";
+
+import { PageCard } from "./PageCard";
 
 interface PageCanvasProps {
   workflowId: string;
@@ -142,7 +145,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
     setActiveId(null);
     setActiveDragData(null);
 
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id) {return;}
 
     // Handle section reordering
     if (activeDragData?.type === 'section') {
@@ -183,12 +186,12 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         ) || null;
       }
 
-      if (!targetSectionId) return;
+      if (!targetSectionId) {return;}
 
       const sourceSteps = [...allSteps[sourceSectionId]];
       const oldIndex = sourceSteps.findIndex(s => s.id === active.id);
 
-      if (oldIndex === -1) return;
+      if (oldIndex === -1) {return;}
 
       // Same section - just reorder
       if (sourceSectionId === targetSectionId) {
@@ -197,7 +200,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
           ? targetSteps.findIndex(s => s.id === targetStepId)
           : targetSteps.length;
 
-        if (newIndex === -1) return;
+        if (newIndex === -1) {return;}
 
         const reordered = arrayMove(targetSteps, oldIndex, newIndex);
         const updates = reordered.map((step, index) => ({

@@ -16,7 +16,7 @@ import { formatters } from '../utils/formatters';
  * Capitalize first letter of string
  */
 export function capitalize(s: string | null | undefined): string {
-  if (!s) return '';
+  if (!s) {return '';}
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
@@ -24,7 +24,7 @@ export function capitalize(s: string | null | undefined): string {
  * Join array elements with separator
  */
 export function join(arr: any[] | null | undefined, separator: string = ', '): string {
-  if (!arr || !Array.isArray(arr)) return '';
+  if (!arr || !Array.isArray(arr)) {return '';}
   return arr.filter(item => item != null).join(separator);
 }
 
@@ -32,7 +32,7 @@ export function join(arr: any[] | null | undefined, separator: string = ', '): s
  * Get array length
  */
 export function length(arr: any[] | null | undefined): number {
-  if (!arr || !Array.isArray(arr)) return 0;
+  if (!arr || !Array.isArray(arr)) {return 0;}
   return arr.length;
 }
 
@@ -40,7 +40,7 @@ export function length(arr: any[] | null | undefined): number {
  * Get first element of array
  */
 export function first(arr: any[] | null | undefined): any {
-  if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+  if (!arr || !Array.isArray(arr) || arr.length === 0) {return null;}
   return arr[0];
 }
 
@@ -48,7 +48,7 @@ export function first(arr: any[] | null | undefined): any {
  * Get last element of array
  */
 export function last(arr: any[] | null | undefined): any {
-  if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+  if (!arr || !Array.isArray(arr) || arr.length === 0) {return null;}
   return arr[arr.length - 1];
 }
 
@@ -56,9 +56,9 @@ export function last(arr: any[] | null | undefined): any {
  * Check if value is empty (null, undefined, '', [], {})
  */
 export function isEmpty(value: any): boolean {
-  if (value === null || value === undefined || value === '') return true;
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === 'object') return Object.keys(value).length === 0;
+  if (value === null || value === undefined || value === '') {return true;}
+  if (Array.isArray(value)) {return value.length === 0;}
+  if (typeof value === 'object') {return Object.keys(value).length === 0;}
   return false;
 }
 
@@ -84,11 +84,11 @@ export function formatDate(
   iso: string | Date | null | undefined,
   format: string = 'MM/DD/YYYY'
 ): string {
-  if (!iso) return '';
+  if (!iso) {return '';}
 
   try {
     const d = typeof iso === 'string' ? new Date(iso) : iso;
-    if (isNaN(d.getTime())) return '';
+    if (isNaN(d.getTime())) {return '';}
 
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -177,7 +177,7 @@ export function multiply(a: number, b: number): number {
 }
 
 export function divide(a: number, b: number): number {
-  if (!b || b === 0) return 0;
+  if (!b || b === 0) {return 0;}
   return (a || 0) / b;
 }
 
@@ -189,7 +189,7 @@ export function pluralize(
   singular: string,
   plural?: string
 ): string {
-  if (count === 1) return singular;
+  if (count === 1) {return singular;}
   return plural || `${singular}s`;
 }
 
@@ -197,8 +197,8 @@ export function pluralize(
  * Truncate string to length
  */
 export function truncate(s: string | null | undefined, maxLength: number, suffix: string = '...'): string {
-  if (!s) return '';
-  if (s.length <= maxLength) return s;
+  if (!s) {return '';}
+  if (s.length <= maxLength) {return s;}
   return s.substring(0, maxLength - suffix.length) + suffix;
 }
 
@@ -210,7 +210,7 @@ export function replace(
   search: string,
   replacement: string
 ): string {
-  if (!s) return '';
+  if (!s) {return '';}
   return s.replace(new RegExp(search, 'g'), replacement);
 }
 
@@ -265,7 +265,7 @@ export function createAngularParser() {
       let current = scope;
 
       for (const key of keys) {
-        if (current == null) return '';
+        if (current == null) {return '';}
         current = current[key];
       }
 

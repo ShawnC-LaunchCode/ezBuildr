@@ -1,12 +1,15 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+
+import { ExecutionTimeline } from "@/components/devpanel/ExecutionTimeline";
+import { RuntimeVariableList } from "@/components/devpanel/RuntimeVariableList";
+import { UnifiedDevPanel } from "@/components/devpanel/UnifiedDevPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import { UnifiedDevPanel } from "@/components/devpanel/UnifiedDevPanel";
-import { RuntimeVariableList } from "@/components/devpanel/RuntimeVariableList";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiWorkflowVariable } from "@/lib/vault-api";
+
 import { JsonViewer } from "./JsonViewer";
-import { ExecutionTimeline } from "@/components/devpanel/ExecutionTimeline";
+
 
 interface DevToolsPanelProps {
     env: PreviewEnvironment | null;
@@ -19,7 +22,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
     const [localOpen, setLocalOpen] = useState(true);
 
     const variables = useMemo<ApiWorkflowVariable[]>(() => {
-        if (!state || !env) return [];
+        if (!state || !env) {return [];}
 
         // Map steps to variables
         return env.getSteps()
@@ -47,7 +50,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
     // assuming 'isOpen' from props means "Dev Tools Enabled/Visible at all".
 
     const contextValues = useMemo(() => {
-        if (!state || !env) return {};
+        if (!state || !env) {return {};}
         const values = { ...state.values };
         const steps = env.getSteps();
 
@@ -85,7 +88,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
         // 2. Sort by path length? Or just use a deep merge utility.
 
         Object.entries(values).forEach(([stepId, value]) => {
-            if (value === undefined || value === null) return;
+            if (value === undefined || value === null) {return;}
 
             const step = steps.find(s => s.id === stepId);
             const key = step?.alias || stepId;
@@ -127,7 +130,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
     }, [state, env]);
 
     // Conditional return AFTER all hooks have been called
-    if (!isOpen || !state) return null;
+    if (!isOpen || !state) {return null;}
 
     return (
         <div className="h-full flex flex-col pointer-events-auto">

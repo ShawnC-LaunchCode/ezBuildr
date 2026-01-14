@@ -1,24 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import type { DashboardStats, Survey, SurveyAnalytics, ResponseTrend, ActivityItem } from "@shared/schema";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
-import StatsCard from "@/components/ui/stats-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SkeletonList } from "@/components/shared/SkeletonList";
-import { QuickActionButton } from "@/components/shared/QuickActionButton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import AIHeroCard from "@/components/AIHeroCard";
-import { Link } from "wouter";
 import {
   FileText, PlayCircle, TrendingUp, Percent, History,
   Home, PieChart, Settings, Zap, Plus,
   BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2, Database
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Link } from "wouter";
+
+import AIHeroCard from "@/components/AIHeroCard";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import StatsCard from "@/components/ui/stats-card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+
+import type { DashboardStats, Survey, SurveyAnalytics, ResponseTrend, ActivityItem } from "@shared/schema";
+
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { SkeletonList } from "@/components/shared/SkeletonList";
+import { QuickActionButton } from "@/components/shared/QuickActionButton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 export default function Dashboard() {
   const { toast } = useToast();

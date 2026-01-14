@@ -1,10 +1,12 @@
 import type { WorkflowVersion } from '@shared/schema';
+import type { ExecutionStep, VariableLineage, WorkflowTrace } from '@shared/types/debug';
+
 import { renderTemplate } from '../services/templates';
 import { createError } from '../utils/errors';
+
 import { type EvalContext, evaluateExpression } from './expr';
-import { validateGraph, validateNodeConditions, topologicalSort, type GraphJson } from './validate';
 import { executeNode, type Node, type NodeOutput } from './registry';
-import type { ExecutionStep, VariableLineage, WorkflowTrace } from '@shared/types/debug';
+import { validateGraph, validateNodeConditions, topologicalSort, type GraphJson } from './validate';
 
 /**
  * Workflow Engine
@@ -72,7 +74,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
     });
 
     // Parse and validate graphJson structure
-    const graphJson = workflowVersion.graphJson as unknown as GraphJson;
+    const graphJson = workflowVersion.graphJson as GraphJson;
     if (!graphJson || typeof graphJson !== 'object') {
       throw new Error('Invalid graphJson: must be an object');
     }
@@ -109,10 +111,9 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
     });
 
     // Initialize execution context resources
-    let ivm: any;
-    let isolate: any;
+    let ivm: typeof import("isolated-vm") | undefined;
+    let isolate: import("isolated-vm").Isolate | undefined;
     try {
-      // @ts-ignore
       ivm = await import("isolated-vm");
       isolate = new ivm.Isolate({ memoryLimit: 128 });
     } catch (e) {
@@ -281,6 +282,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           });
           const nodeDuration = Date.now() - nodeStartTime;
 
+          // NEW: Collect output references (files)
+          if (nodeOutput.status === 'executed' && 'outputRef' in nodeOutput && nodeOutput.outputRef) {
+            outputRefs[nodeId] = nodeOutput.outputRef;
+          }
+
           // NEW: Populate ExecutionStep and Lineage
           const stepIndex = executionSteps.length;
           const outputsDelta: Record<string, any> = {};
@@ -388,8 +394,8 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
       logs,
       trace: options.debug ? trace : undefined,
       executionTrace: options.debug ? {
-        executionId: 'exec-' + new Date().toISOString(), // TODO: Use real ID
-        workflowId: workflowVersion.workflowId!,
+        executionId: `exec-${  new Date().toISOString()}`, // TODO: Use real ID
+        workflowId: workflowVersion.workflowId,
         workflowVersionId: workflowVersion.id,
         startTime: new Date(startTime),
         endTime: new Date(),
@@ -427,7 +433,7 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
     const order: string[] = [];
 
     const visit = (nodeId: string): void => {
-      if (visited.has(nodeId)) return;
+      if (visited.has(nodeId)) {return;}
       visited.add(nodeId);
       order.push(nodeId);
 

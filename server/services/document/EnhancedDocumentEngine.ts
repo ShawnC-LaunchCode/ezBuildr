@@ -14,12 +14,6 @@
  * @date December 6, 2025
  */
 
-import { DocumentEngine } from './DocumentEngine.js';
-import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
-import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
-import { applyMapping, type DocumentMapping, type MappingResult } from './MappingInterpreter.js';
-import type { FinalBlockConfig, LogicExpression } from '../../../shared/types/stepConfigs.js';
-import { createLogger } from '../../logger.js';
 import {
   DocumentGenerationError,
   createNormalizationError,
@@ -28,7 +22,15 @@ import {
   wrapAsDocumentGenerationError,
   isDocumentGenerationError
 } from '../../errors/DocumentGenerationError.js';
+import { createLogger } from '../../logger.js';
 import { templateAnalytics } from '../TemplateAnalyticsService.js';
+
+import { DocumentEngine } from './DocumentEngine.js';
+import { applyMapping, type DocumentMapping, type MappingResult } from './MappingInterpreter.js';
+import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
+
+import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
+import type { FinalBlockConfig, LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
 
@@ -471,7 +473,7 @@ export class EnhancedDocumentEngine {
     conditions: LogicExpression,
     stepValues: Record<string, any>
   ): boolean {
-    if (!conditions || !conditions.conditions || conditions.conditions.length === 0) {
+    if (!conditions?.conditions || conditions.conditions.length === 0) {
       return true;
     }
 

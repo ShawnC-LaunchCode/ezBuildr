@@ -2,27 +2,6 @@
  * Sidebar Tree - Drag-and-drop page/question hierarchy
  */
 
-import { useState } from "react";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Info, Lock, Zap, Settings, Trash2 } from "lucide-react";
-import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { LogicIndicator } from "@/components/logic";
-import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
-import { SectionSettingsDialog } from "./SectionSettingsDialog";
-import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
-import { AiAssistantDialog } from "./ai/AiAssistantDialog";
-import { AddSnipDialog } from "./AddSnipDialog";
 import {
   DndContext,
   closestCenter,
@@ -40,13 +19,37 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Info, Lock, Zap, Settings, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+
+import { LogicIndicator } from "@/components/logic";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
+import { cn } from "@/lib/utils";
+
+import { AddSnipDialog } from "./AddSnipDialog";
+import { AiAssistantDialog } from "./ai/AiAssistantDialog";
+import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
+import { SectionSettingsDialog } from "./SectionSettingsDialog";
+import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
+
+
 import { UI_LABELS } from "@/lib/labels";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
-  // Use data from workflow response instead of separate API calls (performance optimization)
-  const sections = workflow?.sections;
-  const transformBlocks = workflow?.transformBlocks;
+  const { data: sections } = useSections(workflowId);
+  const { data: transformBlocks } = useTransformBlocks(workflowId);
   const mode = workflow?.modeOverride || 'easy';
   const { data: blocks } = useBlocks(workflowId);
   const createSectionMutation = useCreateSection();
@@ -62,7 +65,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   // Group blocks by section
   const blocksBySection = (blocks || []).reduce((acc: Record<string, any[]>, block: any) => {
     if (block.sectionId) {
-      if (!acc[block.sectionId]) acc[block.sectionId] = [];
+      if (!acc[block.sectionId]) {acc[block.sectionId] = [];}
       acc[block.sectionId].push({ ...block, source: 'regular' });
     }
     return acc;
@@ -293,7 +296,7 @@ function SectionItem({
   const isSelected = selection?.type === "section" && selection.id === section.id;
 
   // Check if this is a Final Documents section
-  const isFinalSection = (section.config as any)?.finalBlock === true;
+  const isFinalSection = (section.config)?.finalBlock === true;
 
   // Don't show page-level required pill based on questions - only show if page is conditional
   const isPageConditional = !!section.visibleIf;
@@ -318,7 +321,7 @@ function SectionItem({
       order,
       config: {},
     });
-    if (!isExpanded) onToggle();
+    if (!isExpanded) {onToggle();}
   };
 
   const handleCreateLogicBlock = async (type: "write" | "read_table" | "list_tools" | "external_send") => {
@@ -344,7 +347,7 @@ function SectionItem({
       enabled: true,
       order
     });
-    if (!isExpanded) onToggle();
+    if (!isExpanded) {onToggle();}
   };
 
   // Combine steps and blocks for display (if advanced mode or simple mode interoperability)
@@ -373,10 +376,10 @@ function SectionItem({
             selectSection(section.id);
           }
           if (e.key === 'ArrowRight') {
-            if (!isExpanded) onToggle();
+            if (!isExpanded) {onToggle();}
           }
           if (e.key === 'ArrowLeft') {
-            if (isExpanded) onToggle();
+            if (isExpanded) {onToggle();}
           }
         }}
       >
@@ -495,9 +498,9 @@ function SectionItem({
               // Filter out system steps and questions in final sections
               .filter((step) => {
                 // Hide final_documents system steps (they're just metadata)
-                if (step.type === 'final_documents') return false;
+                if (step.type === 'final_documents') {return false;}
                 // Hide any other questions that might exist in final sections (orphaned data)
-                if (isFinalSection) return false;
+                if (isFinalSection) {return false;}
                 return true;
               })
               .map((step) => (

@@ -1,15 +1,17 @@
+import { Loader2, Sparkles, Send, Check, X, Undo, MessageSquare } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, Send, Check, X, Undo, MessageSquare } from "lucide-react";
-import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+
 import { AIFeedbackWidget, QualityScore } from "./AIFeedbackWidget";
 
 interface Message {
@@ -82,7 +84,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
     }, [reviseMutation.isPending, inspirationalPhrases.length]);
 
     const handleSend = async () => {
-        if (!input.trim()) return;
+        if (!input.trim()) {return;}
 
         const userMsg: Message = { role: 'user', content: input, timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
@@ -166,7 +168,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
     };
 
     const handleApply = async () => {
-        if (!proposedWorkflow) return;
+        if (!proposedWorkflow) {return;}
         try {
             await updateMutation.mutateAsync({
                 id: workflowId,
@@ -243,7 +245,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                                     <p className="whitespace-pre-wrap">{msg.content}</p>
                                 </div>
 
-                                {msg.diff && msg.diff.changes && msg.diff.changes.length > 0 && (
+                                {msg.diff?.changes && msg.diff.changes.length > 0 && (
                                     <Card className={cn(
                                         "w-full mt-2 p-3 border shadow-sm",
                                         msg.status === 'applied' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900" :

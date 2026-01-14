@@ -5,8 +5,9 @@
  * Provides detailed scoring and actionable feedback for improvement.
  */
 
-import type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedSection } from '../../shared/types/ai';
 import { createLogger } from '../logger';
+
+import type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedSection } from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'workflow-quality-validator' });
 
@@ -449,12 +450,12 @@ export class WorkflowQualityValidator {
 
     // Convert to camelCase
     const words = cleaned.trim().split(/\s+/);
-    if (words.length === 0) return 'field';
+    if (words.length === 0) {return 'field';}
 
     return words
       .map((word, idx) => {
         word = word.toLowerCase();
-        if (idx === 0) return word;
+        if (idx === 0) {return word;}
         return word.charAt(0).toUpperCase() + word.slice(1);
       })
       .join('');

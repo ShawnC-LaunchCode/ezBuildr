@@ -11,6 +11,20 @@
     "dist"
   ],
   "compilerOptions": {
+    // NOTE: TypeScript Strict Mode Migration Plan
+    // ============================================
+    // The base config uses "strict": true, but legacy code may not fully comply.
+    // We are gradually migrating to full strict mode compliance:
+    //
+    // 1. New code paths (strict zones) MUST use tsconfig.strict.json
+    // 2. Strict zones are enforced via scripts/check-strict-zones.ts
+    // 3. Current strict zones:
+    //    - server/services/scripting/**
+    //    - New API routes (lifecycle-hooks, document-hooks)
+    //    - New repository classes (LifecycleHookRepository, etc.)
+    // 4. Goal: Expand strict zones gradually until entire codebase is compliant
+    //
+    // See docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md for full details
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,

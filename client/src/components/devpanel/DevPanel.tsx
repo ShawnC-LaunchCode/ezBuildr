@@ -4,15 +4,18 @@
  * Wrapper for UnifiedDevPanel to connect store and live data
  */
 
-import { useEffect, useState } from "react";
-import { useDevPanel } from "@/store/devpanel";
+import React, { useEffect, useState } from "react";
+
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkflowVariablesLive } from "@/hooks/useWorkflowVariablesLive";
+import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
+import { useDevPanel } from "@/store/devpanel";
+
+import { ExecutionTimeline } from "./ExecutionTimeline";
 import { UnifiedDevPanel } from "./UnifiedDevPanel";
 import { VariableList } from "./VariableList";
-import { ExecutionTimeline } from "./ExecutionTimeline";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+
 
 interface DevPanelProps {
   workflowId: string;

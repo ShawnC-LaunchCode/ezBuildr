@@ -1,6 +1,9 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Loader2, RefreshCw, Download, BarChart2, GitMerge, Thermometer, Users } from "lucide-react";
+import React, { useState } from "react";
 import { useParams } from "wouter";
+
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -8,7 +11,6 @@ import {
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Select,
     SelectContent,
@@ -16,9 +18,8 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // import { DateRangePicker } from "@/components/ui/date-range-picker"; // component not available
-import { Loader2, RefreshCw, Download, BarChart2, GitMerge, Thermometer, Users } from "lucide-react";
 
 // Types
 interface AnalyticsOverview {
@@ -46,7 +47,7 @@ export function WorkflowAnalytics() {
         queryKey: ["analytics", workflowId, "overview", timeRange],
         queryFn: async () => {
             const res = await fetch(`/api/analytics/workflow/${workflowId}/overview?range=${timeRange}`);
-            if (!res.ok) throw new Error("Failed to fetch overview");
+            if (!res.ok) {throw new Error("Failed to fetch overview");}
             return res.json() as Promise<AnalyticsOverview>;
         },
         enabled: !!workflowId,
@@ -57,13 +58,13 @@ export function WorkflowAnalytics() {
         queryKey: ["analytics", workflowId, "dropoff", timeRange],
         queryFn: async () => {
             const res = await fetch(`/api/analytics/workflow/${workflowId}/dropoff?range=${timeRange}`);
-            if (!res.ok) throw new Error("Failed to fetch dropoff data");
+            if (!res.ok) {throw new Error("Failed to fetch dropoff data");}
             return res.json() as Promise<DropoffStep[]>;
         },
         enabled: !!workflowId,
     });
 
-    if (!workflowId) return <div>Invalid Workflow ID</div>;
+    if (!workflowId) {return <div>Invalid Workflow ID</div>;}
 
     return (
         <div className="container mx-auto p-8 space-y-8">

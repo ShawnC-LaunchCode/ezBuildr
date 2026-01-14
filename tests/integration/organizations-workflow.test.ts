@@ -10,8 +10,13 @@
  * 6. Non-member cannot access workflow
  */
 
+import { eq, and } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import { db } from '../../server/db';
+import { organizationService } from '../../server/services/OrganizationService';
+import { workflowService } from '../../server/services/WorkflowService';
 import {
   users,
   organizations,
@@ -20,10 +25,7 @@ import {
   workflows,
   tenants,
 } from '../../shared/schema';
-import { eq, and } from 'drizzle-orm';
-import { organizationService } from '../../server/services/OrganizationService';
-import { workflowService } from '../../server/services/WorkflowService';
-import { v4 as uuidv4 } from 'uuid';
+
 
 describe('Organization Workflow Integration Tests', () => {
   // Test users

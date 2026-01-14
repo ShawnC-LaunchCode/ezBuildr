@@ -4,18 +4,6 @@
  * Manage email template metadata and branding token bindings
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { emailTemplateAPI, type EmailTemplateMetadata } from '@/lib/vault-api';
-import Sidebar from '@/components/layout/Sidebar';
-import Header from '@/components/layout/Header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Mail,
   Search,
@@ -26,6 +14,19 @@ import {
   FileText,
   Tag,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'wouter';
+
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { emailTemplateAPI, type EmailTemplateMetadata } from '@/lib/vault-api';
 
 export default function EmailTemplatesPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -85,7 +86,7 @@ export default function EmailTemplatesPage() {
 
   // Count branding tokens used
   const getBrandingTokenCount = (template: EmailTemplateMetadata): number => {
-    if (!template.brandingTokens) return 0;
+    if (!template.brandingTokens) {return 0;}
     return Object.values(template.brandingTokens).filter(Boolean).length;
   };
 

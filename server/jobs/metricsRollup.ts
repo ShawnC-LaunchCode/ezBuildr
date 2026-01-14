@@ -5,13 +5,14 @@
  * Runs periodically to compute metrics for 1m, 5m, 1h, and 1d buckets.
  */
 
-import { db } from '../db';
+import { sql, and, gte, lt, eq, or, isNull } from 'drizzle-orm';
+
 import {
   metricsEvents,
   metricsRollups,
   type InsertMetricsRollup,
 } from '../../shared/schema';
-import { sql, and, gte, lt, eq, or, isNull } from 'drizzle-orm';
+import { db } from '../db';
 import logger from '../logger';
 import sli from '../services/sli';
 

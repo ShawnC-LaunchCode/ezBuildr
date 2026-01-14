@@ -10,7 +10,7 @@ import type { Workflow, Section, Step, LogicRule, WorkflowRun } from "../../shar
 export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
   const now = new Date();
   return {
-    id: "workflow-" + Math.random().toString(36).substring(7),
+    id: `workflow-${  Math.random().toString(36).substring(7)}`,
     projectId: overrides?.projectId || "project-test-123",
     name: "Test Workflow",
     title: "Test Workflow",
@@ -41,7 +41,7 @@ export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
 export function createTestSection(workflowId: string, overrides?: Partial<Section>): Section {
   const now = new Date();
   return {
-    id: "section-" + Math.random().toString(36).substring(7),
+    id: `section-${  Math.random().toString(36).substring(7)}`,
     workflowId,
     title: "Test Section",
     description: null,
@@ -61,7 +61,7 @@ export function createTestSection(workflowId: string, overrides?: Partial<Sectio
 export function createTestStep(sectionId: string, overrides?: Partial<Step>): Step {
   const now = new Date();
   return {
-    id: "step-" + Math.random().toString(36).substring(7),
+    id: `step-${  Math.random().toString(36).substring(7)}`,
     sectionId,
     type: "short_text",
     title: "Test Step",
@@ -86,7 +86,7 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
 export function createTestLogicRule(workflowId: string, overrides?: Partial<LogicRule>): LogicRule {
   const now = new Date();
   return {
-    id: "logic-" + Math.random().toString(36).substring(7),
+    id: `logic-${  Math.random().toString(36).substring(7)}`,
     workflowId,
     conditionStepId: "step-123",
     operator: "equals",
@@ -109,9 +109,9 @@ export function createTestLogicRule(workflowId: string, overrides?: Partial<Logi
 export function createTestWorkflowRun(workflowId: string, overrides?: Partial<WorkflowRun>): WorkflowRun {
   const now = new Date();
   return {
-    id: "run-" + Math.random().toString(36).substring(7),
+    id: `run-${  Math.random().toString(36).substring(7)}`,
     workflowId,
-    runToken: "token-" + Math.random().toString(36).substring(7),
+    runToken: `token-${  Math.random().toString(36).substring(7)}`,
     createdBy: "creator:user-test-123",
     completed: false,
     completedAt: null,

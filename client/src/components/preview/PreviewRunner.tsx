@@ -1,16 +1,20 @@
-import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { WorkflowRunner } from "@/pages/WorkflowRunner";
-import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { DevToolsPanel } from "@/components/devtools/DevToolsPanel";
-import { hotReloadManager } from "@/lib/previewRunner/HotReloadManager";
-import { useToast } from "@/hooks/use-toast";
-import { DevToolbar } from "./DevToolbar";
-import { generateAIRandomValues, generateAIRandomValuesForSteps } from "@/lib/randomizer/aiRandomFill";
 import { Loader2 } from "lucide-react";
-import { ApiStep } from "@/lib/vault-api";
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+import React, { useState, useEffect, useMemo } from "react";
+
 import { IntakeProvider } from "@/components/builder/IntakeContext";
+import { DevToolsPanel } from "@/components/devtools/DevToolsPanel";
+import { useToast } from "@/hooks/use-toast";
+import { hotReloadManager } from "@/lib/previewRunner/HotReloadManager";
+import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+import { generateAIRandomValues, generateAIRandomValuesForSteps } from "@/lib/randomizer/aiRandomFill";
+import { ApiStep } from "@/lib/vault-api";
+import { WorkflowRunner } from "@/pages/WorkflowRunner";
+
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+
+import { DevToolbar } from "./DevToolbar";
+
 
 interface PreviewRunnerProps {
     workflowId: string;
@@ -36,7 +40,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 credentials: "include",
                 cache: "no-cache",
             });
-            if (!response.ok) throw new Error('Failed to load workflow');
+            if (!response.ok) {throw new Error('Failed to load workflow');}
             return response.json();
         },
         enabled: !!workflowId,
@@ -52,11 +56,11 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     const { data: snapshotValues } = useQuery({
         queryKey: ["snapshot-values", snapshotId],
         queryFn: async () => {
-            if (!snapshotId || snapshotId === 'none') return null;
+            if (!snapshotId || snapshotId === 'none') {return null;}
             const response = await fetch(`/api/workflows/${workflowId}/snapshots/${snapshotId}/values`, {
                 credentials: "include",
             });
-            if (!response.ok) throw new Error('Failed to load snapshot values');
+            if (!response.ok) {throw new Error('Failed to load snapshot values');}
             return response.json();
         },
         enabled: !!snapshotId && snapshotId !== 'none',
@@ -64,7 +68,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
 
     // Create preview run ID (for docs)
     useEffect(() => {
-        if (!workflowId || previewRunId) return;
+        if (!workflowId || previewRunId) {return;}
         async function createRun() {
             try {
                 const res = await fetch(`/api/workflows/${workflowId}/runs`, {
@@ -98,7 +102,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 // Map alias/id to stepId
                 for (const [key, value] of Object.entries(snapshotValues)) {
                     const step = allSteps.find((s: ApiStep) => s.alias === key || s.id === key);
-                    if (step) stepIdValues[step.id] = value;
+                    if (step) {stepIdValues[step.id] = value;}
                 }
                 initialValues = stepIdValues;
             } else if (env) {
@@ -121,7 +125,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     }, [workflow?.id, JSON.stringify(workflow?.sections?.map((s: any) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
 
     const handleRandomFill = async () => {
-        if (!env || !allSteps) return;
+        if (!env || !allSteps) {return;}
         setIsAiLoading(true);
         try {
             const values = await generateAIRandomValues(allSteps, workflowId, workflow.title);
@@ -138,7 +142,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 };
 
                 const visibleSections = workflow.sections.filter((section: any) => {
-                    if (!section.visibleIf) return true;
+                    if (!section.visibleIf) {return true;}
                     try {
                         return evaluateConditionExpression(section.visibleIf, values, aliasResolver);
                     } catch (e) {
@@ -163,10 +167,10 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     };
 
     const handleRandomFillPage = async () => {
-        if (!env || !allSteps) return;
+        if (!env || !allSteps) {return;}
         const currentState = env.getState();
         const currentSectionId = workflow.sections[currentState.currentSectionIndex]?.id;
-        if (!currentSectionId) return;
+        if (!currentSectionId) {return;}
 
         const pageSteps = allSteps.filter((s: ApiStep) => s.sectionId === currentSectionId);
 

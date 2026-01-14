@@ -3,9 +3,11 @@
  * Displays a DataVault table card with stats and actions
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { MoreVertical, Trash2, FolderInput } from "lucide-react";
+import React from 'react';
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,30 +33,33 @@ interface TableCardProps {
 
 export function TableCard({ table, onClick, onDelete, onMove }: TableCardProps) {
   const formatDate = (date: string | Date | null) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString();
+    if (!date) {return 'N/A';}
+    return new Date(date).toLocaleDateString(undefined, { timeZone: 'UTC' });
   };
 
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow group relative">
-      <div onClick={onClick}>
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+    <Card
+      className="rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative"
+      onClick={onClick}
+    >
+      <div>
+        <div className="p-4 sm:p-6 flex flex-row items-start justify-between space-y-0 pb-2">
           <div className="space-y-1 flex-1 min-w-0 pr-2">
-            <CardTitle className="text-lg font-semibold truncate">
-              <i className="fas fa-table mr-2 text-primary"></i>
+            <div className="sm:text-xl md:text-2xl tracking-tight text-lg font-semibold truncate">
               {table.name}
-            </CardTitle>
-            <CardDescription className="truncate text-xs">
-              /{table.slug}
-            </CardDescription>
+            </div>
+            {table.description ? (
+              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                {table.description}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mb-4 italic">No description</p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
+              <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Actions">
+                <span className="sr-only">Open menu</span>
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -87,7 +92,7 @@ export function TableCard({ table, onClick, onDelete, onMove }: TableCardProps) 
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </CardHeader>
+        </div>
         <CardContent>
           {table.description && (
             <p className="text-sm text-muted-foreground mb-4 line-clamp-2">

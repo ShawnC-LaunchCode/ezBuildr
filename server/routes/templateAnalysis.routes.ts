@@ -4,10 +4,10 @@
  * Endpoints for analyzing and validating document templates
  */
 
-import type { Express } from 'express';
 import express from 'express';
-import { hybridAuth, asyncHandler } from '../middleware';
 import { z } from 'zod';
+
+import { hybridAuth, asyncHandler } from '../middleware';
 import { documentTemplateService } from '../services/DocumentTemplateService';
 import {
   analyzeTemplate,
@@ -16,6 +16,8 @@ import {
   compareTemplates,
 } from '../services/TemplateAnalysisService';
 import { createError } from '../utils/errors';
+
+import type { Express } from 'express';
 
 const router = express.Router();
 

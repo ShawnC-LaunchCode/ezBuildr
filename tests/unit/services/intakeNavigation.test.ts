@@ -10,13 +10,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { IntakeNavigationService } from '../../../server/services/IntakeNavigationService';
+
 import * as repositories from '../../../server/repositories';
+import { IntakeNavigationService } from '../../../server/services/IntakeNavigationService';
 
 // Mock the repositories
 vi.mock('../../../server/repositories', () => ({
   sectionRepository: {
     findByWorkflowIdWithAliases: vi.fn(),
+    findByWorkflowId: vi.fn(),
   },
   stepRepository: {
     findByWorkflowIdWithAliases: vi.fn(),

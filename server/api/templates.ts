@@ -1,19 +1,24 @@
-import { Router, type Request, Response } from 'express';
 import { eq, and, desc, lt } from 'drizzle-orm';
+import { Router, type Request, Response } from 'express';
 import { type FileFilterCallback } from 'multer';
-import { db } from '../db';
+import multer from 'multer';
+
 import * as schema from '@shared/schema';
+
+import { db } from '../db';
+import { logger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
-import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
-import { createError, formatErrorResponse } from '../utils/errors';
-import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+import { requireTenant } from '../middleware/tenant';
+import { templateScanner } from '../services/document/TemplateScanner';
 import {
   saveTemplateFile,
   deleteTemplateFile,
   extractPlaceholders,
 } from '../services/templates';
-import type { AuthRequest } from '../middleware/auth';
+import { createError, formatErrorResponse } from '../utils/errors';
+import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+
 import {
   createTemplateSchema,
   updateTemplateSchema,
@@ -22,12 +27,12 @@ import {
   projectIdParamsSchema,
   type ExtractPlaceholdersResponse,
 } from './validators/templates';
-import { templateScanner } from '../services/document/TemplateScanner';
-import { logger } from '../logger';
+
+import type { AuthRequest } from '../middleware/auth';
+
 
 const router = Router();
 
-import multer from 'multer';
 
 // Configure multer for file uploads (memory storage is default in v2)
 const upload = multer({
@@ -339,7 +344,7 @@ router.post(
           }
         } catch (error: any) {
           // If it's already a validation error, rethrow
-          if (error.code === 'VALIDATION_ERROR') throw error;
+          if (error.code === 'VALIDATION_ERROR') {throw error;}
           // Otherwise wrap it
           throw createError.validation(`Template validation failed: ${error.message}`);
         }
@@ -496,7 +501,7 @@ router.patch(
               warnings = scanResult.repairs;
             }
           } catch (error: any) {
-            if (error.code === 'VALIDATION_ERROR') throw error;
+            if (error.code === 'VALIDATION_ERROR') {throw error;}
             throw createError.validation(`Template validation failed: ${error.message}`);
           }
         } else {

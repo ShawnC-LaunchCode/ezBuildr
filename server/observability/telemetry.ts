@@ -1,7 +1,8 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { metrics, trace } from '@opentelemetry/api';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+
 import { createLogger } from '../logger';
 
 const logger = createLogger({ module: 'telemetry' });

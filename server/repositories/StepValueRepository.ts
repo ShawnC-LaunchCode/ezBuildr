@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { stepValues, type StepValue, type InsertStepValue } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+
+import { stepValues, type StepValue, type InsertStepValue } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for step value data access
@@ -20,7 +23,7 @@ export class StepValueRepository extends BaseRepository<
    */
   async findByRunId(runId: string, tx?: DbTransaction): Promise<StepValue[]> {
     const database = this.getDb(tx);
-    return await database.select().from(stepValues).where(eq(stepValues.runId, runId));
+    return database.select().from(stepValues).where(eq(stepValues.runId, runId));
   }
 
   /**

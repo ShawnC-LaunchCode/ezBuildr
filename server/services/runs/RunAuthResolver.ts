@@ -1,7 +1,8 @@
+import { WorkflowRun } from "@shared/schema";
+
+import { logger } from "../../logger";
 import { workflowRepository, workflowRunRepository, projectRepository } from "../../repositories";
 import { workflowService } from "../WorkflowService";
-import { logger } from "../../logger";
-import { WorkflowRun } from "@shared/schema";
 
 export interface RunAuthContext {
     run?: WorkflowRun;
@@ -53,7 +54,7 @@ export class RunAuthResolver {
             // Usually anonymous users can only access their own session-based runs?
             // For now, if no user, check if public workflow?
             const workflow = await this.workflowRepo.findById(run.workflowId);
-            if (workflow && workflow.isPublic) {
+            if (workflow?.isPublic) {
                 access = 'public';
             }
         }
@@ -80,7 +81,7 @@ export class RunAuthResolver {
     private async getTenantId(workflowId: string): Promise<string | undefined> {
         try {
             const workflow = await this.workflowRepo.findById(workflowId);
-            if (!workflow || !workflow.projectId) return undefined;
+            if (!workflow?.projectId) {return undefined;}
             const project = await this.projectRepo.findById(workflow.projectId);
             return project?.tenantId ?? undefined;
         } catch {
@@ -94,7 +95,7 @@ export class RunAuthResolver {
     async verifyCreateAccess(idOrSlug: string, userId: string | undefined) {
         if (userId) {
             // Authenticated: verify ownership/access
-            return await this.workflowSvc.verifyAccess(idOrSlug, userId);
+            return this.workflowSvc.verifyAccess(idOrSlug, userId);
         } else {
             // Anonymous: verify public access
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
@@ -106,9 +107,9 @@ export class RunAuthResolver {
                 workflow = await this.workflowRepo.findByPublicLink(idOrSlug);
             }
 
-            if (!workflow) throw new Error('Workflow not found');
-            if (workflow.status !== 'active') throw new Error('Workflow is not active');
-            if (!workflow.isPublic) throw new Error('Workflow is not public');
+            if (!workflow) {throw new Error('Workflow not found');}
+            if (workflow.status !== 'active') {throw new Error('Workflow is not active');}
+            if (!workflow.isPublic) {throw new Error('Workflow is not public');}
 
             return workflow;
         }

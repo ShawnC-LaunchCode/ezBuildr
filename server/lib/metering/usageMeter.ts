@@ -1,7 +1,9 @@
 
-import { db } from "../../db";
-import { usageRecords } from "@shared/schema";
 import { sql } from "drizzle-orm";
+
+import { usageRecords } from "@shared/schema";
+
+import { db } from "../../db";
 
 export interface UsageEvent {
     organizationId: string;

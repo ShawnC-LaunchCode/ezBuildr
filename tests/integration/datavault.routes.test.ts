@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
-import express, { type Express } from 'express';
-import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
-import { db } from '../../server/db';
-import { datavaultTables, datavaultColumns, datavaultRows, datavaultValues } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import express, { type Express } from 'express';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
+import { datavaultTables, datavaultColumns, datavaultRows, datavaultValues } from '@shared/schema';
+
+import { db } from '../../server/db';
 import { requireAuth } from '../../server/middleware/auth';
+import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
+
+
 
 /**
  * DataVault Phase 1 PR 9: DataVault API Routes Integration Tests
@@ -21,11 +25,11 @@ import { requireAuth } from '../../server/middleware/auth';
 
 describe('DataVault API Routes', () => {
   let app: Express;
-  let testTenantId: string = "test-tenant-id";
-  let testUserId: string = "test-user-id";
-  let testTableId: string = "test-table-id";
-  let testColumnId: string = "test-column-id";
-  let testRowId: string = "test-row-id";
+  const testTenantId: string = "test-tenant-id";
+  const testUserId: string = "test-user-id";
+  const testTableId: string = "test-table-id";
+  const testColumnId: string = "test-column-id";
+  const testRowId: string = "test-row-id";
 
   beforeAll(async () => {
     // Setup Express app with routes

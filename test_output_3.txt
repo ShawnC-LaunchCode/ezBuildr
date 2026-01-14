@@ -1,99 +1,86 @@
 npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+ DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
 
-> ezbuildr@1.0.0 test
-> vitest run --coverage tests/integration/auth-enterprise.test.ts
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
 
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
 
-[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
-      [2mCoverage enabled with [22m[33mv8[39m
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (15) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
-
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
+{"level":30,"time":1768065604792,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
 [22m[39m≡ƒº¬ Setting up test environment...
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
 [22m[39mΓ£à Database initialized for tests
 ≡ƒöä Running test migrations...
 
-{"level":30,"time":1766501701359,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
-{"level":30,"time":1766501701367,"env":"test","msg":"Real-time collaboration server initialized"}
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts[2m > [22m[2mEnterprise Auth Integration Tests
+stderr | tests/integration/datavault.permissions.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
+    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768065612458,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768065612471,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)
 [22m[39m[Routes] E-Signature routes registered at /api/esign
 
-{"level":30,"time":1766501701360,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
-{"level":30,"time":1766501701363,"env":"test","module":"documents-routes","msg":"Document routes registered"}
-{"level":30,"time":1766501701367,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
-{"level":40,"time":1766501701367,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
-{"level":30,"time":1766501701367,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
-{"level":30,"time":1766501701367,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
-{"level":30,"time":1766501701593,"env":"test","module":"user-credentials-repository","userId":"ufd3s7v-ofqDwLd1ogzRx","msg":"User credentials created"}
-{"level":30,"time":1766501701646,"env":"test","module":"auth-security","userId":"ufd3s7v-ofqDwLd1ogzRx","msg":"Verification email sent"}
-{"level":30,"time":1766501701646,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"Verification token generated (sent to email)"}
-{"level":30,"time":1766501701697,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"User registered successfully"}
-{"level":30,"time":1766501702059,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501702256,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501703688,"env":"test","module":"auth-security","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"Password reset email sent"}
-{"level":30,"time":1766501703688,"env":"test","module":"auth-routes","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"Reset token generated (STUB)"}
-{"level":30,"time":1766501703837,"env":"test","module":"user-credentials-repository","userId":"ufd3s7v-ofqDwLd1ogzRx","msg":"User password updated"}
-{"level":30,"time":1766501704276,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501704469,"env":"test","module":"auth-routes","userId":"ufd3s7v-ofqDwLd1ogzRx","email":"auth-test-Y5dMPTzFvF3nXK0KrIp2S@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501704474,"env":"test","module":"auth","msg":"User logged out"}
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
+{"level":30,"time":1768065612464,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768065612464,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768065612467,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768065612470,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768065612470,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768065612471,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768065612471,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768065612904,"env":"test","module":"user-credentials-repository","userId":"2f58dbe0-a32a-4dd6-b37b-92674e794b54","msg":"User credentials created"}
+{"level":30,"time":1768065613009,"env":"test","module":"email-queue","jobId":"1c6c4afd-2750-4bd9-a060-7b00ccd91cf8","to":"test-mjsP6NpGuPlvdZqES0ntv@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768065613064,"env":"test","module":"auth-routes","userId":"2f58dbe0-a32a-4dd6-b37b-92674e794b54","email":"test-mjsP6NpGuPlvdZqES0ntv@example.com","msg":"User registered"}
+{"level":30,"time":1768065613582,"env":"test","module":"user-credentials-repository","userId":"5ae17724-c82c-41d6-8d5a-aa53357a9c96","msg":"User credentials created"}
+{"level":30,"time":1768065613685,"env":"test","module":"email-queue","jobId":"9a710dfd-1d1b-4834-83b7-bfa98de6eed1","to":"test-2_4zAybTY5q1C6G_l2luz@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768065613738,"env":"test","module":"auth-routes","userId":"5ae17724-c82c-41d6-8d5a-aa53357a9c96","email":"test-2_4zAybTY5q1C6G_l2luz@example.com","msg":"User registered"}
+{"level":30,"time":1768065614299,"env":"test","module":"auth-routes","userId":"5ae17724-c82c-41d6-8d5a-aa53357a9c96","msg":"User logged in successfully"}
+{"level":30,"time":1768065614352,"env":"test","module":"audit-log-service","userId":"5ae17724-c82c-41d6-8d5a-aa53357a9c96","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768065614719,"env":"test","module":"user-credentials-repository","userId":"8b02f6fe-fe23-470d-8e07-99b953bccfbc","msg":"User credentials created"}
+{"level":30,"time":1768065614820,"env":"test","module":"email-queue","jobId":"2fa29d06-b535-4853-9b79-0ed98a69dd35","to":"test-nu2Ph_OuLLHPjtob0-Dod@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768065614872,"env":"test","module":"auth-routes","userId":"8b02f6fe-fe23-470d-8e07-99b953bccfbc","email":"test-nu2Ph_OuLLHPjtob0-Dod@example.com","msg":"User registered"}
+{"level":30,"time":1768065615432,"env":"test","module":"auth-routes","userId":"8b02f6fe-fe23-470d-8e07-99b953bccfbc","msg":"User logged in successfully"}
+{"level":30,"time":1768065615486,"env":"test","module":"audit-log-service","userId":"8b02f6fe-fe23-470d-8e07-99b953bccfbc","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768065615852,"env":"test","module":"user-credentials-repository","userId":"6ef7d539-2222-4ab0-9f10-69b4054e91fd","msg":"User credentials created"}
+{"level":30,"time":1768065615956,"env":"test","module":"email-queue","jobId":"e822d35c-d050-4dd6-b302-c4f2d2289239","to":"test-YsSuWtbAq3iqBzeQ-yrjm@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768065616008,"env":"test","module":"auth-routes","userId":"6ef7d539-2222-4ab0-9f10-69b4054e91fd","email":"test-YsSuWtbAq3iqBzeQ-yrjm@example.com","msg":"User registered"}
+{"level":30,"time":1768065616585,"env":"test","module":"auth-routes","userId":"6ef7d539-2222-4ab0-9f10-69b4054e91fd","msg":"User logged in successfully"}
+{"level":30,"time":1768065616637,"env":"test","module":"audit-log-service","userId":"6ef7d539-2222-4ab0-9f10-69b4054e91fd","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768065617002,"env":"test","module":"user-credentials-repository","userId":"aaeed993-08ea-4a3c-bfc0-cbc8f5a5e10f","msg":"User credentials created"}
+{"level":30,"time":1768065617102,"env":"test","module":"email-queue","jobId":"796a5f94-21c2-4965-a398-01545d81f6ad","to":"test-w5UndQaKYJemfV-fCrQyd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768065617154,"env":"test","module":"auth-routes","userId":"aaeed993-08ea-4a3c-bfc0-cbc8f5a5e10f","email":"test-w5UndQaKYJemfV-fCrQyd@example.com","msg":"User registered"}
+{"level":30,"time":1768065617716,"env":"test","module":"auth-routes","userId":"aaeed993-08ea-4a3c-bfc0-cbc8f5a5e10f","msg":"User logged in successfully"}
+{"level":30,"time":1768065617769,"env":"test","module":"audit-log-service","userId":"aaeed993-08ea-4a3c-bfc0-cbc8f5a5e10f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768065618404,"env":"test","error":{},"msg":"Error fetching DataVault table"}
+{"level":50,"time":1768065618662,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":50,"time":1768065618769,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":50,"time":1768065618871,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+{"level":50,"time":1768065618972,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+{"level":50,"time":1768065619070,"env":"test","error":{},"msg":"Error deleting DataVault table"}
+{"level":50,"time":1768065619275,"env":"test","error":{},"msg":"Error fetching table permissions"}
+{"level":50,"time":1768065619381,"env":"test","error":{},"msg":"Error fetching table permissions"}
+{"level":50,"time":1768065620001,"env":"test","error":{},"msg":"Error granting table permission"}
+{"level":50,"time":1768065620102,"env":"test","error":{},"msg":"Error granting table permission"}
+{"level":50,"time":1768065620569,"env":"test","error":{},"msg":"Error revoking table permission"}
+{"level":50,"time":1768065621081,"env":"test","error":{},"msg":"Error updating DataVault table"}
+{"level":50,"time":1768065621330,"env":"test","error":{},"msg":"Error updating DataVault table"}
+[90mstdout[2m | tests/integration/datavault.permissions.test.ts
 [22m[39m≡ƒº╣ Cleaning up test environment...
 
- [31mΓ¥»[39m tests/integration/auth-enterprise.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 3988[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m 1. Should register a new user and trigger verification email [33m 335[2mms[22m[39m
-       [32mΓ£ô[39m 2. Should verify email with token[32m 153[2mms[22m[39m
-       [32mΓ£ô[39m 3. Should login and receive access token + refresh cookie[32m 202[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m 4. Should refresh access token [33m 1491[2mms[22m[39m
-       [32mΓ£ô[39m 5. Should initiate password reset[32m 138[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m 6. Should reset password with token [33m 587[2mms[22m[39m
-[31m       [31m├ù[31m 7. Should logout and invalidate refresh token[39m[33m 400[2mms[22m[39m
-Failed to parse file:///C:/Users/scoot/poll/VaultLogic/server/queues/DocumentGenerationWorker.ts. Excluding it from coverage.
- Error [RollupError]: Expected ',', got ':'
-    at getRollupError (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
-    at convertProgram (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:1098:26)
-    at parseAstAsync (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:2084:106)
-    at V8CoverageProvider.remapCoverage (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:135:10)
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:121:23
-    at async Promise.all (index 5)
-    at V8CoverageProvider.getCoverageMapForUncoveredFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:111:4)
-    at V8CoverageProvider.generateCoverage (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:59:29)
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/cli-api.C7sYjHmQ.js:12526:23
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/cli-api.C7sYjHmQ.js:12539:11 {
-  code: 'PARSE_ERROR',
-  pos: 1724
-}
+ [32mΓ£ô[39m tests/integration/datavault.permissions.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 9483[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow owner to update existing permission (upsert) [33m 307[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow owner to revoke permissions [33m 305[2mms[22m[39m
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
-
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 7. Should logout and invalidate refresh token
-AssertionError: expected 200 to be 403 // Object.is equality
-
-- Expected
-+ Received
-
-- 403
-+ 200
-
- Γ¥» tests/integration/auth-enterprise.test.ts:175:39
-    173|                 .set('Cookie', cookies);
-    174| 
-    175|             expect(refreshRes.status).toBe(403); // Or 401
-       |                                       ^
-    176|         });
-    177|     });
-
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
-
-
-[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (7)[39m
-[2m   Start at [22m 08:54:55
-[2m   Duration [22m 14.27s[2m (transform 2.34s, setup 87ms, import 5.03s, tests 3.99s, environment 0ms)[22m
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m   Start at [22m 11:20:00
+[2m   Duration [22m 20.86s[2m (transform 3.74s, setup 203ms, import 9.47s, tests 9.48s, environment 0ms)[22m
 

@@ -64,7 +64,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-import { getAccessToken } from "./vault-api";
+import { getAccessToken , fetchAPI } from "./vault-api";
 
 export async function apiRequest(
   method: string,
@@ -127,7 +127,7 @@ export async function apiRequest(
   throw lastError || new Error('Request failed after retries');
 }
 
-import { fetchAPI } from "./vault-api";
+
 
 // ... existing imports ...
 
@@ -144,7 +144,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
     async ({ queryKey }) => {
       try {
-        const endpoint = queryKey.join("/") as string;
+        const endpoint = queryKey.join("/");
         // Check if endpoint starts with /api (some keys might not)
         const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 

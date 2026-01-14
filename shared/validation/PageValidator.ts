@@ -1,9 +1,12 @@
-import { validateValue } from "./Validator";
-import { ValidationSchema, PageValidationResult } from "./ValidationSchema";
-import { formatMessage } from "./messages";
 import { evaluateConditionExpression } from "../conditionEvaluator";
-import type { ConditionExpression } from "../types/conditions"; // Import ConditionExpression types
+
+import { formatMessage } from "./messages";
+import { ValidationSchema, PageValidationResult } from "./ValidationSchema";
+import { validateValue } from "./Validator";
+
+
 import type { ValidateRule, ConditionalRequiredRule, CompareRule, ForEachRule, WhenCondition, ComparisonOperator } from "../types/blocks";
+import type { ConditionExpression } from "../types/conditions"; // Import ConditionExpression types
 
 /**
  * Type guards for ValidateRule types
@@ -77,13 +80,13 @@ export async function validatePage({
         if (error) {
             // Error distribution logic
             if ('type' in rule && rule.type === 'conditional_required') {
-                const cr = rule as ConditionalRequiredRule;
+                const cr = rule;
                 const met = evaluateConditionExpression(whenToCondition(cr.when), contextValues);
                 if (met) {
                     for (const fieldId of cr.requiredFields) {
                         const val = contextValues[fieldId];
                         if (val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
-                            if (!blockErrors[fieldId]) blockErrors[fieldId] = [];
+                            if (!blockErrors[fieldId]) {blockErrors[fieldId] = [];}
                             blockErrors[fieldId].push(cr.message || "This field is required");
                             valid = false;
                         }
@@ -99,7 +102,7 @@ export async function validatePage({
             } else if (hasListKeyProperty(rule)) {
                 target = rule.listKey;
             }
-            if (!blockErrors[target]) blockErrors[target] = [];
+            if (!blockErrors[target]) {blockErrors[target] = [];}
             blockErrors[target].push(error);
             valid = false;
         }
@@ -121,7 +124,7 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
 
     switch (rule.type) {
         case 'compare': {
-            const r = rule as CompareRule;
+            const r = rule;
             const leftVal = getVal(r.left, values);
             const rightVal = r.rightType === 'variable' ? getVal(r.right, values) : r.right;
 
@@ -134,9 +137,9 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
             return null; // Handled in main loop
 
         case 'foreach': {
-            const r = rule as ForEachRule;
+            const r = rule;
             const list = getVal(r.listKey, values);
-            if (!Array.isArray(list)) return null;
+            if (!Array.isArray(list)) {return null;}
 
             for (let i = 0; i < list.length; i++) {
                 const item = list[i];
@@ -147,7 +150,7 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
                     if (isLegacySubRule(subRule) && subRule.assert) {
                         const val = resolvePath(subRule.assert.key, itemContext);
                         if (!checkOp(val, subRule.assert.op, subRule.assert.value)) {
-                            return (subRule.message || "Invalid item") + ` (Item ${i + 1})`;
+                            return `${subRule.message || "Invalid item"  } (Item ${i + 1})`;
                         }
                     }
                 }
@@ -161,14 +164,14 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
 }
 
 function whenToCondition(when: WhenCondition): ConditionExpression {
-    if (!when) return null;
+    if (!when) {return null;}
     return {
         type: "group",
-        id: "gen_" + Math.random().toString(36).substring(2),
+        id: `gen_${  Math.random().toString(36).substring(2)}`,
         operator: "AND",
         conditions: [{
             type: "condition",
-            id: "gen_" + Math.random().toString(36).substring(2),
+            id: `gen_${  Math.random().toString(36).substring(2)}`,
             variable: when.key,
             operator: when.op,
             value: when.value,
@@ -180,7 +183,7 @@ function whenToCondition(when: WhenCondition): ConditionExpression {
 // Helpers
 function getVal(key: string, values: Record<string, any>) {
     // support dot syntax?
-    if (key.includes('.')) return resolvePath(key, values);
+    if (key.includes('.')) {return resolvePath(key, values);}
     return values[key];
 }
 

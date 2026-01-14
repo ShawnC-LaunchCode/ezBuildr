@@ -1,5 +1,6 @@
-import type { Request, Response, NextFunction } from 'express';
 import { createLogger } from '../logger';
+
+import type { Request, Response, NextFunction } from 'express';
 
 const logger = createLogger({ module: 'timeout' });
 

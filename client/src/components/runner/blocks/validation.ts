@@ -6,6 +6,7 @@
  */
 
 import type { Step } from "@/types";
+
 import type {
   AddressValue,
   MultiFieldValue,
@@ -85,7 +86,7 @@ export function validateBlockValue(step: Step, value: any, required: boolean): s
     case "number":
     case "currency":
       if (value !== null && value !== undefined) {
-        const config = step.config as any;
+        const config = step.config;
         const num = typeof value === "number" ? value : parseFloat(value);
 
         if (isNaN(num)) {

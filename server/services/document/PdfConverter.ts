@@ -1,9 +1,11 @@
-import path from 'path';
-import fs from 'fs/promises';
 import { exec } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
 import { promisify } from 'util';
-import puppeteer from 'puppeteer';
+
 import mammoth from 'mammoth';
+import puppeteer from 'puppeteer';
+
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
 
@@ -132,7 +134,7 @@ export class LibreOfficeStrategy implements PdfConversionStrategy {
             // Verify output exists
             // Note: LibreOffice uses the same basename, so if docxPath is 'foo.docx', output is 'foo.pdf'
             // We need to ensure that matches outputPath
-            const expectedOutput = path.join(outputDir, path.basename(docxPath, path.extname(docxPath)) + '.pdf');
+            const expectedOutput = path.join(outputDir, `${path.basename(docxPath, path.extname(docxPath))  }.pdf`);
 
             if (expectedOutput !== outputPath) {
                 // Rename if needed (unlikely if we stick to standard naming)

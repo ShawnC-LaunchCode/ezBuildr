@@ -4,10 +4,12 @@
  * RBAC: Owner/Builder can manage connections; Runner/Viewer have read-only access
  */
 
-import type { Express, Request, Response } from 'express';
-import { hybridAuth } from '../middleware/auth';
 import { z } from 'zod';
+
+import type { CreateConnectionInput, UpdateConnectionInput } from '@shared/types/connections';
+
 import { logger } from '../logger';
+import { hybridAuth } from '../middleware/auth';
 import {
   listConnections,
   getConnection,
@@ -23,7 +25,9 @@ import {
   validateOAuth2State,
   cleanupOAuth2State,
 } from '../services/oauth2';
-import type { CreateConnectionInput, UpdateConnectionInput } from '@shared/types/connections';
+
+
+import type { Express, Request, Response } from 'express';
 
 /**
  * Validation schemas

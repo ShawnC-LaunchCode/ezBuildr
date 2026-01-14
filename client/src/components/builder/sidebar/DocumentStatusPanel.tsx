@@ -1,12 +1,13 @@
 
+import { AlertTriangle, FileText, ChevronDown, ChevronUp, ArrowRight, Lightbulb } from "lucide-react";
+import React, { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { useSections, useActiveTemplateVariables, useWorkflowVariables, useAllSteps, type ApiStep, type ApiSection } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, FileText, ChevronDown, ChevronUp, ArrowRight, Lightbulb } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 interface DocumentStatusPanelProps {
     workflowId: string;
@@ -32,7 +33,7 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
     // 2. Fetch all steps (to find context)
     const allSteps = useAllSteps(sections || []);
 
-    const finalDocsSection = sections?.find((s) => (s.config as any)?.finalBlock === true || s.title.toLowerCase().includes("document"));
+    const finalDocsSection = sections?.find((s) => (s.config)?.finalBlock === true || s.title.toLowerCase().includes("document"));
 
     // 3. Get active templates from that section's config
     const sectionConfig = finalDocsSection?.config || {};
@@ -68,7 +69,7 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
 
     // Helper to find a relevant page for a missing variable
     const getRelevantSectionId = (variableName: string): string | null => {
-        if (!sections) return null;
+        if (!sections) {return null;}
 
         // Simple heuristic: matching prefix (e.g. "client." matches other "client." vars)
         const parts = variableName.split('.');
@@ -76,19 +77,19 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
 
         // If no prefix, maybe look for exact match of "term" in step titles? Too fuzzy. 
         // Let's stick to prefix grouping as it's safer for strict "Easy Mode" guidance.
-        if (!prefix) return null;
+        if (!prefix) {return null;}
 
         let bestSectionId: string | null = null;
         let maxMatches = 0;
 
         sections.forEach(section => {
             // Skip final docs or system sections
-            if ((section.config as any)?.finalBlock) return;
+            if ((section.config)?.finalBlock) {return;}
 
             const steps = allSteps[section.id] || [];
             let matches = 0;
             steps.forEach(step => {
-                if (step.alias && step.alias.startsWith(prefix + '.')) {
+                if (step.alias && step.alias.startsWith(`${prefix  }.`)) {
                     matches++;
                 }
                 // Also maybe check questions with similar names?

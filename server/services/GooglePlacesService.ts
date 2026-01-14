@@ -78,9 +78,7 @@ export class GooglePlacesService {
             }
 
             // Return all predictions without filtering
-            const results = data.predictions || [];
-
-            return results;
+            return data.predictions || [];
         } catch (error) {
             logger.error({ err: error }, "Failed to fetch autocomplete suggestions");
             throw error;

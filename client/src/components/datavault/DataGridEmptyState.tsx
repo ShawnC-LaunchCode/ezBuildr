@@ -4,6 +4,7 @@
  */
 
 import { Database, Filter, Archive } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 type EmptyStateVariant = "no_rows" | "filtered_empty" | "no_archived";

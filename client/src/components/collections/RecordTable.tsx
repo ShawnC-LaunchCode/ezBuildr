@@ -3,15 +3,9 @@
  * Displays collection records in a table format with type-specific rendering
  */
 
-import { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +15,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { ApiCollectionRecord, ApiCollectionField } from "@/lib/vault-api";
 
 interface RecordTableProps {

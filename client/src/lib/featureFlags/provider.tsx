@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState } from "react";
+
 import { FeatureFlag, getInitialFeatureFlags } from "./definitions";
 
 interface FeatureFlagsContextType {

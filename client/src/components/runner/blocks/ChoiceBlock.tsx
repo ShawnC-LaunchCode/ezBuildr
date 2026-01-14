@@ -26,20 +26,11 @@
  * Storage: string OR string[] (based on allowMultiple)
  */
 
-import React, { useState, useEffect } from "react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ChevronsUpDown, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
@@ -48,15 +39,26 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
-import type { Step } from "@/types";
-import type { ChoiceAdvancedConfig, ChoiceOption, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { generateOptionsFromList } from "@/lib/choice-utils";
+import { cn } from "@/lib/utils";
+import type { Step } from "@/types";
+
+import type { ChoiceAdvancedConfig, ChoiceOption, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs";
+
 
 export interface ChoiceBlockProps {
   step: Step;
@@ -155,7 +157,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
           displayMode = "radio";
           allowMultiple = false;
 
-          const legacyOptions = (step.config as any)?.options || (step.options as any)?.options || [];
+          const legacyOptions = (step.config)?.options || (step.options)?.options || [];
 
           // Handle both string[] and {id,label}[] formats
           if (Array.isArray(legacyOptions)) {
@@ -179,7 +181,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
           displayMode = "multiple";
           allowMultiple = true;
 
-          const legacyOptions = (step.config as any)?.options || (step.options as any)?.options || [];
+          const legacyOptions = (step.config)?.options || (step.options)?.options || [];
 
           if (Array.isArray(legacyOptions)) {
             const opts = legacyOptions.map((opt: any, idx: number) => {
@@ -209,7 +211,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
           const isDynamic = configOptions && typeof configOptions === 'object' && 'type' in configOptions;
 
           if (isDynamic) {
-            const dynamicConfig = configOptions as DynamicOptionsConfig;
+            const dynamicConfig = configOptions;
 
             // Static options
             if (dynamicConfig.type === 'static') {
@@ -220,16 +222,16 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
               })));
             }
 
-            // From List Variable
+            // From List Variable (with full transform support)
             else if (dynamicConfig.type === 'list') {
               const { listVariable } = dynamicConfig;
 
               if (context && listVariable && context[listVariable]) {
-                const newOptions = generateOptionsFromList(context[listVariable], dynamicConfig);
+                const newOptions = generateOptionsFromList(context[listVariable], dynamicConfig, context);
                 setOptions(newOptions);
               } else {
                 // If not found, it might be loading or empty.
-                if (options.length > 0) setOptions([]);
+                if (options.length > 0) {setOptions([]);}
               }
             }
 
@@ -270,7 +272,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
             }
           } else {
             // Legacy: static array
-            const opts = (configOptions as ChoiceOption[]) || [];
+            const opts = (configOptions) || [];
             setOptions(opts.map(opt => ({
               ...opt,
               alias: opt.alias || opt.id,
@@ -385,7 +387,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
     const selectedAliases = Array.isArray(currentValue) ? currentValue : [];
 
     const handleToggle = (optionAlias: string, checked: boolean) => {
-      if (readOnly) return;
+      if (readOnly) {return;}
 
       let newValue: string[];
       if (checked) {

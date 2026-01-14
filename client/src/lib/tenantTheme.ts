@@ -6,6 +6,7 @@
  */
 
 import type { TenantBranding, ThemeTokens } from '@shared/types/branding';
+
 import {
   lightenColor,
   darkenColor,
@@ -286,7 +287,7 @@ export function getLogoUrl(): string | null {
   const tokens = getCurrentThemeTokens();
   const logoToken = tokens['--brand-logo-url'];
 
-  if (!logoToken) return null;
+  if (!logoToken) {return null;}
 
   // Extract URL from url('...') format
   const match = logoToken.match(/url\(['"]?(.+?)['"]?\)/);

@@ -3,19 +3,6 @@
  * Displays and allows editing of step properties when a step is selected
  */
 
-import { useState, useEffect } from "react";
-import { Plus, X, GripVertical, HelpCircle, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useStep, useUpdateStep } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
   closestCenter,
@@ -33,6 +20,20 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Plus, X, GripVertical, HelpCircle, ExternalLink } from "lucide-react";
+import React, { useState, useEffect } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { useStep, useUpdateStep } from "@/lib/vault-hooks";
 
 interface StepPropertiesPanelProps {
   stepId: string;
@@ -270,8 +271,8 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
             }
             onValueChange={(val) => {
               let finalVal: boolean | null = null;
-              if (val === "true") finalVal = true;
-              else if (val === "false") finalVal = false;
+              if (val === "true") {finalVal = true;}
+              else if (val === "false") {finalVal = false;}
 
               updateStepMutation.mutate({
                 id: stepId,

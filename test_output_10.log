@@ -1,0 +1,398 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  specify custom .env file path with { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768320561495,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768320561517,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768320562647,"env":"test","workflowId":"30377bcd-db72-40d2-87b3-727382a216dc","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4128[39m
+
+{"level":50,"time":1768320562779,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"30377bcd-db72-40d2-87b3-727382a216dc","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+DEBUG: INNER CATCH AI ERROR: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+Stack: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+
+{"level":30,"time":1768320562993,"env":"test","workflowId":"e010d1ee-08c3-40ff-bad6-e5793caa6e7e","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4099[39m
+
+{"level":50,"time":1768320563088,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"e010d1ee-08c3-40ff-bad6-e5793caa6e7e","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+DEBUG: INNER CATCH AI ERROR: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+Stack: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+
+{"level":30,"time":1768320563243,"env":"test","workflowId":"cd365b68-6d75-4fdc-9cf8-6ffe4027eece","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4094[39m
+
+{"level":50,"time":1768320563343,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"cd365b68-6d75-4fdc-9cf8-6ffe4027eece","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+DEBUG: INNER CATCH AI ERROR: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+Stack: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+
+{"level":30,"time":1768320563497,"env":"test","workflowId":"2c018b13-b8ca-4b2d-b0a7-59ec8f7ada6b","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unauthorized access
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4084[39m
+
+{"level":50,"time":1768320563592,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"2c018b13-b8ca-4b2d-b0a7-59ec8f7ada6b","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unauthorized access
+DEBUG: INNER CATCH AI ERROR: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+Stack: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+
+{"level":30,"time":1768320563752,"env":"test","workflowId":"f13d8bf0-b27b-4b37-99b3-ffe0e600d391","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320563849,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"f13d8bf0-b27b-4b37-99b3-ffe0e600d391","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+DEBUG: INNER CATCH AI ERROR: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+Stack: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320563999,"env":"test","workflowId":"f46e3c5e-092b-4d65-8071-1834b73c0148","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320564098,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"f46e3c5e-092b-4d65-8071-1834b73c0148","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+DEBUG: INNER CATCH AI ERROR: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+Stack: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320564256,"env":"test","workflowId":"92115bb8-9b3b-43b1-acac-a928453707d6","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m4093[39m
+
+{"level":50,"time":1768320564355,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"92115bb8-9b3b-43b1-acac-a928453707d6","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+DEBUG: INNER CATCH AI ERROR: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+Stack: Error: Invalid AI response structure
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:281:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:24
+
+{"level":30,"time":1768320564664,"env":"test","workflowId":"5b8e82fb-ebb6-42ec-8618-ccaa334fbd8c","userId":"859917ff-0173-4de7-89b7-8dc6bfae04ab","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: GEMINI_API_KEY present: [33mtrue[39m
+DEBUG: Instantiating GoogleGenerativeAI
+
+{"level":50,"time":1768320564754,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"5b8e82fb-ebb6-42ec-8618-ccaa334fbd8c","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+DEBUG: Constructor Error: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+DEBUG: INNER CATCH AI ERROR: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+Stack: TypeError: () => ({
+      getGenerativeModel: __vite_ssr_import_0__.vi.fn().mockReturnValue({
+        generateContent: __v...<omitted>...}) is not a constructor
+    at new Mock (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/spy/dist/index.js:262:27)
+    at callGeminiForWorkflowEdit (C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:204:13)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:70:30
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768320565010,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768320565010,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[33m 3915[2mms[22m[39m
+[31m     [31m├ù[31m should create draft version on successful AI edit[39m[33m 628[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 305[2mms[22m[39m
+[31m     [31m├ù[31m should not create version when no changes detected (checksum match)[39m[32m 255[2mms[22m[39m
+[31m     [31m├ù[31m should reject unauthorized access[39m[32m 249[2mms[22m[39m
+[31m     [31m├ù[31m should reject unsafe DataVault operations[39m[32m 258[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[32m 248[2mms[22m[39m
+[31m     [31m├ù[31m should create BEFORE and AFTER snapshots[39m[32m 258[2mms[22m[39m
+[31m     [31m├ù[31m should rollback on validation failure[39m[33m 398[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 8 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:157:8
+    155|         },
+    156|       })
+    157|       .expect(200);
+       |        ^
+    158| 
+    159|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:197:8
+    195|         userMessage: 'Add a phone number field',
+    196|       })
+    197|       .expect(200);
+       |        ^
+    198| 
+    199|     // Verify workflow is now draft
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:214:8
+    212|         userMessage: 'Add contact section',
+    213|       })
+    214|       .expect(200);
+       |        ^
+    215| 
+    216|     const versionId1 = response1.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unauthorized access
+Error: expected 401 "Unauthorized", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:262:8
+    260|         userMessage: 'Add field',
+    261|       })
+    262|       .expect(401);
+       |        ^
+    263|   });
+    264| 
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:294:8
+    292|         userMessage: 'Delete all data',
+    293|       })
+    294|       .expect(400);
+       |        ^
+    295| 
+    296|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:362:8
+    360|         userMessage: 'Add emergency contact section with name and phonΓÇª
+    361|       })
+    362|       .expect(200);
+       |        ^
+    363| 
+    364|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:393:8
+    391|         userMessage: 'Add a simple field',
+    392|       })
+    393|       .expect(200);
+       |        ^
+    394| 
+    395|     const versionId = response.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:460:8
+    458|         userMessage: 'Add backup email field',
+    459|       })
+    460|       .expect(400);
+       |        ^
+    461| 
+    462|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/8]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m8 failed[39m[22m[90m (8)[39m
+[2m   Start at [22m 10:09:19
+[2m   Duration [22m 5.62s[2m (transform 588ms, setup 155ms, import 1.18s, tests 3.91s, environment 0ms)[22m
+

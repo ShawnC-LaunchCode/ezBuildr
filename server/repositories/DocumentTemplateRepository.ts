@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { templates, type Template, type InsertTemplate } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+
+import { templates, type Template, type InsertTemplate } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Stage 21: Document Template Repository
@@ -23,7 +26,7 @@ export class DocumentTemplateRepository extends BaseRepository<
    */
   async findByProjectId(projectId: string, tx?: DbTransaction): Promise<Template[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(templates)
       .where(eq(templates.projectId, projectId))
@@ -39,7 +42,7 @@ export class DocumentTemplateRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<Template[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(templates)
       .where(and(eq(templates.projectId, projectId), eq(templates.type, type)))

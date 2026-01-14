@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
+
 import { PreviewSession, type PreviewSessionOptions } from '@/lib/preview/PreviewSession';
 
 // Stable empty object to prevent infinite loops when session is null
@@ -53,20 +54,18 @@ export function usePreviewSession(options: PreviewSessionOptions | null) {
 export function usePreviewSessionValues(session: PreviewSession | null) {
   const subscribe = useCallback(
     (callback: () => void) => {
-      if (!session) return () => { };
+      if (!session) {return () => { };}
       return session.subscribe(callback);
     },
     [session]
   );
 
   const getSnapshot = useCallback(() => {
-    if (!session) return EMPTY_VALUES;
+    if (!session) {return EMPTY_VALUES;}
     return session.getValues();
   }, [session]);
 
-  const values = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-  return values;
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 /**
@@ -105,7 +104,7 @@ export function usePreviewSessionSection(session: PreviewSession | null) {
 
   // Subscribe to session changes
   useEffect(() => {
-    if (!session) return;
+    if (!session) {return;}
 
     const unsubscribe = session.subscribe(() => {
       setCurrentSectionIndex(session.getCurrentSectionIndex());

@@ -4,7 +4,6 @@
  * Shows label, type, required, variable alias, internal key, and options editor
  */
 
-import { useState, useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -28,18 +27,18 @@ import {
   Database,
   Link as LinkIcon,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useState, useEffect, useRef } from "react";
+
+import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
+import { LogicBuilder, LogicIndicator, LogicStatusText } from "@/components/logic";
+import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { LogicBuilder, LogicIndicator, LogicStatusText } from "@/components/logic";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { ConditionExpression } from "@shared/types/conditions";
 import {
   Select,
   SelectContent,
@@ -47,20 +46,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import type { ApiStep, StepType } from "@/lib/vault-api";
 import {
   useUpdateStep,
   useDeleteStep,
   useWorkflow,
   useWorkflowMode
 } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
-import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
+
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { useIntake } from "../IntakeContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
+
+
 import { JSQuestionEditor, type JSQuestionConfig } from "./JSQuestionEditor";
-import type { ApiStep, StepType } from "@/lib/vault-api";
+import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
+
 
 interface QuestionCardProps {
   step: ApiStep;
@@ -382,7 +388,7 @@ export function QuestionCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete question "${step.title}"?`)) return;
+    if (!confirm(`Delete question "${step.title}"?`)) {return;}
 
     try {
       await deleteStepMutation.mutateAsync({ id: step.id, sectionId });
@@ -670,7 +676,7 @@ export function QuestionCard({
                             <Tabs
                               value={isLinkedToIntake ? "intake" : "static"}
                               onValueChange={(val) => {
-                                if (val === 'static') handleDefaultValueChange(""); // Clear to static
+                                if (val === 'static') {handleDefaultValueChange("");} // Clear to static
                                 // If switching to intake, user must select variable
                               }}
                               className="w-full"

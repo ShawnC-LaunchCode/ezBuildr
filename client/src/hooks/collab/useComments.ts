@@ -58,7 +58,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
   // Add comment
   const addComment = useCallback(
     (text: string, userId: string, userName: string) => {
-      if (!doc || !nodeId) return;
+      if (!doc || !nodeId) {return;}
 
       const yComments = doc.getMap('yComments');
 
@@ -82,7 +82,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
   // Delete comment
   const deleteComment = useCallback(
     (commentId: string) => {
-      if (!doc || !nodeId) return;
+      if (!doc || !nodeId) {return;}
 
       const yComments = doc.getMap('yComments');
 
@@ -98,7 +98,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
   // Get comment count for a specific node
   const getCommentCount = useCallback(
     (targetNodeId: string): number => {
-      if (!doc) return 0;
+      if (!doc) {return 0;}
 
       const yComments = doc.getMap('yComments');
       const nodeComments = yComments.get(targetNodeId) as Comment[] | undefined;

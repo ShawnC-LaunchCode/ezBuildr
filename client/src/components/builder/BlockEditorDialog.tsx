@@ -1,21 +1,21 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+
+import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";
+import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
+import { ListToolsBlockEditor } from "@/components/blocks/ListToolsBlockEditor";
+import { QueryBlockEditor } from "@/components/blocks/QueryBlockEditor";
+import { ReadTableBlockEditor } from "@/components/blocks/ReadTableBlockEditor";
+import { SendDataToTableBlockEditor } from "@/components/blocks/SendDataToTableBlockEditor";
+import { ValidateBlockEditor } from "@/components/blocks/ValidateBlockEditor";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 import { useCreateBlock, useUpdateBlock, useCreateTransformBlock, useUpdateTransformBlock } from "@/lib/vault-hooks";
-import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
-import { QueryBlockEditor } from "@/components/blocks/QueryBlockEditor";
-
-import { SendDataToTableBlockEditor } from "@/components/blocks/SendDataToTableBlockEditor";
-import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";
-import { ReadTableBlockEditor } from "@/components/blocks/ReadTableBlockEditor";
-import { ListToolsBlockEditor } from "@/components/blocks/ListToolsBlockEditor";
-import { ValidateBlockEditor } from "@/components/blocks/ValidateBlockEditor";
 
 // UniversalBlock type definition (matching what was in BlocksPanel)
 export type UniversalBlock = {

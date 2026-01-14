@@ -1,5 +1,6 @@
 ﻿// SendGrid email service - Referenced from javascript_sendgrid integration
 import { MailService } from '@sendgrid/mail';
+
 import { logger } from '../logger';
 
 const mailService = new MailService();
@@ -138,7 +139,7 @@ Sent from Vault-Logic
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };
   }
 
-  return await sendEmail({
+  return sendEmail({
     to: recipientEmail,
     from: senderEmail,
     subject,
@@ -228,7 +229,7 @@ Sent from Vault-Logic
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };
   }
 
-  return await sendEmail({
+  return sendEmail({
     to: recipientEmail,
     from: senderEmail,
     subject,
@@ -337,7 +338,7 @@ Sent from Vault-Logic
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };
   }
 
-  return await sendEmail({
+  return sendEmail({
     to: recipientEmail,
     from: senderEmail,
     subject,

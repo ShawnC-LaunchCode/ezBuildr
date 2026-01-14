@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
-import { BuilderCanvas } from '@/pages/visual-builder/components/BuilderCanvas';
-import { NodeSidebar } from '@/pages/visual-builder/components/NodeSidebar';
-import { Toolbar } from '@/pages/visual-builder/components/Toolbar';
-import { PreviewPanel } from '@/pages/visual-builder/components/PreviewPanel';
-import { ConnectionsPanel } from '@/pages/visual-builder/components/ConnectionsPanel';
-import { useBuilderStore } from '@/pages/visual-builder/store/useBuilderStore';
-import { useWorkflowGraph, useUpdateWorkflow } from '@/pages/visual-builder/hooks/useWorkflowAPI';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { BuilderCanvas } from '@/pages/visual-builder/components/BuilderCanvas';
+import { ConnectionsPanel } from '@/pages/visual-builder/components/ConnectionsPanel';
+import { NodeSidebar } from '@/pages/visual-builder/components/NodeSidebar';
+import { PreviewPanel } from '@/pages/visual-builder/components/PreviewPanel';
+import { Toolbar } from '@/pages/visual-builder/components/Toolbar';
+import { useWorkflowGraph, useUpdateWorkflow } from '@/pages/visual-builder/hooks/useWorkflowAPI';
+import { useBuilderStore } from '@/pages/visual-builder/store/useBuilderStore';
 
 interface VisualBuilderTabProps {
     workflowId: string;
@@ -82,7 +83,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
             // Duplicate: Cmd+D
             if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
                 e.preventDefault();
-                if (isReadOnly) return;
+                if (isReadOnly) {return;}
                 if (selectedNodeId) {
                     duplicateNode(selectedNodeId);
                     toast({ title: 'Duplicated', description: 'Block duplicated.' });
@@ -91,7 +92,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
 
             // Delete: Backspace or Delete
             if (e.key === 'Backspace' || e.key === 'Delete') {
-                if (isReadOnly) return;
+                if (isReadOnly) {return;}
                 if (selectedNodeId) {
                     deleteNode(selectedNodeId);
                     toast({ title: 'Deleted', description: 'Block deleted.' });
@@ -112,7 +113,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
 
     // Auto-save
     useEffect(() => {
-        if (!isDirty || !workflowId || isReadOnly) return;
+        if (!isDirty || !workflowId || isReadOnly) {return;}
 
         const timeoutId = setTimeout(async () => {
             try {

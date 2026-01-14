@@ -91,8 +91,8 @@ export class WorkflowDiffService {
     private getDiffItemType(block: WorkflowBlock): DiffItemType {
         // Heuristic: If it has an alias, it's likely a variable.
         // Logic blocks: branch, validate.
-        if (block.variableName || block.alias || ['short_text', 'long_text', 'number', 'email'].includes(block.type as string)) return 'variable';
-        if (['branch', 'validate', 'jump'].includes(block.type as string)) return 'logic';
+        if (block.variableName || block.alias || ['short_text', 'long_text', 'number', 'email'].includes(block.type as string)) {return 'variable';}
+        if (['branch', 'validate', 'jump'].includes(block.type as string)) {return 'logic';}
         return 'block';
     }
 
@@ -115,7 +115,7 @@ export class WorkflowDiffService {
 
         // R1: Variable Removed -> Hard
         const removedVars = diff.removed.filter(i => i.type === 'variable');
-        if (removedVars.length > 0) severity = "hard_breaking";
+        if (removedVars.length > 0) {severity = "hard_breaking";}
 
         // R2: Variable Type Changed -> Hard
         // Loop modified items
@@ -128,7 +128,7 @@ export class WorkflowDiffService {
                 }
                 // R3: Required added -> Soft
                 if (oldB && newB && !oldB.required && newB.required) {
-                    if (severity !== 'hard_breaking') severity = "soft_breaking";
+                    if (severity !== 'hard_breaking') {severity = "soft_breaking";}
                 }
             }
         }
@@ -137,8 +137,8 @@ export class WorkflowDiffService {
         for (const added of diff.added) {
             if (added.type === 'variable') {
                 const newB = newBlocks.get(added.id);
-                if (newB && newB.required) {
-                    if (severity !== "hard_breaking") severity = "soft_breaking";
+                if (newB?.required) {
+                    if (severity !== "hard_breaking") {severity = "soft_breaking";}
                 }
             }
         }

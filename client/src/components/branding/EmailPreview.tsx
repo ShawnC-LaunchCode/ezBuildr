@@ -4,10 +4,11 @@
  * Shows a live preview of how an email will look with branding applied
  */
 
-import { useMemo } from 'react';
-import type { TenantBranding } from '@/lib/vault-api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail } from 'lucide-react';
+import React, { useMemo } from 'react';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { TenantBranding } from '@/lib/vault-api';
 
 export interface EmailPreviewProps {
   templateName: string;
@@ -158,7 +159,7 @@ export default function EmailPreview({
             <p className="text-sm font-medium">Active Branding Tokens:</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(enabledTokens).map(([key, enabled]) => {
-                if (!enabled) return null;
+                if (!enabled) {return null;}
 
                 const labels: Record<string, string> = {
                   logoUrl: 'Logo',

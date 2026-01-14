@@ -1,8 +1,11 @@
-import type { Request, Response, NextFunction } from "express";
-import { db } from "../db";
-import { workflowRuns } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { workflowRuns } from "@shared/schema";
+
+import { db } from "../db";
 import { logger } from "../logger";
+
+import type { Request, Response, NextFunction } from "express";
 
 /**
  * Extended request type with run authentication info
@@ -33,7 +36,7 @@ export async function runTokenAuth(
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       res.status(401).json({
         success: false,
         error: "Unauthorized - Missing or invalid Authorization header",
@@ -116,7 +119,7 @@ export async function creatorOrRunTokenAuth(
   // Fall back to run token auth
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       res.status(401).json({
         success: false,
         error: "Unauthorized - Must be authenticated as creator or provide valid run token",

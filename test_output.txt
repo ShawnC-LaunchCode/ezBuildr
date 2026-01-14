@@ -1,160 +1,403 @@
 npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
 
-> ezbuildr@1.0.0 test
-> vitest run --coverage tests/integration/auth-enterprise.test.ts
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
 
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
 
-[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
-      [2mCoverage enabled with [22m[33mv8[39m
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
+DB: Skipping auto-init because NODE_ENV=test
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (15) from .env -- tip: ≡ƒöä add secrets lifecycle management: https://dotenvx.com/ops
+{"level":30,"time":1768245886472,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w0_ab5623f7
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0_ab5623f7
 
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
+{"level":30,"time":1768245890926,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768245890959,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
 [22m[39mΓ£à Database initialized for tests
 ≡ƒöä Running test migrations...
 
-{"level":30,"time":1766501193678,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
-{"level":30,"time":1766501193686,"env":"test","msg":"Real-time collaboration server initialized"}
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts[2m > [22m[2mEnterprise Auth Integration Tests
-[22m[39m[Routes] E-Signature routes registered at /api/esign
-
-{"level":30,"time":1766501193680,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
-{"level":30,"time":1766501193682,"env":"test","module":"documents-routes","msg":"Document routes registered"}
-{"level":30,"time":1766501193686,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
-{"level":40,"time":1766501193686,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
-{"level":30,"time":1766501193686,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
-{"level":30,"time":1766501193686,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
-{"level":30,"time":1766501193905,"env":"test","module":"user-credentials-repository","userId":"UzuyY4f-GWwg-DfPJ-c3h","msg":"User credentials created"}
-{"level":30,"time":1766501193954,"env":"test","module":"auth-security","userId":"UzuyY4f-GWwg-DfPJ-c3h","plainToken":"71bc677306ce291b1fc1ade7f3393d5bea159fc84407dd0ec12ab892392aa656","msg":"Email verification token generated (EMAIL STUB)"}
-{"level":30,"time":1766501193955,"env":"test","module":"auth-routes","userId":"UzuyY4f-GWwg-DfPJ-c3h","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","msg":"Verification token generated: 71bc677306ce291b1fc1ade7f3393d5bea159fc84407dd0ec12ab892392aa656 (EMAIL STUB)"}
-{"level":30,"time":1766501194006,"env":"test","module":"auth-routes","userId":"UzuyY4f-GWwg-DfPJ-c3h","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","msg":"User registered successfully"}
-{"level":30,"time":1766501194220,"env":"test","module":"auth-routes","userId":"UzuyY4f-GWwg-DfPJ-c3h","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501194423,"env":"test","module":"auth-routes","userId":"UzuyY4f-GWwg-DfPJ-c3h","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","msg":"User logged in successfully"}
-{"level":30,"time":1766501194765,"env":"test","module":"auth-security","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","plainToken":"48352a7fe1947471658c3b742d640f99ec30bc1d636d94ee6099e670db0b1e0a","msg":"Password reset token generated (EMAIL STUB)"}
-{"level":30,"time":1766501194765,"env":"test","module":"auth-routes","email":"auth-test-xmgnlHl3gseeMS6bJLX7g@example.com","msg":"Reset token generated (STUB)"}
-[90mstdout[2m | tests/integration/auth-enterprise.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
-
- [31mΓ¥»[39m tests/integration/auth-enterprise.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[33m 1895[2mms[22m[39m
-[31m       [31m├ù[31m 1. Should register a new user and trigger verification email[39m[33m 325[2mms[22m[39m
-[31m       [31m├ù[31m 2. Should verify email with token[39m[32m 9[2mms[22m[39m
-       [32mΓ£ô[39m 3. Should login and receive access token + refresh cookie[32m 199[2mms[22m[39m
-[31m       [31m├ù[31m 4. Should refresh access token[39m[33m 401[2mms[22m[39m
-[31m       [31m├ù[31m 5. Should initiate password reset[39m[32m 144[2mms[22m[39m
-[31m       [31m├ù[31m 6. Should reset password with token[39m[32m 4[2mms[22m[39m
-[31m       [31m├ù[31m 7. Should logout and invalidate refresh token[39m[32m 148[2mms[22m[39m
-Failed to parse file:///C:/Users/scoot/poll/VaultLogic/server/queues/DocumentGenerationWorker.ts. Excluding it from coverage.
- Error [RollupError]: Expected ',', got ':'
-    at getRollupError (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
-    at convertProgram (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:1098:26)
-    at parseAstAsync (file:///C:/Users/scoot/poll/VaultLogic/node_modules/rollup/dist/es/shared/parseAst.js:2084:106)
-    at V8CoverageProvider.remapCoverage (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:135:10)
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:121:23
-    at async Promise.all (index 5)
-    at V8CoverageProvider.getCoverageMapForUncoveredFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:111:4)
-    at V8CoverageProvider.generateCoverage (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/coverage-v8/dist/provider.js:59:29)
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/cli-api.C7sYjHmQ.js:12526:23
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/cli-api.C7sYjHmQ.js:12539:11 {
-  code: 'PARSE_ERROR',
-  pos: 1724
+stderr | tests/integration/auth/session.management.integration.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: enum label "skip_to" already exists
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 93,
+  severity: 'ERROR',
+  code: '42710',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pg_enum.c',
+  line: '348',
+  routine: 'AddEnumLabel'
 }
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 6 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+{"level":30,"time":1768245893787,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768245893807,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 1. Should register a new user and trigger verification email
-AssertionError: expected "vi.fn()" to be called at least once
- Γ¥» tests/integration/auth-enterprise.test.ts:64:47
-     62| 
-     63|             expect(res.status).toBe(201);
-     64|             expect(mockSendVerificationEmail).toHaveBeenCalled();
-       |                                               ^
-     65| 
-     66|             // Capture verification token from mock calls
+{"level":30,"time":1768245893795,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768245893796,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768245893799,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768245893806,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768245893806,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768245893806,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768245893806,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests
+[22m[39mDEBUG: /register Generated userId: 2beed4bd-32ec-4bef-aa5c-8c3bbdfa9331 Email: test-7NxRxKDSUq4rFap28T7_q@example.com
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/6]ΓÄ»
+{"level":30,"time":1768245894244,"env":"test","module":"user-credentials-repository","userId":"2beed4bd-32ec-4bef-aa5c-8c3bbdfa9331","msg":"User credentials created"}
+{"level":30,"time":1768245894339,"env":"test","module":"email-queue","jobId":"e7a7006c-d31d-40c5-a621-898ed7b166bf","to":"test-7NxRxKDSUq4rFap28T7_q@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245894390,"env":"test","module":"auth-routes","userId":"2beed4bd-32ec-4bef-aa5c-8c3bbdfa9331","email":"test-7NxRxKDSUq4rFap28T7_q@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create refresh token on login
+[22m[39mDEBUG: /register Generated userId: 98b0ad8f-5e85-42e1-87d3-51448449fc81 Email: session-test-xDeiYXUxg4UxSHPBiYxr-@example.com
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 2. Should verify email with token
-AssertionError: expected 400 to be 200 // Object.is equality
+{"level":30,"time":1768245894909,"env":"test","module":"user-credentials-repository","userId":"98b0ad8f-5e85-42e1-87d3-51448449fc81","msg":"User credentials created"}
+{"level":30,"time":1768245895005,"env":"test","module":"email-queue","jobId":"5fe70d7e-4bb3-4df9-85a4-0d8d0f002fa0","to":"session-test-xDeiYXUxg4UxSHPBiYxr-@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245895053,"env":"test","module":"auth-routes","userId":"98b0ad8f-5e85-42e1-87d3-51448449fc81","email":"session-test-xDeiYXUxg4UxSHPBiYxr-@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create refresh token on login
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-- Expected
-+ Received
+{"level":30,"time":1768245895616,"env":"test","module":"auth-routes","userId":"98b0ad8f-5e85-42e1-87d3-51448449fc81","msg":"User logged in successfully"}
+{"level":30,"time":1768245895664,"env":"test","module":"audit-log-service","userId":"98b0ad8f-5e85-42e1-87d3-51448449fc81","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould track device metadata in session
+[22m[39mDEBUG: /register Generated userId: f7d0d413-7208-4fe9-9dbc-ae1d1e35b988 Email: session-test-8nhP0Co74ho8JfdrkFI_1@example.com
 
-- 200
-+ 400
+{"level":30,"time":1768245896082,"env":"test","module":"user-credentials-repository","userId":"f7d0d413-7208-4fe9-9dbc-ae1d1e35b988","msg":"User credentials created"}
+{"level":30,"time":1768245896183,"env":"test","module":"email-queue","jobId":"75ffa751-247c-4934-80f0-9f4ac2757a8a","to":"session-test-8nhP0Co74ho8JfdrkFI_1@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245896230,"env":"test","module":"auth-routes","userId":"f7d0d413-7208-4fe9-9dbc-ae1d1e35b988","email":"session-test-8nhP0Co74ho8JfdrkFI_1@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould track device metadata in session
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
- Γ¥» tests/integration/auth-enterprise.test.ts:79:32
-     77|                 .send({ token: verificationToken });
-     78| 
-     79|             expect(res.status).toBe(200);
-       |                                ^
-     80|             expect(res.body.message).toContain("verified");
-     81|         });
+{"level":30,"time":1768245896795,"env":"test","module":"auth-routes","userId":"f7d0d413-7208-4fe9-9dbc-ae1d1e35b988","msg":"User logged in successfully"}
+{"level":30,"time":1768245896842,"env":"test","module":"audit-log-service","userId":"f7d0d413-7208-4fe9-9dbc-ae1d1e35b988","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: /register Generated userId: 155a9e36-3809-4477-9ada-4cfd3e70f9c5 Email: session-test-KdnOELQf4K22ty4ou_YkF@example.com
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/6]ΓÄ»
+{"level":30,"time":1768245897256,"env":"test","module":"user-credentials-repository","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","msg":"User credentials created"}
+{"level":30,"time":1768245897351,"env":"test","module":"email-queue","jobId":"bba65a07-081f-4508-9a34-81cc2baa8860","to":"session-test-KdnOELQf4K22ty4ou_YkF@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245897398,"env":"test","module":"auth-routes","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","email":"session-test-KdnOELQf4K22ty4ou_YkF@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 4. Should refresh access token
-AssertionError: expected 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ΓÇª' not to be 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ΓÇª' // Object.is equality
- Γ¥» tests/integration/auth-enterprise.test.ts:114:40
-    112|             expect(res.status).toBe(200);
-    113|             expect(res.body.token).toBeDefined();
-    114|             expect(res.body.token).not.toBe(loginRes.body.token); // SΓÇª
-       |                                        ^
-    115|         });
-    116| 
+{"level":30,"time":1768245897944,"env":"test","module":"auth-routes","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","msg":"User logged in successfully"}
+{"level":30,"time":1768245897991,"env":"test","module":"audit-log-service","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/6]ΓÄ»
+{"level":30,"time":1768245898443,"env":"test","module":"auth-routes","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","msg":"User logged in successfully"}
+{"level":30,"time":1768245898491,"env":"test","module":"audit-log-service","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 5. Should initiate password reset
-TypeError: Cannot read properties of undefined (reading '0')
- Γ¥» tests/integration/auth-enterprise.test.ts:128:20
-    126|             const calls = mockSendPasswordResetEmail.mock.calls;
-    127|             const lastCall = calls[calls.length - 1];
-    128|             expect(lastCall[0]).toBe(userEmail);
-       |                    ^
-    129|             resetToken = lastCall[1];
-    130|             expect(resetToken).toBeDefined();
+{"level":30,"time":1768245898948,"env":"test","module":"auth-routes","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","msg":"User logged in successfully"}
+{"level":30,"time":1768245898997,"env":"test","module":"audit-log-service","userId":"155a9e36-3809-4477-9ada-4cfd3e70f9c5","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould list all active sessions for user
+[22m[39mDEBUG: /register Generated userId: 4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182 Email: session-test-4h0Ii7aYBA02E3X1FCmKZ@example.com
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/6]ΓÄ»
+{"level":30,"time":1768245899391,"env":"test","module":"user-credentials-repository","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","msg":"User credentials created"}
+{"level":30,"time":1768245899484,"env":"test","module":"email-queue","jobId":"b3b7dc8e-016b-4b61-87d9-3cb96e5be7e3","to":"session-test-4h0Ii7aYBA02E3X1FCmKZ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245899531,"env":"test","module":"auth-routes","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","email":"session-test-4h0Ii7aYBA02E3X1FCmKZ@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould list all active sessions for user
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 6. Should reset password with token
-AssertionError: expected 400 to be 200 // Object.is equality
+{"level":30,"time":1768245900082,"env":"test","module":"auth-routes","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","msg":"User logged in successfully"}
+{"level":30,"time":1768245900129,"env":"test","module":"audit-log-service","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould list all active sessions for user
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-- Expected
-+ Received
+{"level":30,"time":1768245900578,"env":"test","module":"auth-routes","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","msg":"User logged in successfully"}
+{"level":30,"time":1768245900632,"env":"test","module":"audit-log-service","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould list all active sessions for user
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-- 200
-+ 400
+{"level":30,"time":1768245901095,"env":"test","module":"auth-routes","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","msg":"User logged in successfully"}
+{"level":30,"time":1768245901142,"env":"test","module":"audit-log-service","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245901247,"env":"test","module":"auth-routes","userId":"4bdb5e1a-5f52-4a43-bfb7-ab9ed2828182","sessionCount":3,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould mark current session correctly
+[22m[39mDEBUG: /register Generated userId: c68c4343-7563-48fd-bd71-62154dcf1524 Email: session-test-sz4eAkSoOpH0lguR1kITX@example.com
 
- Γ¥» tests/integration/auth-enterprise.test.ts:139:32
-    137|                 .send({ token: resetToken, newPassword });
-    138| 
-    139|             expect(res.status).toBe(200);
-       |                                ^
-    140| 
-    141|             // Verify login with OLD password fails
+{"level":30,"time":1768245901615,"env":"test","module":"user-credentials-repository","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","msg":"User credentials created"}
+{"level":30,"time":1768245901709,"env":"test","module":"email-queue","jobId":"144e972f-24bd-4871-a52f-bc7c4871a78b","to":"session-test-sz4eAkSoOpH0lguR1kITX@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245901756,"env":"test","module":"auth-routes","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","email":"session-test-sz4eAkSoOpH0lguR1kITX@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould mark current session correctly
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/6]ΓÄ»
+{"level":30,"time":1768245902303,"env":"test","module":"auth-routes","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","msg":"User logged in successfully"}
+{"level":30,"time":1768245902352,"env":"test","module":"audit-log-service","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould mark current session correctly
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
- FAIL  tests/integration/auth-enterprise.test.ts > Enterprise Auth Integration Tests > Full Auth Lifecycle > 7. Should logout and invalidate refresh token
-TypeError: Invalid value "undefined" for header "Cookie"
- Γ¥» Test.Request.request node_modules/supertest/node_modules/superagent/lib/node/index.js:791:39
- Γ¥» Test.Request.end node_modules/supertest/node_modules/superagent/lib/node/index.js:909:8
- Γ¥» Test.end node_modules/supertest/lib/test.js:136:11
- Γ¥» node_modules/supertest/node_modules/superagent/lib/request-base.js:265:12
- Γ¥» Test.RequestBase.then node_modules/supertest/node_modules/superagent/lib/request-base.js:249:31
+{"level":30,"time":1768245902808,"env":"test","module":"auth-routes","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","msg":"User logged in successfully"}
+{"level":30,"time":1768245902856,"env":"test","module":"audit-log-service","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245902956,"env":"test","module":"auth-routes","userId":"c68c4343-7563-48fd-bd71-62154dcf1524","sessionCount":2,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould not include revoked sessions
+[22m[39mDEBUG: /register Generated userId: 7848b897-214e-4239-9cc8-f9b021cd99b0 Email: session-test-KWLlzrPxW8ZClGnCO1t9e@example.com
 
-ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/6]ΓÄ»
+{"level":30,"time":1768245903310,"env":"test","module":"user-credentials-repository","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","msg":"User credentials created"}
+{"level":30,"time":1768245903406,"env":"test","module":"email-queue","jobId":"85e5d3f9-e7a7-425e-a06f-8ddef0ff5135","to":"session-test-KWLlzrPxW8ZClGnCO1t9e@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245903453,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","email":"session-test-KWLlzrPxW8ZClGnCO1t9e@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould not include revoked sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
+{"level":30,"time":1768245903992,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","msg":"User logged in successfully"}
+{"level":30,"time":1768245904038,"env":"test","module":"audit-log-service","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould not include revoked sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
 
-[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (7)[39m
-[2m   Start at [22m 08:46:26
-[2m   Duration [22m 13.09s[2m (transform 2.59s, setup 83ms, import 5.88s, tests 1.90s, environment 0ms)[22m
+{"level":30,"time":1768245904484,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","msg":"User logged in successfully"}
+{"level":30,"time":1768245904534,"env":"test","module":"audit-log-service","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245904635,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","sessionCount":2,"msg":"Listed active sessions"}
+{"level":30,"time":1768245904783,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","sessionId":"721e0b44-6737-4b85-af88-4ae20d1f2fbb","msg":"Session revoked"}
+{"level":30,"time":1768245904878,"env":"test","module":"auth-routes","userId":"7848b897-214e-4239-9cc8-f9b021cd99b0","sessionCount":1,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould order sessions by last used (most recent first)
+[22m[39mDEBUG: /register Generated userId: c7440abd-0180-467e-9b16-841eaeff6d16 Email: session-test-KIlp30cE_VYoMG_uRbSa7@example.com
+
+{"level":30,"time":1768245905237,"env":"test","module":"user-credentials-repository","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","msg":"User credentials created"}
+{"level":30,"time":1768245905340,"env":"test","module":"email-queue","jobId":"47aea13d-9816-4818-98e3-9389a0b0e75e","to":"session-test-KIlp30cE_VYoMG_uRbSa7@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245905388,"env":"test","module":"auth-routes","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","email":"session-test-KIlp30cE_VYoMG_uRbSa7@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould order sessions by last used (most recent first)
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245905924,"env":"test","module":"auth-routes","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","msg":"User logged in successfully"}
+{"level":30,"time":1768245905973,"env":"test","module":"audit-log-service","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould order sessions by last used (most recent first)
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245906515,"env":"test","module":"auth-routes","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","msg":"User logged in successfully"}
+{"level":30,"time":1768245906563,"env":"test","module":"audit-log-service","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould order sessions by last used (most recent first)
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245907108,"env":"test","module":"auth-routes","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","msg":"User logged in successfully"}
+{"level":30,"time":1768245907157,"env":"test","module":"audit-log-service","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245907258,"env":"test","module":"auth-routes","userId":"c7440abd-0180-467e-9b16-841eaeff6d16","sessionCount":3,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould require authentication
+[22m[39mDEBUG: /register Generated userId: 011c8257-e634-4bc1-8d07-8b3b850ea9ef Email: session-test-v7Tu0aSYUhAUuQteSTATH@example.com
+
+{"level":30,"time":1768245907614,"env":"test","module":"user-credentials-repository","userId":"011c8257-e634-4bc1-8d07-8b3b850ea9ef","msg":"User credentials created"}
+{"level":30,"time":1768245907707,"env":"test","module":"email-queue","jobId":"88e97512-377e-4ba1-b640-017d7a515f1d","to":"session-test-v7Tu0aSYUhAUuQteSTATH@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245907756,"env":"test","module":"auth-routes","userId":"011c8257-e634-4bc1-8d07-8b3b850ea9ef","email":"session-test-v7Tu0aSYUhAUuQteSTATH@example.com","msg":"User registered"}
+{"level":50,"time":1768245907858,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould revoke specific session
+[22m[39mDEBUG: /register Generated userId: a9cbe444-e0b2-4d07-bee2-48c09cfa8006 Email: session-test-HC6jQD--QTVHAqfPg3rMk@example.com
+
+{"level":30,"time":1768245908220,"env":"test","module":"user-credentials-repository","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","msg":"User credentials created"}
+{"level":30,"time":1768245908314,"env":"test","module":"email-queue","jobId":"48a418ab-0215-4ab0-83ef-a345f8470ea9","to":"session-test-HC6jQD--QTVHAqfPg3rMk@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245908365,"env":"test","module":"auth-routes","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","email":"session-test-HC6jQD--QTVHAqfPg3rMk@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould revoke specific session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245908907,"env":"test","module":"auth-routes","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","msg":"User logged in successfully"}
+{"level":30,"time":1768245908954,"env":"test","module":"audit-log-service","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould revoke specific session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245909404,"env":"test","module":"auth-routes","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","msg":"User logged in successfully"}
+{"level":30,"time":1768245909453,"env":"test","module":"audit-log-service","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245909557,"env":"test","module":"auth-routes","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","sessionCount":2,"msg":"Listed active sessions"}
+{"level":30,"time":1768245909720,"env":"test","module":"auth-routes","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","sessionId":"605d9cf5-5d22-47d8-89b2-4dda537432c4","msg":"Session revoked"}
+{"level":30,"time":1768245909724,"env":"test","module":"auth-service","tokenHash":"33dd32120b4e17316cd72dce635d0b1c4e405648153b5395d483f43c26cb3c77","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245909769,"env":"test","module":"auth-service","userId":"a9cbe444-e0b2-4d07-bee2-48c09cfa8006","tokenHash":"33dd32120b4e17316cd72dce635d0b1c4e405648153b5395d483f43c26cb3c77","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould prevent revoking current session
+[22m[39mDEBUG: /register Generated userId: bde656e8-f609-4ec4-bb40-4b2064bd3de1 Email: session-test-GTqcuCHvi5EyS8QMP_K-a@example.com
+
+{"level":30,"time":1768245910179,"env":"test","module":"user-credentials-repository","userId":"bde656e8-f609-4ec4-bb40-4b2064bd3de1","msg":"User credentials created"}
+{"level":30,"time":1768245910277,"env":"test","module":"email-queue","jobId":"8d858e1d-6c19-4a1a-b732-ce013bd6d5c8","to":"session-test-GTqcuCHvi5EyS8QMP_K-a@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245910325,"env":"test","module":"auth-routes","userId":"bde656e8-f609-4ec4-bb40-4b2064bd3de1","email":"session-test-GTqcuCHvi5EyS8QMP_K-a@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould prevent revoking current session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245910875,"env":"test","module":"auth-routes","userId":"bde656e8-f609-4ec4-bb40-4b2064bd3de1","msg":"User logged in successfully"}
+{"level":30,"time":1768245910923,"env":"test","module":"audit-log-service","userId":"bde656e8-f609-4ec4-bb40-4b2064bd3de1","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245911024,"env":"test","module":"auth-routes","userId":"bde656e8-f609-4ec4-bb40-4b2064bd3de1","sessionCount":1,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: /register Generated userId: f6dced0a-98e2-4d74-86eb-a2440b4dba9a Email: session-test-uxAV27rRGXvKYAUB2tns1@example.com
+
+{"level":30,"time":1768245911491,"env":"test","module":"user-credentials-repository","userId":"f6dced0a-98e2-4d74-86eb-a2440b4dba9a","msg":"User credentials created"}
+{"level":30,"time":1768245911585,"env":"test","module":"email-queue","jobId":"c38d8f53-1d8e-46fa-8068-3958756ceb96","to":"session-test-uxAV27rRGXvKYAUB2tns1@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245911636,"env":"test","module":"auth-routes","userId":"f6dced0a-98e2-4d74-86eb-a2440b4dba9a","email":"session-test-uxAV27rRGXvKYAUB2tns1@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: /register Generated userId: 11f295c3-d605-4963-af8b-c036c12e3c6a Email: user2-2Ww1jz93R43UPIdJqrbO0@example.com
+
+{"level":30,"time":1768245912081,"env":"test","module":"user-credentials-repository","userId":"11f295c3-d605-4963-af8b-c036c12e3c6a","msg":"User credentials created"}
+{"level":30,"time":1768245912177,"env":"test","module":"email-queue","jobId":"a4ba9d45-52dd-4cb8-bb0a-46613435579a","to":"user2-2Ww1jz93R43UPIdJqrbO0@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245912228,"env":"test","module":"auth-routes","userId":"11f295c3-d605-4963-af8b-c036c12e3c6a","email":"user2-2Ww1jz93R43UPIdJqrbO0@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245912721,"env":"test","module":"auth-routes","userId":"11f295c3-d605-4963-af8b-c036c12e3c6a","msg":"User logged in successfully"}
+{"level":30,"time":1768245912769,"env":"test","module":"audit-log-service","userId":"11f295c3-d605-4963-af8b-c036c12e3c6a","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245912862,"env":"test","module":"auth-routes","userId":"11f295c3-d605-4963-af8b-c036c12e3c6a","sessionCount":2,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245913309,"env":"test","module":"auth-routes","userId":"f6dced0a-98e2-4d74-86eb-a2440b4dba9a","msg":"User logged in successfully"}
+{"level":30,"time":1768245913357,"env":"test","module":"audit-log-service","userId":"f6dced0a-98e2-4d74-86eb-a2440b4dba9a","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould return 404 for non-existent session ID
+[22m[39mDEBUG: /register Generated userId: 4979df75-e064-4cd3-8438-324c711ca80f Email: session-test-IullSaIjuae9-OUlEVzAD@example.com
+
+{"level":30,"time":1768245913811,"env":"test","module":"user-credentials-repository","userId":"4979df75-e064-4cd3-8438-324c711ca80f","msg":"User credentials created"}
+{"level":30,"time":1768245913909,"env":"test","module":"email-queue","jobId":"4a7b9de2-41fd-426e-aba5-182f12dd9b5d","to":"session-test-IullSaIjuae9-OUlEVzAD@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245913956,"env":"test","module":"auth-routes","userId":"4979df75-e064-4cd3-8438-324c711ca80f","email":"session-test-IullSaIjuae9-OUlEVzAD@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould return 404 for non-existent session ID
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245914493,"env":"test","module":"auth-routes","userId":"4979df75-e064-4cd3-8438-324c711ca80f","msg":"User logged in successfully"}
+{"level":30,"time":1768245914541,"env":"test","module":"audit-log-service","userId":"4979df75-e064-4cd3-8438-324c711ca80f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all sessions except current
+[22m[39mDEBUG: /register Generated userId: 19de8a22-cde6-4212-96cf-e523a9b3daeb Email: session-test-aMtCNZvEF8s3SnLS4makA@example.com
+
+{"level":30,"time":1768245914946,"env":"test","module":"user-credentials-repository","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","msg":"User credentials created"}
+{"level":30,"time":1768245915043,"env":"test","module":"email-queue","jobId":"f90ed6e3-acf5-4c89-9c12-c1c6f111e64a","to":"session-test-aMtCNZvEF8s3SnLS4makA@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245915093,"env":"test","module":"auth-routes","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","email":"session-test-aMtCNZvEF8s3SnLS4makA@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all sessions except current
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245915645,"env":"test","module":"auth-routes","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","msg":"User logged in successfully"}
+{"level":30,"time":1768245915694,"env":"test","module":"audit-log-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all sessions except current
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245916140,"env":"test","module":"auth-routes","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","msg":"User logged in successfully"}
+{"level":30,"time":1768245916188,"env":"test","module":"audit-log-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all sessions except current
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245916642,"env":"test","module":"auth-routes","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","msg":"User logged in successfully"}
+{"level":30,"time":1768245916690,"env":"test","module":"audit-log-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245916832,"env":"test","module":"auth-routes","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","msg":"All other sessions revoked"}
+{"level":30,"time":1768245916882,"env":"test","module":"audit-log-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","eventType":"all_sessions_revoked","ipAddress":"::1","hasMetadata":false,"msg":"Security event logged"}
+{"level":30,"time":1768245916884,"env":"test","module":"auth-service","tokenHash":"aed9317c731116ac8f6f4b5e32362a853536463698236203c92f726c32ac83e1","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":30,"time":1768245917099,"env":"test","module":"auth-service","tokenHash":"84a6f1e68db2a468e9e1dc3124bc1b099718cecf14fec2e2e5ccfd172e002ed5","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245917144,"env":"test","module":"auth-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","tokenHash":"84a6f1e68db2a468e9e1dc3124bc1b099718cecf14fec2e2e5ccfd172e002ed5","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768245917193,"env":"test","module":"auth-service","tokenHash":"623dfcb3af1928ef68351a244103744c4fa9cc970a66796b98b5ae73a757cc70","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245917239,"env":"test","module":"auth-service","userId":"19de8a22-cde6-4212-96cf-e523a9b3daeb","tokenHash":"623dfcb3af1928ef68351a244103744c4fa9cc970a66796b98b5ae73a757cc70","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all trusted devices
+[22m[39mDEBUG: /register Generated userId: f51c339f-700e-46a2-86e5-3410563daf23 Email: session-test-n130L6w-BOBTmM3F5_kH2@example.com
+
+{"level":30,"time":1768245917650,"env":"test","module":"user-credentials-repository","userId":"f51c339f-700e-46a2-86e5-3410563daf23","msg":"User credentials created"}
+{"level":30,"time":1768245917757,"env":"test","module":"email-queue","jobId":"6db0d107-3187-40c4-9b1c-e431dffd5352","to":"session-test-n130L6w-BOBTmM3F5_kH2@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245917804,"env":"test","module":"auth-routes","userId":"f51c339f-700e-46a2-86e5-3410563daf23","email":"session-test-n130L6w-BOBTmM3F5_kH2@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all trusted devices
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245918345,"env":"test","module":"auth-routes","userId":"f51c339f-700e-46a2-86e5-3410563daf23","msg":"User logged in successfully"}
+{"level":30,"time":1768245918391,"env":"test","module":"audit-log-service","userId":"f51c339f-700e-46a2-86e5-3410563daf23","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245918537,"env":"test","module":"auth-routes","userId":"f51c339f-700e-46a2-86e5-3410563daf23","deviceFingerprint":"377ad01217b8c93ca52518d515505c47ab7553fab66d6fddaa60af67802c5a4c","msg":"Device marked as trusted"}
+{"level":30,"time":1768245918681,"env":"test","module":"auth-routes","userId":"f51c339f-700e-46a2-86e5-3410563daf23","msg":"All other sessions revoked"}
+{"level":30,"time":1768245918728,"env":"test","module":"audit-log-service","userId":"f51c339f-700e-46a2-86e5-3410563daf23","eventType":"all_sessions_revoked","ipAddress":"::1","hasMetadata":false,"msg":"Security event logged"}
+{"level":30,"time":1768245918829,"env":"test","module":"auth-routes","userId":"f51c339f-700e-46a2-86e5-3410563daf23","deviceCount":0,"msg":"Listed trusted devices"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould require active session
+[22m[39mDEBUG: /register Generated userId: dab00600-910a-43c4-b6dc-794bf0779928 Email: session-test-8RopsuBXUoXaIGkxOPsDD@example.com
+
+{"level":30,"time":1768245919188,"env":"test","module":"user-credentials-repository","userId":"dab00600-910a-43c4-b6dc-794bf0779928","msg":"User credentials created"}
+{"level":30,"time":1768245919287,"env":"test","module":"email-queue","jobId":"a3ea0d06-54c9-45a8-8570-e6f21cd017e9","to":"session-test-8RopsuBXUoXaIGkxOPsDD@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245919333,"env":"test","module":"auth-routes","userId":"dab00600-910a-43c4-b6dc-794bf0779928","email":"session-test-8RopsuBXUoXaIGkxOPsDD@example.com","msg":"User registered"}
+{"level":50,"time":1768245919428,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Expiration[2m > [22m[2mshould reject refresh token after 30 days
+[22m[39mDEBUG: /register Generated userId: 1afab13a-3143-4258-8613-c7cc8633d167 Email: session-test-syTvMpznjANyUaeGZARhd@example.com
+
+{"level":30,"time":1768245919788,"env":"test","module":"user-credentials-repository","userId":"1afab13a-3143-4258-8613-c7cc8633d167","msg":"User credentials created"}
+{"level":30,"time":1768245919882,"env":"test","module":"email-queue","jobId":"569f9c7e-6fb3-4ce8-b14d-a6ff568f3023","to":"session-test-syTvMpznjANyUaeGZARhd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245919932,"env":"test","module":"auth-routes","userId":"1afab13a-3143-4258-8613-c7cc8633d167","email":"session-test-syTvMpznjANyUaeGZARhd@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Expiration[2m > [22m[2mshould reject refresh token after 30 days
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245920471,"env":"test","module":"auth-routes","userId":"1afab13a-3143-4258-8613-c7cc8633d167","msg":"User logged in successfully"}
+{"level":30,"time":1768245920518,"env":"test","module":"audit-log-service","userId":"1afab13a-3143-4258-8613-c7cc8633d167","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245920613,"env":"test","module":"auth-service","tokenHash":"9987e72cc298e204c370ce23547dd46d0afd21b5782704ff23f326cb05b14a2a","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245920659,"env":"test","module":"auth-service","userId":"1afab13a-3143-4258-8613-c7cc8633d167","msg":"Security: Expired refresh token used"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: /register Generated userId: 2123ff2f-88f6-4747-b019-3b68a88cfa57 Email: session-test-kFzZ9xgpJfK5on9GORGIN@example.com
+
+{"level":30,"time":1768245921010,"env":"test","module":"user-credentials-repository","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","msg":"User credentials created"}
+{"level":30,"time":1768245921109,"env":"test","module":"email-queue","jobId":"7f9df38c-5cbf-4064-9150-6a37e0c74eae","to":"session-test-kFzZ9xgpJfK5on9GORGIN@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245921155,"env":"test","module":"auth-routes","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","email":"session-test-kFzZ9xgpJfK5on9GORGIN@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245921691,"env":"test","module":"auth-routes","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","msg":"User logged in successfully"}
+{"level":30,"time":1768245921739,"env":"test","module":"audit-log-service","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245922048,"env":"test","module":"auth-routes","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","msg":"User logged in successfully"}
+{"level":30,"time":1768245922061,"env":"test","module":"auth-routes","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","msg":"User logged in successfully"}
+{"level":30,"time":1768245922095,"env":"test","module":"audit-log-service","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245922107,"env":"test","module":"audit-log-service","userId":"2123ff2f-88f6-4747-b019-3b68a88cfa57","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle concurrent token refreshes
+[22m[39mDEBUG: /register Generated userId: 1862987e-d51f-4de3-9031-46c8c131993b Email: session-test-e0qiBf5z_vxAyNZuXQEIf@example.com
+
+{"level":30,"time":1768245922523,"env":"test","module":"user-credentials-repository","userId":"1862987e-d51f-4de3-9031-46c8c131993b","msg":"User credentials created"}
+{"level":30,"time":1768245922613,"env":"test","module":"email-queue","jobId":"6b69af66-b300-4f75-80f4-4b56aa13d02d","to":"session-test-e0qiBf5z_vxAyNZuXQEIf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768245922660,"env":"test","module":"auth-routes","userId":"1862987e-d51f-4de3-9031-46c8c131993b","email":"session-test-e0qiBf5z_vxAyNZuXQEIf@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle concurrent token refreshes
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768245923194,"env":"test","module":"auth-routes","userId":"1862987e-d51f-4de3-9031-46c8c131993b","msg":"User logged in successfully"}
+{"level":30,"time":1768245923238,"env":"test","module":"audit-log-service","userId":"1862987e-d51f-4de3-9031-46c8c131993b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768245923240,"env":"test","module":"auth-service","tokenHash":"af5f097611f2e796dd93e95b3b10304d41ceea950f2215c2ec5d7c29b39cc106","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":30,"time":1768245923426,"env":"test","module":"auth-service","tokenHash":"af5f097611f2e796dd93e95b3b10304d41ceea950f2215c2ec5d7c29b39cc106","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245923477,"env":"test","module":"auth-service","userId":"1862987e-d51f-4de3-9031-46c8c131993b","tokenHash":"af5f097611f2e796dd93e95b3b10304d41ceea950f2215c2ec5d7c29b39cc106","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768245923531,"env":"test","module":"auth-service","tokenHash":"0956a9c9e4e72eb76176b056a81caa196f8e5ca55424781d343b019ede6a6d26","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768245923576,"env":"test","module":"auth-service","userId":"1862987e-d51f-4de3-9031-46c8c131993b","tokenHash":"0956a9c9e4e72eb76176b056a81caa196f8e5ca55424781d343b019ede6a6d26","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768245923863,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768245923863,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w0_ab5623f7
+
+ [32mΓ£ô[39m tests/integration/auth/session.management.integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 33850[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create refresh token on login [33m 1178[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should track device metadata in session [33m 1182[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create separate sessions for multiple device logins [33m 2150[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should list all active sessions for user [33m 2206[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should mark current session correctly [33m 1707[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not include revoked sessions [33m 1922[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should order sessions by last used (most recent first) [33m 2380[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should require authentication [33m 600[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke specific session [33m 1957[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent revoking current session [33m 1310[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not allow revoking other users sessions [33m 2327[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should return 404 for non-existent session ID [33m 1140[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke all sessions except current [33m 2697[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke all trusted devices [33m 1538[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should require active session [33m 599[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject refresh token after 30 days [33m 1231[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle multiple concurrent logins [33m 1510[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle concurrent token refreshes [33m 1452[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m18 passed[39m[22m[90m (18)[39m
+[2m   Start at [22m 13:24:43
+[2m   Duration [22m 40.30s[2m (transform 2.71s, setup 136ms, import 5.97s, tests 33.85s, environment 0ms)[22m
 

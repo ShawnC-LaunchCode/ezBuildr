@@ -1,0 +1,164 @@
+
+Running 4 tests using 4 workers
+
+Creation Workflow...
+Creation Workflow...
+Creation Workflow...
+Create Workflow Status: 201
+Creating Section for f136f1a1-696a-40df-af47-d94e3546d7e7...
+Create Workflow Status: 201
+Creating Section for 51fc93a4-a843-47f0-a832-3e0b066f7289...
+Create Workflow Status: 201
+Creating Section for 13b9694f-3179-4964-93eb-0e50fc009a0d...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Create Section Status: 201
+Navigating to Builder...
+Creation Workflow...
+Create Workflow Status: 201
+Creating Section for cc3fcc21-21c1-47e4-965a-2876de741c1a...
+Waiting for Page text...
+Waiting for Page text...
+Page text found.
+Page text found.
+Waiting for Page text...
+Create Section Status: 201
+Navigating to Builder...
+Page text found.
+Waiting for Page text...
+Page text found.
+Step: Adding List Tools block
+Looking for Add Logic button...
+Waiting for List Tool block...
+Step: Verifying Operator Labels
+  Γ£ÿ  3 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence (25.0s)
+  Γ£ÿ  1 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) (1.0m)
+  Γ£ÿ  4 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:272:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) (1.0m)
+  Γ£ÿ  2 [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:195:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) (1.0m)
+
+
+  1) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'contains (case-insensitive)' })
+    Expected: visible
+    Error: strict mode violation: getByRole('option', { name: 'contains (case-insensitive)' }) resolved to 2 elements:
+        1) <div role="option" tabindex="-1" aria-selected="false" data-state="unchecked" aria-labelledby="radix-:r97:" data-radix-collection-item="" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-xs">ΓÇª</div> aka getByRole('option', { name: 'Contains (case-insensitive)', exact: true })
+        2) <div role="option" tabindex="-1" aria-selected="false" data-state="unchecked" aria-labelledby="radix-:r99:" data-radix-collection-item="" class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-xs">ΓÇª</div> aka getByRole('option', { name: 'Not Contains (case-' })
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'contains (case-insensitive)' })[22m
+
+
+      129 |         // Assert Labels
+      130 |         await expect(page.getByRole('option', { name: "Equals (strict)", exact: true })).toBeVisible();
+    > 131 |         await expect(page.getByRole('option', { name: "contains (case-insensitive)", exact: false })).toBeVisible();
+          |                                                                                                       ^
+      132 |
+      133 |         await page.keyboard.press('Escape'); // Close dropdown
+      134 |
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:131:103
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-c619c-bels-and-Config-Persistence-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Save Changes' })[22m
+
+
+      183 |
+      184 |         // Save
+    > 185 |         await page.getByRole('button', { name: "Save Changes" }).click({ force: true });
+          |                                                                  ^
+      186 |
+      187 |         // Re-open
+      188 |         await blockItem.dblclick();
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:185:66
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-8ef51-Limit-0-Behavior-UI-Config--chromium\error-context.md
+
+  3) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:195:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for getByPlaceholder('e.g., filtered_users')[22m
+
+
+      207 |         // 1. Source & Output
+      208 |         await page.getByText("Source & Output").click();
+    > 209 |         await page.getByPlaceholder("e.g., filtered_users").fill("active_sales");
+          |                                                             ^
+      210 |
+      211 |         // 2. Filters (Multi)
+      212 |         // Filter 1: status equals "active"
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:209:61
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-39729-ransform-Filter-Sort-Limit--chromium\error-context.md
+
+  4) [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:272:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Save Changes' })[22m
+
+
+      310 |
+      311 |         // Save
+    > 312 |         await page.getByRole('button', { name: "Save Changes" }).click({ force: true });
+          |                                                                  ^
+      313 |         await dialog.waitFor({ state: 'hidden' });
+      314 |
+      315 |         // Reload & Verify
+        at C:\Users\scoot\poll\VaultLogic\tests\e2e\transform-editor.e2e.ts:312:66
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #2: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\transform-editor.e2e.ts-Tr-42375-de-Dedupe-Strict-Edge-Case--chromium\error-context.md
+
+  4 failed
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:80:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 1 & 3: Operator Labels and Config Persistence 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:170:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 6: Limit = 0 Behavior (UI Config) 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:195:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 2: Complex Transform (Filter + Sort + Limit) 
+    [chromium] ΓÇ║ tests\e2e\transform-editor.e2e.ts:272:5 ΓÇ║ Transform Editor (List Tools) - Manual Paths ΓÇ║ Session 4 & 5: Advanced Mode (Dedupe & Strict Edge Case) 

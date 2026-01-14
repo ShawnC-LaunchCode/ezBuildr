@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, or, isNull, gt } from "drizzle-orm";
+
 import {
   datavaultApiTokens,
   type DatavaultApiToken,
   type InsertDatavaultApiToken,
 } from "@shared/schema";
-import { eq, and, or, isNull, gt } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault API tokens data access
@@ -30,7 +33,7 @@ export class DatavaultApiTokensRepository extends BaseRepository<
   ): Promise<Omit<DatavaultApiToken, 'tokenHash'>[]> {
     const database = this.getDb(tx);
 
-    const tokens = await database
+    return database
       .select({
         id: datavaultApiTokens.id,
         databaseId: datavaultApiTokens.databaseId,
@@ -42,8 +45,6 @@ export class DatavaultApiTokensRepository extends BaseRepository<
       })
       .from(datavaultApiTokens)
       .where(eq(datavaultApiTokens.databaseId, databaseId));
-
-    return tokens;
   }
 
   /**
@@ -77,7 +78,7 @@ export class DatavaultApiTokensRepository extends BaseRepository<
     data: InsertDatavaultApiToken,
     tx?: DbTransaction
   ): Promise<DatavaultApiToken> {
-    return await this.create(data, tx);
+    return this.create(data, tx);
   }
 
   /**

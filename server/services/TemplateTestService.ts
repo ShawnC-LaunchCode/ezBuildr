@@ -6,12 +6,15 @@
  * Uses real services where available, stubs where not yet implemented.
  */
 
-import { analyzeTemplate, type TemplateAnalysis } from './TemplateAnalysisService';
-import { renderDocx, type RenderResult } from './docxRenderer';
-import { createError } from '../utils/errors';
-import { logger } from '../logger';
-import path from 'path';
 import fs from 'fs/promises';
+import path from 'path';
+
+import { logger } from '../logger';
+import { createError } from '../utils/errors';
+
+import { renderDocx, type RenderResult } from './docxRenderer';
+import { analyzeTemplate, type TemplateAnalysis } from './TemplateAnalysisService';
+
 
 export interface TemplateTestRequest {
   workflowId: string;

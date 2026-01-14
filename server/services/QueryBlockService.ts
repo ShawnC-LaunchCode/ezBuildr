@@ -1,13 +1,14 @@
-import {
+import type { Block } from "@shared/schema";
+import type { QueryBlockConfig } from "@shared/types/blocks";
+
+import { logger } from "../logger";
+import { stepRepository , sectionRepository ,
     blockRepository,
     workflowRepository,
 } from "../repositories";
-import type { Block } from "@shared/schema";
-import type { QueryBlockConfig } from "@shared/types/blocks";
+
+
 import { workflowService } from "./WorkflowService";
-import { stepRepository } from "../repositories";
-import { sectionRepository } from "../repositories";
-import { logger } from "../logger";
 
 /**
  * Service layer for query block business logic
@@ -110,7 +111,7 @@ export class QueryBlockService {
         }
     ): Promise<Block> {
         const block = await this.blockRepo.findById(blockId);
-        if (!block) throw new Error("Block not found");
+        if (!block) {throw new Error("Block not found");}
 
         await this.workflowSvc.verifyAccess(block.workflowId, userId);
 
@@ -138,7 +139,7 @@ export class QueryBlockService {
             });
         }
 
-        return await this.blockRepo.update(blockId, {
+        return this.blockRepo.update(blockId, {
             config: newConfig,
             enabled: data.enabled
         });

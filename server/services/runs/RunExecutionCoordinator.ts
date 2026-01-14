@@ -1,12 +1,15 @@
+import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
+
+import { logger } from "../../logger";
+import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
+import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
+import { intakeQuestionVisibilityService } from "../IntakeQuestionVisibilityService";
 import { logicService, type NavigationResult } from "../LogicService";
 import { scriptEngine } from "../scripting/ScriptEngine";
+
 import { runPersistenceWriter } from "./RunPersistenceWriter";
-import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
-import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
-import { logger } from "../../logger";
-import { intakeQuestionVisibilityService } from "../IntakeQuestionVisibilityService";
-import { validatePage } from "../../workflows/validation";
+
 
 export interface ExecutionContext {
     workflowId: string;
@@ -170,8 +173,8 @@ export class RunExecutionCoordinator {
         const jsQuestions = allSteps.filter(step => step.type === 'js_question');
 
         for (const step of jsQuestions) {
-            if (!step.options || !isJsQuestionConfig(step.options)) continue;
-            const config = step.options as JsQuestionConfig;
+            if (!step.options || !isJsQuestionConfig(step.options)) {continue;}
+            const config = step.options;
 
             const result = await scriptEngine.execute({
                 language: 'javascript',

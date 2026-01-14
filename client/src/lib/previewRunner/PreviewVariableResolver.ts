@@ -48,7 +48,7 @@ export class PreviewVariableResolver {
             try {
                 // Attempt to parse JSON (e.g., for address or multi-field)
                 const parsed = JSON.parse(val);
-                if (typeof parsed === 'object' && parsed !== null) return parsed;
+                if (typeof parsed === 'object' && parsed !== null) {return parsed;}
             } catch (e) {
                 // Not JSON, return as string
             }

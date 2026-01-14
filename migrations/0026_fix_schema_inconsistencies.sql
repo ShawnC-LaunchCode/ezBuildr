@@ -101,7 +101,7 @@ ALTER TABLE projects ALTER COLUMN status SET DEFAULT 'active';
 -- Add foreign key constraints
 DO $$ BEGIN
   ALTER TABLE "projects" ADD CONSTRAINT "projects_created_by_users_id_fk"
-  FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN
     RAISE NOTICE 'Foreign key projects_created_by_users_id_fk already exists, skipping';
@@ -109,7 +109,7 @@ END $$;
 
 DO $$ BEGIN
   ALTER TABLE "projects" ADD CONSTRAINT "projects_owner_id_users_id_fk"
-  FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
   WHEN duplicate_object THEN
     RAISE NOTICE 'Foreign key projects_owner_id_users_id_fk already exists, skipping';

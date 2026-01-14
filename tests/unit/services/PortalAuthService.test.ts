@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PortalAuthService } from "../../../server/services/PortalAuthService";
 import crypto from "crypto";
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+import { PortalAuthService } from "../../../server/services/PortalAuthService";
 
 // Mock dependencies
 vi.mock("../../../server/db", () => ({

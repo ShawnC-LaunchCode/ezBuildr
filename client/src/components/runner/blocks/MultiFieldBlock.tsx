@@ -22,9 +22,11 @@
  */
 
 import React from "react";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
+
 import type { MultiFieldConfig, MultiFieldValue } from "@/../../shared/types/stepConfigs";
 
 export interface MultiFieldBlockProps {
@@ -55,10 +57,10 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
     const fieldValue = currentValue[field.key] || "";
 
     let inputType = "text";
-    if (field.type === "email") inputType = "email";
-    if (field.type === "phone") inputType = "tel";
-    if (field.type === "date") inputType = "date";
-    if (field.type === "number") inputType = "number";
+    if (field.type === "email") {inputType = "email";}
+    if (field.type === "phone") {inputType = "tel";}
+    if (field.type === "date") {inputType = "date";}
+    if (field.type === "number") {inputType = "number";}
 
     return (
       <div key={field.key} className="space-y-1">

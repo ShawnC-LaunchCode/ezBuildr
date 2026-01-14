@@ -1,8 +1,10 @@
 
 import { Router } from "express";
-import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
-import { hybridAuth } from "../middleware/auth";
 import multer from "multer";
+
+import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
+import { logger } from "../logger";
+import { hybridAuth } from "../middleware/auth";
 import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES } from "../services/fileService";
 
 const router = Router();
@@ -31,7 +33,7 @@ const upload = multer({
 
         const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md'];
 
-        console.log(`[Upload Debug] File: ${file.originalname}, Mime: ${file.mimetype}, Size: ${file.size}`);
+        logger.debug({ filename: file.originalname, mimeType: file.mimetype, size: file.size }, 'Upload Debug: File received');
 
         // Two-tier validation: MIME type OR file extension
         // This handles cases where MIME type is unreliable (common with PDFs)
@@ -41,7 +43,7 @@ const upload = multer({
         );
 
         if (!mimeValid && !extValid) {
-            console.warn(`[Upload Rejected] Invalid file: ${file.originalname} (Mime: ${file.mimetype})`);
+            logger.warn({ filename: file.originalname, mimeType: file.mimetype }, 'Upload Rejected: Invalid file');
             return cb(new Error(
                 `File type not supported. Please upload PDF or DOCX files only. ` +
                 `Received: ${file.originalname} (${file.mimetype})`
@@ -56,7 +58,7 @@ const upload = multer({
         ];
 
         if (suspiciousPatterns.some(pattern => filename.includes(pattern))) {
-            console.warn(`[Upload Rejected] Suspicious extension: ${file.originalname}`);
+            logger.warn({ filename: file.originalname }, 'Upload Rejected: Suspicious extension');
             return cb(new Error(
                 `File contains suspicious extension. Only PDF and DOCX files are allowed.`
             ));
@@ -76,6 +78,9 @@ router.use(hybridAuth);
 router.post("/analyze", (req, res, next) => {
     // SECURITY FIX: Add multer error handling
     upload.single('file')(req, res, (err) => {
+        if (err) {
+            logger.error({ error: err, stack: err.stack, name: err.name }, 'Multer/Upload Error in analyze route');
+        }
         if (err instanceof multer.MulterError) {
             if (err.code === 'LIMIT_FILE_SIZE') {
                 return res.status(413).json({
@@ -95,12 +100,13 @@ router.post("/analyze", (req, res, next) => {
     });
 }, async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No file provided" });
+        if (!req.file) {return res.status(400).json({ error: "No file provided" });}
 
         const result = await documentAIAssistService.analyzeTemplate(req.file.buffer, req.file.originalname);
         res.json({ data: result });
     } catch (err) {
-        console.error(err);
+        console.error('CRITICAL AI ROUTE ERROR:', err);
+        logger.error({ error: err }, 'Template analysis failed');
         res.status(500).json({ error: "Analysis failed" });
     }
 });
@@ -112,19 +118,19 @@ router.post("/analyze", (req, res, next) => {
 router.post("/extract-text", (req, res, next) => {
     upload.single('file')(req, res, (err) => {
         if (err) {
-            console.error("[Upload Error] Multer failed:", err);
+            logger.error({ error: err }, 'Upload Error: Multer failed');
             return res.status(400).json({ message: err.message, error: err.message });
         }
         next();
     });
 }, async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No file provided" });
+        if (!req.file) {return res.status(400).json({ error: "No file provided" });}
 
         const text = await documentAIAssistService.extractTextContent(req.file.buffer, req.file.originalname);
         res.json({ text });
     } catch (err) {
-        console.error(err);
+        logger.error({ error: err }, 'Text extraction failed');
         res.status(500).json({ error: "Text extraction failed" });
     }
 });

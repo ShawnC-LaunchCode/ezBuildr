@@ -208,7 +208,7 @@ export function evaluatePageConditionalLogic(
   // Group rules by target question
   const rulesByTarget = rules.reduce((acc, rule) => {
     const targetId = rule.targetQuestionId;
-    if (!targetId) return acc;
+    if (!targetId) {return acc;}
 
     if (!acc[targetId]) {
       acc[targetId] = [];
@@ -364,7 +364,7 @@ export function detectCircularDependencies(rules: ConditionalRule[]): string[] {
   const dependencies: Record<string, string[]> = {};
 
   rules.forEach(rule => {
-    if (!rule.targetQuestionId) return;
+    if (!rule.targetQuestionId) {return;}
 
     if (!dependencies[rule.conditionQuestionId]) {
       dependencies[rule.conditionQuestionId] = [];

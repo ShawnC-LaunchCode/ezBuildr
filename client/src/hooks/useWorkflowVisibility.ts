@@ -10,9 +10,10 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { evaluateRules, type WorkflowEvaluationResult } from '@shared/workflowLogic';
+
 import { evaluateConditionExpression } from '@shared/conditionEvaluator';
 import type { LogicRule, Step } from '@shared/schema';
+import { evaluateRules, type WorkflowEvaluationResult } from '@shared/workflowLogic';
 
 export interface VisibilityState {
   visibleSteps: Set<string>;
@@ -143,7 +144,7 @@ export function useWorkflowVisibility(
 
   // Compute hidden steps (inverse of visible)
   const hiddenSteps = useMemo(() => {
-    if (!allSteps) return new Set<string>();
+    if (!allSteps) {return new Set<string>();}
 
     const hidden = new Set<string>();
     allSteps.forEach(step => {

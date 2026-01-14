@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
-import type { TextAggregation } from '@shared/schema';
-import { TagCloud } from './TagCloud';
+
 import { getTextInsight } from '@/lib/analyticsUtils';
+
+import type { TextAggregation } from '@shared/schema';
+
+import { TagCloud } from './TagCloud';
 
 interface KeywordListProps {
   data: TextAggregation;

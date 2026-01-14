@@ -1,5 +1,6 @@
 
 import { WorkflowJSON, WorkflowBlock, WorkflowPage } from "@shared/types/workflow";
+
 import { ChangeImpactReport, ChangeReason, Severity } from "./types";
 
 export class WorkflowChangeAnalyzer {
@@ -184,7 +185,7 @@ export class WorkflowChangeAnalyzer {
             }
 
             // 3. Data writes (Create/Update Record)
-            if ((block.type === 'create_record' || block.type === 'update_record') && block.config && block.config.fieldMap) {
+            if ((block.type === 'create_record' || block.type === 'update_record') && block.config?.fieldMap) {
                 const map = block.config.fieldMap as Record<string, string>;
                 const values = Object.values(map);
                 if (values.includes(targetId) || (targetAlias && values.includes(targetAlias))) {
@@ -193,7 +194,7 @@ export class WorkflowChangeAnalyzer {
             }
 
             // 4. External Sends
-            if ((block.type as string) === 'external_send' && block.config && block.config.payloadMappings) {
+            if ((block.type as string) === 'external_send' && block.config?.payloadMappings) {
                 const mappings = block.config.payloadMappings as Array<{ key: string, value: string }>;
                 // Value can be expression or direct ref
                 for (const m of mappings) {
@@ -207,8 +208,8 @@ export class WorkflowChangeAnalyzer {
     }
 
     private calculateOverallSeverity(reasons: ChangeReason[]): Severity {
-        if (reasons.some(r => r.severity === "hard_breaking")) return "hard_breaking";
-        if (reasons.some(r => r.severity === "soft_breaking")) return "soft_breaking";
+        if (reasons.some(r => r.severity === "hard_breaking")) {return "hard_breaking";}
+        if (reasons.some(r => r.severity === "soft_breaking")) {return "soft_breaking";}
         return "safe";
     }
 

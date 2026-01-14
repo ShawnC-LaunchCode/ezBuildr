@@ -3,22 +3,25 @@
  *
  * Tests for queue-based PDF conversion with retry logic
  */
-import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
-import { describeWithDb } from '../../helpers/dbTestHelper';
-import { db } from '../../../server/db';
-import { projects, workflows, workflowVersions, runs, runOutputs, users, tenants } from '../../../shared/schema';
-import { PdfQueueService } from '../../../server/services/PdfQueueService';
-import { eq, and } from 'drizzle-orm';
-import { DbTransaction } from '../../../server/repositories';
 import fs from 'fs/promises';
-import { logger } from '../../../server/logger';
 
-// Mock logger
+import { eq, and } from 'drizzle-orm';
+import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
+
+import { db, initializeDatabase, dbInitPromise } from '../../../server/db';
+import { logger } from '../../../server/logger';
+import { DbTransaction } from '../../../server/repositories';
+import { PdfQueueService } from '../../../server/services/PdfQueueService';
+import { projects, workflows, workflowVersions, runs, runOutputs, users, tenants } from '../../../shared/schema';
+import { describeWithDb } from '../../helpers/dbTestHelper';
+
+// Mock logger (include all methods used by db.ts)
 vi.mock('../../../server/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    debug: vi.fn(), // Add debug method for db.ts
   },
 }));
 
@@ -56,7 +59,11 @@ describeWithDb('PdfQueueService', () => {
   let testRunId: string;
   let testTenantId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // Initialize database before running tests
+    await initializeDatabase();
+    await dbInitPromise;
+
     // Create a new service instance for testing (don't use singleton)
     service = new PdfQueueService();
   });

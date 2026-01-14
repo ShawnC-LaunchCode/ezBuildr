@@ -4,30 +4,10 @@
  * DataVault v4 Micro-Phase 6: Table-Level Permissions
  */
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission } from "@/lib/datavault-hooks";
-import type { DatavaultTablePermission } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Loader2, Plus, Trash2, ShieldAlert, User, Eye, Edit, Shield } from "lucide-react";
+import React, { useState } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,9 +18,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Plus, Trash2, ShieldAlert, User, Eye, Edit, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission } from "@/lib/datavault-hooks";
+import type { DatavaultTablePermission } from "@shared/schema";
 
 interface TablePermissionsProps {
   tableId: string;
@@ -103,7 +104,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
 
   const handleUpdateRole = async (permissionId: string, newRole: "owner" | "write" | "read") => {
     const permission = permissions?.find((p) => p.id === permissionId);
-    if (!permission) return;
+    if (!permission) {return;}
 
     // If downgrading from owner, show confirmation
     if (permission.role === "owner" && newRole !== "owner") {
@@ -141,11 +142,11 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
   };
 
   const confirmRoleChange = async () => {
-    if (!roleChangeConfirm) return;
+    if (!roleChangeConfirm) {return;}
 
     try {
       const permission = permissions?.find((p) => p.id === roleChangeConfirm.permissionId);
-      if (!permission) return;
+      if (!permission) {return;}
 
       await grantMutation.mutateAsync({
         tableId,
@@ -172,7 +173,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
   };
 
   const handleRevoke = async () => {
-    if (!deletePermissionId) return;
+    if (!deletePermissionId) {return;}
 
     try {
       await revokeMutation.mutateAsync({

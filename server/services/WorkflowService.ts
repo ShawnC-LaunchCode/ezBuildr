@@ -1,3 +1,10 @@
+import { eq, inArray } from "drizzle-orm";
+
+import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { workflowVersions, workflows, sections, steps, logicRules, auditEvents, projects } from "@shared/schema";
+
+import { db } from "../db";
+import { logger } from "../logger";
 import {
   workflowRepository,
   sectionRepository,
@@ -8,12 +15,10 @@ import {
   projectRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
-import { workflowVersions, workflows, sections, steps, logicRules, auditEvents } from "@shared/schema";
+import { canAccessAsset, requireAssetAccess } from "../utils/ownershipAccess";
+
 import { aclService } from "./AclService";
-import { logger } from "../logger";
-import { db } from "../db";
-import { eq, inArray } from "drizzle-orm";
+
 
 /**
  * Service layer for workflow-related business logic
@@ -53,7 +58,7 @@ export class WorkflowService {
       throw new Error("Workflow not found");
     }
 
-    if (workflow.creatorId !== userId) {
+    if (workflow.creatorId && workflow.creatorId !== userId) {
       throw new Error("Access denied - you do not own this workflow");
     }
 
@@ -61,7 +66,7 @@ export class WorkflowService {
   }
 
   /**
-   * Verify user has required access level to workflow (uses ACL system)
+   * Verify user has required access level to workflow (uses ACL system + ownership)
    * @param idOrSlug - Workflow ID or slug
    * @param userId - User ID to check access for
    * @param minRole - Minimum required role ('view', 'edit', or 'owner')
@@ -77,10 +82,22 @@ export class WorkflowService {
       throw new Error("Workflow not found");
     }
 
-    // Use ACL service to check if user has required role
-    const hasAccess = await aclService.hasWorkflowRole(userId, workflow.id, minRole);
+    // First check ownership-based access (new model)
+    const hasOwnershipAccess = await canAccessAsset(
+      userId,
+      workflow.ownerType,
+      workflow.ownerUuid
+    );
 
-    if (!hasAccess) {
+    // If ownership access granted, allow (for MVP, members can read+write)
+    if (hasOwnershipAccess) {
+      return workflow;
+    }
+
+    // Fallback to ACL service for shared workflows
+    const hasAclAccess = await aclService.hasWorkflowRole(userId, workflow.id, minRole);
+
+    if (!hasAclAccess) {
       throw new Error("Access denied - insufficient permissions for this workflow");
     }
 
@@ -91,13 +108,25 @@ export class WorkflowService {
    * Create a new workflow with a default first section
    */
   async createWorkflow(data: InsertWorkflow, creatorId: string): Promise<Workflow> {
-    return await this.workflowRepo.transaction(async (tx) => {
+    // Validate ownership before creating
+    const ownerType = data.ownerType || 'user';
+    const ownerUuid = data.ownerUuid || creatorId;
+
+    const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
+    const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
+    if (!canCreate) {
+      throw new Error('Access denied: You do not have permission to create assets with this ownership');
+    }
+
+    return this.workflowRepo.transaction(async (tx) => {
       // Create workflow
       const workflow = await this.workflowRepo.create(
         {
           ...data,
           creatorId,
-          ownerId: creatorId, // Creator is also the initial owner
+          ownerId: creatorId, // Creator is also the initial owner (legacy)
+          ownerType,
+          ownerUuid,
           status: 'draft',
         },
         tx
@@ -193,7 +222,7 @@ export class WorkflowService {
    */
   async listWorkflows(userId: string): Promise<Workflow[]> {
     // Stage 15: Updated to include shared workflows
-    return await this.workflowRepo.findByUserAccess(userId);
+    return this.workflowRepo.findByUserAccess(userId);
   }
 
   /**
@@ -214,7 +243,7 @@ export class WorkflowService {
       data.slug = await this.ensureUniqueSlug(data.slug, workflowId);
     }
 
-    return await this.workflowRepo.update(workflowId, data);
+    return this.workflowRepo.update(workflowId, data);
   }
 
   // ... (keep existing methods)
@@ -230,7 +259,7 @@ export class WorkflowService {
       .replace(/^-+|-+$/g, '');
 
     // Ensure it's not empty
-    if (!baseSlug) baseSlug = 'workflow';
+    if (!baseSlug) {baseSlug = 'workflow';}
 
     // 2. Check strict existence of the requested slug
     let candidate = baseSlug;
@@ -273,7 +302,7 @@ export class WorkflowService {
     status: 'draft' | 'active' | 'archived'
   ): Promise<Workflow> {
     await this.verifyAccess(workflowId, userId, 'edit');
-    return await this.workflowRepo.update(workflowId, { status });
+    return this.workflowRepo.update(workflowId, { status });
   }
 
   /**
@@ -331,14 +360,14 @@ export class WorkflowService {
       }
     }
 
-    return await this.workflowRepo.moveToProject(workflowId, projectId);
+    return this.workflowRepo.moveToProject(workflowId, projectId);
   }
 
   /**
    * Get unfiled workflows (workflows with no project) for a creator
    */
   async listUnfiledWorkflows(creatorId: string): Promise<Workflow[]> {
-    return await this.workflowRepo.findUnfiledByCreatorId(creatorId);
+    return this.workflowRepo.findUnfiledByCreatorId(creatorId);
   }
 
   /**
@@ -385,7 +414,7 @@ export class WorkflowService {
       throw new Error("Invalid mode value. Must be 'easy', 'advanced', or null");
     }
 
-    return await this.workflowRepo.update(workflowId, { modeOverride });
+    return this.workflowRepo.update(workflowId, { modeOverride });
   }
 
   // ===================================================================
@@ -397,7 +426,7 @@ export class WorkflowService {
    */
   async getWorkflowAccess(workflowId: string, userId: string, tx?: DbTransaction): Promise<WorkflowAccess[]> {
     await this.verifyAccess(workflowId, userId, 'view');
-    return await this.workflowAccessRepo.findByWorkflowId(workflowId, tx);
+    return this.workflowAccessRepo.findByWorkflowId(workflowId, tx);
   }
 
   /**
@@ -471,7 +500,7 @@ export class WorkflowService {
       throw new Error("Only the current owner can transfer ownership");
     }
 
-    return await this.workflowRepo.update(
+    return this.workflowRepo.update(
       workflowId,
       {
         ownerId: newOwnerId,
@@ -493,7 +522,7 @@ export class WorkflowService {
     // Verify user has edit access
     await this.verifyAccess(workflowId, userId, 'edit');
 
-    return await this.workflowRepo.update(
+    return this.workflowRepo.update(
       workflowId,
       {
         intakeConfig,
@@ -556,7 +585,7 @@ export class WorkflowService {
    * Specifically ensures 'final' nodes are converted to Final Sections for the Runner
    */
   async syncWithGraph(workflowId: string, graphJson: any, userId: string): Promise<void> {
-    if (!graphJson || !graphJson.nodes) return;
+    if (!graphJson?.nodes) {return;}
 
     // 1. Find 'final' node in graph
     const finalNode = graphJson.nodes.find((n: any) => n.type === 'final');
@@ -616,7 +645,7 @@ export class WorkflowService {
       throw new Error("Access denied - you do not have permission to edit this workflow");
     }
 
-    return await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
       // 2. Update Workflow Metadata
       const [updatedWorkflow] = await tx
         .update(workflows)
@@ -696,7 +725,6 @@ export class WorkflowService {
                   type: stepData.type,
                   required: stepData.required,
                   options: stepData.options,
-                  config: stepData.config,
                   order: stepData.order ?? stepIndex,
                   sectionId,
                 }).where(eq(steps.id, stepId));
@@ -708,7 +736,6 @@ export class WorkflowService {
                   description: stepData.description,
                   required: stepData.required || false,
                   options: stepData.options || [],
-                  config: stepData.config || {},
                   order: stepData.order ?? stepIndex,
                 });
               }
@@ -756,6 +783,88 @@ export class WorkflowService {
 
       return updatedWorkflow;
     });
+  }
+
+  /**
+   * Transfer workflow ownership (new ownership model)
+   * Detaches from project if transferring to different owner than project
+   *
+   * @param workflowId - Workflow to transfer
+   * @param userId - User requesting transfer
+   * @param targetOwnerType - 'user' or 'org'
+   * @param targetOwnerUuid - UUID of target owner
+   * @returns Workflow with optional detachment warning
+   */
+  async transferOwnership(
+    workflowId: string,
+    userId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<Workflow & { detachedFromProject?: boolean; detachmentReason?: string }> {
+    const { transferService } = await import('./TransferService');
+    const workflow = await this.verifyAccess(workflowId, userId, 'edit');
+
+    // Validate transfer permissions
+    await transferService.validateTransfer(
+      userId,
+      workflow.ownerType,
+      workflow.ownerUuid,
+      targetOwnerType,
+      targetOwnerUuid
+    );
+
+    // Check if workflow is in a project
+    let shouldDetachFromProject = false;
+    if (workflow.projectId) {
+      const project = await db.query.projects.findFirst({
+        where: eq(projects.id, workflow.projectId),
+      });
+
+      // Detach if project ownership differs from target ownership
+      if (project) {
+        if (
+          project.ownerType !== targetOwnerType ||
+          project.ownerUuid !== targetOwnerUuid
+        ) {
+          shouldDetachFromProject = true;
+        }
+      }
+    }
+
+    // Update workflow ownership
+    const updateData: any = {
+      ownerType: targetOwnerType,
+      ownerUuid: targetOwnerUuid,
+    };
+
+    // Detach from project if needed
+    if (shouldDetachFromProject) {
+      updateData.projectId = null;
+    }
+
+    // Update workflow ownership
+    const updatedWorkflow = await this.workflowRepo.update(workflowId, updateData);
+
+    // Cascade ownership to all runs for this workflow
+    const { workflowRuns } = await import('@shared/schema');
+    await db
+      .update(workflowRuns)
+      .set({
+        ownerType: targetOwnerType,
+        ownerUuid: targetOwnerUuid,
+      })
+      .where(eq(workflowRuns.workflowId, workflowId));
+
+    // Return workflow with detachment notification if applicable
+    if (shouldDetachFromProject) {
+      return {
+        ...updatedWorkflow,
+        detachedFromProject: true,
+        detachmentReason: 'Workflow was removed from its project because the project has different ownership',
+      };
+    }
+
+    return updatedWorkflow;
   }
 }
 

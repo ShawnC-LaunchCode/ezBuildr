@@ -1,11 +1,21 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import request from "supertest";
-import type { Express } from "express";
-import { createTestApp } from "../helpers/testApp";
-import { cleanAuthTables, createVerifiedUser } from "../helpers/testUtils";
-import { db } from "../../server/db";
-import { refreshTokens } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import request from "supertest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+
+import { refreshTokens } from "@shared/schema";
+
+import { db } from "../../server/db";
+import { createTestApp } from "../helpers/testApp";
+import {
+  cleanAuthTables,
+  deleteTestUser,
+  createVerifiedUser,
+} from "../helpers/testUtils";
+
+import type { Express } from "express";
+
+
+
 
 /**
  * Session Management Integration Tests (REAL)
@@ -14,18 +24,38 @@ import { eq } from "drizzle-orm";
 
 describe("Session Management Integration Tests (REAL)", () => {
   let app: Express;
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
+  // Helper to track user creation
+  const trackUser = (userId: string) => {
+    createdUserIds.push(userId);
+    return userId;
+  };
 
   beforeAll(async () => {
     app = createTestApp();
   });
 
-  beforeEach(async () => {
-    await cleanAuthTables();
+  // NO GLOBAL CLEANUP to allow parallel runs
+  // beforeEach(async () => {
+  //   await cleanAuthTables();
+  // });
+
+  afterEach(async () => {
+    // specific cleanup for users created in this test block
+    while (createdUserIds.length > 0) {
+      const userId = createdUserIds.pop();
+      if (userId) {
+        await deleteTestUser(userId);
+      }
+    }
   });
 
   describe("GET /api/auth/sessions", () => {
     it("should list all active sessions for current user", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 3 sessions from different "devices"
       const session1 = await request(app)
@@ -44,11 +74,14 @@ describe("Session Management Integration Tests (REAL)", () => {
         .send({ email, password });
 
       const token = session3.body.token;
+      const cookies = (session3.headers as any)["set-cookie"] as string[];
+      const cookie = cookies.find((c) => c.startsWith("refresh_token="));
 
       // List sessions
       const response = await request(app)
         .get("/api/auth/sessions")
-        .set("Authorization", `Bearer ${token}`);
+        .set("Authorization", `Bearer ${token}`)
+        .set("Cookie", cookie!);
 
       expect(response.status).toBe(200);
       expect(response.body.sessions).toBeDefined();
@@ -69,7 +102,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should mark current session correctly", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 2 sessions
       await request(app)
@@ -99,6 +133,7 @@ describe("Session Management Integration Tests (REAL)", () => {
 
     it("should exclude revoked sessions", async () => {
       const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 2 sessions
       const login1 = await request(app)
@@ -129,7 +164,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should order sessions by last used (most recent first)", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 3 sessions with delays
       await request(app).post("/api/auth/login").send({ email, password });
@@ -160,7 +196,9 @@ describe("Session Management Integration Tests (REAL)", () => {
 
     it("should filter sessions by current user only", async () => {
       const user1 = await createVerifiedUser();
+      trackUser(user1.userId);
       const user2 = await createVerifiedUser();
+      trackUser(user2.userId);
 
       // User 1: 2 sessions
       await request(app)
@@ -193,7 +231,8 @@ describe("Session Management Integration Tests (REAL)", () => {
 
   describe("DELETE /api/auth/sessions/:sessionId", () => {
     it("should revoke specific session", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 2 sessions
       await request(app)
@@ -238,7 +277,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should prevent revoking current session", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -261,14 +301,16 @@ describe("Session Management Integration Tests (REAL)", () => {
       // Try to revoke current session
       const revokeResponse = await request(app)
         .delete(`/api/auth/sessions/${currentSession.id}`)
-        .set("Authorization", `Bearer ${token}`);
+        .set("Authorization", `Bearer ${token}`)
+        .set("Cookie", cookie!);
 
       expect(revokeResponse.status).toBe(400);
       expect(revokeResponse.body.message).toContain("current session");
     });
 
     it("should return 404 for non-existent session", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -283,7 +325,9 @@ describe("Session Management Integration Tests (REAL)", () => {
 
     it("should prevent revoking other user's session", async () => {
       const user1 = await createVerifiedUser();
+      trackUser(user1.userId);
       const user2 = await createVerifiedUser();
+      trackUser(user2.userId);
 
       // User 1 session
       const user1Login = await request(app)
@@ -313,7 +357,8 @@ describe("Session Management Integration Tests (REAL)", () => {
 
   describe("DELETE /api/auth/sessions/all", () => {
     it("should revoke all other sessions", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 4 sessions
       await request(app).post("/api/auth/login").send({ email, password });
@@ -346,7 +391,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should keep current session active", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 2 sessions
       await request(app).post("/api/auth/login").send({ email, password });
@@ -381,7 +427,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should return 400 if no active session found", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -400,6 +447,7 @@ describe("Session Management Integration Tests (REAL)", () => {
 
     it("should revoke all trusted devices", async () => {
       const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -430,7 +478,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should handle user with single session gracefully", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -459,7 +508,8 @@ describe("Session Management Integration Tests (REAL)", () => {
 
   describe("Session Security", () => {
     it("should include device metadata in sessions", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -480,7 +530,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should not expose sensitive token data", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")
@@ -498,7 +549,8 @@ describe("Session Management Integration Tests (REAL)", () => {
     });
 
     it("should track session activity timestamps", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       const login = await request(app)
         .post("/api/auth/login")

@@ -1,10 +1,13 @@
-import type { Express, Request, Response } from 'express';
+import { partialTenantBrandingSchema, createTenantDomainSchema } from '@shared/types/branding';
+
 import { createLogger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { validateTenantParam } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
+import { validateTenantParam } from '../middleware/tenant';
 import { brandingService } from '../services/BrandingService';
-import { partialTenantBrandingSchema, createTenantDomainSchema } from '@shared/types/branding';
+
+import type { Express, Request, Response } from 'express';
+
 
 const logger = createLogger({ module: 'branding-routes' });
 

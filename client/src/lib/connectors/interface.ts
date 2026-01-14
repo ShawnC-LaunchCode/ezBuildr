@@ -204,9 +204,9 @@ export class GoogleSheetsConnector implements DataSourceConnector {
 
     async readRows(sheetId: string, options?: ReadOptions): Promise<Record<string, any>[]> {
         const params = new URLSearchParams();
-        if (options?.limit) params.set('limit', options.limit.toString());
-        if (options?.filters) params.set('filters', JSON.stringify(options.filters));
-        if (options?.sort) params.set('sort', JSON.stringify(options.sort));
+        if (options?.limit) {params.set('limit', options.limit.toString());}
+        if (options?.filters) {params.set('filters', JSON.stringify(options.filters));}
+        if (options?.sort) {params.set('sort', JSON.stringify(options.sort));}
 
         const response = await fetch(
             `/api/google-sheets/${this.spreadsheetId}/sheets/${sheetId}/rows?${params}`,

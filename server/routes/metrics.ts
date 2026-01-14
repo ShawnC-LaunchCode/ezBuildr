@@ -1,6 +1,7 @@
-import type { Express, Request, Response } from 'express';
-import { getPrometheusExporter } from '../observability/telemetry';
 import { createLogger } from '../logger';
+import { getPrometheusExporter } from '../observability/telemetry';
+
+import type { Express, Request, Response } from 'express';
 
 const logger = createLogger({ module: 'metrics-routes' });
 

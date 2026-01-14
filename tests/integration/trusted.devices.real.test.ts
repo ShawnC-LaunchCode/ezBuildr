@@ -1,15 +1,22 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { eq, and, gt } from "drizzle-orm";
 import request from "supertest";
-import type { Express } from "express";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+
+import { trustedDevices } from "@shared/schema";
+
+import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
   cleanAuthTables,
+  deleteTestUser,
   createUserWithMfa,
   generateTotpCode,
 } from "../helpers/testUtils";
-import { db } from "../../server/db";
-import { trustedDevices } from "@shared/schema";
-import { eq, and, gt } from "drizzle-orm";
+
+import type { Express } from "express";
+
+
+
 
 /**
  * Trusted Devices Integration Tests (REAL)
@@ -18,18 +25,38 @@ import { eq, and, gt } from "drizzle-orm";
 
 describe("Trusted Devices Integration Tests (REAL)", () => {
   let app: Express;
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
+  // Helper to track user creation
+  const trackUser = (userId: string) => {
+    createdUserIds.push(userId);
+    return userId;
+  };
 
   beforeAll(async () => {
     app = createTestApp();
   });
 
-  beforeEach(async () => {
-    await cleanAuthTables();
+  // NO GLOBAL CLEANUP to allow parallel runs
+  // beforeEach(async () => {
+  //   await cleanAuthTables();
+  // });
+
+  afterEach(async () => {
+    // specific cleanup for users created in this test block
+    while (createdUserIds.length > 0) {
+      const userId = createdUserIds.pop();
+      if (userId) {
+        await deleteTestUser(userId);
+      }
+    }
   });
 
   describe("POST /api/auth/trust-device", () => {
     it("should trust current device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login with MFA
       await request(app).post("/api/auth/login").send({ email, password });
@@ -68,6 +95,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should set trust expiry to 30 days", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -94,6 +122,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should update expiry if device already trusted", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -152,6 +181,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
   describe("GET /api/auth/trusted-devices", () => {
     it("should list all trusted devices", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login and trust 2 devices with different user agents
       const userAgents = [
@@ -208,6 +238,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should mark current device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Trust device
       await request(app).post("/api/auth/login").send({ email, password });
@@ -239,6 +270,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should exclude revoked devices", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Trust and then revoke a device
       await request(app).post("/api/auth/login").send({ email, password });
@@ -271,6 +303,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should exclude expired devices", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Trust device
       await request(app).post("/api/auth/login").send({ email, password });
@@ -306,6 +339,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
   describe("DELETE /api/auth/trusted-devices/:deviceId", () => {
     it("should revoke specific device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Trust device
       await request(app).post("/api/auth/login").send({ email, password });
@@ -355,6 +389,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should return 404 for non-existent device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       await request(app).post("/api/auth/login").send({ email, password });
 
@@ -373,7 +408,9 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should prevent revoking other user's device", async () => {
       const user1 = await createUserWithMfa();
+      trackUser(user1.userId);
       const user2 = await createUserWithMfa();
+      trackUser(user2.userId);
 
       // User 1 trusts device
       await request(app)
@@ -420,6 +457,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
   describe("Device Trust with MFA Login", () => {
     it("should skip MFA for trusted device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // First login with MFA
       await request(app).post("/api/auth/login").send({ email, password });
@@ -457,6 +495,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should require MFA for untrusted device", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login and trust device 1
       await request(app).post("/api/auth/login").send({ email, password });
@@ -487,6 +526,7 @@ describe("Trusted Devices Integration Tests (REAL)", () => {
 
     it("should update lastUsedAt on trusted device login", async () => {
       const { email, password, userId, totpSecret } = await createUserWithMfa();
+      trackUser(userId);
 
       // Login and trust device
       await request(app).post("/api/auth/login").send({ email, password });

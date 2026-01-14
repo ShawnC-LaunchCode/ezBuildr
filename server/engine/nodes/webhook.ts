@@ -3,11 +3,12 @@
  * Sends outbound HTTP requests for workflow events (fire-and-forget or blocking)
  */
 
-import type { EvalContext } from '../expr';
-import { evaluateExpression } from '../expr';
+import { logger } from '../../logger';
 import { resolveConnection as resolveNewConnection } from '../../services/connections';
 import { redactObject } from '../../utils/encryption';
-import { logger } from '../../logger';
+import { evaluateExpression } from '../expr';
+
+import type { EvalContext } from '../expr';
 
 /**
  * Webhook Node Configuration
@@ -134,7 +135,7 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
 
   try {
     // IDEMPOTENCY GUARD
-    if (context.executedSideEffects && context.executedSideEffects.has(nodeId)) {
+    if (context.executedSideEffects?.has(nodeId)) {
       return {
         status: 'skipped',
         skipReason: 'already executed (idempotency guard)',

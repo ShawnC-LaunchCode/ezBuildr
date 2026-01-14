@@ -3,12 +3,14 @@
  * Supports arrow buttons for reordering (drag-drop deferred to v2)
  */
 
+import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import React from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+
 import type { ListToolsSortKey } from "@shared/types/blocks";
 
 interface SortBuilderUIProps {
@@ -41,14 +43,14 @@ export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps)
   };
 
   const handleMoveUp = (index: number) => {
-    if (index === 0) return;
+    if (index === 0) {return;}
     const newSort = [...sortKeys];
     [newSort[index - 1], newSort[index]] = [newSort[index], newSort[index - 1]];
     onChange(newSort);
   };
 
   const handleMoveDown = (index: number) => {
-    if (index === sortKeys.length - 1) return;
+    if (index === sortKeys.length - 1) {return;}
     const newSort = [...sortKeys];
     [newSort[index], newSort[index + 1]] = [newSort[index + 1], newSort[index]];
     onChange(newSort);

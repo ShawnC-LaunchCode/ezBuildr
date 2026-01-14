@@ -1,6 +1,8 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { userPreferences, type UserPreferences, type InsertUserPreferences } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { userPreferences, type UserPreferences, type InsertUserPreferences } from "@shared/schema";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for user preferences database operations

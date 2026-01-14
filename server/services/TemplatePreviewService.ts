@@ -25,17 +25,21 @@
  * ```
  */
 
-import { db } from '../db';
-import { templates } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
 import path from 'path';
+
+import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+
+import { templates } from '../../shared/schema';
+import { db } from '../db';
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
-import { getStorageProvider } from './storage';
+
 import { EnhancedDocumentEngine } from './document/EnhancedDocumentEngine';
-import type { DocumentMapping } from './document/MappingInterpreter';
 import { mappingValidator } from './document/MappingValidator';
+import { getStorageProvider } from './storage';
+
+import type { DocumentMapping } from './document/MappingInterpreter';
 
 // ============================================================================
 // TYPES

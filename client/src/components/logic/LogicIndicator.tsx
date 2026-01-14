@@ -6,14 +6,16 @@
  */
 
 import { EyeOff, Eye } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
 import type { ConditionExpression } from "@shared/types/conditions";
 import { countConditions } from "@shared/types/conditions";
 

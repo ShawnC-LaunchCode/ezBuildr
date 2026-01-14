@@ -1,3 +1,7 @@
+import type { TransformBlock, InsertTransformBlock } from "@shared/schema";
+import type { BlockPhase } from "@shared/types/blocks";
+
+import { logger } from "../logger";
 import {
   transformBlockRepository,
   transformBlockRunRepository,
@@ -6,13 +10,10 @@ import {
   sectionRepository,
   stepRepository,
 } from "../repositories";
-import type { TransformBlock, InsertTransformBlock } from "@shared/schema";
-import type { BlockPhase } from "@shared/types/blocks";
+
 import { scriptEngine } from "./scripting/ScriptEngine";
-
-
 import { workflowService } from "./WorkflowService";
-import { logger } from "../logger";
+
 
 /**
  * Service layer for transform block business logic
@@ -115,7 +116,7 @@ export class TransformBlockService {
    */
   async listBlocks(workflowId: string, userId: string): Promise<TransformBlock[]> {
     await this.workflowSvc.verifyAccess(workflowId, userId);
-    return await this.blockRepo.findByWorkflowId(workflowId);
+    return this.blockRepo.findByWorkflowId(workflowId);
   }
 
   /**
@@ -176,7 +177,7 @@ export class TransformBlockService {
       });
     }
 
-    return await this.blockRepo.update(blockId, data);
+    return this.blockRepo.update(blockId, data);
   }
 
   /**
@@ -225,7 +226,7 @@ export class TransformBlockService {
 
     const aliasToIdMap = new Map<string, string>();
     for (const step of steps) {
-      if (step.alias) aliasToIdMap.set(step.alias, step.id);
+      if (step.alias) {aliasToIdMap.set(step.alias, step.id);}
     }
 
     const input: Record<string, unknown> = {};
@@ -240,7 +241,7 @@ export class TransformBlockService {
     }
 
     const result = await scriptEngine.execute({
-      language: block.language as 'javascript' | 'python',
+      language: block.language,
       code: block.code,
       inputKeys: Object.keys(input), // We already filtered input
       data: input, // Pass prepared input as data

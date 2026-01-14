@@ -1,11 +1,13 @@
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { db } from "../../server/db";
-import { workflows, workflowVersions, workflowSnapshots, workflowRuns, users, steps, sections, tenants, projects } from "@shared/schema";
-import { versionService } from "../../server/services/VersionService";
-import { snapshotService } from "../../server/services/SnapshotService";
-import { workflowDiffService } from "../../server/services/diff/WorkflowDiffService";
 import { eq } from "drizzle-orm";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
+import { workflows, workflowVersions, workflowSnapshots, workflowRuns, users, steps, sections, tenants, projects, auditEvents, auditLogs } from "@shared/schema";
+
+import { db } from "../../server/db";
+import { workflowDiffService } from "../../server/services/diff/WorkflowDiffService";
+import { snapshotService } from "../../server/services/SnapshotService";
+import { versionService } from "../../server/services/VersionService";
 
 describe("Workflow Versioning & Lineage", () => {
     let tenantId: string;
@@ -54,10 +56,16 @@ describe("Workflow Versioning & Lineage", () => {
     });
 
     afterAll(async () => {
-        if (workflowId) await db.delete(workflows).where(eq(workflows.id, workflowId));
-        if (projectId) await db.delete(projects).where(eq(projects.id, projectId));
-        if (userId) await db.delete(users).where(eq(users.id, userId));
-        if (tenantId) await db.delete(tenants).where(eq(tenants.id, tenantId));
+        if (workflowId) {await db.delete(workflows).where(eq(workflows.id, workflowId));}
+        if (projectId) {await db.delete(projects).where(eq(projects.id, projectId));}
+        // Cleanup audit logs/events to satisfy FK constraints
+        if (userId) {
+            // Try to delete from both tables if they exist/are imported
+            try { await db.delete(auditEvents).where(eq(auditEvents.actorId, userId)); } catch (e) { }
+            try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { }
+            await db.delete(users).where(eq(users.id, userId));
+        }
+        if (tenantId) {await db.delete(tenants).where(eq(tenants.id, tenantId));}
     });
 
     it("should diff two versions correctly", () => {
@@ -91,14 +99,18 @@ describe("Workflow Versioning & Lineage", () => {
 
     it("should create a version and populate changelog", async () => {
         const v1Graph = {
-            pages: [{ id: "p1", blocks: [{ id: "b1", type: "short_text" }] }]
+            id: "root",
+            title: "Test Workflow",
+            pages: [{ id: "p1", title: "Page 1", order: 0, blocks: [{ id: "b1", type: "short_text", title: "Short Text", variableName: "text_1" }] }]
         };
 
         const v1 = await versionService.publishVersion(workflowId, userId, v1Graph, "Initial version");
         expect(v1.versionNumber).toBeDefined();
 
         const v2Graph = {
-            pages: [{ id: "p1", blocks: [{ id: "b1", type: "short_text" }, { id: "b2", type: "email" }] }] // Added b2
+            id: "root",
+            title: "Test Workflow",
+            pages: [{ id: "p1", title: "Page 1", order: 0, blocks: [{ id: "b1", type: "short_text", title: "Short Text", variableName: "text_1" }, { id: "b2", type: "email", title: "Email", variableName: "email_1" }] }] // Added b2
         };
 
         const v2 = await versionService.publishVersion(workflowId, userId, v2Graph, "Second version");

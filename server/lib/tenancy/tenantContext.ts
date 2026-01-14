@@ -1,11 +1,13 @@
 
-import { db } from "../../db";
-import { workspaces } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { workspaces } from "@shared/schema";
+
+import { db } from "../../db";
 
 export class TenantContext {
     static async assertTenantBoundary(workspaceId: string, resource: any): Promise<void> {
-        if (!resource) return;
+        if (!resource) {return;}
 
         // If resource has workspaceId, it MUST match
         if (resource.workspaceId && resource.workspaceId !== workspaceId) {

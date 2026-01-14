@@ -1,11 +1,14 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
+import { eq, and, desc, sql, asc } from "drizzle-orm";
+
 import {
   datavaultColumns,
   type DatavaultColumn,
   type InsertDatavaultColumn,
 } from "@shared/schema";
-import { eq, and, desc, sql, asc } from "drizzle-orm";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for DataVault column data access
@@ -25,7 +28,7 @@ export class DatavaultColumnsRepository extends BaseRepository<
    */
   async findByTableId(tableId: string, tx?: DbTransaction): Promise<DatavaultColumn[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(datavaultColumns)
       .where(eq(datavaultColumns.tableId, tableId))

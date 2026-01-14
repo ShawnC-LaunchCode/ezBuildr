@@ -1,8 +1,10 @@
 
-import { Router } from "express";
-import { db } from "../db";
-import { webhookSubscriptions } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { Router } from "express";
+
+import { webhookSubscriptions } from "@shared/schema";
+
+import { db } from "../db";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 
 const router = Router();
@@ -35,7 +37,7 @@ router.post("/", async (req: ExternalAuthRequest, res) => {
             workspaceId,
             targetUrl: url,
             events: events, // array
-            secret: secret || "whsec_" + Math.random().toString(36).substr(2),
+            secret: secret || `whsec_${  Math.random().toString(36).substr(2)}`,
             enabled: true
         }).returning();
 

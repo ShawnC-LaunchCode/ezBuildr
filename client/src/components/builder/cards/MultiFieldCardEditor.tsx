@@ -10,17 +10,21 @@
  * }
  */
 
-import { useState, useEffect } from "react";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from "react";
+
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { SectionHeader } from "./common/EditorField";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { MultiFieldConfig } from "@/../../shared/types/stepConfigs";
 
 interface MultiFieldCardEditorProps {
@@ -58,17 +62,17 @@ export function MultiFieldCardEditor({ stepId, sectionId, step }: MultiFieldCard
   // Parse config
   const config = step.config as MultiFieldConfig | undefined;
   const [localConfig, setLocalConfig] = useState({
-    layout: (config?.layout || "first_last") as "first_last" | "contact" | "date_range" | "custom",
+    layout: (config?.layout || "first_last"),
     fields: config?.fields || LAYOUT_PRESETS.first_last,
-    storeAs: (config?.storeAs || "separate") as "separate" | "combined",
+    storeAs: (config?.storeAs || "separate"),
   });
 
   useEffect(() => {
     const config = step.config as MultiFieldConfig | undefined;
     setLocalConfig({
-      layout: (config?.layout || "first_last") as "first_last" | "contact" | "date_range" | "custom",
+      layout: (config?.layout || "first_last"),
       fields: config?.fields || LAYOUT_PRESETS.first_last,
-      storeAs: (config?.storeAs || "separate") as "separate" | "combined",
+      storeAs: (config?.storeAs || "separate"),
     });
   }, [step.config]);
 

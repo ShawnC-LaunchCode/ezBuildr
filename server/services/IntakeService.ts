@@ -1,11 +1,17 @@
-import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
-import type { Workflow, WorkflowRun, InsertStepValue } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { runService } from "./RunService";
+
+import type { Workflow, WorkflowRun, InsertStepValue } from "@shared/schema";
+
+
+import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 import { createLogger } from "../logger";
-import type { IntakeConfig, IntakeSubmitResult, CaptchaResponse } from "../../shared/types/intake.js";
+import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
+
 import { CaptchaService } from "./CaptchaService.js";
-import { sendIntakeReceipt } from "./emailService.js";
+import { intakeReceiptService } from "./IntakeReceiptService";
+import { runService } from "./RunService";
+
+import type { IntakeConfig, IntakeSubmitResult, CaptchaResponse } from "../../shared/types/intake.js";
 
 const logger = createLogger({ module: "intake-service" });
 
@@ -43,13 +49,17 @@ export class IntakeService {
     const sections = await sectionRepository.findByWorkflowId(workflow.id);
 
     // Parse intakeConfig (JSONB field)
-    const intakeConfig: IntakeConfig = (workflow.intakeConfig as unknown as IntakeConfig) || {};
+    const parsedConfig = IntakeConfigSchema.safeParse(workflow.intakeConfig);
+    const intakeConfig: IntakeConfig = parsedConfig.success ? parsedConfig.data : {};
+    if (!parsedConfig.success) {
+      logger.warn({ workflowId: workflow.id, error: parsedConfig.error }, "Invalid intake configuration found");
+    }
 
     // Get tenant branding (if projectId exists)
     let tenantBranding;
     if (workflow.projectId) {
       const project = await projectRepository.findById(workflow.projectId);
-      if (project && project.name) {
+      if (project?.name) {
         // TODO: Add tenant branding fields to schema
         tenantBranding = {
           name: project.name,
@@ -93,7 +103,8 @@ export class IntakeService {
     }
 
     // Parse intakeConfig
-    const intakeConfig: IntakeConfig = (workflow.intakeConfig as unknown as IntakeConfig) || {};
+    const parsedConfig = IntakeConfigSchema.safeParse(workflow.intakeConfig);
+    const intakeConfig: IntakeConfig = parsedConfig.success ? parsedConfig.data : {};
 
     // Generate run token
     const runToken = randomUUID();
@@ -214,7 +225,8 @@ export class IntakeService {
       throw new Error("Workflow not found");
     }
 
-    const intakeConfig: IntakeConfig = (workflow.intakeConfig as unknown as IntakeConfig) || {};
+    const parsedConfig = IntakeConfigSchema.safeParse(workflow.intakeConfig);
+    const intakeConfig: IntakeConfig = parsedConfig.success ? parsedConfig.data : {};
 
     // Stage 12.5: Validate CAPTCHA if required
     if (intakeConfig.requireCaptcha) {
@@ -256,70 +268,18 @@ export class IntakeService {
         status: "success",
       };
 
-      // Stage 12.5: Send email receipt if configured
-      if (intakeConfig.sendEmailReceipt && intakeConfig.receiptEmailVar) {
-        // ERROR ISOLATION FIX: Use Promise.allSettled instead of Promise.all
-        // This prevents independent operations from failing together
-        const results = await Promise.allSettled([
-          stepRepository.findByWorkflowIdWithAliases(workflow.id),
-          stepValueRepository.findByRunId(run.id)
-        ]);
-
-        // Check if either query failed - if so, skip email receipt gracefully
-        if (results[0].status === 'rejected' || results[1].status === 'rejected') {
-          logger.warn({
-            runId: run.id,
-            stepsError: results[0].status === 'rejected' ? results[0].reason : null,
-            valuesError: results[1].status === 'rejected' ? results[1].reason : null
-          }, 'Failed to fetch data for email receipt - skipping email');
-          // Continue without email receipt - don't fail the entire submission
-        } else {
-          const allSteps = results[0].value;
-          const stepValues = results[1].value;
-
-          // Create Maps for efficient lookups
-          const stepMap = new Map(allSteps.map((s: any) => [s.id, s]));
-          const emailStep = allSteps.find((s: any) => s.alias === intakeConfig.receiptEmailVar);
-
-          if (emailStep) {
-            const emailValue = stepValues.find(sv => sv.stepId === emailStep.id);
-
-            if (emailValue && typeof emailValue.value === "string") {
-              const email = emailValue.value;
-
-              // Build summary (non-sensitive fields only) - O(N) instead of O(N²)
-              const summary: Record<string, any> = {};
-              for (const stepValue of stepValues) {
-                const step = stepMap.get(stepValue.stepId);
-                if (step?.alias && !this.isSensitiveField(step.alias as string)) {
-                  summary[step.alias] = stepValue.value;
-                }
-              }
-
-              // Send receipt
-              const emailResult = await sendIntakeReceipt({
-                to: email,
-                tenantId: workflow.projectId || "default",
-                workflowId: workflow.id,
-                workflowName: workflow.title,
-                runId: run.id,
-                summary,
-              });
-
-              result.emailReceipt = {
-                attempted: true,
-                to: email,
-                success: emailResult.success,
-                error: emailResult.error,
-              };
-
-              logger.info({ runId: run.id, email, success: emailResult.success }, "Sent intake receipt");
-            } else {
-              logger.warn({ runId: run.id, receiptEmailVar: intakeConfig.receiptEmailVar }, "Email field not found or invalid");
-            }
-          }
-        } // Close the else block for successful Promise.allSettled results
+      // Stage 12.5: Send email receipt via separate service
+      const receiptResult = await intakeReceiptService.sendReceipt(run.id, workflow, intakeConfig);
+      if (receiptResult.attempted) {
+        result.emailReceipt = {
+          attempted: true,
+          to: receiptResult.to,
+          success: receiptResult.success,
+          error: receiptResult.error
+        };
       }
+
+
 
       return result;
     } catch (error) {
@@ -332,21 +292,7 @@ export class IntakeService {
     }
   }
 
-  /**
-   * Check if a field name is sensitive (should not be included in email)
-   */
-  private isSensitiveField(fieldName: string): boolean {
-    const lowerName = fieldName.toLowerCase();
-    return (
-      lowerName.includes("password") ||
-      lowerName.includes("ssn") ||
-      lowerName.includes("social_security") ||
-      lowerName.includes("credit_card") ||
-      lowerName.includes("cvv") ||
-      lowerName.includes("secret") ||
-      lowerName.includes("token")
-    );
-  }
+
 
   /**
    * Get intake run status

@@ -1,4 +1,9 @@
-import { db } from "../../server/db";
+import crypto from "crypto";
+
+import bcrypt from "bcrypt";
+import { eq, or } from "drizzle-orm";
+import speakeasy from "speakeasy";
+
 import {
   users,
   userCredentials,
@@ -13,11 +18,12 @@ import {
   workspaceInvitations,
   workflows
 } from "@shared/schema";
-import { eq, or } from "drizzle-orm";
+
+import { db } from "../../server/db";
 import { authService } from "../../server/services/AuthService";
-import speakeasy from "speakeasy";
-import crypto from "crypto";
-import bcrypt from "bcrypt";
+
+
+
 
 /**
  * Test Helper Utilities
@@ -209,7 +215,7 @@ export async function createUserWithMfa(options: {
   // Store MFA secret
   await db.insert(mfaSecrets).values({
     userId: userData.userId,
-    secret: secret.base32!,
+    secret: secret.base32,
     enabled: true,
     enabledAt: new Date(),
     createdAt: new Date(),
@@ -219,8 +225,8 @@ export async function createUserWithMfa(options: {
   const check = await db.query.mfaSecrets.findFirst({
     where: eq(mfaSecrets.userId, userData.userId)
   });
-  if (!check) throw new Error(`[TEST UTILS] MFA Secret verification failed for ${userData.userId}`);
-  if (!check.enabled) throw new Error(`[TEST UTILS] MFA Secret enabled=false for ${userData.userId}`);
+  if (!check) {throw new Error(`[TEST UTILS] MFA Secret verification failed for ${userData.userId}`);}
+  if (!check.enabled) {throw new Error(`[TEST UTILS] MFA Secret enabled=false for ${userData.userId}`);}
   console.log(`[TEST UTILS] MFA Secret verified for ${userData.userId}`);
 
   // Update user record
@@ -253,7 +259,7 @@ export async function createUserWithMfa(options: {
 
   return {
     ...userData,
-    totpSecret: secret.base32!,
+    totpSecret: secret.base32,
     backupCodes,
   };
 }
@@ -272,12 +278,12 @@ export function generateTotpCode(secret: string): string {
  * Create email verification token for user
  */
 export async function createEmailVerificationToken(userId: string, email: string): Promise<string> {
-  return await authService.generateEmailVerificationToken(userId, email);
+  return authService.generateEmailVerificationToken(userId, email);
 }
 
 /**
  * Create password reset token for user
  */
 export async function createPasswordResetToken(email: string): Promise<string | null> {
-  return await authService.generatePasswordResetToken(email);
+  return authService.generatePasswordResetToken(email);
 }

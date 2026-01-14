@@ -1,6 +1,8 @@
 
+import { eq } from 'drizzle-orm';
+import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from '../../server/db';
+
 import {
     users,
     tenants,
@@ -14,15 +16,15 @@ import {
     workflowQueries,
     steps
 } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { v4 as uuidv4 } from 'uuid';
+
+import { db } from '../../server/db';
+import { stepValueRepository } from '../../server/repositories';
 import {
     datavaultTablesService,
     datavaultColumnsService,
     datavaultRowsService
 } from '../../server/services';
 import { RunService } from '../../server/services/RunService';
-import { stepValueRepository } from '../../server/repositories';
 
 describe('Data Block Integration Tests', () => {
     let tenantId: string;

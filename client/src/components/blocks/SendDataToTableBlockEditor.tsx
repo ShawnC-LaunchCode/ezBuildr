@@ -3,20 +3,23 @@
  * Simplified UX for writing workflow data to DataVault tables
  */
 
-import { useState, useEffect, useMemo, useRef } from "react";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Trash2, AlertCircle, Database, ArrowRight } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, AlertCircle, Database, ArrowRight } from "lucide-react";
-import { useWorkflowDataSources, useWorkflowVariables } from "@/lib/vault-hooks";
-import { dataSourceAPI } from "@/lib/vault-api";
-import { useQuery } from "@tanstack/react-query";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTables } from "@/hooks/useDatavaultTables";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import type { WriteBlockConfig, ColumnMapping, MatchStrategy } from "@shared/types/blocks";
 import { cn } from "@/lib/utils";
+import { dataSourceAPI } from "@/lib/vault-api";
+import { useWorkflowDataSources, useWorkflowVariables } from "@/lib/vault-hooks";
+
+import type { WriteBlockConfig, ColumnMapping, MatchStrategy } from "@shared/types/blocks";
+
 
 interface SendDataToTableBlockEditorProps {
   workflowId: string;
@@ -99,7 +102,7 @@ export function SendDataToTableBlockEditor({
           hasDuplicates = true;
           continue;
         }
-        if (m.columnId) seenIds.add(m.columnId);
+        if (m.columnId) {seenIds.add(m.columnId);}
         uniqueExistingMappings.push(m);
       }
 
@@ -148,14 +151,14 @@ export function SendDataToTableBlockEditor({
   const getDuplicateColumns = () => {
     const mappings = config.columnMappings || [];
     const columnCounts = mappings.reduce((acc, m) => {
-      if (m.columnId) acc[m.columnId] = (acc[m.columnId] || 0) + 1;
+      if (m.columnId) {acc[m.columnId] = (acc[m.columnId] || 0) + 1;}
       return acc;
     }, {} as Record<string, number>);
     return Object.entries(columnCounts).filter(([_, count]) => count > 1).map(([colId, _]) => colId);
   };
 
   const getMissingRequiredColumns = () => {
-    if (!columns) return [];
+    if (!columns) {return [];}
     const requiredCols = columns.filter(c => c.required);
     const mappedColIds = (config.columnMappings || []).map(m => m.columnId);
     return requiredCols.filter(c => !mappedColIds.includes(c.id));
@@ -207,7 +210,7 @@ export function SendDataToTableBlockEditor({
         {/* 1. DESTINATION */}
         <div className={cn(
           "space-y-3 p-4 rounded-lg transition-all duration-300 border",
-          isStep1Active ? activeRingClass + " border-emerald-500 bg-white shadow-sm" : "border-transparent px-0"
+          isStep1Active ? `${activeRingClass  } border-emerald-500 bg-white shadow-sm` : "border-transparent px-0"
         )}>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Destination</Label>
@@ -316,7 +319,7 @@ export function SendDataToTableBlockEditor({
         <div className={cn(
           "space-y-3 rounded-lg transition-all duration-300",
           !step1Complete ? inactiveClass : "",
-          isStep2Active ? activeRingClass + " p-4 border border-emerald-500 bg-white shadow-sm" : "px-0"
+          isStep2Active ? `${activeRingClass  } p-4 border border-emerald-500 bg-white shadow-sm` : "px-0"
         )}>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Mappings</Label>

@@ -1,6 +1,8 @@
-import { workflowRunRepository, stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
 import { InsertWorkflowRun, InsertStepValue, WorkflowRun } from "@shared/schema";
+
 import { logger } from "../../logger";
+import { workflowRunRepository, stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
+import { DbTransaction } from "../../repositories/BaseRepository";
 
 export class RunPersistenceWriter {
     constructor(
@@ -13,8 +15,8 @@ export class RunPersistenceWriter {
     /**
      * Create a new run record
      */
-    async createRun(data: InsertWorkflowRun): Promise<WorkflowRun> {
-        return await this.runRepo.create(data);
+    async createRun(data: InsertWorkflowRun, tx?: DbTransaction): Promise<WorkflowRun> {
+        return this.runRepo.create(data, tx);
     }
 
     /**
@@ -30,7 +32,7 @@ export class RunPersistenceWriter {
     async saveStepValue(runId: string, stepId: string, value: any, workflowId: string): Promise<void> {
         // Validate step belongs to workflow
         const step = await this.stepRepo.findById(stepId);
-        if (!step) throw new Error(`Step not found: ${stepId}`);
+        if (!step) {throw new Error(`Step not found: ${stepId}`);}
 
         const section = await this.sectionRepo.findById(step.sectionId);
         if (!section || section.workflowId !== workflowId) {

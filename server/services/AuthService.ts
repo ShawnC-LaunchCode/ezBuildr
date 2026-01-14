@@ -1,4 +1,10 @@
-import { db } from "../db";
+import crypto from 'crypto';
+
+import bcrypt from 'bcrypt';
+import { eq, and, gt, lt } from "drizzle-orm";
+import jwt, { type SignOptions } from 'jsonwebtoken';
+import zxcvbn from 'zxcvbn';
+
 import {
     refreshTokens,
     passwordResetTokens,
@@ -6,19 +12,7 @@ import {
     users,
     type User
 } from "@shared/schema";
-import { eq, and, gt, lt } from "drizzle-orm";
-import { createLogger } from "../logger";
-import crypto from 'crypto';
-import jwt, { type SignOptions } from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import { hashToken } from "../utils/encryption";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
-import { accountLockoutService } from "./AccountLockoutService";
-import {
-    InvalidTokenError,
-    TokenExpiredError,
-    InvalidCredentialsError
-} from "../errors/AuthErrors";
+
 import {
     PASSWORD_CONFIG,
     JWT_CONFIG,
@@ -27,7 +21,19 @@ import {
     EMAIL_VERIFICATION_CONFIG,
     PASSWORD_POLICY
 } from "../config/auth";
-import zxcvbn from 'zxcvbn';
+import { db } from "../db";
+import {
+    InvalidTokenError,
+    TokenExpiredError,
+    InvalidCredentialsError
+} from "../errors/AuthErrors";
+import { createLogger } from "../logger";
+import { hashToken } from "../utils/encryption";
+
+import { accountLockoutService } from "./AccountLockoutService";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
+
+
 
 const log = createLogger({ module: 'auth-service' });
 
@@ -62,8 +68,11 @@ function getJwtSecret(): string {
         return sessionSecret;
     }
 
-    log.warn('Using insecure default secret - DO NOT use in production!');
-    return 'insecure-dev-only-secret-DO-NOT-USE-IN-PRODUCTION'; // Fixed secret for better dev experience
+    log.warn('JWT_SECRET not set. Generating a random secret for development mode.');
+    log.warn('WARNING: Tokens will be invalidated on server restart.');
+
+    // Generate a random 32-byte hex string for dev security
+    return crypto.randomBytes(32).toString('hex');
 }
 
 const JWT_SECRET = getJwtSecret();
@@ -164,7 +173,7 @@ export class AuthService {
      * ```
      */
     verifyToken(token: string): JWTPayload {
-        if (!JWT_SECRET) throw new Error('JWT not configured');
+        if (!JWT_SECRET) {throw new Error('JWT not configured');}
 
         try {
             return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JWTPayload;
@@ -180,7 +189,7 @@ export class AuthService {
      * Create a special JWT token for Portal users (email-only)
      */
     createPortalToken(email: string): string {
-        if (!JWT_SECRET) throw new Error('JWT_SECRET not configured');
+        if (!JWT_SECRET) {throw new Error('JWT_SECRET not configured');}
         const payload = { email, portal: true };
         return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h', algorithm: 'HS256' });
     }
@@ -189,10 +198,10 @@ export class AuthService {
      * Verify a Portal JWT token
      */
     verifyPortalToken(token: string): { email: string } {
-        if (!JWT_SECRET) throw new Error('JWT not configured');
+        if (!JWT_SECRET) {throw new Error('JWT not configured');}
         try {
             const payload = jwt.verify(token, JWT_SECRET) as PortalTokenPayload;
-            if (!payload.portal || !payload.email) throw new Error('Invalid portal token');
+            if (!payload.portal || !payload.email) {throw new Error('Invalid portal token');}
             return { email: payload.email };
         } catch (error) {
             throw new Error('Invalid portal token');
@@ -217,7 +226,7 @@ export class AuthService {
      * Extract token from Authorization header
      */
     extractTokenFromHeader(authHeader: string | undefined): string | null {
-        if (!authHeader) return null;
+        if (!authHeader) {return null;}
         if (authHeader.startsWith('Bearer ')) {
             return authHeader.substring(7);
         }
@@ -228,7 +237,7 @@ export class AuthService {
      * Check if a token looks like a JWT
      */
     looksLikeJwt(token: string): boolean {
-        if (!token) return false;
+        if (!token) {return false;}
         const parts = token.split('.');
         return parts.length === 3 && parts.every(part => part.length > 0);
     }
@@ -309,7 +318,7 @@ export class AuthService {
         }
 
         // Domain must have at least one dot
-        if (!domain || !domain.includes('.')) {
+        if (!domain?.includes('.')) {
             return false;
         }
 
@@ -425,13 +434,23 @@ export class AuthService {
     async rotateRefreshToken(plainToken: string): Promise<{ userId: string, newRefreshToken: string } | null> {
         const tokenHash = hashToken(plainToken);
 
+        // DEBUG LOG
+        // logger is available as 'log' from imports
+        log.info({ tokenHash, plainTokenLen: plainToken.length }, 'DEBUG: rotateRefreshToken called');
+
         // Find token purely by hash to detect state
         const storedToken = await this.db.query.refreshTokens.findFirst({
             where: eq(refreshTokens.token, tokenHash)
         });
 
         if (!storedToken) {
-            log.warn({ tokenHash }, 'Security: Unknown refresh token used');
+            log.warn({ tokenHash }, 'Security: Unknown refresh token used (Not Found in DB)');
+
+            // DEBUG: List all tokens for debugging (careful in prod, safe in test)
+            if (process.env.NODE_ENV === 'test') {
+                const allTokens = await this.db.select().from(refreshTokens);
+                log.info({ allTokensCount: allTokens.length, sampleToken: allTokens[0]?.token }, 'DEBUG: Tokens in DB');
+            }
             return null;
         }
 
@@ -449,9 +468,22 @@ export class AuthService {
         }
 
         // Valid token -> Rotate it
-        await this.db.update(refreshTokens)
+        // Valid token -> Rotate it (Atomic Check-and-Set)
+        // Ensure we only update if it's still not revoked.
+        const [revokedToken] = await this.db.update(refreshTokens)
             .set({ revoked: true })
-            .where(eq(refreshTokens.id, storedToken.id));
+            .where(and(
+                eq(refreshTokens.id, storedToken.id),
+                eq(refreshTokens.revoked, false)
+            ))
+            .returning();
+
+        if (!revokedToken) {
+            // Race condition: Token was revoked between read and write
+            log.warn({ userId: storedToken.userId, tokenHash }, 'Security: REUSED REFRESH TOKEN DETECTED (Concurrent). Revoking all sessions.');
+            await this.revokeAllUserTokens(storedToken.userId);
+            return null;
+        }
 
         // Issue a new refresh token
         const newRefreshToken = await this.createRefreshToken(storedToken.userId, storedToken.metadata as any);
@@ -498,7 +530,7 @@ export class AuthService {
             where: eq(users.email, email)
         });
 
-        if (!user) return null;
+        if (!user) {return null;}
 
         const plainToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = hashToken(plainToken);
@@ -532,7 +564,7 @@ export class AuthService {
             )
         });
 
-        if (!storedToken) return null;
+        if (!storedToken) {return null;}
         return storedToken.userId;
     }
 
@@ -573,7 +605,7 @@ export class AuthService {
             )
         });
 
-        if (!storedToken) return false;
+        if (!storedToken) {return false;}
 
         await this.db.update(users)
             .set({ emailVerified: true })

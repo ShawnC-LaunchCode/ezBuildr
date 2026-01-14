@@ -3,12 +3,12 @@
  * This is the default/primary builder interface
  */
 
-import { SidebarTree } from "@/components/builder/SidebarTree";
 import { PageCanvas } from "@/components/builder/pages/PageCanvas";
-import { DevPanel } from "@/components/devpanel/DevPanel";
 import { RunnerPreview } from "@/components/builder/RunnerPreview";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
+import { SidebarTree } from "@/components/builder/SidebarTree";
+import { DevPanel } from "@/components/devpanel/DevPanel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 interface SectionsTabProps {
   workflowId: string;

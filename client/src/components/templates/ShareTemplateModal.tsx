@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { useTemplateSharing } from "@/hooks/useTemplates";
-import { useToast } from "@/hooks/use-toast";
-import { useConfetti } from "@/hooks/useConfetti";
+import { Loader2, Mail, User, X, Eye, Pencil, CheckCircle, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, X, Eye, Pencil, CheckCircle, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useConfetti } from "@/hooks/useConfetti";
+import { useTemplateSharing } from "@/hooks/useTemplates";
 
 interface ShareTemplateModalProps {
   open: boolean;

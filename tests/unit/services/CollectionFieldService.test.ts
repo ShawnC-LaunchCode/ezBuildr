@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { CollectionFieldService } from '../../../server/services/CollectionFieldService';
 
 describe('CollectionFieldService', () => {

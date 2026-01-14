@@ -2,21 +2,26 @@
  * NodeSidebar - Inspector panel for node configuration
  */
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'wouter';
-import { useBuilderStore } from '../store/useBuilderStore';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'wouter';
+
+import { FinalBlockEditor } from '@/components/blocks/FinalBlockEditor';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+
+import { useBuilderStore } from '../store/useBuilderStore';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { ExpressionEditor } from './ExpressionEditor';
 import { ExpressionToolbar } from './ExpressionToolbar';
-import { FinalBlockEditor } from '@/components/blocks/FinalBlockEditor';
+
 
 export function NodeSidebar() {
   const { id: workflowId } = useParams<{ id: string }>();

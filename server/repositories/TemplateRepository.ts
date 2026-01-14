@@ -1,6 +1,9 @@
-import { db } from "../db";
 import { and, eq, or, sql } from "drizzle-orm";
+
 import { surveyTemplates } from "@shared/schema";
+
+import { db } from "../db";
+
 import type { DbTransaction } from "./BaseRepository";
 
 export class TemplateRepository {
@@ -36,7 +39,7 @@ export class TemplateRepository {
    */
   async findAllByCreator(creatorId: string, tx?: DbTransaction) {
     const database = tx || db;
-    return await database
+    return database
       .select()
       .from(surveyTemplates)
       .where(eq(surveyTemplates.creatorId, creatorId))
@@ -48,7 +51,7 @@ export class TemplateRepository {
    */
   async findSystemTemplates(tx?: DbTransaction) {
     const database = tx || db;
-    return await database
+    return database
       .select()
       .from(surveyTemplates)
       .where(eq(surveyTemplates.isSystem, true))
@@ -60,7 +63,7 @@ export class TemplateRepository {
    */
   async findAllAccessible(creatorId: string, tx?: DbTransaction) {
     const database = tx || db;
-    return await database
+    return database
       .select()
       .from(surveyTemplates)
       .where(

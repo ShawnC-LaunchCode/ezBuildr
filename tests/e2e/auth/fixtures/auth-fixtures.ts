@@ -1,6 +1,7 @@
 import { test as base, type Page } from "@playwright/test";
-import { LoginPage } from "../page-objects/LoginPage";
+
 import { DashboardPage } from "../page-objects/DashboardPage";
+import { LoginPage } from "../page-objects/LoginPage";
 import { PortalPage } from "../page-objects/PortalPage";
 
 /**
@@ -184,7 +185,7 @@ export async function verifyMagicLink(
     throw new Error(`Failed to verify magic link: ${response.status()}`);
   }
 
-  return await response.json();
+  return response.json();
 }
 
 /**
@@ -200,7 +201,7 @@ export async function setAuthToken(page: Page, token: string): Promise<void> {
  * Helper to get auth token from browser storage
  */
 export async function getAuthToken(page: Page): Promise<string | null> {
-  return await page.evaluate(() => localStorage.getItem("auth_token"));
+  return page.evaluate(() => localStorage.getItem("auth_token"));
 }
 
 /**

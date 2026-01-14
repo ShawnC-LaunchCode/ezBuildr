@@ -2,12 +2,15 @@
  * ExpressionEditor - Monaco-based expression editor with autocomplete and diagnostics
  */
 
-import { useRef, useEffect } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
-import type { editor } from 'monaco-editor';
+import React, { useRef, useEffect } from 'react';
+
+
 import { useAvailableVars } from '../hooks/useAvailableVars';
-import { useHelpers } from '../hooks/useHelpers';
 import { useExpressionValidation } from '../hooks/useExpressionValidation';
+import { useHelpers } from '../hooks/useHelpers';
+
+import type { editor } from 'monaco-editor';
 
 export interface ExpressionEditorProps {
   value: string;
@@ -51,11 +54,11 @@ export function ExpressionEditor({
 
   // Update Monaco markers when validation result changes
   useEffect(() => {
-    if (!editorRef.current || !monacoRef.current) return;
+    if (!editorRef.current || !monacoRef.current) {return;}
 
     const monaco = monacoRef.current;
     const model = editorRef.current.getModel();
-    if (!model) return;
+    if (!model) {return;}
 
     // Clear previous markers
     monaco.editor.setModelMarkers(model, 'vl-expr', []);

@@ -1,0 +1,103 @@
+{
+  "$schema": "./strict-zones-schema.json",
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-12",
+  "description": "Configuration for TypeScript strict mode zones. These directories and files must comply with strict TypeScript settings.",
+  "zones": [
+    {
+      "pattern": "server/services/scripting/**/*",
+      "description": "Custom Scripting System (Lifecycle & Document Hooks)",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "New feature requiring high type safety for security-critical code execution"
+    },
+    {
+      "pattern": "server/routes/lifecycle-hooks.routes.ts",
+      "description": "Lifecycle Hooks API Route",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "API route for custom scripting system"
+    },
+    {
+      "pattern": "server/routes/document-hooks.routes.ts",
+      "description": "Document Hooks API Route",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "API route for document transformation hooks"
+    },
+    {
+      "pattern": "server/repositories/LifecycleHookRepository.ts",
+      "description": "Lifecycle Hook Repository",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "Data access layer for lifecycle hooks"
+    },
+    {
+      "pattern": "server/repositories/DocumentHookRepository.ts",
+      "description": "Document Hook Repository",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "Data access layer for document hooks"
+    },
+    {
+      "pattern": "server/repositories/ScriptExecutionLogRepository.ts",
+      "description": "Script Execution Log Repository",
+      "addedDate": "2025-12-07",
+      "owner": "dev-team",
+      "rationale": "Data access layer for script execution logs"
+    }
+  ],
+  "plannedZones": [
+    {
+      "pattern": "server/services/workflow/**/*",
+      "description": "Core Workflow Services",
+      "targetDate": "2026-Q1",
+      "priority": "high",
+      "rationale": "Critical business logic requiring strong type safety"
+    },
+    {
+      "pattern": "server/services/datavault/**/*",
+      "description": "DataVault Services",
+      "targetDate": "2026-Q1",
+      "priority": "high",
+      "rationale": "Data management layer with complex operations"
+    },
+    {
+      "pattern": "server/repositories/**/*",
+      "description": "All Repository Classes",
+      "targetDate": "2026-Q2",
+      "priority": "medium",
+      "rationale": "Data access layer standardization"
+    },
+    {
+      "pattern": "server/routes/**/*",
+      "description": "All API Routes",
+      "targetDate": "2026-Q2",
+      "priority": "medium",
+      "rationale": "Request/response type safety"
+    }
+  ],
+  "exemptions": [
+    {
+      "pattern": "**/*.test.ts",
+      "reason": "Test files use relaxed type checking for convenience"
+    },
+    {
+      "pattern": "**/*.test.tsx",
+      "reason": "Test files use relaxed type checking for convenience"
+    },
+    {
+      "pattern": "scripts/**/*",
+      "reason": "Utility scripts may use relaxed type checking (review case-by-case)"
+    }
+  ],
+  "rules": {
+    "newCodeMustBeStrict": true,
+    "enforceInCI": true,
+    "allowTsExpectError": true,
+    "allowTsIgnore": false,
+    "maxTsExpectErrorPerFile": 5,
+    "requireExplicitReturnTypes": true,
+    "requireExplicitParameterTypes": true
+  }
+}

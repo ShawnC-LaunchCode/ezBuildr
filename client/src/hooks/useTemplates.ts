@@ -126,7 +126,7 @@ export function useTemplateSharing(templateId?: string) {
   const listShares = useQuery({
     queryKey: ["templateShares", templateId],
     queryFn: async () => {
-      if (!templateId) return [];
+      if (!templateId) {return [];}
       const response = await axios.get<TemplateShare[]>(`/api/templates/${templateId}/shares`);
       return response.data;
     },

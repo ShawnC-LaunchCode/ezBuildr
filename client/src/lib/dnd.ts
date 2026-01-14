@@ -72,6 +72,6 @@ export function recomputeOrders(
  * Get the next order number for a new item
  */
 export function getNextOrder(items: PageItem[]): number {
-  if (items.length === 0) return 0;
+  if (items.length === 0) {return 0;}
   return Math.max(...items.map((i) => i.order)) + 1;
 }

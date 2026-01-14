@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import * as api from '../lib/api/datavault';
+
 import type { DatavaultColumn } from '@/lib/types/datavault';
+
 import { DATAVAULT_CONFIG } from '@shared/config';
+
+import * as api from '../lib/api/datavault';
 
 /**
  * Batch reference resolution hook
@@ -21,7 +24,7 @@ export function useBatchReferences(
   // Build batch request from rows and reference columns
   const requests = referenceColumns
     .map(column => {
-      if (!column.reference?.tableId) return null;
+      if (!column.reference?.tableId) {return null;}
 
       // Collect all unique rowIds referenced in this column
       const rowIds = rows
@@ -30,7 +33,7 @@ export function useBatchReferences(
 
       const uniqueRowIds = [...new Set(rowIds)];
 
-      if (uniqueRowIds.length === 0) return null;
+      if (uniqueRowIds.length === 0) {return null;}
 
       return {
         tableId: column.reference.tableId,

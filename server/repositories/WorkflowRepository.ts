@@ -1,7 +1,11 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { workflows, type Workflow, type InsertWorkflow } from "@shared/schema";
-import { eq, and, desc, isNull, or, inArray, count, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, or, inArray, count, sql, getTableColumns } from "drizzle-orm";
+
+import { workflows, organizations, type Workflow, type InsertWorkflow } from "@shared/schema";
+
 import { db } from "../db";
+import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for workflow data access
@@ -30,20 +34,62 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   }
 
   /**
-   * Find workflows by creator ID (legacy)
-   * @deprecated use findByUserAccess
+   * Find workflows by creator ID (includes user-owned and org-owned)
+   * @deprecated use findByUserAccess for full access control
    */
   async findByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return await database
-      .select()
+
+    // Get user's org memberships for org-owned workflow access
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+
+    // Build conditions for ownership access
+    // Prioritize new ownership model to avoid duplicates
+    const conditions = [];
+
+    // Primary: New ownership model
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
+    );
+
+    // Org-owned via new model
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(eq(workflows.ownerType, 'org'), inArray(workflows.ownerUuid, orgIds))
+      );
+    }
+
+    // Fallback: Legacy ownership (only for workflows without new ownership)
+    conditions.push(
+      and(
+        eq(workflows.ownerType, null as any),
+        or(eq(workflows.creatorId, creatorId), eq(workflows.ownerId, creatorId))
+      )
+    );
+
+    // Join with organizations to get owner name
+    const results = await database
+      .select({
+        ...getTableColumns(workflows),
+        ownerName: organizations.name,
+      })
       .from(workflows)
-      .where(eq(workflows.creatorId, creatorId))
+      .leftJoin(
+        organizations,
+        and(
+          eq(workflows.ownerType, 'org'),
+          eq(workflows.ownerUuid, organizations.id)
+        )
+      )
+      .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
+
+    // Results already have all workflow columns + ownerName at top level
+    return results as any;
   }
 
   /**
-   * Find workflows by user access (Owner OR Shared)
+   * Find workflows by user access (Owner OR Shared OR Org-owned)
    */
   async findByUserAccess(userId: string, tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
@@ -51,22 +97,46 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Import workflowAccess here to avoid circular dependencies if possible, or assume it's available
     const { workflowAccess } = await import("@shared/schema");
 
+    // Get user's org memberships for org-owned workflow access
+    const { orgIds } = await getAccessibleOwnershipFilter(userId);
+
     // Subquery for shared workflows
     const sharedWorkflowIds = database
       .select({ workflowId: workflowAccess.workflowId })
       .from(workflowAccess)
       .where(eq(workflowAccess.principalId, userId));
 
-    return await database
+    // Build conditions for ownership access
+    // Prioritize new ownership model to avoid duplicates
+    const conditions = [];
+
+    // 1. New ownership model: user-owned
+    conditions.push(
+      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
+    );
+
+    // 2. New ownership model: org-owned
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(eq(workflows.ownerType, 'org'), inArray(workflows.ownerUuid, orgIds))
+      );
+    }
+
+    // 3. Shared workflows (via ACL)
+    conditions.push(inArray(workflows.id, sharedWorkflowIds));
+
+    // 4. Legacy ownership (only for workflows without new ownership model)
+    conditions.push(
+      and(
+        eq(workflows.ownerType, null as any),
+        or(eq(workflows.creatorId, userId), eq(workflows.ownerId, userId))
+      )
+    );
+
+    return database
       .select()
       .from(workflows)
-      .where(
-        or(
-          eq(workflows.creatorId, userId),
-          eq(workflows.ownerId, userId),
-          inArray(workflows.id, sharedWorkflowIds)
-        )
-      )
+      .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
   }
 
@@ -75,7 +145,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async findByStatus(status: 'draft' | 'active' | 'archived', tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflows)
       .where(eq(workflows.status, status as any))
@@ -83,7 +153,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   }
 
   /**
-   * Find workflows by creator and status
+   * Find workflows by creator and status (includes user-owned and org-owned)
    */
   async findByCreatorAndStatus(
     creatorId: string,
@@ -91,10 +161,37 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     tx?: DbTransaction
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return await database
+
+    // Get user's org memberships for org-owned workflow access
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+
+    // Build conditions for ownership access
+    const conditions = [
+      and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)), // Legacy
+      and(eq(workflows.ownerId, creatorId), eq(workflows.status, status as any)), // Legacy
+      // User-owned via new ownership model
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        eq(workflows.status, status as any)
+      ),
+    ];
+
+    // Add org-owned condition if user is member of any orgs
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(
+          eq(workflows.ownerType, 'org'),
+          inArray(workflows.ownerUuid, orgIds),
+          eq(workflows.status, status as any)
+        )
+      );
+    }
+
+    return database
       .select()
       .from(workflows)
-      .where(and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)))
+      .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
   }
 
@@ -132,10 +229,10 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const database = this.getDb(tx);
 
     const byId = await this.findById(idOrSlug, tx);
-    if (byId) return byId;
+    if (byId) {return byId;}
 
     // If not found by ID, try slug
-    return await this.findBySlug(idOrSlug, tx);
+    return this.findBySlug(idOrSlug, tx);
   }
 
   /**
@@ -143,7 +240,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async findByProjectId(projectId: string, tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflows)
       .where(eq(workflows.projectId, projectId))
@@ -151,14 +248,41 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   }
 
   /**
-   * Find unfiled workflows (workflows with no project) for a creator
+   * Find unfiled workflows (workflows with no project) for a creator (includes user-owned and org-owned)
    */
   async findUnfiledByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return await database
+
+    // Get user's org memberships for org-owned workflow access
+    const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
+
+    // Build conditions for ownership access
+    const conditions = [
+      and(eq(workflows.creatorId, creatorId), isNull(workflows.projectId)), // Legacy
+      and(eq(workflows.ownerId, creatorId), isNull(workflows.projectId)), // Legacy
+      // User-owned via new ownership model
+      and(
+        eq(workflows.ownerType, 'user'),
+        eq(workflows.ownerUuid, creatorId),
+        isNull(workflows.projectId)
+      ),
+    ];
+
+    // Add org-owned condition if user is member of any orgs
+    if (orgIds.length > 0) {
+      conditions.push(
+        and(
+          eq(workflows.ownerType, 'org'),
+          inArray(workflows.ownerUuid, orgIds),
+          isNull(workflows.projectId)
+        )
+      );
+    }
+
+    return database
       .select()
       .from(workflows)
-      .where(and(eq(workflows.creatorId, creatorId), isNull(workflows.projectId)))
+      .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
   }
 

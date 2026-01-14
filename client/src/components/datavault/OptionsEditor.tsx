@@ -3,12 +3,13 @@
  * Manage options for select/multiselect columns
  */
 
-import { useState } from "react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
+import React, { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, GripVertical } from "lucide-react";
 import type { SelectOption } from "@/lib/types/datavault";
 
 interface OptionsEditorProps {
@@ -43,7 +44,7 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
   const [newColor, setNewColor] = useState("blue");
 
   const addOption = () => {
-    if (!newLabel.trim() || !newValue.trim()) return;
+    if (!newLabel.trim() || !newValue.trim()) {return;}
 
     const newOption: SelectOption = {
       label: newLabel.trim(),

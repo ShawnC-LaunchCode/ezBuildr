@@ -20,10 +20,12 @@
  */
 
 import { logger } from '../../../logger';
-import type { IPdfExtractor, PdfMetadata, ExtractionResult } from './IPdfExtractor';
-import { PdfLibExtractor } from './PdfLibExtractor';
-import { PdfJsExtractor } from './PdfJsExtractor';
+
 import { OcrExtractor } from './OcrExtractor';
+import { PdfJsExtractor } from './PdfJsExtractor';
+import { PdfLibExtractor } from './PdfLibExtractor';
+
+import type { IPdfExtractor, PdfMetadata, ExtractionResult } from './IPdfExtractor';
 
 export class PdfFieldExtractor {
   private extractors: IPdfExtractor[];

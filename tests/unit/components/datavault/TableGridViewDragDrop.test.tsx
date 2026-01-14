@@ -5,10 +5,11 @@
 
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import { TableGridView } from '@/components/datavault/TableGridView';
 import { datavaultAPI } from '@/lib/datavault-api';
 
@@ -54,6 +55,22 @@ vi.mock('@dnd-kit/sortable', () => ({
     const [removed] = newArr.splice(oldIndex, 1);
     newArr.splice(newIndex, 0, removed);
     return newArr;
+  },
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: undefined,
+    isDragging: false,
+  }),
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: (transform: any) => transform ? 'translate3d(0, 0, 0)' : undefined,
+    },
   },
 }));
 

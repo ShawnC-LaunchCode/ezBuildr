@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { EmailTemplateMetadataService } from '../../../server/services/EmailTemplateMetadataService';
-import { db } from '../../../server/db';
+
 import type { EmailTemplateMetadata } from '@shared/types/branding';
+
+import { db } from '../../../server/db';
+import { EmailTemplateMetadataService } from '../../../server/services/EmailTemplateMetadataService';
 
 /**
  * Stage 17: EmailTemplateMetadataService Tests

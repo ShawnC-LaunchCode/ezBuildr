@@ -3,16 +3,17 @@
  * Displays real-time variable values for Preview mode
  */
 
-import { useState } from "react";
 import { Copy, Pin, Search } from "lucide-react";
+import React, { useState } from "react";
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useDevPanel } from "@/store/devpanel";
+import { cn } from "@/lib/utils";
 import type { ApiWorkflowVariable } from "@/lib/vault-api";
+import { useDevPanel } from "@/store/devpanel";
 
 interface RuntimeVariableListProps {
     workflowId: string;
@@ -62,8 +63,8 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
     };
 
     const formatValue = (val: any) => {
-        if (val === undefined || val === null) return <span className="text-muted-foreground italic">undefined</span>;
-        if (typeof val === 'object') return JSON.stringify(val);
+        if (val === undefined || val === null) {return <span className="text-muted-foreground italic">undefined</span>;}
+        if (typeof val === 'object') {return JSON.stringify(val);}
         return String(val);
     };
 

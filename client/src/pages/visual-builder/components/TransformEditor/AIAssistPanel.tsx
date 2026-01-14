@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import axios from 'axios';
+import React, { useState } from 'react';
 
 interface AIAssistPanelProps {
     transforms: any[];
@@ -12,7 +12,7 @@ export const AIAssistPanel: React.FC<AIAssistPanelProps> = ({ transforms, onUpda
     const [mode, setMode] = useState<'generate' | 'revise' | 'debug'>('generate');
 
     const handleSubmit = async () => {
-        if (!input) return;
+        if (!input) {return;}
         setLoading(true);
         try {
             if (mode === 'generate') {

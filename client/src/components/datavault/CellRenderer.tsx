@@ -6,14 +6,16 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import type { DatavaultColumn, SelectOption } from "@/lib/types/datavault";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ApiDatavaultRowWithValues } from "@/lib/datavault-api";
+import type { DatavaultColumn, SelectOption } from "@/lib/types/datavault";
+
 import { ReferenceCell } from "./ReferenceCell";
 
 interface CellRendererProps {
@@ -27,7 +29,7 @@ interface CellRendererProps {
 
 // Helper: Render value based on column type (display mode)
 function renderValue(value: any, type: string): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) {return "";}
 
   switch (type) {
     case "boolean":

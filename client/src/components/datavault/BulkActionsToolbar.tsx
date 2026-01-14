@@ -3,8 +3,9 @@
  * Displays bulk action buttons when rows are selected
  */
 
-import { Button } from "@/components/ui/button";
 import { Archive, ArchiveRestore, Trash2, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 interface BulkActionsToolbarProps {
   selectedCount: number;
@@ -21,7 +22,7 @@ export function BulkActionsToolbar({
   onBulkUnarchive,
   onBulkDelete,
 }: BulkActionsToolbarProps) {
-  if (selectedCount === 0) return null;
+  if (selectedCount === 0) {return null;}
 
   return (
     <div className="bg-primary/10 border rounded-lg p-3 mb-4 flex items-center justify-between">

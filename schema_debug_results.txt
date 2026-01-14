@@ -1,0 +1,1112 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768249471793,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768249471811,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w0_d49fcab7
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w1_ee7f23f7
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0_d49fcab7
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w1_ee7f23f7
+
+{"level":30,"time":1768249479759,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768249479758,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768249479812,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768249479816,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768249480209,"env":"test","msg":"DB: Connected to schema: test_schema_w0_d49fcab7"}
+{"level":30,"time":1768249480210,"env":"test","msg":"DB: Connected to schema: test_schema_w1_ee7f23f7"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768249480209,"env":"test","msg":"DB: Connection options: Has search_path"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":30,"time":1768249480211,"env":"test","msg":"DB: Connection options: Has search_path"}
+stderr | tests/integration/auth/protected.routes.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: enum label "skip_to" already exists
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 93,
+  severity: 'ERROR',
+  code: '42710',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pg_enum.c',
+  line: '348',
+  routine: 'AddEnumLabel'
+}
+
+stderr | tests/integration/auth/session.management.integration.test.ts
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: enum label "skip_to" already exists
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg\lib\client.js:545:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:64:13
+    at NodePgSession.transaction (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:142:22)
+    at PgDialect.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/dialect.js:60:5)
+    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:4:3)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:143:11 {
+  length: 93,
+  severity: 'ERROR',
+  code: '42710',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'pg_enum.c',
+  line: '348',
+  routine: 'AddEnumLabel'
+}
+
+{"level":30,"time":1768249482932,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768249482948,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768249482939,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768249482939,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768249482943,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768249482948,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768249482948,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768249482948,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768249482948,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768249483030,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768249483044,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests
+[22m[39m[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768249483036,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768249483036,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768249483040,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768249483044,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768249483044,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768249483044,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768249483044,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768249483414,"env":"test","module":"user-credentials-repository","userId":"0b5aad2b-5773-445a-8550-ab7722f70372","msg":"User credentials created"}
+{"level":30,"time":1768249483508,"env":"test","module":"user-credentials-repository","userId":"eae593ac-779d-484d-9950-7b57f2f4f91e","msg":"User credentials created"}
+{"level":30,"time":1768249483514,"env":"test","module":"email-queue","jobId":"876091e2-7070-4634-8731-6e38102d4266","to":"test-WSKSSYven6e7U_-e2uYr8@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249483572,"env":"test","module":"auth-routes","userId":"0b5aad2b-5773-445a-8550-ab7722f70372","email":"test-WSKSSYven6e7U_-e2uYr8@example.com","msg":"User registered"}
+{"level":30,"time":1768249483609,"env":"test","module":"email-queue","jobId":"f81cd18b-4ecc-4e8e-b258-b8d65512ea35","to":"test-CIn4aZ6N8QL2q45UbW-i2@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249483669,"env":"test","module":"auth-routes","userId":"eae593ac-779d-484d-9950-7b57f2f4f91e","email":"test-CIn4aZ6N8QL2q45UbW-i2@example.com","msg":"User registered"}
+{"level":30,"time":1768249484226,"env":"test","module":"user-credentials-repository","userId":"68e4bc68-4b38-4945-adc3-6a088a268376","msg":"User credentials created"}
+{"level":30,"time":1768249484232,"env":"test","module":"user-credentials-repository","userId":"0bdafaf9-6a83-468c-b4cb-81fe58ee9dcb","msg":"User credentials created"}
+{"level":30,"time":1768249484329,"env":"test","module":"email-queue","jobId":"195388af-cdb4-47a0-83e7-132b49bb573d","to":"protected-test-n27HODNTYAaf1KezC6vD-@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249484336,"env":"test","module":"email-queue","jobId":"6410e17b-fbd6-490a-b4b7-82fbbf8ae51c","to":"session-test-ZouzUIExhplF6bo1weriT@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249484376,"env":"test","module":"auth-routes","userId":"68e4bc68-4b38-4945-adc3-6a088a268376","email":"protected-test-n27HODNTYAaf1KezC6vD-@example.com","msg":"User registered"}
+{"level":30,"time":1768249484394,"env":"test","module":"auth-routes","userId":"0bdafaf9-6a83-468c-b4cb-81fe58ee9dcb","email":"session-test-ZouzUIExhplF6bo1weriT@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mGET Protected Routes[2m > [22m[2mshould allow access with valid Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create refresh token on login
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249484984,"env":"test","module":"auth-routes","userId":"0bdafaf9-6a83-468c-b4cb-81fe58ee9dcb","msg":"User logged in successfully"}
+{"level":30,"time":1768249485013,"env":"test","module":"auth-routes","userId":"68e4bc68-4b38-4945-adc3-6a088a268376","msg":"User logged in successfully"}
+{"level":30,"time":1768249485034,"env":"test","module":"audit-log-service","userId":"0bdafaf9-6a83-468c-b4cb-81fe58ee9dcb","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249485066,"env":"test","module":"audit-log-service","userId":"68e4bc68-4b38-4945-adc3-6a088a268376","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249485476,"env":"test","module":"user-credentials-repository","userId":"378e4185-3725-425f-8a53-312237ac7036","msg":"User credentials created"}
+{"level":30,"time":1768249485511,"env":"test","module":"user-credentials-repository","userId":"641c7b25-821e-4d23-b42e-db077a80b108","msg":"User credentials created"}
+{"level":30,"time":1768249485577,"env":"test","module":"email-queue","jobId":"cf450ee7-af33-498b-adba-2d3bc3e233d7","to":"session-test-A2_hR78QgrPMdvdHqjuBR@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249485619,"env":"test","module":"email-queue","jobId":"b4546262-7f2c-4a52-a23f-31fa297f82fc","to":"protected-test-XlnKLOyuwYiwYEQ4ky9kI@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249485633,"env":"test","module":"auth-routes","userId":"378e4185-3725-425f-8a53-312237ac7036","email":"session-test-A2_hR78QgrPMdvdHqjuBR@example.com","msg":"User registered"}
+{"level":30,"time":1768249485673,"env":"test","module":"auth-routes","userId":"641c7b25-821e-4d23-b42e-db077a80b108","email":"protected-test-XlnKLOyuwYiwYEQ4ky9kI@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould track device metadata in session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mGET Protected Routes[2m > [22m[2mshould reject access without Authorization header
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249485898,"env":"test","module":"auth-routes","userId":"378e4185-3725-425f-8a53-312237ac7036","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249485935,"env":"test","module":"auth-routes","userId":"641c7b25-821e-4d23-b42e-db077a80b108","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249485998,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > Session Creation and Tracking > should track device metadata in session
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":50,"time":1768249486038,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > GET Protected Routes > should reject access without Authorization header
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249486379,"env":"test","module":"user-credentials-repository","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","msg":"User credentials created"}
+{"level":30,"time":1768249486415,"env":"test","module":"user-credentials-repository","userId":"35470496-9ee0-4b98-96b3-8290c3b1ad4f","msg":"User credentials created"}
+{"level":30,"time":1768249486481,"env":"test","module":"email-queue","jobId":"5f728447-f700-4d53-950a-1f88569b2eb5","to":"session-test-wXE9fB2B3QxXDSVGijiiB@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249486516,"env":"test","module":"email-queue","jobId":"60e8ddc1-0e0e-4f8b-9b94-aae7ff94d929","to":"protected-test-HdLa2PUVKFIy08Gh4GOMO@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249486538,"env":"test","module":"auth-routes","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","email":"session-test-wXE9fB2B3QxXDSVGijiiB@example.com","msg":"User registered"}
+{"level":30,"time":1768249486564,"env":"test","module":"auth-routes","userId":"35470496-9ee0-4b98-96b3-8290c3b1ad4f","email":"protected-test-HdLa2PUVKFIy08Gh4GOMO@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mGET Protected Routes[2m > [22m[2mshould reject access with empty Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249487133,"env":"test","module":"auth-routes","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","msg":"User logged in successfully"}
+{"level":30,"time":1768249487175,"env":"test","module":"auth-routes","userId":"35470496-9ee0-4b98-96b3-8290c3b1ad4f","msg":"User logged in successfully"}
+{"level":30,"time":1768249487184,"env":"test","module":"audit-log-service","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249487225,"env":"test","module":"audit-log-service","userId":"35470496-9ee0-4b98-96b3-8290c3b1ad4f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249487230,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249487604,"env":"test","module":"user-credentials-repository","userId":"d4bbb11b-e706-4921-9b89-a8a926067278","msg":"User credentials created"}
+{"level":30,"time":1768249487676,"env":"test","module":"auth-routes","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","msg":"User logged in successfully"}
+{"level":30,"time":1768249487704,"env":"test","module":"email-queue","jobId":"ae6ac78e-5b36-4a2b-a33e-943e9cb9f7ab","to":"protected-test-Y3ZGeJyirGhjp4fr31pAj@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249487729,"env":"test","module":"audit-log-service","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Creation and Tracking[2m > [22m[2mshould create separate sessions for multiple device logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249487753,"env":"test","module":"auth-routes","userId":"d4bbb11b-e706-4921-9b89-a8a926067278","email":"protected-test-Y3ZGeJyirGhjp4fr31pAj@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mGET Protected Routes[2m > [22m[2mshould reject access with malformed Authorization header
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249488207,"env":"test","module":"auth-routes","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","msg":"User logged in successfully"}
+{"level":30,"time":1768249488255,"env":"test","module":"audit-log-service","userId":"e700e3d0-0e9c-48e0-a598-8ded3181af4b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249488370,"env":"test","module":"auth-routes","userId":"d4bbb11b-e706-4921-9b89-a8a926067278","msg":"User logged in successfully"}
+{"level":30,"time":1768249488419,"env":"test","module":"audit-log-service","userId":"d4bbb11b-e706-4921-9b89-a8a926067278","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249488422,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249488681,"env":"test","module":"user-credentials-repository","userId":"1eec4704-0021-4489-937c-c2b3f4f9e0c2","msg":"User credentials created"}
+{"level":30,"time":1768249488782,"env":"test","module":"email-queue","jobId":"ec2a951f-e876-480c-944c-7680d06e236f","to":"session-test-G3qdYZHfWLr6O-vNiB2vw@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249488811,"env":"test","module":"user-credentials-repository","userId":"44a54b87-8f37-4b3f-a63e-90082fa6a701","msg":"User credentials created"}
+{"level":30,"time":1768249488833,"env":"test","module":"auth-routes","userId":"1eec4704-0021-4489-937c-c2b3f4f9e0c2","email":"session-test-G3qdYZHfWLr6O-vNiB2vw@example.com","msg":"User registered"}
+{"level":30,"time":1768249488909,"env":"test","module":"email-queue","jobId":"c0385f0e-1d0e-49b5-a5f2-7c870c770210","to":"protected-test-J36DAPJSDv5fqpLCyleFK@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould list all active sessions for user
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249488958,"env":"test","module":"auth-routes","userId":"44a54b87-8f37-4b3f-a63e-90082fa6a701","email":"protected-test-J36DAPJSDv5fqpLCyleFK@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mGET Protected Routes[2m > [22m[2mshould reject access with wrong token type
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249489075,"env":"test","module":"auth-routes","userId":"1eec4704-0021-4489-937c-c2b3f4f9e0c2","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249489173,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should list all active sessions for user
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":50,"time":1768249489211,"env":"test","module":"auth-routes","userId":"44a54b87-8f37-4b3f-a63e-90082fa6a701","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249489310,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > GET Protected Routes > should reject access with wrong token type
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249489565,"env":"test","module":"user-credentials-repository","userId":"d3e5c2b3-15da-4706-b76b-529ebfef6ca9","msg":"User credentials created"}
+{"level":30,"time":1768249489672,"env":"test","module":"email-queue","jobId":"e9cc70df-1747-4028-853d-55376c7ee77e","to":"session-test-oF7zfCBnr2vgFecT8CfFJ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249489697,"env":"test","module":"user-credentials-repository","userId":"30d04eb2-a05e-47b0-b244-be2e5a8a84a5","msg":"User credentials created"}
+{"level":30,"time":1768249489721,"env":"test","module":"auth-routes","userId":"d3e5c2b3-15da-4706-b76b-529ebfef6ca9","email":"session-test-oF7zfCBnr2vgFecT8CfFJ@example.com","msg":"User registered"}
+{"level":30,"time":1768249489793,"env":"test","module":"email-queue","jobId":"c0c765a1-6ea0-4737-80c7-b47c93bc0079","to":"protected-test-mWB62lMCNcYf9axpvRr_R@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould mark current session correctly
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249489843,"env":"test","module":"auth-routes","userId":"30d04eb2-a05e-47b0-b244-be2e5a8a84a5","email":"protected-test-mWB62lMCNcYf9axpvRr_R@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPOST Protected Routes[2m > [22m[2mshould allow POST with valid Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249489971,"env":"test","module":"auth-routes","userId":"d3e5c2b3-15da-4706-b76b-529ebfef6ca9","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249490069,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should mark current session correctly
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":50,"time":1768249490087,"env":"test","module":"auth-routes","userId":"30d04eb2-a05e-47b0-b244-be2e5a8a84a5","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249490191,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > POST Protected Routes > should allow POST with valid Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249490451,"env":"test","module":"user-credentials-repository","userId":"c54ef994-00e9-4d7b-84c9-bd45064d08e4","msg":"User credentials created"}
+{"level":30,"time":1768249490559,"env":"test","module":"email-queue","jobId":"8d6cee88-f46c-42d3-8bb8-4e1d36c1d8be","to":"session-test-HsopT5c88kscI_mLpI6rd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249490576,"env":"test","module":"user-credentials-repository","userId":"abbe19ee-7efc-4cf7-9356-247bf1ceabd5","msg":"User credentials created"}
+{"level":30,"time":1768249490609,"env":"test","module":"auth-routes","userId":"c54ef994-00e9-4d7b-84c9-bd45064d08e4","email":"session-test-HsopT5c88kscI_mLpI6rd@example.com","msg":"User registered"}
+{"level":30,"time":1768249490669,"env":"test","module":"email-queue","jobId":"dd0bfbaf-c7fa-479e-bda7-1a1996ad266b","to":"protected-test-A1q3v8ujbS6LtnE-kTrOq@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould not include revoked sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249490719,"env":"test","module":"auth-routes","userId":"abbe19ee-7efc-4cf7-9356-247bf1ceabd5","email":"protected-test-A1q3v8ujbS6LtnE-kTrOq@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPOST Protected Routes[2m > [22m[2mshould reject POST without Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249490868,"env":"test","module":"auth-routes","userId":"c54ef994-00e9-4d7b-84c9-bd45064d08e4","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249490963,"env":"test","module":"auth-routes","userId":"abbe19ee-7efc-4cf7-9356-247bf1ceabd5","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249490971,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should not include revoked sessions
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":50,"time":1768249491057,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > POST Protected Routes > should reject POST without Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249491359,"env":"test","module":"user-credentials-repository","userId":"67175bdb-0ed6-4d56-8528-a652165f4339","msg":"User credentials created"}
+{"level":30,"time":1768249491436,"env":"test","module":"user-credentials-repository","userId":"83ebb184-d704-40d8-98bf-bec38522c076","msg":"User credentials created"}
+{"level":30,"time":1768249491464,"env":"test","module":"email-queue","jobId":"f95e698e-7b9d-4c2c-a7ba-4f32a8496f00","to":"session-test-NZjeXn-E2qeVkiNtJ9qRi@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249491516,"env":"test","module":"auth-routes","userId":"67175bdb-0ed6-4d56-8528-a652165f4339","email":"session-test-NZjeXn-E2qeVkiNtJ9qRi@example.com","msg":"User registered"}
+{"level":30,"time":1768249491539,"env":"test","module":"email-queue","jobId":"21c6cc04-c351-45bc-b589-cae816629934","to":"protected-test-LbW1twxQ9E-iOI9aQJFs8@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249491586,"env":"test","module":"auth-routes","userId":"83ebb184-d704-40d8-98bf-bec38522c076","email":"protected-test-LbW1twxQ9E-iOI9aQJFs8@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mGET /api/auth/sessions[2m > [22m[2mshould order sessions by last used (most recent first)
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPOST Protected Routes[2m > [22m[2mshould reject POST with invalid token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249491784,"env":"test","module":"auth-routes","userId":"67175bdb-0ed6-4d56-8528-a652165f4339","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249491890,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should order sessions by last used (most recent first)
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249492208,"env":"test","module":"auth-routes","userId":"83ebb184-d704-40d8-98bf-bec38522c076","msg":"User logged in successfully"}
+{"level":30,"time":1768249492255,"env":"test","module":"audit-log-service","userId":"83ebb184-d704-40d8-98bf-bec38522c076","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249492259,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249492281,"env":"test","module":"user-credentials-repository","userId":"5eb316c4-d8ff-48e5-856d-8fc6a90812e4","msg":"User credentials created"}
+{"level":30,"time":1768249492381,"env":"test","module":"email-queue","jobId":"0d18c1de-b7c9-4a61-8f1a-3bf11e44a921","to":"session-test-llrtGRKMtCaXG4v4vOSqh@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249492429,"env":"test","module":"auth-routes","userId":"5eb316c4-d8ff-48e5-856d-8fc6a90812e4","email":"session-test-llrtGRKMtCaXG4v4vOSqh@example.com","msg":"User registered"}
+{"level":50,"time":1768249492539,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249492637,"env":"test","module":"user-credentials-repository","userId":"2583f30b-6161-4d45-9ec0-7a63593f18a8","msg":"User credentials created"}
+{"level":30,"time":1768249492737,"env":"test","module":"email-queue","jobId":"ca0654ef-ea53-465e-82dd-0657cde50205","to":"protected-test-mSyNwkw0pRjw376S4nukA@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249492784,"env":"test","module":"auth-routes","userId":"2583f30b-6161-4d45-9ec0-7a63593f18a8","email":"protected-test-mSyNwkw0pRjw376S4nukA@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPUT Protected Routes[2m > [22m[2mshould allow PUT with valid Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249492921,"env":"test","module":"user-credentials-repository","userId":"916283ec-49df-4832-83a1-912a80384a37","msg":"User credentials created"}
+{"level":30,"time":1768249493023,"env":"test","module":"email-queue","jobId":"46c7bbb6-7420-4e00-9e0d-e174edd46de8","to":"session-test-Ln5dpr53WFN98E7faunRh@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":50,"time":1768249493032,"env":"test","module":"auth-routes","userId":"2583f30b-6161-4d45-9ec0-7a63593f18a8","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249493073,"env":"test","module":"auth-routes","userId":"916283ec-49df-4832-83a1-912a80384a37","email":"session-test-Ln5dpr53WFN98E7faunRh@example.com","msg":"User registered"}
+{"level":50,"time":1768249493127,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PUT Protected Routes > should allow PUT with valid Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould revoke specific session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249493328,"env":"test","module":"auth-routes","userId":"916283ec-49df-4832-83a1-912a80384a37","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249493431,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should revoke specific session
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249493496,"env":"test","module":"user-credentials-repository","userId":"f9564b70-c023-4be9-a67d-bb45cb9d035a","msg":"User credentials created"}
+{"level":30,"time":1768249493596,"env":"test","module":"email-queue","jobId":"bfadb424-176f-4a8a-9ffd-d70035483bb2","to":"protected-test-csuKJpL2DVq1HOSRLu6gR@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249493643,"env":"test","module":"auth-routes","userId":"f9564b70-c023-4be9-a67d-bb45cb9d035a","email":"protected-test-csuKJpL2DVq1HOSRLu6gR@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPUT Protected Routes[2m > [22m[2mshould reject PUT without Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249493850,"env":"test","module":"user-credentials-repository","userId":"75f6f16d-1d7f-4f3f-ae35-e5560bad4351","msg":"User credentials created"}
+{"level":50,"time":1768249493896,"env":"test","module":"auth-routes","userId":"f9564b70-c023-4be9-a67d-bb45cb9d035a","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249493955,"env":"test","module":"email-queue","jobId":"00517eb4-712a-4021-a446-5e38f58093aa","to":"session-test-1za2-0VeIQA7vwazeafz9@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":50,"time":1768249494001,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PUT Protected Routes > should reject PUT without Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249494009,"env":"test","module":"auth-routes","userId":"75f6f16d-1d7f-4f3f-ae35-e5560bad4351","email":"session-test-1za2-0VeIQA7vwazeafz9@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould prevent revoking current session
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249494271,"env":"test","module":"auth-routes","userId":"75f6f16d-1d7f-4f3f-ae35-e5560bad4351","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249494367,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should prevent revoking current session
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249494381,"env":"test","module":"user-credentials-repository","userId":"267e02f2-6292-476d-a99a-44f03803cb54","msg":"User credentials created"}
+{"level":30,"time":1768249494476,"env":"test","module":"email-queue","jobId":"66cb9e80-e3d5-42d4-ad3e-15333e979eb3","to":"protected-test-vbn5s01OLpiJ5fqPPbzdf@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249494525,"env":"test","module":"auth-routes","userId":"267e02f2-6292-476d-a99a-44f03803cb54","email":"protected-test-vbn5s01OLpiJ5fqPPbzdf@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mDELETE Protected Routes[2m > [22m[2mshould allow DELETE with valid Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249494758,"env":"test","module":"user-credentials-repository","userId":"a0a9516a-faad-4eb1-8d6b-e118f016fda9","msg":"User credentials created"}
+{"level":50,"time":1768249494769,"env":"test","module":"auth-routes","userId":"267e02f2-6292-476d-a99a-44f03803cb54","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249494865,"env":"test","module":"email-queue","jobId":"1daa7291-b94a-4bb4-bdc9-b1573ed6931c","to":"session-test-GomWCrmAlL6bt3UHWJHX5@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":50,"time":1768249494870,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > DELETE Protected Routes > should allow DELETE with valid Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249494920,"env":"test","module":"auth-routes","userId":"a0a9516a-faad-4eb1-8d6b-e118f016fda9","email":"session-test-GomWCrmAlL6bt3UHWJHX5@example.com","msg":"User registered"}
+{"level":30,"time":1768249495246,"env":"test","module":"user-credentials-repository","userId":"83661648-8f06-4ada-9f3b-b34ad2d2ad43","msg":"User credentials created"}
+{"level":30,"time":1768249495357,"env":"test","module":"email-queue","jobId":"d110a53e-53d6-44be-a5e9-0ece1ab41b3f","to":"protected-test-hoXmKZB1bo3YUFeCkkOJz@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249495407,"env":"test","module":"auth-routes","userId":"83661648-8f06-4ada-9f3b-b34ad2d2ad43","email":"protected-test-hoXmKZB1bo3YUFeCkkOJz@example.com","msg":"User registered"}
+{"level":30,"time":1768249495418,"env":"test","module":"user-credentials-repository","userId":"e96921df-394b-4d97-894a-e4bbe1558c7e","msg":"User credentials created"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mDELETE Protected Routes[2m > [22m[2mshould reject DELETE without Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249495522,"env":"test","module":"email-queue","jobId":"63d55b9a-8a82-4a8c-8368-108939b4eb2f","to":"user2-s4FiyhTnmohNX1IRm7El9@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249495573,"env":"test","module":"auth-routes","userId":"e96921df-394b-4d97-894a-e4bbe1558c7e","email":"user2-s4FiyhTnmohNX1IRm7El9@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249496012,"env":"test","module":"auth-routes","userId":"83661648-8f06-4ada-9f3b-b34ad2d2ad43","msg":"User logged in successfully"}
+{"level":30,"time":1768249496064,"env":"test","module":"audit-log-service","userId":"83661648-8f06-4ada-9f3b-b34ad2d2ad43","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249496067,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249496096,"env":"test","module":"auth-routes","userId":"e96921df-394b-4d97-894a-e4bbe1558c7e","msg":"User logged in successfully"}
+{"level":30,"time":1768249496147,"env":"test","module":"audit-log-service","userId":"e96921df-394b-4d97-894a-e4bbe1558c7e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249496259,"env":"test","module":"auth-routes","userId":"e96921df-394b-4d97-894a-e4bbe1558c7e","sessionCount":2,"msg":"Listed active sessions"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould not allow revoking other users sessions
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249496412,"env":"test","module":"auth-routes","userId":"a0a9516a-faad-4eb1-8d6b-e118f016fda9","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249496431,"env":"test","module":"user-credentials-repository","userId":"59644cad-aff1-4185-96ee-2f345d6cd310","msg":"User credentials created"}
+{"level":50,"time":1768249496518,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should not allow revoking other users sessions
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249496524,"env":"test","module":"email-queue","jobId":"92d800db-5d0d-423c-889f-f63b9c0b6fd9","to":"protected-test-6zl8MAuS0DcRzfGXA1ZZ9@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249496573,"env":"test","module":"auth-routes","userId":"59644cad-aff1-4185-96ee-2f345d6cd310","email":"protected-test-6zl8MAuS0DcRzfGXA1ZZ9@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPATCH Protected Routes[2m > [22m[2mshould allow PATCH with valid Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":50,"time":1768249496821,"env":"test","module":"auth-routes","userId":"59644cad-aff1-4185-96ee-2f345d6cd310","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249496896,"env":"test","module":"user-credentials-repository","userId":"69504baf-f9a2-4556-b01f-1c5e0c455d2f","msg":"User credentials created"}
+{"level":50,"time":1768249496925,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PATCH Protected Routes > should allow PATCH with valid Bearer token
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249497002,"env":"test","module":"email-queue","jobId":"fbad3948-1788-43dc-a714-63cd89ab7589","to":"session-test-zAvAW7_hQZQlFzWrDnXMj@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249497053,"env":"test","module":"auth-routes","userId":"69504baf-f9a2-4556-b01f-1c5e0c455d2f","email":"session-test-zAvAW7_hQZQlFzWrDnXMj@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/:sessionId[2m > [22m[2mshould return 404 for non-existent session ID
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249497287,"env":"test","module":"user-credentials-repository","userId":"f9b234ce-931f-4156-b0ee-3ed5b559e17b","msg":"User credentials created"}
+{"level":50,"time":1768249497305,"env":"test","module":"auth-routes","userId":"69504baf-f9a2-4556-b01f-1c5e0c455d2f","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":30,"time":1768249497383,"env":"test","module":"email-queue","jobId":"eb91fd31-1579-494b-8753-12bdab44414b","to":"protected-test-EcFDz8iPpSsGLJGV29aCB@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":50,"time":1768249497402,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should return 404 for non-existent session ID
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249497433,"env":"test","module":"auth-routes","userId":"f9b234ce-931f-4156-b0ee-3ed5b559e17b","email":"protected-test-EcFDz8iPpSsGLJGV29aCB@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mPATCH Protected Routes[2m > [22m[2mshould reject PATCH without Bearer token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249497769,"env":"test","module":"user-credentials-repository","userId":"5fb33557-3b5e-4c4a-89aa-f2dbd65f6fe3","msg":"User credentials created"}
+{"level":30,"time":1768249497869,"env":"test","module":"email-queue","jobId":"55912f83-d2df-4e05-973c-0ae7472cd95c","to":"session-test-K3k5uKZL_bf7yIPpekf1m@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249497917,"env":"test","module":"auth-routes","userId":"5fb33557-3b5e-4c4a-89aa-f2dbd65f6fe3","email":"session-test-K3k5uKZL_bf7yIPpekf1m@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all sessions except current
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249498043,"env":"test","module":"auth-routes","userId":"f9b234ce-931f-4156-b0ee-3ed5b559e17b","msg":"User logged in successfully"}
+{"level":30,"time":1768249498094,"env":"test","module":"audit-log-service","userId":"f9b234ce-931f-4156-b0ee-3ed5b559e17b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249498098,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768249498174,"env":"test","module":"auth-routes","userId":"5fb33557-3b5e-4c4a-89aa-f2dbd65f6fe3","msg":"DEBUG: ValidateCredentials - Credentials not found"}
+{"level":50,"time":1768249498272,"env":"test","module":"auth-routes","error":{"name":"InvalidCredentialsError","code":"AUTH_004","statusCode":401,"isOperational":true},"msg":"Login failed"}
+stderr | tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/all > should revoke all sessions except current
+Login Failed DEBUG: InvalidCredentialsError: Invalid credentials
+    at validateCredentials (C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:71:11)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/auth.routes.ts:302:20 {
+  code: 'AUTH_004',
+  statusCode: 401,
+  isOperational: true
+}
+
+{"level":30,"time":1768249498461,"env":"test","module":"user-credentials-repository","userId":"ced126f9-69fb-4e2b-a3b8-d98a68de7248","msg":"User credentials created"}
+{"level":30,"time":1768249498556,"env":"test","module":"email-queue","jobId":"a2ccf389-3c24-4993-a5c8-d8e7ab598925","to":"protected-test-EHgBOvR3QLM7Ejte8AAQ4@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249498602,"env":"test","module":"auth-routes","userId":"ced126f9-69fb-4e2b-a3b8-d98a68de7248","email":"protected-test-EHgBOvR3QLM7Ejte8AAQ4@example.com","msg":"User registered"}
+{"level":30,"time":1768249498649,"env":"test","module":"user-credentials-repository","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","msg":"User credentials created"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould handle Bearer token with extra spaces
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249498749,"env":"test","module":"email-queue","jobId":"4d2784b4-99ab-4739-b3b7-768dbdf85de3","to":"session-test-qdsQgX8NdkrTMczea4qGr@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249498805,"env":"test","module":"auth-routes","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","email":"session-test-qdsQgX8NdkrTMczea4qGr@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mDELETE /api/auth/sessions/all[2m > [22m[2mshould revoke all trusted devices
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249499211,"env":"test","module":"auth-routes","userId":"ced126f9-69fb-4e2b-a3b8-d98a68de7248","msg":"User logged in successfully"}
+{"level":30,"time":1768249499258,"env":"test","module":"audit-log-service","userId":"ced126f9-69fb-4e2b-a3b8-d98a68de7248","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768249499261,"env":"test","module":"auth-middleware","error":{"name":"InvalidTokenError","code":"AUTH_003","statusCode":401,"isOperational":true},"msg":"JWT Strategy verification failed"}
+{"level":50,"time":1768249499261,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249499369,"env":"test","module":"auth-routes","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","msg":"User logged in successfully"}
+{"level":30,"time":1768249499417,"env":"test","module":"audit-log-service","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249499571,"env":"test","module":"auth-routes","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","deviceFingerprint":"377ad01217b8c93ca52518d515505c47ab7553fab66d6fddaa60af67802c5a4c","msg":"Device marked as trusted"}
+{"level":30,"time":1768249499627,"env":"test","module":"user-credentials-repository","userId":"16963d78-1218-4835-97d2-c34e00dddcd4","msg":"User credentials created"}
+{"level":30,"time":1768249499723,"env":"test","module":"email-queue","jobId":"3b5f8cc8-15f0-4877-8c25-0fe3d7a4b92b","to":"protected-test-9wr1AJf98n5xCKs1Nv2D_@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249499733,"env":"test","module":"auth-routes","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","msg":"All other sessions revoked"}
+{"level":30,"time":1768249499770,"env":"test","module":"auth-routes","userId":"16963d78-1218-4835-97d2-c34e00dddcd4","email":"protected-test-9wr1AJf98n5xCKs1Nv2D_@example.com","msg":"User registered"}
+{"level":30,"time":1768249499781,"env":"test","module":"audit-log-service","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","eventType":"all_sessions_revoked","ipAddress":"::1","hasMetadata":false,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould handle very long invalid token
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249499882,"env":"test","module":"auth-routes","userId":"ed230dbd-8b98-438e-b5b0-5210cdb1bafc","deviceCount":0,"msg":"Listed trusted devices"}
+{"level":30,"time":1768249500247,"env":"test","module":"user-credentials-repository","userId":"91cccec4-4c4e-463a-a193-bc039f1d6026","msg":"User credentials created"}
+{"level":30,"time":1768249500345,"env":"test","module":"email-queue","jobId":"5dc7a7ed-52a2-4566-8ab3-fca40cb609d3","to":"session-test-f1-hyHYtx_R3qvD_26VNY@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249500358,"env":"test","module":"auth-routes","userId":"16963d78-1218-4835-97d2-c34e00dddcd4","msg":"User logged in successfully"}
+{"level":30,"time":1768249500395,"env":"test","module":"auth-routes","userId":"91cccec4-4c4e-463a-a193-bc039f1d6026","email":"session-test-f1-hyHYtx_R3qvD_26VNY@example.com","msg":"User registered"}
+{"level":30,"time":1768249500406,"env":"test","module":"audit-log-service","userId":"16963d78-1218-4835-97d2-c34e00dddcd4","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249500409,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":50,"time":1768249500493,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249500764,"env":"test","module":"user-credentials-repository","userId":"53a4d896-b0ee-4366-95c2-1510dc0e120b","msg":"User credentials created"}
+{"level":30,"time":1768249500853,"env":"test","module":"user-credentials-repository","userId":"29ff4280-d75e-474b-a195-84d07cea388e","msg":"User credentials created"}
+{"level":30,"time":1768249500858,"env":"test","module":"email-queue","jobId":"24cad9ce-4515-42eb-a6f4-6f8d3c758142","to":"protected-test-L5P-cU5zVxfOExahchhye@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249500905,"env":"test","module":"auth-routes","userId":"53a4d896-b0ee-4366-95c2-1510dc0e120b","email":"protected-test-L5P-cU5zVxfOExahchhye@example.com","msg":"User registered"}
+{"level":30,"time":1768249500949,"env":"test","module":"email-queue","jobId":"d10aeb2d-33ee-4e3f-9903-2f16a68328c3","to":"session-test-jlfoUxAgrozc4wurbj8hl@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249501000,"env":"test","module":"auth-routes","userId":"29ff4280-d75e-474b-a195-84d07cea388e","email":"session-test-jlfoUxAgrozc4wurbj8hl@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould handle empty Authorization header
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mSession Expiration[2m > [22m[2mshould reject refresh token after 30 days
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249501511,"env":"test","module":"auth-routes","userId":"53a4d896-b0ee-4366-95c2-1510dc0e120b","msg":"User logged in successfully"}
+{"level":30,"time":1768249501562,"env":"test","module":"audit-log-service","userId":"53a4d896-b0ee-4366-95c2-1510dc0e120b","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249501565,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249501569,"env":"test","module":"auth-routes","userId":"29ff4280-d75e-474b-a195-84d07cea388e","msg":"User logged in successfully"}
+{"level":30,"time":1768249501617,"env":"test","module":"audit-log-service","userId":"29ff4280-d75e-474b-a195-84d07cea388e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249501725,"env":"test","module":"auth-service","tokenHash":"fdd9b9877f00e2077df7faf22f06fc69ef3f38b014eac91c1c3d3aae443040d7","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768249501773,"env":"test","module":"auth-service","userId":"29ff4280-d75e-474b-a195-84d07cea388e","msg":"Security: Expired refresh token used"}
+{"level":30,"time":1768249501932,"env":"test","module":"user-credentials-repository","userId":"0ee83bbf-5af2-4638-8f21-2f34d2b043be","msg":"User credentials created"}
+{"level":30,"time":1768249502035,"env":"test","module":"email-queue","jobId":"b1a27f6a-0d46-4983-8221-e7c62b3e5393","to":"protected-test-j6aHum8BgUG50ATXcCudN@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249502083,"env":"test","module":"auth-routes","userId":"0ee83bbf-5af2-4638-8f21-2f34d2b043be","email":"protected-test-j6aHum8BgUG50ATXcCudN@example.com","msg":"User registered"}
+{"level":30,"time":1768249502142,"env":"test","module":"user-credentials-repository","userId":"72f5773b-936d-43ea-891e-97629d4a8404","msg":"User credentials created"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould handle Authorization header with only Bearer
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249502246,"env":"test","module":"email-queue","jobId":"493de863-b71f-4f29-8aef-13d026ad858d","to":"session-test-ydOpUJXookIhb7WzruyCo@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249502295,"env":"test","module":"auth-routes","userId":"72f5773b-936d-43ea-891e-97629d4a8404","email":"session-test-ydOpUJXookIhb7WzruyCo@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle multiple concurrent logins
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249502681,"env":"test","module":"auth-routes","userId":"0ee83bbf-5af2-4638-8f21-2f34d2b043be","msg":"User logged in successfully"}
+{"level":30,"time":1768249502728,"env":"test","module":"audit-log-service","userId":"0ee83bbf-5af2-4638-8f21-2f34d2b043be","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249502732,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249502856,"env":"test","module":"auth-routes","userId":"72f5773b-936d-43ea-891e-97629d4a8404","msg":"User logged in successfully"}
+{"level":30,"time":1768249502904,"env":"test","module":"audit-log-service","userId":"72f5773b-936d-43ea-891e-97629d4a8404","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249503087,"env":"test","module":"user-credentials-repository","userId":"3eb7752c-81c3-45c7-91d7-ca45827e89fc","msg":"User credentials created"}
+{"level":30,"time":1768249503156,"env":"test","module":"auth-routes","userId":"72f5773b-936d-43ea-891e-97629d4a8404","msg":"User logged in successfully"}
+{"level":30,"time":1768249503176,"env":"test","module":"auth-routes","userId":"72f5773b-936d-43ea-891e-97629d4a8404","msg":"User logged in successfully"}
+{"level":30,"time":1768249503187,"env":"test","module":"email-queue","jobId":"eb89c807-89ba-492e-a34a-ebf24315296c","to":"protected-test-wrmF94B7_D8dfann17lLt@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249503205,"env":"test","module":"audit-log-service","userId":"72f5773b-936d-43ea-891e-97629d4a8404","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249503229,"env":"test","module":"audit-log-service","userId":"72f5773b-936d-43ea-891e-97629d4a8404","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249503236,"env":"test","module":"auth-routes","userId":"3eb7752c-81c3-45c7-91d7-ca45827e89fc","email":"protected-test-wrmF94B7_D8dfann17lLt@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould handle multiple Authorization headers
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249503645,"env":"test","module":"user-credentials-repository","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","msg":"User credentials created"}
+{"level":30,"time":1768249503747,"env":"test","module":"email-queue","jobId":"e269ac2c-0f40-43fd-9233-35dff7f302d1","to":"session-test-BItnkUMhqvV8FCXQqn_pS@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249503797,"env":"test","module":"auth-routes","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","email":"session-test-BItnkUMhqvV8FCXQqn_pS@example.com","msg":"User registered"}
+{"level":30,"time":1768249503834,"env":"test","module":"auth-routes","userId":"3eb7752c-81c3-45c7-91d7-ca45827e89fc","msg":"User logged in successfully"}
+{"level":30,"time":1768249503883,"env":"test","module":"audit-log-service","userId":"3eb7752c-81c3-45c7-91d7-ca45827e89fc","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249503886,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts[2m > [22m[2mSession Management Integration Tests[2m > [22m[2mConcurrent Session Handling[2m > [22m[2mshould handle concurrent token refreshes
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249504248,"env":"test","module":"user-credentials-repository","userId":"39db3a52-2a7a-44e2-885e-b92646788d78","msg":"User credentials created"}
+{"level":30,"time":1768249504344,"env":"test","module":"email-queue","jobId":"f1b3d75b-0b4b-455d-87c0-5a4cc7ec148c","to":"protected-test-hEvzyYaYOdWR2CvsBn-Kg@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249504355,"env":"test","module":"auth-routes","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","msg":"User logged in successfully"}
+{"level":30,"time":1768249504392,"env":"test","module":"auth-routes","userId":"39db3a52-2a7a-44e2-885e-b92646788d78","email":"protected-test-hEvzyYaYOdWR2CvsBn-Kg@example.com","msg":"User registered"}
+{"level":30,"time":1768249504403,"env":"test","module":"audit-log-service","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249504405,"env":"test","module":"auth-service","tokenHash":"d8fe800d63f8e944ae19a5e876f12532d552ca2d41fba791d9fd999bec63a816","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould reject token with SQL injection attempt
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249504604,"env":"test","module":"auth-service","tokenHash":"d8fe800d63f8e944ae19a5e876f12532d552ca2d41fba791d9fd999bec63a816","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768249504655,"env":"test","module":"auth-service","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","tokenHash":"d8fe800d63f8e944ae19a5e876f12532d552ca2d41fba791d9fd999bec63a816","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768249504715,"env":"test","module":"auth-service","tokenHash":"31aca3219b9c908434d0115b9f1c7dba9598909d88e0ba62a445eaeeebb14e90","plainTokenLen":80,"msg":"DEBUG: rotateRefreshToken called"}
+{"level":40,"time":1768249504764,"env":"test","module":"auth-service","userId":"41f198ed-cd56-49e6-ab48-8364e4155f1e","tokenHash":"31aca3219b9c908434d0115b9f1c7dba9598909d88e0ba62a445eaeeebb14e90","msg":"Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions."}
+{"level":30,"time":1768249504983,"env":"test","module":"auth-routes","userId":"39db3a52-2a7a-44e2-885e-b92646788d78","msg":"User logged in successfully"}
+{"level":30,"time":1768249505031,"env":"test","module":"audit-log-service","userId":"39db3a52-2a7a-44e2-885e-b92646788d78","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249505034,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249505071,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768249505072,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/session.management.integration.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w1_ee7f23f7
+
+{"level":30,"time":1768249505393,"env":"test","module":"user-credentials-repository","userId":"e6e74ab8-c414-4609-a8ca-697580ab23ce","msg":"User credentials created"}
+ [31mΓ¥»[39m tests/integration/auth/session.management.integration.test.ts [2m([22m[2m18 tests[22m[2m | [22m[31m10 failed[39m[2m)[22m[33m 26211[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create refresh token on login [33m 1254[2mms[22m[39m
+[31m       [31m├ù[31m should track device metadata in session[39m[33m 917[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should create separate sessions for multiple device logins [33m 2303[2mms[22m[39m
+[31m       [31m├ù[31m should list all active sessions for user[39m[33m 869[2mms[22m[39m
+[31m       [31m├ù[31m should mark current session correctly[39m[33m 896[2mms[22m[39m
+[31m       [31m├ù[31m should not include revoked sessions[39m[33m 901[2mms[22m[39m
+[31m       [31m├ù[31m should order sessions by last used (most recent first)[39m[33m 920[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should require authentication [33m 647[2mms[22m[39m
+[31m       [31m├ù[31m should revoke specific session[39m[33m 893[2mms[22m[39m
+[31m       [31m├ù[31m should prevent revoking current session[39m[33m 938[2mms[22m[39m
+[31m       [31m├ù[31m should not allow revoking other users sessions[39m[33m 2149[2mms[22m[39m
+[31m       [31m├ù[31m should return 404 for non-existent session ID[39m[33m 884[2mms[22m[39m
+[31m       [31m├ù[31m should revoke all sessions except current[39m[33m 870[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should revoke all trusted devices [33m 1610[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should require active session [33m 610[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject refresh token after 30 days [33m 1280[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle multiple concurrent logins [33m 1511[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle concurrent token refreshes [33m 1530[2mms[22m[39m
+{"level":30,"time":1768249505490,"env":"test","module":"email-queue","jobId":"75bb47c0-6c02-45be-84f3-bfed658fb88d","to":"protected-test-JLhQxAHzJEK1lFHt8TRZG@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249505538,"env":"test","module":"auth-routes","userId":"e6e74ab8-c414-4609-a8ca-697580ab23ce","email":"protected-test-JLhQxAHzJEK1lFHt8TRZG@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Edge Cases[2m > [22m[2mshould reject token with XSS attempt
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249506136,"env":"test","module":"auth-routes","userId":"e6e74ab8-c414-4609-a8ca-697580ab23ce","msg":"User logged in successfully"}
+{"level":30,"time":1768249506183,"env":"test","module":"audit-log-service","userId":"e6e74ab8-c414-4609-a8ca-697580ab23ce","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":50,"time":1768249506186,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+{"level":30,"time":1768249506539,"env":"test","module":"user-credentials-repository","userId":"f39da858-8e36-4396-8e27-27eaf273039f","msg":"User credentials created"}
+{"level":30,"time":1768249506638,"env":"test","module":"email-queue","jobId":"12219379-68be-427a-94e6-5dea905c7799","to":"protected-test-rPdRhaebTiMB1kfckSTyd@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249506685,"env":"test","module":"auth-routes","userId":"f39da858-8e36-4396-8e27-27eaf273039f","email":"protected-test-rPdRhaebTiMB1kfckSTyd@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Payload Validation[2m > [22m[2mshould reject token with missing userId
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249507276,"env":"test","module":"auth-routes","userId":"f39da858-8e36-4396-8e27-27eaf273039f","msg":"User logged in successfully"}
+{"level":30,"time":1768249507323,"env":"test","module":"audit-log-service","userId":"f39da858-8e36-4396-8e27-27eaf273039f","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249507691,"env":"test","module":"user-credentials-repository","userId":"daea7046-be11-400f-bed0-1aca9cf2d960","msg":"User credentials created"}
+{"level":30,"time":1768249507783,"env":"test","module":"email-queue","jobId":"93042b82-1234-4fe5-b2f8-c989dad2502b","to":"protected-test-Ad8KrioAj4VJqeio7iSzE@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249507831,"env":"test","module":"auth-routes","userId":"daea7046-be11-400f-bed0-1aca9cf2d960","email":"protected-test-Ad8KrioAj4VJqeio7iSzE@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mToken Payload Validation[2m > [22m[2mshould reject token with non-existent userId
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249508434,"env":"test","module":"auth-routes","userId":"daea7046-be11-400f-bed0-1aca9cf2d960","msg":"User logged in successfully"}
+{"level":30,"time":1768249508482,"env":"test","module":"audit-log-service","userId":"daea7046-be11-400f-bed0-1aca9cf2d960","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249508958,"env":"test","module":"user-credentials-repository","userId":"669b18a8-629b-4c5a-84ea-45af0c6e1c24","msg":"User credentials created"}
+{"level":30,"time":1768249509075,"env":"test","module":"email-queue","jobId":"4aa8da79-b9d6-47cd-9cdd-0cbe7eccbbda","to":"protected-test-fOFgZJOQfNjF0pYpFluuc@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249509122,"env":"test","module":"auth-routes","userId":"669b18a8-629b-4c5a-84ea-45af0c6e1c24","email":"protected-test-fOFgZJOQfNjF0pYpFluuc@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mCross-User Authorization[2m > [22m[2mshould not allow user to access another user's resources
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249509727,"env":"test","module":"auth-routes","userId":"669b18a8-629b-4c5a-84ea-45af0c6e1c24","msg":"User logged in successfully"}
+{"level":30,"time":1768249509773,"env":"test","module":"audit-log-service","userId":"669b18a8-629b-4c5a-84ea-45af0c6e1c24","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249510142,"env":"test","module":"user-credentials-repository","userId":"e784ca13-00f7-4df4-927c-4bc560209bb2","msg":"User credentials created"}
+{"level":30,"time":1768249510243,"env":"test","module":"email-queue","jobId":"f9eb995d-e6af-450e-9377-6b788ee9f1f6","to":"user2-ZJdvDj83YaB7eydfOI9Xe@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249510292,"env":"test","module":"auth-routes","userId":"e784ca13-00f7-4df4-927c-4bc560209bb2","email":"user2-ZJdvDj83YaB7eydfOI9Xe@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mCross-User Authorization[2m > [22m[2mshould not allow user to access another user's resources
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249510862,"env":"test","module":"auth-routes","userId":"e784ca13-00f7-4df4-927c-4bc560209bb2","msg":"User logged in successfully"}
+{"level":30,"time":1768249510916,"env":"test","module":"audit-log-service","userId":"e784ca13-00f7-4df4-927c-4bc560209bb2","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":40,"time":1768249510970,"env":"test","module":"rbac-middleware","userId":"e784ca13-00f7-4df4-927c-4bc560209bb2","userRole":"viewer","permission":"project:delete","path":"/09241fc4-eb4b-45f0-9012-e577d277a439","msg":"Permission denied"}
+{"level":30,"time":1768249511345,"env":"test","module":"user-credentials-repository","userId":"c1807b6e-e90a-4f07-8f36-06a49392495a","msg":"User credentials created"}
+{"level":30,"time":1768249511439,"env":"test","module":"email-queue","jobId":"2fc12634-6236-4dd7-8140-8d68c50b497f","to":"protected-test-1I2eWbuPDdirDFd8DUH37@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249511489,"env":"test","module":"auth-routes","userId":"c1807b6e-e90a-4f07-8f36-06a49392495a","email":"protected-test-1I2eWbuPDdirDFd8DUH37@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mUser Context Injection[2m > [22m[2mshould inject userId into request context
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249512112,"env":"test","module":"auth-routes","userId":"c1807b6e-e90a-4f07-8f36-06a49392495a","msg":"User logged in successfully"}
+{"level":30,"time":1768249512163,"env":"test","module":"audit-log-service","userId":"c1807b6e-e90a-4f07-8f36-06a49392495a","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249512586,"env":"test","module":"user-credentials-repository","userId":"d6fc5f40-212d-40a5-85da-b0a87159d90d","msg":"User credentials created"}
+{"level":30,"time":1768249512688,"env":"test","module":"email-queue","jobId":"959d3289-89d6-49f1-9795-ef5e0a746624","to":"protected-test-pMK9YHPSjZ4hnHmQhLiJ7@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249512735,"env":"test","module":"auth-routes","userId":"d6fc5f40-212d-40a5-85da-b0a87159d90d","email":"protected-test-pMK9YHPSjZ4hnHmQhLiJ7@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mUser Context Injection[2m > [22m[2mshould inject tenantId into request context
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249513340,"env":"test","module":"auth-routes","userId":"d6fc5f40-212d-40a5-85da-b0a87159d90d","msg":"User logged in successfully"}
+{"level":30,"time":1768249513394,"env":"test","module":"audit-log-service","userId":"d6fc5f40-212d-40a5-85da-b0a87159d90d","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249513830,"env":"test","module":"user-credentials-repository","userId":"7a606bf6-a0c0-4885-b700-363b7815aebc","msg":"User credentials created"}
+{"level":30,"time":1768249513934,"env":"test","module":"email-queue","jobId":"0cf5f401-a1f2-4e4e-876b-c1e8dfdca15d","to":"protected-test-_3mdezYixOxKsFXjQqbye@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249513984,"env":"test","module":"auth-routes","userId":"7a606bf6-a0c0-4885-b700-363b7815aebc","email":"protected-test-_3mdezYixOxKsFXjQqbye@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mUser Context Injection[2m > [22m[2mshould inject role into request context
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249514597,"env":"test","module":"auth-routes","userId":"7a606bf6-a0c0-4885-b700-363b7815aebc","msg":"User logged in successfully"}
+{"level":30,"time":1768249514644,"env":"test","module":"audit-log-service","userId":"7a606bf6-a0c0-4885-b700-363b7815aebc","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249515068,"env":"test","module":"user-credentials-repository","userId":"b23f2525-231c-4b47-9907-db9a6614d3a9","msg":"User credentials created"}
+{"level":30,"time":1768249515169,"env":"test","module":"email-queue","jobId":"82a342f6-d77c-4795-b2e4-d2db43f0c857","to":"protected-test-VymTkxNbFy7i-V_-phHpq@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249515215,"env":"test","module":"auth-routes","userId":"b23f2525-231c-4b47-9907-db9a6614d3a9","email":"protected-test-VymTkxNbFy7i-V_-phHpq@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mRate Limiting on Protected Routes[2m > [22m[2mshould not apply general rate limiting to authenticated requests
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249515819,"env":"test","module":"auth-routes","userId":"b23f2525-231c-4b47-9907-db9a6614d3a9","msg":"User logged in successfully"}
+{"level":30,"time":1768249515866,"env":"test","module":"audit-log-service","userId":"b23f2525-231c-4b47-9907-db9a6614d3a9","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249516702,"env":"test","module":"user-credentials-repository","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","msg":"User credentials created"}
+{"level":30,"time":1768249516802,"env":"test","module":"email-queue","jobId":"91d0d0ed-b2cf-4202-b5a0-ad4c2cd1fb6b","to":"protected-test-C_X4oJhaDUvxiR_KFVzdJ@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249516849,"env":"test","module":"auth-routes","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","email":"protected-test-C_X4oJhaDUvxiR_KFVzdJ@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mMixed Auth Scenarios[2m > [22m[2mshould handle request with both Bearer token and cookies
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249517449,"env":"test","module":"auth-routes","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","msg":"User logged in successfully"}
+{"level":30,"time":1768249517498,"env":"test","module":"audit-log-service","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mMixed Auth Scenarios[2m > [22m[2mshould handle request with both Bearer token and cookies
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249518015,"env":"test","module":"auth-routes","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","msg":"User logged in successfully"}
+{"level":30,"time":1768249518067,"env":"test","module":"audit-log-service","userId":"7330a315-2477-47eb-ac4a-69ae5a761db3","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249518496,"env":"test","module":"user-credentials-repository","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","msg":"User credentials created"}
+{"level":30,"time":1768249518590,"env":"test","module":"email-queue","jobId":"99d0d6fd-d2e1-4eff-a414-0505334ccb7c","to":"protected-test-T3VPF0Lixs4W_ikgMMBUM@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249518638,"env":"test","module":"auth-routes","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","email":"protected-test-T3VPF0Lixs4W_ikgMMBUM@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mMixed Auth Scenarios[2m > [22m[2mshould prioritize Bearer token over cookie when both present
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249519243,"env":"test","module":"auth-routes","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","msg":"User logged in successfully"}
+{"level":30,"time":1768249519289,"env":"test","module":"audit-log-service","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mMixed Auth Scenarios[2m > [22m[2mshould prioritize Bearer token over cookie when both present
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249519802,"env":"test","module":"auth-routes","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","msg":"User logged in successfully"}
+{"level":30,"time":1768249519855,"env":"test","module":"audit-log-service","userId":"3c2bf13d-b487-4cf6-8014-e0bd41437ea0","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249520224,"env":"test","module":"user-credentials-repository","userId":"694175a1-3f4e-4ca9-9ea3-dab3943f3147","msg":"User credentials created"}
+{"level":30,"time":1768249520319,"env":"test","module":"email-queue","jobId":"37a70be2-3fb6-4299-b270-caa26aa32a4a","to":"user2-48HI8JEkyGFoZlsQlLmQL@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249520368,"env":"test","module":"auth-routes","userId":"694175a1-3f4e-4ca9-9ea3-dab3943f3147","email":"user2-48HI8JEkyGFoZlsQlLmQL@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mMixed Auth Scenarios[2m > [22m[2mshould prioritize Bearer token over cookie when both present
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249520871,"env":"test","module":"auth-routes","userId":"694175a1-3f4e-4ca9-9ea3-dab3943f3147","msg":"User logged in successfully"}
+{"level":30,"time":1768249520918,"env":"test","module":"audit-log-service","userId":"694175a1-3f4e-4ca9-9ea3-dab3943f3147","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249521377,"env":"test","module":"user-credentials-repository","userId":"e585612b-613a-45a3-9eaf-0962dde6b991","msg":"User credentials created"}
+{"level":30,"time":1768249521480,"env":"test","module":"email-queue","jobId":"5f9e674c-3ff1-4b26-b97a-4ef6ce93b508","to":"protected-test-YrBs8nswTkZvUFOYR-WSO@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249521527,"env":"test","module":"auth-routes","userId":"e585612b-613a-45a3-9eaf-0962dde6b991","email":"protected-test-YrBs8nswTkZvUFOYR-WSO@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mOptional Auth Routes[2m > [22m[2mshould allow unauthenticated access to optional auth routes
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249522114,"env":"test","module":"auth-routes","userId":"e585612b-613a-45a3-9eaf-0962dde6b991","msg":"User logged in successfully"}
+{"level":30,"time":1768249522161,"env":"test","module":"audit-log-service","userId":"e585612b-613a-45a3-9eaf-0962dde6b991","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249522652,"env":"test","module":"intake-service","runId":"379f2f7e-faab-4ce9-8a98-03cad9150e4c","slug":"public---TiqGCF8gbnIt-zDS2Y4","msg":"Created intake run"}
+{"level":30,"time":1768249523077,"env":"test","module":"user-credentials-repository","userId":"384bffd5-3ee2-4fd7-ad28-f7b95cdd3792","msg":"User credentials created"}
+{"level":30,"time":1768249523179,"env":"test","module":"email-queue","jobId":"0eaa062d-2704-4595-91eb-ef83f458f64c","to":"protected-test-g1rMoI60ZxePaWCLynzr5@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
+{"level":30,"time":1768249523227,"env":"test","module":"auth-routes","userId":"384bffd5-3ee2-4fd7-ad28-f7b95cdd3792","email":"protected-test-g1rMoI60ZxePaWCLynzr5@example.com","msg":"User registered"}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts[2m > [22m[2mProtected Routes Integration Tests[2m > [22m[2mOptional Auth Routes[2m > [22m[2mshould enhance optional auth routes with user context when authenticated
+[22m[39mDEBUG: LOGIN HANDLER HIT
+
+{"level":30,"time":1768249523837,"env":"test","module":"auth-routes","userId":"384bffd5-3ee2-4fd7-ad28-f7b95cdd3792","msg":"User logged in successfully"}
+{"level":30,"time":1768249523883,"env":"test","module":"audit-log-service","userId":"384bffd5-3ee2-4fd7-ad28-f7b95cdd3792","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
+{"level":30,"time":1768249524374,"env":"test","module":"intake-service","runId":"e17b5b5c-b59c-4ffb-8eb5-4ee519f65afb","slug":"optional-m5glqxcC-QTjHvaRTz34y","userId":"384bffd5-3ee2-4fd7-ad28-f7b95cdd3792","msg":"Created intake run"}
+{"level":30,"time":1768249524890,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768249524891,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/auth/protected.routes.test.ts
+[22m[39m[SchemaManager] Dropping isolated schema: test_schema_w0_d49fcab7
+
+ [31mΓ¥»[39m tests/integration/auth/protected.routes.test.ts [2m([22m[2m33 tests[22m[2m | [22m[31m8 failed[39m[2m | [22m[33m1 skipped[39m[2m)[22m[33m 46039[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow access with valid Bearer token [33m 1289[2mms[22m[39m
+[31m       [31m├ù[31m should reject access without Authorization header[39m[33m 919[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access with empty Bearer token [33m 1187[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject access with malformed Authorization header [33m 1191[2mms[22m[39m
+[31m       [31m├ù[31m should reject access with wrong token type[39m[33m 889[2mms[22m[39m
+[31m       [31m├ù[31m should allow POST with valid Bearer token[39m[33m 880[2mms[22m[39m
+[31m       [31m├ù[31m should reject POST without Bearer token[39m[33m 865[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject POST with invalid token [33m 1201[2mms[22m[39m
+[31m       [31m├ù[31m should allow PUT with valid Bearer token[39m[33m 869[2mms[22m[39m
+[31m       [31m├ù[31m should reject PUT without Bearer token[39m[33m 875[2mms[22m[39m
+[31m       [31m├ù[31m should allow DELETE with valid Bearer token[39m[33m 869[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject DELETE without Bearer token [33m 1195[2mms[22m[39m
+[31m       [31m├ù[31m should allow PATCH with valid Bearer token[39m[33m 858[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject PATCH without Bearer token [33m 1172[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle Bearer token with extra spaces [33m 1163[2mms[22m[39m
+       [2m[90mΓåô[39m[22m should handle token with newlines
+       [33m[2mΓ£ô[22m[39m should handle very long invalid token [33m 1148[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle empty Authorization header [33m 1156[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle Authorization header with only Bearer [33m 1167[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle multiple Authorization headers [33m 1156[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with SQL injection attempt [33m 1146[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with XSS attempt [33m 1153[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with missing userId [33m 1141[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reject token with non-existent userId [33m 1259[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not allow user to access another user's resources [33m 2383[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject userId into request context [33m 1242[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject tenantId into request context [33m 1232[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should inject role into request context [33m 1256[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not apply general rate limiting to authenticated requests [33m 1617[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle request with both Bearer token and cookies [33m 1798[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prioritize Bearer token over cookie when both present [33m 2894[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow unauthenticated access to optional auth routes [33m 1688[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should enhance optional auth routes with user context when authenticated [33m 1779[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 18 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > GET Protected Routes > should reject access without Authorization header
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > GET Protected Routes > should reject access with wrong token type
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > POST Protected Routes > should allow POST with valid Bearer token
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > POST Protected Routes > should reject POST without Bearer token
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PUT Protected Routes > should allow PUT with valid Bearer token
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PUT Protected Routes > should reject PUT without Bearer token
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > DELETE Protected Routes > should allow DELETE with valid Bearer token
+ FAIL  tests/integration/auth/protected.routes.test.ts > Protected Routes Integration Tests > PATCH Protected Routes > should allow PATCH with valid Bearer token
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/protected.routes.test.ts:80:14
+     78|                 password: testUser.password,
+     79|             })
+     80|             .expect(200);
+       |              ^
+     81| 
+     82|         userToken = loginRes.body.token;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > Session Creation and Tracking > should track device metadata in session
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:100:18
+     98|                     password: testUser.password,
+     99|                 })
+    100|                 .expect(200);
+       |                  ^
+    101| 
+    102|             const tokens = await db.query.refreshTokens.findMany({
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should list all active sessions for user
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:163:18
+    161|                     password: testUser.password,
+    162|                 })
+    163|                 .expect(200);
+       |                  ^
+    164| 
+    165|             await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should mark current session correctly
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:208:18
+    206|                     password: testUser.password,
+    207|                 })
+    208|                 .expect(200);
+       |                  ^
+    209| 
+    210|             await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should not include revoked sessions
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:237:18
+    235|                     password: testUser.password,
+    236|                 })
+    237|                 .expect(200);
+       |                  ^
+    238| 
+    239|             const session2 = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > GET /api/auth/sessions > should order sessions by last used (most recent first)
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:282:18
+    280|                     password: testUser.password,
+    281|                 })
+    282|                 .expect(200);
+       |                  ^
+    283| 
+    284|             await new Promise(resolve => setTimeout(resolve, 100));
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should revoke specific session
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:332:18
+    330|                     password: testUser.password,
+    331|                 })
+    332|                 .expect(200);
+       |                  ^
+    333| 
+    334|             const session2 = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should prevent revoking current session
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:373:18
+    371|                     password: testUser.password,
+    372|                 })
+    373|                 .expect(200);
+       |                  ^
+    374| 
+    375|             const sessionsRes = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should not allow revoking other users sessions
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:435:18
+    433|                     password: testUser.password,
+    434|                 })
+    435|                 .expect(200);
+       |                  ^
+    436| 
+    437|             // User1 tries to revoke user2's session
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/:sessionId > should return 404 for non-existent session ID
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:452:18
+    450|                     password: testUser.password,
+    451|                 })
+    452|                 .expect(200);
+       |                  ^
+    453| 
+    454|             await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/18]ΓÄ»
+
+ FAIL  tests/integration/auth/session.management.integration.test.ts > Session Management Integration Tests > DELETE /api/auth/sessions/all > should revoke all sessions except current
+Error: expected 200 "OK", got 401 "Unauthorized"
+ Γ¥» tests/integration/auth/session.management.integration.test.ts:471:18
+    469|                     password: testUser.password,
+    470|                 })
+    471|                 .expect(200);
+       |                  ^
+    472| 
+    473|             const session2 = await request(ctx.baseURL)
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» node_modules/superagent/lib/node/index.js:1102:18
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/parsers/json.js:21:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/18]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m18 failed[39m[22m[2m | [22m[1m[32m32 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (51)[39m
+[2m   Start at [22m 14:24:27
+[2m   Duration [22m 57.66s[2m (transform 10.42s, setup 411ms, import 21.50s, tests 72.25s, environment 0ms)[22m
+

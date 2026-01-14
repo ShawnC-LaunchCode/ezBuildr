@@ -1,9 +1,10 @@
 import { validateExpression } from './expr';
-import type { Node } from './registry';
-import type { QuestionNodeConfig } from './nodes/question';
-import type { ComputeNodeConfig } from './nodes/compute';
+
 import type { BranchNodeConfig } from './nodes/branch';
+import type { ComputeNodeConfig } from './nodes/compute';
+import type { QuestionNodeConfig } from './nodes/question';
 import type { TemplateNodeConfig } from './nodes/template';
+import type { Node } from './registry';
 
 /**
  * Static Graph and Expression Validation
@@ -142,7 +143,7 @@ export function collectAvailableVars(graphJson: GraphJson): Map<string, string[]
   const varsAtNode = new Set<string>(['input']);
   for (const nodeId of orderedNodes) {
     const node = graphJson.nodes.find(n => n.id === nodeId);
-    if (!node) continue;
+    if (!node) {continue;}
 
     // Variables available at this node
     availableVars.set(nodeId, Array.from(varsAtNode));
@@ -303,7 +304,7 @@ function detectCycles(graphJson: GraphJson): ValidationError[] {
  * Find nodes unreachable from start node
  */
 function findUnreachableNodes(graphJson: GraphJson): string[] {
-  if (!graphJson.startNodeId) return [];
+  if (!graphJson.startNodeId) {return [];}
 
   const reachable = new Set<string>();
   const adjacency = buildAdjacencyList(graphJson);
@@ -362,7 +363,7 @@ export function topologicalSort(graphJson: GraphJson): string[] {
   const result: string[] = [];
 
   function dfs(nodeId: string) {
-    if (visited.has(nodeId)) return;
+    if (visited.has(nodeId)) {return;}
     visited.add(nodeId);
 
     const neighbors = adjacency.get(nodeId) || [];

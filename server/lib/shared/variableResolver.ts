@@ -1,6 +1,8 @@
-import { getValueByPath } from "@shared/conditionEvaluator";
-import { createLogger } from "../../logger";
 import crypto from "crypto";
+
+import { getValueByPath } from "@shared/conditionEvaluator";
+
+import { createLogger } from "../../logger";
 
 const logger = createLogger({ module: "variable-resolver" });
 
@@ -22,11 +24,11 @@ export function resolveSingleValue(
     data: Record<string, any>,
     aliasMap?: Record<string, string>
 ): any {
-    if (expression === undefined || expression === null) return null;
-    if (typeof expression !== "string") return expression;
+    if (expression === undefined || expression === null) {return null;}
+    if (typeof expression !== "string") {return expression;}
 
     const trimmed = expression.trim();
-    if (!trimmed) return null;
+    if (!trimmed) {return null;}
 
     // Check if it looks like a variable expression {{...}}
     const isExpression = trimmed.startsWith("{{") && trimmed.endsWith("}}");
@@ -77,7 +79,7 @@ export function resolveSingleValue(
 
     const val = getValueByPath(data, resolvedKey);
     // If val is defined, return it.
-    if (val !== undefined) return val;
+    if (val !== undefined) {return val;}
 
     // If strictly undefined, maybe it was a valid path that is empty?
     // Or maybe it is a static string?
@@ -85,7 +87,7 @@ export function resolveSingleValue(
     // Safer to defaults to null if it looked like a variable.
 
     // If it was explicitly aliased or wrapped in expression brackets, treat as null (empty variable)
-    if (isAliased || isExpression) return null;
+    if (isAliased || isExpression) {return null;}
 
     // Otherwise, assume it's a static string literal
     return expression;

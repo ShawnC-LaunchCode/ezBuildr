@@ -1,15 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Link } from "wouter";
 import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Link } from "wouter";
+
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +16,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 
 interface User {
   id: string;
@@ -75,7 +76,7 @@ export default function AdminUsers() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: 'admin' | 'creator' }) => {
-      return await apiRequest("PUT", `/api/admin/users/${userId}/role`, { role });
+      return apiRequest("PUT", `/api/admin/users/${userId}/role`, { role });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });

@@ -1,6 +1,7 @@
-import type { Request, Response, NextFunction } from 'express';
 import { createLogger } from '../logger';
+
 import type { AuthRequest } from './auth';
+import type { Request, Response, NextFunction } from 'express';
 
 const logger = createLogger({ module: 'tenant-middleware' });
 

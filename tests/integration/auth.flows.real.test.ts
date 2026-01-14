@@ -1,17 +1,24 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
-import type { Express } from "express";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+
+import { loginAttempts, accountLocks, users } from "@shared/schema";
+
+import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
   cleanAuthTables,
+  deleteTestUser,
   randomEmail,
   randomPassword,
   createVerifiedUser,
   generateTotpCode,
 } from "../helpers/testUtils";
-import { db } from "../../server/db";
-import { loginAttempts, accountLocks } from "@shared/schema";
-import { eq } from "drizzle-orm";
+
+import type { Express } from "express";
+
+
+
 
 /**
  * REAL Auth Flow Integration Tests
@@ -20,13 +27,32 @@ import { eq } from "drizzle-orm";
 
 describe("Auth Flows Integration Tests (REAL)", () => {
   let app: Express;
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
+  // Helper to track user creation
+  const trackUser = (userId: string) => {
+    createdUserIds.push(userId);
+    return userId;
+  };
 
   beforeAll(async () => {
     app = createTestApp();
   });
 
-  beforeEach(async () => {
-    await cleanAuthTables();
+  // NO GLOBAL CLEANUP to allow parallel runs
+  // beforeEach(async () => {
+  //   await cleanAuthTables();
+  // });
+
+  afterEach(async () => {
+    // specific cleanup for users created in this test block
+    while (createdUserIds.length > 0) {
+      const userId = createdUserIds.pop();
+      if (userId) {
+        await deleteTestUser(userId);
+      }
+    }
   });
 
   describe("Complete Registration → Login Flow", () => {
@@ -46,6 +72,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
       expect(registerResponse.status).toBe(201);
       expect(registerResponse.body.user.emailVerified).toBe(false);
+      trackUser(registerResponse.body.user.id);
 
       // Step 2: Try to login (should fail - email not verified)
       const loginAttempt1 = await request(app)
@@ -75,7 +102,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
   describe("Account Lockout Flow", () => {
     it("should lock account after 5 failed attempts, then unlock after waiting", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Step 1: Make 4 failed attempts
       for (let i = 0; i < 4; i++) {
@@ -83,7 +111,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
           .post("/api/auth/login")
           .send({
             email,
-            password: "WrongPassword" + i,
+            password: `WrongPassword${  i}`,
           });
 
         expect(response.status).toBe(401);
@@ -130,7 +158,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
     });
 
     it("should record all login attempts", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Make several login attempts
       await request(app).post("/api/auth/login").send({ email, password: "wrong1" });
@@ -150,7 +179,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
   describe("MFA Enrollment and Login Flow", () => {
     it("should complete MFA setup and login with TOTP", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Step 1: Login to get access token
       const loginResponse = await request(app)
@@ -220,7 +250,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
     });
 
     it("should login with backup code when TOTP unavailable", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Setup MFA
       const loginResponse = await request(app)
@@ -290,7 +321,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
   describe("Password Reset Flow", () => {
     it("should complete full password reset flow", async () => {
-      const { email, password: oldPassword } = await createVerifiedUser();
+      const { email, password: oldPassword, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Step 1: Request password reset
       const resetRequestResponse = await request(app)
@@ -348,7 +380,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
     });
 
     it("should invalidate all sessions after password reset", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login to create session
       const loginResponse = await request(app)
@@ -394,14 +427,15 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
   describe("Token Refresh Flow", () => {
     it("should rotate refresh token on each use", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login to get initial tokens
       const loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
 
-      let cookies = loginResponse.headers['set-cookie'] as unknown as string[];
+      const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
       let refreshTokenCookie = cookies.find(c => c.startsWith('refresh_token='));
 
       expect(refreshTokenCookie).toBeDefined();
@@ -427,7 +461,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
     });
 
     it("should detect and prevent refresh token reuse (token theft)", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login
       const loginResponse = await request(app)
@@ -469,7 +504,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
 
   describe("Session Management Flow", () => {
     it("should list all active sessions", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Login from "multiple devices" (simulate with different user agents)
       const login1 = await request(app)
@@ -495,7 +531,8 @@ describe("Auth Flows Integration Tests (REAL)", () => {
     });
 
     it("should revoke specific session", async () => {
-      const { email, password } = await createVerifiedUser();
+      const { email, password, userId } = await createVerifiedUser();
+      trackUser(userId);
 
       // Create 2 sessions
       const login1 = await request(app)

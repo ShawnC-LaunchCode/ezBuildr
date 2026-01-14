@@ -1,11 +1,15 @@
+import { randomBytes } from "crypto";
+
+import type { SignatureRequest, InsertSignatureRequest } from "@shared/schema";
+
 import {
   signatureRequestRepository,
   workflowRepository,
   projectRepository,
 } from "../repositories";
-import type { SignatureRequest, InsertSignatureRequest } from "@shared/schema";
 import { createError } from "../utils/errors";
-import { randomBytes } from "crypto";
+
+
 import { aclService as defaultAclService } from "./AclService";
 
 /**
@@ -212,7 +216,7 @@ export class SignatureRequestService {
     // Verify access to request
     await this.getSignatureRequest(requestId, userId);
 
-    return await this.signatureRequestRepo.getEvents(requestId);
+    return this.signatureRequestRepo.getEvents(requestId);
   }
 
   /**
@@ -234,7 +238,7 @@ export class SignatureRequestService {
       throw createError.forbidden("Access denied - insufficient permissions for this project");
     }
 
-    return await this.signatureRequestRepo.findPendingByProjectId(projectId);
+    return this.signatureRequestRepo.findPendingByProjectId(projectId);
   }
 
   /**

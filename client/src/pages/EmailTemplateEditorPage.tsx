@@ -4,25 +4,6 @@
  * Edit email template metadata and configure branding token bindings
  */
 
-import { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import {
-  emailTemplateAPI,
-  type EmailTemplateMetadata,
-  type UpdateEmailTemplateMetadataRequest,
-} from '@/lib/vault-api';
-import { useBranding } from '@/components/branding';
-import Sidebar from '@/components/layout/Sidebar';
-import Header from '@/components/layout/Header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft,
   Save,
@@ -36,7 +17,27 @@ import {
   User,
   AtSign,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'wouter';
+
+import { useBranding } from '@/components/branding';
 import EmailPreview from '@/components/branding/EmailPreview';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  emailTemplateAPI,
+  type EmailTemplateMetadata,
+  type UpdateEmailTemplateMetadataRequest,
+} from '@/lib/vault-api';
 
 // Available branding tokens
 const BRANDING_TOKENS = [
@@ -94,7 +95,7 @@ export default function EmailTemplateEditorPage() {
   }, [templateId]);
 
   const loadTemplate = async () => {
-    if (!templateId) return;
+    if (!templateId) {return;}
 
     setIsLoading(true);
     try {
@@ -138,7 +139,7 @@ export default function EmailTemplateEditorPage() {
   };
 
   const handleSave = async () => {
-    if (!templateId) return;
+    if (!templateId) {return;}
 
     setIsSaving(true);
     try {

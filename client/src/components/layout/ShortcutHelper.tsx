@@ -1,12 +1,13 @@
 
+import { Keyboard } from "lucide-react";
 import * as React from "react";
+
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Keyboard } from "lucide-react";
 
 export function ShortcutHelper() {
     const [open, setOpen] = React.useState(false);

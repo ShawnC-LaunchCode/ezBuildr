@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea"; // Assuming we might want description
-import { ValidationRulesEditor } from "./ValidationRulesEditor";
-import { useUpdateSection } from "@/lib/vault-hooks";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateSection } from "@/lib/vault-hooks";
+
 import type { ValidateRule } from "@shared/types/blocks"; // Need to ensure this is importable
+
+import { ValidationRulesEditor } from "./ValidationRulesEditor";
 
 export function SectionSettingsDialog({
     workflowId,

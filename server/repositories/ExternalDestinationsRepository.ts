@@ -1,7 +1,9 @@
-import { db } from "../db";
-import { externalDestinations } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { externalDestinations } from "@shared/schema";
 import type { ExternalDestination } from "@shared/types/blocks";
+
+import { db } from "../db";
 
 export class ExternalDestinationsRepository {
     async findById(id: string): Promise<ExternalDestination | null> {
@@ -11,7 +13,7 @@ export class ExternalDestinationsRepository {
             .where(eq(externalDestinations.id, id))
             .limit(1);
 
-        if (!result) return null;
+        if (!result) {return null;}
 
         // Map DB type to Shared Type if needed (or cast)
         // Drizzle result `authConfig` is jsonb, typically cast to Record<string, any>

@@ -2,16 +2,18 @@
  * PreviewPanel - Embedded run tester for workflows
  */
 
-import { useState } from 'react';
-import { useRunWorkflow, useWorkflowRun } from '../hooks/useWorkflowAPI';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import { Play, X, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Play, X, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
-import { motion } from 'framer-motion';
+
+import { useRunWorkflow, useWorkflowRun } from '../hooks/useWorkflowAPI';
 
 interface PreviewPanelProps {
   workflowId: string;

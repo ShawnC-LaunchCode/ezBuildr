@@ -4,14 +4,15 @@
  * DataVault Phase 2: Databases feature
  */
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useUpdateDatavaultDatabase } from "@/lib/datavault-hooks";
-import type { DatavaultDatabase } from "@/lib/datavault-api";
+import { Loader2, Save, Info, X } from "lucide-react";
+import React, { useState } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -19,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Save, Info, X } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import type { DatavaultDatabase } from "@/lib/datavault-api";
+import { useUpdateDatavaultDatabase } from "@/lib/datavault-hooks";
+
 import { DatabaseApiTokens } from "./DatabaseApiTokens";
 
 interface DatabaseSettingsProps {

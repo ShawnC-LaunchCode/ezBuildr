@@ -1,18 +1,20 @@
-import { Router, type Request, Response } from 'express';
 import { eq, and, desc, lt, ilike, or, ExtractTablesWithRelations } from 'drizzle-orm';
-import type { PgTransaction } from 'drizzle-orm/pg-core';
-import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
-import { db } from '../db';
+import { Router, type Request, Response } from 'express';
+
 import * as schema from '@shared/schema';
+
+import { db } from '../db';
+import { validateGraphStructure } from '../engine';
+import { validateExpression, Helpers, AllowedHelperNames } from '../engine/expr';
+import { validateNodeConditions, collectAvailableVars, type GraphJson } from '../engine/validate';
+import { logger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
-import { requireTenant } from '../middleware/tenant';
 import { requirePermission } from '../middleware/rbac';
+import { requireTenant } from '../middleware/tenant';
+import { workflowService } from '../services/WorkflowService';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
-import { validateGraphStructure } from '../engine';
-import { validateNodeConditions, collectAvailableVars, type GraphJson } from '../engine/validate';
-import { validateExpression, Helpers, AllowedHelperNames } from '../engine/expr';
-import type { AuthRequest } from '../middleware/auth';
+
 import {
   createWorkflowSchema,
   updateWorkflowSchema,
@@ -23,8 +25,10 @@ import {
   projectIdParamsSchema,
   versionIdParamsSchema,
 } from './validators/workflows';
-import { logger } from '../logger';
-import { workflowService } from '../services/WorkflowService';
+
+import type { AuthRequest } from '../middleware/auth';
+import type { PgTransaction } from 'drizzle-orm/pg-core';
+import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 
 const router = Router();
 
@@ -301,8 +305,8 @@ router.patch(
         // Update workflow name and intakeConfig if provided
         if (data.name || data.intakeConfig) {
           const updateValues: any = { updatedAt: new Date() };
-          if (data.name) updateValues.name = data.name;
-          if (data.intakeConfig) updateValues.intakeConfig = data.intakeConfig;
+          if (data.name) {updateValues.name = data.name;}
+          if (data.intakeConfig) {updateValues.intakeConfig = data.intakeConfig;}
 
           await tx
             .update(schema.workflows)
@@ -322,12 +326,10 @@ router.patch(
         }
 
         // Fetch updated workflow
-        const updated = await tx.query.workflows.findFirst({
+        return tx.query.workflows.findFirst({
           where: eq(schema.workflows.id, params.id),
           with: { currentVersion: true },
         });
-
-        return updated;
       });
 
       // SYNC GRAPH to Legacy Sections (specifically for Final Block)
@@ -390,7 +392,7 @@ router.post(
       }
 
       // Validate graph structure and expressions before publishing
-      const graphJson = workflow.currentVersion.graphJson as unknown as GraphJson;
+      const graphJson = workflow.currentVersion.graphJson as GraphJson;
       validateGraphStructure(graphJson as any);
 
       // Validate node conditions and expressions (STRICT for publish)
@@ -430,12 +432,10 @@ router.post(
           .where(eq(schema.workflows.id, params.id));
 
         // Fetch updated workflow
-        const updated = await tx.query.workflows.findFirst({
+        return tx.query.workflows.findFirst({
           where: eq(schema.workflows.id, params.id),
           with: { currentVersion: true },
         });
-
-        return updated;
       });
 
       res.json(result);
@@ -631,7 +631,7 @@ router.post(
       }
 
       // Get current graph
-      const graphJson = workflow.currentVersion?.graphJson as unknown as GraphJson;
+      const graphJson = workflow.currentVersion?.graphJson as GraphJson;
       if (!graphJson) {
         return res.status(400).json({
           ok: false,
@@ -709,7 +709,7 @@ router.get(
       }
 
       // Get current graph
-      const graphJson = workflow.currentVersion?.graphJson as unknown as GraphJson;
+      const graphJson = workflow.currentVersion?.graphJson as GraphJson;
       if (!graphJson) {
         return res.json({ vars: [] });
       }

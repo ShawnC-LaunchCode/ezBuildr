@@ -3,19 +3,20 @@
  * Uses AI service to generate plausible values for the entire workflow
  */
 
-import { useState } from "react";
-import { useLocation } from "wouter";
 import { Sparkles } from "lucide-react";
+import React, { useState } from "react";
+import { useLocation } from "wouter";
+
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { runAPI } from "@/lib/vault-api";
-import { usePreviewStore } from "@/store/preview";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { runAPI } from "@/lib/vault-api";
+import { usePreviewStore } from "@/store/preview";
 
 interface RunWithRandomDataButtonProps {
   workflowId: string;

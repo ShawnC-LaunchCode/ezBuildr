@@ -2,7 +2,7 @@
  * Parse Cookie header into an object
  */
 export function parseCookies(header: string | undefined): Record<string, string> {
-    if (!header) return {};
+    if (!header) {return {};}
 
     return header.split(';').reduce((acc, cookie) => {
         const parts = cookie.trim().split('=');

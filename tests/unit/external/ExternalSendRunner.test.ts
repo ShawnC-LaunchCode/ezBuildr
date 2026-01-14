@@ -1,7 +1,9 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { ExternalSendBlockConfig, BlockContext } from "@shared/types/blocks";
+
 import { ExternalSendRunner } from "../../../server/lib/external/ExternalSendRunner";
 import { externalDestinationService } from "../../../server/services/ExternalDestinationService";
-import type { ExternalSendBlockConfig, BlockContext } from "@shared/types/blocks";
-import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock db to prevent connection
 vi.mock("../../../server/db", () => ({

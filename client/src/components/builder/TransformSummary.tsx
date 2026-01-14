@@ -3,9 +3,11 @@
  * Shows what filters, sorts, limits, etc. are applied to a list
  */
 
-import React from "react";
-import { Badge } from "@/components/ui/badge";
 import { Filter, ArrowUpDown, Scissors, Columns, Hash } from "lucide-react";
+import React from "react";
+
+import { Badge } from "@/components/ui/badge";
+
 import type { ListToolsConfig } from "@shared/types/blocks";
 
 interface TransformSummaryProps {
@@ -14,7 +16,7 @@ interface TransformSummaryProps {
 }
 
 export function TransformSummary({ config, className }: TransformSummaryProps) {
-  if (!config) return null;
+  if (!config) {return null;}
 
   const hasFilters = (config.filters?.rules?.length || 0) > 0;
   const hasSorts = (config.sort?.length || 0) > 0;

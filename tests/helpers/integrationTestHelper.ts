@@ -10,20 +10,24 @@
  * This ensures consistency across all integration tests and reduces code duplication.
  */
 
-import express, { type Express } from 'express';
 import { type Server } from 'http';
-import { registerRoutes } from '../../server/routes';
-import { db, initializeDatabase } from '../../server/db';
-import * as schema from '@shared/schema';
-import { eq } from 'drizzle-orm';
+
+import { eq, inArray } from 'drizzle-orm';
+import express, { type Express } from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
+
+import * as schema from '@shared/schema';
+
+import { db, initializeDatabase } from '../../server/db';
+import { registerRoutes } from '../../server/routes';
 
 export interface IntegrationTestContext {
   app: Express;
   server: Server;
   baseURL: string;
   tenantId: string;
+  orgId: string;
   userId: string;
   authToken: string;
   projectId?: string;
@@ -85,7 +89,7 @@ export async function setupIntegrationTest(
 
   // Create tenant
   const [tenant] = await db.insert(schema.tenants).values({
-    name: tenantName,
+    name: `${tenantName} ${nanoid()}`,
     plan: 'pro',
   }).returning();
   const tenantId = tenant.id;
@@ -96,7 +100,7 @@ export async function setupIntegrationTest(
     .post('/api/auth/register')
     .send({
       email,
-      password: 'TestUser123!@#SecurePass',
+      password: 'StrongTestUser123!@#',
       firstName: 'Test',
       lastName: 'User',
     });
@@ -117,6 +121,20 @@ export async function setupIntegrationTest(
     })
     .where(eq(schema.users.id, userId));
 
+  // Create organization for ACL testing
+  const [org] = await db.insert(schema.organizations).values({
+    name: `${tenantName  } Org`,
+    tenantId: tenantId,
+  }).returning();
+  const orgId = org.id;
+
+  // Create organization membership
+  await db.insert(schema.organizationMemberships).values({
+    orgId: orgId,
+    userId: userId,
+    role: 'admin',
+  });
+
   let projectId: string | undefined;
 
   // Optionally create project
@@ -136,19 +154,25 @@ export async function setupIntegrationTest(
   // Cleanup function
   const cleanup = async () => {
     try {
-      // Delete tenant (cascades to projects -> workflows -> workflow_versions, etc.)
-      // The cascade is configured in the schema:
-      // - tenants -> projects (onDelete: cascade)
-      // - projects -> workflows (onDelete: cascade)
       if (tenantId) {
+        // Cleanup audit_logs for users in this tenant to avoid FK constraints
+        const tenantUsers = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.tenantId, tenantId));
+        if (tenantUsers.length > 0) {
+          const userIds = tenantUsers.map(u => u.id);
+          // Delete related data first to avoid FK violations
+          await db.delete(schema.auditLogs).where(inArray(schema.auditLogs.userId, userIds));
+          await db.delete(schema.workflowVersions).where(inArray(schema.workflowVersions.createdBy, userIds));
+          // Delete workflows created by these users (to avoid FK violations)
+          await db.delete(schema.workflows).where(inArray(schema.workflows.creatorId, userIds));
+          // Note: Workflows and Projects cascade from Tenant usually, but specific user ownership might block.
+          // Explicit cleanup of user resources if needed.
+        }
         await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }
     } catch (error) {
       console.error('Cleanup error:', error);
-      // Don't fail the test if cleanup fails
     }
 
-    // Close server
     if (server) {
       await new Promise<void>((resolve) => {
         server.close(() => resolve());
@@ -161,6 +185,7 @@ export async function setupIntegrationTest(
     server,
     baseURL,
     tenantId,
+    orgId,
     userId,
     authToken,
     projectId,
@@ -182,5 +207,59 @@ export function createAuthenticatedAgent(baseURL: string, authToken: string) {
     put: (url: string) => request(baseURL).put(url).set('Authorization', `Bearer ${authToken}`),
     patch: (url: string) => request(baseURL).patch(url).set('Authorization', `Bearer ${authToken}`),
     delete: (url: string) => request(baseURL).delete(url).set('Authorization', `Bearer ${authToken}`),
+  };
+}
+
+/**
+ * Creates a new test user and logs them in to get valid credentials
+ */
+export async function createTestUser(
+  ctx: IntegrationTestContext,
+  role: 'owner' | 'builder' | 'runner' | 'viewer' = 'viewer',
+  overrideTenantId?: string
+) {
+  const email = `test-${nanoid()}@example.com`;
+  const password = 'StrongTestUser123!@#';
+
+  // Register
+  const registerRes = await request(ctx.baseURL)
+    .post('/api/auth/register')
+    .send({
+      email,
+      password,
+      firstName: 'Test',
+      lastName: role,
+    });
+
+  if (registerRes.status !== 201) {
+    throw new Error(`User registration failed: ${JSON.stringify(registerRes.body)}`);
+  }
+
+  const userId = registerRes.body.user.id;
+
+  // Update role/tenant
+  await db.update(schema.users)
+    .set({
+      tenantId: overrideTenantId || ctx.tenantId,
+      tenantRole: role,
+      emailVerified: true // Auto-verify for tests
+    })
+    .where(eq(schema.users.id, userId));
+
+  // Login to get tokens
+  const loginRes = await request(ctx.baseURL)
+    .post('/api/auth/login')
+    .send({ email, password });
+
+  if (loginRes.status !== 200) {
+    throw new Error(`User login failed: ${JSON.stringify(loginRes.body)}`);
+  }
+
+  return {
+    userId,
+    email,
+    token: loginRes.body.token,
+    cookies: loginRes.headers['set-cookie'] as unknown as string[],
+    agent: request.agent(ctx.server).set('Cookie', loginRes.headers['set-cookie'] as unknown as string[]) // Stateful agent with cookies
   };
 }

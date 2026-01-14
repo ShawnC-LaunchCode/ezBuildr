@@ -1,6 +1,8 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { files, type File, type InsertFile } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
+
+import { files, type File, type InsertFile } from "@shared/schema";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for file-related database operations
@@ -25,7 +27,7 @@ export class FileRepository extends BaseRepository<typeof files, File, InsertFil
    */
   async bulkCreate(fileData: InsertFile[], tx?: DbTransaction): Promise<File[]> {
     const database = this.getDb(tx);
-    return await database.insert(files).values(fileData as any).returning();
+    return database.insert(files).values(fileData as any).returning();
   }
 
   /**
@@ -42,7 +44,7 @@ export class FileRepository extends BaseRepository<typeof files, File, InsertFil
    */
   async findByAnswer(answerId: string, tx?: DbTransaction): Promise<File[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(files)
       .where(eq(files.answerId, answerId))
@@ -58,7 +60,7 @@ export class FileRepository extends BaseRepository<typeof files, File, InsertFil
     }
 
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(files)
       .where(inArray(files.answerId, answerIds))
@@ -139,7 +141,7 @@ export class FileRepository extends BaseRepository<typeof files, File, InsertFil
     tx?: DbTransaction
   ): Promise<File[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(files)
       .where(and(eq(files.answerId, answerId), inArray(files.mimeType, mimeTypes)))

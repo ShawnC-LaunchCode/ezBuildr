@@ -3,19 +3,16 @@
  * PR4: Full UI implementation with stubs
  */
 
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import axios from "axios";
-import { useWorkflow, useSteps, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
-import { type ApiWorkflowVariable } from "@/lib/vault-api";
-import { Upload, FileText, Trash2, RefreshCw, TestTube, AlertCircle, CheckCircle, ExternalLink } from "lucide-react";
-import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
+import { Upload, FileText, Trash2, RefreshCw, TestTube, AlertCircle, CheckCircle, ExternalLink , Edit } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +24,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { type ApiWorkflowVariable } from "@/lib/vault-api";
+import { useWorkflow, useSteps, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
 import { DocumentTemplateEditor } from "@/pages/visual-builder/components/DocumentTemplateEditor";
+
+import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { PdfMappingEditor } from "../templates/PdfMappingEditor";
-import { Edit } from "lucide-react";
+
 
 interface Template {
   id: string;
@@ -75,7 +78,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   // Fetch templates for this project
   const fetchTemplates = async () => {
     try {
-      if (!workflowProjectId) return;
+      if (!workflowProjectId) {return;}
 
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data = response.data;

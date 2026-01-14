@@ -5,9 +5,11 @@
 
 import { spawn } from "child_process";
 import vm from "vm";
+
 import type { ScriptExecutionResult, ScriptContextAPI } from "@shared/types/scripting";
-import { createHelperLibrary } from "../services/scripting/HelperLibrary";
+
 import { createLogger } from "../logger";
+import { createHelperLibrary } from "../services/scripting/HelperLibrary";
 
 const logger = createLogger({ module: "enhanced-sandbox" });
 
@@ -50,13 +52,20 @@ async function runJsWithHelpers(
   const helperLib = createHelperLibrary({ consoleEnabled });
   const actualHelpers = helpers || helperLib.helpers;
 
-  let ivm: any;
+  let ivm: typeof import("isolated-vm") | undefined;
   try {
-    // @ts-ignore
     ivm = await import("isolated-vm");
   } catch (error) {
     logger.warn({ error }, "isolated-vm not found, falling back to node 'vm' module");
-    return runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
+    const result = await runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
+    // Merge logs from helper library (which captures helpers.console.* calls)
+    if (helperLib.getConsoleLogs) {
+      const libLogs = helperLib.getConsoleLogs();
+      if (libLogs && libLogs.length > 0) {
+        result.consoleLogs = [...(result.consoleLogs || []), ...libLogs];
+      }
+    }
+    return result;
   }
 
   // Create or reuse Isolate
@@ -76,11 +85,11 @@ async function runJsWithHelpers(
   try {
     const inputJson = JSON.stringify(input);
     if (inputJson.length > MAX_INPUT_SIZE) {
-      if (disposeIsolate) isolate.dispose();
+      if (disposeIsolate) { isolate.dispose(); }
       return { ok: false, error: `Input size exceeds ${MAX_INPUT_SIZE / 1024}KB limit` };
     }
   } catch (e) {
-    if (disposeIsolate) isolate.dispose();
+    if (disposeIsolate) { isolate.dispose(); }
     return { ok: false, error: "InputSerializationError: Input must be JSON serializable" };
   }
 
@@ -102,7 +111,7 @@ async function runJsWithHelpers(
 
     // Helper to get structure
     const getStructure = (obj: any): any => {
-      if (typeof obj === 'function') return '__fn__';
+      if (typeof obj === 'function') { return '__fn__'; }
       if (typeof obj === 'object' && obj !== null) {
         const struct: any = {};
         for (const k of Object.keys(obj)) {
@@ -115,6 +124,19 @@ async function runJsWithHelpers(
 
     const helpersStructure = getStructure(actualHelpers);
     await jail.set("_helpersStructure", new ivm.ExternalCopy(helpersStructure).copyInto());
+
+    // Setup emit callback
+    let emittedValue: any = undefined;
+    await jail.set("_emitCallback", new ivm.Reference((val: any) => {
+      // Handle potential reference if val is object
+      // But typically we want the value. ivm passes value for primitives, Reference for objects?
+      // Actually with primitives it passes value.
+      // If it's a reference, we should probably copy it immediately?
+      // But Reference.copy() returns promise. Reference in callback?
+      // Let's assume we can store it and copy later if needed, or better, Request Copy in arguments?
+      // We can use same trick as callHost?
+      emittedValue = val;
+    }));
 
 
 
@@ -132,7 +154,7 @@ async function runJsWithHelpers(
     // If we define:
     // jail.setSync("callHost", new ivm.Reference( (path, ...args) => ... ));
 
-    await jail.set("callHost", new ivm.Reference(function (path: string[], ...args: any[]) {
+    await jail.set("callHost", new ivm.Reference((path: string[], ...args: any[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
       let target: any = actualHelpers;
@@ -152,7 +174,7 @@ async function runJsWithHelpers(
       const res = fn(...args);
 
       // Handle void return (undefined)
-      if (res === undefined) return undefined;
+      if (res === undefined) { return undefined; }
 
       return new ivm.ExternalCopy(res).copyInto();
     }));
@@ -178,6 +200,15 @@ async function runJsWithHelpers(
       
       const helpers = buildHelpers(_helpersStructure);
       
+      // Define global emit
+      global.emit = function(val) {
+         try {
+           _emitCallback.applySync(undefined, [val], { arguments: { copy: true } });
+         } catch (e) {
+           // Ignore emit errors or log?
+         }
+      };
+      
       // Wrap user code
       (function(input, context, helpers) {
          ${code}
@@ -191,7 +222,7 @@ async function runJsWithHelpers(
     const cacheKey = code;
     let script: any;
 
-    if (scriptCache && scriptCache.has(cacheKey)) {
+    if (scriptCache?.has(cacheKey)) {
       script = scriptCache.get(cacheKey);
     } else {
       script = await isolate.compileScript(bootstrapCode);
@@ -211,7 +242,11 @@ async function runJsWithHelpers(
 
     // Unpack result if needed (same as runJsIsolatedVm)
     let output = resultRef;
-    if (typeof resultRef === 'object' && resultRef !== null && typeof resultRef.copy === 'function') {
+
+    // Prioritize emitted value if exists
+    if (emittedValue !== undefined) {
+      output = emittedValue;
+    } else if (typeof resultRef === 'object' && resultRef !== null && typeof resultRef.copy === 'function') {
       output = await resultRef.copy();
     }
 
@@ -220,7 +255,7 @@ async function runJsWithHelpers(
 
     return {
       ok: true,
-      output: output as any,
+      output: output,
       consoleLogs: helperLib.getConsoleLogs ? helperLib.getConsoleLogs() : undefined,
       durationMs,
     };
@@ -670,6 +705,10 @@ async function runJsWithVmFallback(
       warn: (...args: any[]) => consoleLogs.push(['[WARN]', ...args]),
       error: (...args: any[]) => consoleLogs.push(['[ERROR]', ...args]),
       info: (...args: any[]) => consoleLogs.push(['[INFO]', ...args]),
+    },
+    emit: (val: any) => {
+      // Mimic emit behavior: captures the value as the result
+      (sandbox as any).__emitResult__ = val;
     }
   };
 
@@ -689,7 +728,7 @@ async function runJsWithVmFallback(
 
     return {
       ok: true,
-      output: result,
+      output: (sandbox as any).__emitResult__ !== undefined ? (sandbox as any).__emitResult__ : result,
       consoleLogs: consoleLogs.length > 0 ? consoleLogs : undefined,
       durationMs: Date.now() - startTime
     };

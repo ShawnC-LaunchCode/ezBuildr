@@ -1,14 +1,17 @@
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from '../../server/db';
-import { workflowService } from '../../server/services/WorkflowService';
-import { readTableBlockService } from '../../server/services/ReadTableBlockService';
-import { stepService } from '../../server/services/StepService';
-import { sectionRepository, stepRepository, workflowRepository, blockRepository } from '../../server/repositories';
-import { users, tenants } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { users, tenants } from '@shared/schema';
 import type { ChoiceAdvancedConfig } from '@shared/types/stepConfigs';
+
+import { db } from '../../server/db';
+import { sectionRepository, stepRepository, workflowRepository, blockRepository } from '../../server/repositories';
+import { readTableBlockService } from '../../server/services/ReadTableBlockService';
+import { stepService } from '../../server/services/StepService';
+import { workflowService } from '../../server/services/WorkflowService';
+
 
 describe('Dynamic Options Integration Flow', () => {
     let userId: string;
@@ -48,9 +51,9 @@ describe('Dynamic Options Integration Flow', () => {
 
     afterAll(async () => {
         // Cleanup
-        if (workflowId) await workflowService.deleteWorkflow(workflowId, userId);
-        if (userId) await db.delete(users).where(eq(users.id, userId));
-        if (tenantId) await db.delete(tenants).where(eq(tenants.id, tenantId));
+        if (workflowId) {await workflowService.deleteWorkflow(workflowId, userId);}
+        if (userId) {await db.delete(users).where(eq(users.id, userId));}
+        if (tenantId) {await db.delete(tenants).where(eq(tenants.id, tenantId));}
     });
 
     it('should successfully configure a workflow with Read Table -> Dynamic Choice', async () => {
@@ -97,7 +100,7 @@ describe('Dynamic Options Integration Flow', () => {
 
         expect(choiceStep).toBeDefined();
         // The step stores the config in the 'options' column
-        const storedOptions = choiceStep.options as unknown as ChoiceAdvancedConfig;
+        const storedOptions = choiceStep.options as ChoiceAdvancedConfig;
         expect((storedOptions.options as any).type).toBe('list');
         expect((storedOptions.options as any).listVariable).toBe('userList');
     });

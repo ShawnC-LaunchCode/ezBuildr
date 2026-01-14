@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { workflowSnapshots } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+import { workflowSnapshots } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 export type WorkflowSnapshot = typeof workflowSnapshots.$inferSelect;
 export type InsertWorkflowSnapshot = typeof workflowSnapshots.$inferInsert;
@@ -31,7 +34,7 @@ export class SnapshotRepository extends BaseRepository<
    */
   async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowSnapshot[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(workflowSnapshots)
       .where(eq(workflowSnapshots.workflowId, workflowId))

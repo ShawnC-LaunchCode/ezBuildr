@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+dist/
+build/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.*
+
+# Build artifacts
+*.tsbuildinfo
+*.js.map
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Generated files
+migrations/**/*.sql
+*.d.ts
+
+# Vite
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Legacy code exceptions (to be removed gradually)
+# IMPORTANT: Add files here only temporarily during migration
+# Each file should have a ticket/issue number and target date for compliance
+
+# External/vendor code
+client/src/lib/external/
+server/lib/external/
+
+# Generated schema files (reviewed separately)
+shared/schema.ts
+
+# Migration scripts (reviewed separately)
+scripts/migration*.ts
+scripts/*Migration*.ts

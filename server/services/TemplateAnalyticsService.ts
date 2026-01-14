@@ -27,9 +27,10 @@
  * ```
  */
 
-import { db } from '../db';
-import { templateGenerationMetrics, templates, workflowRuns } from '../../shared/schema';
 import { eq, and, desc, gte, sql, count } from 'drizzle-orm';
+
+import { templateGenerationMetrics, templates, workflowRuns } from '../../shared/schema';
+import { db } from '../db';
 import { logger } from '../logger';
 
 // ============================================================================

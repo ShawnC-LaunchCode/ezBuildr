@@ -333,6 +333,7 @@ export interface ValidateScriptParams {
 export interface ValidateScriptResult {
   valid: boolean;
   error?: string;
+  warnings?: string[];
 }
 
 // ===================================================================

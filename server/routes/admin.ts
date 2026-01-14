@@ -1,8 +1,10 @@
 
-import { Router } from "express";
-import { db } from "../db";
-import { organizations, workspaces, users } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+import { Router } from "express";
+
+import { organizations, workspaces, users } from "@shared/schema";
+
+import { db } from "../db";
 
 const router = Router();
 
@@ -32,17 +34,27 @@ router.post("/organizations", async (req, res) => {
     const { name, slug, domain } = req.body;
 
     try {
+        const { user } = req as any;
+        const tenantId = user?.tenantId;
+
+        if (!tenantId) {
+            return res.status(400).json({ error: "Super Admin has no tenant context" });
+        }
+
         const [org] = await db.insert(organizations).values({
             name,
             slug,
-            domain
+            domain,
+            tenantId,
+            createdByUserId: user.id
         }).returning();
 
         // Auto-create default workspace
         await db.insert(workspaces).values({
             organizationId: org.id,
             name: "Default Workspace",
-            slug: "default"
+            slug: "default",
+            tenantId
         });
 
         res.json(org);

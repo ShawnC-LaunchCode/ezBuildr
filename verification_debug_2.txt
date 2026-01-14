@@ -1,0 +1,209 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+> ezbuildr@1.0.0 test
+> cross-env VITEST_INTEGRATION=true vitest run --coverage tests/integration/api.snapshots.test.ts tests/integration/api.ai.doc.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768338970041,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768338970045,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mΓ£à OpenAPI specification loaded successfully
+
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39mΓ£à OpenAPI specification loaded successfully
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w1
+[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.
+
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+
+{"level":30,"time":1768338974846,"env":"test","msg":"DB: initializing... Local"}
+{"level":20,"time":1768338974846,"env":"test","msg":"DB: importing pg..."}
+{"level":20,"time":1768338974846,"env":"test","msg":"DB: creating pool..."}
+{"level":20,"time":1768338974846,"env":"test","msg":"DB: importing drizzle..."}
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w1 (Reused: true)
+
+{"level":30,"time":1768338974856,"env":"test","msg":"DB: initializing... Local"}
+{"level":20,"time":1768338974856,"env":"test","msg":"DB: importing pg..."}
+{"level":20,"time":1768338974856,"env":"test","msg":"DB: creating pool..."}
+{"level":20,"time":1768338974857,"env":"test","msg":"DB: importing drizzle..."}
+{"level":20,"time":1768338974878,"env":"test","msg":"DB: created."}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768338974878,"env":"test","msg":"DB: initialized flag set."}
+{"level":20,"time":1768338974890,"env":"test","msg":"DB: created."}
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39mΓ£à Database initialized for tests
+ΓÅ⌐ Schema reused, skipping migrations.
+
+{"level":30,"time":1768338974890,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768338975381,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768338975392,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
+{"level":30,"time":1768338975397,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts[2m > [22m[2mStage 13: Workflow Snapshots & Versioning
+[22m[39m≡ƒôÜ API Documentation available at /api-docs
+[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768338975387,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768338975388,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768338975392,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768338975397,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768338975397,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768338975397,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768338975397,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+{"level":30,"time":1768338975407,"env":"test","msg":"Real-time collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts[2m > [22m[2mAI Document Assistant API Integration Tests
+[22m[39m≡ƒôÜ API Documentation available at /api-docs
+[Routes] E-Signature routes registered at /api/esign
+
+{"level":30,"time":1768338975399,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
+{"level":30,"time":1768338975399,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
+{"level":30,"time":1768338975403,"env":"test","module":"documents-routes","msg":"Document routes registered"}
+{"level":30,"time":1768338975407,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
+{"level":40,"time":1768338975407,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
+{"level":30,"time":1768338975407,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
+{"level":30,"time":1768338975407,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts[2m > [22m[2mAI Document Assistant API Integration Tests[2m > [22m[2mPOST /api/ai/doc/analyze[2m > [22m[2mshould analyze a DOCX file and return variables
+[22m[39mFAIL_STATUS: 500
+FAIL_BODY: {}
+
+stderr | tests/integration/api.ai.doc.test.ts > AI Document Assistant API Integration Tests > POST /api/ai/doc/analyze > should analyze a DOCX file and return variables
+AI Analysis Failed Text: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>TypeError: Right-hand side of &#39;instanceof&#39; is not an object<br> &nbsp; &nbsp;at C:/Users/scoot/poll/VaultLogic/server/routes/ai.doc.routes.ts:83:13<br> &nbsp; &nbsp;at C:/Users/scoot/poll/VaultLogic/tests/integration/api.ai.doc.test.ts:52:13<br> &nbsp; &nbsp;at C:/Users/scoot/poll/VaultLogic/server/routes/ai.doc.routes.ts:79:25<br> &nbsp; &nbsp;at Layer.handle [as handle_request] (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\layer.js:95:5)<br> &nbsp; &nbsp;at next (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\route.js:149:13)<br> &nbsp; &nbsp;at Route.dispatch (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\route.js:119:3)<br> &nbsp; &nbsp;at Layer.handle [as handle_request] (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\layer.js:95:5)<br> &nbsp; &nbsp;at C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\index.js:284:15<br> &nbsp; &nbsp;at router.process_params (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\index.js:346:12)<br> &nbsp; &nbsp;at next (C:\Users\scoot\poll\VaultLogic\node_modules\express\lib\router\index.js:280:10)</pre>
+</body>
+</html>
+
+
+{"level":30,"time":1768338975460,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/api.ai.doc.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768338975460,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/api.ai.doc.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 1030[2mms[22m[39m
+[31m       [31m├ù[31m should analyze a DOCX file and return variables[39m[32m 26[2mms[22m[39m
+[31m       [31m├ù[31m should fail if no file is provided[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should suggest mappings between template and workflow variables[32m 13[2mms[22m[39m
+       [32mΓ£ô[39m should return improvement suggestions[32m 3[2mms[22m[39m
+{"level":50,"time":1768338975825,"env":"test","module":"auth-middleware","error":{"name":"UnauthorizedError","code":"AUTH_008","statusCode":401,"isOperational":true},"msg":"Hybrid auth error"}
+stderr | tests/integration/api.snapshots.test.ts > Stage 13: Workflow Snapshots & Versioning > should maintain immutability of runs across versions
+Run Fetch Failed Body: {
+  "success": false,
+  "error": {
+    "code": "AUTH_008",
+    "message": "Authentication required",
+    "details": {
+      "errorType": "UnauthorizedError"
+    },
+    "timestamp": "2026-01-13T21:16:15.826Z"
+  }
+}
+Run Fetch Failed Text: {"success":false,"error":{"code":"AUTH_008","message":"Authentication required","details":{"errorType":"UnauthorizedError"},"timestamp":"2026-01-13T21:16:15.826Z"}}
+
+{"level":30,"time":1768338975949,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/api.snapshots.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768338975950,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/api.snapshots.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 1513[2mms[22m[39m
+[31m     [31m├ù[31m should maintain immutability of runs across versions[39m[32m 256[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 3 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/api.ai.doc.test.ts > AI Document Assistant API Integration Tests > POST /api/ai/doc/analyze > should analyze a DOCX file and return variables
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ Γ¥» tests/integration/api.ai.doc.test.ts:154:37
+    152|                 }
+    153|             }
+    154|             expect(response.status).toBe(200);
+       |                                     ^
+    155| 
+    156|             expect(response.body.data).toHaveProperty("variables");
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/3]ΓÄ»
+
+ FAIL  tests/integration/api.ai.doc.test.ts > AI Document Assistant API Integration Tests > POST /api/ai/doc/analyze > should fail if no file is provided
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/api.ai.doc.test.ts:179:18
+    177|             await request(baseURL)
+    178|                 .post("/api/ai/doc/analyze")
+    179|                 .expect(400);
+       |                  ^
+    180|         });
+    181|     });
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» node_modules/supertest/lib/test.js:156:7
+ Γ¥» Test.Request.callback node_modules/superagent/lib/node/index.js:857:3
+ Γ¥» IncomingMessage.<anonymous> node_modules/superagent/lib/node/index.js:1102:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/3]ΓÄ»
+
+ FAIL  tests/integration/api.snapshots.test.ts > Stage 13: Workflow Snapshots & Versioning > should maintain immutability of runs across versions
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ Γ¥» tests/integration/api.snapshots.test.ts:196:37
+    194|             console.error("Run Fetch Failed Text:", run1Response.text);
+    195|         }
+    196|         expect(run1Response.status).toBe(200);
+       |                                     ^
+    197|         const run1Graph = run1Response.body.workflowVersion.graphJson;
+    198|         expect(run1Graph.nodes[0].config.question).toBe('Version 1 QueΓÇª
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/3]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 15:16:07
+[2m   Duration [22m 14.69s[2m (transform 5.38s, setup 253ms, import 12.60s, tests 2.54s, environment 0ms)[22m
+

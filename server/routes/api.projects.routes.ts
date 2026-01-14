@@ -1,5 +1,6 @@
-import type { Express } from "express";
 import projectsRouter from "../api/projects";
+
+import type { Express } from "express";
 
 /**
  * Register Stage 4 Projects API routes

@@ -3,10 +3,14 @@
  * Dynamic form for creating/editing collection records
  */
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,10 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { ApiCollectionField, ApiCollectionRecord } from "@/lib/vault-api";
 
 interface RecordEditorModalProps {
@@ -103,8 +104,8 @@ export function RecordEditorModal({
       .filter((field) => field.isRequired)
       .filter((field) => {
         const value = formData[field.slug];
-        if (value === null || value === undefined || value === "") return true;
-        if (Array.isArray(value) && value.length === 0) return true;
+        if (value === null || value === undefined || value === "") {return true;}
+        if (Array.isArray(value) && value.length === 0) {return true;}
         return false;
       })
       .map((field) => field.name);

@@ -1,9 +1,10 @@
-import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository, type DbTransaction } from "../../repositories";
 import type { WriteBlockConfig, WriteResult, ColumnMapping, BlockContext } from "@shared/types/blocks";
-import { createLogger } from "../../logger";
+
 import { db } from "../../db";
-import { resolveSingleValue, resolveColumnMappings } from "../shared/variableResolver";
+import { createLogger } from "../../logger";
+import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository, type DbTransaction } from "../../repositories";
 import { datavaultRowsService } from "../../services/DatavaultRowsService";
+import { resolveSingleValue, resolveColumnMappings } from "../shared/variableResolver";
 
 const logger = createLogger({ module: "write-runner" });
 
@@ -199,7 +200,7 @@ export class WriteRunner {
         tx: DbTransaction,
         forUpdate: boolean = false
     ): Promise<string | null> {
-        return await datavaultRowsRepository.findRowByColumnValue(tableId, columnId, value, tenantId, tx, forUpdate);
+        return datavaultRowsRepository.findRowByColumnValue(tableId, columnId, value, tenantId, tx, forUpdate);
     }
 
     /**

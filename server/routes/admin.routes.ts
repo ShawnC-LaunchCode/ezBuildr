@@ -1,13 +1,14 @@
-import type { Express, Request, Response } from "express";
+import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
 import { userRepository } from "../repositories/UserRepository";
 import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
-import { ActivityLogService } from "../services/ActivityLogService";
 import { accountLockoutService } from "../services/AccountLockoutService";
+import { ActivityLogService } from "../services/ActivityLogService";
 import { mfaService } from "../services/MfaService";
-import { createLogger } from "../logger";
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'admin-routes' });
 const activityLogService = new ActivityLogService();
@@ -40,7 +41,7 @@ export function registerAdminRoutes(app: Express): void {
       const usersWithStats = await userRepository.findAllUsersWithWorkflowCounts();
 
       logger.info(
-        { adminId: req.adminUser!.id, userCount: usersWithStats.length },
+        { adminId: req.adminUser.id, userCount: usersWithStats.length },
         'Admin fetched all users'
       );
 
@@ -71,7 +72,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       // Prevent self-demotion
-      if (userId === req.adminUser!.id && role === 'creator') {
+      if (userId === req.adminUser.id && role === 'creator') {
         return res.status(400).json({
           message: "You cannot demote yourself from admin"
         });
@@ -95,7 +96,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           targetUserId: userId,
           newRole: role,
           oldRole: role === 'admin' ? 'creator' : 'admin'
@@ -152,7 +153,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           targetUserId: userId,
           targetEmail: user.email
         },
@@ -205,7 +206,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.warn(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           targetUserId: userId,
           targetEmail: user.email
         },
@@ -249,7 +250,7 @@ export function registerAdminRoutes(app: Express): void {
       const workflows = await workflowRepository.findByCreatorId(userId);
 
       logger.info(
-        { adminId: req.adminUser!.id, targetUserId: userId, workflowCount: workflows.length },
+        { adminId: req.adminUser.id, targetUserId: userId, workflowCount: workflows.length },
         'Admin fetched user workflows'
       );
 
@@ -293,7 +294,7 @@ export function registerAdminRoutes(app: Express): void {
       const allWorkflows = await workflowRepository.findAll();
 
       const workflowsWithCreators = allWorkflows.map((workflow) => {
-        const user = userMap.get(workflow.creatorId);
+        const user = workflow.creatorId ? userMap.get(workflow.creatorId) : null;
         return {
           ...workflow,
           creator: user ? {
@@ -311,7 +312,7 @@ export function registerAdminRoutes(app: Express): void {
       });
 
       logger.info(
-        { adminId: req.adminUser!.id, workflowCount: workflowsWithCreators.length },
+        { adminId: req.adminUser.id, workflowCount: workflowsWithCreators.length },
         'Admin fetched all workflows'
       );
 
@@ -339,7 +340,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       logger.info(
-        { adminId: req.adminUser!.id, workflowId: req.params.workflowId },
+        { adminId: req.adminUser.id, workflowId: req.params.workflowId },
         'Admin fetched workflow details'
       );
 
@@ -372,7 +373,7 @@ export function registerAdminRoutes(app: Express): void {
       const runs = await workflowRunRepository.findByWorkflowId(req.params.workflowId);
 
       logger.info(
-        { adminId: req.adminUser!.id, workflowId: req.params.workflowId, runCount: runs.length },
+        { adminId: req.adminUser.id, workflowId: req.params.workflowId, runCount: runs.length },
         'Admin fetched workflow runs'
       );
 
@@ -411,7 +412,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.warn(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           workflowId: req.params.workflowId,
           workflowTitle: workflow.title,
           deletedRuns: runCount
@@ -463,7 +464,7 @@ export function registerAdminRoutes(app: Express): void {
         inProgressRuns: runStats.inProgress,
       };
 
-      logger.info({ adminId: req.adminUser!.id }, "Admin fetched system stats");
+      logger.info({ adminId: req.adminUser.id }, "Admin fetched system stats");
 
       res.json(stats);
     } catch (error) {
@@ -504,7 +505,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           query,
           resultCount: result.rows.length,
           total: result.total
@@ -546,7 +547,7 @@ export function registerAdminRoutes(app: Express): void {
       const { filename, csv } = await activityLogService.exportCsv(query);
 
       logger.info(
-        { adminId: req.adminUser!.id, query, filename },
+        { adminId: req.adminUser.id, query, filename },
         'Admin exported activity logs to CSV'
       );
 
@@ -572,7 +573,7 @@ export function registerAdminRoutes(app: Express): void {
       const events = await activityLogService.getUniqueEvents();
 
       logger.info(
-        { adminId: req.adminUser!.id, eventCount: events.length },
+        { adminId: req.adminUser.id, eventCount: events.length },
         'Admin fetched unique event types'
       );
 
@@ -596,7 +597,7 @@ export function registerAdminRoutes(app: Express): void {
       const actors = await activityLogService.getUniqueActors();
 
       logger.info(
-        { adminId: req.adminUser!.id, actorCount: actors.length },
+        { adminId: req.adminUser.id, actorCount: actors.length },
         'Admin fetched unique actors'
       );
 
@@ -640,7 +641,7 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info(
         {
-          adminId: req.adminUser!.id,
+          adminId: req.adminUser.id,
           tenantId,
           mfaRequired: required
         },

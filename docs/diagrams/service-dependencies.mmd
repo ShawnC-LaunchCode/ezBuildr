@@ -1,0 +1,301 @@
+graph TB
+    %% Core Workflow Services
+    WorkflowService[WorkflowService]
+    SectionService[SectionService]
+    StepService[StepService]
+    RunService[RunService]
+    LogicService[LogicService]
+    VariableService[VariableService]
+
+    %% Execution Services
+    BlockRunner[BlockRunner]
+    IntakeService[IntakeService]
+    IntakeNavigationService[IntakeNavigationService]
+    IntakeQuestionVisibilityService[IntakeQuestionVisibilityService]
+    TransformBlockService[TransformBlockService]
+    QueryBlockService[QueryBlockService]
+
+    %% Scripting Services (Prompt 12)
+    ScriptEngine[ScriptEngine]
+    HelperLibrary[HelperLibrary]
+    LifecycleHookService[LifecycleHookService]
+    DocumentHookService[DocumentHookService]
+    ScriptContext[ScriptContext]
+
+    %% DataVault Services
+    DatavaultDatabasesService[DatavaultDatabasesService]
+    DatavaultTablesService[DatavaultTablesService]
+    DatavaultRowsService[DatavaultRowsService]
+    DatavaultTablePermissionsService[DatavaultTablePermissionsService]
+    DatavaultApiTokensService[DatavaultApiTokensService]
+    DatavaultRowNotesService[DatavaultRowNotesService]
+
+    %% Document Services
+    DocumentGenerationService[DocumentGenerationService]
+    DocumentTemplateService[DocumentTemplateService]
+    DocumentEngine[DocumentEngine]
+    EnhancedDocumentEngine[EnhancedDocumentEngine]
+    TemplateParser[TemplateParser]
+    PdfConverter[PdfConverter]
+
+    %% AI Services
+    AIService[AIService]
+    GeminiService[GeminiService]
+    WorkflowOptimizationService[WorkflowOptimizationService]
+    TemplateAnalysisService[TemplateAnalysisService]
+
+    %% Integration Services
+    ConnectionService[ConnectionService]
+    SecretService[SecretService]
+    OAuth2Service[OAuth2Service]
+    ExternalDestinationService[ExternalDestinationService]
+    WebhookService[WebhookService]
+
+    %% E-Signature Services
+    SignatureBlockService[SignatureBlockService]
+    EsignProvider[EsignProvider]
+    DocusignProvider[DocusignProvider]
+    SignatureRequestService[SignatureRequestService]
+
+    %% Auth & Security Services
+    AuthService[AuthService]
+    AclService[AclService]
+    PortalAuthService[PortalAuthService]
+    CaptchaService[CaptchaService]
+
+    %% Analytics Services
+    AnalyticsService[AnalyticsService]
+    DropoffService[DropoffService]
+    BranchingService[BranchingService]
+    HeatmapService[HeatmapService]
+    AggregationService[AggregationService]
+
+    %% Template Services
+    TemplateService[TemplateService]
+    TemplateSharingService[TemplateSharingService]
+    TemplateTestService[TemplateTestService]
+    WorkflowTemplateService[WorkflowTemplateService]
+
+    %% Business Services
+    ProjectService[ProjectService]
+    TeamService[TeamService]
+    ReviewTaskService[ReviewTaskService]
+    BrandingService[BrandingService]
+
+    %% Utility Services
+    ActivityLogService[ActivityLogService]
+    EmailService[EmailService]
+    FileService[FileService]
+    UserPreferencesService[UserPreferencesService]
+    PdfQueueService[PdfQueueService]
+
+    %% Versioning Services
+    VersionService[VersionService]
+    SnapshotService[SnapshotService]
+    WorkflowClonerService[WorkflowClonerService]
+
+    %% Repositories
+    WorkflowRepository[(WorkflowRepository)]
+    StepRepository[(StepRepository)]
+    RunRepository[(RunRepository)]
+    DatavaultRepository[(DatavaultRepository)]
+    UserRepository[(UserRepository)]
+
+    %% Core Workflow Dependencies
+    WorkflowService --> SectionService
+    WorkflowService --> LogicService
+    WorkflowService --> VariableService
+    WorkflowService --> WorkflowRepository
+
+    SectionService --> StepService
+    SectionService --> WorkflowRepository
+
+    StepService --> VariableService
+    StepService --> StepRepository
+
+    RunService --> WorkflowService
+    RunService --> StepService
+    RunService --> BlockRunner
+    RunService --> IntakeService
+    RunService --> TransformBlockService
+    RunService --> LifecycleHookService
+    RunService --> DocumentHookService
+    RunService --> RunRepository
+
+    %% Execution Flow
+    BlockRunner --> StepService
+    BlockRunner --> QueryBlockService
+    BlockRunner --> TransformBlockService
+    BlockRunner --> ScriptEngine
+
+    IntakeService --> IntakeNavigationService
+    IntakeService --> IntakeQuestionVisibilityService
+    IntakeService --> RunService
+
+    IntakeNavigationService --> LogicService
+    IntakeQuestionVisibilityService --> LogicService
+    IntakeQuestionVisibilityService --> VariableService
+
+    %% Scripting System Dependencies
+    ScriptEngine --> HelperLibrary
+    ScriptEngine --> ScriptContext
+
+    LifecycleHookService --> ScriptEngine
+    LifecycleHookService --> RunService
+
+    DocumentHookService --> ScriptEngine
+    DocumentHookService --> DocumentGenerationService
+
+    TransformBlockService --> ScriptEngine
+    TransformBlockService --> VariableService
+
+    %% DataVault Dependencies
+    DatavaultTablesService --> DatavaultDatabasesService
+    DatavaultRowsService --> DatavaultTablesService
+    DatavaultRowsService --> DatavaultTablePermissionsService
+    DatavaultRowsService --> AclService
+    DatavaultRowNotesService --> DatavaultRowsService
+    DatavaultApiTokensService --> AuthService
+
+    QueryBlockService --> DatavaultRowsService
+    QueryBlockService --> DatavaultTablesService
+
+    %% Document Generation Dependencies
+    DocumentGenerationService --> DocumentEngine
+    DocumentGenerationService --> EnhancedDocumentEngine
+    DocumentGenerationService --> TemplateParser
+    DocumentGenerationService --> RunService
+    DocumentGenerationService --> DocumentHookService
+
+    DocumentEngine --> TemplateParser
+    DocumentEngine --> PdfConverter
+
+    EnhancedDocumentEngine --> TemplateParser
+    EnhancedDocumentEngine --> VariableService
+
+    %% AI Service Dependencies
+    AIService --> GeminiService
+    AIService --> WorkflowService
+    AIService --> StepService
+
+    WorkflowOptimizationService --> AIService
+    WorkflowOptimizationService --> WorkflowService
+
+    TemplateAnalysisService --> AIService
+    TemplateAnalysisService --> TemplateParser
+
+    %% Integration Dependencies
+    ConnectionService --> SecretService
+    ConnectionService --> OAuth2Service
+
+    ExternalDestinationService --> ConnectionService
+    ExternalDestinationService --> SecretService
+
+    WebhookService --> ConnectionService
+
+    %% E-Signature Dependencies
+    SignatureBlockService --> SignatureRequestService
+    SignatureBlockService --> RunService
+
+    SignatureRequestService --> EsignProvider
+    SignatureRequestService --> DocusignProvider
+    SignatureRequestService --> DocumentGenerationService
+
+    %% Auth Dependencies
+    AuthService --> UserRepository
+
+    AclService --> AuthService
+    AclService --> TeamService
+    AclService --> ProjectService
+
+    PortalAuthService --> AuthService
+    PortalAuthService --> EmailService
+
+    %% Analytics Dependencies
+    AnalyticsService --> RunService
+    AnalyticsService --> WorkflowService
+
+    DropoffService --> RunService
+    DropoffService --> StepService
+
+    BranchingService --> LogicService
+    BranchingService --> RunService
+
+    HeatmapService --> RunService
+    HeatmapService --> AnalyticsService
+
+    AggregationService --> AnalyticsService
+
+    %% Template Dependencies
+    TemplateService --> WorkflowService
+    TemplateService --> TemplateSharingService
+
+    TemplateTestService --> TemplateService
+    TemplateTestService --> RunService
+
+    WorkflowTemplateService --> WorkflowService
+    WorkflowTemplateService --> TemplateService
+
+    %% Business Logic Dependencies
+    ProjectService --> TeamService
+    ProjectService --> AclService
+
+    TeamService --> UserRepository
+
+    ReviewTaskService --> RunService
+    ReviewTaskService --> EmailService
+    ReviewTaskService --> TeamService
+
+    BrandingService --> ProjectService
+
+    %% Utility Dependencies
+    ActivityLogService --> UserRepository
+
+    EmailService --> BrandingService
+
+    FileService --> ProjectService
+
+    PdfQueueService --> DocumentGenerationService
+
+    %% Versioning Dependencies
+    VersionService --> WorkflowService
+    VersionService --> WorkflowRepository
+
+    SnapshotService --> RunService
+    SnapshotService --> WorkflowService
+
+    WorkflowClonerService --> WorkflowService
+    WorkflowClonerService --> SectionService
+    WorkflowClonerService --> StepService
+
+    %% Color Coding by Domain
+    style WorkflowService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style SectionService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style StepService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style RunService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style LogicService fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+
+    style DatavaultDatabasesService fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style DatavaultTablesService fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style DatavaultRowsService fill:#fff3e0,stroke:#e65100,stroke-width:2px
+
+    style ScriptEngine fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style LifecycleHookService fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style DocumentHookService fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style HelperLibrary fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    style DocumentGenerationService fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style DocumentEngine fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style TemplateParser fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+
+    style AIService fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style GeminiService fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style WorkflowOptimizationService fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    style AuthService fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style AclService fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style PortalAuthService fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+
+    style AnalyticsService fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style DropoffService fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style HeatmapService fill:#e0f2f1,stroke:#004d40,stroke-width:2px

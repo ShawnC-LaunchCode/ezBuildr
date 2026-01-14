@@ -2,12 +2,14 @@
  * ConnectionsPanel - View and manage edges/connections between nodes
  */
 
-import { useBuilderStore } from '../store/useBuilderStore';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Trash2 } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+import { useBuilderStore } from '../store/useBuilderStore';
 
 export function ConnectionsPanel() {
   const { nodes, edges, setEdges } = useBuilderStore();

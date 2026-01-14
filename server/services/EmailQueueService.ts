@@ -1,9 +1,12 @@
 
-import { db } from "../db";
-import { emailQueue } from "@shared/schema";
-import { eq, and, lt, or } from "drizzle-orm";
-import { createLogger } from "../logger";
 import sgMail from '@sendgrid/mail';
+import { eq, and, lt, or } from "drizzle-orm";
+
+import { emailQueue } from "@shared/schema";
+
+import { db } from "../db";
+import { createLogger } from "../logger";
+
 
 const logger = createLogger({ module: 'email-queue' });
 
@@ -46,7 +49,7 @@ export class EmailQueueService {
      * Start the worker
      */
     startWorker(intervalMs: number = 5000) {
-        if (this.pollInterval) return;
+        if (this.pollInterval) {return;}
 
         logger.info({ intervalMs }, 'Starting email queue worker');
         this.pollInterval = setInterval(() => this.processQueue(), intervalMs);
@@ -67,7 +70,7 @@ export class EmailQueueService {
      * Process pending jobs
      */
     private async processQueue() {
-        if (this.isProcessing) return;
+        if (this.isProcessing) {return;}
         this.isProcessing = true;
 
         try {
@@ -134,8 +137,8 @@ export class EmailQueueService {
 
             // Exponential backoff: 1m, 5m, 15m
             const nextAttempt = new Date();
-            if (attempts === 1) nextAttempt.setMinutes(nextAttempt.getMinutes() + 1);
-            else if (attempts === 2) nextAttempt.setMinutes(nextAttempt.getMinutes() + 5);
+            if (attempts === 1) {nextAttempt.setMinutes(nextAttempt.getMinutes() + 1);}
+            else if (attempts === 2) {nextAttempt.setMinutes(nextAttempt.getMinutes() + 5);}
 
             await db.update(emailQueue)
                 .set({

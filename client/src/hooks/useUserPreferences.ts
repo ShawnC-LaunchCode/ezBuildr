@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { getQueryFn } from "@/lib/queryClient";
 import { useEffect } from "react";
+
+import { getQueryFn } from "@/lib/queryClient";
 
 export interface UserPreferences {
   celebrationEffects?: boolean;

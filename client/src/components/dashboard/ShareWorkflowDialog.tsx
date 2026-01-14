@@ -1,16 +1,17 @@
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Check, Copy, UserPlus, X, Shield, ShieldAlert, Eye } from "lucide-react";
+import React, { useState } from "react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, Copy, UserPlus, X, Shield, ShieldAlert, Eye } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
 
 interface ShareWorkflowDialogProps {
     open: boolean;
@@ -49,7 +50,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
     };
 
     const handleInvite = () => {
-        if (!inviteEmail.trim()) return;
+        if (!inviteEmail.trim()) {return;}
 
         // Simulate api call
         setTimeout(() => {

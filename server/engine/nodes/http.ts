@@ -3,17 +3,19 @@
  * Handles HTTP/API requests with authentication, retries, and response mapping
  */
 
-import type { EvalContext } from '../expr';
-import { evaluateExpression } from '../expr';
-import { resolveConnection as resolveOldConnection } from '../../services/externalConnections';
-import { resolveConnection as resolveNewConnection, markConnectionUsed } from '../../services/connections';
-import { getSecretValue } from '../../services/secrets';
-import { getOAuth2Token } from '../../services/oauth2';
-import { httpCache } from '../../services/cache';
-import { select, selectMultiple } from '../../utils/jsonselect';
-import { redactObject } from '../../utils/encryption';
 import crypto from 'crypto';
+
 import { logger } from '../../logger';
+import { httpCache } from '../../services/cache';
+import { resolveConnection as resolveNewConnection, markConnectionUsed } from '../../services/connections';
+import { resolveConnection as resolveOldConnection } from '../../services/externalConnections';
+import { getOAuth2Token } from '../../services/oauth2';
+import { getSecretValue } from '../../services/secrets';
+import { redactObject } from '../../utils/encryption';
+import { select, selectMultiple } from '../../utils/jsonselect';
+import { evaluateExpression } from '../expr';
+
+import type { EvalContext } from '../expr';
 
 /**
  * HTTP Node Configuration
@@ -93,7 +95,7 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
 
   try {
     // IDEMPOTENCY GUARD
-    if (context.executedSideEffects && context.executedSideEffects.has(nodeId)) {
+    if (context.executedSideEffects?.has(nodeId)) {
       return {
         status: 'skipped',
         skipReason: 'already executed (idempotency guard)',
@@ -442,7 +444,7 @@ function buildUrl(
       const interpolatedValue = interpolateTemplate(String(value), context);
       params.append(key, interpolatedValue);
     }
-    url += '?' + params.toString();
+    url += `?${  params.toString()}`;
   }
 
   return url;

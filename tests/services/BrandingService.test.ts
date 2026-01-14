@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { brandingService } from '../../server/services/BrandingService';
+
 import type { TenantBranding } from '@shared/types/branding';
+
+import { brandingService } from '../../server/services/BrandingService';
 
 /**
  * Stage 17: BrandingService Tests

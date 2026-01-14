@@ -1,0 +1,82 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768329290171,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768329290194,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+stderr | tests/integration/analytics_service.test.ts > Analytics Service Integration
+MANUAL PATCH FAILED error: insert or update on table "workflow_run_events" violates foreign key constraint "workflow_run_events_run_id_workflow_runs_id_fk"
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/tests/integration/analytics_service.test.ts:20:13 {
+  length: 368,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (run_id)=(e3d9b8a7-c81c-4d27-9e34-1a20aaa70925) is not present in table "workflow_runs".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'workflow_run_events',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'workflow_run_events_run_id_workflow_runs_id_fk',
+  file: 'ri_triggers.c',
+  line: '2599',
+  routine: 'ri_ReportViolation'
+}
+
+{"level":30,"time":1768329292831,"env":"test","module":"writeback-execution-service","runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","workflowId":"c013f4b5-37b1-4843-a9e7-0d4ec621b7c4","msg":"Executing writeback mappings for completed run"}
+{"level":30,"time":1768329292879,"env":"test","runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","service":"DocumentGenerationService","msg":"Starting document generation for run"}
+{"level":40,"time":1768329292973,"env":"test","runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","service":"DocumentGenerationService","allSections":[],"runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","msg":"No Final Documents sections found, skipping generation. This might cause the frontend to hang."}
+{"level":30,"time":1768329292973,"env":"test","runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","msg":"Documents generated successfully"}
+{"level":50,"time":1768329293306,"env":"test","error":{"length":345,"name":"error","severity":"ERROR","code":"23503","detail":"Key (run_id)=(8aa52cec-ec9d-4086-b096-7fa6ebb22d63) is not present in table \"runs\".","schema":"public","table":"workflow_run_metrics","constraint":"workflow_run_metrics_run_id_runs_id_fk","file":"ri_triggers.c","line":"2599","routine":"ri_ReportViolation"},"runId":"8aa52cec-ec9d-4086-b096-7fa6ebb22d63","msg":"Failed to aggregate run metrics"}
+{"level":30,"time":1768329294608,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/analytics_service.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768329294609,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/analytics_service.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 4439[2mms[22m[39m
+[31m     [31m├ù[31m should generate events and metrics on run completion[39m[33m 2828[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/analytics_service.test.ts > Analytics Service Integration > should generate events and metrics on run completion
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ Γ¥» tests/integration/analytics_service.test.ts:89:32
+     87| 
+     88|         const metrics = await db.select().from(workflowRunMetrics).wheΓÇª
+     89|         expect(metrics.length).toBe(1);
+       |                                ^
+     90|         expect(metrics[0].completed).toBe(true);
+     91|     });
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 12:34:47
+[2m   Duration [22m 6.77s[2m (transform 949ms, setup 156ms, import 1.81s, tests 4.44s, environment 0ms)[22m
+

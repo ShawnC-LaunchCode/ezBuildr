@@ -241,7 +241,7 @@ export type DynamicOptionsSourceType = 'static' | 'list' | 'table_column';
  * Dynamic Options Configuration
  * Supports three source types:
  * 1. Static: Predefined options
- * 2. List: From a ListVariable (from Read Table / List Tools blocks)
+ * 2. List: From a ListVariable (from Read Table / List Tools blocks) with full transformation support
  * 3. Table Column: Convenience path that reads from a table column
  */
 export type DynamicOptionsConfig =
@@ -249,17 +249,32 @@ export type DynamicOptionsConfig =
   | {
     type: 'list';
     listVariable: string;     // Name of the list variable (e.g. "usersList")
-    labelColumnId: string;    // Column ID to use for label (display text)
-    valueColumnId: string;    // Column ID to use for value (stored data)
-    dedupeBy?: 'value' | 'label' | null;
-    sort?: {
-      by: 'label' | 'value' | 'column';
-      columnId?: string;
-      direction: 'asc' | 'desc';
+    labelPath: string;        // Field path for label (display text) - supports dot notation (e.g. "name", "user.fullName")
+    valuePath: string;        // Field path for value (stored data) - supports dot notation
+    labelTemplate?: string;   // Optional template like "{FirstName} {LastName}" (overrides labelPath)
+    groupByPath?: string;     // Optional field path for grouping options
+    enableSearch?: boolean;   // Enable search for dropdown (default: false)
+    includeBlankOption?: boolean;  // Add a blank option at the top
+    blankLabel?: string;      // Label for blank option (default: empty string)
+
+    // List Tools block linking (for inline creation)
+    linkedListToolsBlockId?: string;  // ID of linked List Tools block (if created inline)
+    baseListVar?: string;     // Original source list before transforms (for unlink)
+
+    // Full List Tools transformation pipeline (applied before mapping to options)
+    transform?: {
+      filters?: import('./blocks').ListToolsFilterGroup;  // Filter rules (AND/OR groups)
+      sort?: Array<{                                       // Multi-key sorting
+        fieldPath: string;
+        direction: 'asc' | 'desc';
+      }>;
+      limit?: number;         // Row limit
+      offset?: number;        // Row offset (skip first N)
+      dedupe?: {              // Deduplication
+        fieldPath: string;
+      };
+      select?: string[];      // Field projection (if omitted, all fields included)
     };
-    labelTemplate?: string;   // Optional template like "{FirstName} {LastName}"
-    includeBlankOption?: boolean;
-    blankLabel?: string;
   }
   | {
     type: 'table_column';

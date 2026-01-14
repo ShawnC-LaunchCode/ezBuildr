@@ -1,13 +1,34 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
-import request from "supertest";
-import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import { registerRoutes } from "../../server/routes";
-import { nanoid } from "nanoid";
-import { db } from "../../server/db";
-import * as schema from "@shared/schema";
+
 import { eq } from "drizzle-orm";
+import express, { type Express } from "express";
+import { nanoid } from "nanoid";
+import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+
+
+import * as schema from "@shared/schema";
+
+import { db } from "../../server/db";
+import { registerRoutes } from "../../server/routes";
+import { AuthService } from "../../server/services/AuthService";
 import { createGraphWorkflow, createGraphRun } from "../factories/graphFactory";
+
+// Mock auth middleware to respect session shim
+vi.mock("../../server/middleware/auth", async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    requireAuth: (req: any, res: any, next: any) => {
+      if (req.user || req.userId) {return next();}
+      return actual.requireAuth(req, res, next);
+    },
+    hybridAuth: (req: any, res: any, next: any) => {
+      if (req.user || req.userId) {return next();}
+      return actual.hybridAuth(req, res, next);
+    }
+  };
+});
 
 /**
  * Stage 8: Runs API Integration Tests
@@ -29,16 +50,26 @@ describe("Stage 8: Runs API Integration Tests", () => {
   // Mock setupAuth to allow backdoor login
   vi.mock("../../server/googleAuth", async (importOriginal: () => Promise<any>) => {
     const actual = await importOriginal();
+    const sessionStore: any = {}; // Global store for file
     return {
       ...actual,
       setupAuth: (app: Express) => {
-        app.use(actual.getSession());
+        // Shim session for test backdoor with persistence
+        app.use((req: any, res: any, next: any) => {
+          req.session = sessionStore;
+          console.log(`[Shim] Request to ${req.path}, Session User ID: ${req.session.user?.id}`);
+          next();
+        });
+        // app.use(actual.getSession()); // Removed: getSession is no longer exported/used
 
         // Debug middleware to log cookies and session AND restore req.user
         app.use((req: any, res: any, next: any) => {
-          if (req.session && req.session.user) {
+          if (req.session?.user) {
             // Restore req.user from session (mimic passport)
             req.user = req.session.user;
+            req.userId = req.session.user.id;
+            req.tenantId = req.session.user.tenantId;
+            req.userRole = req.session.user.tenantRole;
             req.isAuthenticated = () => true;
           } else {
             req.isAuthenticated = () => false;
@@ -92,7 +123,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
     await db.insert(schema.users).values({
       id: userId,
       email,
-      passwordHash: "hashed_password",
+      passwordHash: await new AuthService().hashPassword("TestPassword123!@#Strong"),
       tenantId,
       tenantRole: "owner",
       role: "admin", // ✅ Admin for full API permissions
@@ -310,8 +341,13 @@ describe("Stage 8: Runs API Integration Tests", () => {
     it("should search runs by query string", async () => {
       const response = await agent
         .get("/api/runs")
-        .query({ q: "Alice", limit: 10 })
-        .expect(200);
+        .query({ q: "Alice", limit: 10 });
+
+      if (response.status !== 200) {
+        console.log("FAILED RESPONSE BODY:", JSON.stringify(response.body, null, 2));
+      }
+
+      expect(response.status).toBe(200);
 
       expect(response.body.items).toBeInstanceOf(Array);
       // At least one run should match the search

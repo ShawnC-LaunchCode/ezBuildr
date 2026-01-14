@@ -1,26 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject } from "@/lib/vault-hooks";
+import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Link } from "wouter";
+
+import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
+import { SkeletonCard } from "@/components/shared/SkeletonCard";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { apiRequest } from "@/lib/queryClient";
+import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from "react";
+
+
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+
 import type { Workflow } from "@shared/schema";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SkeletonCard } from "@/components/shared/SkeletonCard";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
-import { Link } from "wouter";
-import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2 } from "lucide-react";
 import { workflowAPI } from "@/lib/vault-api";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 
@@ -34,6 +40,8 @@ export default function WorkflowsList() {
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [transferringWorkflow, setTransferringWorkflow] = useState<{ id: string; title: string } | null>(null);
+  const [transferringProject, setTransferringProject] = useState<{ id: string; title: string } | null>(null);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -54,6 +62,8 @@ export default function WorkflowsList() {
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const deleteProjectMutation = useDeleteProject();
+  const transferWorkflowMutation = useTransferWorkflow();
+  const transferProjectMutation = useTransferProject();
 
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
 
@@ -130,6 +140,58 @@ export default function WorkflowsList() {
         setDeletingProjectId(null);
       },
     });
+  };
+
+  const handleTransferWorkflow = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
+    if (!transferringWorkflow) {return;}
+
+    try {
+      await transferWorkflowMutation.mutateAsync({
+        id: transferringWorkflow.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+
+      toast({
+        title: "Success",
+        description: `Workflow transferred successfully`,
+      });
+
+      setTransferringWorkflow(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to transfer workflow",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleTransferProject = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
+    if (!transferringProject) {return;}
+
+    try {
+      await transferProjectMutation.mutateAsync({
+        id: transferringProject.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+
+      toast({
+        title: "Success",
+        description: `Project transferred successfully (all workflows also transferred)`,
+      });
+
+      setTransferringProject(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to transfer project",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   const handleCopyLink = async (workflowId: string) => {
@@ -213,6 +275,7 @@ export default function WorkflowsList() {
                     key={project.id}
                     project={project}
                     currentUserId={user?.id}
+                    onTransfer={(id, title) => setTransferringProject({ id, title })}
                     onDelete={(id) => setDeletingProjectId(id)}
                   />
                 ))}
@@ -260,6 +323,15 @@ export default function WorkflowsList() {
                           >
                             <LinkIcon className="w-4 h-4 mr-1" />
                             Copy Link
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setTransferringWorkflow({ id: workflow.id, title: workflow.title })}
+                            data-testid={`button-transfer-workflow-${workflow.id}`}
+                          >
+                            <ArrowRightLeft className="w-4 h-4 mr-1" />
+                            Transfer
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -426,6 +498,30 @@ export default function WorkflowsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Transfer Ownership Dialog - Workflow */}
+      {transferringWorkflow && (
+        <TransferOwnershipDialog
+          open={!!transferringWorkflow}
+          onOpenChange={(open) => !open && setTransferringWorkflow(null)}
+          assetType="workflow"
+          assetName={transferringWorkflow.title}
+          onTransfer={handleTransferWorkflow}
+          isPending={transferWorkflowMutation.isPending}
+        />
+      )}
+
+      {/* Transfer Ownership Dialog - Project */}
+      {transferringProject && (
+        <TransferOwnershipDialog
+          open={!!transferringProject}
+          onOpenChange={(open) => !open && setTransferringProject(null)}
+          assetType="project"
+          assetName={transferringProject.title}
+          onTransfer={handleTransferProject}
+          isPending={transferProjectMutation.isPending}
+        />
+      )}
     </div>
   );
 }

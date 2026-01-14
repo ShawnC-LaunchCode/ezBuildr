@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
+import * as Y from 'yjs';
+
 import { WebSocketProvider } from './WebSocketProvider';
+
 import type { Node, Edge } from 'reactflow';
 
 export interface CollabUser {
@@ -90,7 +92,7 @@ export function useCollabClient(
 
   // Initialize Yjs document and WebSocket provider
   useEffect(() => {
-    if (!enabled || !token) return;
+    if (!enabled || !token) {return;}
 
     const doc = new Y.Doc();
     docRef.current = doc;
@@ -158,7 +160,7 @@ export function useCollabClient(
     const yEdges = yGraph.get('edges') as Y.Array<Y.Map<any>>;
 
     const handleNodesChange = () => {
-      if (isLocalUpdateRef.current) return;
+      if (isLocalUpdateRef.current) {return;}
 
       const nodes = yNodes.toArray().map((yNode) => {
         const node: any = {};
@@ -172,7 +174,7 @@ export function useCollabClient(
     };
 
     const handleEdgesChange = () => {
-      if (isLocalUpdateRef.current) return;
+      if (isLocalUpdateRef.current) {return;}
 
       const edges = yEdges.toArray().map((yEdge) => {
         const edge: any = {};
@@ -222,7 +224,7 @@ export function useCollabClient(
 
   // Update nodes in Yjs document
   const updateNodes = useCallback((nodes: Node[]) => {
-    if (!docRef.current) return;
+    if (!docRef.current) {return;}
 
     const yGraph = docRef.current.getMap('yGraph');
     const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<any>>;
@@ -255,7 +257,7 @@ export function useCollabClient(
 
   // Update edges in Yjs document
   const updateEdges = useCallback((edges: Edge[]) => {
-    if (!docRef.current) return;
+    if (!docRef.current) {return;}
 
     const yGraph = docRef.current.getMap('yGraph');
     const yEdges = yGraph.get('edges') as Y.Array<Y.Map<any>>;
@@ -288,7 +290,7 @@ export function useCollabClient(
 
   // Update cursor position
   const updateCursor = useCallback((x: number, y: number) => {
-    if (!awarenessRef.current) return;
+    if (!awarenessRef.current) {return;}
 
     const currentState = awarenessRef.current.getLocalState();
     if (currentState?.user) {
@@ -302,7 +304,7 @@ export function useCollabClient(
 
   // Update selected node
   const updateSelectedNode = useCallback((nodeId: string | null) => {
-    if (!awarenessRef.current) return;
+    if (!awarenessRef.current) {return;}
 
     const currentState = awarenessRef.current.getLocalState();
     if (currentState?.user) {
@@ -316,7 +318,7 @@ export function useCollabClient(
 
   // Update user mode
   const updateMode = useCallback((mode: 'easy' | 'advanced') => {
-    if (!awarenessRef.current) return;
+    if (!awarenessRef.current) {return;}
 
     const currentState = awarenessRef.current.getLocalState();
     if (currentState?.user) {
@@ -330,12 +332,12 @@ export function useCollabClient(
 
   // Update active block (locking/presence)
   const updateActiveBlock = useCallback((blockId: string | null) => {
-    if (!awarenessRef.current) return;
+    if (!awarenessRef.current) {return;}
 
     const currentState = awarenessRef.current.getLocalState();
     if (currentState?.user) {
       // Optimize: Don't update if same
-      if (currentState.user.activeBlockId === blockId) return;
+      if (currentState.user.activeBlockId === blockId) {return;}
 
       awarenessRef.current.setLocalStateField('user', {
         ...currentState.user,

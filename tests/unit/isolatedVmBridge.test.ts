@@ -1,7 +1,8 @@
 
 import { describe, it, expect } from 'vitest';
-import { executeCodeWithHelpers } from '../../server/utils/enhancedSandboxExecutor';
+
 import { helperLibrary } from '../../server/services/scripting/HelperLibrary';
+import { executeCodeWithHelpers } from '../../server/utils/enhancedSandboxExecutor';
 
 describe('isolated-vm Bridge Verification', () => {
 
@@ -25,7 +26,7 @@ describe('isolated-vm Bridge Verification', () => {
             return;
         }
 
-        if (!result.ok) throw new Error("TEST FAILURE: " + result.error);
+        if (!result.ok) {throw new Error(`TEST FAILURE: ${  result.error}`);}
         expect(result.ok).toBe(true);
         expect(result.output).toBe("HELLO");
     });
@@ -53,7 +54,7 @@ describe('isolated-vm Bridge Verification', () => {
         if (!result.ok) {
             const fs = await import('fs');
             fs.writeFileSync('test_math_fail.json', JSON.stringify(result, null, 2));
-            throw new Error("TEST FAILURE: " + result.error);
+            throw new Error(`TEST FAILURE: ${  result.error}`);
         }
         expect(result.ok).toBe(true);
         expect(result.output).toBe(6);

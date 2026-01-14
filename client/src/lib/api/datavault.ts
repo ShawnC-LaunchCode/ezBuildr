@@ -23,8 +23,8 @@ export async function getDatabases(params?: {
   scopeId?: string;
 }): Promise<DatavaultDatabase[]> {
   const queryParams = new URLSearchParams();
-  if (params?.scopeType) queryParams.set('scopeType', params.scopeType);
-  if (params?.scopeId) queryParams.set('scopeId', params.scopeId);
+  if (params?.scopeType) {queryParams.set('scopeType', params.scopeType);}
+  if (params?.scopeId) {queryParams.set('scopeId', params.scopeId);}
 
   const url = `${API_BASE}/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, {
@@ -332,8 +332,8 @@ export async function getTableRows(
   }
 ): Promise<{ rows: DatavaultRow[]; total: number; hasMore: boolean }> {
   const queryParams = new URLSearchParams();
-  if (params?.limit) queryParams.set('limit', params.limit.toString());
-  if (params?.offset) queryParams.set('offset', params.offset.toString());
+  if (params?.limit) {queryParams.set('limit', params.limit.toString());}
+  if (params?.offset) {queryParams.set('offset', params.offset.toString());}
 
   const url = `${API_BASE}/tables/${tableId}/rows${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, {

@@ -14,9 +14,11 @@
  * @date December 8, 2025
  */
 
-import PizZip from 'pizzip';
 import { promises as fs } from 'fs';
 import path from 'path';
+
+import PizZip from 'pizzip';
+
 import { createLogger } from '../../logger';
 
 const logger = createLogger({ module: 'zip-bundler' });
@@ -256,7 +258,7 @@ function generateManifest(
     const sizeMB = (size / (1024 * 1024)).toFixed(2);
     lines.push(`${i + 1}. ${doc.filename}`);
     lines.push(`   Size: ${sizeMB} MB`);
-    if (doc.mimeType) lines.push(`   Type: ${doc.mimeType}`);
+    if (doc.mimeType) {lines.push(`   Type: ${doc.mimeType}`);}
     lines.push('');
   }
   lines.push('------------------------------------------');
@@ -297,19 +299,19 @@ export function calculateTotalSize(documents: ZipDocument[]): number {
 
 export function validateDocuments(documents: ZipDocument[]): string[] {
   const errors: string[] = [];
-  if (documents.length === 0) errors.push('No documents provided');
-  if (documents.length > MAX_FILE_COUNT) errors.push(`Too many documents (max: ${MAX_FILE_COUNT})`);
+  if (documents.length === 0) {errors.push('No documents provided');}
+  if (documents.length > MAX_FILE_COUNT) {errors.push(`Too many documents (max: ${MAX_FILE_COUNT})`);}
 
   for (let i = 0; i < documents.length; i++) {
     const doc = documents[i];
-    if (!doc.filename) errors.push(`Document ${i}: Missing filename`);
-    if (!doc.buffer) errors.push(`Document ${i}: Missing buffer`);
-    if (doc.buffer && doc.buffer.length === 0) errors.push(`Document ${i} (${doc.filename}): Empty buffer`);
-    if (doc.buffer && doc.buffer.length > MAX_SINGLE_FILE_SIZE) errors.push(`Document ${i} (${doc.filename}): Too large`);
+    if (!doc.filename) {errors.push(`Document ${i}: Missing filename`);}
+    if (!doc.buffer) {errors.push(`Document ${i}: Missing buffer`);}
+    if (doc.buffer && doc.buffer.length === 0) {errors.push(`Document ${i} (${doc.filename}): Empty buffer`);}
+    if (doc.buffer && doc.buffer.length > MAX_SINGLE_FILE_SIZE) {errors.push(`Document ${i} (${doc.filename}): Too large`);}
   }
 
   const totalSize = calculateTotalSize(documents);
-  if (totalSize > MAX_TOTAL_SIZE) errors.push(`Total archive size too large`);
+  if (totalSize > MAX_TOTAL_SIZE) {errors.push(`Total archive size too large`);}
 
   return errors;
 }

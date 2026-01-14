@@ -3,8 +3,9 @@
  * Data model for reusable workflow fragments
  */
 
-import type { StepType } from "../vault-api";
 import type { ConditionExpression } from "@shared/types/conditions";
+
+import type { StepType } from "../vault-api";
 
 export interface SnipDefinition {
     id: string;              // UUID

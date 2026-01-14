@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { VariableResolver } from "../../../server/utils/variableResolver";
+
 import type { WorkflowVariable } from "@shared/schema";
+
+import { VariableResolver } from "../../../server/utils/variableResolver";
 
 describe("VariableResolver", () => {
   const mockVariables: WorkflowVariable[] = [
@@ -125,8 +127,11 @@ describe("VariableResolver", () => {
       expect(result).toEqual({
         key: "step-uuid-123",
         alias: "firstName",
-        title: "First Name",
+        label: "First Name",
         type: "short_text",
+        sectionId: "sec-1",
+        sectionTitle: "Section 1",
+        stepId: "step-1",
       });
     });
 
@@ -136,8 +141,11 @@ describe("VariableResolver", () => {
       expect(result).toEqual({
         key: "step-uuid-123",
         alias: "firstName",
-        title: "First Name",
+        label: "First Name",
         type: "short_text",
+        sectionId: "sec-1",
+        sectionTitle: "Section 1",
+        stepId: "step-1",
       });
     });
 
@@ -175,7 +183,11 @@ describe("VariableResolver", () => {
       expect(result).toEqual({
         key: "step-uuid-789",
         alias: null,
+        label: "Email",
         type: "short_text",
+        sectionId: "section-1",
+        sectionTitle: "Section 1",
+        stepId: "step-uuid-789",
       });
     });
   });

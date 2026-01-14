@@ -25,6 +25,7 @@
  */
 
 import { logger } from '../../../logger';
+
 import type { IPdfExtractor, ExtractionResult } from './IPdfExtractor';
 
 export class PdfJsExtractor implements IPdfExtractor {

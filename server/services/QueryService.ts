@@ -1,8 +1,10 @@
-import { db } from '../db';
-import { workflowQueries, datavaultColumns } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+
+import { workflowQueries, datavaultColumns } from '@shared/schema';
 import type { WorkflowQuery } from '@shared/types/query';
 import { workflowQuerySchema } from '@shared/types/query';
+
+import { db } from '../db';
 import { queryRunner } from '../lib/queries/QueryRunner';
 
 export class QueryService {
@@ -26,7 +28,7 @@ export class QueryService {
     }
 
     async listQueriesForWorkflow(workflowId: string) {
-        return await db.query.workflowQueries.findMany({
+        return db.query.workflowQueries.findMany({
             where: eq(workflowQueries.workflowId, workflowId)
         });
     }
@@ -59,7 +61,7 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId);
-        if (!query) throw new Error('Query not found');
+        if (!query) {throw new Error('Query not found');}
 
         // Execute query to get live list
         const list = await queryRunner.executeQuery(query, context, tenantId);
@@ -83,7 +85,7 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId);
-        if (!query) throw new Error('Query not found');
+        if (!query) {throw new Error('Query not found');}
 
         const list = await queryRunner.executeQuery(query, context, tenantId);
 

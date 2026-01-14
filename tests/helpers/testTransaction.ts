@@ -1,4 +1,5 @@
 import { getDb } from '../../server/db';
+
 import type { PgTransaction } from 'drizzle-orm/pg-core';
 
 /**
@@ -78,7 +79,7 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
     'Use runInTransaction() instead.'
   );
 
-  if (!tx) return;
+  if (!tx) {return;}
 
   try {
     // Force rollback using raw SQL (fragile, PostgreSQL-specific)

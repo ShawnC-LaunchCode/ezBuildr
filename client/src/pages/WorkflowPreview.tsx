@@ -1,6 +1,7 @@
-import { useParams, useLocation } from "wouter";
-import { PreviewRunner } from "@/components/preview/PreviewRunner";
 import { Loader2 } from "lucide-react";
+import { useParams, useLocation } from "wouter";
+
+import { PreviewRunner } from "@/components/preview/PreviewRunner";
 
 export default function WorkflowPreview() {
   const { workflowId = "" } = useParams<{ workflowId: string }>();

@@ -1,71 +1,81 @@
-
-import { Switch, Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { QueryClientProvider } from "@tanstack/react-query";
+import React, { Suspense, lazy } from "react";
+import { Switch, Route, useLocation } from "wouter";
+
+import FeedbackWidget from "@/components/FeedbackWidget";
+import { CommandPalette } from "@/components/layout/CommandPalette";
+import { ShortcutHelper } from "@/components/layout/ShortcutHelper";
+import { FullScreenLoader } from "@/components/ui/loader";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
-import Landing from "@/marketing/LandingPage";
-import Dashboard from "@/pages/Dashboard";
-import WorkflowsList from "@/pages/WorkflowsList";
-import AdminDashboard from "@/pages/AdminDashboard";
-import AdminUsers from "@/pages/AdminUsers";
-import AdminLogs from "@/pages/AdminLogs";
-import AdminAiSettings from "@/pages/AdminAiSettings";
-import TemplatesPage from "@/pages/TemplatesPage";
-import Marketplace from "@/pages/Marketplace";
-import SettingsPage from "@/pages/SettingsPage";
-import FeedbackWidget from "@/components/FeedbackWidget";
-import WorkflowDashboard from "@/pages/WorkflowDashboard";
-import WorkflowBuilder from "@/pages/WorkflowBuilder";
-import VisualWorkflowBuilder from "@/pages/VisualWorkflowBuilder";
-import NewWorkflow from "@/pages/NewWorkflow";
-import { WorkflowRunner } from "@/pages/WorkflowRunner";
-import { WorkflowAnalytics } from "@/pages/WorkflowAnalytics";
-import OptimizationWizard from "@/pages/optimization/OptimizationWizard";
-import WorkflowPreview from "@/pages/WorkflowPreview";
-import ProjectView from "@/pages/ProjectView";
-import RunsDashboard from "@/pages/RunsDashboard"; // Stage 8
-import RunDetails from "@/pages/RunDetails"; // Stage 8
-import RunsCompare from "@/pages/RunsCompare"; // Stage 8
-import BrandingSettingsPage from "@/pages/BrandingSettingsPage"; // Stage 17
-import DomainSettingsPage from "@/pages/DomainSettingsPage"; // Stage 17
-import IntakePreviewPage from "@/pages/IntakePreviewPage"; // Stage 17
-import EmailTemplatesPage from "@/pages/EmailTemplatesPage"; // Stage 17
-import EmailTemplateEditorPage from "@/pages/EmailTemplateEditorPage"; // Stage 17
-import CollectionsPage from "@/pages/CollectionsPage"; // Stage 19
-import CollectionDetailPage from "@/pages/CollectionDetailPage"; // Stage 19
-import TemplateTestRunner from "@/pages/TemplateTestRunner"; // Template Test Runner PR1
-import DataVaultDashboard from "@/pages/datavault"; // DataVault Phase 1
-import DataVaultTablesPage from "@/pages/datavault/tables"; // DataVault Phase 1
-import TableViewPage from "@/pages/datavault/[tableId]"; // DataVault Phase 1
-import DataVaultDatabasesPage from "@/pages/datavault/databases"; // DataVault Phase 2
-import DatabaseDetailPage from "@/pages/datavault/[databaseId]"; // DataVault Phase 2
-import DatabaseSettingsPage from "@/pages/datavault/DatabaseSettingsPage"; // DataVault Phase 2: PR 13
-import UrlParametersDoc from "@/pages/docs/UrlParametersDoc"; // Documentation
-import BillingDashboard from "@/pages/billing/BillingDashboard";
-import PricingPage from "@/pages/billing/PricingPage";
-import PublicRunner from "@/pages/public/PublicRunner";
-import RunCompletionView from "@/pages/RunCompletionView";
-import OAuthApps from "@/pages/developer/OAuthApps";
-import LoginPage from "@/pages/auth/LoginPage";
-import RegisterPage from "@/pages/auth/RegisterPage";
-import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
-import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
-import VerifyEmailPage from "@/pages/auth/VerifyEmailPage";
-import PortalLogin from "@/pages/portal/PortalLogin";
-import PortalMagicLink from "@/pages/portal/PortalMagicLink";
-import PortalDashboard from "@/pages/portal/PortalDashboard";
-import { CommandPalette } from "@/components/layout/CommandPalette";
-import { ShortcutHelper } from "@/components/layout/ShortcutHelper";
+
+
+
+import { queryClient } from "./lib/queryClient";
+
+// Lazy load pages
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Landing = lazy(() => import("@/marketing/LandingPage"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
+const AdminLogs = lazy(() => import("@/pages/AdminLogs"));
+const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
+const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
+const Marketplace = lazy(() => import("@/pages/Marketplace"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const WorkflowDashboard = lazy(() => import("@/pages/WorkflowDashboard"));
+const WorkflowBuilder = lazy(() => import("@/pages/WorkflowBuilder"));
+const VisualWorkflowBuilder = lazy(() => import("@/pages/VisualWorkflowBuilder"));
+const NewWorkflow = lazy(() => import("@/pages/NewWorkflow"));
+const WorkflowRunner = lazy(() => import("@/pages/WorkflowRunner").then(module => ({ default: module.WorkflowRunner })));
+const WorkflowAnalytics = lazy(() => import("@/pages/WorkflowAnalytics").then(module => ({ default: module.WorkflowAnalytics })));
+const OptimizationWizard = lazy(() => import("@/pages/optimization/OptimizationWizard"));
+const WorkflowPreview = lazy(() => import("@/pages/WorkflowPreview"));
+const ProjectView = lazy(() => import("@/pages/ProjectView"));
+const RunsDashboard = lazy(() => import("@/pages/RunsDashboard")); // Stage 8
+const RunDetails = lazy(() => import("@/pages/RunDetails")); // Stage 8
+const RunsCompare = lazy(() => import("@/pages/RunsCompare")); // Stage 8
+const BrandingSettingsPage = lazy(() => import("@/pages/BrandingSettingsPage")); // Stage 17
+const DomainSettingsPage = lazy(() => import("@/pages/DomainSettingsPage")); // Stage 17
+const IntakePreviewPage = lazy(() => import("@/pages/IntakePreviewPage")); // Stage 17
+const EmailTemplatesPage = lazy(() => import("@/pages/EmailTemplatesPage")); // Stage 17
+const EmailTemplateEditorPage = lazy(() => import("@/pages/EmailTemplateEditorPage")); // Stage 17
+const CollectionsPage = lazy(() => import("@/pages/CollectionsPage")); // Stage 19
+const CollectionDetailPage = lazy(() => import("@/pages/CollectionDetailPage")); // Stage 19
+const TemplateTestRunner = lazy(() => import("@/pages/TemplateTestRunner")); // Template Test Runner PR1
+const DataVaultDashboard = lazy(() => import("@/pages/datavault")); // DataVault Phase 1
+const DataVaultTablesPage = lazy(() => import("@/pages/datavault/tables")); // DataVault Phase 1
+const TableViewPage = lazy(() => import("@/pages/datavault/[tableId]")); // DataVault Phase 1
+const DataVaultDatabasesPage = lazy(() => import("@/pages/datavault/databases")); // DataVault Phase 2
+const DatabaseDetailPage = lazy(() => import("@/pages/datavault/[databaseId]")); // DataVault Phase 2
+const DatabaseSettingsPage = lazy(() => import("@/pages/datavault/DatabaseSettingsPage")); // DataVault Phase 2: PR 13
+const UrlParametersDoc = lazy(() => import("@/pages/docs/UrlParametersDoc")); // Documentation
+const BillingDashboard = lazy(() => import("@/pages/billing/BillingDashboard"));
+const PricingPage = lazy(() => import("@/pages/billing/PricingPage"));
+const PublicRunner = lazy(() => import("@/pages/public/PublicRunner"));
+const RunCompletionView = lazy(() => import("@/pages/RunCompletionView"));
+const OAuthApps = lazy(() => import("@/pages/developer/OAuthApps"));
+const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
+const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage"));
+const VerifyEmailPage = lazy(() => import("@/pages/auth/VerifyEmailPage"));
+const PortalLogin = lazy(() => import("@/pages/portal/PortalLogin"));
+const PortalMagicLink = lazy(() => import("@/pages/portal/PortalMagicLink"));
+const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
+const Organizations = lazy(() => import("@/pages/Organizations"));
+const OrganizationDetail = lazy(() => import("@/pages/OrganizationDetail"));
+const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
-    <>
+    <Suspense fallback={<FullScreenLoader />}>
       <Switch>
         {/* Public Workflow Runner */}
         <Route path="/w/:slug" component={PublicRunner} />
@@ -163,6 +173,11 @@ function Router() {
             <Route path="/billing" component={BillingDashboard} />
             <Route path="/billing/plans" component={PricingPage} />
 
+            {/* Organizations Routes */}
+            <Route path="/organizations" component={Organizations} />
+            <Route path="/organizations/:id" component={OrganizationDetail} />
+            <Route path="/invites/:token/accept" component={AcceptInvite} />
+
             {/* Developer Settings */}
             <Route path="/developer/oauth" component={OAuthApps} />
 
@@ -170,14 +185,7 @@ function Router() {
           </>
         )}
       </Switch>
-      {/* Feedback widget moved to App component for conditional rendering */}
-      {!isLoading && isAuthenticated && (
-        <>
-          <CommandPalette />
-          <ShortcutHelper />
-        </>
-      )}
-    </>
+    </Suspense>
   );
 }
 

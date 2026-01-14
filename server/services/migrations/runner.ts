@@ -1,6 +1,7 @@
 
-import { MIGRATION_REGISTRY, WorkflowSchema } from "./registry";
 import { logger } from "../../logger";
+
+import { MIGRATION_REGISTRY, WorkflowSchema } from "./registry";
 
 /**
  * Runs migrations sequentially from a starting version to a target version.

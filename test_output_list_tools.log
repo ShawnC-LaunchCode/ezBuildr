@@ -1,0 +1,31 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/ListTools.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+
+[90mstdout[2m | tests/ListTools.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768322393389,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768322393409,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/ListTools.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations...
+
+{"level":40,"time":1768322394221,"env":"test","sourceListVar":"nonexistent_list","inputKey":"nonexistent_list","msg":"Input list not found, treating as empty array"}
+[90mstdout[2m | tests/ListTools.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768322394221,"env":"test","msg":"DB: closing pool..."}
+{"level":30,"time":1768322394222,"env":"test","msg":"DB: pool closed."}
+ [32mΓ£ô[39m tests/ListTools.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 834[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m18 passed[39m[22m[90m (18)[39m
+[2m   Start at [22m 10:39:51
+[2m   Duration [22m 2.66s[2m (transform 776ms, setup 136ms, import 1.29s, tests 834ms, environment 0ms)[22m
+

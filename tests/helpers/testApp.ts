@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
-import { registerAuthRoutes } from '../../server/routes/auth.routes';
+
 import { createLogger } from '../../server/logger';
+import { registerAuthRoutes } from '../../server/routes/auth.routes';
 
 const logger = createLogger({ module: 'test-app' });
 

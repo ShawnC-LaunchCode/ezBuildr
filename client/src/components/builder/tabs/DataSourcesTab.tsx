@@ -3,15 +3,15 @@
  * PR5: Data sources list with "Coming Soon" labels
  */
 
-import { useState } from "react";
 import { Database, Settings, ExternalLink, Link2, Unlink2, Plus, FileSpreadsheet, Server, Globe } from "lucide-react";
-import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
+import React, { useState } from "react";
+
+
+import { AddGoogleSheetsDialog } from "@/components/dataSource/AddGoogleSheetsDialog";
+import { AddNativeTableDialog } from "@/components/dataSource/AddNativeTableDialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useDataSources, useWorkflowDataSources, useLinkDataSource, useUnlinkDataSource } from "@/lib/vault-hooks";
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AddGoogleSheetsDialog } from "@/components/dataSource/AddGoogleSheetsDialog";
-import { AddNativeTableDialog } from "@/components/dataSource/AddNativeTableDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { useDataSources, useWorkflowDataSources, useLinkDataSource, useUnlinkDataSource } from "@/lib/vault-hooks";
+
+import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
 interface DataSourcesTabProps {
   workflowId: string;
@@ -87,8 +90,8 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
 
   // Helper to get icon
   const getIcon = (type: string) => {
-    if (type === 'google_sheets') return FileSpreadsheet;
-    if (type === 'api') return Globe;
+    if (type === 'google_sheets') {return FileSpreadsheet;}
+    if (type === 'api') {return Globe;}
     return Database;
   };
 

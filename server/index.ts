@@ -5,20 +5,23 @@ dotenv.config();
 
 // CRITICAL: Initialize OpenTelemetry BEFORE any other imports
 // This ensures auto-instrumentation can hook into all modules
+import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+
+import { logger , requestLogger } from "./logger";
+import { errorHandler } from "./middleware/errorHandler";
+import { globalLimiter, authLimiter } from "./middleware/rateLimiting";
+import { requestIdMiddleware } from "./middleware/requestId";
+import { requestTimeout } from "./middleware/timeout.js";
 import { initTelemetry } from "./observability/telemetry";
 initTelemetry();
 
-import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
-import helmet from "helmet";
+
 import { registerRoutes } from "./routes";
-import { log } from "./utils";
 import { serveStatic } from "./static";
-import { errorHandler } from "./middleware/errorHandler";
-import { logger } from "./logger";
+import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
-import { requestIdMiddleware } from "./middleware/requestId";
-import { globalLimiter, authLimiter } from "./middleware/rateLimiting";
 
 const app = express();
 
@@ -143,7 +146,6 @@ app.use(sanitizeInputs);
 // =====================================================================
 // 6️⃣ REQUEST TIMEOUT PROTECTION
 // =====================================================================
-import { requestTimeout } from "./middleware/timeout.js";
 app.use(requestTimeout);
 
 // =====================================================================
@@ -158,7 +160,6 @@ app.use('/api', globalLimiter);
 // =====================================================================
 // 💡 REQUEST LOGGING MIDDLEWARE
 // =====================================================================
-import { requestLogger } from "./logger";
 app.use(requestLogger);
 // =====================================================================
 

@@ -1,10 +1,11 @@
+import type { Collection, InsertCollection } from "@shared/schema";
+
 import {
   collectionRepository,
   collectionFieldRepository,
   recordRepository,
   type DbTransaction,
 } from "../repositories";
-import type { Collection, InsertCollection } from "@shared/schema";
 
 /**
  * Service layer for collection-related business logic
@@ -81,7 +82,7 @@ export class CollectionService {
     const baseSlug = data.slug || this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tenantId, baseSlug, undefined, tx);
 
-    return await this.collectionRepo.create({
+    return this.collectionRepo.create({
       ...data,
       slug: uniqueSlug,
     }, tx);
@@ -91,7 +92,7 @@ export class CollectionService {
    * Get collection by ID with tenant verification
    */
   async getCollection(collectionId: string, tenantId: string, tx?: DbTransaction): Promise<Collection> {
-    return await this.verifyTenantOwnership(collectionId, tenantId, tx);
+    return this.verifyTenantOwnership(collectionId, tenantId, tx);
   }
 
   /**
@@ -111,7 +112,7 @@ export class CollectionService {
    * List all collections for a tenant
    */
   async listCollections(tenantId: string, tx?: DbTransaction): Promise<Collection[]> {
-    return await this.collectionRepo.findByTenantId(tenantId, tx);
+    return this.collectionRepo.findByTenantId(tenantId, tx);
   }
 
   /**
@@ -120,7 +121,7 @@ export class CollectionService {
   async listCollectionsWithStats(tenantId: string, tx?: DbTransaction) {
     const collections = await this.collectionRepo.findByTenantId(tenantId, tx);
 
-    const collectionsWithStats = await Promise.all(
+    return Promise.all(
       collections.map(async (collection) => {
         const fields = await this.fieldRepo.findByCollectionId(collection.id, tx);
         const recordCount = await this.recordRepo.countByCollectionId(collection.id, tx);
@@ -132,8 +133,6 @@ export class CollectionService {
         };
       })
     );
-
-    return collectionsWithStats;
   }
 
   /**
@@ -158,7 +157,7 @@ export class CollectionService {
       data.slug = await this.ensureUniqueSlug(tenantId, data.slug, collectionId, tx);
     }
 
-    return await this.collectionRepo.update(collectionId, data, tx);
+    return this.collectionRepo.update(collectionId, data, tx);
   }
 
   /**
@@ -173,7 +172,7 @@ export class CollectionService {
    * Get collection by slug
    */
   async getCollectionBySlug(tenantId: string, slug: string, tx?: DbTransaction): Promise<Collection | undefined> {
-    return await this.collectionRepo.findByTenantAndSlug(tenantId, slug, tx);
+    return this.collectionRepo.findByTenantAndSlug(tenantId, slug, tx);
   }
 
   /**

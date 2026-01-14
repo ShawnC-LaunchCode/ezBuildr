@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { test as base } from "@playwright/test";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 
 /**
  * End-to-End Authentication Flow Tests

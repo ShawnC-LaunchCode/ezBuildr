@@ -1,7 +1,10 @@
-import { BaseRepository, type DbTransaction } from "./BaseRepository";
-import { collections, type Collection, type InsertCollection } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+import { collections, type Collection, type InsertCollection } from "@shared/schema";
+
 import { db } from "../db";
+
+import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 /**
  * Repository for collection data access
@@ -17,7 +20,7 @@ export class CollectionRepository extends BaseRepository<typeof collections, Col
    */
   async findByTenantId(tenantId: string, tx?: DbTransaction): Promise<Collection[]> {
     const database = this.getDb(tx);
-    return await database
+    return database
       .select()
       .from(collections)
       .where(eq(collections.tenantId, tenantId))

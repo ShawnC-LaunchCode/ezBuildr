@@ -3,16 +3,13 @@
  * Lists all collections for the current tenant with create/edit/delete capabilities
  */
 
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useCollections, useCreateCollection, useDeleteCollection } from "@/lib/vault-hooks";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Plus, Search, Loader2, Database } from "lucide-react";
+import React, { useState } from "react";
+import { useLocation } from "wouter";
+
 import { CollectionCard } from "@/components/collections/CollectionCard";
 import { CreateCollectionModal } from "@/components/collections/CreateCollectionModal";
+import { EmptyState } from "@/components/shared/EmptyState";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +20,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { ApiCollectionWithStats } from "@/lib/vault-api";
+import { useCollections, useCreateCollection, useDeleteCollection } from "@/lib/vault-hooks";
 
 export default function CollectionsPage() {
   const [, setLocation] = useLocation();
@@ -52,7 +53,7 @@ export default function CollectionsPage() {
   });
 
   const handleCreate = async (data: { name: string; slug?: string; description?: string }) => {
-    if (!tenantId) return;
+    if (!tenantId) {return;}
 
     try {
       await createMutation.mutateAsync({
@@ -76,7 +77,7 @@ export default function CollectionsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm || !tenantId) return;
+    if (!deleteConfirm || !tenantId) {return;}
 
     try {
       await deleteMutation.mutateAsync({

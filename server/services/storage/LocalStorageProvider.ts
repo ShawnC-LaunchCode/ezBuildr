@@ -1,7 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { createError } from '../../utils/errors';
+
 import { logger } from '../../logger';
+import { createError } from '../../utils/errors';
+
 import type {
   IStorageProvider,
   StorageMetadata,
@@ -188,13 +190,13 @@ export class LocalStorageProvider implements IStorageProvider {
     const results: string[] = [];
 
     const walk = async (dir: string): Promise<void> => {
-      if (results.length >= maxKeys) return;
+      if (results.length >= maxKeys) {return;}
 
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
 
         for (const entry of entries) {
-          if (results.length >= maxKeys) break;
+          if (results.length >= maxKeys) {break;}
 
           const fullPath = path.join(dir, entry.name);
 

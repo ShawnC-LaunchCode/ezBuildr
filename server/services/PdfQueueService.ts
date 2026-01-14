@@ -10,14 +10,20 @@
  * - Graceful shutdown
  */
 
-import { db } from '../db';
-import { runOutputs } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
-import { convertDocxToPdf2 } from './docxRenderer2';
-import { getOutputFilePath } from './templates';
-import { logger } from '../logger';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { eq, and } from 'drizzle-orm';
+
+import { runOutputs } from '@shared/schema';
+
+import { db } from '../db';
+import { logger } from '../logger';
+
+import { convertDocxToPdf2 } from './docxRenderer2';
+import { getOutputFilePath } from './templates';
+
+
 import type { DbTransaction } from '../repositories/BaseRepository';
 
 export interface PdfConversionJob {
@@ -45,6 +51,7 @@ export interface PdfConversionResult {
 export class PdfQueueService {
   private isRunning = false;
   private pollingInterval: NodeJS.Timeout | null = null;
+  private retryTimeouts = new Set<NodeJS.Timeout>();
   private readonly POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
   private readonly MAX_RETRIES = 3;
   private readonly BACKOFF_BASE_MS = 1000; // 1 second base
@@ -88,6 +95,12 @@ export class PdfQueueService {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
+
+    // Clear any pending retry timeouts
+    for (const timeout of this.retryTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.retryTimeouts.clear();
 
     logger.info('PDF queue processor stopped');
   }
@@ -242,11 +255,14 @@ export class PdfQueueService {
           .where(eq(runOutputs.id, output.id));
 
         // Schedule retry (simple setTimeout for now, could use proper job queue)
-        setTimeout(() => {
+        // Schedule retry (simple setTimeout for now, could use proper job queue)
+        const timeout = setTimeout(() => {
+          this.retryTimeouts.delete(timeout);
           this.processJob(output).catch((err) => {
             logger.error({ jobId, error: err }, 'Error retrying PDF job');
           });
         }, backoffMs);
+        this.retryTimeouts.add(timeout);
       } else {
         // Max retries exceeded, mark as failed
         await db

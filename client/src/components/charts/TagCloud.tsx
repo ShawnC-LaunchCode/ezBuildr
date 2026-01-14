@@ -5,6 +5,7 @@
  */
 
 import { motion } from 'framer-motion';
+
 import { chartColors } from '@/styles/chartTheme';
 
 interface TagCloudProps {

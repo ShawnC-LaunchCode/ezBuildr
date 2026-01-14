@@ -8,26 +8,29 @@
  * - Save/cancel actions
  */
 
-import { useState, useEffect, useMemo } from "react";
 import { Eye, EyeOff, AlertCircle, Info } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import React, { useState, useEffect, useMemo } from "react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ConditionGroup } from "./ConditionGroup";
+import { Switch } from "@/components/ui/switch";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
-import type {
-  ConditionExpression,
-  ConditionGroup as ConditionGroupType,
-  VariableInfo,
-} from "@shared/types/conditions";
+
+import { describeConditionExpression } from "@shared/conditionEvaluator";
 import {
   createInitialExpression,
   hasValidConditions,
   countConditions,
 } from "@shared/types/conditions";
-import { describeConditionExpression } from "@shared/conditionEvaluator";
+import type {
+  ConditionExpression,
+  ConditionGroup as ConditionGroupType,
+  VariableInfo,
+} from "@shared/types/conditions";
+
+import { ConditionGroup } from "./ConditionGroup";
 
 interface LogicBuilderProps {
   /** The workflow ID to fetch variables from */
@@ -69,7 +72,7 @@ export function LogicBuilder({
 
   // Convert raw variables to VariableInfo format
   const variables: VariableInfo[] = useMemo(() => {
-    if (!rawVariables) return [];
+    if (!rawVariables) {return [];}
 
     return rawVariables
       .filter((v) => v.key !== elementId) // Filter out self-references
@@ -139,8 +142,8 @@ export function LogicBuilder({
 
   // Check if there are unsaved changes
   const hasChanges = useMemo(() => {
-    if (hasConditions !== (value !== null)) return true;
-    if (!hasConditions) return false;
+    if (hasConditions !== (value !== null)) {return true;}
+    if (!hasConditions) {return false;}
     // Deep compare would be better, but for now just check if both exist
     return JSON.stringify(localExpression) !== JSON.stringify(value);
   }, [hasConditions, localExpression, value]);

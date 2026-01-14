@@ -1,9 +1,10 @@
 
-import { db } from "../../db";
 import { auditLogs } from "@shared/schema";
 
+import { db } from "../../db";
+
 export interface AuditEvent {
-    workspaceId: string;
+    workspaceId?: string | null;
     userId?: string; // Optional for system events
     action: string;
     resourceType: string;
@@ -18,7 +19,7 @@ export class AuditLogger {
     static async log(event: AuditEvent) {
         try {
             await db.insert(auditLogs).values({
-                workspaceId: event.workspaceId,
+                workspaceId: event.workspaceId || null,
                 userId: event.userId,
                 action: event.action,
                 resourceType: event.resourceType,

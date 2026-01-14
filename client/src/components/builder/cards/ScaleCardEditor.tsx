@@ -15,17 +15,21 @@
  * }
  */
 
-import { useState, useEffect } from "react";
-import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
-import { LabelField } from "./common/LabelField";
-import { AliasField } from "./common/AliasField";
-import { RequiredToggle } from "./common/RequiredToggle";
-import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
-import { useUpdateStep } from "@/lib/vault-hooks";
+import React, { useState, useEffect } from "react";
+
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateStep } from "@/lib/vault-hooks";
+
+import { AliasField } from "./common/AliasField";
+import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
+import { LabelField } from "./common/LabelField";
+import { RequiredToggle } from "./common/RequiredToggle";
+
+
 import type { ScaleConfig, ScaleAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 interface ScaleCardEditorProps {

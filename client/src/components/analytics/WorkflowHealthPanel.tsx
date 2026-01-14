@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { analyticsAPI, ApiAnalyticsHealth } from '../../lib/vault-api';
 import { Activity, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+
+import { analyticsAPI, ApiAnalyticsHealth } from '../../lib/vault-api';
 
 interface Props {
     workflowId: string;
@@ -28,8 +29,8 @@ export const WorkflowHealthPanel: React.FC<Props> = ({ workflowId, versionId, cl
         }
     };
 
-    if (loading) return <div className="p-4 text-center text-gray-500 animate-pulse">Loading insights...</div>;
-    if (!stats) return <div className="p-4 text-center text-gray-500">No insights available</div>;
+    if (loading) {return <div className="p-4 text-center text-gray-500 animate-pulse">Loading insights...</div>;}
+    if (!stats) {return <div className="p-4 text-center text-gray-500">No insights available</div>;}
 
     return (
         <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 ${className || ''}`}>

@@ -3,8 +3,15 @@
  * Tests icon rendering, color coding, and type label utilities
  */
 
-import { describe, it, expect } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+
+
 import { render, screen } from '@testing-library/react';
+import React from 'react';
+import { describe, it, expect } from 'vitest';
+
 import { ColumnTypeIcon, getColumnTypeColor, getColumnTypeLabel } from '@/components/datavault/ColumnTypeIcon';
 
 describe('ColumnTypeIcon Component', () => {

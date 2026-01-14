@@ -1,13 +1,14 @@
 
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Database, Table, Check, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from "react";
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
 interface NativeCatalog {
@@ -66,7 +67,7 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
     });
 
     const handleAdd = () => {
-        if (!selectedTableId) return;
+        if (!selectedTableId) {return;}
 
         createMutation.mutate({
             name: selectedTableName || "Native Table",

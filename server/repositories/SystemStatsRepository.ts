@@ -1,7 +1,9 @@
 import { eq, sql } from "drizzle-orm";
-import { db } from "../db";
+
 import { systemStats } from "@shared/schema";
 import type { SystemStats } from "@shared/schema";
+
+import { db } from "../db";
 
 /**
  * Repository for system-wide statistics

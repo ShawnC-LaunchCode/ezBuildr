@@ -1,5 +1,6 @@
-import { userRepository, type DbTransaction } from "../repositories";
 import type { User } from "@shared/schema";
+
+import { userRepository, type DbTransaction } from "../repositories";
 
 /**
  * Service layer for account-related operations

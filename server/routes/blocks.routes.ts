@@ -1,14 +1,20 @@
-import type { Express, Request, Response } from "express";
+import { z } from "zod";
+
+import type { BlockPhase } from "@shared/types/blocks";
+
+import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
-import { blockService } from "../services/BlockService";
+import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { blockRepository } from "../repositories/BlockRepository";
+import { stepRepository } from "../repositories/StepRepository";
+import { blockService } from "../services/BlockService";
+import { listToolsBlockService } from "../services/ListToolsBlockService";
 import { queryBlockService } from "../services/QueryBlockService";
 import { readTableBlockService } from "../services/ReadTableBlockService";
-import { listToolsBlockService } from "../services/ListToolsBlockService";
-import { z } from "zod";
-import { createLogger } from "../logger";
-import type { BlockPhase } from "@shared/types/blocks";
-import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+
+
+
+import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'blocks-routes' });
 
@@ -238,6 +244,108 @@ export function registerBlockRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error reordering blocks");
       const message = error instanceof Error ? error.message : "Failed to reorder blocks";
+      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      res.status(status).json({ success: false, errors: [message] });
+    }
+  });
+
+  /**
+   * POST /api/workflows/:workflowId/steps/:stepId/create-list-tools
+   * Create a List Tools block inline from a Choice question
+   * Used for "Create List Tools" button in Choice question editor
+   */
+  app.post('/api/workflows/:workflowId/steps/:stepId/create-list-tools', hybridAuth, autoRevertToDraft, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
+      }
+
+      const { workflowId, stepId } = req.params;
+      const { sourceListVar, transformConfig, sectionId } = req.body;
+
+      // Validation
+      if (!sourceListVar) {
+        return res.status(400).json({
+          success: false,
+          errors: ["sourceListVar is required"],
+        });
+      }
+
+      if (!sectionId) {
+        return res.status(400).json({
+          success: false,
+          errors: ["sectionId is required"],
+        });
+      }
+
+      // Generate unique output variable name
+      const allSteps = await stepRepository.findByWorkflowId(workflowId);
+      const existingAliases = new Set(allSteps.map((s) => s.alias).filter(Boolean));
+
+      let outputVar = `${sourceListVar}_filtered`;
+      let counter = 2;
+      while (existingAliases.has(outputVar)) {
+        outputVar = `${sourceListVar}_filtered_${counter}`;
+        counter++;
+      }
+
+      // Build List Tools config from transform config
+      const listToolsConfig: any = {
+        sourceListVar,
+        outputKey: outputVar,
+        outputListVar: outputVar,
+      };
+
+      // Map transform config from Choice question format to List Tools format
+      if (transformConfig) {
+        if (transformConfig.filters) {
+          listToolsConfig.filters = transformConfig.filters;
+        }
+        if (transformConfig.sort) {
+          listToolsConfig.sort = transformConfig.sort;
+        }
+        if (transformConfig.limit !== undefined) {
+          listToolsConfig.limit = transformConfig.limit;
+        }
+        if (transformConfig.offset !== undefined) {
+          listToolsConfig.offset = transformConfig.offset;
+        }
+        if (transformConfig.dedupe) {
+          listToolsConfig.dedupe = transformConfig.dedupe;
+        }
+        if (transformConfig.select) {
+          listToolsConfig.select = transformConfig.select;
+        }
+      }
+
+      // Create the List Tools block
+      const block = await listToolsBlockService.createBlock(workflowId, userId, {
+        name: `Options for ${stepId.substring(0, 8)}`,
+        sectionId: sectionId,
+        config: listToolsConfig,
+        phase: 'onSectionEnter',
+      });
+
+      logger.info({
+        blockId: block.id,
+        stepId,
+        sourceListVar,
+        outputVar,
+        sectionId
+      }, "Created List Tools block inline from Choice question");
+
+      res.status(201).json({
+        success: true,
+        data: {
+          block,
+          outputVar,
+          message: "List Tools block created successfully"
+        }
+      });
+    } catch (error) {
+      logger.error({ error }, "Error creating inline List Tools block");
+      const message = error instanceof Error ? error.message : "Failed to create List Tools block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }

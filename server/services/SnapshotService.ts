@@ -1,6 +1,9 @@
-import { db } from "../db";
-import { workflowSnapshots, workflowRuns, stepValues, steps, sections } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
+
+import { workflowSnapshots, workflowRuns, stepValues, steps, sections } from "@shared/schema";
+
+import { db } from "../db";
+
 import type { InferSelectModel } from 'drizzle-orm';
 
 type Snapshot = InferSelectModel<typeof workflowSnapshots>;
@@ -26,7 +29,7 @@ export class SnapshotService {
    * Get all snapshots for a workflow
    */
   static async getSnapshotsByWorkflowId(workflowId: string): Promise<Snapshot[]> {
-    return await db
+    return db
       .select()
       .from(workflowSnapshots)
       .where(eq(workflowSnapshots.workflowId, workflowId))
@@ -54,7 +57,7 @@ export class SnapshotService {
       .where(eq(workflowSnapshots.id, id))
       .returning();
 
-    if (!snapshot) throw new Error(`Snapshot not found: ${id}`);
+    if (!snapshot) {throw new Error(`Snapshot not found: ${id}`);}
     return snapshot;
   }
 
@@ -77,7 +80,7 @@ export class SnapshotService {
       .from(workflowRuns)
       .where(eq(workflowRuns.id, runId));
 
-    if (!run) throw new Error(`Run not found: ${runId}`);
+    if (!run) {throw new Error(`Run not found: ${runId}`);}
 
     // 2. Fetch step values with step info
     const values = await db
@@ -111,7 +114,7 @@ export class SnapshotService {
       .where(eq(workflowSnapshots.id, snapshotId))
       .returning();
 
-    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+    if (!snapshot) {throw new Error(`Snapshot not found: ${snapshotId}`);}
     return snapshot;
   }
 
@@ -120,7 +123,7 @@ export class SnapshotService {
    */
   static async getSnapshotValues(snapshotId: string): Promise<Record<string, any>> {
     const snapshot = await this.getSnapshotById(snapshotId);
-    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+    if (!snapshot) {throw new Error(`Snapshot not found: ${snapshotId}`);}
     return (snapshot.values as Record<string, any>) || {};
   }
 
@@ -134,7 +137,7 @@ export class SnapshotService {
     reasons: string[]
   }> {
     const snapshot = await this.getSnapshotById(snapshotId);
-    if (!snapshot) throw new Error(`Snapshot not found: ${snapshotId}`);
+    if (!snapshot) {throw new Error(`Snapshot not found: ${snapshotId}`);}
 
     const values = (snapshot.values as Record<string, any>) || {};
 
@@ -162,7 +165,7 @@ export class SnapshotService {
     // Build map for easy lookup
     const stepMap = new Map<string, typeof workflowSteps[0]>();
     for (const s of workflowSteps) {
-      if (s.alias) stepMap.set(s.alias, s);
+      if (s.alias) {stepMap.set(s.alias, s);}
       stepMap.set(s.id, s); // Support ID lookup too
     }
 
@@ -192,16 +195,16 @@ export class SnapshotService {
       switch (step.type) {
         case 'number':
         case 'currency':
-          if (typeof value !== 'number') typeMismatch = true;
+          if (typeof value !== 'number') {typeMismatch = true;}
           break;
         case 'short_text':
         case 'long_text':
         case 'email':
-          if (typeof value !== 'string') typeMismatch = true;
+          if (typeof value !== 'string') {typeMismatch = true;}
           break;
         case 'yes_no':
         case 'true_false':
-          if (typeof value !== 'boolean' && value !== 'yes' && value !== 'no') typeMismatch = true;
+          if (typeof value !== 'boolean' && value !== 'yes' && value !== 'no') {typeMismatch = true;}
           break;
         // Add more types as needed
       }

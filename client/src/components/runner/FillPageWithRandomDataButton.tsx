@@ -3,17 +3,18 @@
  * Only visible in preview mode, generates values for current section's visible steps
  */
 
-import { useState } from "react";
 import { Sparkles } from "lucide-react";
+import React, { useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { aiAPI, runAPI, type AIStepData } from "@/lib/vault-api";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { aiAPI, runAPI, type AIStepData } from "@/lib/vault-api";
 
 interface Step {
   id: string;
@@ -58,7 +59,7 @@ export function FillPageWithRandomDataButton({
       // Filter out virtual/computed steps (they're populated by transform blocks)
       const fillableSteps = currentSectionSteps.filter((step) => {
         // Skip virtual/computed steps
-        if (step.type === 'computed') return false;
+        if (step.type === 'computed') {return false;}
 
         // TODO: Respect visibility logic if available
         // For now, include all non-computed steps
@@ -91,7 +92,7 @@ export function FillPageWithRandomDataButton({
       const savePromises = Object.entries(generatedValues).map(([key, value]) => {
         // Find the step by alias or id
         const step = fillableSteps.find((s) => s.alias === key || s.id === key);
-        if (!step) return null;
+        if (!step) {return null;}
 
         return runAPI.upsertValue(runId, step.id, value);
       }).filter(Boolean);

@@ -3,10 +3,6 @@
  * Manages document hooks and their execution during document generation
  */
 
-import { documentHookRepository } from "../../repositories/DocumentHookRepository";
-import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
-import { workflowRepository } from "../../repositories/WorkflowRepository";
-import { scriptEngine } from "./ScriptEngine";
 import type {
   DocumentHook,
   DocumentHookPhase,
@@ -16,7 +12,13 @@ import type {
   TestHookInput,
   TestHookResult,
 } from "@shared/types/scripting";
+
 import { logger } from "../../logger";
+import { documentHookRepository } from "../../repositories/DocumentHookRepository";
+import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
+import { workflowRepository } from "../../repositories/WorkflowRepository";
+
+import { scriptEngine } from "./ScriptEngine";
 
 export class DocumentHookService {
   /**
@@ -231,7 +233,7 @@ export class DocumentHookService {
     if (!workflow) {
       throw new Error("Workflow not found");
     }
-    if (workflow.creatorId !== userId) {
+    if (workflow.creatorId && workflow.creatorId !== userId) {
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -268,7 +270,7 @@ export class DocumentHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || workflow.creatorId !== userId) {
+    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -297,7 +299,7 @@ export class DocumentHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || workflow.creatorId !== userId) {
+    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -328,7 +330,7 @@ export class DocumentHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || workflow.creatorId !== userId) {
+    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -367,7 +369,7 @@ export class DocumentHookService {
     if (!workflow) {
       throw new Error("Workflow not found");
     }
-    if (workflow.creatorId !== userId) {
+    if (workflow.creatorId && workflow.creatorId !== userId) {
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -429,7 +431,7 @@ export class DocumentHookService {
     try {
       const json = JSON.stringify(data);
       if (json.length > 1024) {
-        return JSON.parse(json.slice(0, 1024) + "...");
+        return JSON.parse(`${json.slice(0, 1024)  }...`);
       }
       return data;
     } catch {

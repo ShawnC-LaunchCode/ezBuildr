@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { useLocation, useRoute } from "wouter";
-import { api } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useLocation, useRoute } from "wouter";
+
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 
 export default function PortalMagicLink() {
     const [location, setLocation] = useLocation();

@@ -1,10 +1,14 @@
 import { motion } from 'framer-motion';
-import type { QuestionAggregate, YesNoAggregation, ChoiceAggregation, TextAggregation } from '@shared/schema';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { YesNoChart } from './YesNoChart';
-import { MultipleChoiceChart } from './MultipleChoiceChart';
-import { KeywordList } from './KeywordList';
 import { FileText, BarChart3, ListChecks, MessageSquare } from 'lucide-react';
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+import type { QuestionAggregate, YesNoAggregation, ChoiceAggregation, TextAggregation } from '@shared/schema';
+
+import { KeywordList } from './KeywordList';
+import { MultipleChoiceChart } from './MultipleChoiceChart';
+import { YesNoChart } from './YesNoChart';
+
 
 interface ResultsCardProps {
   question: QuestionAggregate;
