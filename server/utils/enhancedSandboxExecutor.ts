@@ -50,7 +50,8 @@ async function runJsWithHelpers(
   scriptCache?: Map<string, any>
 ): Promise<ScriptExecutionResult> {
   const helperLib = createHelperLibrary({ consoleEnabled });
-  const actualHelpers = helpers || helperLib.helpers;
+  // When consoleEnabled, always use helperLib.helpers to ensure console capture works
+  const actualHelpers = consoleEnabled ? helperLib.helpers : (helpers || helperLib.helpers);
 
   let ivm: typeof import("isolated-vm") | undefined;
   try {
@@ -138,6 +139,18 @@ async function runJsWithHelpers(
       emittedValue = val;
     }));
 
+    // Setup console capture callbacks
+    const capturedConsoleLogs: any[][] = [];
+    await jail.set("_consoleLog", new ivm.Reference((...args: any[]) => {
+      capturedConsoleLogs.push(args);
+    }));
+    await jail.set("_consoleWarn", new ivm.Reference((...args: any[]) => {
+      capturedConsoleLogs.push(['[WARN]', ...args]);
+    }));
+    await jail.set("_consoleError", new ivm.Reference((...args: any[]) => {
+      capturedConsoleLogs.push(['[ERROR]', ...args]);
+    }));
+
 
 
     // We MUST allow the callback to be async (returns Promise) if target is async?
@@ -197,9 +210,28 @@ async function runJsWithHelpers(
         }
         return undefined;
       }
-      
+
       const helpers = buildHelpers(_helpersStructure);
-      
+
+      // Define global console for capturing output
+      global.console = {
+        log: function(...args) {
+          _consoleLog.applySync(undefined, args, { arguments: { copy: true } });
+        },
+        warn: function(...args) {
+          _consoleWarn.applySync(undefined, args, { arguments: { copy: true } });
+        },
+        error: function(...args) {
+          _consoleError.applySync(undefined, args, { arguments: { copy: true } });
+        },
+        info: function(...args) {
+          _consoleLog.applySync(undefined, ['[INFO]', ...args], { arguments: { copy: true } });
+        }
+      };
+
+      // Override helpers.console to use the same capture mechanism
+      helpers.console = global.console;
+
       // Define global emit
       global.emit = function(val) {
          try {
@@ -208,7 +240,7 @@ async function runJsWithHelpers(
            // Ignore emit errors or log?
          }
       };
-      
+
       // Wrap user code
       (function(input, context, helpers) {
          ${code}
@@ -256,7 +288,7 @@ async function runJsWithHelpers(
     return {
       ok: true,
       output: output,
-      consoleLogs: helperLib.getConsoleLogs ? helperLib.getConsoleLogs() : undefined,
+      consoleLogs: capturedConsoleLogs.length > 0 ? capturedConsoleLogs : undefined,
       durationMs,
     };
 

@@ -18,6 +18,9 @@ import { logger } from "../../logger";
 import { lifecycleHookRepository } from "../../repositories/LifecycleHookRepository";
 import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
 import { workflowRepository } from "../../repositories/WorkflowRepository";
+import { db } from "../../db";
+import { steps as stepsTable, sections as sectionsTable } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 import { scriptEngine } from "./ScriptEngine";
 
@@ -62,6 +65,28 @@ export class LifecycleHookService {
         "LifecycleHookService: Executing hooks for phase"
       );
 
+      // Fetch step aliases for data mapping (stepId → alias)
+      const steps = await db.select()
+        .from(stepsTable)
+        .innerJoin(sectionsTable, eq(stepsTable.sectionId, sectionsTable.id))
+        .where(eq(sectionsTable.workflowId, workflowId));
+
+      const aliasMap: Record<string, string> = {};
+      for (const row of steps) {
+        const step = row.steps; // Access steps column from join
+        if (step.alias) {
+          aliasMap[step.alias] = step.id; // alias → stepId
+        }
+      }
+
+      logger.debug(
+        {
+          workflowId,
+          aliasCount: Object.keys(aliasMap).length,
+        },
+        "LifecycleHookService: Built alias map for workflow"
+      );
+
       const errors: Array<{ hookId: string; hookName: string; error: string }> = [];
       const consoleOutput: Array<{ hookName: string; logs: any[][] }> = [];
       const resultData = { ...data };
@@ -77,6 +102,7 @@ export class LifecycleHookService {
             code: hook.code,
             inputKeys: hook.inputKeys,
             data: resultData,
+            aliasMap, // Pass alias map for stepId → alias resolution
             context: {
               workflowId,
               runId,
