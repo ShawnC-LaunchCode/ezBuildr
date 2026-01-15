@@ -19,27 +19,23 @@ import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssi
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
-import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkflow } from "@/lib/vault-hooks";
-
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-
+import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
+import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
+import { analytics } from "@/lib/analytics";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
+import type { ApiStep } from "@/lib/vault-api";
+import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun , useWorkflow } from "@/lib/vault-hooks";
 
-
+import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { LogicRule } from "@shared/schema";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidationSchema } from "@shared/validation/ValidationSchema";
 
-import { analytics } from "@/lib/analytics";
-import type { ApiStep } from "@/lib/vault-api";
 
 interface WorkflowRunnerProps {
   // Production mode: provide runId

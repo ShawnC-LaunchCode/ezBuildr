@@ -33,9 +33,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UI_LABELS } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { cn } from "@/lib/utils";
 
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
@@ -44,7 +45,6 @@ import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 
 
-import { UI_LABELS } from "@/lib/labels";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);

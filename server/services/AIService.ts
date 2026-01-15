@@ -12,11 +12,6 @@
  * - Rate limiting protection
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
-
-
 import {
   AIGeneratedWorkflowSchema,
   AIWorkflowSuggestionSchema,
@@ -35,11 +30,15 @@ import {
 import { createLogger } from '../logger';
 
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
+import { AnthropicProvider } from './ai/providers/AnthropicProvider';
+import { GeminiProvider } from './ai/providers/GeminiProvider';
+import { OpenAIProvider } from './ai/providers/OpenAIProvider';
 import { workflowQualityValidator } from './WorkflowQualityValidator';
 
+import type { IAIProvider, AIProviderConfig } from './ai/providers/types';
+import type { TaskType } from './ai/types';
 import type {
   AIProvider,
-  AIProviderConfig,
   AIGeneratedWorkflow,
   AIWorkflowGenerationRequest,
   AIWorkflowSuggestion,
@@ -57,25 +56,26 @@ const logger = createLogger({ module: 'ai-service' });
  * AI Service for workflow generation and suggestions
  */
 export class AIService {
-  private openaiClient: OpenAI | null = null;
-  private anthropicClient: Anthropic | null = null;
-  private geminiClient: ReturnType<GoogleGenerativeAI['getGenerativeModel']> | null = null;
-  private config: AIProviderConfig;
+  private provider: IAIProvider;
   private promptBuilder: AIPromptBuilder;
+  private config: AIProviderConfig;
 
   constructor(config: AIProviderConfig) {
     this.config = config;
     this.promptBuilder = new AIPromptBuilder();
+    this.provider = this.initializeProvider(config);
+  }
 
-    if (config.provider === 'openai') {
-      this.openaiClient = new OpenAI({ apiKey: config.apiKey, timeout: 600000 });
-    } else if (config.provider === 'anthropic') {
-      this.anthropicClient = new Anthropic({ apiKey: config.apiKey, timeout: 600000 });
-    } else if (config.provider === 'gemini') {
-      const genAI = new GoogleGenerativeAI(config.apiKey);
-      this.geminiClient = genAI.getGenerativeModel({ model: config.model }, { timeout: 600000 });
-    } else {
-      throw new Error(`Unsupported AI provider: ${config.provider}`);
+  private initializeProvider(config: AIProviderConfig): IAIProvider {
+    switch (config.provider) {
+      case 'openai':
+        return new OpenAIProvider(config);
+      case 'anthropic':
+        return new AnthropicProvider(config);
+      case 'gemini':
+        return new GeminiProvider(config);
+      default:
+        throw new Error(`Unsupported AI provider: ${config.provider}`);
     }
   }
 
@@ -457,396 +457,65 @@ Guidelines:
 Output ONLY the JSON object, no additional text or markdown.`;
   }
 
-  /**
-   * Estimate token count from text (rough approximation: 1 token ≈ 4 characters)
-   * This is a conservative estimate - actual tokenization may vary by model
-   */
-  private estimateTokenCount(text: string): number {
-    return Math.ceil(text.length / 4);
-  }
-
-  /**
-   * Detect if JSON response appears truncated
-   * Returns true if response looks incomplete
-   */
-  private isResponseTruncated(response: string): boolean {
-    const trimmed = response.trim();
-
-    // Check 1: Response should end with closing brace or bracket
-    const endsCorrectly = trimmed.endsWith('}') || trimmed.endsWith(']');
-    if (!endsCorrectly) {
-      logger.warn({
-        lastChar: trimmed.charAt(trimmed.length - 1),
-        last50: trimmed.substring(trimmed.length - 50),
-      }, 'Response does not end with closing brace/bracket');
-      return true;
-    }
-
-    // Check 2: Count opening vs closing braces
-    const openBraces = (trimmed.match(/\{/g) || []).length;
-    const closeBraces = (trimmed.match(/\}/g) || []).length;
-    const openBrackets = (trimmed.match(/\[/g) || []).length;
-    const closeBrackets = (trimmed.match(/\]/g) || []).length;
-
-    if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
-      logger.warn({
-        openBraces,
-        closeBraces,
-        openBrackets,
-        closeBrackets,
-      }, 'Mismatched braces/brackets detected');
-      return true;
-    }
-
-    // Check 3: Try to parse as JSON
-    // If it parses successfully, it's definitely not truncated
-    try {
-      JSON.parse(trimmed);
-      return false;  // Parsing succeeded = not truncated
-    } catch (parseError) {
-      // Parsing failed - likely truncated
-      logger.warn({
-        parseError: parseError instanceof Error ? parseError.message : String(parseError),
-        last100: trimmed.substring(Math.max(0, trimmed.length - 100)),
-      }, 'JSON parsing failed - response appears truncated');
-      return true;
-    }
-  }
-
-  /**
-   * Get maximum context window for the current provider/model
-   */
-  private getMaxContextTokens(): number {
-    const { provider, model } = this.config;
-
-    // Conservative limits to ensure we stay well within bounds
-    const limits: Record<string, Record<string, number>> = {
-      openai: {
-        'gpt-4-turbo-preview': 128000,
-        'gpt-4': 8192,
-        'gpt-3.5-turbo': 16385,
-        'default': 8000, // Safe default
-      },
-      anthropic: {
-        'claude-3-5-sonnet-20241022': 200000,
-        'claude-3-opus-20240229': 200000,
-        'claude-3-sonnet-20240229': 200000,
-        'default': 100000,
-      },
-      gemini: {
-        'gemini-2.0-flash': 1048576, // 1M tokens
-        'gemini-1.5-pro': 2097152, // 2M tokens
-        'default': 1000000,
-      },
-    };
-
-    return limits[provider]?.[model] || limits[provider]?.['default'] || 8000;
-  }
-
-  /**
-   * Validate that prompt + response won't exceed context window
-   */
-  private validateTokenLimits(prompt: string, maxResponseTokens: number): void {
-    const promptTokens = this.estimateTokenCount(prompt);
-    const maxContext = this.getMaxContextTokens();
-    const totalTokens = promptTokens + maxResponseTokens;
-
-    logger.debug({
-      promptTokens,
-      maxResponseTokens,
-      totalTokens,
-      maxContext,
-      provider: this.config.provider,
-      model: this.config.model,
-    }, 'Token usage estimate');
-
-    if (totalTokens > maxContext) {
-      const errorMsg = [
-        `Request exceeds model's context window:`,
-        `  Prompt: ~${promptTokens.toLocaleString()} tokens`,
-        `  Expected response: ~${maxResponseTokens.toLocaleString()} tokens`,
-        `  Total: ~${totalTokens.toLocaleString()} tokens`,
-        `  Model limit: ${maxContext.toLocaleString()} tokens`,
-        ``,
-        `The workflow or request is too large for the AI model to process.`,
-      ].join('\n');
-
-      throw this.createError(errorMsg, 'VALIDATION_ERROR', {
-        promptTokens,
-        maxResponseTokens,
-        totalTokens,
-        maxContext,
-        provider: this.config.provider,
-        model: this.config.model,
-      });
-    }
-
-    // Warn if we're using >80% of context window
-    const usagePercent = (totalTokens / maxContext) * 100;
-    if (usagePercent > 80) {
-      logger.warn({
-        promptTokens,
-        maxResponseTokens,
-        totalTokens,
-        maxContext,
-        usagePercent: usagePercent.toFixed(1),
-      }, 'High token usage - approaching context limit');
-    }
-  }
-
-  /**
-   * Estimate cost in USD for AI API call
-   * Pricing as of January 2025 - subject to change
-   */
-  private estimateCost(provider: string, model: string, promptTokens: number, responseTokens: number): number {
-    // Pricing per 1M tokens (input / output)
-    const pricing: Record<string, Record<string, { input: number; output: number }>> = {
-      openai: {
-        'gpt-4-turbo-preview': { input: 10.00, output: 30.00 },
-        'gpt-4': { input: 30.00, output: 60.00 },
-        'gpt-3.5-turbo': { input: 0.50, output: 1.50 },
-        'default': { input: 10.00, output: 30.00 },
-      },
-      anthropic: {
-        'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
-        'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
-        'claude-3-sonnet-20240229': { input: 3.00, output: 15.00 },
-        'default': { input: 3.00, output: 15.00 },
-      },
-      gemini: {
-        'gemini-2.0-flash': { input: 0.10, output: 0.40 }, // Very cheap!
-        'gemini-1.5-pro': { input: 1.25, output: 5.00 },
-        'default': { input: 0.10, output: 0.40 },
-      },
-    };
-
-    const modelPricing = pricing[provider]?.[model] || pricing[provider]?.['default'] || { input: 0, output: 0 };
-
-    const inputCost = (promptTokens / 1_000_000) * modelPricing.input;
-    const outputCost = (responseTokens / 1_000_000) * modelPricing.output;
-
-    return inputCost + outputCost;
-  }
 
   /**
    * Call the configured LLM provider with retry logic
    */
   private async callLLM(
     prompt: string,
-    taskType: 'workflow_generation' | 'workflow_suggestion' | 'binding_suggestion' | 'value_suggestion' | 'workflow_revision' | 'logic_generation' | 'logic_debug' | 'logic_visualization',
+    taskType: TaskType,
   ): Promise<string> {
-    const { provider, model, temperature = 0.7 } = this.config;
-
-    // Task-specific max tokens (workflow revisions need more output space)
-    // Note: Gemini 2.0 Flash has a max output of 8,192 tokens
-    // For large workflows, we use chunking to avoid hitting this limit
-    const taskMaxTokens = {
-      workflow_generation: 8000,
-      workflow_revision: 8192,  // Increased to Gemini 2.0 Flash's actual max
-      workflow_suggestion: 4000,
-      binding_suggestion: 4000,
-      value_suggestion: 4000,
-      logic_generation: 4000,
-      logic_debug: 4000,
-      logic_visualization: 4000,
-    };
-
-    // Use task-specific maxTokens, fall back to config, then fall back to task default
-    // If config.maxTokens is set and greater than task default, use it
-    // Otherwise, use task-specific default
-    const maxTokens = (this.config.maxTokens && this.config.maxTokens > taskMaxTokens[taskType])
-      ? this.config.maxTokens
-      : taskMaxTokens[taskType];
-
-    const startTime = Date.now();
-    const promptTokens = this.estimateTokenCount(prompt);
-
-    // Validate token limits BEFORE making the API call
-    this.validateTokenLimits(prompt, maxTokens);
-
-    logger.debug({ provider, model, taskType, timeout: this.geminiClient ? 600000 : 'default' }, 'Calling LLM');
-
-    // Telemetry: Track AI request
-    logger.info({
-      event: 'ai_request_started',
-      provider,
-      model,
-      taskType,
-      promptTokens,
-      maxTokens,
-    }, 'AI request started');
-
-    const maxRetries = 6;
+    const maxRetries = 3;
     let attempt = 0;
-    let responseTokens = 0;
-    let actualCost = 0;
+    const startTime = Date.now();
+    const { provider, model } = this.config;
 
     // Helper to extract retry delay from error if available
     const getRetryAfter = (error: any): number | null => {
-      // Check for Google's "Please retry in X s"
       if (typeof error.message === 'string') {
         const match = error.message.match(/retry in ([0-9.]+)s/);
-        if (match) {return Math.ceil(parseFloat(match[1]) * 1000);}
+        if (match) { return Math.ceil(parseFloat(match[1]) * 1000); }
       }
       return null;
     };
 
     while (attempt <= maxRetries) {
       try {
-        if (provider === 'openai' && this.openaiClient) {
-          const response = await this.openaiClient.chat.completions.create({
-            model,
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting.',
-              },
-              { role: 'user', content: prompt },
-            ],
-            temperature,
-            max_tokens: maxTokens,
-            response_format: { type: 'json_object' },
-          });
+        const response = await this.provider.generateResponse(prompt, taskType);
 
-          const content = response.choices[0]?.message?.content;
-          if (!content) {
-            throw this.createError('No content in OpenAI response', 'INVALID_RESPONSE');
-          }
-
-          // Telemetry: Track successful response
-          responseTokens = this.estimateTokenCount(content);
-          const duration = Date.now() - startTime;
-          actualCost = this.estimateCost(provider, model, promptTokens, responseTokens);
-
-          logger.info({
-            event: 'ai_request_success',
-            provider,
-            model,
-            taskType,
-            promptTokens,
-            responseTokens,
-            totalTokens: promptTokens + responseTokens,
-            durationMs: duration,
-            estimatedCostUSD: actualCost,
-            attempts: attempt + 1,
-          }, 'AI request succeeded');
-
-          return content;
-        } else if (provider === 'anthropic' && this.anthropicClient) {
-          const response = await this.anthropicClient.messages.create({
-            model,
-            max_tokens: maxTokens,
-            temperature,
-            messages: [{ role: 'user', content: prompt }],
-            system:
-              'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
-          });
-
-          const content = response.content[0];
-          if (content.type !== 'text') {
-            throw this.createError('Unexpected Anthropic response type', 'INVALID_RESPONSE');
-          }
-
-          // Strip markdown code blocks
-          let text = content.text.trim();
-          if (text.startsWith('```json')) {
-            text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
-          } else if (text.startsWith('```')) {
-            text = text.replace(/^```\n/, '').replace(/\n```$/, '');
-          }
-
-          // Telemetry: Track successful response
-          responseTokens = this.estimateTokenCount(text);
-          const duration = Date.now() - startTime;
-          actualCost = this.estimateCost(provider, model, promptTokens, responseTokens);
-
-          logger.info({
-            event: 'ai_request_success',
-            provider,
-            model,
-            taskType,
-            promptTokens,
-            responseTokens,
-            totalTokens: promptTokens + responseTokens,
-            durationMs: duration,
-            estimatedCostUSD: actualCost,
-            attempts: attempt + 1,
-          }, 'AI request succeeded');
-
-          return text;
-        } else if (provider === 'gemini' && this.geminiClient) {
-          // Gemini API call with proper configuration
-          const result = await this.geminiClient.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature,
-              maxOutputTokens: maxTokens,
-              // Note: responseMimeType requires Gemini 1.5 Pro or later
-              // If using older models, remove this line
-            },
-          });
-          const response = result.response;
-          const content = response.text();
-
-          if (!content) {
-            throw this.createError('No content in Gemini response', 'INVALID_RESPONSE');
-          }
-
-          // Strip markdown code blocks
-          let text = content.trim();
-          if (text.startsWith('```json')) {
-            text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
-          } else if (text.startsWith('```')) {
-            text = text.replace(/^```\n/, '').replace(/\n```$/, '');
-          }
-
-          // Telemetry: Track successful response
-          responseTokens = this.estimateTokenCount(text);
-          const duration = Date.now() - startTime;
-          actualCost = this.estimateCost(provider, model, promptTokens, responseTokens);
-
-          logger.info({
-            event: 'ai_request_success',
-            provider,
-            model,
-            taskType,
-            promptTokens,
-            responseTokens,
-            totalTokens: promptTokens + responseTokens,
-            durationMs: duration,
-            estimatedCostUSD: actualCost,
-            attempts: attempt + 1,
-          }, 'AI request succeeded');
-
-          return text;
-        } else {
-          throw this.createError(`Provider ${provider} not initialized`, 'API_ERROR');
+        // Strip markdown code blocks (often added by models even when not requested)
+        let text = response.trim();
+        if (text.startsWith('```json')) {
+          text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+        } else if (text.startsWith('```')) {
+          text = text.replace(/^```\n/, '').replace(/\n```$/, '');
         }
+
+        return text;
       } catch (error: any) {
-        // Handle rate limiting specifically
-        const isRateLimit = error.status === 429 || error.code === 'rate_limit_exceeded' ||
-          (error.message?.includes('429')) ||
-          (error.message?.includes('Quota exceeded'));
+        const isRateLimit =
+          error.code === 'RATE_LIMIT' ||
+          error.code === 'rate_limit_exceeded' ||
+          error.status === 429 ||
+          (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded')));
+
+        const isTimeout = error.code === 'ETIMEDOUT' || error.code === 'TIMEOUT' || (error.message?.includes('timeout'));
+        const isServerBusy = error.status === 500 || error.status === 503;
+
+        const isRetryable = isRateLimit || isTimeout || isServerBusy;
+
+        if (attempt < maxRetries && isRetryable) {
+          const retryAfter = getRetryAfter(error) || Math.pow(2, attempt) * 1000;
+          logger.warn({ attempt, retryAfter, error: error.message }, 'Retrying AI request...');
+          await new Promise((resolve) => setTimeout(resolve, retryAfter));
+          attempt++;
+          continue;
+        }
+
+        // Normalize and re-throw if not retryable or retries exhausted
+        const duration = Date.now() - startTime;
 
         if (isRateLimit) {
-          const retryAfterMs = getRetryAfter(error);
-
-          // If we have retries left and the wait is reasonable (< 15 seconds)
-          if (attempt < maxRetries) {
-            const waitMs = retryAfterMs || (Math.pow(2, attempt) * 1000); // Exponential backoff fallback
-
-            if (waitMs <= 60000) {
-              logger.warn({ attempt, waitMs }, 'Rate limit hit, retrying...');
-              await new Promise(resolve => setTimeout(resolve, waitMs));
-              attempt++;
-              continue;
-            }
-          }
-
-          // Otherwise, throw explicit rate limit error
-          // Telemetry: Track failure
-          const duration = Date.now() - startTime;
           logger.error({
             event: 'ai_request_failed',
             provider,
@@ -862,21 +531,12 @@ Output ONLY the JSON object, no additional text or markdown.`;
             'RATE_LIMIT',
             {
               originalError: error.message,
-              retryAfterSeconds: retryAfterMs ? Math.ceil(retryAfterMs / 1000) : 60
+              retryAfterSeconds: getRetryAfter(error) ? Math.ceil(getRetryAfter(error)! / 1000) : 60
             }
           );
         }
 
-        // Handle timeouts (retryable?)
-        if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            attempt++;
-            continue;
-          }
-
-          // Telemetry: Track timeout failure
-          const duration = Date.now() - startTime;
+        if (isTimeout) {
           logger.error({
             event: 'ai_request_failed',
             provider,
@@ -890,11 +550,7 @@ Output ONLY the JSON object, no additional text or markdown.`;
           throw this.createError('AI API request timed out', 'TIMEOUT', { originalError: error.message });
         }
 
-        // Generic API error - do not retry
-        const isDevelopment = process.env.NODE_ENV === 'development';
-
-        // Telemetry: Track generic API error
-        const duration = Date.now() - startTime;
+        // Generic API error
         logger.error({
           event: 'ai_request_failed',
           provider,
@@ -914,7 +570,6 @@ Output ONLY the JSON object, no additional text or markdown.`;
             originalError: {
               name: error.name,
               message: error.message || String(error),
-              ...(isDevelopment && { stack: error.stack }), // Only include stack in development
               keys: Object.keys(error)
             }
           }
@@ -922,7 +577,7 @@ Output ONLY the JSON object, no additional text or markdown.`;
       }
     }
 
-    throw new Error('Unexpected retry loop exit');
+    throw new Error('Max retries exceeded');
   }
 
   /**
@@ -1201,8 +856,8 @@ Output ONLY the JSON object, no additional text or markdown.`;
   ): string {
     const stepDescriptions = steps.map(step => {
       let desc = `- ${step.key} (${step.type})`;
-      if (step.label) {desc += `: ${step.label}`;}
-      if (step.description) {desc += ` - ${step.description}`;}
+      if (step.label) { desc += `: ${step.label}`; }
+      if (step.description) { desc += ` - ${step.description}`; }
       if (step.options && step.options.length > 0) {
         desc += ` [Options: ${step.options.join(', ')}]`;
       }
@@ -1253,7 +908,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
     try {
       // Estimate token count of the full workflow
       const workflowJson = JSON.stringify(request.currentWorkflow);
-      const estimatedInputTokens = this.estimateTokenCount(workflowJson);
+      const estimatedInputTokens = this.provider.estimateTokenCount(workflowJson);
       const sectionCount = request.currentWorkflow.sections?.length || 0;
 
       // Estimate output size based on input
@@ -1287,8 +942,8 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
           estimatedOutputTokens,
           sectionCount,
           reason: estimatedInputTokens > INPUT_CHUNK_THRESHOLD ? 'large_input' :
-                  estimatedOutputTokens > OUTPUT_CHUNK_THRESHOLD ? 'large_output' :
-                  'many_sections',
+            estimatedOutputTokens > OUTPUT_CHUNK_THRESHOLD ? 'large_output' :
+              'many_sections',
         }, 'Workflow large enough to warrant chunking - using chunked revision');
 
         return await this.reviseWorkflowChunked(request);
@@ -1340,8 +995,8 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
       const response = await this.callLLM(prompt, 'workflow_revision');
 
       // FIRST: Check for truncation BEFORE attempting to parse
-      if (this.isResponseTruncated(response)) {
-        const estimatedTokens = this.estimateTokenCount(response);
+      if (this.provider.isResponseTruncated(response)) {
+        const estimatedTokens = this.provider.estimateTokenCount(response);
         logger.error({
           responseLength: response.length,
           estimatedTokens,
@@ -1461,8 +1116,8 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
     if (sections.length === 1 && !skipTwoPassStrategy) {
       // Check BOTH the current section size AND the instruction size
       // (instruction often contains the document content)
-      const singleSectionSize = this.estimateTokenCount(JSON.stringify(sections[0]));
-      const instructionSize = this.estimateTokenCount(request.userInstruction);
+      const singleSectionSize = this.provider.estimateTokenCount(JSON.stringify(sections[0]));
+      const instructionSize = this.provider.estimateTokenCount(request.userInstruction);
 
       // Use the larger of the two to estimate output
       const largerInputSize = Math.max(singleSectionSize, instructionSize);
@@ -1488,7 +1143,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
 
     // Determine optimal chunk size
     // Calculate average section size in tokens
-    const totalWorkflowSize = this.estimateTokenCount(JSON.stringify(workflow));
+    const totalWorkflowSize = this.provider.estimateTokenCount(JSON.stringify(workflow));
     const avgSectionInputTokens = Math.ceil(totalWorkflowSize / sections.length);
 
     // Check if sections are mostly empty (e.g., from Pass 1 of two-pass strategy)
@@ -1503,7 +1158,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
       // CRITICAL: Each section needs to reference the FULL instruction
       // Real-world data shows ~2600 tokens output per section for 4500-token instruction
       // Use multiplier of 6x instead of 2x
-      const instructionSize = this.estimateTokenCount(request.userInstruction);
+      const instructionSize = this.provider.estimateTokenCount(request.userInstruction);
       avgSectionOutputTokens = Math.max(
         avgSectionInputTokens * 2,
         Math.ceil(instructionSize / sections.length) * 6  // 6x multiplier for empty sections
@@ -1532,7 +1187,7 @@ Do not include any markdown formatting, code blocks, or additional text. Return 
     const finalSectionsPerChunk = Math.min(sectionsPerChunk, maxSectionsPerChunk);
 
     const instructionSize = hasEmptySections && request.userInstruction
-      ? this.estimateTokenCount(request.userInstruction)
+      ? this.provider.estimateTokenCount(request.userInstruction)
       : 0;
 
     logger.info({

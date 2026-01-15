@@ -1,8 +1,3 @@
-import { blockService } from "./BlockService";
-import { transformBlockService } from "./TransformBlockService";
-import { lifecycleHookService } from "./scripting/LifecycleHookService";
-import { analyticsService } from "./analytics/AnalyticsService";
-import { logger } from "../logger";
 
 import type { Block } from "@shared/schema";
 import type {
@@ -11,6 +6,11 @@ import type {
   BlockPhase,
 } from "@shared/types/blocks";
 import type { LifecycleHookPhase } from "@shared/types/scripting";
+
+import { db } from "../db";
+import { logger } from "../logger";
+
+import { analyticsService } from "./analytics/AnalyticsService";
 
 // Import specialized block runners
 import { BranchBlockRunner } from "./blockRunners/BranchBlockRunner";
@@ -22,6 +22,9 @@ import { QueryBlockRunner } from "./blockRunners/QueryBlockRunner";
 import { ReadTableBlockRunner } from "./blockRunners/ReadTableBlockRunner";
 import { ValidateBlockRunner } from "./blockRunners/ValidateBlockRunner";
 import { WriteBlockRunner } from "./blockRunners/WriteBlockRunner";
+import { blockService } from "./BlockService";
+import { lifecycleHookService } from "./scripting/LifecycleHookService";
+import { transformBlockService } from "./TransformBlockService";
 
 import type { IBlockRunner } from "./blockRunners/types";
 

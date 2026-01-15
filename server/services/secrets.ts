@@ -90,7 +90,7 @@ export async function getSecretMetadata(projectId: string, secretId: string): Pr
     .from(secrets)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)));
 
-  if (!result) {return null;}
+  if (!result) { return null; }
 
   return {
     ...result,
@@ -109,7 +109,7 @@ export async function getSecretValue(projectId: string, key: string): Promise<st
     .from(secrets)
     .where(and(eq(secrets.projectId, projectId), eq(secrets.key, key)));
 
-  if (!result) {return null;}
+  if (!result) { return null; }
 
   try {
     return decrypt(result.valueEnc);
@@ -129,7 +129,7 @@ export async function getSecretValueById(projectId: string, secretId: string): P
     .from(secrets)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)));
 
-  if (!result) {return null;}
+  if (!result) { return null; }
 
   try {
     return decrypt(result.valueEnc);
@@ -218,9 +218,9 @@ export async function updateSecret(
   // Build update object
   const updates: Partial<InsertSecret> = {};
 
-  if (input.key) {updates.key = input.key;}
-  if (input.type) {updates.type = input.type;}
-  if (input.metadata !== undefined) {updates.metadata = input.metadata;}
+  if (input.key) { updates.key = input.key; }
+  if (input.type) { updates.type = input.type; }
+  if (input.metadata !== undefined) { updates.metadata = input.metadata; }
   if (input.valuePlain) {
     updates.valueEnc = encrypt(input.valuePlain);
   }
@@ -228,7 +228,7 @@ export async function updateSecret(
   // Update
   const [result] = await db
     .update(secrets)
-    .set(updates)
+    .set(updates as any)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)))
     .returning();
 

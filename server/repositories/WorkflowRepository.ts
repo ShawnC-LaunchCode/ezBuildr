@@ -7,6 +7,9 @@ import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
+const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+
 /**
  * Repository for workflow data access
  */
@@ -48,9 +51,12 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const conditions = [];
 
     // Primary: New ownership model
-    conditions.push(
-      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
-    );
+    if (isUuid(creatorId)) {
+      conditions.push(
+        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, creatorId))
+      );
+    }
+
 
     // Org-owned via new model
     if (orgIds.length > 0) {
@@ -111,9 +117,12 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const conditions = [];
 
     // 1. New ownership model: user-owned
-    conditions.push(
-      and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
-    );
+    if (isUuid(userId)) {
+      conditions.push(
+        and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))
+      );
+    }
+
 
     // 2. New ownership model: org-owned
     if (orgIds.length > 0) {
@@ -169,13 +178,19 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const conditions = [
       and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)), // Legacy
       and(eq(workflows.ownerId, creatorId), eq(workflows.status, status as any)), // Legacy
-      // User-owned via new ownership model
-      and(
-        eq(workflows.ownerType, 'user'),
-        eq(workflows.ownerUuid, creatorId),
-        eq(workflows.status, status as any)
-      ),
     ];
+
+    // User-owned via new ownership model
+    if (isUuid(creatorId)) {
+      conditions.push(
+        and(
+          eq(workflows.ownerType, 'user'),
+          eq(workflows.ownerUuid, creatorId),
+          eq(workflows.status, status as any)
+        )
+      );
+    }
+
 
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {
@@ -229,7 +244,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const database = this.getDb(tx);
 
     const byId = await this.findById(idOrSlug, tx);
-    if (byId) {return byId;}
+    if (byId) { return byId; }
 
     // If not found by ID, try slug
     return this.findBySlug(idOrSlug, tx);
@@ -260,13 +275,19 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const conditions = [
       and(eq(workflows.creatorId, creatorId), isNull(workflows.projectId)), // Legacy
       and(eq(workflows.ownerId, creatorId), isNull(workflows.projectId)), // Legacy
-      // User-owned via new ownership model
-      and(
-        eq(workflows.ownerType, 'user'),
-        eq(workflows.ownerUuid, creatorId),
-        isNull(workflows.projectId)
-      ),
     ];
+
+    // User-owned via new ownership model
+    if (isUuid(creatorId)) {
+      conditions.push(
+        and(
+          eq(workflows.ownerType, 'user'),
+          eq(workflows.ownerUuid, creatorId),
+          isNull(workflows.projectId)
+        )
+      );
+    }
+
 
     // Add org-owned condition if user is member of any orgs
     if (orgIds.length > 0) {

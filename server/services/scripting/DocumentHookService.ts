@@ -95,7 +95,8 @@ export class DocumentHookService {
               resultData = { ...resultData, ...result.output };
             } else if (result.output !== undefined && hook.outputKeys.length > 0) {
               // Single value output
-              resultData[hook.outputKeys[0]] = result.output;
+              const key = hook.outputKeys[0];
+              if (key) resultData[key] = result.output;
             }
 
             // Collect console logs
@@ -431,7 +432,7 @@ export class DocumentHookService {
     try {
       const json = JSON.stringify(data);
       if (json.length > 1024) {
-        return JSON.parse(`${json.slice(0, 1024)  }...`);
+        return JSON.parse(`${json.slice(0, 1024)}...`);
       }
       return data;
     } catch {

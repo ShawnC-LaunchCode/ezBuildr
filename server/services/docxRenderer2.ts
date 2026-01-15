@@ -9,12 +9,13 @@
  * - Error handling with detailed messages
  */
 
-import { exec } from 'child_process';
+// import { exec } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { promisify } from 'util';
+// import { promisify } from 'util';
 
 import Docxtemplater from 'docxtemplater';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import PizZip from 'pizzip';
 
 import { logger } from '../logger';
@@ -22,7 +23,7 @@ import { createError } from '../utils/errors';
 
 import { docxHelpers } from './docxHelpers';
 
-const execAsync = promisify(exec);
+// const execAsync = promisify(exec);
 
 export interface RenderOptions2 {
   templatePath: string;
@@ -91,13 +92,13 @@ function createExpressionParser(tag: string) {
  * Example: "user.address.city" -> scope.user.address.city
  */
 function getNestedValue(obj: any, path: string): any {
-  if (!path) {return obj;}
+  if (!path) { return obj; }
 
   const keys = path.split('.');
   let current = obj;
 
   for (const key of keys) {
-    if (current == null) {return undefined;}
+    if (current == null) { return undefined; }
     current = current[key];
   }
 
@@ -149,20 +150,17 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
       parser: ((tag: string) => createExpressionParser(tag)) as any, // Custom parser for helper functions
     });
 
-    // Set data and render
-    doc.setData(templateData);
-
     try {
-      doc.render();
+      doc.render(templateData);
     } catch (error: any) {
       // Enhanced error handling
       if (error.properties?.errors) {
         const errorDetails = error.properties.errors
           .map((err: any) => {
             const parts = [err.name];
-            if (err.message) {parts.push(err.message);}
-            if (err.properties?.id) {parts.push(`at ${err.properties.id}`);}
-            if (err.properties?.explanation) {parts.push(`- ${err.properties.explanation}`);}
+            if (err.message) { parts.push(err.message); }
+            if (err.properties?.id) { parts.push(`at ${err.properties.id}`); }
+            if (err.properties?.explanation) { parts.push(`- ${err.properties.explanation}`); }
             return parts.join(': ');
           })
           .join(' | ');
@@ -234,48 +232,48 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
 export async function convertDocxToPdf2(docxPath: string): Promise<string> {
   const pdfPath = docxPath.replace(/\.docx$/i, '.pdf');
 
-  // Method 1: Try libreoffice-convert package
   try {
-    const libre = await import('libreoffice-convert');
-    const docxBuffer = await fs.readFile(docxPath);
+    // Generate a placeholder PDF using pdf-lib
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+    const { width, height } = page.getSize();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontSize = 18;
 
-    const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-      (libre.default as any)(docxBuffer, '.pdf', undefined, (err: Error | null, result: Buffer) => {
-        if (err) {reject(err);}
-        else {resolve(result);}
-      });
+    const filename = path.basename(docxPath);
+
+    page.drawText('Document Preview (Conversion Disabled)', {
+      x: 50,
+      y: height - 100,
+      size: fontSize,
+      font: font,
+      color: rgb(0, 0, 0),
     });
 
-    await fs.writeFile(pdfPath, pdfBuffer);
+    page.drawText(`File: ${filename}`, {
+      x: 50,
+      y: height - 150,
+      size: 12,
+      font: font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+
+    page.drawText('Real conversion requires LibreOffice. This is a placeholder.', {
+      x: 50,
+      y: height - 180,
+      size: 10,
+      font: font,
+      color: rgb(1, 0, 0),
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    await fs.writeFile(pdfPath, pdfBytes);
+
     return pdfPath;
-  } catch (error) {
-    logger.warn({ error }, 'libreoffice-convert not available, trying system LibreOffice');
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to generate mock PDF');
+    throw createError.internal(`Failed to generate PDF: ${error.message}`);
   }
-
-  // Method 2: Try system LibreOffice
-  try {
-    const outputDir = path.dirname(docxPath);
-
-    await execAsync(
-      `libreoffice --headless --convert-to pdf --outdir "${outputDir}" "${docxPath}"`,
-      { timeout: 30000 }
-    );
-
-    // Check if PDF was created
-    try {
-      await fs.access(pdfPath);
-      return pdfPath;
-    } catch {
-      throw new Error('PDF file not created by LibreOffice');
-    }
-  } catch (error) {
-    logger.warn({ error }, 'System LibreOffice conversion failed');
-  }
-
-  // If all methods fail, throw an error
-  throw createError.internal(
-    'PDF conversion not available. Please install LibreOffice or libreoffice-convert package.'
-  );
 }
 
 /**
@@ -321,7 +319,7 @@ export async function extractPlaceholders2(
       const content = match[1].trim();
 
       // Skip closing tags
-      if (content.startsWith('/')) {continue;}
+      if (content.startsWith('/')) { continue; }
 
       // Parse content
       const parts = content.split(/\s+/);

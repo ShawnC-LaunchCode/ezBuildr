@@ -3,20 +3,21 @@
  * Handles DOCX template rendering and PDF conversion using docxtemplater
  */
 
-import { exec } from 'child_process';
+// import { exec } from 'child_process'; // Removed
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import { promisify } from 'util';
+// import { promisify } from 'util'; // Removed
 
 import Docxtemplater from 'docxtemplater';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import PizZip from 'pizzip';
 
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
 import { formatters } from '../utils/formatters';
 
-const execAsync = promisify(exec);
+// const execAsync = promisify(exec); // Removed
 
 export interface RenderOptions {
   templatePath: string;
@@ -139,71 +140,6 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
 }
 
 /**
- * Convert DOCX to PDF
- * Attempts multiple conversion methods in order of preference:
- * 1. libreoffice-convert (if available)
- * 2. System LibreOffice command line
- * 3. Fallback: return undefined (PDF not available)
- */
-export async function convertDocxToPdf(docxPath: string): Promise<string> {
-  const pdfPath = docxPath.replace(/\.docx$/i, '.pdf');
-
-  // Method 1: Try libreoffice-convert package
-  try {
-    const libre = await import('libreoffice-convert');
-    const docxBuffer = await fs.readFile(docxPath);
-
-    const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-      const convert = (libre.default as unknown as (
-        input: Buffer,
-        format: string,
-        filter: undefined,
-        callback: (err: Error | null, result: Buffer) => void
-      ) => void);
-      convert(docxBuffer, '.pdf', undefined, (err: Error | null, result: Buffer) => {
-        if (err) {reject(err);}
-        else {resolve(result);}
-      });
-    });
-
-    await fs.writeFile(pdfPath, pdfBuffer);
-    return pdfPath;
-  } catch (error) {
-    logger.warn({ error }, 'libreoffice-convert not available, trying system LibreOffice');
-  }
-
-  // Method 2: Try system LibreOffice
-  try {
-    const outputDir = path.dirname(docxPath);
-    const fileName = path.basename(docxPath);
-
-    // Try to convert using system LibreOffice
-    await execAsync(
-      `libreoffice --headless --convert-to pdf --outdir "${outputDir}" "${docxPath}"`,
-      { timeout: 30000 }
-    );
-
-    // Check if PDF was created
-    try {
-      await fs.access(pdfPath);
-      return pdfPath;
-    } catch {
-      throw new Error('PDF file not created by LibreOffice');
-    }
-  } catch (error) {
-    logger.warn({ error }, 'System LibreOffice conversion failed');
-  }
-
-  // If all methods fail, throw an error
-  throw createError.internal(
-    'PDF conversion not available. Please install LibreOffice or libreoffice-convert package.'
-  );
-}
-
-/**
- * Extract placeholders from a DOCX template
- * @param templatePath - Path to template file
- * @returns Array of unique placeholder names
  */
 export async function extractPlaceholdersFromDocx(
   templatePath: string

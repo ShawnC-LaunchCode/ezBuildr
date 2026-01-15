@@ -95,7 +95,7 @@ if (typeof window !== 'undefined') {
 const shouldConnectToDb = () => {
   // Don't connect if we are explicitly in unit tests (which interpret "db" as a mock)
   // or if NO database URL was provided at all
-  if (process.env.TEST_TYPE === 'unit') {return false;}
+  if (process.env.TEST_TYPE === 'unit') { return false; }
 
   // If we are in unit tests generally (inferred), try to avoid heavy DB unless forced
   return !!process.env.DATABASE_URL;
@@ -216,7 +216,7 @@ afterEach(async () => {
 // Helper to ensure DB functions exist with retry logic for concurrency
 async function ensureDbFunctionsWithRetry(retries = 3) {
   // Only proceed if db is actually connected to a real DB-like object
-  if (!db?.execute) {return;}
+  if (!db?.execute) { return; }
 
   for (let i = 0; i < retries; i++) {
     try {
@@ -244,7 +244,7 @@ async function ensureDbFunctions() {
   // We use CREATE OR REPLACE to handle updates atomically-ish.
   // Removed explicit DROP to reduce race condition window unless purely necessary.
 
-  // await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text);');
+  await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text);');
 
   await db.execute(`
         CREATE OR REPLACE FUNCTION datavault_get_next_autonumber(
@@ -386,9 +386,9 @@ vi.mock("../server/storage", async (importOriginal) => {
   // Helper to determine mode inside the hoisted factory
   const shouldUseRealDb = () => {
     // Explicit integration flags
-    if (process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true") {return true;}
+    if (process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true") { return true; }
     // Unit test flag
-    if (process.env.TEST_TYPE === "unit") {return false;}
+    if (process.env.TEST_TYPE === "unit") { return false; }
     // Fallback: If DB URL exists, assume integration unless unit explicitly requested
     return !!(process.env.DATABASE_URL || process.env.TEST_DATABASE_URL);
   };
@@ -438,3 +438,51 @@ vi.mock("../server/storage", async (importOriginal) => {
 if (isIntegrationTest) {
   vi.setConfig({ testTimeout: 60000 });
 }
+
+// Mock AI Providers Globally to prevent rate limits and network calls
+vi.mock("@google/generative-ai", () => {
+  return {
+    GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
+      getGenerativeModel: vi.fn().mockReturnValue({
+        generateContent: vi.fn().mockResolvedValue({
+          response: {
+            text: () => JSON.stringify({
+              updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
+              explanation: ["Mocked explanation"],
+              diff: { changes: [] },
+              suggestions: [],
+            }),
+          },
+        }),
+      }),
+    })),
+  };
+});
+
+vi.mock("openai", () => {
+  return {
+    OpenAI: vi.fn().mockImplementation(() => ({
+      chat: {
+        completions: {
+          create: vi.fn().mockResolvedValue({
+            choices: [{ message: { content: "{}" } }],
+            usage: { total_tokens: 10 },
+          }),
+        },
+      },
+    })),
+  };
+});
+
+vi.mock("@anthropic-ai/sdk", () => {
+  return {
+    Anthropic: vi.fn().mockImplementation(() => ({
+      messages: {
+        create: vi.fn().mockResolvedValue({
+          content: [{ text: "{}" }],
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }),
+      },
+    })),
+  };
+});

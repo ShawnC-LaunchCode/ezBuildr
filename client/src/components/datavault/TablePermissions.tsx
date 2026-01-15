@@ -41,6 +41,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission } from "@/lib/datavault-hooks";
+
 import type { DatavaultTablePermission } from "@shared/schema";
 
 interface TablePermissionsProps {

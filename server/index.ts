@@ -8,7 +8,7 @@ dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 
-import { logger , requestLogger } from "./logger";
+import { logger, requestLogger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter, authLimiter } from "./middleware/rateLimiting";
 import { requestIdMiddleware } from "./middleware/requestId";
@@ -154,18 +154,22 @@ app.use(requestTimeout);
 // Note: This is a baseline. Specific routes may apply stricter limits.
 app.use('/api', globalLimiter);
 
-// =====================================================================
-// 💡 REQUEST LOGGING MIDDLEWARE
-// Logs API requests and responses with timing information
-// =====================================================================
-// 💡 REQUEST LOGGING MIDDLEWARE
-// =====================================================================
-app.use(requestLogger);
-// =====================================================================
-
 
 (async () => {
     try {
+        // =====================================================================
+        // 📖 API DOCUMENTATION (Swagger UI)
+        // =====================================================================
+        try {
+            const swaggerUi = (await import("swagger-ui-express")).default;
+            const YAML = (await import("yamljs")).default;
+            const swaggerDocument = YAML.load("./openapi.yaml");
+            app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+        } catch (error) {
+            // Log but don't crash if docs fail
+            logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
+        }
+
         // CONFIGURATION FIX: Validate master key at startup (fail fast if misconfigured)
         const { validateMasterKey } = await import("./utils/encryption.js");
         try {

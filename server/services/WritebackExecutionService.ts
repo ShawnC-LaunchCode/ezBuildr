@@ -31,7 +31,7 @@ export class WritebackExecutionService {
   async executeWritebacksForRun(
     runId: string,
     workflowId: string,
-    userId: string,
+    userId?: string,
     tx?: DbTransaction
   ): Promise<{ rowsCreated: number; errors: string[] }> {
     const log = logger.child({ runId, workflowId });

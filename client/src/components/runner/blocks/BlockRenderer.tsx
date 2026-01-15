@@ -15,9 +15,9 @@ import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
 // Block Renderers
-import { ChoiceBlockRenderer } from "./ChoiceBlock";
 import { AddressBlockRenderer } from "./AddressBlock";
 import { BooleanBlockRenderer } from "./BooleanBlock";
+import { ChoiceBlockRenderer } from "./ChoiceBlock";
 import { CurrencyBlockRenderer } from "./CurrencyBlock";
 import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";

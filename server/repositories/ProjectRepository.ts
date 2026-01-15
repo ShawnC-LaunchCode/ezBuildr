@@ -7,6 +7,9 @@ import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
+const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+
 /**
  * Repository for project data access
  */
@@ -29,9 +32,12 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     const conditions = [];
 
     // Primary: New ownership model
-    conditions.push(
-      and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, creatorId))
-    );
+    if (isUuid(creatorId)) {
+      conditions.push(
+        and(eq(projects.ownerType, 'user'), eq(projects.ownerUuid, creatorId))
+      );
+    }
+
 
     // Org-owned via new model
     if (orgIds.length > 0) {
@@ -111,13 +117,16 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     const conditions = [];
 
     // Primary: New ownership model
-    conditions.push(
-      and(
-        eq(projects.ownerType, 'user'),
-        eq(projects.ownerUuid, creatorId),
-        eq(projects.status, 'active')
-      )
-    );
+    if (isUuid(creatorId)) {
+      conditions.push(
+        and(
+          eq(projects.ownerType, 'user'),
+          eq(projects.ownerUuid, creatorId),
+          eq(projects.status, 'active')
+        )
+      );
+    }
+
 
     // Org-owned via new model
     if (orgIds.length > 0) {

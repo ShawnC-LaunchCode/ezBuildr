@@ -5,8 +5,20 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useParams } from "wouter";
 
-import { Label } from "@/components/ui/label";
+import { Breadcrumbs } from "@/components/common/Breadcrumbs";
+import { BulkActionsToolbar } from "@/components/datavault/BulkActionsToolbar";
+import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
+import { FilterPanel } from "@/components/datavault/FilterPanel";
+import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
+import { MoveTableModal } from "@/components/datavault/MoveTableModal";
+import { RowEditorModal } from "@/components/datavault/RowEditorModal";
+import { TablePermissions } from "@/components/datavault/TablePermissions";
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,21 +29,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon } from "lucide-react";
-import React, { useState } from "react";
-import { Link, useParams } from "wouter";
-import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
-import { Breadcrumbs } from "@/components/common/Breadcrumbs";
-import { MoveTableModal } from "@/components/datavault/MoveTableModal";
-import { BulkActionsToolbar } from "@/components/datavault/BulkActionsToolbar";
-import { FilterPanel } from "@/components/datavault/FilterPanel";
-import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
-import { RowEditorModal } from "@/components/datavault/RowEditorModal";
-import { TablePermissions } from "@/components/datavault/TablePermissions";
-import Header from "@/components/layout/Header";
-import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";

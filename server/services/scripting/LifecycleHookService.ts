@@ -3,6 +3,9 @@
  * Manages lifecycle hooks and their execution during workflow runs
  */
 
+import { eq } from "drizzle-orm";
+
+import { steps as stepsTable, sections as sectionsTable } from "@shared/schema";
 import type {
   LifecycleHook,
   LifecycleHookPhase,
@@ -14,13 +17,11 @@ import type {
   ScriptExecutionLog,
 } from "@shared/types/scripting";
 
+import { db } from "../../db";
 import { logger } from "../../logger";
 import { lifecycleHookRepository } from "../../repositories/LifecycleHookRepository";
 import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
 import { workflowRepository } from "../../repositories/WorkflowRepository";
-import { db } from "../../db";
-import { steps as stepsTable, sections as sectionsTable } from "@shared/schema";
-import { eq } from "drizzle-orm";
 
 import { scriptEngine } from "./ScriptEngine";
 
@@ -143,7 +144,8 @@ export class LifecycleHookService {
                 }
               } else if (hook.outputKeys.length > 0) {
                 // If output is a single value, use the first outputKey
-                resultData[hook.outputKeys[0]] = result.output;
+                const key = hook.outputKeys[0];
+                if (key) resultData[key] = result.output;
               }
             }
 
@@ -496,7 +498,7 @@ export class LifecycleHookService {
     try {
       const json = JSON.stringify(data);
       if (json.length > 1024) {
-        return JSON.parse(`${json.slice(0, 1024)  }...`);
+        return JSON.parse(`${json.slice(0, 1024)}...`);
       }
       return data;
     } catch {

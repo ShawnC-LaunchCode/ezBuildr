@@ -19,19 +19,16 @@ import {
   AuthProviderMismatchError
 } from "../errors/AuthErrors";
 import { createLogger } from "../logger";
+import { hybridAuth, optionalHybridAuth, type AuthRequest } from "../middleware/auth";
 import { userRepository, userCredentialsRepository } from "../repositories";
-import { authService } from "../services/AuthService";
 import { accountLockoutService } from "../services/AccountLockoutService";
+import { auditLogService } from "../services/AuditLogService";
+import { authService } from "../services/AuthService";
 import { metricsService } from "../services/MetricsService";
 import { mfaService } from "../services/MfaService";
-import { auditLogService } from "../services/AuditLogService";
-import { hybridAuth, optionalHybridAuth, type AuthRequest } from "../middleware/auth";
 import { parseCookies } from "../utils/cookies"; // Import parseCookies
 import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
 import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
-
-
-
 import { send, sendErrorResponse, sendSuccessResponse } from "../utils/responses";
 
 import type { Express, Request, Response } from "express";

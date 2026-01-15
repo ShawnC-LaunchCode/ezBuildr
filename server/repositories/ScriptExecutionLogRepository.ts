@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 
 import {
   scriptExecutionLog,
@@ -64,6 +64,11 @@ export class ScriptExecutionLogRepository extends BaseRepository<
       .insert(scriptExecutionLog)
       .values(data)
       .returning();
+
+    if (!log) {
+      throw new Error("Failed to create script execution log");
+    }
+
     return log;
   }
 
@@ -82,7 +87,7 @@ export class ScriptExecutionLogRepository extends BaseRepository<
     const database = this.getDb(tx);
     const result = await database
       .delete(scriptExecutionLog)
-      .where(eq(scriptExecutionLog.createdAt, date))
+      .where(lt(scriptExecutionLog.createdAt, date))
       .returning();
     return result.length;
   }

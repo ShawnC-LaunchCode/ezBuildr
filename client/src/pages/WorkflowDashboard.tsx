@@ -7,7 +7,6 @@ import { Plus, Workflow as WorkflowIcon, Folder } from "lucide-react";
 import React, { useState } from "react";
 import { Link } from "wouter";
 
-import { useToast } from "@/hooks/use-toast";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import {
@@ -41,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import type { ApiProject, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProjects,

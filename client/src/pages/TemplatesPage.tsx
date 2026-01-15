@@ -5,6 +5,7 @@ import { useLocation } from "wouter";
 
 import AddToSurveyDialog from "@/components/templates/AddToSurveyDialog";
 import EditTemplateModal from "@/components/templates/EditTemplateModal";
+import ShareTemplateModal from "@/components/templates/ShareTemplateModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,14 +34,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import ShareTemplateModal from "@/components/templates/ShareTemplateModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTemplates, useTemplateSharing } from "@/hooks/useTemplates";

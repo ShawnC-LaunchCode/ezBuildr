@@ -4,29 +4,13 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database , GitCommit, Sparkles, GitGraph } from "lucide-react";
+import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database, GitCommit, Sparkles, GitGraph } from "lucide-react";
 
-import { CollaborationProvider, useCollaboration } from "@/components/collab/CollaborationContext";
-import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
-import { IntakeProvider } from "@/components/builder/IntakeContext";
 // Removed AdvancedModeBanner
 
-import { UI_LABELS } from "@/lib/labels";
-import { useToast } from "@/hooks/use-toast";
-import { getModeLabel, type Mode } from "@/lib/mode";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 // Tab components
-import { BuilderTabNav, type BuilderTab } from "@/components/builder/layout/BuilderTabNav";
-import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
 // VisualBuilderTab removed
-import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
 import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
 import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
@@ -50,14 +34,30 @@ import { useParams, useLocation } from "wouter";
 import { AIAssistPanel } from "@/components/builder/AIAssistPanel";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { AiConversationPanel } from "@/components/builder/AiConversationPanel";
+import { IntakeProvider } from "@/components/builder/IntakeContext";
+import { BuilderTabNav, type BuilderTab } from "@/components/builder/layout/BuilderTabNav";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
+import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
+import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
+import { CollaborationProvider, useCollaboration } from "@/components/collab/CollaborationContext";
+import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import Sidebar from "@/components/layout/Sidebar";
 import { PreviewRunner } from "@/components/preview/PreviewRunner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toggle } from "@/components/ui/toggle";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { UI_LABELS } from "@/lib/labels";
+import { getModeLabel, type Mode } from "@/lib/mode";
 import { useWorkflow, useCreateRun, useSetWorkflowMode, queryKeys, useSections, useLogicRules, useTransformBlocks } from "@/lib/vault-hooks";
 import { usePreviewStore } from "@/store/preview";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
@@ -81,13 +81,14 @@ export default function WorkflowBuilder() {
   const { toast } = useToast();
 
   // State
+  const searchParams = new URLSearchParams(window.location.search);
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBaseVersion, setDiffBaseVersion] = useState<ApiWorkflowVersion | null>(null);
   const [diffTargetVersion, setDiffTargetVersion] = useState<ApiWorkflowVersion | null>(null);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(searchParams.get("aiPanel") === "true");
   const [logicPanelOpen, setLogicPanelOpen] = useState(false);
   const [collabToken, setCollabToken] = useState<string | null>(null);
 
@@ -108,7 +109,7 @@ export default function WorkflowBuilder() {
   // ... existing state ...
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [launchingPreview, setLaunchingPreview] = useState(false);
-  const searchParams = new URLSearchParams(window.location.search);
+  // searchParams hoisted above
   const [activeTab, setActiveTab] = useState<BuilderTab>(
     (searchParams.get("tab") as BuilderTab) || "sections"
   );
@@ -130,7 +131,7 @@ export default function WorkflowBuilder() {
   const versionLabel = latestPublished ? `Draft (v${latestPublished.versionNumber} +)` : "Draft (v1)";
 
   const handlePublish = async (notes: string) => {
-    if (!workflowId) {return;}
+    if (!workflowId) { return; }
     try {
       await publishMutation.mutateAsync({ workflowId, graphJson: {}, notes });
       toast({ title: "Workflow Published", description: "New version created successfully." });
@@ -166,13 +167,13 @@ export default function WorkflowBuilder() {
   const collabUser = useMemo(() => ({
     id: user?.id ? String(user.id) : `anon-${Math.random().toString(36).substr(2, 5)}`,
     name: user?.firstName || 'Guest User',
-    color: `#${  Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+    color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
     email: user?.email
   }), [user?.id, user?.firstName, user?.email]);
 
   // ... Render ...
-  if (isLoading || modeLoading) {return <div className="h-screen flex items-center justify-center"><Skeleton className="h-12 w-64" /></div>;}
-  if (!workflow) {return <div className="h-screen flex items-center justify-center"><p className="text-muted-foreground">Workflow not found</p></div>;}
+  if (isLoading || modeLoading) { return <div className="h-screen flex items-center justify-center"><Skeleton className="h-12 w-64" /></div>; }
+  if (!workflow) { return <div className="h-screen flex items-center justify-center"><p className="text-muted-foreground">Workflow not found</p></div>; }
 
   if (isPreviewMode) {
     return (
@@ -374,6 +375,7 @@ export default function WorkflowBuilder() {
               workflowId={workflowId}
               currentWorkflow={workflow}
               transformBlocks={transformBlocks}
+              initialPrompt={searchParams.get("prompt") || undefined}
             />
           }
         />
@@ -394,4 +396,3 @@ function CollabSync({ mode }: { mode: 'easy' | 'advanced' }) {
   }, [mode, updateMode]);
   return null;
 }
-

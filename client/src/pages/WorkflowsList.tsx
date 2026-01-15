@@ -10,25 +10,22 @@ import Sidebar from "@/components/layout/Sidebar";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { apiRequest } from "@/lib/queryClient";
-import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
+import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
+import { workflowAPI } from "@/lib/vault-api";
+import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
 
 import type { Workflow } from "@shared/schema";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { workflowAPI } from "@/lib/vault-api";
-import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 
 export default function WorkflowsList() {
   const { toast } = useToast();

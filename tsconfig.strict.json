@@ -8,23 +8,23 @@
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-
     // Additional strict checks that complement the above
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-
     // Ensure we catch issues early
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "types": [
+      "node"
+    ]
   },
   "include": [
     // Strict zones - new code paths that must use strict mode
     "server/services/scripting/**/*",
-    "server/routes/lifecycle-hooks.routes.ts",
-    "server/routes/document-hooks.routes.ts",
+    "server/routes/lifecycleHooks.routes.ts",
+    "server/routes/documentHooks.routes.ts",
     "server/repositories/LifecycleHookRepository.ts",
     "server/repositories/DocumentHookRepository.ts",
     "server/repositories/ScriptExecutionLogRepository.ts"

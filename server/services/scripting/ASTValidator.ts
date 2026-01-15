@@ -61,7 +61,7 @@ export class ASTValidator {
   private forbiddenGlobals: Set<string>;
   private forbiddenFunctions: Set<string>;
   private forbiddenProperties: Set<string>;
-  private allowedHelpers: Set<string>;
+
   private maxComplexity: number;
   private maxDepth: number;
   private maxNodes: number;
@@ -73,7 +73,7 @@ export class ASTValidator {
     this.forbiddenGlobals = new Set(merged.forbiddenGlobals);
     this.forbiddenFunctions = new Set(merged.forbiddenFunctions);
     this.forbiddenProperties = new Set(merged.forbiddenProperties);
-    this.allowedHelpers = new Set(merged.allowedHelpers);
+
     this.maxComplexity = merged.maxComplexity;
     this.maxDepth = merged.maxDepth;
     this.maxNodes = merged.maxNodes;
@@ -160,7 +160,7 @@ export class ASTValidator {
       if (criticalViolations.length > 0) {
         return {
           valid: false,
-          error: criticalViolations[0].message,
+          error: criticalViolations[0]?.message || "Unknown error",
           violations,
           complexity,
           warnings,
@@ -288,7 +288,7 @@ export class ASTValidator {
     if (criticalViolations.length > 0) {
       return {
         valid: false,
-        error: criticalViolations[0].message,
+        error: criticalViolations[0]?.message || "Unknown error",
         violations,
         warnings,
       };
@@ -314,7 +314,7 @@ export class ASTValidator {
     };
 
     const traverse = (node: any, depth: number) => {
-      if (!node || typeof node !== "object") {return;}
+      if (!node || typeof node !== "object") { return; }
 
       metrics.nodeCount++;
       metrics.maxDepth = Math.max(metrics.maxDepth, depth);
@@ -380,7 +380,7 @@ export class ASTValidator {
     const violations: SecurityViolation[] = [];
 
     const traverse = (node: any) => {
-      if (!node || typeof node !== "object") {return;}
+      if (!node || typeof node !== "object") { return; }
 
       try {
         // Check for forbidden identifiers (globals)
@@ -503,7 +503,7 @@ export class ASTValidator {
     let hasEmit = false;
 
     const traverse = (node: any) => {
-      if (!node || typeof node !== "object" || hasEmit) {return;}
+      if (!node || typeof node !== "object" || hasEmit) { return; }
 
       if (node.type === "CallExpression") {
         const calleeName = this.getCalleeName(node.callee);
@@ -535,7 +535,7 @@ export class ASTValidator {
    * Get function/method name from callee node
    */
   private getCalleeName(callee: any): string | null {
-    if (!callee) {return null;}
+    if (!callee) { return null; }
 
     if (callee.type === "Identifier") {
       return callee.name;
@@ -552,7 +552,7 @@ export class ASTValidator {
    * Get property name from member expression
    */
   private getPropertyName(node: any): string | null {
-    if (node.type !== "MemberExpression") {return null;}
+    if (node.type !== "MemberExpression") { return null; }
 
     if (node.property.type === "Identifier" && !node.computed) {
       return node.property.name;

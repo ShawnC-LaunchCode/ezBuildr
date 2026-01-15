@@ -10,18 +10,18 @@ import { Link } from "wouter";
 import AIHeroCard from "@/components/AIHeroCard";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import { QuickActionButton } from "@/components/shared/QuickActionButton";
+import { SkeletonList } from "@/components/shared/SkeletonList";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatsCard from "@/components/ui/stats-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 import type { DashboardStats, Survey, SurveyAnalytics, ResponseTrend, ActivityItem } from "@shared/schema";
 
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SkeletonList } from "@/components/shared/SkeletonList";
-import { QuickActionButton } from "@/components/shared/QuickActionButton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 export default function Dashboard() {

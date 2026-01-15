@@ -6,21 +6,18 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Download, PlayCircle, FileText, Share2, Copy } from 'lucide-react';
-
-
-import { Label } from "@/components/ui/label";
-
 import React, { useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 
-import { JsonViewer } from '@/components/shared/JsonViewer';
 import { TracePanel } from '@/components/runs/TracePanel';
+import { JsonViewer } from '@/components/shared/JsonViewer';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { documentRunsAPI } from '@/lib/vault-api';

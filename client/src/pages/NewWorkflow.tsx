@@ -28,6 +28,8 @@ export default function NewWorkflow() {
     title: "",
     description: "",
   });
+  const [aiPrompt, setAiPrompt] = useState("");
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +61,43 @@ export default function NewWorkflow() {
       toast({
         title: "Error",
         description: "Failed to create workflow",
+      });
+    }
+  };
+
+  const handleAiSubmit = async () => {
+    if (!aiPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please describe what you want to build.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create a default workflow shell
+      const workflowData = {
+        title: "AI Generated Workflow", // Could ask for this or generic
+        description: "Created via AI Assistant",
+      };
+
+      const workflow = await createWorkflowMutation.mutateAsync(workflowData);
+
+      toast({
+        title: "Success",
+        description: "Workflow created. Opening AI Assistant...",
+      });
+
+      // Navigate to builder with AI panel open and prompt
+      navigate(`/workflows/${workflow.id}/builder?aiPanel=true&prompt=${encodeURIComponent(aiPrompt)}`);
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to create workflow",
+        variant: "destructive",
       });
     }
   };
@@ -191,6 +230,8 @@ export default function NewWorkflow() {
                       id="ai-prompt"
                       placeholder="e.g. A customer feedback form that asks for a rating, and if the rating is low, asks for detailed feedback and contact info."
                       className="min-h-[150px] text-base resize-none"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
                     />
                   </div>
 
@@ -204,14 +245,11 @@ export default function NewWorkflow() {
                     </Button>
                     <Button
                       className="bg-indigo-600 hover:bg-indigo-700"
-                      onClick={() => {
-                        // For now, simple redirect with query param or just create shell and open AI
-                        // We'll assume a 'handleSubmitAi' function will be added
-                        toast({ title: "Coming Soon", description: "AI Creation flow is being implemented." });
-                      }}
+                      onClick={handleAiSubmit}
+                      disabled={createWorkflowMutation.isPending}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Workflow
+                      {createWorkflowMutation.isPending ? "Projecting..." : "Generate Workflow"}
                     </Button>
                   </div>
                 </div>

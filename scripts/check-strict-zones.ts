@@ -15,6 +15,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 interface StrictZone {
   pattern: string;
@@ -28,11 +29,11 @@ const STRICT_ZONES: StrictZone[] = [
     description: 'Custom Scripting System (Lifecycle & Document Hooks)'
   },
   {
-    pattern: 'server/routes/lifecycle-hooks.routes.ts',
+    pattern: 'server/routes/lifecycleHooks.routes.ts',
     description: 'Lifecycle Hooks API Route'
   },
   {
-    pattern: 'server/routes/document-hooks.routes.ts',
+    pattern: 'server/routes/documentHooks.routes.ts',
     description: 'Document Hooks API Route'
   },
   {
@@ -50,6 +51,8 @@ const STRICT_ZONES: StrictZone[] = [
 ];
 
 const STRICT_CONFIG_PATH = 'tsconfig.strict.json';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 function fileExists(filepath: string): boolean {
@@ -72,46 +75,59 @@ function globToRegex(pattern: string): RegExp {
 }
 
 function findFilesInZone(pattern: string): string[] {
-  const regex = globToRegex(pattern);
-  const allFiles: string[] = [];
+  // Simple glob-like matcher
+  const parts = pattern.split('/');
+  const baseDir = path.join(ROOT_DIR, ...parts.slice(0, parts.indexOf('**') !== -1 ? parts.indexOf('**') : parts.length - 1));
+  const isRecursive = pattern.includes('**');
+  const filenamePattern = parts[parts.length - 1];
 
-  function walkDir(dir: string, baseDir: string = '') {
-    const entries = fs.readdirSync(path.join(ROOT_DIR, dir), { withFileTypes: true });
+  const results: string[] = [];
+
+  if (!fs.existsSync(baseDir)) {
+    return [];
+  }
+
+  function walk(currentDir: string) {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
 
     for (const entry of entries) {
-      const relativePath = path.join(baseDir, entry.name);
-      const fullPath = path.join(dir, entry.name);
+      const fullPath = path.join(currentDir, entry.name);
 
       if (entry.isDirectory()) {
-        walkDir(fullPath, relativePath);
+        if (isRecursive) {
+          walk(fullPath);
+        }
       } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
-        const normalizedPath = relativePath.replace(/\\/g, '/');
-        if (regex.test(normalizedPath)) {
-          allFiles.push(normalizedPath);
+        // Simple check: if pattern ends with * or matches filename
+        if (filenamePattern === '*' || filenamePattern === '*.*' || entry.name === filenamePattern || (isRecursive && filenamePattern === '*.ts')) {
+          const relative = path.relative(ROOT_DIR, fullPath).replace(/\\/g, '/');
+          results.push(relative);
+        } else if (isRecursive) {
+          // Let tsc include handle complex globs, here we just want to verify files exist for the report
+          // If the user passed server/services/scripting/**/*, we just return all TS files in that tree
+          const relative = path.relative(ROOT_DIR, fullPath).replace(/\\/g, '/');
+          results.push(relative);
         }
       }
     }
   }
 
-  // Extract the starting directory from the pattern
-  const startDir = pattern.split(/[*?]/)[0].replace(/\/$/, '');
-  if (fileExists(path.join(ROOT_DIR, startDir))) {
-    if (pattern.includes('*')) {
-      walkDir(startDir);
-    } else {
-      // Single file pattern
-      if (fileExists(path.join(ROOT_DIR, pattern))) {
-        allFiles.push(pattern);
-      }
+  if (pattern.endsWith('routes.ts') || pattern.endsWith('Repository.ts')) {
+    // Direct file path
+    const fullPath = path.join(ROOT_DIR, pattern);
+    if (fs.existsSync(fullPath)) {
+      return [pattern];
     }
+    return [];
   }
 
-  return allFiles;
+  walk(baseDir);
+  return results;
 }
 
 function checkStrictCompliance(verbose: boolean = false): boolean {
   console.log('🔍 Checking TypeScript Strict Mode Compliance\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   // Check if strict config exists
   const strictConfigPath = path.join(ROOT_DIR, STRICT_CONFIG_PATH);

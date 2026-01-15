@@ -29,10 +29,11 @@ interface AiConversationPanelProps {
     workflowId: string;
     currentWorkflow: any; // Basic workflow metadata
     transformBlocks?: any[];
+    initialPrompt?: string;
     className?: string;
 }
 
-export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], className }: AiConversationPanelProps) {
+export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], initialPrompt, className }: AiConversationPanelProps) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -61,6 +62,19 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         }
     }, [messages]);
 
+    // Handle initial prompt from "Create with AI" flow
+    const hasSentInitialPrompt = useRef(false);
+    useEffect(() => {
+        if (initialPrompt && !hasSentInitialPrompt.current && messages.length === 1) { // 1 because of greeting
+            hasSentInitialPrompt.current = true;
+            setInput(initialPrompt);
+            // We need to wait a tick for the state to update, then send
+            setTimeout(() => {
+                handleSend(initialPrompt);
+            }, 100);
+        }
+    }, [initialPrompt, messages.length]);
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(true);
@@ -69,7 +83,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         // Prevent flickering: only disable if leaving the main container, not entering a child
-        if (e.currentTarget.contains(e.relatedTarget as Node)) {return;}
+        if (e.currentTarget.contains(e.relatedTarget as Node)) { return; }
         setIsDragging(false);
     };
 
@@ -78,7 +92,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         setIsDragging(false);
 
         const files = Array.from(e.dataTransfer.files);
-        if (files.length === 0) {return;}
+        if (files.length === 0) { return; }
 
         setUploading(true);
         const newContextFiles: UploadedFile[] = [];
@@ -110,7 +124,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     // Use fetch directly to handle FormData correctly (apiRequest forces JSON)
                     const token = getAccessToken();
                     const headers: Record<string, string> = {};
-                    if (token) {headers['Authorization'] = `Bearer ${token}`;}
+                    if (token) { headers['Authorization'] = `Bearer ${token}`; }
 
                     const res = await fetch('/api/ai/doc/extract-text', {
                         method: 'POST',
@@ -142,11 +156,12 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         }
     };
 
-    const handleSend = async () => {
-        if (!input.trim() && contextFiles.length === 0) {return;}
+    const handleSend = async (textOverride?: string) => {
+        const textToSend = textOverride !== undefined ? textOverride : input;
+        if (!textToSend.trim() && contextFiles.length === 0) { return; }
 
         // Construct full message with context
-        let fullMessage = input;
+        let fullMessage = textToSend;
         if (contextFiles.length > 0) {
             fullMessage += `\n\n--- CONTEXT FROM UPLOADED FILES ---\n`;
             contextFiles.forEach(f => {
@@ -156,7 +171,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         }
 
         // Display message (hide massive context from UI, show attachment badges instead)
-        const displayContent = input || (contextFiles.length > 0 ? "Processed uploaded files." : "");
+        const displayContent = textToSend || (contextFiles.length > 0 ? "Processed uploaded files." : "");
 
         const userMsg: Message = {
             role: 'user',
@@ -242,7 +257,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     };
 
     const handleApply = async () => {
-        if (!proposedWorkflow) {return;}
+        if (!proposedWorkflow) { return; }
         try {
             await updateMutation.mutateAsync({
                 id: workflowId,
