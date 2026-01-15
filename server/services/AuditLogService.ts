@@ -52,6 +52,7 @@ interface CreateAuditLogParams {
   userAgent?: string | null;
   metadata?: SecurityEventMetadata;
   workspaceId?: string | null;
+  tenantId?: string | null;
 }
 
 /**
@@ -74,16 +75,19 @@ export class AuditLogService {
    * @returns The created audit log entry
    */
   async logSecurityEvent(params: CreateAuditLogParams): Promise<AuditLog> {
-    const { userId, eventType, ipAddress, userAgent, metadata, workspaceId } = params;
+    const { userId, eventType, ipAddress, userAgent, metadata, workspaceId, tenantId } = params;
 
     try {
       // For security events, we'll use a default workspace or null
       // Since the schema requires workspaceId, we'll use a system workspace concept
       // or make it nullable in a future migration. For now, we'll handle gracefully.
       const auditEntry = {
+        tenantId: tenantId || null,
         workspaceId: workspaceId || sql`NULL`, // Will need schema update to make nullable
         userId,
         action: eventType,
+        entityType: "security",  // Required field
+        entityId: userId,         // Required field
         resourceType: "security",
         resourceId: userId,
         changes: metadata ? { metadata } : null,
