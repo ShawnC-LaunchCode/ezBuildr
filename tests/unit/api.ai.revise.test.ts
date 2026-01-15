@@ -5,6 +5,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { registerAiRoutes } from '@server/routes/ai.routes';
 
+// Mock geminiService directly to avoid GoogleGenerativeAI constructor issues
+vi.mock('@server/services/geminiService', () => ({
+    geminiService: {
+        analyzeSentiment: vi.fn(),
+    },
+    GeminiService: vi.fn()
+}));
+
+// Mock GoogleGenerativeAI can be removed or kept, but mocking the service is safer
+vi.mock('@google/generative-ai', () => ({
+    GoogleGenerativeAI: vi.fn()
+}));
+
 // Define the mock revision function with hoisting
 const { mockReviseWorkflow } = vi.hoisted(() => ({
     mockReviseWorkflow: vi.fn()

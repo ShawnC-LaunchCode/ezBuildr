@@ -1,912 +1,615 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
 
-> vault-logic@1.0.0 test
-> vitest run --coverage tests/unit/ScriptEngine.test.ts tests/unit/LifecycleHookService.test.ts tests/unit/HelperLibrary.test.ts
+> ezbuildr@1.0.0 test
+> cross-env VITEST_INTEGRATION=true vitest run --coverage
 
 
-[1m[46m RUN [49m[22m [36mv4.0.5 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
       [2mCoverage enabled with [22m[33mv8[39m
 
-[90mstdout[2m | tests/unit/LifecycleHookService.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (13) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
 
-[90mstdout[2m | tests/unit/ScriptEngine.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (13) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  enable debug logging with { debug: true }
 
-[90mstdout[2m | tests/unit/HelperLibrary.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (13) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
 
-[90mstdout[2m | tests/unit/HelperLibrary.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  override existing env vars with { override: true }
 
-[90mstdout[2m | tests/unit/HelperLibrary.test.ts
-[22m[39mΓ£à Database initialized for tests
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
 
-[90mstdout[2m | tests/unit/HelperLibrary.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
 
-[90mstdout[2m | tests/unit/ScriptEngine.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
 
-[90mstdout[2m | tests/unit/ScriptEngine.test.ts
-[22m[39mΓ£à Database initialized for tests
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
 
-[90mstdout[2m | tests/unit/ScriptEngine.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
 
- [32mΓ£ô[39m tests/unit/HelperLibrary.test.ts [2m([22m[2m60 tests[22m[2m)[22m[32m 55[2mms[22m[39m
-[90mstdout[2m | tests/unit/LifecycleHookService.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
 
-[90mstdout[2m | tests/unit/LifecycleHookService.test.ts
-[22m[39mΓ£à Database initialized for tests
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
 
- [32mΓ£ô[39m tests/unit/ScriptEngine.test.ts [2m([22m[2m26 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 21[2mms[22m[39m
-{"level":40,"time":1765389221795,"env":"test","hookId":"hook-1","hookName":"Hook 1","error":"Test error","msg":"LifecycleHookService: Hook execution failed"}
-[90mstdout[2m | tests/unit/LifecycleHookService.test.ts
-[22m[39m≡ƒº╣ Cleaning up test environment...
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  enable debug logging with { debug: true }
 
-{"level":50,"time":1765389221801,"env":"test","error":{},"workflowId":"workflow-1","runId":"run-1","phase":"beforePage","msg":"LifecycleHookService: Failed to execute hooks for phase"}
-{"level":30,"time":1765389221804,"env":"test","hookId":"hook-1","workflowId":"workflow-1","phase":"beforePage","msg":"LifecycleHookService: Created lifecycle hook"}
-{"level":30,"time":1765389221809,"env":"test","hookId":"hook-1","workflowId":"workflow-1","msg":"LifecycleHookService: Updated lifecycle hook"}
-{"level":30,"time":1765389221811,"env":"test","hookId":"hook-1","workflowId":"workflow-1","msg":"LifecycleHookService: Deleted lifecycle hook"}
- [32mΓ£ô[39m tests/unit/LifecycleHookService.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
 
-[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
-[2m      Tests [22m [1m[32m99 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (103)[39m
-[2m   Start at [22m 11:53:39
-[2m   Duration [22m 7.64s[2m (transform 802ms, setup 2.15s, collect 1.15s, tests 104ms, environment 1ms, prepare 107ms)[22m
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
 
-[34m % [39m[2mCoverage report from [22m[33mv8[39m
--------------------|---------|----------|---------|---------|-------------------
-File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
--------------------|---------|----------|---------|---------|-------------------
-All files          |     2.1 |     0.65 |    2.78 |    1.95 |                   
- client/src        |       0 |        0 |       0 |       0 |                   
-  App.tsx          |       0 |        0 |       0 |       0 | 54-169            
-  main.tsx         |       0 |      100 |     100 |       0 | 7-9               
-  vite-env.d.ts    |       0 |        0 |       0 |       0 |                   
- ...src/components |       0 |        0 |       0 |       0 |                   
-  AIHeroCard.tsx   |       0 |        0 |       0 |       0 | 12                
-  ...ackWidget.tsx |       0 |        0 |       0 |       0 | 8-32              
-  GoogleLogin.tsx  |       0 |        0 |       0 |       0 | 15-128            
- ...ents/analytics |       0 |        0 |       0 |       0 |                   
-  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 56-234            
- ...ponents/blocks |       0 |        0 |       0 |       0 |                   
-  ...ockEditor.tsx |       0 |        0 |       0 |       0 | 22-496            
- ...nents/branding |       0 |        0 |       0 |       0 |                   
-  ...mainModal.tsx |       0 |        0 |       0 |       0 | 31-281            
-  ...ngContext.tsx |       0 |        0 |       0 |       0 | 53-270            
-  ...ngPreview.tsx |       0 |        0 |       0 |       0 | 23-77             
-  EmailPreview.tsx |       0 |        0 |       0 |       0 | 26-183            
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...onents/builder |       0 |        0 |       0 |       0 |                   
-  ...sistPanel.tsx |       0 |        0 |       0 |       0 | 29-195            
-  ...ateToggle.tsx |       0 |        0 |       0 |       0 | 28-73             
-  ...odeBanner.tsx |       0 |      100 |       0 |       0 | 10                
-  BlocksPanel.tsx  |       0 |        0 |       0 |       0 | 23-269            
-  CanvasEditor.tsx |       0 |        0 |       0 |       0 | 18-244            
-  Inspector.tsx    |       0 |        0 |       0 |       0 | 14-61             
-  ...ctorPanel.tsx |       0 |        0 |       0 |       0 | 21-135            
-  LogicPanel.tsx   |       0 |        0 |       0 |       0 | 24-189            
-  ...ataButton.tsx |       0 |        0 |       0 |       0 | 33-78             
-  ...erPreview.tsx |       0 |      100 |       0 |       0 | 11-13             
-  SidebarTree.tsx  |       0 |        0 |       0 |       0 | 44-313            
-  ...tiesPanel.tsx |       0 |        0 |       0 |       0 | 45-439            
-  ...ocksPanel.tsx |       0 |        0 |       0 |       0 | 21-358            
-  ...wSettings.tsx |       0 |        0 |       0 |       0 | 18-129            
- ...nts/builder/ai |       0 |        0 |       0 |       0 |                   
-  ...antDialog.tsx |       0 |        0 |       0 |       0 | 17-90             
- .../builder/cards |       0 |        0 |       0 |       0 |                   
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 36-137            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 29-198            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 42-334            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 36-114            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 29-102            
-  ...ockEditor.tsx |       0 |        0 |       0 |       0 | 44-201            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 40-212            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 32-276            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 29-104            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 45-308            
-  ...ockEditor.tsx |       0 |        0 |       0 |       0 | 49-384            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 33-270            
-  ...ardEditor.tsx |       0 |        0 |       0 |       0 | 29-102            
-  index.tsx        |       0 |        0 |       0 |       0 |                   
- ...r/cards/common |       0 |        0 |       0 |       0 |                   
-  AliasField.tsx   |       0 |        0 |       0 |       0 | 18-72             
-  EditorField.tsx  |       0 |        0 |       0 |       0 | 24-204            
-  LabelField.tsx   |       0 |        0 |       0 |       0 | 18-36             
-  ...redToggle.tsx |       0 |      100 |       0 |       0 | 15                
- ...r/data-sources |       0 |        0 |       0 |       0 |                   
-  ...onsDrawer.tsx |       0 |        0 |       0 |       0 | 44-235            
- .../builder/final |       0 |        0 |       0 |       0 |                   
-  ...ionEditor.tsx |       0 |        0 |       0 |       0 | 35-213            
- ...builder/layout |       0 |        0 |       0 |       0 |                   
-  ...derLayout.tsx |       0 |        0 |       0 |       0 | 14-30             
-  ...derTabNav.tsx |       0 |        0 |       0 |       0 | 24-48             
- .../builder/pages |       0 |        0 |       0 |       0 |                   
-  BlockCard.tsx    |       0 |        0 |       0 |       0 | 47-391            
-  LogicAddMenu.tsx |       0 |        0 |       0 |       0 | 28-179            
-  PageCanvas.tsx   |       0 |        0 |       0 |       0 | 44-242            
-  PageCard.tsx     |       0 |        0 |       0 |       0 | 46-374            
-  ...onAddMenu.tsx |       0 |        0 |       0 |       0 | 37-107            
-  ...lePalette.tsx |       0 |        0 |       0 |       0 | 20-105            
- ...lder/questions |       0 |        0 |       0 |       0 |                   
-  ...ionEditor.tsx |       0 |        0 |       0 |       0 | 36-170            
-  ...onsEditor.tsx |       0 |        0 |       0 |       0 | 37-177            
-  QuestionCard.tsx |       0 |        0 |       0 |       0 | 66-577            
- ...s/builder/tabs |       0 |        0 |       0 |       0 |                   
-  ...ourcesTab.tsx |       0 |        0 |       0 |       0 | 22-141            
-  SectionsTab.tsx  |       0 |        0 |       0 |       0 | 18-20             
-  SettingsTab.tsx  |       0 |        0 |       0 |       0 | 28-304            
-  SnapshotsTab.tsx |       0 |        0 |       0 |       0 | 30-287            
-  TemplatesTab.tsx |       0 |        0 |       0 |       0 | 42-369            
- ...der/versioning |       0 |        0 |       0 |       0 |                   
-  DiffViewer.tsx   |       0 |        0 |       0 |       0 | 32-159            
-  ...lowDialog.tsx |       0 |        0 |       0 |       0 | 16-37             
-  VersionBadge.tsx |       0 |        0 |       0 |       0 | 14                
-  ...toryPanel.tsx |       0 |        0 |       0 |       0 | 33-111            
- ...ponents/charts |       0 |        0 |       0 |       0 |                   
-  KeywordList.tsx  |       0 |        0 |       0 |       0 | 11-46             
-  ...oiceChart.tsx |       0 |        0 |       0 |       0 | 12-96             
-  ResultsCard.tsx  |       0 |        0 |       0 |       0 | 15-91             
-  TagCloud.tsx     |       0 |        0 |       0 |       0 | 15-70             
-  YesNoChart.tsx   |       0 |        0 |       0 |       0 | 12-74             
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...ponents/collab |       0 |        0 |       0 |       0 |                   
-  ...entsPanel.tsx |       0 |        0 |       0 |       0 | 33-180            
-  ...sorsLayer.tsx |       0 |        0 |       0 |       0 | 18-70             
-  ...ceAvatars.tsx |       0 |        0 |       0 |       0 | 20-89             
- ...ts/collections |       0 |        0 |       0 |       0 |                   
-  ...ctionCard.tsx |       0 |        0 |       0 |       0 | 19-50             
-  ...tionModal.tsx |       0 |        0 |       0 |       0 | 27-125            
-  ...ieldModal.tsx |       0 |        0 |       0 |       0 | 27-308            
-  FieldsList.tsx   |       0 |        0 |       0 |       0 | 18-123            
-  ...itorModal.tsx |       0 |        0 |       0 |       0 | 50-329            
-  RecordTable.tsx  |       0 |        0 |       0 |       0 | 50-239            
-  RecordsList.tsx  |       0 |        0 |       0 |       0 | 38-75             
- ...ponents/common |       0 |        0 |       0 |       0 |                   
-  Breadcrumbs.tsx  |       0 |        0 |       0 |       0 | 24-36             
-  ...bleSelect.tsx |       0 |        0 |       0 |       0 | 20-85             
- ...ents/dashboard |       0 |        0 |       0 |       0 |                   
-  ProjectCard.tsx  |       0 |        0 |       0 |       0 | 19-57             
-  WorkflowCard.tsx |       0 |        0 |       0 |       0 | 22-97             
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...ents/datavault |       0 |        0 |       0 |       0 |                   
-  AddRowButton.tsx |       0 |        0 |       0 |       0 | 31-195            
-  ...nsToolbar.tsx |       0 |        0 |       0 |       0 | 24-26             
-  CellRenderer.tsx |       0 |        0 |       0 |       0 | 30-485            
-  ...eaderCell.tsx |       0 |        0 |       0 |       0 | 21-23             
-  ...mnManager.tsx |       0 |        0 |       0 |       0 | 51-344            
-  ...erWithDnd.tsx |       0 |        0 |       0 |       0 | 88-538            
-  ...nTypeIcon.tsx |       0 |        0 |       0 |       0 | 27-152            
-  ...baseModal.tsx |       0 |        0 |       0 |       0 | 48-206            
-  ...ableModal.tsx |       0 |        0 |       0 |       0 | 35-229            
-  DataGrid.tsx     |       0 |        0 |       0 |       0 | 60-287            
-  ...mptyState.tsx |       0 |        0 |       0 |       0 | 18-63             
-  ...dSkeleton.tsx |       0 |        0 |       0 |       0 | 14-30             
-  ...ApiTokens.tsx |       0 |        0 |       0 |       0 | 46-372            
-  DatabaseCard.tsx |       0 |        0 |       0 |       0 | 28-94             
-  ...eSettings.tsx |       0 |        0 |       0 |       0 | 34-185            
-  ...TableTabs.tsx |       0 |        0 |       0 |       0 | 25-75             
-  ...RowButton.tsx |       0 |        0 |       0 |       0 | 29-60             
-  EditableCell.tsx |       0 |        0 |       0 |       0 | 24-197            
-  ...eDataGrid.tsx |       0 |        0 |       0 |       0 | 64-446            
-  FilterPanel.tsx  |       0 |        0 |       0 |       0 | 28-275            
-  ...eDataGrid.tsx |       0 |        0 |       0 |       0 | 51-117            
-  ...eDataGrid.tsx |       0 |        0 |       0 |       0 | 37-198            
-  ...gSkeleton.tsx |       0 |      100 |       0 |       0 | 10-41             
-  ...ableModal.tsx |       0 |        0 |       0 |       0 | 47-121            
-  NoteItem.tsx     |       0 |        0 |       0 |       0 | 31-55             
-  NotesTab.tsx     |       0 |        0 |       0 |       0 | 22-162            
-  ...onsEditor.tsx |       0 |        0 |       0 |       0 | 19-178            
-  ...renceCell.tsx |       0 |        0 |       0 |       0 | 18-78             
-  ...ailDrawer.tsx |       0 |        0 |       0 |       0 | 29-32             
-  ...itorModal.tsx |       0 |        0 |       0 |       0 | 42-223            
-  ...umnHeader.tsx |       0 |        0 |       0 |       0 | 25-35             
-  TableCard.tsx    |       0 |        0 |       0 |       0 | 33-81             
-  ...eGridView.tsx |       0 |        0 |       0 |       0 | 50-270            
-  ...rmissions.tsx |       0 |        0 |       0 |       0 | 50-490            
-  TemplateCard.tsx |       0 |        0 |       0 |       0 | 19-46             
- ...nents/devpanel |       0 |        0 |       0 |       0 |                   
-  DevPanel.tsx     |       0 |        0 |       0 |       0 | 19-36             
-  ...iableList.tsx |       0 |        0 |       0 |       0 | 24-169            
-  ...dDevPanel.tsx |       0 |        0 |       0 |       0 | 28                
-  VariableList.tsx |       0 |        0 |       0 |       0 | 25-178            
- ...nents/devtools |       0 |        0 |       0 |       0 |                   
-  ...oolsPanel.tsx |       0 |        0 |       0 |       0 | 16-51             
- ...ponents/intake |       0 |        0 |       0 |       0 |                   
-  IntakeDemo.tsx   |       0 |        0 |       0 |       0 | 33-153            
-  IntakeFooter.tsx |       0 |        0 |       0 |       0 | 31                
-  IntakeHeader.tsx |       0 |        0 |       0 |       0 | 34-41             
-  IntakeLayout.tsx |       0 |        0 |       0 |       0 | 53                
-  ...ogressBar.tsx |       0 |        0 |       0 |       0 | 41-43             
-  ThemedButton.tsx |       0 |        0 |       0 |       0 | 33-174            
-  ThemedInput.tsx  |       0 |        0 |       0 |       0 | 46-220            
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...ponents/layout |       0 |        0 |       0 |       0 |                   
-  Header.tsx       |       0 |        0 |       0 |       0 | 18-120            
-  Sidebar.tsx      |       0 |        0 |       0 |       0 | 12-108            
- ...mponents/logic |       0 |        0 |       0 |       0 |                   
-  ...tionGroup.tsx |       0 |        0 |       0 |       0 | 41-164            
-  ConditionRow.tsx |       0 |        0 |       0 |       0 | 51-285            
-  LogicBuilder.tsx |       0 |        0 |       0 |       0 | 56-176            
-  ...Indicator.tsx |       0 |        0 |       0 |       0 | 41-140            
-  ...ogicSheet.tsx |       0 |        0 |       0 |       0 | 38-69             
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...ents/providers |       0 |        0 |       0 |       0 |                   
-  ...gProvider.tsx |       0 |        0 |       0 |       0 | 19-118            
- ...ponents/runner |       0 |        0 |       0 |       0 |                   
-  ...ataButton.tsx |       0 |        0 |       0 |       0 | 42-132            
-  ...ewSidebar.tsx |       0 |        0 |       0 |       0 | 34-307            
- .../runner/blocks |       0 |        0 |       0 |       0 |                   
-  AddressBlock.tsx |       0 |        0 |       0 |       0 | 32-172            
-  ...kRenderer.tsx |       0 |        0 |       0 |       0 | 67-169            
-  BooleanBlock.tsx |       0 |        0 |       0 |       0 | 33-95             
-  ChoiceBlock.tsx  |       0 |        0 |       0 |       0 | 49-206            
-  ...encyBlock.tsx |       0 |        0 |       0 |       0 | 26-105            
-  DateBlock.tsx    |       0 |        0 |       0 |       0 | 25-40             
-  ...TimeBlock.tsx |       0 |        0 |       0 |       0 | 26-37             
-  DisplayBlock.tsx |       0 |        0 |       0 |       0 | 23-40             
-  EmailBlock.tsx   |       0 |        0 |       0 |       0 | 25-33             
-  FinalBlock.tsx   |       0 |        0 |       0 |       0 | 42-208            
-  ...ieldBlock.tsx |       0 |        0 |       0 |       0 | 38-110            
-  NumberBlock.tsx  |       0 |        0 |       0 |       0 | 26-73             
-  PhoneBlock.tsx   |       0 |        0 |       0 |       0 | 26-66             
-  ScaleBlock.tsx   |       0 |        0 |       0 |       0 | 27-98             
-  ...kRenderer.tsx |       0 |        0 |       0 |       0 | 64-260            
-  TextBlock.tsx    |       0 |        0 |       0 |       0 | 32-90             
-  TimeBlock.tsx    |       0 |        0 |       0 |       0 | 25-36             
-  WebsiteBlock.tsx |       0 |        0 |       0 |       0 | 25-40             
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  validation.ts    |       0 |        0 |       0 |       0 | 21-149            
- ...unner/sections |       0 |        0 |       0 |       0 |                   
-  ...tsSection.tsx |       0 |        0 |       0 |       0 | 36-198            
- ...omponents/runs |       0 |        0 |       0 |       0 |                   
-  RunFilters.tsx   |       0 |        0 |       0 |       0 | 20-127            
-  ...putsPanel.tsx |       0 |        0 |       0 |       0 | 47-327            
-  RunsTable.tsx    |       0 |        0 |       0 |       0 | 21-57             
-  TracePanel.tsx   |       0 |        0 |       0 |       0 | 21-131            
- ...ponents/shared |       0 |        0 |       0 |       0 |                   
-  ...mptyState.tsx |       0 |        0 |       0 |       0 | 20                
-  ...ionDialog.tsx |       0 |        0 |       0 |       0 | 33-37             
-  DataTable.tsx    |       0 |        0 |       0 |       0 | 42-76             
-  EmptyState.tsx   |       0 |        0 |       0 |       0 | 23-43             
-  EntityCard.tsx   |       0 |        0 |       0 |       0 | 59-127            
-  ...ableTitle.tsx |       0 |        0 |       0 |       0 | 21-85             
-  JsonViewer.tsx   |       0 |        0 |       0 |       0 | 19-76             
-  LoadingState.tsx |       0 |        0 |       0 |       0 | 7-35              
-  ...ionButton.tsx |       0 |        0 |       0 |       0 | 46-73             
-  SkeletonCard.tsx |       0 |        0 |       0 |       0 | 14-17             
-  SkeletonList.tsx |       0 |        0 |       0 |       0 | 14-17             
-  ...etonTable.tsx |       0 |        0 |       0 |       0 | 12-28             
-  StatCard.tsx     |       0 |        0 |       0 |       0 | 15-33             
-  StatusBadge.tsx  |       0 |        0 |       0 |       0 | 23-76             
-  index.ts         |       0 |        0 |       0 |       0 |                   
- ...ents/templates |       0 |        0 |       0 |       0 |                   
-  ...veyDialog.tsx |       0 |        0 |       0 |       0 | 40-140            
-  ...lateModal.tsx |       0 |        0 |       0 |       0 | 26-113            
-  ...lateModal.tsx |       0 |        0 |       0 |       0 | 38-296            
- ...es-test-runner |       0 |        0 |       0 |       0 |                   
-  ResultsPanel.tsx |       0 |        0 |       0 |       0 | 19-127            
-  ...ataEditor.tsx |       0 |        0 |       0 |       0 | 20-109            
-  StatusPill.tsx   |       0 |      100 |       0 |       0 | 15-46             
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  types.ts         |       0 |        0 |       0 |       0 |                   
-  ...mplateTest.ts |       0 |        0 |       0 |       0 | 18-71             
- .../components/ui |       0 |        0 |       0 |       0 |                   
-  accordion.tsx    |       0 |      100 |       0 |       0 | 7-54              
-  alert-dialog.tsx |       0 |      100 |       0 |       0 | 7-125             
-  alert.tsx        |       0 |      100 |       0 |       0 | 6-57              
-  aspect-ratio.tsx |       0 |      100 |     100 |       0 | 3                 
-  ...-textarea.tsx |       0 |        0 |       0 |       0 | 19-89             
-  avatar.tsx       |       0 |      100 |       0 |       0 | 8-48              
-  badge.tsx        |       0 |      100 |       0 |       0 | 6-37              
-  breadcrumb.tsx   |       0 |        0 |       0 |       0 | 7-105             
-  button.tsx       |       0 |        0 |       0 |       0 | 7-54              
-  calendar.tsx     |       0 |        0 |       0 |       0 | 16-66             
-  card.tsx         |       0 |      100 |       0 |       0 | 5-77              
-  carousel.tsx     |       0 |        0 |       0 |       0 | 31-251            
-  chart.tsx        |       0 |        0 |       0 |       0 | 9-371             
-  checkbox.tsx     |       0 |      100 |       0 |       0 | 7-26              
-  collapsible.tsx  |       0 |      100 |     100 |       0 | 5-9               
-  command.tsx      |       0 |      100 |       0 |       0 | 9-139             
-  context-menu.tsx |       0 |        0 |       0 |       0 | 7-180             
-  dialog.tsx       |       0 |      100 |       0 |       0 | 9-109             
-  drawer.tsx       |       0 |        0 |       0 |       0 | 8-105             
-  ...down-menu.tsx |       0 |        0 |       0 |       0 | 7-180             
-  file-upload.tsx  |       0 |        0 |       0 |       0 | 36-333            
-  form.tsx         |       0 |        0 |       0 |       0 | 18-167            
-  hover-card.tsx   |       0 |        0 |       0 |       0 | 8-27              
-  input-otp.tsx    |       0 |        0 |       0 |       0 | 7-67              
-  input.tsx        |       0 |      100 |       0 |       0 | 5-20              
-  label.tsx        |       0 |      100 |       0 |       0 | 7-22              
-  menubar.tsx      |       0 |        0 |       0 |       0 | 12-237            
-  ...tion-menu.tsx |       0 |      100 |       0 |       0 | 8-115             
-  pagination.tsx   |       0 |        0 |       0 |       0 | 7-107             
-  popover.tsx      |       0 |        0 |       0 |       0 | 6-27              
-  progress.tsx     |       0 |        0 |       0 |       0 | 8-26              
-  radio-group.tsx  |       0 |      100 |       0 |       0 | 7-40              
-  resizable.tsx    |       0 |        0 |       0 |       0 | 8-30              
-  scroll-area.tsx  |       0 |        0 |       0 |       0 | 6-44              
-  select.tsx       |       0 |        0 |       0 |       0 | 9-147             
-  separator.tsx    |       0 |        0 |       0 |       0 | 6-27              
-  sheet.tsx        |       0 |        0 |       0 |       0 | 10-127            
-  sidebar.tsx      |       0 |        0 |       0 |       0 | 26-744            
-  skeleton.tsx     |       0 |      100 |       0 |       0 | 7                 
-  slider.tsx       |       0 |      100 |       0 |       0 | 6-24              
-  stats-card.tsx   |       0 |        0 |       0 |       0 | 25-44             
-  switch.tsx       |       0 |      100 |       0 |       0 | 6-25              
-  table.tsx        |       0 |      100 |       0 |       0 | 5-106             
-  tabs.tsx         |       0 |      100 |       0 |       0 | 6-51              
-  textarea.tsx     |       0 |      100 |       0 |       0 | 5-20              
-  toast.tsx        |       0 |      100 |       0 |       0 | 8-111             
-  toaster.tsx      |       0 |        0 |       0 |       0 | 12-17             
-  toggle-group.tsx |       0 |        0 |       0 |       0 | 10-59             
-  toggle.tsx       |       0 |      100 |       0 |       0 | 7-41              
-  tooltip.tsx      |       0 |        0 |       0 |       0 | 8-28              
- ...flows/settings |       0 |        0 |       0 |       0 |                   
-  ...flowModal.tsx |       0 |        0 |       0 |       0 | 34                
-  ...ntSection.tsx |       0 |        0 |       0 |       0 | 51-166            
- ...tes/components |       0 |        0 |       0 |       0 |                   
-  ...lateModal.tsx |       0 |        0 |       0 |       0 | 26-199            
-  index.ts         |       0 |        0 |       0 |       0 |                   
- client/src/hooks  |       0 |        0 |       0 |       0 |                   
-  use-mobile.tsx   |       0 |      100 |       0 |       0 | 3-18              
-  use-toast.ts     |       0 |        0 |       0 |       0 | 8-187             
-  ...lyticsData.ts |       0 |        0 |       0 |       0 | 45-135            
-  useAuth.ts       |       0 |        0 |       0 |       0 | 5-13              
-  useAutoSave.ts   |       0 |        0 |       0 |       0 | 29-137            
-  ...References.ts |       0 |        0 |       0 |       0 | 19-76             
-  ...Operations.ts |       0 |        0 |       0 |       0 | 11-273            
-  ...randingAPI.ts |       0 |        0 |       0 |       0 | 28-160            
-  ...ionalLogic.ts |       0 |        0 |       0 |       0 | 10-60             
-  useConfetti.ts   |       0 |        0 |       0 |       0 | 12-135            
-  ...tDatabases.ts |       0 |        0 |       0 |       0 | 14-104            
-  ...aultTables.ts |       0 |        0 |       0 |       0 | 16-146            
-  useGroups.ts     |       0 |        0 |       0 |       0 | 25-159            
-  ...finiteRows.ts |       0 |        0 |       0 |       0 | 15-28             
-  ...onObserver.ts |       0 |        0 |       0 |       0 | 20-42             
-  ...dShortcuts.ts |       0 |        0 |       0 |       0 | 25-92             
-  ...iewSession.ts |       0 |        0 |       0 |       0 | 16-129            
-  ...ferenceRow.ts |       0 |        0 |       0 |       0 | 16-35             
-  useReordering.ts |       0 |        0 |       0 |       0 | 9-60              
-  ...oordinator.ts |       0 |      100 |       0 |       0 | 10-31             
-  ...bleColumns.ts |       0 |        0 |       0 |       0 | 11-134            
-  useTableRows.ts  |       0 |        0 |       0 |       0 | 10-134            
-  useTemplates.ts  |       0 |        0 |       0 |       0 | 60-181            
-  ...references.ts |       0 |        0 |       0 |       0 | 17-115            
-  ...kflowGraph.ts |       0 |      100 |       0 |       0 | 5-6               
-  ...iablesLive.ts |       0 |        0 |       0 |       0 | 32-62             
-  ...Visibility.ts |       0 |        0 |       0 |       0 | 38-169            
- ...c/hooks/collab |       0 |        0 |       0 |       0 |                   
-  ...etProvider.ts |       0 |        0 |       0 |       0 | 8-281             
-  ...llabClient.ts |       0 |        0 |       0 |       0 | 54-284            
-  useComments.ts   |       0 |        0 |       0 |       0 | 21-110            
- client/src/lib    |       0 |        0 |       0 |       0 |                   
-  analytics.ts     |       0 |        0 |       0 |       0 | 20-98             
-  ...yticsUtils.ts |       0 |        0 |       0 |       0 | 12-128            
-  api-client.ts    |       0 |        0 |       0 |       0 | 9-41              
-  authUtils.ts     |       0 |      100 |       0 |       0 | 2                 
-  ...kRegistry.tsx |       0 |        0 |       0 |       0 | 96-469            
-  colorUtils.ts    |       0 |        0 |       0 |       0 | 13-211            
-  datavault-api.ts |       0 |        0 |       0 |       0 | 41-378            
-  ...ault-hooks.ts |       0 |        0 |       0 |       0 | 13-433            
-  devpanelBus.ts   |       0 |      100 |       0 |       0 | 9-44              
-  dnd.ts           |       0 |        0 |       0 |       0 | 22-76             
-  formatting.ts    |       0 |        0 |       0 |       0 | 12-68             
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  labels.ts        |       0 |      100 |     100 |       0 | 7                 
-  mode.ts          |       0 |        0 |       0 |       0 | 17-92             
-  queryClient.ts   |       0 |        0 |       0 |       0 | 4-128             
-  queryKeys.ts     |       0 |      100 |       0 |       0 | 10-50             
-  ...thWarnings.ts |       0 |        0 |       0 |       0 | 8-28              
-  tenantTheme.ts   |       0 |        0 |       0 |       0 | 64-293            
-  utils.ts         |       0 |      100 |       0 |       0 | 5                 
-  vault-api.ts     |       0 |        0 |       0 |       0 | 6-1249            
-  vault-hooks.ts   |       0 |        0 |       0 |       0 | 13-1078           
- ...nt/src/lib/api |       0 |        0 |       0 |       0 |                   
-  datavault.ts     |       0 |        0 |       0 |       0 | 15-440            
- ...src/lib/config |       0 |        0 |       0 |       0 |                   
-  environment.ts   |       0 |        0 |       0 |       0 | 8-81              
- ...b/featureFlags |       0 |        0 |       0 |       0 |                   
-  definitions.ts   |       0 |        0 |       0 |       0 | 3-47              
-  provider.tsx     |       0 |        0 |       0 |       0 | 10-48             
-  server.ts        |       0 |        0 |       0 |       0 | 7-14              
- ...rc/lib/preview |       0 |        0 |       0 |       0 |                   
-  ...iewSession.ts |       0 |        0 |       0 |       0 | 48-457            
- .../previewRunner |       0 |        0 |       0 |       0 |                   
-  ...oadManager.ts |       0 |        0 |       0 |       0 | 11-47             
-  ...ationLayer.ts |       0 |        0 |       0 |       0 | 25-75             
-  ...nvironment.ts |       0 |        0 |       0 |       0 | 36-157            
-  PreviewRouter.ts |       0 |        0 |       0 |       0 | 14-72             
-  ...leResolver.ts |       0 |        0 |       0 |       0 | 23-56             
-  ...nvironment.ts |       0 |        0 |       0 |       0 | 6-22              
- ...ner/testRunner |       0 |        0 |       0 |       0 |                   
-  ...TestRunner.ts |       0 |        0 |       0 |       0 | 35-86             
- ...lib/randomizer |       0 |        0 |       0 |       0 |                   
-  aiRandomFill.ts  |       0 |        0 |       0 |       0 | 53-354            
-  randomFill.ts    |       0 |        0 |       0 |       0 | 41-608            
- ...src/lib/stores |       0 |        0 |       0 |       0 |                   
-  ...ationStore.ts |       0 |        0 |       0 |       0 | 16-57             
- .../src/marketing |       0 |        0 |       0 |       0 |                   
-  LandingPage.tsx  |       0 |        0 |       0 |       0 | 13-35             
- ...ing/components |       0 |      100 |       0 |       0 |                   
-  AIAnalytics.tsx  |       0 |      100 |       0 |       0 | 5                 
-  FeatureGrid.tsx  |       0 |      100 |       0 |       0 | 5-20              
-  FinalCTA.tsx     |       0 |      100 |       0 |       0 | 7                 
-  Hero.tsx         |       0 |      100 |       0 |       0 | 7                 
-  HowItWorks.tsx   |       0 |      100 |       0 |       0 | 5-18              
-  Testimonials.tsx |       0 |      100 |       0 |       0 | 4-16              
-  ...aultLogic.tsx |       0 |      100 |       0 |       0 | 5-21              
- .../marketing/lib |       0 |      100 |     100 |       0 |                   
-  brand.ts         |       0 |      100 |     100 |       0 | 1                 
- client/src/pages  |       0 |        0 |       0 |       0 |                   
-  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 30-101            
-  AdminLogs.tsx    |       0 |        0 |       0 |       0 | 33-365            
-  AdminUsers.tsx   |       0 |        0 |       0 |       0 | 37-269            
-  ...tingsPage.tsx |       0 |        0 |       0 |       0 | 42-463            
-  ...etailPage.tsx |       0 |        0 |       0 |       0 | 41-414            
-  ...tionsPage.tsx |       0 |        0 |       0 |       0 | 30-190            
-  Dashboard.tsx    |       0 |        0 |       0 |       0 | 24-264            
-  ...tingsPage.tsx |       0 |        0 |       0 |       0 | 40-348            
-  ...ditorPage.tsx |       0 |        0 |       0 |       0 | 42-378            
-  ...latesPage.tsx |       0 |        0 |       0 |       0 | 31-190            
-  ...eviewPage.tsx |       0 |        0 |       0 |       0 | 23-118            
-  Landing.tsx      |       0 |        0 |       0 |       0 | 21-565            
-  Marketplace.tsx  |       0 |        0 |       0 |       0 | 25-166            
-  NewWorkflow.tsx  |       0 |        0 |       0 |       0 | 18-110            
-  ...iewRunner.tsx |       0 |        0 |       0 |       0 | 27-657            
-  ProjectView.tsx  |       0 |        0 |       0 |       0 | 48-349            
-  RunDetails.tsx   |       0 |        0 |       0 |       0 | 21-276            
-  RunsCompare.tsx  |       0 |        0 |       0 |       0 | 17-134            
-  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 19-89             
-  SettingsPage.tsx |       0 |        0 |       0 |       0 | 16-290            
-  ...estRunner.tsx |       0 |        0 |       0 |       0 | 29-123            
-  ...latesPage.tsx |       0 |        0 |       0 |       0 | 56-648            
-  ...owBuilder.tsx |       0 |        0 |       0 |       0 | 24-133            
-  ...Analytics.tsx |       0 |        0 |       0 |       0 | 41-201            
-  ...owBuilder.tsx |       0 |        0 |       0 |       0 | 51-238            
-  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 59-505            
-  ...owPreview.tsx |       0 |        0 |       0 |       0 | 14-444            
-  ...lowRunner.tsx |       0 |        0 |       0 |       0 | 45-835            
-  ...flowsList.tsx |       0 |        0 |       0 |       0 | 26-392            
-  not-found.tsx    |       0 |      100 |       0 |       0 | 5                 
- .../pages/billing |       0 |        0 |       0 |       0 |                   
-  ...Dashboard.tsx |       0 |        0 |       0 |       0 | 32-83             
-  PricingPage.tsx  |       0 |        0 |       0 |       0 | 7-45              
- ...ages/datavault |       0 |        0 |       0 |       0 |                   
-  ...tingsPage.tsx |       0 |        0 |       0 |       0 | 17-96             
-  [databaseId].tsx |       0 |        0 |       0 |       0 | 57-489            
-  [tableId].tsx    |       0 |        0 |       0 |       0 | 56-592            
-  databases.tsx    |       0 |        0 |       0 |       0 | 35-234            
-  index.tsx        |       0 |        0 |       0 |       0 | 13-17             
-  tables.tsx       |       0 |        0 |       0 |       0 | 44-365            
- ...ages/developer |       0 |        0 |       0 |       0 |                   
-  OAuthApps.tsx    |       0 |        0 |       0 |       0 | 12-77             
- ...src/pages/docs |       0 |        0 |       0 |       0 |                   
-  ...metersDoc.tsx |       0 |        0 |       0 |       0 | 14-290            
- ...s/optimization |       0 |        0 |       0 |       0 |                   
-  ...ionWizard.tsx |       0 |        0 |       0 |       0 | 27-276            
- ...c/pages/public |       0 |        0 |       0 |       0 |                   
-  PublicRunner.tsx |       0 |        0 |       0 |       0 | 18-85             
- ...lic/components |       0 |        0 |       0 |       0 |                   
-  ...gAIAssist.tsx |       0 |        0 |       0 |       0 | 24-188            
- ...pages/settings |       0 |        0 |       0 |       0 |                   
-  ...gSettings.tsx |       0 |        0 |       0 |       0 | 17-149            
-  DomainList.tsx   |       0 |        0 |       0 |       0 | 16-107            
- ...der/components |       0 |        0 |       0 |       0 |                   
-  ...sistPanel.tsx |       0 |        0 |       0 |       0 | 21-150            
-  ...derCanvas.tsx |       0 |        0 |       0 |       0 | 28-98             
-  ...ionsPanel.tsx |       0 |        0 |       0 |       0 | 13-90             
-  ...ateEditor.tsx |       0 |        0 |       0 |       0 | 19-67             
-  ...ionEditor.tsx |       0 |        0 |       0 |       0 | 31-141            
-  ...onToolbar.tsx |       0 |        0 |       0 |       0 | 31-270            
-  NodeCard.tsx     |       0 |        0 |       0 |       0 | 13-143            
-  NodeSidebar.tsx  |       0 |        0 |       0 |       0 | 21-420            
-  PreviewPanel.tsx |       0 |        0 |       0 |       0 | 22-218            
-  ...mentPanel.tsx |       0 |        0 |       0 |       0 | 78-431            
-  ...estRunner.tsx |       0 |        0 |       0 |       0 | 86-464            
-  ...oadDialog.tsx |       0 |        0 |       0 |       0 | 39-181            
-  ...oadWizard.tsx |       0 |        0 |       0 |       0 | 35-202            
-  Toolbar.tsx      |       0 |        0 |       0 |       0 | 32-148            
- ...ransformEditor |       0 |        0 |       0 |       0 |                   
-  ...sistPanel.tsx |       0 |        0 |       0 |       0 | 9-82              
-  GraphView.tsx    |       0 |      100 |       0 |       0 | 7-8               
-  ...ormEditor.tsx |       0 |        0 |       0 |       0 | 8-22              
-  ...sformList.tsx |       0 |        0 |       0 |       0 | 8-17              
-  ...layground.tsx |       0 |      100 |       0 |       0 | 7-17              
- ...-builder/hooks |       0 |        0 |       0 |       0 |                   
-  ...ilableVars.ts |       0 |        0 |       0 |       0 | 7-41              
-  ...Validation.ts |       0 |        0 |       0 |       0 | 8-112             
-  useHelpers.ts    |       0 |        0 |       0 |       0 | 7-47              
-  ...orkflowAPI.ts |       0 |        0 |       0 |       0 | 9-237             
- ...-builder/store |       0 |        0 |       0 |       0 |                   
-  ...ilderStore.ts |       0 |        0 |       0 |       0 | 48-268            
- client/src/store  |       0 |        0 |       0 |       0 |                   
-  devpanel.ts      |       0 |        0 |       0 |       0 | 27-65             
-  preview.ts       |       0 |      100 |       0 |       0 | 27-46             
-  ...ow-builder.ts |       0 |      100 |       0 |       0 | 40-61             
- client/src/stores |       0 |        0 |       0 |       0 |                   
-  ...ilterStore.ts |       0 |        0 |       0 |       0 | 14-98             
- client/src/styles |       0 |        0 |       0 |       0 |                   
-  chartTheme.ts    |       0 |        0 |       0 |       0 | 6-72              
- server            |    5.45 |     8.05 |     1.6 |    5.34 |                   
-  db.ts            |   57.14 |    56.52 |      25 |   55.88 | ...47,65-68,75-85 
-  googleAuth.ts    |       0 |        0 |       0 |       0 | 12-507            
-  index.ts         |       0 |        0 |       0 |       0 | 12-159            
-  logger.ts        |   38.46 |    66.66 |   33.33 |   38.46 | 60-80             
-  production.ts    |       0 |        0 |       0 |       0 | 9-95              
-  routes.ts        |       0 |        0 |       0 |       0 | 18-96             
-  static.ts        |       0 |        0 |       0 |       0 | 9-32              
-  storage.ts       |       0 |      100 |       0 |       0 | 188-504           
-  utils.ts         |       0 |        0 |       0 |       0 | 4                 
-  vite.ts          |       0 |        0 |       0 |       0 | 12-77             
- server/api        |       0 |        0 |       0 |       0 |                   
-  projects.ts      |       0 |        0 |       0 |       0 | 20-245            
-  runs.ts          |       0 |        0 |       0 |       0 | 30-1121           
-  templates.ts     |       0 |        0 |       0 |       0 | 28-484            
-  workflows.ts     |       0 |        0 |       0 |       0 | 28-762            
- ...api/validators |       0 |      100 |     100 |       0 |                   
-  projects.ts      |       0 |      100 |     100 |       0 | 8-20              
-  runs.ts          |       0 |      100 |     100 |       0 | 8-60              
-  templates.ts     |       0 |      100 |     100 |       0 | 8-24              
-  workflows.ts     |       0 |      100 |     100 |       0 | 10-107            
- server/config     |       0 |      100 |       0 |       0 |                   
-  aiPrompts.ts     |       0 |      100 |       0 |       0 | 27-138            
- server/engine     |       0 |        0 |       0 |       0 |                   
-  expr.ts          |       0 |        0 |       0 |       0 | 20-272            
-  index.ts         |       0 |        0 |       0 |       0 | 59-303            
-  registry.ts      |       0 |        0 |       0 |       0 | 102-215           
-  validate.ts      |       0 |        0 |       0 |       0 | 42-385            
- ...r/engine/nodes |       0 |        0 |       0 |       0 |                   
-  branch.ts        |       0 |        0 |       0 |       0 | 41-76             
-  compute.ts       |       0 |        0 |       0 |       0 | 38-64             
-  esign.ts         |       0 |        0 |       0 |       0 | 62-133            
-  http.ts          |       0 |        0 |       0 |       0 | 91-508            
-  question.ts      |       0 |        0 |       0 |       0 | 47-152            
-  review.ts        |       0 |        0 |       0 |       0 | 59-101            
-  template.ts      |       0 |        0 |       0 |       0 | 63-239            
-  webhook.ts       |       0 |        0 |       0 |       0 | 56-272            
- server/errors     |       0 |        0 |       0 |       0 |                   
-  AppError.ts      |       0 |        0 |       0 |       0 | 8-48              
- server/jobs       |       0 |        0 |       0 |       0 |                   
-  metricsRollup.ts |       0 |        0 |       0 |       0 | 34-299            
- server/lib        |       0 |      100 |     100 |       0 |                   
-  rateLimit.ts     |       0 |      100 |     100 |       0 | 6-16              
- server/lib/ai     |       0 |        0 |       0 |       0 |                   
-  ...istService.ts |       0 |        0 |       0 |       0 | 31-242            
-  ...nalization.ts |       0 |        0 |       0 |       0 | 18-161            
-  ...mGenerator.ts |       0 |        0 |       0 |       0 | 5-65              
-  ...rmRevision.ts |       0 |        0 |       0 |       0 | 4-61              
- server/lib/audit  |       0 |        0 |       0 |       0 |                   
-  auditLogger.ts   |       0 |      100 |       0 |       0 | 19-34             
-  blockAudit.ts    |       0 |        0 |       0 |       0 | 15-45             
-  index.ts         |       0 |        0 |       0 |       0 | 12-36             
-  miscAudit.ts     |       0 |      100 |       0 |       0 | 6-25              
-  scriptAudit.ts   |       0 |        0 |       0 |       0 | 9-20              
-  workflowAudit.ts |       0 |        0 |       0 |       0 | 21-67             
- server/lib/authz  |       0 |        0 |       0 |       0 |                   
-  ...Permission.ts |       0 |        0 |       0 |       0 | 6-74              
-  enforce.ts       |       0 |        0 |       0 |       0 | 6-41              
-  externalAuth.ts  |       0 |        0 |       0 |       0 | 23-96             
- ...er/lib/billing |       0 |        0 |       0 |       0 |                   
-  ...ionService.ts |       0 |        0 |       0 |       0 | 8-82              
-  billingConfig.ts |       0 |      100 |     100 |       0 | 2-98              
-  ...PlanLimits.ts |       0 |        0 |       0 |       0 | 16-90             
- ...ling/providers |       0 |      100 |       0 |       0 |                   
-  ...ngProvider.ts |       0 |        0 |       0 |       0 |                   
-  ...peProvider.ts |       0 |      100 |       0 |       0 | 8-30              
- server/lib/guards |       0 |        0 |       0 |       0 |                   
-  ResourceGuard.ts |       0 |        0 |       0 |       0 | 3-27              
- server/lib/logic  |       0 |        0 |       0 |       0 |                   
-  optimizer.ts     |       0 |        0 |       0 |       0 | 20-50             
- ...r/lib/metering |       0 |        0 |       0 |       0 |                   
-  ...Aggregator.ts |       0 |      100 |       0 |       0 | 13-60             
-  usageMeter.ts    |       0 |        0 |       0 |       0 | 22-50             
- ...lib/migrations |       0 |        0 |       0 |       0 |                   
-  pipeline.ts      |       0 |        0 |       0 |       0 | 31-76             
- .../observability |       0 |        0 |       0 |       0 |                   
-  logger.ts        |       0 |        0 |       0 |       0 | 4-48              
-  metrics.ts       |       0 |        0 |       0 |       0 | 20-73             
- ...ib/performance |       0 |        0 |       0 |       0 |                   
-  profiler.ts      |       0 |        0 |       0 |       0 | 9-39              
- .../lib/templates |       0 |        0 |       0 |       0 |                   
-  ...ateService.ts |       0 |        0 |       0 |       0 | 30-107            
-  types.ts         |       0 |        0 |       0 |       0 |                   
- ...er/lib/tenancy |       0 |        0 |       0 |       0 |                   
-  tenantContext.ts |       0 |        0 |       0 |       0 | 8-30              
- ...lib/transforms |       0 |        0 |       0 |       0 |                   
-  debugger.ts      |       0 |        0 |       0 |       0 | 5-73              
-  schemaAlign.ts   |       0 |        0 |       0 |       0 | 4-49              
- ...orms/optimizer |       0 |        0 |       0 |       0 |                   
-  ...Transforms.ts |       0 |      100 |       0 |       0 | 5                 
-  ...Overwrites.ts |       0 |      100 |       0 |       0 | 5                 
-  foldConstants.ts |       0 |      100 |       0 |       0 | 5                 
-  ...Transforms.ts |       0 |      100 |       0 |       0 | 6                 
-  ...Transforms.ts |       0 |        0 |       0 |       0 | 7-13              
-  ...Transforms.ts |       0 |        0 |       0 |       0 | 10-12             
- ...r/lib/webhooks |       0 |        0 |       0 |       0 |                   
-  dispatcher.ts    |       0 |        0 |       0 |       0 | 12-88             
- server/middleware |       0 |        0 |       0 |       0 |                   
-  aclAuth.ts       |       0 |        0 |       0 |       0 | 6-162             
-  adminAuth.ts     |       0 |        0 |       0 |       0 | 5-73              
-  apiTokenAuth.ts  |       0 |        0 |       0 |       0 | 6-205             
-  asyncHandler.ts  |       0 |      100 |       0 |       0 | 9-11              
-  auth.ts          |       0 |        0 |       0 |       0 | 6-305             
-  ...ertToDraft.ts |       0 |        0 |       0 |       0 | 5-53              
-  domainTenant.ts  |       0 |        0 |       0 |       0 | 5-108             
-  ...r.examples.ts |       0 |        0 |       0 |       0 | 41-417            
-  errorHandler.ts  |       0 |        0 |       0 |       0 | 33-385            
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  rateLimiter.ts   |       0 |        0 |       0 |       0 | 14-114            
-  rbac.ts          |       0 |        0 |       0 |       0 | 5-381             
-  runTokenAuth.ts  |       0 |        0 |       0 |       0 | 33-158            
-  tenant.ts        |       0 |        0 |       0 |       0 | 5-239             
- .../observability |       0 |        0 |       0 |       0 |                   
-  otel.ts          |       0 |        0 |       0 |       0 | 60-125            
-  prom.ts          |       0 |        0 |       0 |       0 | 57-153            
- server/realtime   |       0 |        0 |       0 |       0 |                   
-  auth.ts          |       0 |        0 |       0 |       0 | 9-222             
-  awareness.ts     |       0 |        0 |       0 |       0 | 6-206             
-  collabServer.ts  |       0 |        0 |       0 |       0 | 32-580            
-  persistence.ts   |       0 |        0 |       0 |       0 | 8-422             
- ...r/repositories |    0.16 |        0 |    0.27 |    0.17 |                   
-  AclRepository.ts |       0 |        0 |       0 |       0 | 23-258            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 16-256            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 28-801            
-  ...Repository.ts |     5.4 |        0 |      10 |    5.71 | 34-158            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 13-128            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 12-100            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 12-81             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 20-143            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 20-147            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 13-160            
-  ...Repository.ts |       0 |      100 |       0 |       0 | 20-114            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 25-631            
-  ...Repository.ts |       0 |      100 |       0 |       0 | 20-128            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 16-169            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 20-118            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 18-154            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-150            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 20-118            
-  ...Repository.ts |       0 |      100 |       0 |       0 | 15-32             
-  ...Repository.ts |       0 |      100 |       0 |       0 | 11-63             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 12-134            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 16-119            
-  ...Repository.ts |       0 |      100 |       0 |       0 | 15-49             
-  ...Repository.ts |       0 |      100 |       0 |       0 | 19-89             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-61             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 23-177            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 26-124            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-127            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 15-71             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 16-106            
-  ...Repository.ts |       0 |      100 |       0 |       0 | 13-133            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 19-118            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-177            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 12-150            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 6-107             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-80             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 13-175            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 11-137            
-  ...Repository.ts |       0 |        0 |       0 |       0 | 15-89             
-  ...Repository.ts |       0 |        0 |       0 |       0 | 17-175            
-  index.ts         |       0 |        0 |       0 |       0 |                   
- server/routes     |       0 |        0 |       0 |       0 |                   
-  ...unt.routes.ts |       0 |        0 |       0 |       0 | 16-69             
-  admin.routes.ts  |       0 |        0 |       0 |       0 | 9-511             
-  admin.ts         |       0 |        0 |       0 |       0 | 7-60              
-  ai.doc.routes.ts |       0 |        0 |       0 |       0 | 7-54              
-  ai.routes.ts     |       0 |        0 |       0 |       0 | 22-748            
-  ...ion.routes.ts |       0 |        0 |       0 |       0 | 7-41              
-  ...ion.routes.ts |       0 |        0 |       0 |       0 | 9-150             
-  ...orm.routes.ts |       0 |        0 |       0 |       0 | 10-120            
-  ...cts.routes.ts |       0 |      100 |       0 |       0 | 8                 
-  ...uns.routes.ts |       0 |      100 |       0 |       0 | 8                 
-  ...tes.routes.ts |       0 |      100 |       0 |       0 | 8                 
-  ...ows.routes.ts |       0 |      100 |       0 |       0 | 8                 
-  auth.routes.ts   |       0 |        0 |       0 |       0 | 14-408            
-  ...ing.routes.ts |       0 |        0 |       0 |       0 | 8-54              
-  blocks.routes.ts |       0 |        0 |       0 |       0 | 10-189            
-  ...ing.routes.ts |       0 |        0 |       0 |       0 | 9-221             
-  ...ons.routes.ts |       0 |        0 |       0 |       0 | 25-559            
-  ...-v2.routes.ts |       0 |        0 |       0 |       0 | 31-361            
-  ...ard.routes.ts |       0 |        0 |       0 |       0 | 7-152             
-  ...ult.routes.ts |       0 |        0 |       0 |       0 | 37-1219           
-  ...ens.routes.ts |       0 |        0 |       0 |       0 | 14-180            
-  debug.routes.ts  |       0 |        0 |       0 |       0 | 14-70             
-  ...tic.routes.ts |       0 |        0 |       0 |       0 | 6-18              
-  ...oks.routes.ts |       0 |        0 |       0 |       0 | 7-217             
-  ...nts.routes.ts |       0 |        0 |       0 |       0 | 19-135            
-  ...tes.routes.ts |       0 |        0 |       0 |       0 | 8-140             
-  esign.routes.ts  |       0 |        0 |       0 |       0 | 21-260            
-  export.routes.ts |       0 |      100 |       0 |       0 | 8-18              
-  ...nal.routes.ts |       0 |        0 |       0 |       0 | 9-87              
-  files.routes.ts  |       0 |        0 |       0 |       0 | 18-74             
-  ...ock.routes.ts |       0 |        0 |       0 |       0 | 31-362            
-  index.ts         |       0 |        0 |       0 |       0 | 66-151            
-  intake.routes.ts |       0 |        0 |       0 |       0 | 13-295            
-  ...oks.routes.ts |       0 |        0 |       0 |       0 | 7-264             
-  marketplace.ts   |       0 |        0 |       0 |       0 | 5-78              
-  oauth.routes.ts  |       0 |        0 |       0 |       0 | 8-140             
-  ...cts.routes.ts |       0 |        0 |       0 |       0 | 17-359            
-  public.routes.ts |       0 |        0 |       0 |       0 | 7-75              
-  reviewTasks.ts   |       0 |        0 |       0 |       0 | 9-115             
-  ...uts.routes.ts |       0 |        0 |       0 |       0 | 19-157            
-  runs.routes.ts   |       0 |        0 |       0 |       0 | 9-595             
-  ...ets.routes.ts |       0 |        0 |       0 |       0 | 25-251            
-  ...ons.routes.ts |       0 |        0 |       0 |       0 | 10-252            
-  sharing.ts       |       0 |        0 |       0 |       0 | 11-130            
-  signatures.ts    |       0 |        0 |       0 |       0 | 9-146             
-  ...ots.routes.ts |       0 |        0 |       0 |       0 | 8-252             
-  steps.routes.ts  |       0 |        0 |       0 |       0 | 11-301            
-  teams.routes.ts  |       0 |        0 |       0 |       0 | 7-241             
-  ...sis.routes.ts |       0 |        0 |       0 |       0 | 20-154            
-  ...ing.routes.ts |       0 |        0 |       0 |       0 | 7-194             
-  ...tes.routes.ts |       0 |        0 |       0 |       0 | 10-259            
-  tenant.routes.ts |       0 |        0 |       0 |       0 | 11-332            
-  ...cks.routes.ts |       0 |        0 |       0 |       0 | 10-232            
-  ...ces.routes.ts |       0 |        0 |       0 |       0 | 6-69              
-  ...ion.routes.ts |       0 |        0 |       0 |       0 | 10-74             
-  ...ons.routes.ts |       0 |        0 |       0 |       0 | 7-222             
-  ...oks.routes.ts |       0 |        0 |       0 |       0 | 8-64              
-  ...ics.routes.ts |       0 |        0 |       0 |       0 | 26-434            
-  ...rts.routes.ts |       0 |        0 |       0 |       0 | 6-45              
-  ...tes.routes.ts |       0 |        0 |       0 |       0 | 15-199            
-  ...ows.routes.ts |       0 |        0 |       0 |       0 | 20-567            
- server/services   |       0 |        0 |       0 |       0 |                   
-  AIService.ts     |       0 |        0 |       0 |       0 | 48-924            
-  ...untService.ts |       0 |        0 |       0 |       0 | 12-60             
-  AclService.ts    |       0 |        0 |       0 |       0 | 29-236            
-  ...LogService.ts |       0 |        0 |       0 |       0 | 13-141            
-  BlockRunner.ts   |       0 |        0 |       0 |       0 | 29-734            
-  BlockService.ts  |       0 |        0 |       0 |       0 | 23-188            
-  ...ingService.ts |       0 |        0 |       0 |       0 | 9-212             
-  ...chaService.ts |       0 |        0 |       0 |       0 | 18-185            
-  ...eldService.ts |       0 |        0 |       0 |       0 | 20-289            
-  ...ionService.ts |       0 |        0 |       0 |       0 | 23-193            
-  ...ensService.ts |       0 |        0 |       0 |       0 | 21-213            
-  ...mnsService.ts |       0 |        0 |       0 |       0 | 24-545            
-  ...sesService.ts |       0 |        0 |       0 |       0 | 26-145            
-  ...tesService.ts |       0 |        0 |       0 |       0 | 25-192            
-  ...owsService.ts |       0 |        0 |       0 |       0 | 24-640            
-  ...onsService.ts |       0 |        0 |       0 |       0 | 33-214            
-  ...lesService.ts |       0 |        0 |       0 |       0 | 27-345            
-  ...ionService.ts |       0 |        0 |       0 |       0 | 23-218            
-  ...ateService.ts |       0 |        0 |       0 |       0 | 34-232            
-  ...ataService.ts |       0 |        0 |       0 |       0 | 7-203             
-  ...ionService.ts |       0 |        0 |       0 |       0 | 14-249            
-  ...ityService.ts |       0 |        0 |       0 |       0 | 14-293            
-  IntakeService.ts |       0 |        0 |       0 |       0 | 10-360            
-  LogicService.ts  |       0 |        0 |       0 |       0 | 53-488            
-  ...eueService.ts |       0 |        0 |       0 |       0 | 46-381            
-  ...ectService.ts |       0 |        0 |       0 |       0 | 22-236            
-  RecordService.ts |       0 |        0 |       0 |       0 | 23-365            
-  ...terService.ts |       0 |        0 |       0 |       0 | 19-255            
-  ...askService.ts |       0 |        0 |       0 |       0 | 19-227            
-  RunService.ts    |       0 |        0 |       0 |       0 | 50-1302           
-  ...ionService.ts |       0 |        0 |       0 |       0 | 20-165            
-  ...estService.ts |       0 |        0 |       0 |       0 | 24-246            
-  ...hotService.ts |       0 |        0 |       0 |       0 | 28-227            
-  StepService.ts   |       0 |        0 |       0 |       0 | 18-328            
-  TeamService.ts   |       0 |        0 |       0 |       0 | 22-223            
-  ...sisService.ts |       0 |        0 |       0 |       0 | 77-431            
-  ...ionService.ts |       0 |      100 |       0 |       0 | 32-43             
-  ...ateService.ts |       0 |        0 |       0 |       0 | 8-134             
-  ...ingService.ts |       0 |        0 |       0 |       0 | 14-249            
-  ...estService.ts |       0 |        0 |       0 |       0 | 49-218            
-  ...ockService.ts |       0 |        0 |       0 |       0 | 36-557            
-  ...cesService.ts |       0 |        0 |       0 |       0 | 14-59             
-  ...bleService.ts |       0 |        0 |       0 |       0 | 19-84             
-  ...ionService.ts |       0 |        0 |       0 |       0 | 10-385            
-  ...dleService.ts |       0 |        0 |       0 |       0 | 14-75             
-  ...nerService.ts |       0 |        0 |       0 |       0 | 8-146             
-  ...ortService.ts |       0 |        0 |       0 |       0 | 29-173            
-  ...lowService.ts |       0 |        0 |       0 |       0 | 34-465            
-  ...ateService.ts |       0 |        0 |       0 |       0 | 27-251            
-  alerts.ts        |       0 |        0 |       0 |       0 | 37-319            
-  auth.ts          |       0 |        0 |       0 |       0 | 6-236             
-  cache.ts         |       0 |        0 |       0 |       0 | 17-267            
-  connections.ts   |       0 |        0 |       0 |       0 | 32-573            
-  docxHelpers.ts   |       0 |        0 |       0 |       0 | 19-272            
-  docxRenderer.ts  |       0 |        0 |       0 |       0 | 17-279            
-  docxRenderer2.ts |       0 |        0 |       0 |       0 | 22-395            
-  emailService.ts  |       0 |        0 |       0 |       0 | 13-185            
-  ...onnections.ts |       0 |        0 |       0 |       0 | 63-325            
-  fileService.ts   |       0 |        0 |       0 |       0 | 8-170             
-  geminiService.ts |       0 |        0 |       0 |       0 | 18-297            
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  metrics.ts       |       0 |        0 |       0 |       0 | 29-347            
-  oauth2.ts        |       0 |        0 |       0 |       0 | 37-442            
-  runs.ts          |       0 |        0 |       0 |       0 | 17-234            
-  secrets.ts       |       0 |        0 |       0 |       0 | 53-280            
-  sendgrid.ts      |       0 |        0 |       0 |       0 | 5-340             
-  sli.ts           |       0 |        0 |       0 |       0 | 48-326            
-  templates.ts     |       0 |        0 |       0 |       0 | 14-224            
- ...er/services/ai |       0 |        0 |       0 |       0 |                   
-  ...ionService.ts |       0 |        0 |       0 |       0 | 18-374            
- ...ices/analytics |       0 |        0 |       0 |       0 |                   
-  ...ionService.ts |       0 |        0 |       0 |       0 | 22-141            
-  ...icsService.ts |       0 |        0 |       0 |       0 | 14-112            
-  ...ingService.ts |       0 |        0 |       0 |       0 | 31-91             
-  ...offService.ts |       0 |        0 |       0 |       0 | 31-100            
-  ...mapService.ts |       0 |        0 |       0 |       0 | 20-51             
- .../services/diff |       0 |        0 |       0 |       0 |                   
-  diffWorkflows.ts |       0 |        0 |       0 |       0 | 43-184            
- ...vices/document |       0 |        0 |       0 |       0 |                   
-  ...mentEngine.ts |       0 |        0 |       0 |       0 | 28-91             
-  ...mentEngine.ts |       0 |        0 |       0 |       0 | 24-435            
-  ...ckRenderer.ts |       0 |        0 |       0 |       0 | 27-460            
-  ...nterpreter.ts |       0 |        0 |       0 |       0 | 116-567           
-  PdfConverter.ts  |       0 |        0 |       0 |       0 | 10-165            
-  ...lateParser.ts |       0 |        0 |       0 |       0 | 19-144            
-  ...ateScanner.ts |       0 |        0 |       0 |       0 | 18-231            
-  ...Normalizer.ts |       0 |        0 |       0 |       0 | 86-491            
-  ZipBundler.ts    |       0 |        0 |       0 |       0 | 22-352            
- ...services/esign |       0 |        0 |       0 |       0 |                   
-  ...gnProvider.ts |       0 |        0 |       0 |       0 | 60-488            
-  ...opeBuilder.ts |       0 |        0 |       0 |       0 | 69-271            
-  EsignProvider.ts |       0 |        0 |       0 |       0 | 221-301           
-  ...ockService.ts |       0 |        0 |       0 |       0 | 101-360           
-  index.ts         |       0 |        0 |       0 |       0 | 47-60             
- ...ces/migrations |       0 |        0 |       0 |       0 |                   
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  registry.ts      |       0 |      100 |       0 |       0 | 23-30             
-  runner.ts        |       0 |        0 |       0 |       0 | 14-45             
- ...ions/migrators |       0 |        0 |       0 |       0 |                   
-  ...k_refactor.ts |       0 |        0 |       0 |       0 | 13-95             
-  ..._migration.ts |       0 |        0 |       0 |       0 | 11-77             
-  ..._migration.ts |       0 |        0 |       0 |       0 | 10-48             
- ...ices/scripting |   56.95 |     43.6 |   73.41 |   56.31 |                   
-  ...ookService.ts |       0 |        0 |       0 |       0 | 34-442            
-  HelperLibrary.ts |   68.15 |       50 |   83.63 |   67.56 | ...12-418,440,479 
-  ...ookService.ts |   80.85 |    75.94 |   81.81 |   80.64 | ...49,465,471,475 
-  ScriptContext.ts |      50 |    28.57 |      50 |      50 | 43                
-  ScriptEngine.ts  |   78.37 |    65.38 |   66.66 |   78.37 | ...23,151,161-188 
- server/utils      |    0.61 |     0.69 |       0 |    0.64 |                   
-  ...Formatting.ts |       0 |        0 |       0 |       0 | 17-102            
-  checksum.ts      |       0 |        0 |       0 |       0 | 13-33             
-  diff.ts          |       0 |        0 |       0 |       0 | 36-199            
-  encryption.ts    |       0 |        0 |       0 |       0 | 9-201             
-  ...oxExecutor.ts |    6.31 |       12 |       0 |    6.31 | 41-534            
-  errorHandler.ts  |       0 |        0 |       0 |       0 | 14-155            
-  errors.ts        |       0 |        0 |       0 |       0 | 4-154             
-  formatters.ts    |       0 |        0 |       0 |       0 | 10-131            
-  index.ts         |       0 |        0 |       0 |       0 |                   
-  jsonselect.ts    |       0 |        0 |       0 |       0 | 27-231            
-  pagination.ts    |       0 |        0 |       0 |       0 | 6-83              
-  ...oxExecutor.ts |       0 |        0 |       0 |       0 | 4-496             
-  sanitize.ts      |       0 |        0 |       0 |       0 | 9-63              
-  ...hotHelpers.ts |       0 |        0 |       0 |       0 | 40-190            
-  ...onfigUtils.ts |       0 |        0 |       0 |       0 | 43-705            
-  ...onMessages.ts |       0 |        0 |       0 |       0 | 6-108             
-  ...leResolver.ts |       0 |        0 |       0 |       0 | 18-75             
-  ...ersionHash.ts |       0 |        0 |       0 |       0 | 30-65             
- server/workflows  |       0 |        0 |       0 |       0 |                   
-  ...ionAdapter.ts |       0 |        0 |       0 |       0 | 53-287            
-  conditions.ts    |       0 |        0 |       0 |       0 | 128-469           
-  examples.ts      |       0 |      100 |       0 |       0 | 23-425            
-  ...ateMachine.ts |       0 |        0 |       0 |       0 | 50-211            
-  validation.ts    |       0 |        0 |       0 |       0 | 49-226            
- shared            |   38.05 |        0 |   35.22 |   36.15 |                   
-  ...nEvaluator.ts |       0 |        0 |       0 |       0 | 57-556            
-  ...ionalLogic.ts |       0 |        0 |       0 |       0 | 36-507            
-  config.ts        |       0 |        0 |     100 |       0 | 14-114            
-  schema.ts        |   71.16 |      100 |   45.25 |   67.72 | ...3192,3212,3225 
-  workflowLogic.ts |       0 |        0 |       0 |       0 | 50-389            
- shared/validation |       0 |        0 |       0 |       0 |                   
-  ...Validation.ts |       0 |        0 |       0 |       0 | 35-123            
-  PageValidator.ts |       0 |        0 |       0 |       0 | 16-38             
-  ...dationRule.ts |       0 |        0 |       0 |       0 |                   
-  ...tionSchema.ts |       0 |        0 |       0 |       0 |                   
-  Validator.ts     |       0 |        0 |       0 |       0 | 27-177            
-  messages.ts      |       0 |      100 |       0 |       0 | 3-22              
-  ...figSchemas.ts |       0 |        0 |       0 |       0 | 17-461            
--------------------|---------|----------|---------|---------|-------------------
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
 
-=============================== Coverage summary ===============================
-Statements   : 2.1% ( 673/32017 )
-Branches     : 0.65% ( 132/20222 )
-Functions    : 2.78% ( 204/7337 )
-Lines        : 1.95% ( 600/30727 )
-================================================================================
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/dataBlocks.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w12
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w12,public
+
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w12 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w12%2Cpublic
+
+{"level":30,"time":1768512108612,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768512108656,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w12, public
+
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w12
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w8
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w8,public
+
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w0.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w0.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w7
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w7,public
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w8 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w8%2Cpublic
+
+{"level":30,"time":1768512109164,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w7 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w7%2Cpublic
+
+{"level":30,"time":1768512109188,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768512109236,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w9
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w9,public
+
+{"level":30,"time":1768512109271,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w9 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w9%2Cpublic
+
+{"level":30,"time":1768512109309,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768512109390,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w11
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w11,public
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w8, public
+
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w11 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w11%2Cpublic
+
+{"level":30,"time":1768512109590,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w7, public
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w8
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w10
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w10,public
+
+{"level":30,"time":1768512109647,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w7
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/collections.e2e.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w12.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w12.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w10 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w10%2Cpublic
+
+{"level":30,"time":1768512109687,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/datavault.autonumber.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w12.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w12.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+{"level":30,"time":1768512109746,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w9, public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w9
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w7.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w8.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w7.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Dropping existing function: test_schema_w8.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w11, public
+
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w11
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/variableSafety.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w9.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w9.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w10, public
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w10
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/auth/oauth2.google.test.ts
+[22m[39mDEBUG: Existing functions: []
+
+{"level":30,"time":1768512110446,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768512110451,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768512110475,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w14
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w14,public
+
+{"level":30,"time":1768512110494,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768512110507,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768512110521,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w14 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w14%2Cpublic
+
+{"level":30,"time":1768512110540,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768512110574,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
+{"level":30,"time":1768512110595,"env":"test","msg":"DB: initialized flag set."}
+{"level":50,"time":1768512110763,"env":"test","module":"auth","err":{"type":"TypeError","message":"Cannot read properties of undefined (reading 'Symbol(drizzle:Columns)')","stack":"TypeError: Cannot read properties of undefined (reading 'Symbol(drizzle:Columns)')\n    at getTableColumns (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/utils.js:109:15)\n    at PgSelectBuilder.from (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/pg-core/query-builders/select.js:62:16)\n    at SystemStatsRepository.getOrInitialize (C:/Users/scoot/poll/VaultLogic/server/repositories/SystemStatsRepository.ts:18:35)\n    at SystemStatsRepository.incrementUsersCreated (C:/Users/scoot/poll/VaultLogic/server/repositories/SystemStatsRepository.ts:103:16)\n    at UserRepository.upsert (C:/Users/scoot/poll/VaultLogic/server/repositories/UserRepository.ts:95:37)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at upsertUser (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:69:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:159:7"},"userId":"google-user-123","msg":"Failed to upsert user during authentication"}
+{"level":50,"time":1768512110766,"env":"test","module":"auth","err":{"type":"Error","message":"Failed to create or update user account","stack":"Error: Failed to create or update user account\n    at upsertUser (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:73:11)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:159:7"},"msg":"Google authentication failed"}
+{"level":30,"time":1768512110811,"env":"test","workflowId":"6df528c0-5855-472c-9605-eecf8fcbcf2c","userId":"9502b703-cf5a-4ae3-b651-580f449d54ce","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768512110914,"env":"test","module":"ai-workflow-edit-routes","error":{"query":"select \"id\", \"scope\", \"system_prompt\", \"updated_by\", \"created_at\", \"updated_at\" from \"ai_settings\" \"aiSettings\" where \"aiSettings\".\"scope\" = $1 limit $2","params":["global",1],"cause":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"}},"workflowId":"6df528c0-5855-472c-9605-eecf8fcbcf2c","msg":"AI model call failed"}
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w14, public
+
+{"level":50,"time":1768512110945,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid token","stack":"Error: Invalid token\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth/oauth2.google.test.ts:168:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1243:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1209:10)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:37\n    at Traces.$ (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)\n    at trace (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:12)"},"msg":"Google token verification failed"}
+{"level":50,"time":1768512110946,"env":"test","module":"auth","err":{"type":"Error","message":"Invalid token","stack":"Error: Invalid token\n    at C:/Users/scoot/poll/VaultLogic/tests/integration/auth/oauth2.google.test.ts:168:9\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:145:11\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:915:26\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1243:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1209:10)\n    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:37\n    at Traces.$ (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)\n    at trace (file:///C:/Users/scoot/poll/VaultLogic/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)\n    at runTest (file:///C:/Users/scoot/poll/VaultLogic/node_modules/@vitest/runner/dist/index.js:1653:12)"},"msg":"Google authentication failed"}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w3
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w3,public
+
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w1
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w1,public
+
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w0,public
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w6
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w6,public
+
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w14
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w2
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w2,public
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w5
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w5,public
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w3 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w3%2Cpublic
+
+{"level":30,"time":1768512110998,"env":"test","msg":"DB: initializing... Local"}
+{"level":40,"time":1768512111001,"env":"test","module":"auth","email":"unverified@example.com","msg":"Email not verified by Google"}
+{"level":50,"time":1768512111001,"env":"test","module":"auth","err":{"type":"Error","message":"Email not verified by Google","stack":"Error: Email not verified by Google\n    at verifyGoogleToken (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:92:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:158:23"},"msg":"Google token verification failed"}
+{"level":50,"time":1768512111002,"env":"test","module":"auth","err":{"type":"Error","message":"Email not verified by Google","stack":"Error: Email not verified by Google\n    at verifyGoogleToken (C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:92:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at C:/Users/scoot/poll/VaultLogic/server/googleAuth.ts:158:23"},"msg":"Google authentication failed"}
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w0 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w0%2Cpublic
+
+{"level":30,"time":1768512111005,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w1 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w1%2Cpublic
+
+{"level":30,"time":1768512111005,"env":"test","msg":"DB: initializing... Local"}
+{"level":40,"time":1768512111021,"env":"test","msg":"Failed to parse legacy string condition: \"trigger == \", defaulting to visible"}
+{"level":40,"time":1768512111021,"env":"test","msg":"Failed to parse legacy string condition: \"trigger == \", defaulting to visible"}
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w6 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w6%2Cpublic
+
+{"level":30,"time":1768512111027,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w2 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w2%2Cpublic
+
+{"level":30,"time":1768512111029,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w10.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "test_schema_w11.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+DEBUG: Dropping existing function: test_schema_w10.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w5 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w5%2Cpublic
+
+{"level":30,"time":1768512111037,"env":"test","msg":"DB: initializing... Local"}
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w4
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w4,public
+
+{"level":30,"time":1768512111052,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768512111059,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768512111061,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/externalSends.test.ts
+[22m[39mDEBUG: Dropping existing function: test_schema_w11.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)
+
+{"level":30,"time":1768512111082,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768512111085,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m🔒 Test Schema Isolated: test_schema_w4 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w4%2Cpublic
+
+{"level":30,"time":1768512111086,"env":"test","msg":"DB: initialized flag set."}
+{"level":30,"time":1768512111086,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768512111142,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w3, public
+
+{"level":30,"time":1768512111405,"env":"test","module":"auth","email":"existing@example.com","msg":"OAuth2 login successful"}
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w1, public
+
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w0, public
+
+{"level":30,"time":1768512111415,"env":"test","workflowId":"6d1bd5e4-dde3-4cc1-88a0-9437d2b54da1","userId":"9502b703-cf5a-4ae3-b651-580f449d54ce","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w2, public
+
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w5, public
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w6, public
+
+[90mstdout[2m | tests/integration/auth.routes.real.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w3
+⏩ Schema reused, skipping migrations.
+
+{"level":30,"time":1768512111444,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/regression-REG-1.test.ts
+[22m[39m🧹 Cleaning up test environment...
+
+{"level":30,"time":1768512111444,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/mfa.flow.real.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w1
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/session.management.real.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w0
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/auth.flows.real.test.ts
+[22m[39m✅ Enforced search_path: test_schema_w4, public
+
+[90mstdout[2m | tests/integration/trusted.devices.real.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w2
+⏩ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/auth/oauth2.sessions.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w6
+⏩ Schema reused, skipping migrations.
+
+ [31m❯[39m tests/integration/regression-REG-1.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[33m 3276[2mms[22m[39m
+[31m       [31m×[31m should block Next when required visible question is empty[39m[32m 55[2mms[22m[39m
+[31m       [31m×[31m should NOT block Next when required question is hidden[39m[33m 340[2mms[22m[39m
+[31m       [31m×[31m should block when required becomes visible and is empty[39m[33m 348[2mms[22m[39m
+[31m       [31m×[31m should skip hidden required page entirely[39m[33m 349[2mms[22m[39m
+[31m       [31m×[31m should enforce required on visible page[39m[33m 349[2mms[22m[39m
+       [32m✓[39m should evaluate visibility consistently across modes[32m 2[2mms[22m[39m
+       [32m✓[39m should handle malformed visibility expression gracefully[32m 2[2mms[22m[39m
+       [32m✓[39m should handle missing variable in visibility expression[32m 0[2mms[22m[39m
+[90mstdout[2m | tests/integration/auth/oauth2.token-refresh.test.ts
+[22m[39m✅ Database initialized. Current schema: test_schema_w5
+⏩ Schema reused, skipping migrations.
+
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mError[22m: ENOENT: no such file or directory, open 'C:\Users\scoot\poll\VaultLogic\coverage\.tmp\coverage-0.json'[39m
+[90m [2m❯[22m open node:internal/fs/promises:[2m642:25[22m[39m
+[90m [2m❯[22m Object.writeFile node:internal/fs/promises:[2m1249:14[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22m[39m
+[31m[1mSerialized Error:[22m[39m [90m{ errno: -4058, code: 'ENOENT', syscall: 'open', path: 'C:\Users\scoot\poll\VaultLogic\coverage\.tmp\coverage-0.json' }[39m
+
+
+
