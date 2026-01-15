@@ -99,6 +99,7 @@ describeWithDb('PdfQueueService', () => {
         description: 'Test project',
         tenantId: testTenantId,
         creatorId: testUserId,
+        createdBy: testUserId,
         ownerId: testUserId,
       })
       .returning();

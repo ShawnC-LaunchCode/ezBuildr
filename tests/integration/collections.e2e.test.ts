@@ -52,6 +52,7 @@ describe('Collections System E2E Tests', () => {
       description: 'Project for collections E2E tests',
       tenantId: testTenantId,
       creatorId: testUserId,
+      createdBy: testUserId,
       ownerId: testUserId,
     }).returning();
     testProjectId = project.id;

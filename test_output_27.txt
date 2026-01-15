@@ -1,0 +1,113 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+{"level":30,"time":1768453749809,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768453749831,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized for tests
+≡ƒöä Running test migrations (manual file mode due to broken journal)...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0000_daffy_roughhouse.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0000_daffy_roughhouse.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0001_remove_participants.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0001_remove_participants.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0002_add_mode_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0002_add_mode_columns.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0003_add_step_aliases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0003_add_step_aliases.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0004_add_teams_and_acls.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0004_add_teams_and_acls.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0005_add_transform_block_phases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0005_add_transform_block_phases.sql, retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0006_add_updated_at_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_add_js_question_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_lying_namor.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0007_lying_namor.sql, retrying statement-by-statement...
+
+{"level":30,"time":1768453869811,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+stderr | tests/integration/ai/workflowEdit.test.ts
+Γ¥î FAILED MIGRATION 0007_lying_namor.sql STATEMENT: Cannot use a pool after calling end on the pool
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: Cannot use a pool after calling end on the pool
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+stderr | tests/integration/ai/workflowEdit.test.ts
+ΓÜá∩╕Å Database initialization failed (ignoring for unit tests or mock scenarios): Error: Cannot use a pool after calling end on the pool
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+{"level":30,"time":1768453870098,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[33m8 skipped[39m[2m)[22m[33m 120291[2mms[22m[39m
+     [2m[90mΓåô[39m[22m should create draft version on successful AI edit
+     [2m[90mΓåô[39m[22m should enforce draft mode (revert active workflow to draft)
+     [2m[90mΓåô[39m[22m should not create version when no changes detected (checksum match)
+     [2m[90mΓåô[39m[22m should reject unauthorized access
+     [2m[90mΓåô[39m[22m should reject unsafe DataVault operations
+     [2m[90mΓåô[39m[22m should handle multi-operation edits with tempId resolution
+     [2m[90mΓåô[39m[22m should create BEFORE and AFTER snapshots
+     [2m[90mΓåô[39m[22m should rollback on validation failure
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts [ tests/integration/ai/workflowEdit.test.ts ]
+Error: Hook timed out in 120000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ Γ¥» tests/setup.ts:105:1
+    103| 
+    104| // Global test hooks
+    105| beforeAll(async () => {
+       | ^
+    106|   // Conditionally load jest-dom for UI tests (JSDOM environment)
+    107|   if (typeof window !== 'undefined') {
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m8 skipped[39m[90m (8)[39m
+[2m   Start at [22m 23:09:08
+[2m   Duration [22m 121.98s[2m (transform 626ms, setup 148ms, import 1.18s, tests 120.29s, environment 0ms)[22m
+

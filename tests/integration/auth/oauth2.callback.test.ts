@@ -81,6 +81,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
       title: 'OAuth Test Project',
       name: 'OAuth Test Project',
       creatorId: testUserId,
+      createdBy: testUserId,
       ownerId: testUserId,
       tenantId: testTenantId,
     }).returning();

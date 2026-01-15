@@ -1,0 +1,294 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w0,public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w0%2Cpublic
+
+{"level":30,"time":1768481838002,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768481838024,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Enforced search_path: test_schema_w0, public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized. Current schema: test_schema_w0
+ΓÅ⌐ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "public.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+
+{"level":30,"time":1768481839300,"env":"test","workflowId":"fb00b5a5-a75b-4f5f-b144-d774b05805a5","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1685[39m
+
+{"level":30,"time":1768481839725,"env":"test","workflowId":"fb00b5a5-a75b-4f5f-b144-d774b05805a5","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768481839872,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"fb00b5a5-a75b-4f5f-b144-d774b05805a5","msg":"Error in AI workflow edit"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Test failed with status [33m500[39m
+DEBUG: Response body: {
+  "success": false,
+  "error": "Cannot read properties of undefined (reading 'Symbol(drizzle:Columns)')"
+}
+DEBUG: Response error: Error: cannot POST /api/workflows/fb00b5a5-a75b-4f5f-b144-d774b05805a5/ai/edit (500)
+    at Response.toError [90m(C:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\node\response.js:116:17[90m)[39m
+    at ResponseBase._setStatusProperties [90m(C:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\response-base.js:107:48[90m)[39m
+    at new Response [90m(C:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\node\response.js:47:8[90m)[39m
+    at Test.Request._emitResponse [90m(C:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\node\index.js:881:20[90m)[39m
+    at [90mC:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\node\index.js:1102:38
+    at IncomingMessage.<anonymous> [90m(C:\Users\scoot\poll\VaultLogic\[39mnode_modules\[4msuperagent[24m\lib\node\parsers\json.js:21:7[90m)[39m
+[90m    at IncomingMessage.emit (node:events:520:35)[39m
+[90m    at endReadableNT (node:internal/streams/readable:1701:12)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:89:21)[39m {
+  status: [33m500[39m,
+  text: [32m`{"success":false,"error":"Cannot read properties of undefined (reading 'Symbol(drizzle:Columns)')"}`[39m,
+  method: [32m'POST'[39m,
+  path: [32m'/api/workflows/fb00b5a5-a75b-4f5f-b144-d774b05805a5/ai/edit'[39m
+}
+
+{"level":30,"time":1768481840073,"env":"test","workflowId":"a8fee567-4370-469b-b800-c4cf4aee3cd3","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1656[39m
+
+{"level":30,"time":1768481840495,"env":"test","workflowId":"a8fee567-4370-469b-b800-c4cf4aee3cd3","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768481840634,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"a8fee567-4370-469b-b800-c4cf4aee3cd3","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768481840780,"env":"test","workflowId":"8d851d32-1cdc-47b7-b900-a40838eb3d8c","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1651[39m
+
+{"level":30,"time":1768481841194,"env":"test","workflowId":"8d851d32-1cdc-47b7-b900-a40838eb3d8c","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768481841335,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"8d851d32-1cdc-47b7-b900-a40838eb3d8c","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768481841534,"env":"test","workflowId":"3d7b19a8-bf85-422e-bec2-6951dcc32619","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1647[39m
+
+{"level":50,"time":1768481841633,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for datavault.dropTable: Invalid operation schema: Invalid discriminator value. Expected 'workflow.setMetadata' | 'section.create' | 'section.update' | 'section.delete' | 'section.reorder' | 'step.create' | 'step.update' | 'step.delete' | 'step.move' | 'step.setVisibleIf' | 'step.setRequired' | 'logicRule.create' | 'logicRule.update' | 'logicRule.delete' | 'document.add' | 'document.update' | 'document.setConditional' | 'document.bindFields' | 'datavault.createTable' | 'datavault.addColumns' | 'datavault.createWritebackMapping'"],"workflowId":"3d7b19a8-bf85-422e-bec2-6951dcc32619","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768481841779,"env":"test","workflowId":"01213c55-ac02-4c12-8913-4522ab7503bb","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1725[39m
+
+{"level":30,"time":1768481842376,"env":"test","workflowId":"01213c55-ac02-4c12-8913-4522ab7503bb","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":2,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768481842535,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"01213c55-ac02-4c12-8913-4522ab7503bb","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768481842680,"env":"test","workflowId":"2e837fce-0b4d-4eaa-a681-62e1292f6ade","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1650[39m
+
+{"level":30,"time":1768481843102,"env":"test","workflowId":"2e837fce-0b4d-4eaa-a681-62e1292f6ade","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768481843245,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"2e837fce-0b4d-4eaa-a681-62e1292f6ade","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768481843530,"env":"test","workflowId":"3ba269c0-349a-43ac-a24b-dd7b9cb60bff","userId":"a721ab1e-2d6b-442c-83c9-70abb2d2b5eb","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1739[39m
+
+{"level":50,"time":1768481843667,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for step.create: Step alias 'email' already exists"],"workflowId":"3ba269c0-349a-43ac-a24b-dd7b9cb60bff","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768481844109,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768481844109,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[33m 6485[2mms[22m[39m
+[31m     [31m├ù[31m should create draft version on successful AI edit[39m[33m 1034[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 758[2mms[22m[39m
+[31m     [31m├ù[31m should not create version when no changes detected (checksum match)[39m[33m 700[2mms[22m[39m
+     [32mΓ£ô[39m should reject unauthorized access[32m 53[2mms[22m[39m
+     [32mΓ£ô[39m should reject unsafe DataVault operations[32m 245[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[33m 902[2mms[22m[39m
+[31m     [31m├ù[31m should create BEFORE and AFTER snapshots[39m[33m 710[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should rollback on validation failure [33m 515[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 5 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:189:8
+    187|         }
+    188|       })
+    189|       .expect(200);
+       |        ^
+    190| 
+    191|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:229:8
+    227|         userMessage: 'Add a phone number field',
+    228|       })
+    229|       .expect(200);
+       |        ^
+    230| 
+    231|     // Verify workflow is now draft
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:246:8
+    244|         userMessage: 'Add contact section',
+    245|       })
+    246|       .expect(200);
+       |        ^
+    247| 
+    248|     const versionId1 = response1.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:400:8
+    398|         userMessage: 'Add emergency contact section with name and phonΓÇª
+    399|       })
+    400|       .expect(200);
+       |        ^
+    401| 
+    402|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:437:8
+    435|         userMessage: 'Add a simple field',
+    436|       })
+    437|       .expect(200);
+       |        ^
+    438| 
+    439|     const versionId = response.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/5]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 06:57:15
+[2m   Duration [22m 8.40s[2m (transform 690ms, setup 209ms, import 1.22s, tests 6.49s, environment 0ms)[22m
+

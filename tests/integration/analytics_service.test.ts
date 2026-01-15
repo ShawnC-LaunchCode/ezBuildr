@@ -36,7 +36,7 @@ describe("Analytics Service Integration", () => {
         tenantId = tenant.id;
         userId = `user-${nanoid()}`;
         await db.insert(users).values({ id: userId, email: `${userId}@test.com`, passwordHash: "x", tenantId, tenantRole: "owner", role: "admin" } as any);
-        const [p] = await db.insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, ownerId: userId } as any).returning();
+        const [p] = await db.insert(projects).values({ title: "P", name: "P", tenantId, creatorId: userId, createdBy: userId, ownerId: userId } as any).returning();
 
         const { workflow: w, version: v } = createGraphWorkflow({ projectId: p.id, creatorId: userId, status: "active", isPublic: true });
         const [wfRes] = await db.insert(workflows).values({ ...w, status: 'active', isPublic: true } as any).returning();

@@ -1,0 +1,602 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w0
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w0,public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: false)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w0%2Cpublic
+
+{"level":30,"time":1768480878105,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768480878126,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Enforced search_path: test_schema_w0, public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized. Current schema: test_schema_w0
+≡ƒöä Running test migrations (manual file mode due to broken journal)...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0000_daffy_roughhouse.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0001_remove_participants.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0002_add_mode_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0003_add_step_aliases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0003_add_step_aliases.sql (Error: column "alias" of relation "steps" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0004_add_teams_and_acls.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0004_add_teams_and_acls.sql (Error: column "owner_id" of relation "projects" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0005_add_transform_block_phases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0005_add_transform_block_phases.sql (Error: column "phase" of relation "transform_blocks" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0006_add_updated_at_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_add_js_question_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_lying_namor.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0007_lying_namor.sql (Error: relation "sections" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0008_add_virtual_steps_for_transform_blocks.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0009_add_multi_tenant_data_model.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0009_real_vapor.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0009_real_vapor.sql (Error: constraint "workflow_run_events_run_id_workflow_runs_id_fk" for relation "workflow_run_events" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0010_add_external_connections_and_secret_types.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0010_add_external_connections_and_secret_types.sql (Error: type "secret_type" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0010_nullable_creator_owner.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0011_add_trace_and_error_to_runs.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0012_add_analytics_sli_tables.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0012_add_analytics_sli_tables.sql (Error: type "metrics_event_type" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0013_add_intake_portal_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0014_add_workflow_versioning_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0015_add_intake_config.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0016_add_review_and_esign_tables.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0017_add_connections_table.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0018_add_branding_and_domains.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0019_add_collections_datastore.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0020_add_collection_block_types.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0021_add_page_conditions.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0021_add_page_conditions.sql (Error: column "visible_if" of relation "sections" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0022_add_question_conditions.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0022_add_question_conditions.sql (Error: column "visible_if" of relation "steps" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0023_add_repeater_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0024_add_document_engine_tables.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0024_add_document_engine_tables.sql (Error: type "output_status" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0024_add_performance_indexes.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0025_fix_workflows_missing_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0026_fix_schema_inconsistencies.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0027_fix_metrics_rollups_unique_index.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0028_fix_workflow_status_enum.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0029_add_datavault_tables.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0029_add_datavault_tables.sql (Error: type "datavault_column_type" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0030_add_auto_number_column_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0031_fix_survey_status_enum.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0032_add_primary_key_and_unique_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0032_add_primary_key_and_unique_columns.sql (Error: column "is_primary_key" of relation "datavault_columns" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0033_add_datavault_databases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0033_add_datavault_databases.sql (Error: type "datavault_scope_type" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0034_add_reference_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0035_add_datavault_sequences.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0036_add_column_descriptions.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0036_add_reference_cascade_policy.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0037_add_column_width.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0038_add_row_archiving.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0039_add_select_multiselect_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0040_add_autonumber_enhancements.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0040_add_autonumber_enhancements.sql (Error: type "autonumber_reset_policy" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0041_add_datavault_row_notes.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0042_add_datavault_api_tokens.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0042_add_datavault_api_tokens.sql (Error: relation "idx_datavault_api_tokens_database_id" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0043_add_datavault_table_permissions.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0043_add_datavault_table_permissions.sql (Error: type "datavault_table_role" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0044_add_step_default_values.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0045_sync_project_created_by.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0046_add_final_documents_step_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0046_fix_workflow_runs_section_constraint.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0047_add_run_generated_documents_table.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0048_fix_autonumber_function.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0048_sync_project_tenant_from_creator.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0049_add_format_to_autonumber.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0049_add_sections_config_column.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0050_add_workflow_snapshots.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0050_add_workflow_snapshots.sql (Error: relation "workflow_snapshots" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0051_add_new_block_types.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0051_add_snapshot_version_hash.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0051_add_snapshot_version_hash.sql (Error: column "version_hash" of relation "workflow_snapshots" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0052_add_scripting_system.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0052_add_scripting_system.sql (Error: type "lifecycle_hook_phase" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0053_upgrade_data_sources.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0054_create_workflow_queries.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0055_add_query_block_support.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0055_add_query_block_support.sql (Error: column "virtual_step_id" of relation "blocks" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0056_add_datavault_block_types.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0057_add_step_values_composite_index.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0058_add_logic_rules_indexes.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0059_add_performance_indexes.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0060_flashy_jimmy_woo.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0060_flashy_jimmy_woo.sql (Error: column "is_placeholder" of relation "users" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0061_optimize_query_performance.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0062_archive_and_remove_surveys.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0063_fix_ai_settings.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0063_fix_ai_settings.sql (Error: enum label "github" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying add_invite_email_tracking.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying add_organization_ownership.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying add_organization_tenant_scoping.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying add_performance_indexes.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in add_performance_indexes.sql (Error: relation "step_values_run_step_unique" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying add_runs_ownership.sql...
+
+stderr | tests/integration/ai/workflowEdit.test.ts
+Γ¥î FAILED MIGRATION add_runs_ownership.sql: relation "workflowRuns" does not exist
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: relation "workflowRuns" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:185:19 {
+  length: 110,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'namespace.c',
+  line: '637',
+  routine: 'RangeVarGetRelidExtended'
+}
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "public.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+
+{"level":30,"time":1768480951685,"env":"test","workflowId":"066abe9f-2dd1-4249-8b9f-9df1f35f2a37","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1685[39m
+
+{"level":30,"time":1768480952110,"env":"test","workflowId":"066abe9f-2dd1-4249-8b9f-9df1f35f2a37","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768480952257,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"066abe9f-2dd1-4249-8b9f-9df1f35f2a37","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768480952451,"env":"test","workflowId":"4eb2d26c-a1c1-492d-b39c-d79fe0e636d1","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1656[39m
+
+{"level":30,"time":1768480952859,"env":"test","workflowId":"4eb2d26c-a1c1-492d-b39c-d79fe0e636d1","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768480952999,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"4eb2d26c-a1c1-492d-b39c-d79fe0e636d1","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768480953142,"env":"test","workflowId":"136d0882-9089-4543-9c3e-cb87d9055cb9","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1651[39m
+
+{"level":30,"time":1768480953549,"env":"test","workflowId":"136d0882-9089-4543-9c3e-cb87d9055cb9","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768480953688,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"136d0882-9089-4543-9c3e-cb87d9055cb9","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768480953884,"env":"test","workflowId":"1cb30102-6151-490f-a9c4-ad3ef526ab7a","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1647[39m
+
+{"level":50,"time":1768480953980,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for datavault.dropTable: Invalid operation schema: Invalid discriminator value. Expected 'workflow.setMetadata' | 'section.create' | 'section.update' | 'section.delete' | 'section.reorder' | 'step.create' | 'step.update' | 'step.delete' | 'step.move' | 'step.setVisibleIf' | 'step.setRequired' | 'logicRule.create' | 'logicRule.update' | 'logicRule.delete' | 'document.add' | 'document.update' | 'document.setConditional' | 'document.bindFields' | 'datavault.createTable' | 'datavault.addColumns' | 'datavault.createWritebackMapping'"],"workflowId":"1cb30102-6151-490f-a9c4-ad3ef526ab7a","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768480954123,"env":"test","workflowId":"39804f31-d45e-4648-a07e-ff0f8f0f7c0c","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1725[39m
+
+{"level":30,"time":1768480954730,"env":"test","workflowId":"39804f31-d45e-4648-a07e-ff0f8f0f7c0c","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":2,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768480954875,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"39804f31-d45e-4648-a07e-ff0f8f0f7c0c","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768480955018,"env":"test","workflowId":"7fddcb6e-dc86-47d3-a3c7-cfc776fcb22d","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1650[39m
+
+{"level":30,"time":1768480955430,"env":"test","workflowId":"7fddcb6e-dc86-47d3-a3c7-cfc776fcb22d","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768480955566,"env":"test","module":"ai-workflow-edit-routes","error":{},"workflowId":"7fddcb6e-dc86-47d3-a3c7-cfc776fcb22d","msg":"Error in AI workflow edit"}
+{"level":30,"time":1768480955854,"env":"test","workflowId":"5510e101-e1c9-42af-8aa6-f281d8abdd73","userId":"596ee394-4710-4a89-a05d-979f9752e18e","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1739[39m
+
+{"level":50,"time":1768480955991,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for step.create: Step alias 'email' already exists"],"workflowId":"5510e101-e1c9-42af-8aa6-f281d8abdd73","msg":"Failed to apply some AI operations"}
+{"level":30,"time":1768480956419,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768480956420,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[33m 78783[2mms[22m[39m
+[31m     [31m├ù[31m should create draft version on successful AI edit[39m[33m 1048[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 737[2mms[22m[39m
+[31m     [31m├ù[31m should not create version when no changes detected (checksum match)[39m[33m 690[2mms[22m[39m
+     [32mΓ£ô[39m should reject unauthorized access[32m 53[2mms[22m[39m
+     [32mΓ£ô[39m should reject unsafe DataVault operations[32m 240[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[33m 895[2mms[22m[39m
+[31m     [31m├ù[31m should create BEFORE and AFTER snapshots[39m[33m 690[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should rollback on validation failure [33m 519[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 5 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:178:8
+    176|         },
+    177|       })
+    178|       .expect(200);
+       |        ^
+    179| 
+    180|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:218:8
+    216|         userMessage: 'Add a phone number field',
+    217|       })
+    218|       .expect(200);
+       |        ^
+    219| 
+    220|     // Verify workflow is now draft
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:235:8
+    233|         userMessage: 'Add contact section',
+    234|       })
+    235|       .expect(200);
+       |        ^
+    236| 
+    237|     const versionId1 = response1.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:389:8
+    387|         userMessage: 'Add emergency contact section with name and phonΓÇª
+    388|       })
+    389|       .expect(200);
+       |        ^
+    390| 
+    391|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/5]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:426:8
+    424|         userMessage: 'Add a simple field',
+    425|       })
+    426|       .expect(200);
+       |        ^
+    427| 
+    428|     const versionId = response.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/5]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 06:41:15
+[2m   Duration [22m 80.57s[2m (transform 626ms, setup 146ms, import 1.14s, tests 78.78s, environment 0ms)[22m
+

@@ -114,6 +114,7 @@ describeWithDb('WorkflowTemplateService', () => {
           title: 'Other Project',
           description: 'Another project',
           creatorId: testUserId,
+          createdBy: testUserId,
           ownerId: testUserId,
         })
         .returning();

@@ -1,111 +1,451 @@
 npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
- DEPRECATED  `test.poolOptions` was removed in Vitest 4. All previous `poolOptions` are now top-level options. Please, refer to the migration guide: https://vitest.dev/guide/migration#pool-rework
 
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
 
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (20) from .env -- tip: ΓÜÖ∩╕Å  override existing env vars with { override: true }
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
 
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts
-[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöæ add access controls to secrets: https://dotenvx.com/ops
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+DB: Skipping auto-init because NODE_ENV=test
 
-{"level":30,"time":1768065445722,"env":"test","module":"metrics-service","msg":"MetricsService initialized"}
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts
-[22m[39m≡ƒº¬ Setting up test environment...
-
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+{"level":30,"time":1768439274843,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768439274866,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
 [22m[39mΓ£à Database initialized for tests
 ≡ƒöä Running test migrations...
 
-stderr | tests/integration/datavault.permissions.test.ts
-ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): Error: No file ./migrations/0008_flashy_jimmy_woo.sql found in ./migrations folder
-    at readMigrationFiles (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/migrator.js:26:13)
-    at Module.migrate (file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/migrator.js:3:22)
-    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:120:17
-    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
 
-{"level":30,"time":1768065450639,"env":"test","module":"metrics-routes","msg":"Metrics endpoint registered at GET /metrics"}
-{"level":30,"time":1768065450654,"env":"test","msg":"Real-time collaboration server initialized"}
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts[2m > [22m[2mDataVault Table Permissions API (v4 Micro-Phase 6)
-[22m[39m[Routes] E-Signature routes registered at /api/esign
-
-{"level":30,"time":1768065450646,"env":"test","module":"file-routes","outputsDir":"C:\\Users\\scoot\\poll\\VaultLogic\\server\\files\\outputs","msg":"Secure file routes registered"}
-{"level":30,"time":1768065450646,"env":"test","module":"ai-routes","msg":"AI workflow generation routes registered"}
-{"level":30,"time":1768065450650,"env":"test","module":"documents-routes","msg":"Document routes registered"}
-{"level":30,"time":1768065450653,"env":"test","module":"collab-server","msg":"Initializing WebSocket collaboration server"}
-{"level":40,"time":1768065450654,"env":"test","module":"collab-persistence","msg":"REDIS_URL not configured, multi-instance collab will not work"}
-{"level":30,"time":1768065450654,"env":"test","module":"collab-server","msg":"WebSocket collaboration server attached to main HTTP server path /collab"}
-{"level":30,"time":1768065450654,"env":"test","module":"collab-server","msg":"WebSocket collaboration server initialized"}
-{"level":30,"time":1768065451099,"env":"test","module":"user-credentials-repository","userId":"65ba9222-bc60-47c7-824c-8488863bb89e","msg":"User credentials created"}
-{"level":30,"time":1768065451203,"env":"test","module":"email-queue","jobId":"2d830248-09d9-4d66-965c-3675b40f4117","to":"test-tyjJJ-_lbta0cq4UADamB@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
-{"level":30,"time":1768065451264,"env":"test","module":"auth-routes","userId":"65ba9222-bc60-47c7-824c-8488863bb89e","email":"test-tyjJJ-_lbta0cq4UADamB@example.com","msg":"User registered"}
-{"level":30,"time":1768065451777,"env":"test","module":"user-credentials-repository","userId":"da21497d-93aa-4054-b5f4-eefc4c93da14","msg":"User credentials created"}
-{"level":30,"time":1768065451885,"env":"test","module":"email-queue","jobId":"e3327ca2-e677-4777-9914-dfe64b26d422","to":"test-59iTy23m6Rh4RPj5lzpSY@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
-{"level":30,"time":1768065451931,"env":"test","module":"auth-routes","userId":"da21497d-93aa-4054-b5f4-eefc4c93da14","email":"test-59iTy23m6Rh4RPj5lzpSY@example.com","msg":"User registered"}
-{"level":30,"time":1768065452485,"env":"test","module":"auth-routes","userId":"da21497d-93aa-4054-b5f4-eefc4c93da14","msg":"User logged in successfully"}
-{"level":30,"time":1768065452531,"env":"test","module":"audit-log-service","userId":"da21497d-93aa-4054-b5f4-eefc4c93da14","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
-{"level":30,"time":1768065452913,"env":"test","module":"user-credentials-repository","userId":"5e92af1b-db9e-4b48-a864-f234731abd38","msg":"User credentials created"}
-{"level":30,"time":1768065453016,"env":"test","module":"email-queue","jobId":"b84f71c0-a3af-447d-811a-eb2382ef9756","to":"test-IGlcs4zh1R4rHh3FPNTCm@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
-{"level":30,"time":1768065453069,"env":"test","module":"auth-routes","userId":"5e92af1b-db9e-4b48-a864-f234731abd38","email":"test-IGlcs4zh1R4rHh3FPNTCm@example.com","msg":"User registered"}
-{"level":30,"time":1768065453622,"env":"test","module":"auth-routes","userId":"5e92af1b-db9e-4b48-a864-f234731abd38","msg":"User logged in successfully"}
-{"level":30,"time":1768065453674,"env":"test","module":"audit-log-service","userId":"5e92af1b-db9e-4b48-a864-f234731abd38","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
-{"level":30,"time":1768065454041,"env":"test","module":"user-credentials-repository","userId":"773dc740-0292-43ba-bcfb-1072a70512f7","msg":"User credentials created"}
-{"level":30,"time":1768065454137,"env":"test","module":"email-queue","jobId":"1478de1e-9a6c-4131-9422-a48b0027aa50","to":"test-ZcFhY-79rgSAZN2kQqfDO@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
-{"level":30,"time":1768065454187,"env":"test","module":"auth-routes","userId":"773dc740-0292-43ba-bcfb-1072a70512f7","email":"test-ZcFhY-79rgSAZN2kQqfDO@example.com","msg":"User registered"}
-{"level":30,"time":1768065454743,"env":"test","module":"auth-routes","userId":"773dc740-0292-43ba-bcfb-1072a70512f7","msg":"User logged in successfully"}
-{"level":30,"time":1768065454795,"env":"test","module":"audit-log-service","userId":"773dc740-0292-43ba-bcfb-1072a70512f7","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
-{"level":30,"time":1768065455145,"env":"test","module":"user-credentials-repository","userId":"8af03477-c811-4e49-843a-dad4af284a37","msg":"User credentials created"}
-{"level":30,"time":1768065455248,"env":"test","module":"email-queue","jobId":"5f886b21-9319-4e1c-a6f2-a757cb7e2929","to":"test-BEPNvsuwMtXHPYD0TtCPC@example.com","subject":"Verify Your Email - ezBuildr","msg":"Email added to queue"}
-{"level":30,"time":1768065455298,"env":"test","module":"auth-routes","userId":"8af03477-c811-4e49-843a-dad4af284a37","email":"test-BEPNvsuwMtXHPYD0TtCPC@example.com","msg":"User registered"}
-{"level":30,"time":1768065455857,"env":"test","module":"auth-routes","userId":"8af03477-c811-4e49-843a-dad4af284a37","msg":"User logged in successfully"}
-{"level":30,"time":1768065455906,"env":"test","module":"audit-log-service","userId":"8af03477-c811-4e49-843a-dad4af284a37","eventType":"login_success","ipAddress":"::1","hasMetadata":true,"msg":"Security event logged"}
-{"level":50,"time":1768065456512,"env":"test","error":{},"msg":"Error fetching DataVault table"}
-{"level":50,"time":1768065456764,"env":"test","error":{},"msg":"Error updating DataVault table"}
-{"level":50,"time":1768065456866,"env":"test","error":{},"msg":"Error updating DataVault table"}
-{"level":50,"time":1768065456966,"env":"test","error":{},"msg":"Error deleting DataVault table"}
-{"level":50,"time":1768065457064,"env":"test","error":{},"msg":"Error deleting DataVault table"}
-{"level":50,"time":1768065457167,"env":"test","error":{},"msg":"Error deleting DataVault table"}
-{"level":50,"time":1768065457368,"env":"test","error":{},"msg":"Error fetching table permissions"}
-{"level":50,"time":1768065457476,"env":"test","error":{},"msg":"Error fetching table permissions"}
-{"level":50,"time":1768065458082,"env":"test","error":{},"msg":"Error granting table permission"}
-{"level":50,"time":1768065458195,"env":"test","error":{},"msg":"Error granting table permission"}
-{"level":50,"time":1768065458654,"env":"test","error":{},"msg":"Error revoking table permission"}
-{"level":50,"time":1768065459164,"env":"test","error":{},"msg":"Error updating DataVault table"}
-{"level":50,"time":1768065459423,"env":"test","error":{},"msg":"Error updating DataVault table"}
-stderr | tests/integration/datavault.permissions.test.ts > DataVault Table Permissions API (v4 Micro-Phase 6)
-Cleanup error: error: update or delete on table "users" violates foreign key constraint "audit_logs_user_id_users_id_fk" on table "audit_logs"
-    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/@neondatabase/serverless/index.mjs:1345:74
+{"level":30,"time":1768439276445,"env":"test","workflowId":"758f791c-136a-46a8-8ec8-652578a92c04","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439276542,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"758f791c-136a-46a8-8ec8-652578a92c04","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
     at processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at Object.cleanup (C:/Users/scoot/poll/VaultLogic/tests/helpers/integrationTestHelper.ts:155:9)
-    at C:/Users/scoot/poll/VaultLogic/tests/integration/datavault.permissions.test.ts:62:5 {
-  length: 335,
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
   severity: 'ERROR',
-  code: '23503',
-  detail: 'Key (id)=(da21497d-93aa-4054-b5f4-eefc4c93da14) is still referenced from table "audit_logs".',
-  hint: undefined,
-  position: undefined,
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
   internalPosition: undefined,
   internalQuery: undefined,
   where: undefined,
-  schema: 'public',
-  table: 'audit_logs',
+  schema: undefined,
+  table: undefined,
   column: undefined,
   dataType: undefined,
-  constraint: 'audit_logs_user_id_users_id_fk',
-  file: 'ri_triggers.c',
-  line: '2612',
-  routine: 'ri_ReportViolation'
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
 }
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
 
-[90mstdout[2m | tests/integration/datavault.permissions.test.ts
+{"level":30,"time":1768439277061,"env":"test","workflowId":"597e2ef8-adab-4f05-a9df-2e355139d716","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439277163,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"597e2ef8-adab-4f05-a9df-2e355139d716","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439277632,"env":"test","workflowId":"4767921b-5e9b-44af-a824-20a6e8a0997d","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439277727,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"4767921b-5e9b-44af-a824-20a6e8a0997d","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439278242,"env":"test","workflowId":"5b65bb19-3ff3-48cf-a225-f260f287c772","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439278341,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"5b65bb19-3ff3-48cf-a225-f260f287c772","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439278794,"env":"test","workflowId":"dbc3eff6-e744-4687-b8a0-d5aa5e2ed72e","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439278898,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"dbc3eff6-e744-4687-b8a0-d5aa5e2ed72e","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439279368,"env":"test","workflowId":"c3af153f-831d-4b70-b4c3-36b76564273a","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439279475,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"c3af153f-831d-4b70-b4c3-36b76564273a","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439280080,"env":"test","workflowId":"7c425953-b272-425a-bd05-014235c8ca5e","userId":"142a8a0f-58e2-48d1-b985-609db376d5c8","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+{"level":50,"time":1768439280177,"env":"test","module":"ai-workflow-edit-routes","error":{"length":178,"name":"error","severity":"ERROR","code":"42703","hint":"Perhaps you meant to reference the column \"aiSettings.updated_at\".","position":"54","file":"parse_relation.c","line":"3723","routine":"errorMissingColumn"},"workflowId":"7c425953-b272-425a-bd05-014235c8ca5e","msg":"AI model call failed"}
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+DEBUG: INNER CATCH AI ERROR: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40 {
+  length: 178,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: 'Perhaps you meant to reference the column "aiSettings.updated_at".',
+  position: '54',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3723',
+  routine: 'errorMissingColumn'
+}
+Stack: error: column "created_at" does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at file:///C:/Users/scoot/poll/VaultLogic/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at AiSettingsService.getEffectivePrompt (C:/Users/scoot/poll/VaultLogic/server/services/AiSettingsService.ts:39:32)
+    at C:/Users/scoot/poll/VaultLogic/server/routes/ai/workflowEdit.routes.ts:71:40
+
+{"level":30,"time":1768439280180,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
 [22m[39m≡ƒº╣ Cleaning up test environment...
 
- [32mΓ£ô[39m tests/integration/datavault.permissions.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 9283[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should allow owner to update existing permission (upsert) [33m 301[2mms[22m[39m
-       [33m[2mΓ£ô[22m[39m should allow owner to revoke permissions [33m 306[2mms[22m[39m
+{"level":30,"time":1768439280180,"env":"test","msg":"DB: pool closed."}
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[33m 5339[2mms[22m[39m
+[31m     [31m├ù[31m should create draft version on successful AI edit[39m[33m 604[2mms[22m[39m
+[31m     [31m├ù[31m should enforce draft mode (revert active workflow to draft)[39m[33m 613[2mms[22m[39m
+[31m     [31m├ù[31m should not create version when no changes detected (checksum match)[39m[33m 563[2mms[22m[39m
+     [32mΓ£ô[39m should reject unauthorized access[32m 59[2mms[22m[39m
+[31m     [31m├ù[31m should reject unsafe DataVault operations[39m[33m 554[2mms[22m[39m
+[31m     [31m├ù[31m should handle multi-operation edits with tempId resolution[39m[33m 557[2mms[22m[39m
+[31m     [31m├ù[31m should create BEFORE and AFTER snapshots[39m[33m 578[2mms[22m[39m
+[31m     [31m├ù[31m should rollback on validation failure[39m[33m 701[2mms[22m[39m
 
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
-[2m   Start at [22m 11:17:22
-[2m   Duration [22m 16.69s[2m (transform 3.00s, setup 218ms, import 6.70s, tests 9.28s, environment 0ms)[22m
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test
+TypeError: Cannot read properties of undefined (reading 'actorId')
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:149:55
+    147|     // Steps are deleted via cascade when sections are deleted
+    148|     // Delete audit events first to avoid FK constraint violations
+    149|     await db.delete(auditEvents).where(eq(auditEvents.actorId, testUseΓÇª
+       |                                                       ^
+    150|     await db.delete(sections).where(eq(sections.workflowId, testWorkflΓÇª
+    151|     await db.delete(workflowVersions).where(eq(workflowVersions.workflΓÇª
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/8]ΓÄ»
+
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 7 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create draft version on successful AI edit
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:170:8
+    168|         },
+    169|       })
+    170|       .expect(200);
+       |        ^
+    171| 
+    172|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should enforce draft mode (revert active workflow to draft)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:210:8
+    208|         userMessage: 'Add a phone number field',
+    209|       })
+    210|       .expect(200);
+       |        ^
+    211| 
+    212|     // Verify workflow is now draft
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should not create version when no changes detected (checksum match)
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:227:8
+    225|         userMessage: 'Add contact section',
+    226|       })
+    227|       .expect(200);
+       |        ^
+    228| 
+    229|     const versionId1 = response1.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should reject unsafe DataVault operations
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:310:8
+    308|         userMessage: 'Delete all data',
+    309|       })
+    310|       .expect(400);
+       |        ^
+    311| 
+    312|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should handle multi-operation edits with tempId resolution
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:381:8
+    379|         userMessage: 'Add emergency contact section with name and phonΓÇª
+    380|       })
+    381|       .expect(200);
+       |        ^
+    382| 
+    383|     expect(response.body.success).toBe(true);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should create BEFORE and AFTER snapshots
+Error: expected 200 "OK", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:418:8
+    416|         userMessage: 'Add a simple field',
+    417|       })
+    418|       .expect(200);
+       |        ^
+    419| 
+    420|     const versionId = response.body.data.versionId;
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/8]ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test > should rollback on validation failure
+Error: expected 400 "Bad Request", got 500 "Internal Server Error"
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:487:8
+    485|         userMessage: 'Add backup email field',
+    486|       })
+    487|       .expect(400);
+       |        ^
+    488| 
+    489|     expect(response.body.success).toBe(false);
+ Γ¥» Test._assertStatus node_modules/supertest/lib/test.js:309:14
+ Γ¥» node_modules/supertest/lib/test.js:365:13
+ Γ¥» Test._assertFunction node_modules/supertest/lib/test.js:342:13
+ Γ¥» Test.assert node_modules/supertest/lib/test.js:195:23
+ Γ¥» localAssert node_modules/supertest/lib/test.js:138:14
+ Γ¥» Server.<anonymous> node_modules/supertest/lib/test.js:152:11
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/8]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 19:07:52
+[2m   Duration [22m 7.40s[2m (transform 721ms, setup 163ms, import 1.42s, tests 5.34s, environment 0ms)[22m
 

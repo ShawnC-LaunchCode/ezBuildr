@@ -105,6 +105,7 @@ describe('Data Block Integration Tests', () => {
             tenantId: tenantId,
             workspaceId: uuidv4(), // valid UUID
             creatorId: userId,
+            createdBy: userId,
             ownerId: userId,
         } as any).returning();
         projectId = project.id;

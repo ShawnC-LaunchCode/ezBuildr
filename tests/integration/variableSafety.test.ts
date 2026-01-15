@@ -66,6 +66,7 @@ describe("Variable Schema Safety & Resolution", () => {
             title: "Safety Project",
             tenantId,
             creatorId: userId,
+            createdBy: userId,
             ownerId: userId,
         } as any);
 

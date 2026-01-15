@@ -1,0 +1,156 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Creating isolated schema: test_schema_w0
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w0,public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: false)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w0%2Cpublic
+
+{"level":30,"time":1768454755270,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768454755295,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Enforced search_path: test_schema_w0, public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized. Current schema: test_schema_w0
+≡ƒöä Running test migrations (manual file mode due to broken journal)...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0000_daffy_roughhouse.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0001_remove_participants.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0002_add_mode_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0003_add_step_aliases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0003_add_step_aliases.sql (Error: column "alias" of relation "steps" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0004_add_teams_and_acls.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0004_add_teams_and_acls.sql (Error: column "owner_id" of relation "projects" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0005_add_transform_block_phases.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0005_add_transform_block_phases.sql (Error: column "phase" of relation "transform_blocks" already exists), retrying statement-by-statement...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0006_add_updated_at_columns.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_add_js_question_type.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m   Applying 0007_lying_namor.sql...
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓÜá∩╕Å Partial failure in 0007_lying_namor.sql (Error: relation "sections" already exists), retrying statement-by-statement...
+
+stderr | tests/integration/ai/workflowEdit.test.ts
+Γ¥î FAILED MIGRATION 0007_lying_namor.sql STATEMENT: column "workflow_id" referenced in foreign key constraint does not exist
+ΓÜá∩╕Å Migrations failed (non-fatal if DB exists): error: column "workflow_id" referenced in foreign key constraint does not exist
+    at C:\Users\scoot\poll\VaultLogic\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:/Users/scoot/poll/VaultLogic/tests/setup.ts:194:25 {
+  length: 145,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'tablecmds.c',
+  line: '11908',
+  routine: 'transformColumnNameList'
+}
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  }
+]
+
+stderr | tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test
+ΓÜá∩╕Å Skipping auditEvents cleanup: auditEvents or testUserId is undefined { auditEvents: false, testUserId: undefined }
+
+{"level":30,"time":1768454781340,"env":"test","msg":"DB: closing pool..."}
+{"level":30,"time":1768454781340,"env":"test","msg":"DB: pool closed."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+ [31mΓ¥»[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m | [22m[33m8 skipped[39m[2m)[22m[33m 26621[2mms[22m[39m
+     [2m[90mΓåô[39m[22m should create draft version on successful AI edit
+     [2m[90mΓåô[39m[22m should enforce draft mode (revert active workflow to draft)
+     [2m[90mΓåô[39m[22m should not create version when no changes detected (checksum match)
+     [2m[90mΓåô[39m[22m should reject unauthorized access
+     [2m[90mΓåô[39m[22m should reject unsafe DataVault operations
+     [2m[90mΓåô[39m[22m should handle multi-operation edits with tempId resolution
+     [2m[90mΓåô[39m[22m should create BEFORE and AFTER snapshots
+     [2m[90mΓåô[39m[22m should rollback on validation failure
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  tests/integration/ai/workflowEdit.test.ts > POST /api/workflows/:workflowId/ai/edit - Integration Test
+error: column "is_placeholder" of relation "users" does not exist
+ Γ¥» node_modules/pg-pool/index.js:45:11
+ Γ¥» node_modules/drizzle-orm/node-postgres/session.js:83:22
+ Γ¥» tests/integration/ai/workflowEdit.test.ts:112:20
+    110| 
+    111|     // Create test user
+    112|     const [user] = await db.insert(users).values({
+       |                    ^
+    113|       id: mockUserId,
+    114|       email: 'test@example.com',
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m8 skipped[39m[90m (8)[39m
+[2m   Start at [22m 23:25:52
+[2m   Duration [22m 28.39s[2m (transform 657ms, setup 154ms, import 1.19s, tests 26.62s, environment 0ms)[22m
+

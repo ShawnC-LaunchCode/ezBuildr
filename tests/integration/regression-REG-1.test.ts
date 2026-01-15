@@ -75,6 +75,7 @@ describe("REG-1: Workflow Logic Regression", () => {
             id: projectId,
             title: "Regression Project",
             creatorId: userId,
+            createdBy: userId,
             ownerId: userId
         });
     });

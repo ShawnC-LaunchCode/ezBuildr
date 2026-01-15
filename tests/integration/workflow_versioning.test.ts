@@ -39,6 +39,7 @@ describe("Workflow Versioning & Lineage", () => {
             name: "Versioning Test Project",
             tenantId: tenant.id,
             creatorId: userId, // Legacy field
+            createdBy: userId,
             ownerId: userId    // Required
         }).returning();
         projectId = project.id;

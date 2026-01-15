@@ -64,6 +64,7 @@ describe('External Send Block Integration', () => {
             tenantId,
             workspaceId, // Might be required
             creatorId: userId,
+            createdBy: userId,
             ownerId: userId
         } as any).returning();
         projectId = project.id;

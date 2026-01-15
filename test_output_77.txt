@@ -1,0 +1,372 @@
+npm warn Unknown project config "puppeteer_skip_download". This will stop working in the next major version of npm.
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/scoot/poll/VaultLogic[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mSETUP: Loading setup.ts...
+[dotenv@17.2.3] injecting env (20) from .env -- tip: ≡ƒæÑ sync secrets across teammates & machines: https://dotenvx.com/ops
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+DB: Skipping auto-init because NODE_ENV=test
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m[SchemaManager] Reusing existing isolated schema: test_schema_w0
+[SchemaManager] Processing URL: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech (Port: )
+[SchemaManager] Removing -pooler from hostname: ep-gentle-leaf-ahsz38kq-pooler.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Switched to Direct Connection for schema isolation.
+[SchemaManager] Final Connection String (Host): ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech
+[SchemaManager] Final Connection String (Options): -c search_path=test_schema_w0,public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒöÆ Test Schema Isolated: test_schema_w0 (Reused: true)
+[SETUP] DATABASE_URL sent to db module: postgresql://neondb_owner:npg_LYP2cC3DhGsx@ep-gentle-leaf-ahsz38kq.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&options=-c+search_path%3Dtest_schema_w0%2Cpublic
+
+{"level":30,"time":1768482651482,"env":"test","msg":"DB: initializing... Local"}
+{"level":30,"time":1768482651503,"env":"test","msg":"DB: initialized flag set."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Enforced search_path: test_schema_w0, public
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mΓ£à Database initialized. Current schema: test_schema_w0
+ΓÅ⌐ Schema reused, skipping migrations.
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39mDEBUG: Existing functions: [
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "public.datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_prefix",
+      "p_padding",
+      "p_reset_policy"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text)"
+  },
+  {
+    "proname": "datavault_get_next_autonumber",
+    "proargnames": [
+      "p_tenant_id",
+      "p_table_id",
+      "p_column_id",
+      "p_context_key",
+      "p_min_digits",
+      "p_prefix",
+      "p_format"
+    ],
+    "proargtypes": "2950 2950 2950 25 23 25 25",
+    "signature": "datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text)"
+  }
+]
+
+{"level":30,"time":1768482652764,"env":"test","workflowId":"b947373e-2be0-4d45-b1da-2b7437c1e939","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1685[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Applying OP: section.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Finished OP: section.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Finished OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482653178,"env":"test","workflowId":"b947373e-2be0-4d45-b1da-2b7437c1e939","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create draft version on successful AI edit
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482653377,"env":"test","module":"version-service","workflowId":"b947373e-2be0-4d45-b1da-2b7437c1e939","versionId":"001031f4-9b81-4d40-bae2-3f60751aa88b","userId":"a0348d15-b374-424c-96e7-68c5d9710795","versionNumber":1,"msg":"Created draft version"}
+{"level":30,"time":1768482653467,"env":"test","module":"ai-workflow-edit-routes","workflowId":"b947373e-2be0-4d45-b1da-2b7437c1e939","versionId":"001031f4-9b81-4d40-bae2-3f60751aa88b","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768482653713,"env":"test","workflowId":"a21b71ea-a4fb-45e1-a40b-deba5241aad7","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1656[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Applying OP: section.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Finished OP: section.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Finished OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482654133,"env":"test","workflowId":"a21b71ea-a4fb-45e1-a40b-deba5241aad7","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+{"level":30,"time":1768482654323,"env":"test","module":"version-service","workflowId":"a21b71ea-a4fb-45e1-a40b-deba5241aad7","versionId":"769c9da8-fd64-4a5e-8d36-32eb9747aa84","userId":"a0348d15-b374-424c-96e7-68c5d9710795","versionNumber":1,"msg":"Created draft version"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould enforce draft mode (revert active workflow to draft)
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482654412,"env":"test","module":"ai-workflow-edit-routes","workflowId":"a21b71ea-a4fb-45e1-a40b-deba5241aad7","versionId":"769c9da8-fd64-4a5e-8d36-32eb9747aa84","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768482654602,"env":"test","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1651[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Applying OP: section.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Finished OP: section.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Finished OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482655021,"env":"test","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+{"level":30,"time":1768482655206,"env":"test","module":"version-service","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","versionId":"f524a990-2572-45c3-a346-e9979f7ff024","userId":"a0348d15-b374-424c-96e7-68c5d9710795","versionNumber":1,"msg":"Created draft version"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482655297,"env":"test","module":"ai-workflow-edit-routes","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","versionId":"f524a990-2572-45c3-a346-e9979f7ff024","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768482655435,"env":"test","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1745[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482655732,"env":"test","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+{"level":30,"time":1768482655868,"env":"test","module":"ai-workflow-edit-routes","workflowId":"ffcdba27-2715-4dd0-a0ee-b730331108c1","msg":"AI made no changes (checksum match)"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould not create version when no changes detected (checksum match)
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482656060,"env":"test","workflowId":"3981f995-c481-42f9-a811-ca597cebe1d3","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1647[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: Calling applyOps
+
+{"level":50,"time":1768482656158,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for datavault.dropTable: Invalid operation schema: Invalid discriminator value. Expected 'workflow.setMetadata' | 'section.create' | 'section.update' | 'section.delete' | 'section.reorder' | 'step.create' | 'step.update' | 'step.delete' | 'step.move' | 'step.setVisibleIf' | 'step.setRequired' | 'logicRule.create' | 'logicRule.update' | 'logicRule.delete' | 'document.add' | 'document.update' | 'document.setConditional' | 'document.bindFields' | 'datavault.createTable' | 'datavault.addColumns' | 'datavault.createWritebackMapping'"],"workflowId":"3981f995-c481-42f9-a811-ca597cebe1d3","msg":"Failed to apply some AI operations"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould reject unsafe DataVault operations
+[22m[39mDEBUG: applyOps finished
+
+{"level":30,"time":1768482656297,"env":"test","workflowId":"8b8f7522-3bad-4b31-802d-48c2fb23939f","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1725[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Applying OP: section.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Finished OP: section.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Finished OP: step.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Finished OP: step.create
+DEBUG: Applying OP: logicRule.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Finished OP: logicRule.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482656888,"env":"test","workflowId":"8b8f7522-3bad-4b31-802d-48c2fb23939f","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":2,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+{"level":30,"time":1768482657081,"env":"test","module":"version-service","workflowId":"8b8f7522-3bad-4b31-802d-48c2fb23939f","versionId":"54f947ee-4d8b-4a1d-8a0d-605a9fb068d3","userId":"a0348d15-b374-424c-96e7-68c5d9710795","versionNumber":1,"msg":"Created draft version"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould handle multi-operation edits with tempId resolution
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482657173,"env":"test","module":"ai-workflow-edit-routes","workflowId":"8b8f7522-3bad-4b31-802d-48c2fb23939f","versionId":"54f947ee-4d8b-4a1d-8a0d-605a9fb068d3","opsCount":4,"msg":"AI edit completed"}
+{"level":30,"time":1768482657414,"env":"test","workflowId":"fb24e85d-b479-498f-9096-0161d8d56a4f","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":0,"stepsCount":0,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1650[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Calling applyOps
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Applying OP: section.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Finished OP: section.create
+DEBUG: Applying OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Finished OP: step.create
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: applyOps finished
+DEBUG: Calling getWorkflowWithDetails
+
+{"level":30,"time":1768482657820,"env":"test","workflowId":"fb24e85d-b479-498f-9096-0161d8d56a4f","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: getWorkflowWithDetails finished
+DEBUG: Creating AFTER snapshot
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: AFTER snapshot created
+DEBUG: Creating draft version
+
+{"level":30,"time":1768482658008,"env":"test","module":"version-service","workflowId":"fb24e85d-b479-498f-9096-0161d8d56a4f","versionId":"f9ab96b5-eafe-45ea-93bc-95af764f87a6","userId":"a0348d15-b374-424c-96e7-68c5d9710795","versionNumber":1,"msg":"Created draft version"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould create BEFORE and AFTER snapshots
+[22m[39mDEBUG: Draft version created
+
+{"level":30,"time":1768482658097,"env":"test","module":"ai-workflow-edit-routes","workflowId":"fb24e85d-b479-498f-9096-0161d8d56a4f","versionId":"f9ab96b5-eafe-45ea-93bc-95af764f87a6","opsCount":2,"msg":"AI edit completed"}
+{"level":30,"time":1768482658435,"env":"test","workflowId":"8feb36f0-6eff-4dd0-af94-921b5d0f01dc","userId":"a0348d15-b374-424c-96e7-68c5d9710795","sectionsCount":1,"stepsCount":1,"logicRulesCount":0,"msg":"getWorkflowWithDetails called"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: Instantiating GoogleGenerativeAI
+DEBUG: Getting model
+DEBUG: Building system prompt
+DEBUG: Building workflow context
+DEBUG: Workflow context built
+DEBUG: About to build full prompt. Parts: { s: [32m'string'[39m, w: [32m'string'[39m, u: [32m'string'[39m }
+DEBUG: Full prompt built. Length: [33m1739[39m
+
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: Calling applyOps
+
+{"level":50,"time":1768482658577,"env":"test","module":"ai-workflow-edit-routes","errors":["Validation failed for step.create: Step alias 'email' already exists"],"workflowId":"8feb36f0-6eff-4dd0-af94-921b5d0f01dc","msg":"Failed to apply some AI operations"}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts[2m > [22m[2mPOST /api/workflows/:workflowId/ai/edit - Integration Test[2m > [22m[2mshould rollback on validation failure
+[22m[39mDEBUG: applyOps finished
+
+{"level":30,"time":1768482659006,"env":"test","msg":"DB: closing pool..."}
+[90mstdout[2m | tests/integration/ai/workflowEdit.test.ts
+[22m[39m≡ƒº╣ Cleaning up test environment...
+
+{"level":30,"time":1768482659006,"env":"test","msg":"DB: pool closed."}
+ [32mΓ£ô[39m tests/integration/ai/workflowEdit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 7928[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should create draft version on successful AI edit [33m 1203[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should enforce draft mode (revert active workflow to draft) [33m 938[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should not create version when no changes detected (checksum match) [33m 1409[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should handle multi-operation edits with tempId resolution [33m 1108[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should create BEFORE and AFTER snapshots [33m 881[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should rollback on validation failure [33m 525[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 07:10:49
+[2m   Duration [22m 9.75s[2m (transform 639ms, setup 159ms, import 1.23s, tests 7.93s, environment 0ms)[22m
+

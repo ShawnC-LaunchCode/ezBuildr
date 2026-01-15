@@ -42,6 +42,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
         title: 'Test Project',
         description: 'Test project for workflow templates',
         creatorId: testUserId,
+        createdBy: testUserId,
         ownerId: testUserId,
       })
       .returning();
