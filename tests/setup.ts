@@ -38,6 +38,9 @@ if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
 
+// Increase hook timeout for slow migrations globally
+vi.setConfig({ hookTimeout: 300000 });
+
 // Mock browser APIs for JSDOM environment (UI tests)
 if (typeof window !== 'undefined') {
   // Mock window.navigator
@@ -130,6 +133,7 @@ beforeAll(async () => {
       }
 
       // Dynamically import server/db to ensure it picks up the mutated env vars
+      console.log(`[SETUP] DATABASE_URL sent to db module: ${process.env.DATABASE_URL}`);
       const dbModule = await import("../server/db");
 
       // Check if the module is valid (not a partial mock missing exports)
@@ -143,7 +147,17 @@ beforeAll(async () => {
         // Setup test database
         await initializeDatabase();
         await dbInitPromise;
-        console.log("✅ Database initialized for tests");
+
+        // CRITICAL: Enforce search_path for this connection
+        if ((global as any).__TEST_SCHEMA__) {
+          const schema = (global as any).__TEST_SCHEMA__;
+          await db.execute(`SET search_path TO "${schema}", public`);
+          console.log(`✅ Enforced search_path: ${schema}, public`);
+        }
+
+        // DEBUG: Check current schema
+        const schemaRes = await db.execute("SELECT current_schema()");
+        console.log(`✅ Database initialized. Current schema: ${schemaRes.rows[0].current_schema}`);
 
         // Run database migrations for test DB
         // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
@@ -151,16 +165,54 @@ beforeAll(async () => {
           if ((global as any).__SKIP_MIGRATIONS__) {
             console.log("⏩ Schema reused, skipping migrations.");
           } else {
-            console.log("🔄 Running test migrations...");
-            await migrate(db, { migrationsFolder: "./migrations" });
+            console.log("🔄 Running test migrations (manual file mode due to broken journal)...");
+
+            const fs = await import('fs');
+            const path = await import('path');
+            const migrationsDir = path.join(process.cwd(), 'migrations');
+
+            if (fs.existsSync(migrationsDir)) {
+              const files = fs.readdirSync(migrationsDir)
+                .filter(f => f.endsWith('.sql'))
+                .sort(); // Alphanumeric sort
+
+              for (const file of files) {
+                console.log(`   Applying ${file}...`);
+                const sqlContent = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+
+                try {
+                  // OPTIMIZATION: Try to execute the whole file first
+                  await db.execute(sqlContent);
+                } catch (e: any) {
+                  // If whole file execution fails with a benign error, fall back to statement-by-statement
+                  if (e.message.includes('already exists') || e.message.includes('duplicate object')) {
+                    console.log(`⚠️ Partial failure in ${file} (Error: ${e.message}), retrying statement-by-statement...`);
+                    const statements = sqlContent.split('--> statement-breakpoint');
+                    for (const statement of statements) {
+                      if (!statement.trim()) continue;
+                      try {
+                        await db.execute(statement);
+                      } catch (subError: any) {
+                        if (subError.message.includes('already exists') || subError.message.includes('duplicate object')) {
+                          // benign, ignore
+                        } else {
+                          console.error(`❌ FAILED MIGRATION ${file} STATEMENT:`, subError.message);
+                          console.error(`SQL: ${statement.substring(0, 200)}...`); // Log start of SQL
+                          throw subError;
+                        }
+                      }
+                    }
+                  } else {
+                    console.error(`❌ FAILED MIGRATION ${file}:`, e.message);
+                    throw e;
+                  }
+                }
+              }
+              console.log(`✅ Applied ${files.length} migration files.`);
+            }
           }
         } catch (error: any) {
-          // Ignore specific known migration errors that are non-fatal (like types already existing)
-          if (error?.message?.includes('type "auth_provider" already exists')) {
-            // Valid failure when running tests in parallel against same DB or repeated runs
-          } else {
-            console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
-          }
+          console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
         }
 
         // Ensure DB functions exist (with concurrency retry)
@@ -244,7 +296,24 @@ async function ensureDbFunctions() {
   // We use CREATE OR REPLACE to handle updates atomically-ish.
   // Removed explicit DROP to reduce race condition window unless purely necessary.
 
-  await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text);');
+  // DEBUG: Check what functions exist before we try to drop/create
+  const existingFuncs = await db.execute(`
+    SELECT proname, proargnames, proargtypes, oid::regprocedure as signature
+    FROM pg_proc
+    WHERE proname = 'datavault_get_next_autonumber';
+  `);
+  console.log("DEBUG: Existing functions:", JSON.stringify(existingFuncs.rows || existingFuncs, null, 2));
+
+  // Create a loop to drop all existing overloads
+  if (existingFuncs.rows && existingFuncs.rows.length > 0) {
+    for (const func of existingFuncs.rows) {
+      console.log(`DEBUG: Dropping existing function: ${func.signature}`);
+      await db.execute(`DROP FUNCTION IF EXISTS ${func.signature} CASCADE;`);
+    }
+  } else {
+    // Fallback if no rows (shouldn't happen if function exists, but harmless)
+    await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text) CASCADE;');
+  }
 
   await db.execute(`
         CREATE OR REPLACE FUNCTION datavault_get_next_autonumber(
@@ -325,7 +394,6 @@ async function ensureDbFunctions() {
             -- For tests, we might skip precise cleanup or try to match partially?
             -- Since we used MD5(tenant + column), we can't search by LIKE easily without tenant_id.
             -- But standard cleanup might just drop by specific logic or we ignore it for tests.
-            -- Let's define it as no-op or simple cleanup if possible.
             -- Actually, to properly clean, we'd need tenant_id.
             -- For now, invalidation is sufficient.
             NULL;

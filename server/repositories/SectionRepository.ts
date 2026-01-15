@@ -11,6 +11,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
  */
 export class SectionRepository extends BaseRepository<typeof sections, Section, InsertSection> {
   constructor(dbInstance?: typeof db) {
+    if (!sections) console.error("CRITICAL: sections undefined in SectionRepo");
     super(sections, dbInstance);
   }
 

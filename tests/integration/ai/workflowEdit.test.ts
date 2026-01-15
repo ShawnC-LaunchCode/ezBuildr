@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import { db } from '../../../server/db';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
-import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditEvents } from '../../../shared/schema';
+import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditLogs } from '../../../shared/schema';
 
 
 const { mockUserId, mockTenantId, authConfig } = vi.hoisted(() => ({
@@ -49,40 +49,42 @@ vi.mock('../../../server/middleware/auth', () => ({
 }));
 
 // Mock Gemini API
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => {
-    return {
-      getGenerativeModel: vi.fn().mockReturnValue({
-        generateContent: vi.fn().mockResolvedValue({
-          response: {
-            text: () => JSON.stringify({
-              ops: [
-                {
-                  op: 'section.create',
-                  tempId: 'temp-section-1',
-                  title: 'Contact Information',
-                  order: 1,
-                },
-                {
-                  op: 'step.create',
-                  sectionRef: 'temp-section-1',
-                  type: 'email',
-                  title: 'Email Address',
-                  alias: 'email',
-                  required: true,
-                },
-              ],
-              summary: ['Created Contact Information section', 'Added Email Address field'],
-              warnings: [],
-              questions: [],
-              confidence: 0.95,
-            }),
-          },
+vi.mock('@google/generative-ai', () => {
+  return {
+    GoogleGenerativeAI: vi.fn(function () {
+      return {
+        getGenerativeModel: vi.fn().mockReturnValue({
+          generateContent: vi.fn().mockResolvedValue({
+            response: {
+              text: () => JSON.stringify({
+                ops: [
+                  {
+                    op: 'section.create',
+                    tempId: 'temp-section-1',
+                    title: 'Contact Information',
+                    order: 1,
+                  },
+                  {
+                    op: 'step.create',
+                    sectionRef: 'temp-section-1',
+                    type: 'email',
+                    title: 'Email Address',
+                    alias: 'email',
+                    required: true,
+                  },
+                ],
+                summary: ['Created Contact Information section', 'Added Email Address field'],
+                warnings: [],
+                questions: [],
+                confidence: 0.95,
+              }),
+            },
+          }),
         }),
-      }),
-    };
-  }),
-}));
+      };
+    }),
+  };
+});
 
 describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   let app: Express;
@@ -146,13 +148,23 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     // Cleanup - delete in correct order (steps -> sections -> workflows -> projects -> users)
     // Steps are deleted via cascade when sections are deleted
     // Delete audit events first to avoid FK constraint violations
-    await db.delete(auditEvents).where(eq(auditEvents.actorId, testUserId));
-    await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
-    await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));
-    await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
-    await db.delete(projects).where(eq(projects.id, testProjectId));
-    await db.delete(users).where(eq(users.id, testUserId));
-    await db.delete(tenants).where(eq(tenants.id, testTenantId));
+    try {
+      if (auditLogs && testUserId) {
+        // Use delete directly on table with where clause
+        await db.delete(auditLogs).where(eq(auditLogs.userId, testUserId));
+      } else {
+        console.warn('⚠️ Skipping auditLogs cleanup: auditLogs or testUserId is undefined', { auditLogs: !!auditLogs, testUserId });
+      }
+
+      if (sections && testWorkflowId) await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
+      if (workflowVersions && testWorkflowId) await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));
+      if (workflows && testWorkflowId) await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
+      if (projects && testProjectId) await db.delete(projects).where(eq(projects.id, testProjectId));
+      if (users && testUserId) await db.delete(users).where(eq(users.id, testUserId));
+      if (tenants && testTenantId) await db.delete(tenants).where(eq(tenants.id, testTenantId));
+    } catch (err: any) {
+      console.error('❌ Error during test cleanup:', err);
+    }
   });
 
   it('should create draft version on successful AI edit', async () => {
@@ -167,6 +179,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
           dropdownThreshold: 5,
         },
       })
+
       .expect(200);
 
     expect(response.body.success).toBe(true);

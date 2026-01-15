@@ -1,6 +1,6 @@
+import * as schema from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
-import { workflowVersions, workflows, auditEvents } from "@shared/schema";
 import type { WorkflowVersion } from "@shared/schema";
 
 import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
@@ -43,9 +43,9 @@ export class VersionService {
 
     return db
       .select()
-      .from(workflowVersions)
-      .where(eq(workflowVersions.workflowId, workflowId))
-      .orderBy(desc(workflowVersions.createdAt));
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.workflowId, workflowId))
+      .orderBy(desc(schema.workflowVersions.createdAt));
   }
 
   /**
@@ -54,8 +54,8 @@ export class VersionService {
   async getVersion(versionId: string): Promise<WorkflowVersion | null> {
     const [version] = await db
       .select()
-      .from(workflowVersions)
-      .where(eq(workflowVersions.id, versionId))
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.id, versionId))
       .limit(1);
 
     return version || null;
@@ -175,7 +175,7 @@ export class VersionService {
       const neighbors = adjacency.get(nodeId) || [];
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
-          if (dfs(neighbor)) {return true;}
+          if (dfs(neighbor)) { return true; }
         } else if (recStack.has(neighbor)) {
           return true; // Cycle detected
         }
@@ -187,7 +187,7 @@ export class VersionService {
 
     for (const node of nodes) {
       if (!visited.has(node.id)) {
-        if (dfs(node.id)) {return true;}
+        if (dfs(node.id)) { return true; }
       }
     }
 
@@ -214,9 +214,9 @@ export class VersionService {
     // Fetch the LATEST version for this workflow.
     const [latestVersion] = await db
       .select()
-      .from(workflowVersions)
-      .where(eq(workflowVersions.workflowId, workflowId))
-      .orderBy(desc(workflowVersions.createdAt))
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.workflowId, workflowId))
+      .orderBy(desc(schema.workflowVersions.createdAt))
       .limit(1);
 
     // If checksum matches latest, no changes - return null
@@ -234,9 +234,8 @@ export class VersionService {
     // Determine version number
     const versionNumber = latestVersion ? (latestVersion.versionNumber || 1) + 1 : 1;
 
-    // Create new draft version
     const [newVersion] = await db
-      .insert(workflowVersions)
+      .insert(schema.workflowVersions)
       .values({
         workflowId,
         graphJson,
@@ -247,17 +246,18 @@ export class VersionService {
         notes,
         checksum,
         changelog,
+        // metadata field is actually migration_info in the schema
         migrationInfo: metadata ? { aiMetadata: metadata } : null,
       })
       .returning();
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow_version',
       entityId: newVersion.id,
       action: 'create_draft_version',
-      diff: {
+      details: {
         notes,
         checksum,
         versionNumber,
@@ -296,11 +296,12 @@ export class VersionService {
     // Compute diff against latest version for changelog
     let changelog: any = null;
     // Fetch the LATEST version for this workflow.
+    // Fetch the LATEST version for this workflow.
     const [latestVersion] = await db
       .select()
-      .from(workflowVersions)
-      .where(eq(workflowVersions.workflowId, workflowId))
-      .orderBy(desc(workflowVersions.createdAt))
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.workflowId, workflowId))
+      .orderBy(desc(schema.workflowVersions.createdAt))
       .limit(1);
 
     if (latestVersion) {
@@ -312,12 +313,12 @@ export class VersionService {
 
     // Create new version (published)
     const [newVersion] = await db
-      .insert(workflowVersions)
+      .insert(schema.workflowVersions)
       .values({
         workflowId,
         graphJson,
         createdBy: userId,
-        isDraft: false,
+        isDraft: false, // published
         published: true,
         publishedAt: new Date(),
         versionNumber,
@@ -329,21 +330,21 @@ export class VersionService {
 
     // Update workflow's currentVersionId and status to active
     await db
-      .update(workflows)
+      .update(schema.workflows)
       .set({
         currentVersionId: newVersion.id,
         status: 'active',
         updatedAt: new Date(),
       })
-      .where(eq(workflows.id, workflowId));
+      .where(eq(schema.workflows.id, workflowId));
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow_version',
       entityId: newVersion.id,
       action: 'publish',
-      diff: {
+      details: {
         notes,
         checksum,
         versionNumber,
@@ -377,21 +378,22 @@ export class VersionService {
     }
 
     // Update workflow's currentVersionId
+    // Update workflow's currentVersionId
     await db
-      .update(workflows)
+      .update(schema.workflows)
       .set({
         currentVersionId: toVersionId,
         updatedAt: new Date(),
       })
-      .where(eq(workflows.id, workflowId));
+      .where(eq(schema.workflows.id, workflowId));
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow',
       entityId: workflowId,
       action: 'rollback',
-      diff: {
+      details: {
         toVersionId,
         notes,
         isDraft: version.isDraft,
@@ -432,12 +434,13 @@ export class VersionService {
     }
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    // Log audit event
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow',
       entityId: workflowId,
       action: 'restore',
-      diff: {
+      details: {
         fromVersionId,
         toVersionId: restoredVersion.id,
         notes,
@@ -465,21 +468,22 @@ export class VersionService {
     }
 
     // Update workflow's pinnedVersionId
+    // Update workflow's pinnedVersionId
     await db
-      .update(workflows)
+      .update(schema.workflows)
       .set({
         pinnedVersionId: versionId,
         updatedAt: new Date(),
       })
-      .where(eq(workflows.id, workflowId));
+      .where(eq(schema.workflows.id, workflowId));
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow',
       entityId: workflowId,
       action: 'pin_version',
-      diff: { versionId },
+      details: { versionId },
     });
 
     logger.info({ workflowId, versionId, userId }, "Pinned version");
@@ -490,20 +494,20 @@ export class VersionService {
    */
   async unpinVersion(workflowId: string, userId: string): Promise<void> {
     await db
-      .update(workflows)
+      .update(schema.workflows)
       .set({
         pinnedVersionId: null,
         updatedAt: new Date(),
       })
-      .where(eq(workflows.id, workflowId));
+      .where(eq(schema.workflows.id, workflowId));
 
     // Log audit event
-    await db.insert(auditEvents).values({
-      actorId: userId,
+    await db.insert(schema.auditLogs).values({
+      userId: userId,
       entityType: 'workflow',
       entityId: workflowId,
       action: 'unpin_version',
-      diff: {},
+      details: {},
     });
 
     logger.info({ workflowId, userId }, "Unpinned version");

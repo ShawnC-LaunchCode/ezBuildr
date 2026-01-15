@@ -7,6 +7,7 @@
 import { createLogger } from '../../logger';
 
 import type { AIErrorCode, TokenEstimate, CostEstimate, TruncationCheck } from './types';
+import type { AIGeneratedWorkflow } from '../../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-service-utils' });
 
@@ -286,7 +287,7 @@ export function getRetryAfter(error: any): number | null {
   // Check for Google's "Please retry in X s"
   if (typeof error.message === 'string') {
     const match = error.message.match(/retry in ([0-9.]+)s/);
-    if (match) {return Math.ceil(parseFloat(match[1]) * 1000);}
+    if (match) { return Math.ceil(parseFloat(match[1]) * 1000); }
   }
   return null;
 }
@@ -302,4 +303,67 @@ export function stripMarkdownCodeBlocks(text: string): string {
     stripped = stripped.replace(/^```\n/, '').replace(/\n```$/, '');
   }
   return stripped;
+}
+
+/**
+ * Validate workflow structure (unique IDs, etc)
+ */
+export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
+  // Check for unique section IDs
+  const sectionIds = workflow.sections.map((s) => s.id);
+  const uniqueSectionIds = new Set(sectionIds);
+  if (sectionIds.length !== uniqueSectionIds.size) {
+    throw createAIError(
+      'Duplicate section IDs found in generated workflow',
+      'VALIDATION_ERROR',
+    );
+  }
+
+  // Check for unique step IDs and aliases across all sections
+  const stepIds = new Set<string>();
+  const stepAliases = new Set<string>();
+
+  for (const section of workflow.sections) {
+    for (const step of section.steps) {
+      if (stepIds.has(step.id)) {
+        throw createAIError(
+          `Duplicate step ID: ${step.id}`,
+          'VALIDATION_ERROR',
+        );
+      }
+      stepIds.add(step.id);
+
+      if (step.alias) {
+        if (stepAliases.has(step.alias)) {
+          throw createAIError(
+            `Duplicate step alias: ${step.alias}`,
+            'VALIDATION_ERROR',
+          );
+        }
+        stepAliases.add(step.alias);
+      }
+    }
+  }
+
+  // Validate logic rules reference existing steps/sections
+  for (const rule of workflow.logicRules) {
+    if (!stepAliases.has(rule.conditionStepAlias)) {
+      throw createAIError(
+        `Logic rule references non-existent step alias: ${rule.conditionStepAlias}`,
+        'VALIDATION_ERROR',
+      );
+    }
+  }
+
+  // Validate transform blocks reference existing steps
+  for (const block of workflow.transformBlocks) {
+    for (const inputKey of block.inputKeys) {
+      if (!stepAliases.has(inputKey)) {
+        throw createAIError(
+          `Transform block references non-existent step alias: ${inputKey}`,
+          'VALIDATION_ERROR',
+        );
+      }
+    }
+  }
 }

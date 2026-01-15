@@ -76,14 +76,10 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             systemPromptTemplate
           );
         } catch (error) {
-          console.error("DEBUG: INNER CATCH AI ERROR:", error);
-          if (error instanceof Error) {
-            console.error("Stack:", error.stack);
-          }
           logger.error({ error, workflowId }, "AI model call failed");
           return res.status(500).json({
             success: false,
-            error: `AI model call failed: ${  error instanceof Error ? error.message : "Unknown error"}`,
+            error: `AI model call failed: ${error instanceof Error ? error.message : "Unknown error"}`,
           });
         }
 
@@ -185,9 +181,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
 /**
  * Call Gemini API to generate workflow edit operations
  */
-/**
-* Call Gemini API to generate workflow edit operations
-*/
 async function callGeminiForWorkflowEdit(
   userMessage: string,
   currentWorkflow: any,
@@ -200,34 +193,23 @@ async function callGeminiForWorkflowEdit(
     throw new Error("GEMINI_API_KEY not configured");
   }
 
-  console.log("DEBUG: Instantiating GoogleGenerativeAI");
   let genAI;
   try {
     genAI = new GoogleGenerativeAI(geminiApiKey);
   } catch (err: any) {
-    console.error("DEBUG: Constructor Error:", err);
+    logger.error({ err }, "GoogleGenerativeAI Constructor Error");
     throw err;
   }
 
-  console.log("DEBUG: Getting model");
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
   // Build system prompt
-  console.log("DEBUG: Building system prompt");
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
 
   // Build workflow context
-  console.log("DEBUG: Building workflow context");
   const workflowContext = buildWorkflowContext(currentWorkflow);
-  console.log("DEBUG: Workflow context built");
 
   // Full prompt
-  console.log("DEBUG: About to build full prompt. Parts:", {
-    s: typeof systemPrompt,
-    w: typeof workflowContext,
-    u: typeof userMessage
-  });
-
   const fullPrompt = `${systemPrompt}
 
 ## Current Workflow State
@@ -258,7 +240,6 @@ Analyze the user's request and generate a JSON response with the following struc
 
 Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
 
-  console.log("DEBUG: Full prompt built. Length:", fullPrompt ? fullPrompt.length : 'N/A');
   logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
 
   const result = await model.generateContent(fullPrompt);
@@ -342,9 +323,9 @@ Steps: ${steps.length}
 `;
     for (const step of steps) {
       context += `  - [${step.type}] ${step.title}`;
-      if (step.alias) {context += ` (alias: ${step.alias})`;}
-      if (step.required) {context += ` [REQUIRED]`;}
-      if (step.visibleIf) {context += ` [CONDITIONAL]`;}
+      if (step.alias) { context += ` (alias: ${step.alias})`; }
+      if (step.required) { context += ` [REQUIRED]`; }
+      if (step.visibleIf) { context += ` [CONDITIONAL]`; }
       context += '\n';
     }
   }

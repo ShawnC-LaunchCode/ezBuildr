@@ -32,6 +32,9 @@ export const autonumberResetPolicyEnum = pgEnum('autonumber_reset_policy', ['nev
 export const datavaultScopeTypeEnum = pgEnum('datavault_scope_type', ['account', 'project', 'workflow']);
 export const datavaultTableRoleEnum = pgEnum('datavault_table_role', ['owner', 'write', 'read']);
 export const dataSourceTypeEnum = pgEnum('data_source_type', ['native', 'postgres', 'google_sheets', 'airtable', 'external']);
+export const collectionFieldTypeEnum = pgEnum('collection_field_type', [
+    'text', 'number', 'boolean', 'date', 'datetime', 'file', 'select', 'multi_select', 'json'
+]);
 
 // ===================================================================
 // TABLES
@@ -250,15 +253,18 @@ export const collectionFields = pgTable("collection_fields", {
     collectionId: uuid("collection_id").references(() => collections.id, { onDelete: 'cascade' }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
-    type: varchar("type", { length: 50 }).notNull(),
-    options: jsonb("options"), // For select types
-    required: boolean("required").default(false),
+    type: collectionFieldTypeEnum("type").notNull(),
+    isRequired: boolean("is_required").default(false).notNull(),
+    options: jsonb("options"), // For select/multi-select: array of valid options
+    defaultValue: jsonb("default_value"), // Default value for new records
     order: integer("order").default(0),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("collection_fields_collection_idx").on(table.collectionId),
-    uniqueIndex("collection_fields_slug_unique").on(table.collectionId, table.slug),
+    index("collection_fields_slug_idx").on(table.slug),
+    index("collection_fields_type_idx").on(table.type),
+    uniqueIndex("collection_fields_collection_slug_unique_idx").on(table.collectionId, table.slug),
 ]);
 
 // Records (for Collections)

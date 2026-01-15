@@ -45,23 +45,40 @@ export class SchemaManager {
 
             // Determine the connection string with the correct search_path
             const url = new URL(baseConnectionString);
+            console.log(`[SchemaManager] Processing URL: ${url.hostname} (Port: ${url.port})`);
 
             // NEON-SPECIFIC FIX:
             // Neon Transaction Pooling (port 6543, -pooler domain) does NOT support 'search_path' in startup options.
             // We MUST use the Direct endpoint (port 5432, no -pooler) for schema isolation to work.
             if (url.hostname.includes('neon.tech') || url.hostname.includes('neon.co')) {
-                if (url.port !== '5432') { // Only log if we are actually switching
-                    console.log('[SchemaManager] Detected Neon DB. Switching to Direct Connection (5432) for schema isolation.');
+                let modified = false;
+                if (url.port !== '5432' && url.port !== '') {
+                    // Explicit port that isn't 5432
+                    console.log(`[SchemaManager] Switching port from ${url.port} to 5432`);
+                    url.port = '5432';
+                    modified = true;
                 }
-                url.port = '5432';
-                // Remove '-pooler' from hostname if present
-                url.hostname = url.hostname.replace('-pooler', '');
+
+                if (url.hostname.includes('-pooler')) {
+                    console.log(`[SchemaManager] Removing -pooler from hostname: ${url.hostname}`);
+                    url.hostname = url.hostname.replace('-pooler', '');
+                    modified = true;
+                }
+
+                if (modified) {
+                    console.log('[SchemaManager] Switched to Direct Connection for schema isolation.');
+                }
+
                 // Ensure SSL is required
                 url.searchParams.set('sslmode', 'require');
             }
 
             // Set search_path in startup options (only works on Direct/Session connections)
+            // CRITICAL: encoding is handled by URL searchParams automatically
             url.searchParams.set('options', `-c search_path=${schemaName},public`);
+
+            console.log(`[SchemaManager] Final Connection String (Host): ${url.hostname}`);
+            console.log(`[SchemaManager] Final Connection String (Options): ${url.searchParams.get('options')}`);
 
             return {
                 schemaName,

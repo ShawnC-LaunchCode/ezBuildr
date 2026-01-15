@@ -7,3 +7,4 @@ export * from "./integrations";
 export * from "./relations";
 export * from "./billing";
 export * from "./branding";
+export * from "./ai";

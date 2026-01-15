@@ -656,9 +656,9 @@ export const externalConnectionsRelations = relations(externalConnections, ({ on
         fields: [externalConnections.projectId],
         references: [projects.id],
     }),
-    secret: one(secrets, {
-        fields: [externalConnections.secretId],
-        references: [secrets.id],
+    tenant: one(tenants, {
+        fields: [externalConnections.tenantId],
+        references: [tenants.id],
     }),
 }));
 

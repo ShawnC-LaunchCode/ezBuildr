@@ -8,6 +8,13 @@
       "when": 1768495470708,
       "tag": "0000_mushy_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768496000000,
+      "tag": "0001_fix_collection_schema",
+      "breakpoints": true
     }
   ]
 }
