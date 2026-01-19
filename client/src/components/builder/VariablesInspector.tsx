@@ -3,35 +3,27 @@
  * Shows all workflow variables with enhanced list inspection
  * Designed for Advanced Mode control room UX
  */
-
 import { Search, Database, Code, Copy, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import React, { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
-
-import { ListInspector } from "./ListInspector";
-
-
 interface VariablesInspectorProps {
   workflowId: string;
   className?: string;
 }
-
 export function VariablesInspector({ workflowId, className }: VariablesInspectorProps) {
   const { data: variables = [] } = useWorkflowVariables(workflowId);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedVars, setExpandedVars] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("all");
-
   const handleCopy = (path: string) => {
     navigator.clipboard.writeText(path);
     toast({
@@ -40,7 +32,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
       duration: 2000,
     });
   };
-
   const toggleExpanded = (key: string) => {
     setExpandedVars((prev) => {
       const next = new Set(prev);
@@ -52,11 +43,9 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
       return next;
     });
   };
-
   const isListType = (type: string) => {
     return type === "query" || type === "read_table" || type === "list_tools";
   };
-
   // Filter and group variables
   const filteredVariables = variables.filter((v) => {
     if (searchQuery && !v.alias?.toLowerCase().includes(searchQuery.toLowerCase()) && !v.label?.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -68,7 +57,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
     if (activeTab === "questions") {return !isListType(v.type) && v.type !== "js_question" && v.type !== "computed";}
     return true;
   });
-
   const groupedVariables = filteredVariables.reduce((acc, variable) => {
     const section = variable.sectionTitle || "Other";
     if (!acc[section]) {
@@ -77,13 +65,11 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
     acc[section].push(variable);
     return acc;
   }, {} as Record<string, typeof variables>);
-
   const getVariableIcon = (type: string) => {
     if (isListType(type)) {return <Database className="w-3.5 h-3.5 text-blue-500" />;}
     if (type === "js_question" || type === "computed") {return <Code className="w-3.5 h-3.5 text-purple-500" />;}
     return <Layers className="w-3.5 h-3.5 text-gray-500" />;
   };
-
   return (
     <Card className={cn("flex flex-col h-full", className)}>
       <CardHeader className="pb-3 border-b">
@@ -92,7 +78,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
           Variables Inspector
         </CardTitle>
       </CardHeader>
-
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         {/* Filters */}
         <div className="p-3 space-y-2 border-b bg-muted/20">
@@ -104,7 +89,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
               <TabsTrigger value="computed" className="text-xs">Computed</TabsTrigger>
             </TabsList>
           </Tabs>
-
           <div className="relative">
             <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -115,7 +99,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
             />
           </div>
         </div>
-
         {/* Variables List */}
         <ScrollArea className="flex-1">
           <div className="p-3 space-y-4">
@@ -124,19 +107,16 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                 No variables yet. Add questions or data blocks to create variables.
               </div>
             )}
-
             {Object.entries(groupedVariables).map(([sectionTitle, vars]) => (
               <div key={sectionTitle} className="space-y-2">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide sticky top-0 bg-background/95 backdrop-blur py-1">
                   {sectionTitle}
                 </h4>
-
                 <div className="space-y-1">
                   {vars.map((variable) => {
                     const isExpanded = expandedVars.has(variable.key);
                     const showExpand = isListType(variable.type);
                     const variablePath = variable.alias || variable.key;
-
                     return (
                       <div key={variable.key} className="space-y-1">
                         {/* Main Variable Row */}
@@ -161,12 +141,10 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                               )}
                             </Button>
                           )}
-
                           {/* Icon */}
                           <div className="shrink-0">
                             {getVariableIcon(variable.type)}
                           </div>
-
                           {/* Variable Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -185,7 +163,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                               </div>
                             )}
                           </div>
-
                           {/* Copy Button */}
                           <Button
                             variant="ghost"
@@ -197,7 +174,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                             <Copy className="h-3 w-3" />
                           </Button>
                         </div>
-
                         {/* Expanded List Inspector */}
                         {showExpand && isExpanded && (
                           <div className="ml-7 pl-2 border-l-2 border-muted">
@@ -231,7 +207,6 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
             ))}
           </div>
         </ScrollArea>
-
         {/* Quick Stats Footer */}
         <div className="p-2 border-t bg-muted/20 text-[10px] text-muted-foreground flex items-center justify-between">
           <span>{filteredVariables.length} variable{filteredVariables.length !== 1 ? 's' : ''}</span>

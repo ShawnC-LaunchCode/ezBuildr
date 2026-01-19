@@ -1,25 +1,19 @@
 import type { WorkflowVersion } from '@shared/schema';
 import type { ExecutionStep, VariableLineage, WorkflowTrace } from '@shared/types/debug';
-
-import { renderTemplate } from '../services/templates';
 import { createError } from '../utils/errors';
-
 import { type EvalContext, evaluateExpression } from './expr';
-import { executeNode, type Node, type NodeOutput } from './registry';
-import { validateGraph, validateNodeConditions, topologicalSort, type GraphJson } from './validate';
-
+import { executeNode, type  type  } from './registry';
+import { validateGraph, validateNodeConditions, type GraphJson } from './validate';
 /**
  * Workflow Engine
  * Executes workflow graphs with conditional logic and expression evaluation
  *
  * Stage 5: Expression evaluator + conditional logic integration
  */
-
 export interface RunGraphOptions {
   debug?: boolean;
   clock?: () => Date;              // Injected clock for deterministic evaluation
 }
-
 export interface RunGraphInput {
   workflowVersion: WorkflowVersion;
   inputJson: Record<string, any>;
@@ -27,7 +21,6 @@ export interface RunGraphInput {
   executionMode?: 'live' | 'preview';
   options?: RunGraphOptions;
 }
-
 // DEPRECATED TraceEntry - Use ExecutionStep instead
 export interface TraceEntry {
   nodeId: string;
@@ -40,7 +33,6 @@ export interface TraceEntry {
   error?: string;
   timestamp: Date;
 }
-
 export interface RunGraphOutput {
   status: 'success' | 'error';
   outputRefs?: Record<string, any>;
@@ -55,7 +47,6 @@ export interface RunGraphOutput {
   executionTrace?: WorkflowTrace;  // Full rich trace
   error?: string;
 }
-
 export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
   const { workflowVersion, inputJson, tenantId, options = {} } = input;
   const logs: RunGraphOutput['logs'] = [];
@@ -64,7 +55,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
   const variableLineage: Record<string, VariableLineage> = {};
   // const listLineage: Record<string, ListLineage> = {}; // TODO: Implement List lineage
   const startTime = Date.now();
-
   try {
     // Log start
     logs.push({
@@ -72,13 +62,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
       message: `Starting workflow execution for version ${workflowVersion.id}`,
       timestamp: new Date(),
     });
-
     // Parse and validate graphJson structure
     const graphJson = workflowVersion.graphJson as GraphJson;
     if (!graphJson || typeof graphJson !== 'object') {
       throw new Error('Invalid graphJson: must be an object');
     }
-
     if (options.debug) {
       logs.push({
         level: 'info',
@@ -87,14 +75,12 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         timestamp: new Date(),
       });
     }
-
     // Validate graph structure
     const graphValidation = validateGraph(graphJson);
     if (!graphValidation.valid) {
       const errorMessages = graphValidation.errors.map(e => e.message).join('; ');
       throw new Error(`Graph validation failed: ${errorMessages}`);
     }
-
     // Validate node conditions and expressions
     const conditionsValidation = validateNodeConditions(graphJson);
     if (!conditionsValidation.valid) {
@@ -103,13 +89,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         .join('; ');
       throw new Error(`Expression validation failed: ${errorMessages}`);
     }
-
     logs.push({
       level: 'info',
       message: 'Graph validation passed',
       timestamp: new Date(),
     });
-
     // Initialize execution context resources
     let ivm: typeof import("isolated-vm") | undefined;
     let isolate: import("isolated-vm").Isolate | undefined;
@@ -119,7 +103,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
     } catch (e) {
       // Fallback or log if isolated-vm is missing (though it shouldn't be for live execution)
     }
-
     const context: EvalContext = {
       vars: { ...inputJson, input: inputJson },
       clock: options.clock || (() => new Date()),
@@ -145,19 +128,15 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         // maxQueryCount not strictly enforced yet, but tracked
       }
     };
-
     // Get execution order (topological sort)
     const executionOrder = getExecutionOrder(graphJson);
-
     logs.push({
       level: 'info',
       message: `Executing ${executionOrder.length} nodes`,
       timestamp: new Date(),
     });
-
     // Execute nodes in order
     const outputRefs: Record<string, any> = {};
-
     try {
       for (const nodeId of executionOrder) {
         // Check limits
@@ -167,13 +146,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         if (executionSteps.length >= context.limits!.maxSteps!) {
           throw new Error(`Execution step limit exceeded (${context.limits!.maxSteps})`);
         }
-
         const node = graphJson.nodes.find(n => n.id === nodeId);
         if (!node) {
           // ... (existing not found log) ...
           continue;
         }
-
         // SNAPSHOT EFFICIENCY: Skip blocks with already satisfied outputs (Part 5)
         const config = node.config as any;
         if (context.executionMode === 'snapshot' && config.outputKey && context.vars[config.outputKey] !== undefined) {
@@ -194,11 +171,9 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           });
           continue; // Skip actual execution
         }
-
         try {
           const nodeStartTime = Date.now();
           const config = node.config as any;
-
           // SNAPSHOT EFFICIENCY: Skip blocks with already satisfied outputs (Part 5)
           if (context.executionMode === 'snapshot' && config.outputKey && context.vars[config.outputKey] !== undefined) {
             // ... existing snapshot logic ...
@@ -217,7 +192,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             });
             continue; // Skip actual execution
           }
-
           // check for condition
           if (config.condition) {
             try {
@@ -225,10 +199,8 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
               if (options.debug) {
                 // Debug logging removed - use logger if needed
               }
-
               if (!conditionResult) {
                 const stepIndex = executionSteps.length;
-
                 // Push skipped step
                 executionSteps.push({
                   stepNumber: stepIndex,
@@ -242,7 +214,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
                   durationMs: 0,
                   metrics: { totalTimeMs: 0 }
                 });
-
                 // Push legacy trace (for tests)
                 trace.push({
                   nodeId,
@@ -252,14 +223,12 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
                   conditionResult: false,
                   timestamp: new Date()
                 });
-
                 logs.push({
                   level: 'info',
                   message: `Skipped node ${nodeId} (condition false)`,
                   nodeId,
                   timestamp: new Date()
                 });
-
                 continue;
               } else {
                 // Log condition true (optional, maybe debug only)
@@ -272,7 +241,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
               throw new Error(`Condition evaluation failed for node ${nodeId}: ${condError instanceof Error ? condError.message : String(condError)}`);
             }
           }
-
           // Execute node
           const nodeOutput = await executeNode({
             node,
@@ -281,22 +249,18 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             userInputs: inputJson,
           });
           const nodeDuration = Date.now() - nodeStartTime;
-
           // NEW: Collect output references (files)
           if (nodeOutput.status === 'executed' && 'outputRef' in nodeOutput && nodeOutput.outputRef) {
             outputRefs[nodeId] = nodeOutput.outputRef;
           }
-
           // NEW: Populate ExecutionStep and Lineage
           const stepIndex = executionSteps.length;
           const outputsDelta: Record<string, any> = {};
-
           if (nodeOutput.status === 'executed' && 'varName' in nodeOutput && nodeOutput.varName) {
             outputsDelta[nodeOutput.varName] = nodeOutput.varValue;
             // CRITICAL: Update context variables for subsequent nodes
             context.vars[nodeOutput.varName] = nodeOutput.varValue;
             // Debug logging removed - use logger if needed
-
             variableLineage[nodeOutput.varName] = {
               variableName: nodeOutput.varName,
               sourceType: mapNodeToSourceType(node.type),
@@ -304,7 +268,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
               createdAtStep: stepIndex
             };
           }
-
           // Track cost metrics
           if (node.type === 'query') {
             context.metrics!.queryCount++;
@@ -314,7 +277,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             // approximating JS time
             context.metrics!.jsTimeMs += nodeDuration;
           }
-
           const executionStep: ExecutionStep = {
             stepNumber: stepIndex,
             blockId: nodeId,
@@ -333,7 +295,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             }
           };
           executionSteps.push(executionStep);
-
           // Legacy Trace population (required for tests)
           trace.push({
             nodeId,
@@ -345,7 +306,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             timestamp: new Date(),
             conditionResult: config.condition ? true : undefined
           });
-
           // Log execution (required for tests)
           if (nodeOutput.status === 'executed') {
             logs.push({
@@ -360,7 +320,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             // But my manual condition check logs it earlier.
             // Check duplicates? The set logic relies on string includes.
           }
-
           // STOP EXECUTION if Final Block is reached
           if (node.type === 'final' && nodeOutput.status === 'executed') {
             logs.push({
@@ -371,7 +330,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
             });
             break; // Stop execution
           }
-
         } catch (error) {
           // ... (error handling) ...
           throw error;
@@ -383,11 +341,9 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
         isolate.dispose();
       }
     }
-
     // Log completion
     const duration = Date.now() - startTime;
     // ...
-
     return {
       status: 'success',
       outputRefs: Object.keys(outputRefs).length > 0 ? outputRefs : undefined,
@@ -422,7 +378,6 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
     };
   }
 }
-
 /**
  * Get execution order for nodes (topological sort)
  */
@@ -431,12 +386,10 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
   if (graphJson.startNodeId) {
     const visited = new Set<string>();
     const order: string[] = [];
-
     const visit = (nodeId: string): void => {
       if (visited.has(nodeId)) {return;}
       visited.add(nodeId);
       order.push(nodeId);
-
       // Find outgoing edges
       if (graphJson.edges) {
         const outgoingEdges = graphJson.edges.filter(e => e.source === nodeId);
@@ -445,23 +398,18 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
         }
       }
     };
-
     visit(graphJson.startNodeId);
-
     // Add any remaining nodes (shouldn't happen if graph is connected)
     for (const node of graphJson.nodes) {
       if (!visited.has(node.id)) {
         order.push(node.id);
       }
     }
-
     return order;
   }
-
   // Fallback: just return nodes in order
   return graphJson.nodes.map(n => n.id);
 }
-
 /**
  * Validate workflow graph structure
  *
@@ -475,10 +423,8 @@ export function validateGraphStructure(graphJson: Record<string, any>): boolean 
     const errorMessages = result.errors.map(e => e.message).join('; ');
     throw createError.validation(`Invalid graph structure: ${errorMessages}`);
   }
-
   return true;
 }
-
 function mapNodeToSourceType(nodeType: string): VariableLineage['sourceType'] {
   switch (nodeType) {
     case 'question': return 'question';

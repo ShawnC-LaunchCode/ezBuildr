@@ -1,10 +1,7 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
-
 import { defaultValidationMessages, formatMessage } from "./messages";
-import { ValidationRule, ValidationRuleType } from "./ValidationRule";
+import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema, ValidationResult } from "./ValidationSchema";
-
-
 /**
  * Validator Options
  */
@@ -21,29 +18,24 @@ export interface ValidatorOptions {
      */
     helpers?: any;
 }
-
 /**
  * Validates a single value against a schema.
  */
 export async function validateValue(options: ValidatorOptions): Promise<ValidationResult> {
     const { schema, value, values = {} } = options;
     const errors: string[] = [];
-
     // Check required/empty first
     const isEmpty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
-
     // Apply "Required" shorthand from schema
     if (schema.required && isEmpty) {
         // If required and empty, fail immediately (other rules usually don't apply to empty values)
         errors.push(schema.requiredMessage || defaultValidationMessages.required);
         return { valid: false, errors };
     }
-
     // If empty and not required, skip other rules (typically)
     if (isEmpty && !schema.required) {
         return { valid: true, errors: [] };
     }
-
     // Iterate over explicit rules
     for (const rule of schema.rules) {
         const error = await validateRule(rule, value, values);
@@ -51,13 +43,11 @@ export async function validateValue(options: ValidatorOptions): Promise<Validati
             errors.push(error);
         }
     }
-
     return {
         valid: errors.length === 0,
         errors,
     };
 }
-
 /**
  * Validates a single rule.
  * Returns error string if invalid, null if valid.
@@ -68,14 +58,12 @@ async function validateRule(
     values: Record<string, any>
 ): Promise<string | null> {
     const msg = rule.message || defaultValidationMessages[rule.type];
-
     switch (rule.type) {
         case "required":
             if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
                 return formatMessage(msg, {});
             }
             break;
-
         case "minLength":
             if (typeof value === "string" || Array.isArray(value)) {
                 if (value.length < rule.value) {
@@ -83,7 +71,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "maxLength":
             if (typeof value === "string" || Array.isArray(value)) {
                 if (value.length > rule.value) {
@@ -91,7 +78,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "minValue":
             if (typeof value === "number") {
                 if (value < rule.value) {
@@ -99,7 +85,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "maxValue":
             if (typeof value === "number") {
                 if (value > rule.value) {
@@ -107,7 +92,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "pattern":
             if (typeof value === "string") {
                 try {
@@ -121,7 +105,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "email":
             if (typeof value === "string") {
                 // Basic email regex
@@ -131,7 +114,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "url":
             if (typeof value === "string") {
                 try {
@@ -141,7 +123,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "maxDecimalPlaces":
             if (typeof value === "number" || typeof value === "string") {
                 const strVal = String(value);
@@ -153,7 +134,6 @@ async function validateRule(
                 }
             }
             break;
-
         case "conditional":
             if (rule.condition) {
                 // Use structured condition evaluator
@@ -166,7 +146,6 @@ async function validateRule(
                     // BUT `ValidationRule` structure is `{ type: "conditional", expression: ... }`.
                     // That structure suggests the validation FAILS if the expression is false?
                     // OR does it mean "This field is valid ONLY IF expression is true"?
-
                     // Interpret "conditional" validation rule as: "Assertions that must be true".
                     // So if expression evaluates to FALSE, it is an ERROR.
                     return formatMessage(msg, {});
@@ -177,16 +156,12 @@ async function validateRule(
                 console.warn("String expression validation not implemented yet on client", rule.expression);
             }
             break;
-
         case "script":
             // Script rules typically require server-side execution or async hook
             // On client, we might skip or mark as "pending sync"
             // For this synchronous/client-side focused validator, we might skip
             console.warn("Script validation rule skipped on client");
             break;
-
-
     }
-
     return null;
 }

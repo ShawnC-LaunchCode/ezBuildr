@@ -2,9 +2,7 @@
  * Logic Add Menu Component
  * Dropdown menu for adding logic blocks (new data blocks + advanced)
  */
-
-import { Code2, Database, Save, Send, Sparkles, GitBranch } from "lucide-react";
-
+import { Code2, Database, Save, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,13 +16,11 @@ import { UI_LABELS } from "@/lib/labels";
 import { isFeatureAllowed } from "@/lib/mode";
 import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-
 interface LogicAddMenuProps {
   workflowId: string;
   sectionId: string;
   nextOrder: number;
 }
-
 const LOGIC_TYPES = {
   easy: [
     {
@@ -61,17 +57,14 @@ const LOGIC_TYPES = {
     },
   ],
 };
-
 export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuProps) {
   const createBlockMutation = useCreateBlock();
   const createTransformBlockMutation = useCreateTransformBlock();
   const { data: workflowMode } = useWorkflowMode(workflowId);
   const { toast } = useToast();
   const { selectBlock } = useWorkflowBuilder();
-
   const mode = workflowMode?.mode || "easy";
   const showAdvanced = isFeatureAllowed(mode, "js");
-
   const handleAddLogic = async (type: string) => {
     try {
       // Handle JS blocks differently
@@ -93,12 +86,10 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
         toast({ title: "Logic block added", description: "JS Transform created" });
         return;
       }
-
       // Handle regular blocks
       let config = {};
       let phase: "onSectionEnter" | "onSectionSubmit" = "onSectionSubmit";
       const blockType = type as any;
-
       // New Block Defaults
       if (type === 'write') {
         config = {
@@ -130,7 +121,6 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
       } else if (type === 'branch') {
         config = { conditions: [], targetSectionId: null };
       }
-
       const block = await createBlockMutation.mutateAsync({
         workflowId,
         sectionId,
@@ -140,9 +130,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
         enabled: true,
         order: nextOrder,
       });
-
       selectBlock(block.id);
-
       const label = [...LOGIC_TYPES.easy, ...LOGIC_TYPES.advanced].find((t) => t.type === type)?.label;
       toast({
         title: "Logic block added",
@@ -156,7 +144,6 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
       });
     }
   };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -185,7 +172,6 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
             </DropdownMenuItem>
           );
         })}
-
         {showAdvanced && (
           <>
             <DropdownMenuSeparator />

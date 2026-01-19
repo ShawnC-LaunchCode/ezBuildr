@@ -1,19 +1,14 @@
 /**
  * TanStack Query hooks for Vault-Logic API
  */
-
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-
 import { DevPanelBus } from "./devpanelBus";
-import { fetchAPI, projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, logicRuleAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type ApiSnapshot, type ApiWorkflowVariable, type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type ApiRun, type AccountPreferences, type WorkflowModeResponse, type ApiCollection, type ApiCollectionWithStats, type ApiCollectionField, type ApiCollectionRecord, type ApiCollectionWithFields, type ApiDataSource } from "./vault-api";
-
+import { fetchAPI, projectAPI, workflowAPI, versionAPI, snapshotAPI, variableAPI, sectionAPI, stepAPI, blockAPI, transformBlockAPI, runAPI, accountAPI, workflowModeAPI, collectionsAPI, dataSourceAPI, templateAPI, logicRuleAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow, type  type  type ApiSection, type ApiStep, type ApiBlock, type ApiTransformBlock, type  type  type  type  type  type ApiCollectionField, type  type  type  } from "./vault-api";
 // Re-export types for convenience
 export type { ApiStep, ApiSection, ApiProject, ApiWorkflow, ApiBlock, ApiTransformBlock, ApiRun } from "./vault-api";
-
 // ============================================================================
 // Query Keys
 // ============================================================================
-
 export const queryKeys = {
   projects: ["projects"] as const,
   project: (id: string) => ["projects", id] as const,
@@ -47,18 +42,15 @@ export const queryKeys = {
   dataSource: (id: string) => ["dataSources", id] as const,
   logicRules: (workflowId: string) => ["workflows", workflowId, "logicRules"] as const,
 };
-
 // ============================================================================
 // Projects
 // ============================================================================
-
 export function useProjects(activeOnly?: boolean) {
   return useQuery({
     queryKey: queryKeys.projects,
     queryFn: () => projectAPI.list(activeOnly),
   });
 }
-
 export function useProject(id: string | undefined, options?: Omit<UseQueryOptions<ApiProjectWithWorkflows>, "queryKey" | "queryFn">) {
   return useQuery({
     queryKey: queryKeys.project(id!),
@@ -67,7 +59,6 @@ export function useProject(id: string | undefined, options?: Omit<UseQueryOption
     ...options,
   });
 }
-
 export function useProjectWorkflows(projectId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.projectWorkflows(projectId!),
@@ -75,7 +66,6 @@ export function useProjectWorkflows(projectId: string | undefined) {
     enabled: !!projectId && projectId !== "undefined",
   });
 }
-
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -85,7 +75,6 @@ export function useCreateProject() {
     },
   });
 }
-
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -97,7 +86,6 @@ export function useUpdateProject() {
     },
   });
 }
-
 export function useArchiveProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -108,7 +96,6 @@ export function useArchiveProject() {
     },
   });
 }
-
 export function useUnarchiveProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -119,7 +106,6 @@ export function useUnarchiveProject() {
     },
   });
 }
-
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -129,7 +115,6 @@ export function useDeleteProject() {
     },
   });
 }
-
 export function useTransferProject() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -144,25 +129,21 @@ export function useTransferProject() {
     },
   });
 }
-
 // ============================================================================
 // Workflows
 // ============================================================================
-
 export function useWorkflows() {
   return useQuery({
     queryKey: queryKeys.workflows,
     queryFn: workflowAPI.list,
   });
 }
-
 export function useUnfiledWorkflows() {
   return useQuery({
     queryKey: queryKeys.workflowsUnfiled,
     queryFn: workflowAPI.listUnfiled,
   });
 }
-
 export function useWorkflow(id: string | undefined, options?: Omit<UseQueryOptions<ApiWorkflow>, "queryKey" | "queryFn">) {
   return useQuery({
     queryKey: queryKeys.workflow(id!),
@@ -171,7 +152,6 @@ export function useWorkflow(id: string | undefined, options?: Omit<UseQueryOptio
     ...options,
   });
 }
-
 export function useCreateWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -181,7 +161,6 @@ export function useCreateWorkflow() {
     },
   });
 }
-
 export function useUpdateWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -197,7 +176,6 @@ export function useUpdateWorkflow() {
     },
   });
 }
-
 export function useDeleteWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -208,7 +186,6 @@ export function useDeleteWorkflow() {
     },
   });
 }
-
 export function useTransferWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -224,7 +201,6 @@ export function useTransferWorkflow() {
     },
   });
 }
-
 export function useReviseWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -240,27 +216,21 @@ export function useReviseWorkflow() {
         method: 'POST',
         body: JSON.stringify(data),
       }) as any;
-
       const { jobId } = initRes;
       if (!jobId) {throw new Error("Failed to start AI revision job");}
-
       // 2. Poll for Completion
       const poll = async (): Promise<any> => {
         const statusRes = await fetchAPI(`/api/ai/workflows/revise/${jobId}`) as any;
-
         if (statusRes.status === 'completed') {
           return statusRes.result;
         }
-
         if (statusRes.status === 'failed') {
           throw new Error(statusRes.error || "AI revision job failed");
         }
-
         // Wait 2s and retry
         await new Promise(resolve => setTimeout(resolve, 2000));
         return poll();
       };
-
       return poll();
     },
     onSuccess: (data) => {
@@ -268,7 +238,6 @@ export function useReviseWorkflow() {
     },
   });
 }
-
 export function useConnectLogic() {
   return useMutation({
     mutationFn: (data: any) =>
@@ -278,7 +247,6 @@ export function useConnectLogic() {
       }),
   });
 }
-
 export function useDebugLogic() {
   return useMutation({
     mutationFn: (data: any) =>
@@ -288,7 +256,6 @@ export function useDebugLogic() {
       }),
   });
 }
-
 export function useVisualizeLogic() {
   return useMutation({
     mutationFn: (data: any) =>
@@ -298,7 +265,6 @@ export function useVisualizeLogic() {
       }),
   });
 }
-
 export function useMoveWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -316,7 +282,6 @@ export function useMoveWorkflow() {
     },
   });
 }
-
 export function useVersions(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.versions(workflowId!),
@@ -324,7 +289,6 @@ export function useVersions(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function usePublishWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -336,7 +300,6 @@ export function usePublishWorkflow() {
     },
   });
 }
-
 export function useRestoreVersion() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -352,11 +315,9 @@ export function useRestoreVersion() {
     },
   });
 }
-
 // ============================================================================
 // Workflow Snapshots
 // ============================================================================
-
 export function useSnapshots(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.snapshots(workflowId!),
@@ -364,7 +325,6 @@ export function useSnapshots(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useSnapshot(workflowId: string | undefined, snapshotId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.snapshot(workflowId!, snapshotId!),
@@ -372,7 +332,6 @@ export function useSnapshot(workflowId: string | undefined, snapshotId: string |
     enabled: !!workflowId && workflowId !== "undefined" && !!snapshotId && snapshotId !== "undefined",
   });
 }
-
 export function useCreateSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -383,7 +342,6 @@ export function useCreateSnapshot() {
     },
   });
 }
-
 export function useRenameSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -395,7 +353,6 @@ export function useRenameSnapshot() {
     },
   });
 }
-
 export function useDeleteSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -406,7 +363,6 @@ export function useDeleteSnapshot() {
     },
   });
 }
-
 export function useSaveSnapshotFromRun() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -418,11 +374,9 @@ export function useSaveSnapshotFromRun() {
     },
   });
 }
-
 // ============================================================================
 // Workflow Variables
 // ============================================================================
-
 export function useWorkflowVariables(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.variables(workflowId!),
@@ -430,11 +384,9 @@ export function useWorkflowVariables(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 // ============================================================================
 // Sections
 // ============================================================================
-
 export function useSections(workflowId: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.sections(workflowId || ""),
@@ -442,7 +394,6 @@ export function useSections(workflowId: string | undefined, options?: { enabled?
     enabled: options?.enabled !== undefined ? options.enabled : !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useCreateSection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -454,7 +405,6 @@ export function useCreateSection() {
     },
   });
 }
-
 export function useUpdateSection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -462,13 +412,10 @@ export function useUpdateSection() {
       sectionAPI.update(id, data),
     onMutate: async (variables) => {
       const { id, workflowId, ...data } = variables;
-
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.sections(workflowId) });
-
       // Snapshot the previous value
       const previousSections = queryClient.getQueryData<ApiSection[]>(queryKeys.sections(workflowId));
-
       // Optimistically update to the new value
       if (previousSections) {
         const updatedSections = previousSections.map((section) =>
@@ -476,7 +423,6 @@ export function useUpdateSection() {
         );
         queryClient.setQueryData(queryKeys.sections(workflowId), updatedSections);
       }
-
       // Return context with the previous value
       return { previousSections };
     },
@@ -493,7 +439,6 @@ export function useUpdateSection() {
     },
   });
 }
-
 export function useReorderSections() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -502,10 +447,8 @@ export function useReorderSections() {
     onMutate: async (variables) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.sections(variables.workflowId) });
-
       // Snapshot the previous value
       const previousSections = queryClient.getQueryData<ApiSection[]>(queryKeys.sections(variables.workflowId));
-
       // Optimistically update to the new value
       if (previousSections) {
         const updatedSections = previousSections
@@ -516,7 +459,6 @@ export function useReorderSections() {
           .sort((a, b) => a.order - b.order); // Sort by order to match backend behavior
         queryClient.setQueryData(queryKeys.sections(variables.workflowId), updatedSections);
       }
-
       // Return context with the previous value
       return { previousSections };
     },
@@ -532,7 +474,6 @@ export function useReorderSections() {
     },
   });
 }
-
 export function useDeleteSection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -544,11 +485,9 @@ export function useDeleteSection() {
     },
   });
 }
-
 // ============================================================================
 // Steps
 // ============================================================================
-
 export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">) {
   return useQuery({
     queryKey: queryKeys.steps(sectionId!),
@@ -557,7 +496,6 @@ export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryO
     ...options,
   });
 }
-
 /**
  * Fetch steps for multiple sections at once
  * Returns a Record<sectionId, ApiStep[]>
@@ -573,16 +511,13 @@ export function useAllSteps(sections: ApiSection[]): Record<string, ApiStep[]> {
       staleTime: 5000, // Cache for 5 seconds to avoid excessive refetches
     })),
   });
-
   // Combine results into a Record<sectionId, steps[]>
   const allSteps: Record<string, ApiStep[]> = {};
   sections.forEach((section, index) => {
     allSteps[section.id] = queries[index].data || [];
   });
-
   return allSteps;
 }
-
 export function useStep(stepId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.step(stepId!),
@@ -590,7 +525,6 @@ export function useStep(stepId: string | undefined) {
     enabled: !!stepId && stepId !== "undefined",
   });
 }
-
 export function useCreateStep() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -602,7 +536,6 @@ export function useCreateStep() {
     },
   });
 }
-
 export function useUpdateStep() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -610,15 +543,12 @@ export function useUpdateStep() {
       stepAPI.update(id, data),
     onMutate: async (variables) => {
       const { id, sectionId, ...data } = variables;
-
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.steps(sectionId) });
       await queryClient.cancelQueries({ queryKey: queryKeys.step(id) });
-
       // Snapshot the previous values
       const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(sectionId));
       const previousStep = queryClient.getQueryData<ApiStep>(queryKeys.step(id));
-
       // Optimistically update the steps list
       if (previousSteps) {
         const updatedSteps = previousSteps.map((step) =>
@@ -626,12 +556,10 @@ export function useUpdateStep() {
         );
         queryClient.setQueryData(queryKeys.steps(sectionId), updatedSteps);
       }
-
       // Optimistically update the single step
       if (previousStep) {
         queryClient.setQueryData(queryKeys.step(id), { ...previousStep, ...data });
       }
-
       // Return context with the previous values
       return { previousSteps, previousStep };
     },
@@ -659,7 +587,6 @@ export function useUpdateStep() {
     },
   });
 }
-
 export function useReorderSteps() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -668,10 +595,8 @@ export function useReorderSteps() {
     onMutate: async (variables) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.steps(variables.sectionId) });
-
       // Snapshot the previous value
       const previousSteps = queryClient.getQueryData<ApiStep[]>(queryKeys.steps(variables.sectionId));
-
       // Optimistically update to the new value
       if (previousSteps) {
         const updatedSteps = previousSteps.map((step) => {
@@ -680,7 +605,6 @@ export function useReorderSteps() {
         });
         queryClient.setQueryData(queryKeys.steps(variables.sectionId), updatedSteps);
       }
-
       // Return context with the previous value
       return { previousSteps };
     },
@@ -696,7 +620,6 @@ export function useReorderSteps() {
     },
   });
 }
-
 export function useDeleteStep() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -708,11 +631,9 @@ export function useDeleteStep() {
     },
   });
 }
-
 // ============================================================================
 // Blocks
 // ============================================================================
-
 export function useBlocks(workflowId: string | undefined, phase?: string) {
   return useQuery({
     queryKey: queryKeys.blocks(workflowId!, phase),
@@ -720,7 +641,6 @@ export function useBlocks(workflowId: string | undefined, phase?: string) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useCreateBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -733,7 +653,6 @@ export function useCreateBlock() {
     },
   });
 }
-
 export function useUpdateBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -746,7 +665,6 @@ export function useUpdateBlock() {
     },
   });
 }
-
 export function useReorderBlocks() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -755,10 +673,8 @@ export function useReorderBlocks() {
     onMutate: async (variables) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["blocks", variables.workflowId] });
-
       // Snapshot the previous value
       const previousBlocks = queryClient.getQueryData<ApiBlock[]>(queryKeys.blocks(variables.workflowId));
-
       // Optimistically update to the new value
       if (previousBlocks) {
         const updatedBlocks = previousBlocks.map((block) => {
@@ -767,7 +683,6 @@ export function useReorderBlocks() {
         });
         queryClient.setQueryData(queryKeys.blocks(variables.workflowId), updatedBlocks);
       }
-
       // Return context with the previous value
       return { previousBlocks };
     },
@@ -783,7 +698,6 @@ export function useReorderBlocks() {
     },
   });
 }
-
 export function useDeleteBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -794,11 +708,9 @@ export function useDeleteBlock() {
     },
   });
 }
-
 // ============================================================================
 // Transform Blocks
 // ============================================================================
-
 export function useTransformBlocks(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.transformBlocks(workflowId!),
@@ -806,7 +718,6 @@ export function useTransformBlocks(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useTransformBlock(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.transformBlock(id!),
@@ -814,7 +725,6 @@ export function useTransformBlock(id: string | undefined) {
     enabled: !!id && id !== "undefined",
   });
 }
-
 export function useCreateTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -827,7 +737,6 @@ export function useCreateTransformBlock() {
     },
   });
 }
-
 export function useUpdateTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -841,11 +750,9 @@ export function useUpdateTransformBlock() {
     },
   });
 }
-
 // ============================================================================
 // Logic Rules
 // ============================================================================
-
 export function useLogicRules(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.logicRules(workflowId!),
@@ -853,9 +760,6 @@ export function useLogicRules(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
-
-
 export function useDeleteTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -866,18 +770,15 @@ export function useDeleteTransformBlock() {
     },
   });
 }
-
 export function useTestTransformBlock() {
   return useMutation({
     mutationFn: ({ id, testData }: { id: string; testData: Record<string, any> }) =>
       transformBlockAPI.test(id, testData),
   });
 }
-
 // ============================================================================
 // Runs
 // ============================================================================
-
 export function useRuns(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.runs(workflowId!),
@@ -885,7 +786,6 @@ export function useRuns(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useRun(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.run(id!),
@@ -893,7 +793,6 @@ export function useRun(id: string | undefined) {
     enabled: !!id && id !== "undefined",
   });
 }
-
 export function useRunWithValues(id: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.runWithValues(id!),
@@ -901,7 +800,6 @@ export function useRunWithValues(id: string | undefined, options?: { enabled?: b
     enabled: options?.enabled !== undefined ? options.enabled : !!id && id !== "undefined",
   });
 }
-
 export function useCreateRun() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -912,7 +810,6 @@ export function useCreateRun() {
     },
   });
 }
-
 export function useUpsertValue() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -923,7 +820,6 @@ export function useUpsertValue() {
     },
   });
 }
-
 export function useSubmitSection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -933,7 +829,6 @@ export function useSubmitSection() {
     // Values are already saved to backend; local formValues state is the source of truth for UI
   });
 }
-
 export function useNext() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -943,7 +838,6 @@ export function useNext() {
     // Refetching causes race conditions that interfere with setCurrentSectionIndex updates
   });
 }
-
 export function useCompleteRun() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -954,18 +848,15 @@ export function useCompleteRun() {
     },
   });
 }
-
 // ============================================================================
 // Account & Mode Preferences
 // ============================================================================
-
 export function useAccountPreferences() {
   return useQuery({
     queryKey: queryKeys.accountPreferences,
     queryFn: () => accountAPI.getPreferences(),
   });
 }
-
 export function useUpdateAccountPreferences() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -977,7 +868,6 @@ export function useUpdateAccountPreferences() {
     },
   });
 }
-
 export function useWorkflowMode(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.workflowMode(workflowId!),
@@ -985,7 +875,6 @@ export function useWorkflowMode(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useSetWorkflowMode() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -997,11 +886,9 @@ export function useSetWorkflowMode() {
     },
   });
 }
-
 // ============================================================================
 // Collections / Datastore (Stage 19)
 // ============================================================================
-
 export function useCollections(tenantId: string | undefined, withStats?: boolean) {
   return useQuery({
     queryKey: queryKeys.collections(tenantId!),
@@ -1009,7 +896,6 @@ export function useCollections(tenantId: string | undefined, withStats?: boolean
     enabled: !!tenantId && tenantId !== "undefined",
   });
 }
-
 export function useCollection(tenantId: string | undefined, collectionId: string | undefined, withFields?: boolean) {
   return useQuery({
     queryKey: queryKeys.collection(tenantId!, collectionId!),
@@ -1017,7 +903,6 @@ export function useCollection(tenantId: string | undefined, collectionId: string
     enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined",
   });
 }
-
 export function useCreateCollection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1028,7 +913,6 @@ export function useCreateCollection() {
     },
   });
 }
-
 export function useUpdateCollection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1040,7 +924,6 @@ export function useUpdateCollection() {
     },
   });
 }
-
 export function useDeleteCollection() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1051,7 +934,6 @@ export function useDeleteCollection() {
     },
   });
 }
-
 // Fields
 export function useCollectionFields(tenantId: string | undefined, collectionId: string | undefined) {
   return useQuery({
@@ -1060,7 +942,6 @@ export function useCollectionFields(tenantId: string | undefined, collectionId: 
     enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined",
   });
 }
-
 export function useCreateCollectionField() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1072,7 +953,6 @@ export function useCreateCollectionField() {
     },
   });
 }
-
 export function useUpdateCollectionField() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1084,7 +964,6 @@ export function useUpdateCollectionField() {
     },
   });
 }
-
 export function useDeleteCollectionField() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1096,7 +975,6 @@ export function useDeleteCollectionField() {
     },
   });
 }
-
 // Records
 export function useCollectionRecords(tenantId: string | undefined, collectionId: string | undefined, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) {
   return useQuery({
@@ -1105,7 +983,6 @@ export function useCollectionRecords(tenantId: string | undefined, collectionId:
     enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined",
   });
 }
-
 export function useCollectionRecord(tenantId: string | undefined, collectionId: string | undefined, recordId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.collectionRecord(tenantId!, collectionId!, recordId!),
@@ -1113,7 +990,6 @@ export function useCollectionRecord(tenantId: string | undefined, collectionId: 
     enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined" && !!recordId && recordId !== "undefined",
   });
 }
-
 export function useCreateCollectionRecord() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1125,7 +1001,6 @@ export function useCreateCollectionRecord() {
     },
   });
 }
-
 export function useUpdateCollectionRecord() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1137,7 +1012,6 @@ export function useUpdateCollectionRecord() {
     },
   });
 }
-
 export function useDeleteCollectionRecord() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1149,18 +1023,15 @@ export function useDeleteCollectionRecord() {
     },
   });
 }
-
 // ============================================================================
 // Data Sources
 // ============================================================================
-
 export function useDataSources() {
   return useQuery({
     queryKey: queryKeys.dataSources,
     queryFn: dataSourceAPI.list,
   });
 }
-
 export function useWorkflowDataSources(workflowId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.workflowDataSources(workflowId!),
@@ -1168,7 +1039,6 @@ export function useWorkflowDataSources(workflowId: string | undefined) {
     enabled: !!workflowId && workflowId !== "undefined",
   });
 }
-
 export function useLinkDataSource() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1179,7 +1049,6 @@ export function useLinkDataSource() {
     },
   });
 }
-
 export function useUnlinkDataSource() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1190,12 +1059,9 @@ export function useUnlinkDataSource() {
     },
   });
 }
-
-
 // ============================================================================
 // Templates
 // ============================================================================
-
 export function useTemplatePlaceholders(templateId: string | undefined) {
   return useQuery({
     queryKey: ["templates", templateId, "placeholders"],
@@ -1204,13 +1070,11 @@ export function useTemplatePlaceholders(templateId: string | undefined) {
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 }
-
 export function useActiveTemplateVariables(projectId: string | undefined, sectionConfig: any) {
   // Extract template IDs from config
   const templateIds: string[] = Array.isArray(sectionConfig?.templates)
     ? sectionConfig.templates
     : [];
-
   const queries = useQueries({
     queries: templateIds.map((id) => ({
       queryKey: ["templates", id, "placeholders"],
@@ -1218,12 +1082,10 @@ export function useActiveTemplateVariables(projectId: string | undefined, sectio
       staleTime: 1000 * 60 * 5,
     })),
   });
-
   // Aggregate required variables
   const requiredVariables = new Set<string>();
   const isLoading = queries.some((q) => q.isLoading);
   const isError = queries.some((q) => q.isError);
-
   if (!isLoading && !isError) {
     queries.forEach((query) => {
       if (query.data?.placeholders) {
@@ -1235,7 +1097,6 @@ export function useActiveTemplateVariables(projectId: string | undefined, sectio
       }
     });
   }
-
   return {
     requiredVariables: Array.from(requiredVariables),
     isLoading,

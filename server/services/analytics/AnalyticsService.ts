@@ -2,14 +2,11 @@
  * AnalyticsService.ts
  * Core service for ingesting workflow execution events and retrieving run timelines.
  */
-
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
-
-import { workflowRunEvents, workflowRuns, workflowVersions } from "../../../shared/schema";
+import { workflowRunEvents } from "../../../shared/schema";
 import { db } from "../../db";
 import logger from "../../logger";
-
 // Validation schema for incoming events
 // Preview mode events use non-UUID identifiers (e.g., "preview-session", "draft")
 export const eventSchema = z.object({
@@ -25,9 +22,7 @@ export const eventSchema = z.object({
     timestamp: z.string().datetime().optional(), // ISO string from client
     isPreview: z.boolean().default(false),
 });
-
 export type AnalyticsEventInput = z.infer<typeof eventSchema>;
-
 class AnalyticsService {
     /**
      * Record a new analytics event
@@ -38,7 +33,6 @@ class AnalyticsService {
         try {
             // Basic validation
             const data = eventSchema.parse(input);
-
             // Skip storing preview events (non-UUID versions other than 'draft') in database
             // We allow 'draft' for runs initiated from a workflow without a published version
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.versionId);
@@ -46,11 +40,9 @@ class AnalyticsService {
                 logger.debug({ event: data }, "Skipping preview/invalid analytics event");
                 return;
             }
-
             // Redaction logic can be added here
             // Redaction logic can be added here
             // For now, we assume payload is safe or mocked
-
             await db.insert(workflowRunEvents).values({
                 runId: data.runId,
                 workflowId: data.workflowId,
@@ -62,16 +54,13 @@ class AnalyticsService {
                 isPreview: data.isPreview,
                 timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
             });
-
             // If event ends a run, we might want to trigger aggregation immediately
             // e.g. if (data.type === 'workflow.complete') AggregationService.aggregateRun(data.runId);
-
         } catch (error) {
             logger.error({ error, input }, "Failed to record analytics event");
             // We do NOT throw here to prevent blocking the runner
         }
     }
-
     /**
      * Get chronological timeline of events for a specific run
      */
@@ -82,17 +71,14 @@ class AnalyticsService {
             .where(eq(workflowRunEvents.runId, runId))
             .orderBy(desc(workflowRunEvents.timestamp)); // Show newest first? Or oldest? Chrome devtools is usually oldest first.
         // Let's return oldest first for a "timeline" view
-
         return events.reverse();
     }
-
     /**
      * Batch record events (for performance)
      */
     async recordEvents(inputs: AnalyticsEventInput[]) {
         // optimize with single insert
         if (inputs.length === 0) {return;}
-
         try {
             const values = inputs.map(input => ({
                 runId: input.runId,
@@ -105,12 +91,10 @@ class AnalyticsService {
                 isPreview: input.isPreview,
                 timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
             }));
-
             await db.insert(workflowRunEvents).values(values);
         } catch (error) {
             logger.error({ error, count: inputs.length }, "Failed to batch record analytics events");
         }
     }
 }
-
 export const analyticsService = new AnalyticsService();

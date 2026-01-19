@@ -3,7 +3,6 @@
  *
  * Manage email template metadata and branding token bindings
  */
-
 import {
   Mail,
   Search,
@@ -16,31 +15,25 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
-
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { emailTemplateAPI, type EmailTemplateMetadata } from '@/lib/vault-api';
-
 export default function EmailTemplatesPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-
   const [templates, setTemplates] = useState<EmailTemplateMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-
   // Load templates
   useEffect(() => { void loadTemplates(); }, []);
-
   const loadTemplates = async () => {
     setIsLoading(true);
     try {
@@ -57,7 +50,6 @@ export default function EmailTemplatesPage() {
       setIsLoading(false);
     }
   };
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -71,7 +63,6 @@ export default function EmailTemplatesPage() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   // Filter templates by search query
   const filteredTemplates = templates.filter((template) => {
     const query = searchQuery.toLowerCase();
@@ -81,13 +72,11 @@ export default function EmailTemplatesPage() {
       template.description?.toLowerCase().includes(query)
     );
   });
-
   // Count branding tokens used
   const getBrandingTokenCount = (template: EmailTemplateMetadata): number => {
     if (!template.brandingTokens) {return 0;}
     return Object.values(template.brandingTokens).filter(Boolean).length;
   };
-
   if (authLoading || isLoading) {
     return (
       <div className="flex h-screen bg-background">
@@ -101,7 +90,6 @@ export default function EmailTemplatesPage() {
       </div>
     );
   }
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -128,7 +116,6 @@ export default function EmailTemplatesPage() {
                 </p>
               </div>
             </div>
-
             {/* Info Card */}
             <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
               <CardContent className="pt-6">
@@ -147,7 +134,6 @@ export default function EmailTemplatesPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Search */}
             <div className="flex items-center gap-4">
               <div className="relative flex-1 max-w-md">
@@ -163,7 +149,6 @@ export default function EmailTemplatesPage() {
                 {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
               </Badge>
             </div>
-
             {/* Templates Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredTemplates.map((template) => {
@@ -223,7 +208,6 @@ export default function EmailTemplatesPage() {
                 );
               })}
             </div>
-
             {/* Empty State */}
             {filteredTemplates.length === 0 && !isLoading && (
               <div className="text-center py-12">

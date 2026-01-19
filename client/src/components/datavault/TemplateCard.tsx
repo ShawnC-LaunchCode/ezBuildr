@@ -2,21 +2,17 @@
  * TemplateCard Component
  * Displays a table template placeholder with "Coming Soon" badge
  */
-
 import React from 'react';
-
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
 interface TemplateCardProps {
   name: string;
   description: string;
   icon: string;
   previewColumns?: string[];
 }
-
 export function TemplateCard({ name, description, icon, previewColumns = [] }: TemplateCardProps) {
   return (
     <TooltipProvider>

@@ -2,11 +2,8 @@
  * DataSourcesTab - Manage external data sources
  * PR5: Data sources list with "Coming Soon" labels
  */
-
-import { Database, Settings, ExternalLink, Link2, Unlink2, Plus, FileSpreadsheet, Server, Globe } from "lucide-react";
+import { Database, Settings, Link2, Unlink2, Plus, FileSpreadsheet, Server, Globe } from "lucide-react";
 import React, { useState } from "react";
-
-
 import { AddGoogleSheetsDialog } from "@/components/dataSource/AddGoogleSheetsDialog";
 import { AddNativeTableDialog } from "@/components/dataSource/AddNativeTableDialog";
 import { Badge } from "@/components/ui/badge";
@@ -22,25 +19,20 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useDataSources, useWorkflowDataSources, useLinkDataSource, useUnlinkDataSource } from "@/lib/vault-hooks";
-
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
-
 interface DataSourcesTabProps {
   workflowId: string;
   onCollectionsClick?: () => void;
 }
-
 export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTabProps) {
   const { data: allSources, isLoading: isLoadingAll, refetch: refetchAll } = useDataSources();
   const { data: linkedSources, isLoading: isLoadingLinked, refetch: refetchLinked } = useWorkflowDataSources(workflowId);
   const linkMutation = useLinkDataSource();
   const unlinkMutation = useUnlinkDataSource();
   const { toast } = useToast();
-
   const [isTypeSelectionOpen, setIsTypeSelectionOpen] = useState(false);
   const [isGoogleSheetsOpen, setIsGoogleSheetsOpen] = useState(false);
   const [isNativeTableOpen, setIsNativeTableOpen] = useState(false);
-
   const handleLink = async (sourceId: string) => {
     try {
       await linkMutation.mutateAsync({ id: sourceId, workflowId });
@@ -49,7 +41,6 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
       toast({ title: "Error", description: "Failed to link data source.", variant: "destructive" });
     }
   };
-
   const handleUnlink = async (sourceId: string) => {
     try {
       await unlinkMutation.mutateAsync({ id: sourceId, workflowId });
@@ -58,21 +49,17 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
       toast({ title: "Error", description: "Failed to unlink data source.", variant: "destructive" });
     }
   };
-
   const handleConfigure = (sourceId: string) => {
     if (sourceId === "collections") {
       onCollectionsClick?.();
     }
     // For others, open settings dialog (future)
   };
-
   const isLinked = (id: string) => linkedSources?.some(s => s.id === id);
-
   const handleSourceCreated = () => {
     refetchAll();
     refetchLinked();
   };
-
   if (isLoadingAll || isLoadingLinked) {
     return (
       <BuilderLayout>
@@ -87,14 +74,12 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
       </BuilderLayout>
     );
   }
-
   // Helper to get icon
   const getIcon = (type: string) => {
     if (type === 'google_sheets') {return FileSpreadsheet;}
     if (type === 'api') {return Globe;}
     return Database;
   };
-
   return (
     <BuilderLayout>
       <BuilderLayoutHeader>
@@ -111,19 +96,15 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
           </Button>
         </div>
       </BuilderLayoutHeader>
-
       <BuilderLayoutContent>
         <div className="max-w-4xl space-y-8">
-
           {/* Active Sources */}
           <div className="space-y-4">
             {allSources?.length === 0 && <p className="text-muted-foreground">No data sources found.</p>}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {allSources?.map(source => {
                 const linked = isLinked(source.id);
                 const Icon = getIcon(source.type);
-
                 return (
                   <Card key={source.id} className={linked ? "border-primary" : ""}>
                     <CardHeader className="pb-3">
@@ -179,7 +160,6 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
               })}
             </div>
           </div>
-
           {/* Info Box */}
           <div className="p-4 bg-muted/50 rounded-lg border border-border">
             <h3 className="font-semibold mb-2">About Data Linking</h3>
@@ -194,7 +174,6 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
           </div>
         </div>
       </BuilderLayoutContent>
-
       {/* Type Selection Dialog */}
       <Dialog open={isTypeSelectionOpen} onOpenChange={setIsTypeSelectionOpen}>
         <DialogContent className="max-w-2xl">
@@ -221,7 +200,6 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
                 <p className="text-sm text-muted-foreground">Read and write data to Google Sheets.</p>
               </div>
             </Button>
-
             <Button
               variant="outline"
               className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
@@ -238,7 +216,6 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
                 <p className="text-sm text-muted-foreground">Select an existing table from your database.</p>
               </div>
             </Button>
-
             <Button
               variant="outline"
               className="h-auto p-4 flex flex-col items-start gap-2 opacity-60 cursor-not-allowed"
@@ -256,14 +233,12 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Google Sheets Wizard */}
       <AddGoogleSheetsDialog
         open={isGoogleSheetsOpen}
         onOpenChange={setIsGoogleSheetsOpen}
         onComplete={handleSourceCreated}
       />
-
       {/* Native Table Wizard */}
       <AddNativeTableDialog
         open={isNativeTableOpen}

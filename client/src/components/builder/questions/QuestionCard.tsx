@@ -388,7 +388,7 @@ export function QuestionCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete question "${step.title}"?`)) {return;}
+    if (!confirm(`Delete question "${step.title}"?`)) { return; }
 
     try {
       await deleteStepMutation.mutateAsync({ id: step.id, sectionId });
@@ -406,7 +406,7 @@ export function QuestionCard({
   };
 
   return (
-    <div ref={setNodeRef} style={style} data-step-id={step.id} onFocus={() => { void handleFocus(); }} onBlur={() => { void handleBlur(); }}>
+    <div ref={setNodeRef} style={style} data-step-id={step.id} onFocus={() => { void handleFocus(); }} onBlur={(e) => { void handleBlur(e); }}>
       <Card className={cn("shadow-sm transition-all duration-300", isDragging && "opacity-50", isLockedByOther && "ring-2 ring-indigo-400/50 border-indigo-200")}>
         <CardContent className="p-3 relative">
           {/* Lock Overlay */}
@@ -455,7 +455,7 @@ export function QuestionCard({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={() => { void onToggleExpand(); }}
+                onClick={() => { onToggleExpand?.(); }}
               >
                 {isExpanded ? (
                   <ChevronDown className="h-3 w-3" />
@@ -648,7 +648,7 @@ export function QuestionCard({
                     {(localType === "radio" || localType === "multiple_choice") && (
                       <OptionsEditor
                         options={localOptions}
-                        onChange={() => { void handleOptionsChange(); }}
+                        onChange={(opts) => { void handleOptionsChange(opts); }}
                         elementId={step.id}
                       />
                     )}
@@ -676,7 +676,7 @@ export function QuestionCard({
                             <Tabs
                               value={isLinkedToIntake ? "intake" : "static"}
                               onValueChange={(val) => {
-                                if (val === 'static') {handleDefaultValueChange("");} // Clear to static
+                                if (val === 'static') { handleDefaultValueChange(""); } // Clear to static
                                 // If switching to intake, user must select variable
                               }}
                               className="w-full"
@@ -815,7 +815,7 @@ export function QuestionCard({
                     {localType === "js_question" && (
                       <JSQuestionEditor
                         config={localJsConfig}
-                        onChange={() => { void handleJsConfigChange(); }}
+                        onChange={(config) => { void handleJsConfigChange(config); }}
                         elementId={step.id}
                         workflowId={workflowId}
                       />
@@ -853,7 +853,7 @@ export function QuestionCard({
                             elementId={step.id}
                             elementType="step"
                             value={(step.visibleIf as ConditionExpression) || null}
-                            onChange={() => { void handleVisibilityChange(); }}
+                            onChange={(expression) => { void handleVisibilityChange(expression); }}
                             isSaving={updateStepMutation.isPending}
                           />
                         </CollapsibleContent>

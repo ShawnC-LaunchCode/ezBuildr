@@ -1,22 +1,15 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
 import { JsQuestionConfig } from '@shared/types/steps';
-
-import { stepRepository, stepValueRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
+import { stepRepository, sectionRepository, workflowRepository } from '../../../server/repositories';
 import { logicService } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator } from '../../../server/services/runs/RunExecutionCoordinator';
-import { RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
-
-
 // Mock dependencies
 vi.mock('../../../server/services/scripting/ScriptEngine', () => ({
     scriptEngine: {
         execute: vi.fn()
     }
 }));
-
 // Mock PersistenceWriter
 vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
     const mockPersistence = {
@@ -29,7 +22,6 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
         runPersistenceWriter: mockPersistence
     };
 });
-
 // Mock other services
 vi.mock('../../../server/services/LogicService', () => ({
     logicService: {}
@@ -37,7 +29,6 @@ vi.mock('../../../server/services/LogicService', () => ({
 vi.mock('../../../server/services/BlockRunner', () => ({
     blockRunner: {}
 }));
-
 vi.mock('../../../server/repositories', () => ({
     stepRepository: {
         findBySectionId: vi.fn(),
@@ -56,10 +47,8 @@ vi.mock('../../../server/repositories', () => ({
     workflowRepository: {},
     logicRuleRepository: {}
 }));
-
 describe('RunExecutionCoordinator - JS Execution', () => {
     let coordinator: RunExecutionCoordinator;
-
     beforeEach(async () => {
         vi.clearAllMocks();
         coordinator = new RunExecutionCoordinator(
@@ -71,7 +60,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             workflowRepository as any
         );
     });
-
     const mockJsStep = {
         id: 'step-js-1',
         type: 'js_question',
@@ -85,19 +73,16 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         } as JsQuestionConfig,
         alias: 'total'
     };
-
     it('should execute JS questions using ScriptEngine', async () => {
         // Setup mocks
         (stepRepository.findBySectionId as any).mockResolvedValue([mockJsStep]);
         (sectionRepository.findById as any).mockResolvedValue({ workflowId: 'wf-1' });
-
         // Mock ScriptEngine success
         (scriptEngine.execute as any).mockResolvedValue({
             ok: true,
             output: 30,
             durationMs: 5
         });
-
         // Test via private method execution
         const context = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
         const result = await (coordinator as any).executeJsQuestions(
@@ -106,7 +91,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             { 'step-a': 10, 'step-b': 20 },
             context
         );
-
         expect(result.success).toBe(true);
         expect(scriptEngine.execute).toHaveBeenCalledWith(expect.objectContaining({
             code: mockJsStep.options.code,
@@ -120,7 +104,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 })
             })
         }));
-
         const { runPersistenceWriter } = await import('../../../server/services/runs/RunPersistenceWriter');
         expect(runPersistenceWriter.saveStepValue).toHaveBeenCalledWith(
             'run-1',
@@ -129,16 +112,13 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             'wf-1'
         );
     });
-
     it('should handle ScriptEngine errors gracefully', async () => {
         (stepRepository.findBySectionId as any).mockResolvedValue([mockJsStep]);
         (sectionRepository.findById as any).mockResolvedValue({ workflowId: 'wf-1' });
-
         (scriptEngine.execute as any).mockResolvedValue({
             ok: false,
             error: 'SyntaxError: Unexpected token'
         });
-
         const context = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
         const result = await (coordinator as any).executeJsQuestions(
             'run-1',
@@ -146,7 +126,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             { 'step-a': 10, 'step-b': 20 },
             context
         );
-
         expect(result.success).toBe(false);
         expect(result.errors).toContainEqual(expect.stringContaining('SyntaxError'));
     });

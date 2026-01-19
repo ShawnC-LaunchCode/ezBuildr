@@ -2,9 +2,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useLocation } from "wouter";
+import {  useLocation } from "wouter";
 import { z } from "zod";
-
 import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { authAPI } from "@/lib/vault-api";
-
 const resetPasswordSchema = z.object({
     password: z.string()
         .min(8, "Password must be at least 8 characters")
@@ -23,15 +21,12 @@ const resetPasswordSchema = z.object({
     message: "Passwords don't match",
     path: ["confirmPassword"],
 });
-
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
-
 export default function ResetPasswordPage() {
     const [location, setLocation] = useLocation();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [token, setToken] = useState<string | null>(null);
-
     useEffect(() => {
         // Extract token from URL manually since wouter doesn't have useSearchParams
         const urlParams = new URLSearchParams(window.location.search);
@@ -46,7 +41,6 @@ export default function ResetPasswordPage() {
             });
         }
     }, []);
-
     const form = useForm<ResetPasswordFormValues>({
         resolver: zodResolver(resetPasswordSchema),
         defaultValues: {
@@ -54,7 +48,6 @@ export default function ResetPasswordPage() {
             confirmPassword: "",
         },
     });
-
     const onSubmit = async (data: ResetPasswordFormValues) => {
         if (!token) {return;}
         setIsLoading(true);
@@ -63,12 +56,10 @@ export default function ResetPasswordPage() {
                 token,
                 newPassword: data.password
             });
-
             toast({
                 title: "Password reset successful",
                 description: "You can now sign in with your new password.",
             });
-
             setLocation("/auth/login");
         } catch (error) {
             toast({
@@ -80,7 +71,6 @@ export default function ResetPasswordPage() {
             setIsLoading(false);
         }
     };
-
     if (!token) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -92,7 +82,6 @@ export default function ResetPasswordPage() {
             </div>
         )
     }
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
@@ -106,7 +95,6 @@ export default function ResetPasswordPage() {
                         Set new password
                     </h2>
                 </div>
-
                 <Card className="mt-8 shadow-xl border-dashed border-gray-200">
                     <CardHeader>
                         <CardTitle>New Password</CardTitle>
@@ -141,7 +129,6 @@ export default function ResetPasswordPage() {
                                         </FormItem>
                                     )}
                                 />
-
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? (
                                         <>

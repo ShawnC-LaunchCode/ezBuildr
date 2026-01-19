@@ -1,20 +1,13 @@
-import { eq, and, desc } from "drizzle-orm";
-
+import { eq, desc } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import type { WorkflowVersion } from "@shared/schema";
-
 import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
 import { db } from "../db";
 import { createLogger } from "../logger";
-import { computeChecksum, verifyChecksum } from "../utils/checksum";
-
+import { computeChecksum } from "../utils/checksum";
 import { aclService } from "./AclService";
 import { workflowDiffService } from "./diff/WorkflowDiffService";
-
-
-
 const logger = createLogger({ module: "version-service" });
-
 /**
  * Version validation result
  */
@@ -23,7 +16,6 @@ export interface ValidationResult {
   errors: string[];
   warnings: string[];
 }
-
 /**
  * Service for workflow version management
  * Handles publishing, rollback, pinning, and diffing
@@ -40,14 +32,12 @@ export class VersionService {
         throw new Error("Access denied - insufficient permissions for this workflow");
       }
     }
-
     return db
       .select()
       .from(schema.workflowVersions)
       .where(eq(schema.workflowVersions.workflowId, workflowId))
       .orderBy(desc(schema.workflowVersions.createdAt));
   }
-
   /**
    * Get a specific version
    */
@@ -57,10 +47,8 @@ export class VersionService {
       .from(schema.workflowVersions)
       .where(eq(schema.workflowVersions.id, versionId))
       .limit(1);
-
     return version || null;
   }
-
   /**
    * Validate workflow before publishing
    * Checks for:
@@ -75,7 +63,6 @@ export class VersionService {
       errors: [],
       warnings: [],
     };
-
     // Basic validation checks
     const parseResult = WorkflowGraphSchema.safeParse(graphJson);
     if (!parseResult.success) {
@@ -83,13 +70,11 @@ export class VersionService {
       result.errors.push(...parseResult.error.errors.map(e => `Schema Error: ${e.path.join('.')} - ${e.message}`));
       return result;
     }
-
     if (!graphJson) {
       result.valid = false;
       result.errors.push("Invalid graph structure: empty");
       return result;
     }
-
     if (graphJson.pages) {
       // Validation for Pages/Blocks structure
       if (!Array.isArray(graphJson.pages)) {
@@ -98,40 +83,34 @@ export class VersionService {
       }
       return result; // Skip node/edge checks for now
     }
-
     // Legacy node/edge validation
     if (!graphJson.nodes) {
       result.valid = false;
       result.errors.push("Invalid graph structure: missing nodes or pages");
       return result;
     }
-
     // Check for cycles in the graph
     const hasCycle = this.detectCycle(graphJson);
     if (hasCycle) {
       result.valid = false;
       result.errors.push("Graph contains cycles - workflows must be acyclic");
     }
-
     // Validate node types and configurations
     for (const node of graphJson.nodes) {
       if (!node.type) {
         result.errors.push(`Node ${node.id} is missing a type`);
         result.valid = false;
       }
-
       // Validate node-specific configurations
       if (node.type === 'question' && !node.data?.questionText) {
         result.warnings.push(`Question node ${node.id} has no question text`);
       }
     }
-
     // Validate edges
     if (graphJson.edges) {
       for (const edge of graphJson.edges) {
         const sourceExists = graphJson.nodes.some((n: any) => n.id === edge.source);
         const targetExists = graphJson.nodes.some((n: any) => n.id === edge.target);
-
         if (!sourceExists) {
           result.errors.push(`Edge references non-existent source node: ${edge.source}`);
           result.valid = false;
@@ -142,17 +121,14 @@ export class VersionService {
         }
       }
     }
-
     return result;
   }
-
   /**
    * Detect cycles in graph using DFS
    */
   private detectCycle(graphJson: any): boolean {
     const nodes = graphJson.nodes || [];
     const edges = graphJson.edges || [];
-
     // Build adjacency list
     const adjacency = new Map<string, string[]>();
     for (const node of nodes) {
@@ -163,15 +139,12 @@ export class VersionService {
       neighbors.push(edge.target);
       adjacency.set(edge.source, neighbors);
     }
-
     // DFS with recursion stack
     const visited = new Set<string>();
     const recStack = new Set<string>();
-
     const dfs = (nodeId: string): boolean => {
       visited.add(nodeId);
       recStack.add(nodeId);
-
       const neighbors = adjacency.get(nodeId) || [];
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
@@ -180,21 +153,16 @@ export class VersionService {
           return true; // Cycle detected
         }
       }
-
       recStack.delete(nodeId);
       return false;
     };
-
     for (const node of nodes) {
       if (!visited.has(node.id)) {
         if (dfs(node.id)) { return true; }
       }
     }
-
     return false;
   }
-
-
   /**
    * Create a draft version (for AI edits or auto-saves)
    * Creates an immutable snapshot without publishing
@@ -210,7 +178,6 @@ export class VersionService {
   ): Promise<WorkflowVersion | null> {
     // Compute checksum
     const checksum = computeChecksum({ graphJson });
-
     // Fetch the LATEST version for this workflow.
     const [latestVersion] = await db
       .select()
@@ -218,22 +185,18 @@ export class VersionService {
       .where(eq(schema.workflowVersions.workflowId, workflowId))
       .orderBy(desc(schema.workflowVersions.createdAt))
       .limit(1);
-
     // If checksum matches latest, no changes - return null
     if (latestVersion && latestVersion.checksum === checksum) {
       logger.debug({ workflowId, checksum }, "No changes detected, skipping draft version creation");
       return null;
     }
-
     // Compute diff against latest version for changelog
     let changelog: any = null;
     if (latestVersion) {
       changelog = workflowDiffService.diff(latestVersion.graphJson as any, graphJson);
     }
-
     // Determine version number
     const versionNumber = latestVersion ? (latestVersion.versionNumber || 1) + 1 : 1;
-
     const [newVersion] = await db
       .insert(schema.workflowVersions)
       .values({
@@ -250,7 +213,6 @@ export class VersionService {
         migrationInfo: metadata ? { aiMetadata: metadata } : null,
       })
       .returning();
-
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -265,12 +227,9 @@ export class VersionService {
         metadata,
       },
     });
-
     logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Created draft version");
-
     return newVersion;
   }
-
   /**
    * Publish a new version
    * Creates an immutable snapshot with checksum and updates workflow.currentVersionId
@@ -285,14 +244,11 @@ export class VersionService {
   ): Promise<WorkflowVersion> {
     // Validate workflow
     const validation = await this.validateWorkflow(workflowId, graphJson);
-
     if (!validation.valid && !force) {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
-
     // Compute checksum
     const checksum = computeChecksum({ graphJson });
-
     // Compute diff against latest version for changelog
     let changelog: any = null;
     // Fetch the LATEST version for this workflow.
@@ -303,14 +259,11 @@ export class VersionService {
       .where(eq(schema.workflowVersions.workflowId, workflowId))
       .orderBy(desc(schema.workflowVersions.createdAt))
       .limit(1);
-
     if (latestVersion) {
       changelog = workflowDiffService.diff(latestVersion.graphJson as any, graphJson);
     }
-
     // Determine version number
     const versionNumber = latestVersion ? (latestVersion.versionNumber || 1) + 1 : 1;
-
     // Create new version (published)
     const [newVersion] = await db
       .insert(schema.workflowVersions)
@@ -327,7 +280,6 @@ export class VersionService {
         changelog,
       })
       .returning();
-
     // Update workflow's currentVersionId and status to active
     await db
       .update(schema.workflows)
@@ -337,7 +289,6 @@ export class VersionService {
         updatedAt: new Date(),
       })
       .where(eq(schema.workflows.id, workflowId));
-
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -353,12 +304,9 @@ export class VersionService {
         changelog // include in audit too
       },
     });
-
     logger.info({ workflowId, versionId: newVersion.id, userId, versionNumber }, "Published new version");
-
     return newVersion;
   }
-
   /**
    * Rollback to a previous version
    * Sets currentVersionId to the specified version
@@ -372,11 +320,9 @@ export class VersionService {
   ): Promise<void> {
     // Verify version exists and belongs to workflow
     const version = await this.getVersion(toVersionId);
-
     if (!version || version.workflowId !== workflowId) {
       throw new Error("Version not found or does not belong to this workflow");
     }
-
     // Update workflow's currentVersionId
     // Update workflow's currentVersionId
     await db
@@ -386,7 +332,6 @@ export class VersionService {
         updatedAt: new Date(),
       })
       .where(eq(schema.workflows.id, workflowId));
-
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -399,10 +344,8 @@ export class VersionService {
         isDraft: version.isDraft,
       },
     });
-
     logger.info({ workflowId, toVersionId, userId, isDraft: version.isDraft }, "Rolled back to version");
   }
-
   /**
    * Restore workflow to a specific version (creates new draft version with same content)
    * This is preferred for AI undo operations as it preserves full history
@@ -415,11 +358,9 @@ export class VersionService {
   ): Promise<WorkflowVersion> {
     // Verify source version exists and belongs to workflow
     const sourceVersion = await this.getVersion(fromVersionId);
-
     if (!sourceVersion || sourceVersion.workflowId !== workflowId) {
       throw new Error("Source version not found or does not belong to this workflow");
     }
-
     // Create a new draft version with the same graphJson
     const restoredVersion = await this.createDraftVersion(
       workflowId,
@@ -428,11 +369,9 @@ export class VersionService {
       notes || `Restored from version ${sourceVersion.versionNumber || fromVersionId}`,
       { restoredFrom: fromVersionId }
     );
-
     if (!restoredVersion) {
       throw new Error("Failed to create restored version (no changes detected)");
     }
-
     // Log audit event
     // Log audit event
     await db.insert(schema.auditLogs).values({
@@ -446,12 +385,9 @@ export class VersionService {
         notes,
       },
     });
-
     logger.info({ workflowId, fromVersionId, toVersionId: restoredVersion.id, userId }, "Restored to version");
-
     return restoredVersion;
   }
-
   /**
    * Pin a specific version (overrides currentVersionId for API/Intake)
    */
@@ -462,11 +398,9 @@ export class VersionService {
   ): Promise<void> {
     // Verify version exists and belongs to workflow
     const version = await this.getVersion(versionId);
-
     if (!version || version.workflowId !== workflowId) {
       throw new Error("Version not found or does not belong to this workflow");
     }
-
     // Update workflow's pinnedVersionId
     // Update workflow's pinnedVersionId
     await db
@@ -476,7 +410,6 @@ export class VersionService {
         updatedAt: new Date(),
       })
       .where(eq(schema.workflows.id, workflowId));
-
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -485,10 +418,8 @@ export class VersionService {
       action: 'pin_version',
       details: { versionId },
     });
-
     logger.info({ workflowId, versionId, userId }, "Pinned version");
   }
-
   /**
    * Unpin version (removes pinnedVersionId)
    */
@@ -500,7 +431,6 @@ export class VersionService {
         updatedAt: new Date(),
       })
       .where(eq(schema.workflows.id, workflowId));
-
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -509,30 +439,24 @@ export class VersionService {
       action: 'unpin_version',
       details: {},
     });
-
     logger.info({ workflowId, userId }, "Unpinned version");
   }
-
   /**
    * Compute diff between two versions
    */
   async diffVersions(versionId1: string, versionId2: string): Promise<any> {
     const version1 = await this.getVersion(versionId1);
     const version2 = await this.getVersion(versionId2);
-
     if (!version1 || !version2) {
       throw new Error("One or both versions not found");
     }
-
     return workflowDiffService.diff(version1.graphJson as any, version2.graphJson as any);
   }
-
   /**
    * Export workflow versions as JSON
    */
   async exportVersions(workflowId: string): Promise<any> {
     const versions = await this.listVersions(workflowId);
-
     return {
       workflowId,
       exportedAt: new Date().toISOString(),
@@ -560,5 +484,4 @@ export class VersionService {
       .where(eq(schema.workflowVersions.id, versionId));
   }
 }
-
 export const versionService = new VersionService();

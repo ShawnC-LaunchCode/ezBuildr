@@ -1,9 +1,6 @@
 import { WorkflowRun } from "@shared/schema";
-
-import { logger } from "../../logger";
 import { workflowRepository, workflowRunRepository, projectRepository } from "../../repositories";
 import { workflowService } from "../WorkflowService";
-
 export interface RunAuthContext {
     run?: WorkflowRun;
     mode: 'live' | 'preview';
@@ -11,7 +8,6 @@ export interface RunAuthContext {
     userId?: string;
     tenantId?: string;
 }
-
 export class RunAuthResolver {
     constructor(
         private runRepo = workflowRunRepository,
@@ -19,22 +15,18 @@ export class RunAuthResolver {
         private projectRepo = projectRepository,
         private workflowSvc = workflowService
     ) { }
-
     /**
      * Resolve access to a run
      */
     async resolveRun(runId: string, userId: string | undefined): Promise<RunAuthContext> {
         const run = await this.runRepo.findById(runId);
-
         if (!run) {
             // If not found, check if it's a "virtual" run (e.g. preview token)
             // For now, assume DB persistence is required for all runs.
             return { mode: 'live', access: 'none' };
         }
-
         // Determine access level
         let access: RunAuthContext['access'] = 'none';
-
         if (userId) {
             // 1. Check if user created the run
             if (run.createdBy === userId || run.createdBy === `creator:${userId}`) {
@@ -58,14 +50,11 @@ export class RunAuthResolver {
                 access = 'public';
             }
         }
-
         // Determine mode
         // (Could be stored on run or inferred)
         const mode = 'live'; // Default for now, can be enhanced
-
         // Get tenant context
         const tenantId = await this.getTenantId(run.workflowId);
-
         return {
             run,
             mode,
@@ -74,7 +63,6 @@ export class RunAuthResolver {
             tenantId
         };
     }
-
     /**
      * Get tenant ID for a workflow
      */
@@ -88,7 +76,6 @@ export class RunAuthResolver {
             return undefined;
         }
     }
-
     /**
      * Verify access for creating a run
      */
@@ -100,20 +87,16 @@ export class RunAuthResolver {
             // Anonymous: verify public access
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
             let workflow;
-
             if (isUuid) {
                 workflow = await this.workflowRepo.findById(idOrSlug);
             } else {
                 workflow = await this.workflowRepo.findByPublicLink(idOrSlug);
             }
-
             if (!workflow) {throw new Error('Workflow not found');}
             if (workflow.status !== 'active') {throw new Error('Workflow is not active');}
             if (!workflow.isPublic) {throw new Error('Workflow is not public');}
-
             return workflow;
         }
     }
 }
-
 export const runAuthResolver = new RunAuthResolver();

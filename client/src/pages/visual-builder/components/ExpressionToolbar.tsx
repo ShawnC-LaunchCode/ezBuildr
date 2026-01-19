@@ -1,10 +1,8 @@
 /**
  * ExpressionToolbar - Quick-insert toolbar for variables, helpers, and snippets
  */
-
 import { Variable, FunctionSquare, FileText } from 'lucide-react';
-import React, { useState } from 'react';
-
+import React, {  } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,16 +18,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-
 import { useAvailableVars } from '../hooks/useAvailableVars';
 import { useHelpers } from '../hooks/useHelpers';
-
 export interface ExpressionToolbarProps {
   workflowId: string;
   nodeId: string;
   onInsert: (text: string) => void;
 }
-
 const SNIPPETS = [
   {
     label: 'If/Else',
@@ -77,27 +72,22 @@ const SNIPPETS = [
     preview: '!isEmpty(var)',
   },
 ];
-
 export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionToolbarProps) {
   const { data: availableVarsData } = useAvailableVars(workflowId, nodeId);
   const { data: helpersData } = useHelpers();
-
   const handleInsertVariable = (varName: string) => {
     onInsert(varName);
   };
-
   const handleInsertHelper = (helperName: string, signature: string) => {
     // Create simple insert text (without snippet placeholders for simple click-insert)
     const insertText = `${helperName}()`;
     onInsert(insertText);
   };
-
   const handleInsertSnippet = (template: string) => {
     // Convert snippet template to simple text (remove placeholders)
     const simpleText = template.replace(/\$\{\d+:([^}]+)\}/g, '$1');
     onInsert(simpleText);
   };
-
   return (
     <div className="flex items-center gap-2 flex-wrap p-2 bg-muted/30 border rounded-md">
       {/* Variables Section */}
@@ -110,7 +100,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
             <TooltipContent>Available variables at this node</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
         {availableVarsData?.vars && availableVarsData.vars.length > 0 ? (
           <div className="flex items-center gap-1 flex-wrap">
             {availableVarsData.vars.slice(0, 5).map((varName) => (
@@ -148,9 +137,7 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
           <span className="text-xs text-muted-foreground">No variables available</span>
         )}
       </div>
-
       <div className="h-4 w-px bg-border" />
-
       {/* Helpers Section */}
       <div className="flex items-center gap-1.5">
         <TooltipProvider>
@@ -161,7 +148,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
             <TooltipContent>Helper functions</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-6 text-xs">
@@ -187,7 +173,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
                       )}
                     </DropdownMenuItem>
                   ))}
-
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">String</div>
                 {helpersData.helpers
@@ -204,7 +189,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
                       )}
                     </DropdownMenuItem>
                   ))}
-
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Array</div>
                 {helpersData.helpers
@@ -221,7 +205,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
                       )}
                     </DropdownMenuItem>
                   ))}
-
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Date & Logic</div>
                 {helpersData.helpers
@@ -245,9 +228,7 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
       <div className="h-4 w-px bg-border" />
-
       {/* Snippets Section */}
       <div className="flex items-center gap-1.5">
         <TooltipProvider>
@@ -258,7 +239,6 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
             <TooltipContent>Common patterns</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-6 text-xs">

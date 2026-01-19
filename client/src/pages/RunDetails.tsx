@@ -2,27 +2,23 @@
  * Run Details Page
  * Stage 8: View run details with trace, inputs, outputs, logs, and metadata
  */
-
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Download, PlayCircle, FileText, Share2, Copy } from 'lucide-react';
 import React, { useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
-
 import { TracePanel } from '@/components/runs/TracePanel';
 import { JsonViewer } from '@/components/shared/JsonViewer';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { documentRunsAPI } from '@/lib/vault-api';
-
-
 export default function RunDetails() {
   const [_, params] = useRoute('/runs/:id');
   const [_location, setLocation] = useLocation();
@@ -30,19 +26,16 @@ export default function RunDetails() {
   const runId = params?.id;
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
-
   const { data: run, isLoading, error } = useQuery({
     queryKey: ['document-run', runId],
     queryFn: () => documentRunsAPI.get(runId!),
     enabled: !!runId,
   });
-
   const { data: logs } = useQuery({
     queryKey: ['document-run-logs', runId],
     queryFn: () => documentRunsAPI.getLogs(runId!, { limit: 100 }),
     enabled: !!runId,
   });
-
   const rerunMutation = useMutation({
     mutationFn: () => documentRunsAPI.rerun(runId!),
     onSuccess: (data) => {
@@ -60,7 +53,6 @@ export default function RunDetails() {
       });
     },
   });
-
   const shareMutation = useMutation({
     mutationFn: () => documentRunsAPI.share(runId!),
     onSuccess: (data) => {
@@ -76,7 +68,6 @@ export default function RunDetails() {
       });
     },
   });
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
     toast({
@@ -84,11 +75,9 @@ export default function RunDetails() {
       description: 'Link copied to clipboard.',
     });
   };
-
   if (isLoading) {
     return <LoadingState />;
   }
-
   if (error || !run) {
     return (
       <div className="container mx-auto py-6">
@@ -101,7 +90,6 @@ export default function RunDetails() {
       </div>
     );
   }
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
@@ -114,14 +102,12 @@ export default function RunDetails() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-
   const formatDuration = (ms?: number) => {
     if (!ms) {return '-';}
     if (ms < 1000) {return `${ms}ms`;}
     if (ms < 60000) {return `${(ms / 1000).toFixed(2)}s`;}
     return `${(ms / 60000).toFixed(2)}m`;
   };
-
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -135,7 +121,6 @@ export default function RunDetails() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-
           <div>
             <h1 className="text-3xl font-bold">Run Details</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -143,7 +128,6 @@ export default function RunDetails() {
             </p>
           </div>
         </div>
-
         <div className="flex gap-2">
           {run.status === 'success' && run.outputRefs && (
             <>
@@ -157,7 +141,6 @@ export default function RunDetails() {
                   Download DOCX
                 </a>
               </Button>
-
               <Button variant="outline" size="sm" asChild>
                 <a
                   href={documentRunsAPI.downloadUrl(run.id, 'pdf')}
@@ -169,9 +152,7 @@ export default function RunDetails() {
                 </a>
               </Button>
             </>
-
           )}
-
           <Button
             variant="outline"
             size="sm"
@@ -181,7 +162,6 @@ export default function RunDetails() {
             <Share2 className="h-4 w-4 mr-2" />
             Share
           </Button>
-
           <Button
             size="sm"
             onClick={() => { void rerunMutation.mutate(); }}
@@ -192,7 +172,6 @@ export default function RunDetails() {
           </Button>
         </div>
       </div>
-
       {/* Status Card */}
       <Card>
         <CardContent className="pt-6">
@@ -201,32 +180,27 @@ export default function RunDetails() {
               <div className="text-sm text-muted-foreground">Status</div>
               <div className="mt-1">{getStatusBadge(run.status)}</div>
             </div>
-
             <div>
               <div className="text-sm text-muted-foreground">Duration</div>
               <div className="mt-1 font-medium">{formatDuration(run.durationMs)}</div>
             </div>
-
             <div>
               <div className="text-sm text-muted-foreground">Started</div>
               <div className="mt-1 font-medium">
                 {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
               </div>
             </div>
-
             <div>
               <div className="text-sm text-muted-foreground">Created By</div>
               <div className="mt-1 font-medium">
                 {run.createdByUser?.email || run.createdBy}
               </div>
             </div>
-
             <div>
               <div className="text-sm text-muted-foreground">Run ID</div>
               <div className="mt-1 font-mono text-xs">{run.id.slice(0, 8)}...</div>
             </div>
           </div>
-
           {run.error && (
             <div className="mt-4 p-4 bg-destructive/10 border border-destructive rounded-md">
               <div className="text-sm font-semibold text-destructive">Error</div>
@@ -235,7 +209,6 @@ export default function RunDetails() {
           )}
         </CardContent>
       </Card>
-
       {/* Tabs */}
       <Card>
         <Tabs defaultValue="trace" className="w-full">
@@ -248,7 +221,6 @@ export default function RunDetails() {
               <TabsTrigger value="meta">Metadata</TabsTrigger>
             </TabsList>
           </CardHeader>
-
           <CardContent>
             {/* Trace Tab */}
             <TabsContent value="trace">
@@ -260,7 +232,6 @@ export default function RunDetails() {
                 </div>
               )}
             </TabsContent>
-
             {/* Inputs Tab */}
             <TabsContent value="inputs">
               {run.inputJson ? (
@@ -271,13 +242,11 @@ export default function RunDetails() {
                 </div>
               )}
             </TabsContent>
-
             {/* Outputs Tab */}
             <TabsContent value="outputs">
               {run.outputRefs ? (
                 <div className="space-y-4">
                   <JsonViewer data={run.outputRefs} maxHeight="600px" />
-
                   {run.status === 'success' && (
                     <div className="flex gap-2">
                       <Button variant="outline" asChild>
@@ -290,7 +259,6 @@ export default function RunDetails() {
                           Download DOCX
                         </a>
                       </Button>
-
                       <Button variant="outline" asChild>
                         <a
                           href={documentRunsAPI.downloadUrl(run.id, 'pdf')}
@@ -310,7 +278,6 @@ export default function RunDetails() {
                 </div>
               )}
             </TabsContent>
-
             {/* Logs Tab */}
             <TabsContent value="logs">
               {logs && logs.items.length > 0 ? (
@@ -345,7 +312,6 @@ export default function RunDetails() {
                 </div>
               )}
             </TabsContent>
-
             {/* Metadata Tab */}
             <TabsContent value="meta">
               <div className="space-y-4">
@@ -354,27 +320,22 @@ export default function RunDetails() {
                     <div className="text-sm font-semibold">Run ID</div>
                     <div className="mt-1 font-mono text-sm">{run.id}</div>
                   </div>
-
                   <div>
                     <div className="text-sm font-semibold">Workflow Version ID</div>
                     <div className="mt-1 font-mono text-sm">{run.workflowVersionId}</div>
                   </div>
-
                   <div>
                     <div className="text-sm font-semibold">Workflow</div>
                     <div className="mt-1">{run.workflowVersion?.workflow?.name}</div>
                   </div>
-
                   <div>
                     <div className="text-sm font-semibold">Version</div>
                     <div className="mt-1">{run.workflowVersion?.name}</div>
                   </div>
-
                   <div>
                     <div className="text-sm font-semibold">Created At</div>
                     <div className="mt-1">{new Date(run.createdAt).toLocaleString()}</div>
                   </div>
-
                   <div>
                     <div className="text-sm font-semibold">Updated At</div>
                     <div className="mt-1">{new Date(run.updatedAt).toLocaleString()}</div>
@@ -385,8 +346,6 @@ export default function RunDetails() {
           </CardContent>
         </Tabs>
       </Card>
-
-
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

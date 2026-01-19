@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Loader2, FileText, ChevronRight } from "lucide-react";
+import { Plus, Loader2, FileText } from "lucide-react";
 import React, { useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useConfetti } from "@/hooks/useConfetti";
-
 interface Template {
   id: string;
   name: string;
@@ -16,19 +14,16 @@ interface Template {
   isSystem: boolean;
   createdAt: string;
 }
-
 interface AddTemplateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   surveyId: string;
 }
-
 export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const { fire } = useConfetti();
-
   // Fetch templates
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["templates"],
@@ -38,7 +33,6 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
     },
     enabled: open,
   });
-
   // Insert template mutation
   const insertTemplate = useMutation({
     mutationFn: async (templateId: string) => {
@@ -53,11 +47,9 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
         title: "Template added successfully",
         description: `${data.pagesAdded} page(s) and ${data.questionsAdded} question(s) added from "${data.templateName}"`,
       });
-
       // Invalidate survey queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["survey", surveyId] });
       queryClient.invalidateQueries({ queryKey: ["surveyPages", surveyId] });
-
       // Close modal
       handleClose();
     },
@@ -69,21 +61,17 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
       });
     },
   });
-
   const handleClose = () => {
     setSelectedTemplateId(null);
     onOpenChange(false);
   };
-
   const handleInsertTemplate = (templateId: string) => {
     setSelectedTemplateId(templateId);
     insertTemplate.mutate(templateId);
   };
-
   // Separate system and user templates
   const systemTemplates = templates.filter(t => t.isSystem);
   const userTemplates = templates.filter(t => !t.isSystem);
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
@@ -99,7 +87,6 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
             Insert pages and questions from a saved template into this survey
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-6">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
@@ -107,7 +94,6 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
               <span className="ml-2 text-muted-foreground">Loading templates...</span>
             </div>
           )}
-
           {!isLoading && templates.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -117,7 +103,6 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
               </p>
             </div>
           )}
-
           <AnimatePresence>
             {!isLoading && systemTemplates.length > 0 && (
               <motion.div
@@ -139,7 +124,6 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
                 ))}
               </motion.div>
             )}
-
             {!isLoading && userTemplates.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -166,13 +150,11 @@ export function AddTemplateModal({ open, onOpenChange, surveyId }: AddTemplateMo
     </Dialog>
   );
 }
-
 interface TemplateCardProps {
   template: Template;
   onInsert: (id: string) => void;
   isInserting: boolean;
 }
-
 function TemplateCard({ template, onInsert, isInserting }: TemplateCardProps) {
   return (
     <motion.div

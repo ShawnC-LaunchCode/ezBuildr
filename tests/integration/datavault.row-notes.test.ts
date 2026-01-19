@@ -1,8 +1,6 @@
-import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-
 import {
   datavaultTables,
   datavaultRows,
@@ -10,11 +8,7 @@ import {
   tenants,
   users,
 } from '@shared/schema';
-
-import { db } from '../../server/db';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
-
-
 /**
  * DataVault v4 Micro-Phase 3: Row Notes Integration Tests
  *
@@ -31,7 +25,6 @@ import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
  * 5. Preventing non-owner deletion
  * 6. Preventing cross-tenant access
  */
-
 describe('DataVault Row Notes API', () => {
   let app: Express;
   let testTenantId: string;
@@ -40,12 +33,10 @@ describe('DataVault Row Notes API', () => {
   let testTableId: string;
   let testRowId: string;
   let testNoteId: string;
-
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();
     app.use(express.json());
-
     // Mock authentication middleware for tests
     app.use((req: any, res, next) => {
       req.user = {
@@ -55,9 +46,7 @@ describe('DataVault Row Notes API', () => {
       req.session = { userId: testUserId };
       next();
     });
-
     registerDatavaultRoutes(app);
-
     // In real tests, create test tenant, users, table, and row:
     //
     // // Create test tenant
@@ -97,21 +86,18 @@ describe('DataVault Row Notes API', () => {
     // }).returning();
     // testRowId = row.id;
   });
-
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
     //   await db.delete(tenants).where(eq(tenants.id, testTenantId));
     // }
   });
-
   beforeEach(async () => {
     // Clean up notes before each test
     // if (testRowId) {
     //   await db.delete(datavaultRowNotes).where(eq(datavaultRowNotes.rowId, testRowId));
     // }
   });
-
   describe('POST /api/datavault/rows/:rowId/notes', () => {
     it('should create a new note', async () => {
       // Template test - in real implementation:
@@ -126,10 +112,8 @@ describe('DataVault Row Notes API', () => {
       // expect(response.body.rowId).toBe(testRowId);
       //
       // testNoteId = response.body.id;
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should sanitize HTML from note text', async () => {
       // Template test - verify XSS protection:
       // const response = await request(app)
@@ -139,20 +123,16 @@ describe('DataVault Row Notes API', () => {
       //
       // expect(response.body.text).toBe('Safe text');
       // expect(response.body.text).not.toContain('<script>');
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject empty note text', async () => {
       // Template test:
       // await request(app)
       //   .post(`/api/datavault/rows/${testRowId}/notes`)
       //   .send({ text: '' })
       //   .expect(400);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject note for row from different tenant', async () => {
       // Template test - create row in different tenant:
       // const [otherTenant] = await db.insert(tenants).values({
@@ -173,11 +153,9 @@ describe('DataVault Row Notes API', () => {
       //   .post(`/api/datavault/rows/${otherRow.id}/notes`)
       //   .send({ text: 'Cross-tenant note' })
       //   .expect(403);
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('GET /api/datavault/rows/:rowId/notes', () => {
     it('should fetch notes for a row ordered by newest first', async () => {
       // Template test:
@@ -200,10 +178,8 @@ describe('DataVault Row Notes API', () => {
       // expect(response.body).toHaveLength(2);
       // expect(response.body[0].text).toBe('Second note'); // Newest first
       // expect(response.body[1].text).toBe('First note');
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should return empty array for row with no notes', async () => {
       // Template test:
       // const response = await request(app)
@@ -212,20 +188,16 @@ describe('DataVault Row Notes API', () => {
       //
       // expect(response.body).toBeInstanceOf(Array);
       // expect(response.body).toHaveLength(0);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject access to notes for row from different tenant', async () => {
       // Template test:
       // await request(app)
       //   .get('/api/datavault/rows/other-tenant-row-id/notes')
       //   .expect(403);
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('DELETE /api/datavault/notes/:noteId', () => {
     it('should allow note owner to delete their note', async () => {
       // Template test:
@@ -248,10 +220,8 @@ describe('DataVault Row Notes API', () => {
       //   .expect(200);
       //
       // expect(notesResponse.body).toHaveLength(0);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should allow table owner to delete any note', async () => {
       // Template test - create note as different user:
       // // Switch to user2
@@ -279,10 +249,8 @@ describe('DataVault Row Notes API', () => {
       // await request(app)
       //   .delete(`/api/datavault/notes/${noteId}`)
       //   .expect(200);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should prevent non-owner from deleting note', async () => {
       // Template test:
       // // Create note as user1
@@ -304,27 +272,22 @@ describe('DataVault Row Notes API', () => {
       // await request(app)
       //   .delete(`/api/datavault/notes/${noteId}`)
       //   .expect(403);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should return 404 for non-existent note', async () => {
       // Template test:
       // await request(app)
       //   .delete('/api/datavault/notes/00000000-0000-0000-0000-000000000000')
       //   .expect(404);
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('Cross-tenant isolation', () => {
     it('should prevent accessing notes from different tenant', async () => {
       // Template test - comprehensive cross-tenant check:
       // 1. Create tenant2, table2, row2, note2
       // 2. Try to access note2 as tenant1 user
       // 3. Should be denied
-
       expect(true).toBe(true); // Placeholder
     });
   });

@@ -20,9 +20,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
-import type { DashboardStats, Survey, SurveyAnalytics, ResponseTrend, ActivityItem } from "@shared/schema";
+import type { Workflow } from "@shared/schema";
 
-
+interface DashboardStats {
+  totalWorkflows: number;
+  draftWorkflows: number;
+  activeWorkflows: number;
+  archivedWorkflows: number;
+  totalRuns: number;
+  completedRuns: number;
+  inProgressRuns: number;
+}
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -62,30 +70,14 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const { data: surveys, isLoading: surveysLoading, refetch: refetchSurveys } = useQuery<Survey[]>({
+  const { data: workflows, isLoading: workflowsLoading, refetch: refetchWorkflows } = useQuery<Workflow[]>({
     queryKey: ["/api/workflows"],
     retry: false,
   });
 
-  // DISABLED: Survey-specific analytics endpoints removed
-  // const { data: analytics, isLoading: analyticsLoading } = useQuery<SurveyAnalytics[]>({
-  //   queryKey: ["/api/dashboard/analytics"],
-  //   retry: false,
-  // });
-
-  // const { data: trends, isLoading: trendsLoading } = useQuery<ResponseTrend[]>({
-  //   queryKey: ["/api/dashboard/trends"],
-  //   retry: false,
-  // });
-
-  // const { data: activity, isLoading: activityLoading } = useQuery<ActivityItem[]>({
-  //   queryKey: ["/api/dashboard/activity"],
-  //   retry: false,
-  // });
-
   const handleDataUpdate = () => {
     refetchStats();
-    refetchSurveys();
+    refetchWorkflows();
   };
 
   if (isLoading || !isAuthenticated) {
@@ -131,51 +123,41 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
             <StatsCard
               title="Total Workflows"
-              value={stats?.totalSurveys ?? 0}
+              value={stats?.totalWorkflows ?? 0}
               icon={FileText}
               iconColor="text-primary"
-              change={`${stats?.draftSurveys ?? 0} drafts`}
+              change={`${stats?.draftWorkflows ?? 0} drafts`}
               changeLabel="pending"
               isLoading={statsLoading}
             />
 
             <StatsCard
               title="Active Workflows"
-              value={stats?.activeSurveys ?? 0}
+              value={stats?.activeWorkflows ?? 0}
               icon={PlayCircle}
               iconColor="text-success"
-              change={`${stats?.closedSurveys ?? 0} archived`}
+              change={`${stats?.archivedWorkflows ?? 0} archived`}
               changeLabel="total"
               isLoading={statsLoading}
             />
 
             <StatsCard
               title="Total Runs"
-              value={stats?.totalResponses ?? 0}
+              value={stats?.totalRuns ?? 0}
               icon={TrendingUp}
               iconColor="text-foreground"
-              change={`${stats?.avgResponsesPerSurvey ?? 0}/workflow`}
-              changeLabel="average"
+              change={`${stats?.completedRuns ?? 0}  completed`}
+              changeLabel="volume"
               isLoading={statsLoading}
             />
 
             <StatsCard
-              title="Completion Rate"
-              value={`${stats?.completionRate ?? 0}%`}
-              icon={Percent}
-              iconColor="text-warning"
-              change={stats?.totalResponses && stats.totalResponses > 0 ? "good" : "no data"}
-              changeLabel="performance"
-              isLoading={statsLoading}
-            />
-
-            <StatsCard
-              title="Recent Activity"
-              value={stats?.recentActivity?.length ?? 0}
+              title="In Progress"
+              value={stats?.inProgressRuns ?? 0}
               icon={History}
               iconColor="text-accent"
-              change="today"
-              changeLabel="events"
+              change="currently"
+              changeLabel="rurnning"
               isLoading={statsLoading}
             />
           </div>
@@ -200,7 +182,7 @@ export default function Dashboard() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4 sm:space-y-6">
-              {/* Quick Actions & Recent Surveys */}
+              {/* Quick Actions & Recent Workflows */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Quick Actions */}
                 <Card>
@@ -274,34 +256,33 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {surveysLoading ? (
+                    {workflowsLoading ? (
                       <SkeletonList count={3} showAvatar />
-                    ) : surveys && surveys.length > 0 ? (
+                    ) : workflows && workflows.length > 0 ? (
                       <div className="space-y-2 sm:space-y-3">
-                        {surveys.slice(0, 4).map((survey) => {
-                          // Determine target URL based on workflow status
-                          const targetUrl = survey.status === 'draft'
-                            ? `/builder/${survey.id}`
-                            : `/workflows/${survey.id}/results`;
+                        {workflows.slice(0, 4).map((workflow) => {
+                          const targetUrl = workflow.status === 'draft'
+                            ? `/builder/${workflow.id}`
+                            : `/workflows/${workflow.id}/results`;
 
                           return (
-                            <Link key={survey.id} href={targetUrl}>
-                              <div className="flex items-center justify-between p-2 sm:p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid={`card-recent-workflow-${survey.id}`}>
+                            <Link key={workflow.id} href={targetUrl}>
+                              <div className="flex items-center justify-between p-2 sm:p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer" data-testid={`card-recent-workflow-${workflow.id}`}>
                                 <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                                   <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <FileText className="h-4 w-4 text-primary" />
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <h4 className="font-medium text-sm sm:text-base text-foreground line-clamp-1" data-testid={`text-recent-workflow-title-${survey.id}`}>
-                                      {survey.title}
+                                    <h4 className="font-medium text-sm sm:text-base text-foreground line-clamp-1" data-testid={`text-recent-workflow-title-${workflow.id}`}>
+                                      {workflow.title}
                                     </h4>
                                     <p className="text-xs text-muted-foreground">
-                                      {survey.updatedAt ? new Date(survey.updatedAt).toLocaleDateString() : 'N/A'}
+                                      {workflow.updatedAt ? new Date(workflow.updatedAt).toLocaleDateString() : 'N/A'}
                                     </p>
                                   </div>
                                 </div>
                                 <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                                  <StatusBadge status={survey.status} />
+                                  <StatusBadge status={workflow.status} />
                                   <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground hidden sm:block" />
                                 </div>
                               </div>

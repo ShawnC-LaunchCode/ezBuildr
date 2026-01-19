@@ -21,6 +21,8 @@ describe('BlockRunner Validation Logic', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
     });
 
     it('should pass if no rules are present', async () => {

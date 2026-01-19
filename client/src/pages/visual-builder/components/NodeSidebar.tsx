@@ -1,11 +1,9 @@
 /**
  * NodeSidebar - Inspector panel for node configuration
  */
-
 import { Trash2, Plus, X } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'wouter';
-
 import { FinalBlockEditor } from '@/components/blocks/FinalBlockEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,28 +12,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-
 import { useBuilderStore } from '../store/useBuilderStore';
-
-
 import { ExpressionEditor } from './ExpressionEditor';
 import { ExpressionToolbar } from './ExpressionToolbar';
-
-
 export function NodeSidebar() {
   const { id: workflowId } = useParams<{ id: string }>();
   const { nodes, selectedNodeId, updateNode, deleteNode } = useBuilderStore();
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
-
   const [localConfig, setLocalConfig] = useState<any>({});
-
   useEffect(() => {
     if (selectedNode) {
       setLocalConfig(selectedNode.data.config || {});
     }
   }, [selectedNode]);
-
   if (!selectedNode) {
     return (
       <div className="p-6 text-center text-muted-foreground">
@@ -43,23 +32,19 @@ export function NodeSidebar() {
       </div>
     );
   }
-
   const handleUpdate = (updates: any) => {
     const newConfig = { ...localConfig, ...updates };
     setLocalConfig(newConfig);
     updateNode(selectedNode.id, { config: newConfig });
   };
-
   const handleLabelUpdate = (label: string) => {
     updateNode(selectedNode.id, { label });
   };
-
   const handleDelete = () => {
     if (confirm('Are you sure you want to delete this node?')) {
       deleteNode(selectedNode.id);
     }
   };
-
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {/* Node Header */}
@@ -82,7 +67,6 @@ export function NodeSidebar() {
             <Label>Node Type</Label>
             <Badge>{selectedNode.type}</Badge>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="label">Label</Label>
             <Input
@@ -92,7 +76,6 @@ export function NodeSidebar() {
               placeholder="Node label"
             />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="condition">Condition (optional)</Label>
             <p className="text-xs text-muted-foreground mb-2">
@@ -121,12 +104,10 @@ export function NodeSidebar() {
           </div>
         </CardContent>
       </Card>
-
       {/* Node Type-Specific Config */}
       {selectedNode.type === 'question' && (
         <QuestionConfig config={localConfig} onUpdate={handleUpdate} />
       )}
-
       {selectedNode.type === 'compute' && workflowId && (
         <ComputeConfig
           config={localConfig}
@@ -135,7 +116,6 @@ export function NodeSidebar() {
           nodeId={selectedNode.id}
         />
       )}
-
       {selectedNode.type === 'branch' && workflowId && (
         <BranchConfig
           config={localConfig}
@@ -144,7 +124,6 @@ export function NodeSidebar() {
           nodeId={selectedNode.id}
         />
       )}
-
       {selectedNode.type === 'template' && workflowId && (
         <TemplateConfig
           config={localConfig}
@@ -153,7 +132,6 @@ export function NodeSidebar() {
           nodeId={selectedNode.id}
         />
       )}
-
       {selectedNode.type === 'final' && workflowId && (
         <FinalBlockEditor
           config={localConfig}
@@ -165,7 +143,6 @@ export function NodeSidebar() {
     </div>
   );
 }
-
 // Question Node Config
 function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates: any) => void }) {
   return (
@@ -184,7 +161,6 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
             className="font-mono"
           />
         </div>
-
         <div className="space-y-2">
           <Label htmlFor="inputType">Input Type</Label>
           <Select
@@ -204,7 +180,6 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
             </SelectContent>
           </Select>
         </div>
-
         <div className="flex items-center space-x-2">
           <Checkbox
             id="required"
@@ -219,7 +194,6 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
     </Card>
   );
 }
-
 // Compute Node Config
 function ComputeConfig({
   config,
@@ -260,7 +234,6 @@ function ComputeConfig({
             height="100px"
           />
         </div>
-
         <div className="space-y-2">
           <Label htmlFor="outputKey">Output Variable</Label>
           <Input
@@ -275,7 +248,6 @@ function ComputeConfig({
     </Card>
   );
 }
-
 // Branch Node Config
 function BranchConfig({
   config,
@@ -289,23 +261,19 @@ function BranchConfig({
   nodeId: string;
 }) {
   const branches = config.branches || [];
-
   const addBranch = () => {
     const newBranches = [...branches, { condition: '', label: `Branch ${branches.length + 1}` }];
     onUpdate({ branches: newBranches });
   };
-
   const updateBranch = (index: number, updates: any) => {
     const newBranches = [...branches];
     newBranches[index] = { ...newBranches[index], ...updates };
     onUpdate({ branches: newBranches });
   };
-
   const removeBranch = (index: number) => {
     const newBranches = branches.filter((_: any, i: number) => i !== index);
     onUpdate({ branches: newBranches });
   };
-
   return (
     <Card>
       <CardHeader>
@@ -326,14 +294,12 @@ function BranchConfig({
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-
                 <Input
                   value={branch.label || ''}
                   onChange={(e) => updateBranch(index, { label: e.target.value })}
                   placeholder="Branch label"
                   className="text-sm"
                 />
-
                 <Label className="text-xs">Condition</Label>
                 <ExpressionEditor
                   value={branch.condition || ''}
@@ -347,7 +313,6 @@ function BranchConfig({
             </Card>
           ))}
         </div>
-
         <Button onClick={addBranch} variant="outline" className="w-full">
           <Plus className="w-4 h-4 mr-2" />
           Add Branch
@@ -356,7 +321,6 @@ function BranchConfig({
     </Card>
   );
 }
-
 // Template Node Config
 function TemplateConfig({
   config,
@@ -370,7 +334,6 @@ function TemplateConfig({
   nodeId: string;
 }) {
   const bindings = config.bindings || {};
-
   const addBinding = () => {
     const placeholder = prompt('Enter placeholder name:');
     if (placeholder) {
@@ -382,7 +345,6 @@ function TemplateConfig({
       });
     }
   };
-
   const updateBinding = (placeholder: string, expression: string) => {
     onUpdate({
       bindings: {
@@ -391,13 +353,11 @@ function TemplateConfig({
       },
     });
   };
-
   const removeBinding = (placeholder: string) => {
     const newBindings = { ...bindings };
     delete newBindings[placeholder];
     onUpdate({ bindings: newBindings });
   };
-
   return (
     <Card>
       <CardHeader>
@@ -413,7 +373,6 @@ function TemplateConfig({
             placeholder="Enter template ID"
           />
         </div>
-
         <div className="space-y-2">
           <Label>Placeholder Bindings</Label>
           <div className="space-y-2">

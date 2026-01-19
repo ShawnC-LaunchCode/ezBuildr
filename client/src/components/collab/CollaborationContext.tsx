@@ -1,14 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
-
+import React, { createContext, useContext, useMemo } from 'react';
 import { useCollabClient, CollabClientState, CollabClientActions } from '@/hooks/collab/useCollabClient';
-
 import type { Node, Edge } from 'reactflow';
-
 // We just need the state and actions, not the raw provider refs for now
 type CollabContextType = CollabClientState & CollabClientActions;
-
 const CollabContext = createContext<CollabContextType | null>(null);
-
 interface CollaborationProviderProps {
     children: React.ReactNode;
     config: {
@@ -30,10 +25,8 @@ interface CollaborationProviderProps {
     onNodesChange?: (nodes: Node[]) => void;
     onEdgesChange?: (edges: Edge[]) => void;
 }
-
 export function CollaborationProvider({ children, config, onNodesChange, onEdgesChange }: CollaborationProviderProps) {
     const noOp = () => { };
-
     // Use the hook
     const collab = useCollabClient({
         workflowId: config.workflowId,
@@ -44,14 +37,12 @@ export function CollaborationProvider({ children, config, onNodesChange, onEdges
         onNodesChange: onNodesChange || noOp,
         onEdgesChange: onEdgesChange || noOp,
     });
-
     return (
         <CollabContext.Provider value={collab}>
             {children}
         </CollabContext.Provider>
     );
 }
-
 export function useCollaboration() {
     const context = useContext(CollabContext);
     if (!context) {
@@ -59,21 +50,17 @@ export function useCollaboration() {
     }
     return context;
 }
-
 /**
  * Hook to get collaborators who are currently "editing" a specific block
  */
 export function useBlockCollaborators(blockId: string) {
     const { users } = useCollaboration();
-
     // Filter users who have this block as their activeBlockId
     // Sort? Maybe by latest first?
     const editors = useMemo(() => {
         return users.filter(u => u.activeBlockId === blockId);
     }, [users, blockId]);
-
     const isLocked = editors.length > 0;
-
     return {
         editors,
         isLocked,

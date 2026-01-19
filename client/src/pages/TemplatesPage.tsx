@@ -1,9 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Plus, Sparkles, FileText, Calendar, MoreVertical, Pencil, FileEdit, Trash2, Share2, Users } from "lucide-react";
-import React, { useMemo, useState, Suspense } from "react";
+import React, { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-
-import AddToSurveyDialog from "@/components/templates/AddToSurveyDialog";
 import EditTemplateModal from "@/components/templates/EditTemplateModal";
 import ShareTemplateModal from "@/components/templates/ShareTemplateModal";
 import {
@@ -37,8 +35,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTemplates, useTemplateSharing } from "@/hooks/useTemplates";
-
-
 interface Template {
   id: string;
   name: string;
@@ -50,10 +46,8 @@ interface Template {
   createdAt: string;
   updatedAt: string;
 }
-
 type SortOption = "recent" | "az";
 type ViewFilter = "all" | "mine" | "shared";
-
 export default function TemplatesPage() {
   const [, setLocation] = useLocation();
   const { list, remove } = useTemplates();
@@ -70,7 +64,6 @@ export default function TemplatesPage() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
   const [sharingTemplate, setSharingTemplate] = useState<Template | null>(null);
-
   // Loading state
   if (list.isLoading || (viewFilter === "shared" && listSharedWithMe.isLoading)) {
     return (
@@ -79,20 +72,16 @@ export default function TemplatesPage() {
       </div>
     );
   }
-
   // Get templates based on view filter
   const allTemplates: Template[] = list.data || [];
   const sharedTemplateIds = new Set((listSharedWithMe.data || []).map((s: any) => s.templateId));
-
   // Fetch full template data for shared templates
   const sharedTemplates = allTemplates.filter(t => sharedTemplateIds.has(t.id));
-
   const templates: Template[] =
     viewFilter === "all" ? allTemplates :
       viewFilter === "mine" ? allTemplates.filter(t => t.creatorId === user?.id && !t.isSystem) :
         viewFilter === "shared" ? sharedTemplates :
           allTemplates;
-
   // Extract all unique tags from templates
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -103,7 +92,6 @@ export default function TemplatesPage() {
     });
     return Array.from(tagSet).sort();
   }, [templates]);
-
   // Filter and sort templates
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -113,16 +101,13 @@ export default function TemplatesPage() {
         !q ||
         t.name?.toLowerCase().includes(q) ||
         t.description?.toLowerCase().includes(q);
-
       // Tag filter
       const matchesTags =
         selectedTags.length === 0 ||
         (t.tags &&
           selectedTags.some((selectedTag) => t.tags.includes(selectedTag)));
-
       return matchesSearch && matchesTags;
     });
-
     if (sort === "az") {
       arr = arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } else if (sort === "recent") {
@@ -131,27 +116,22 @@ export default function TemplatesPage() {
           new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
     }
-
     return arr;
   }, [templates, query, sort, selectedTags]);
-
   // Separate system and user templates
   const systemTemplates = filtered.filter((t) => t.isSystem);
   const userTemplates = filtered.filter((t) => !t.isSystem);
-
   // Toggle tag selection
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
   };
-
   // Clear all filters
   const clearFilters = () => {
     setSelectedTags([]);
     setQuery("");
   };
-
   // Handle template deletion
   const handleDeleteTemplate = async (template: Template) => {
     try {
@@ -169,7 +149,6 @@ export default function TemplatesPage() {
       });
     }
   };
-
   // Handle edit content (load into Survey Builder)
   const handleEditContent = (templateId: string) => {
     toast({
@@ -179,7 +158,6 @@ export default function TemplatesPage() {
     // TODO: Implement loading template into Survey Builder
     // setLocation(`/builder?templateId=${templateId}`);
   };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -210,7 +188,6 @@ export default function TemplatesPage() {
             </Select>
           </div>
         </div>
-
         {/* View Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-muted-foreground">View:</span>
@@ -245,7 +222,6 @@ export default function TemplatesPage() {
             )}
           </Button>
         </div>
-
         {/* Tag Filter Bar */}
         {allTags.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -283,7 +259,6 @@ export default function TemplatesPage() {
             </div>
           </div>
         )}
-
         {/* CTA Card */}
         <Card className="border-dashed border-2 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
           <CardHeader className="pb-3">
@@ -319,7 +294,6 @@ export default function TemplatesPage() {
             </p>
           </CardContent>
         </Card>
-
         {/* Templates Grid */}
         {filtered.length === 0 ? (
           <EmptyState hasQuery={!!query} />
@@ -334,7 +308,7 @@ export default function TemplatesPage() {
                 <TemplateGrid
                   templates={systemTemplates}
                   onAddToSurvey={(templateId) =>
-                    setOpenAdd({ open: true, templateId })
+                    toast({ title: "Feature coming soon", description: "Adding templates to workflows directly is coming soon." })
                   }
                   onEdit={setEditingTemplate}
                   onDelete={setDeletingTemplate}
@@ -344,7 +318,6 @@ export default function TemplatesPage() {
                 />
               </div>
             )}
-
             {/* User Templates */}
             {userTemplates.length > 0 && (
               <div className="space-y-3">
@@ -354,7 +327,7 @@ export default function TemplatesPage() {
                 <TemplateGrid
                   templates={userTemplates}
                   onAddToSurvey={(templateId) =>
-                    setOpenAdd({ open: true, templateId })
+                    toast({ title: "Feature coming soon", description: "Adding templates to workflows directly is coming soon." })
                   }
                   onEdit={setEditingTemplate}
                   onDelete={setDeletingTemplate}
@@ -366,23 +339,13 @@ export default function TemplatesPage() {
             )}
           </div>
         )}
-
         {/* Add to Survey Dialog */}
-        <Suspense fallback={null}>
-          <AddToSurveyDialog
-            open={openAdd.open}
-            onOpenChange={(o) => setOpenAdd({ open: o })}
-            templateId={openAdd.templateId}
-          />
-        </Suspense>
-
         {/* Edit Template Modal */}
         <EditTemplateModal
           open={!!editingTemplate}
           onClose={() => setEditingTemplate(null)}
           template={editingTemplate}
         />
-
         {/* Delete Confirmation Dialog */}
         <AlertDialog
           open={!!deletingTemplate}
@@ -407,7 +370,6 @@ export default function TemplatesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
         {/* Share Template Modal */}
         {sharingTemplate && (
           <ShareTemplateModal
@@ -421,7 +383,6 @@ export default function TemplatesPage() {
     </div>
   );
 }
-
 // Template Grid Component
 interface TemplateGridProps {
   templates: Template[];
@@ -432,7 +393,6 @@ interface TemplateGridProps {
   onEditContent: (templateId: string) => void;
   currentUserId?: string;
 }
-
 function TemplateGrid({
   templates,
   onAddToSurvey,
@@ -461,7 +421,6 @@ function TemplateGrid({
     </div>
   );
 }
-
 // Template Card Component
 interface TemplateCardProps {
   template: Template;
@@ -472,7 +431,6 @@ interface TemplateCardProps {
   onEditContent: (templateId: string) => void;
   currentUserId?: string;
 }
-
 function TemplateCard({
   template,
   onAddToSurvey,
@@ -485,7 +443,6 @@ function TemplateCard({
   // Fetch shares for this template to show SHARED badge
   const { listShares } = useTemplateSharing(template.id);
   const hasShares = (listShares.data || []).length > 0;
-
   // Extract metadata from template content if available
   const pageCount = template.content?.pages?.length || 0;
   const questionCount =
@@ -493,10 +450,8 @@ function TemplateCard({
       (acc: number, page: any) => acc + (page.questions?.length || 0),
       0
     ) || 0;
-
   // Check if current user can edit this template
   const canEdit = currentUserId && template.creatorId === currentUserId;
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -567,7 +522,6 @@ function TemplateCard({
           <p className="text-sm text-muted-foreground line-clamp-3 min-h-[3rem]">
             {template.description || "No description provided"}
           </p>
-
           {/* Tags */}
           {template.tags && template.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -582,7 +536,6 @@ function TemplateCard({
               ))}
             </div>
           )}
-
           {/* Metadata */}
           <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
             <div className="flex items-center gap-3">
@@ -599,7 +552,6 @@ function TemplateCard({
               )}
             </div>
           </div>
-
           {/* Created date */}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="w-3 h-3" />
@@ -613,7 +565,6 @@ function TemplateCard({
                 : "—"}
             </span>
           </div>
-
           {/* Action Button */}
           <div className="flex justify-end pt-2">
             <Button
@@ -630,12 +581,10 @@ function TemplateCard({
     </motion.div>
   );
 }
-
 // Empty State Component
 interface EmptyStateProps {
   hasQuery: boolean;
 }
-
 function EmptyState({ hasQuery }: EmptyStateProps) {
   if (hasQuery) {
     return (
@@ -646,7 +595,6 @@ function EmptyState({ hasQuery }: EmptyStateProps) {
       </div>
     );
   }
-
   return (
     <div className="min-h-[40vh] flex flex-col items-center justify-center text-center text-muted-foreground">
       <div className="text-6xl mb-4">🧩</div>

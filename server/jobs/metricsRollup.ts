@@ -4,9 +4,7 @@
  * Aggregates raw metrics events into time-bucketed rollups for faster analytics queries.
  * Runs periodically to compute metrics for 1m, 5m, 1h, and 1d buckets.
  */
-
-import { sql, and, gte, lt, eq, or, isNull } from 'drizzle-orm';
-
+import { sql } from 'drizzle-orm';
 import {
   metricsEvents,
   metricsRollups,
@@ -15,15 +13,12 @@ import {
 import { db } from '../db';
 import logger from '../logger';
 import sli from '../services/sli';
-
 export type BucketSize = '1m' | '5m' | '1h' | '1d';
-
 interface RollupParams {
   bucketSize: BucketSize;
   since?: Date;
   until?: Date;
 }
-
 /**
  * Run metrics rollup for all buckets
  */
@@ -33,7 +28,6 @@ export async function runRollup(params?: {
   until?: Date;
 }): Promise<void> {
   const buckets: BucketSize[] = params?.bucketSize ? [params.bucketSize] : ['1m', '5m', '1h', '1d'];
-
   for (const bucket of buckets) {
     try {
       await rollupBucket({
@@ -45,31 +39,25 @@ export async function runRollup(params?: {
       logger.error({ err: error, bucket }, 'Rollup failed for bucket');
     }
   }
-
   // logger.info({ buckets }, 'Metrics rollup completed');
 }
-
 /**
  * Rollup a specific bucket size
  */
 async function rollupBucket(params: RollupParams): Promise<void> {
   const bucketMs = getBucketMilliseconds(params.bucketSize);
   const now = new Date();
-
   // Default to last 2 buckets if not specified
   const until = params.until || now;
   const since = params.since || new Date(now.getTime() - bucketMs * 2);
-
   // Get bucket boundaries
   const buckets = getBucketBoundaries(since, until, bucketMs);
-
   // logger.debug({
   //   bucketSize: params.bucketSize,
   //   bucketCount: buckets.length,
   //   since,
   //   until,
   // }, 'Rolling up metrics');
-
   for (const bucket of buckets) {
     await rollupSingleBucket({
       bucketSize: params.bucketSize,
@@ -78,7 +66,6 @@ async function rollupBucket(params: RollupParams): Promise<void> {
     });
   }
 }
-
 /**
  * Rollup a single time bucket
  */
@@ -108,9 +95,7 @@ async function rollupSingleBucket(params: {
     WHERE ts >= ${params.bucketStart} AND ts < ${params.bucketEnd}
     GROUP BY tenant_id, project_id, workflow_id
   `;
-
   const results = await db.execute(query);
-
   // Upsert rollups for each group
   for (const row of results.rows as any[]) {
     const rollupData: InsertMetricsRollup = {
@@ -131,7 +116,6 @@ async function rollupSingleBucket(params: {
       queueEnqueued: parseInt(row.queue_enqueued) || 0,
       queueDequeued: parseInt(row.queue_dequeued) || 0,
     };
-
     // Upsert rollup using raw SQL (Drizzle doesn't support sql expressions in target array)
     await db.execute(sql`
       INSERT INTO metrics_rollups (
@@ -181,14 +165,12 @@ async function rollupSingleBucket(params: {
         updated_at = NOW()
     `);
   }
-
   // logger.debug({
   //   bucketSize: params.bucketSize,
   //   bucketStart: params.bucketStart,
   //   groupCount: results.rows.length,
   // }, 'Bucket rollup completed');
 }
-
 /**
  * Compute and save SLI windows after rollup
  */
@@ -202,9 +184,7 @@ export async function computeAndSaveSLIs(): Promise<void> {
     FROM metrics_rollups
     WHERE bucket_start >= NOW() - INTERVAL '30 days'
   `;
-
   const results = await db.execute(query);
-
   for (const row of results.rows as any[]) {
     try {
       const sliResult = await sli.computeSLI({
@@ -212,7 +192,6 @@ export async function computeAndSaveSLIs(): Promise<void> {
         workflowId: row.workflow_id,
         window: '7d',
       });
-
       await sli.saveSLIWindow({
         tenantId: row.tenant_id,
         projectId: row.project_id,
@@ -227,10 +206,8 @@ export async function computeAndSaveSLIs(): Promise<void> {
       }, 'Failed to compute SLI');
     }
   }
-
   logger.info('SLI windows computed and saved');
 }
-
 /**
  * Get bucket boundaries for a time range
  */
@@ -240,10 +217,8 @@ function getBucketBoundaries(
   bucketMs: number
 ): Array<{ start: Date; end: Date }> {
   const buckets: Array<{ start: Date; end: Date }> = [];
-
   // Align start to bucket boundary
   const alignedStart = new Date(Math.floor(start.getTime() / bucketMs) * bucketMs);
-
   let current = alignedStart;
   while (current < end) {
     const bucketEnd = new Date(current.getTime() + bucketMs);
@@ -253,10 +228,8 @@ function getBucketBoundaries(
     });
     current = bucketEnd;
   }
-
   return buckets;
 }
-
 /**
  * Get bucket size in milliseconds
  */
@@ -272,17 +245,14 @@ function getBucketMilliseconds(bucket: BucketSize): number {
       return 24 * 60 * 60 * 1000;
   }
 }
-
 /**
  * Start rollup worker (runs periodically)
  */
 export function startRollupWorker(intervalMs: number = 60000): NodeJS.Timeout {
   logger.info({ intervalMs }, 'Starting metrics rollup worker');
-
   const interval = setInterval(async () => {
     try {
       await runRollup();
-
       // Compute SLIs every 5 minutes
       if (Date.now() % (5 * 60 * 1000) < intervalMs) {
         await computeAndSaveSLIs();
@@ -291,15 +261,12 @@ export function startRollupWorker(intervalMs: number = 60000): NodeJS.Timeout {
       logger.error({ err: error }, 'Rollup worker error');
     }
   }, intervalMs);
-
   // Run immediately on start
   runRollup().catch((error) => {
     logger.error({ err: error }, 'Initial rollup failed');
   });
-
   return interval;
 }
-
 /**
  * Export rollup functions
  */

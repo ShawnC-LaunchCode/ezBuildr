@@ -135,7 +135,7 @@ export function TemplateUploadDialog({
                   id="file"
                   type="file"
                   accept=".docx"
-                  onChange={() => { void handleFileChange(); }}
+                  onChange={handleFileChange}
                   className="cursor-pointer"
                 />
               </div>

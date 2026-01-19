@@ -2,11 +2,9 @@
  * Integration Tests for Runtime Pipelines
  * Tests end-to-end execution of writeback and document generation pipelines
  */
-
 import { sql, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-
 import {
   tenants,
   users,
@@ -22,7 +20,6 @@ import {
   templates,
   runGeneratedDocuments,
 } from '@shared/schema';
-
 import { db } from '../../../server/db';
 import {
   workflowRepository,
@@ -40,11 +37,7 @@ import { DatavaultColumnsService } from '../../../server/services/DatavaultColum
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
 import { runService } from '../../../server/services/RunService';
-import { workflowService } from '../../../server/services/WorkflowService';
 import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
-
-
-
 describe('Runtime Pipelines Integration Tests', () => {
   const testUserId = nanoid(); // Use random ID to prevent collisions
   let testTenantId: string;
@@ -56,11 +49,9 @@ describe('Runtime Pipelines Integration Tests', () => {
   let phoneStepId: string;
   let emailColumnId: string;
   let phoneColumnId: string;
-
   const datavaultTablesService = new DatavaultTablesService();
   const datavaultColumnsService = new DatavaultColumnsService();
   const datavaultRowsService = new DatavaultRowsService();
-
   beforeAll(async () => {
     // Create test tenant
     const [tenant] = await db
@@ -70,7 +61,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testTenantId = tenant.id;
-
     // Create test user
     const [user] = await db.insert(users).values({
       id: testUserId,
@@ -79,7 +69,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       role: 'admin',
       tenantRole: 'owner',
     } as any).returning(); // Cast to any to avoid partial type issues if necessary
-
     // Create test project
     const [project] = await db
       .insert(projects)
@@ -93,7 +82,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testProjectId = project.id;
-
     // Create test workflow
     const [workflow] = await db
       .insert(workflows)
@@ -106,7 +94,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testWorkflowId = workflow.id;
-
     // Create test section
     const [section] = await db
       .insert(sections)
@@ -116,7 +103,6 @@ describe('Runtime Pipelines Integration Tests', () => {
         order: 1,
       })
       .returning();
-
     // Create test steps
     const [emailStep] = await db
       .insert(steps)
@@ -130,7 +116,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     emailStepId = emailStep.id;
-
     const [phoneStep] = await db
       .insert(steps)
       .values({
@@ -143,7 +128,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     phoneStepId = phoneStep.id;
-
     // Create DataVault table for writeback
     const table = await datavaultTablesService.createTable({
       tenantId: testTenantId,
@@ -154,12 +138,10 @@ describe('Runtime Pipelines Integration Tests', () => {
       databaseId: null,
     });
     testTableId = table.id;
-
     // Get the auto-created ID column
     const columns = await datavaultColumnsService.listColumns(testTableId, testTenantId);
     const idColumn = columns.find((c: any) => c.slug === 'id');
     expect(idColumn).toBeDefined();
-
     // Add custom columns
     const emailColumn = await datavaultColumnsService.createColumn({
       tableId: testTableId,
@@ -170,7 +152,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       description: null,
     }, testTenantId);
     emailColumnId = emailColumn.id;
-
     const phoneColumn = await datavaultColumnsService.createColumn({
       tableId: testTableId,
       name: 'Phone',
@@ -180,7 +161,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       description: null,
     }, testTenantId);
     phoneColumnId = phoneColumn.id;
-
     // Create writeback mapping
     await datavaultWritebackMappingsRepository.create({
       workflowId: testWorkflowId,
@@ -192,7 +172,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       triggerPhase: 'afterComplete',
       createdBy: testUserId,
     });
-
     // Create workflow run
     const [run] = await db
       .insert(workflowRuns)
@@ -205,25 +184,21 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     testRunId = run.id;
-
     // Save step values
     await stepValueRepository.create({
       runId: testRunId,
       stepId: emailStepId,
       value: 'test@example.com',
     });
-
     await stepValueRepository.create({
       runId: testRunId,
       stepId: phoneStepId,
       value: '+1-555-0123',
     });
   });
-
   afterAll(async () => {
     // Cleanup in reverse order of creation
     if (testRunId) {await db.delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
-
     // DataVault cleanup
     await db.delete(datavaultValues).where(sql`1=1`);
     await db.delete(datavaultRows).where(sql`1=1`);
@@ -231,19 +206,15 @@ describe('Runtime Pipelines Integration Tests', () => {
       await db.delete(datavaultColumns).where(eq(datavaultColumns.tableId, testTableId));
       await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
     }
-
     if (testWorkflowId) {
       await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
       await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
     }
-
     if (testProjectId) {await db.delete(projects).where(eq(projects.id, testProjectId));}
-
     // User and tenant cleanup
     await db.delete(users).where(eq(users.id, testUserId));
     if (testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
   });
-
   describe('Writeback Execution Pipeline', () => {
     it('should create DataVault row on workflow completion', async () => {
       // Execute writeback
@@ -252,18 +223,14 @@ describe('Runtime Pipelines Integration Tests', () => {
         testWorkflowId,
         testUserId
       );
-
       // Verify writeback execution
       expect(result.rowsCreated).toBe(1);
       expect(result.errors).toHaveLength(0);
-
       // Verify DataVault row was created
       const rows = await datavaultRowsRepository.findByTableId(testTableId);
       expect(rows).toHaveLength(1);
-
       const row = rows[0];
       expect(row.createdBy).toBe(testUserId);
-
       // Verify row values
       const rowData = await datavaultRowsService.getRow(row.id, testTenantId);
       if (rowData) {
@@ -271,7 +238,6 @@ describe('Runtime Pipelines Integration Tests', () => {
         expect(rowData.values[phoneColumnId]).toBe('+1-555-0123');
       }
     });
-
     it('should execute writebacks via RunService.completeRun()', async () => {
       // Create a fresh run for this test
       const [run2] = await db
@@ -284,54 +250,43 @@ describe('Runtime Pipelines Integration Tests', () => {
           completed: false,
         })
         .returning();
-
       // Save step values
       await stepValueRepository.create({
         runId: run2.id,
         stepId: emailStepId,
         value: 'another@example.com',
       });
-
       await stepValueRepository.create({
         runId: run2.id,
         stepId: phoneStepId,
         value: '+1-555-9999',
       });
-
       // Get initial row count
       const rowsBefore = await datavaultRowsRepository.findByTableId(testTableId);
       const initialCount = rowsBefore.length;
-
       // Complete run (should trigger writeback)
       await runService.completeRun(run2.id, testUserId);
-
       // Verify run is completed
       const completedRun = await workflowRunRepository.findById(run2.id);
       expect(completedRun?.completed).toBe(true);
-
       // Verify new DataVault row was created
       const rowsAfter = await datavaultRowsRepository.findByTableId(testTableId);
       expect(rowsAfter).toHaveLength(initialCount + 1);
-
       // Verify row contains correct values
       const newRow = rowsAfter.find(r => r.id !== rowsBefore[0]?.id);
       expect(newRow).toBeDefined();
-
       const rowData = await datavaultRowsService.getRow(newRow!.id, testTenantId);
       if (rowData) {
         expect(rowData.values[emailColumnId]).toBe('another@example.com');
         expect(rowData.values[phoneColumnId]).toBe('+1-555-9999');
       }
-
       // Cleanup
       await db.delete(workflowRuns).where(sql`id = ${run2.id}`);
     });
   });
-
   describe('Document Generation Pipeline', () => {
     let testTemplateId: string;
     let testDocRun: string;
-
     beforeAll(async () => {
       // Create a test template
       const [template] = await db
@@ -369,12 +324,10 @@ describe('Runtime Pipelines Integration Tests', () => {
         .returning();
       testTemplateId = template.id;
     });
-
     afterAll(async () => {
       await db.delete(runGeneratedDocuments).where(sql`1=1`);
       await db.delete(templates).where(sql`id = ${testTemplateId}`);
     });
-
     it('should skip document generation when visibleIf condition is false', async () => {
       // Create run with email that does NOT contain 'show'
       const [hiddenRun] = await db
@@ -387,21 +340,17 @@ describe('Runtime Pipelines Integration Tests', () => {
           completed: true,
         })
         .returning();
-
       await stepValueRepository.create({
         runId: hiddenRun.id,
         stepId: emailStepId,
         value: 'hidden@example.com', // Does NOT contain 'show'
       });
-
       // Note: We can't easily test document generation without the actual template file
       // This test verifies the conditional logic is in place
       // Full e2e test would require mock template file
-
       // Cleanup
       await db.delete(workflowRuns).where(sql`id = ${hiddenRun.id}`);
     });
-
     it('should generate document when visibleIf condition is true', async () => {
       // Create run with email that DOES contain 'show'
       const [visibleRun] = await db
@@ -414,22 +363,18 @@ describe('Runtime Pipelines Integration Tests', () => {
           completed: true,
         })
         .returning();
-
       await stepValueRepository.create({
         runId: visibleRun.id,
         stepId: emailStepId,
         value: 'show@example.com', // DOES contain 'show'
       });
-
       await stepValueRepository.create({
         runId: visibleRun.id,
         stepId: phoneStepId,
         value: '+1-555-7777',
       });
-
       // Note: Full document generation would require actual template file
       // This test structure shows the integration point
-
       // Cleanup
       await db.delete(workflowRuns).where(sql`id = ${visibleRun.id}`);
     });

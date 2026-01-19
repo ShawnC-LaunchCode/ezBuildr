@@ -1,8 +1,7 @@
 /**
  * BuilderCanvas - Main React Flow canvas for visual workflow editing
  */
-
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -13,15 +12,11 @@ import ReactFlow, {
   type OnConnect,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-
 import { useBuilderStore } from '../store/useBuilderStore';
-
 import { nodeTypes } from './NodeCard';
-
 interface BuilderCanvasProps {
   readOnly?: boolean;
 }
-
 export function BuilderCanvas({ readOnly = false }: BuilderCanvasProps) {
   const {
     nodes,
@@ -31,39 +26,33 @@ export function BuilderCanvas({ readOnly = false }: BuilderCanvasProps) {
     onConnect,
     selectNode,
   } = useBuilderStore();
-
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
     },
     [onNodesChange]
   );
-
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       onEdgesChange(changes);
     },
     [onEdgesChange]
   );
-
   const handleConnect: OnConnect = useCallback(
     (connection) => {
       onConnect(connection);
     },
     [onConnect]
   );
-
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: any) => {
       selectNode(node.id);
     },
     [selectNode]
   );
-
   const handlePaneClick = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
-
   return (
     <div className="w-full h-full bg-gray-50 dark:bg-gray-900">
       <ReactFlow

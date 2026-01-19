@@ -1,5 +1,4 @@
-import { isJsQuestionConfig, type JsQuestionConfig } from "@shared/types/steps";
-
+import { isJsQuestionConfig, type  } from "@shared/types/steps";
 import { logger } from "../../logger";
 import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
 import { validatePage } from "../../workflows/validation";
@@ -7,17 +6,13 @@ import { blockRunner } from "../BlockRunner";
 import { intakeQuestionVisibilityService } from "../IntakeQuestionVisibilityService";
 import { logicService, type NavigationResult } from "../LogicService";
 import { scriptEngine } from "../scripting/ScriptEngine";
-
 import { runPersistenceWriter } from "./RunPersistenceWriter";
-
-
 export interface ExecutionContext {
     workflowId: string;
     runId: string;
     userId?: string;
     mode: 'live' | 'preview';
 }
-
 export class RunExecutionCoordinator {
     constructor(
         private persistence = runPersistenceWriter,
@@ -26,26 +21,21 @@ export class RunExecutionCoordinator {
         private sectionRepo = sectionRepository,
         private workflowRepo = workflowRepository
     ) { }
-
     /**
      * Calculate next step/section
      */
     async next(context: ExecutionContext, currentSectionId: string | null): Promise<NavigationResult> {
         const { runId, workflowId, mode } = context;
-
         // Get current data
         const dataMap = await this.persistence.getRunValues(runId);
-
         // 1. Execute JS Questions for current section (if any)
         if (currentSectionId) {
             await this.executeJsQuestions(runId, currentSectionId, dataMap, context);
         }
-
         // 2. Execute onNext blocks
         // Note: BlockRunner still needs refactoring to accept Mode, but for now we pass context
         // Ideally BlockRunner should be stateless or accept context
         const aliasMap = await this.getAliasMap(workflowId);
-
         const blockResult = await blockRunner.runPhase({
             workflowId,
             runId,
@@ -55,10 +45,8 @@ export class RunExecutionCoordinator {
             mode, // Pass execution mode
             aliasMap,
         });
-
         // 3. Determine Navigation
         let navigation: NavigationResult;
-
         if (blockResult.nextSectionId) {
             navigation = {
                 nextSectionId: blockResult.nextSectionId,
@@ -74,7 +62,6 @@ export class RunExecutionCoordinator {
                 currentSectionId
             );
         }
-
         // 4. Update Run State (RunService usually does this, but Coordinator can orchestrate)
         // Coordinator returns the result, caller (RunService façade) might save state?
         // Or Coordinator delegates to Persistence?
@@ -85,10 +72,8 @@ export class RunExecutionCoordinator {
                 progress: navigation.currentProgress
             });
         }
-
         return navigation;
     }
-
     /**
      * Submit data for a section
      */
@@ -98,14 +83,11 @@ export class RunExecutionCoordinator {
         values: Array<{ stepId: string, value: any }>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const { runId, workflowId } = context;
-
         // 1. Persist Values
         await this.persistence.bulkSaveValues(runId, values, workflowId);
-
         // 2. Get updated data map
         const dataMap = await this.persistence.getRunValues(runId);
         const aliasMap = await this.getAliasMap(workflowId);
-
         // 3. Validate required fields (respecting visibility)
         const steps = await this.stepRepo.findBySectionId(sectionId);
         const visibility = await intakeQuestionVisibilityService.evaluatePageQuestions(
@@ -113,13 +95,11 @@ export class RunExecutionCoordinator {
             runId,
             dataMap
         );
-
         const validationResult = validatePage(
             steps,
             dataMap,
             visibility.visibleQuestions
         );
-
         if (!validationResult.valid) {
             // Format errors for user-friendly display
             const errorMessages = validationResult.errors.map(err => {
@@ -128,17 +108,14 @@ export class RunExecutionCoordinator {
                 // Take first error message for each field
                 return `${fieldName}: ${err.errors[0]}`;
             });
-
             logger.warn({ runId, sectionId, errors: errorMessages }, "Section validation failed");
             return { success: false, errors: errorMessages };
         }
-
         // 4. Execute JS Questions
         const jsResult = await this.executeJsQuestions(runId, sectionId, dataMap, context, aliasMap);
         if (!jsResult.success) {
             return { success: false, errors: jsResult.errors };
         }
-
         // 5. Execute onSectionSubmit blocks
         const blockResult = await blockRunner.runPhase({
             workflowId,
@@ -149,13 +126,11 @@ export class RunExecutionCoordinator {
             mode: context.mode, // Pass execution mode
             aliasMap,
         });
-
         return {
             success: blockResult.success,
             errors: blockResult.errors,
         };
     }
-
     /**
      * Execute JS questions using ScriptEngine
      */
@@ -167,15 +142,12 @@ export class RunExecutionCoordinator {
         aliasMap?: Record<string, string>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const errors: string[] = [];
-
         // Find JS questions
         const allSteps = await this.stepRepo.findBySectionId(sectionId);
         const jsQuestions = allSteps.filter(step => step.type === 'js_question');
-
         for (const step of jsQuestions) {
             if (!step.options || !isJsQuestionConfig(step.options)) {continue;}
             const config = step.options;
-
             const result = await scriptEngine.execute({
                 language: 'javascript',
                 code: config.code,
@@ -190,12 +162,10 @@ export class RunExecutionCoordinator {
                 timeoutMs: config.timeoutMs || 1000,
                 aliasMap,
             });
-
             if (!result.ok) {
                 errors.push(`JS Question "${step.title}" failed: ${result.error}`);
                 continue;
             }
-
             // Save output
             await this.persistence.saveStepValue(
                 runId,
@@ -205,13 +175,11 @@ export class RunExecutionCoordinator {
             );
             dataMap[step.id] = result.output; // Update local map
         }
-
         return {
             success: errors.length === 0,
             errors: errors.length > 0 ? errors : undefined
         };
     }
-
     /**
      * Build alias map for workflow
      */
@@ -219,7 +187,6 @@ export class RunExecutionCoordinator {
         const sections = await this.sectionRepo.findByWorkflowId(workflowId);
         const sectionIds = sections.map(s => s.id);
         const steps = await this.stepRepo.findBySectionIds(sectionIds);
-
         const map: Record<string, string> = {};
         for (const step of steps) {
             if (step.alias) {
@@ -229,5 +196,4 @@ export class RunExecutionCoordinator {
         return map;
     }
 }
-
 export const runExecutionCoordinator = new RunExecutionCoordinator();

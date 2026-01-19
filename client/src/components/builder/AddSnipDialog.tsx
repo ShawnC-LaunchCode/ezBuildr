@@ -3,11 +3,9 @@
  * UI for selecting and importing snips into a workflow
  * Includes collision detection and resolution modal (Prompt 31)
  */
-
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Package } from "lucide-react";
 import React, { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,30 +20,23 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { importSnip, validateSnipImport } from "@/lib/snips/importService";
 import { getAllSnips } from "@/lib/snips/registry";
-import type { SnipDefinition } from "@/lib/snips/types";
-
+import type {  } from "@/lib/snips/types";
 import { CollisionResolutionModal } from "./CollisionResolutionModal";
-
-
 interface AddSnipDialogProps {
     workflowId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
 export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogProps) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [importing, setImporting] = useState(false);
     const [selectedSnipId, setSelectedSnipId] = useState<string | null>(null);
-
     // Collision resolution state
     const [showCollisionModal, setShowCollisionModal] = useState(false);
     const [detectedCollisions, setDetectedCollisions] = useState<string[]>([]);
     const [resolvedMappings, setResolvedMappings] = useState<Record<string, string>>({});
-
     const snips = getAllSnips();
-
     const handleImportClick = async () => {
         if (!selectedSnipId) {
             toast({
@@ -55,12 +46,10 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
             });
             return;
         }
-
         // Step 1: Detect collisions
         setImporting(true);
         try {
             const validation = await validateSnipImport(workflowId, selectedSnipId);
-
             if (validation.aliasConflicts.length > 0) {
                 // Collisions detected - show resolution modal
                 setDetectedCollisions(validation.aliasConflicts);
@@ -80,34 +69,27 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
             setImporting(false);
         }
     };
-
     const executeImport = async (aliasMappings: Record<string, string>) => {
         if (!selectedSnipId) {return;}
-
         setImporting(true);
         try {
             const result = await importSnip(workflowId, {
                 snipId: selectedSnipId,
                 aliasMappings,
             });
-
             // Invalidate workflow queries to refresh sections/steps
             await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
             await queryClient.invalidateQueries({ queryKey: ["sections", workflowId] });
             await queryClient.invalidateQueries({ queryKey: ["workflow-all-steps", workflowId] });
-
             // Enhanced feedback based on collision status
             let description = "Pages and questions have been added to your workflow";
-
             if (result.hadCollisions) {
                 description += ". Some variables were renamed to avoid conflicts";
             }
-
             toast({
                 title: "Snip imported",
                 description,
             });
-
             onOpenChange(false);
             setSelectedSnipId(null);
             setShowCollisionModal(false);
@@ -124,15 +106,12 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
             setImporting(false);
         }
     };
-
     const handleCollisionResolve = (resolutions: Record<string, string>) => {
         setResolvedMappings(resolutions);
         setShowCollisionModal(false);
-
         // Proceed with import using resolved mappings
         executeImport(resolutions);
     };
-
     const handleCollisionCancel = () => {
         setShowCollisionModal(false);
         setDetectedCollisions([]);
@@ -142,7 +121,6 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
             description: "No changes were made to your workflow",
         });
     };
-
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,7 +132,6 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                             Snips include pre-configured pages, questions, and logic.
                         </DialogDescription>
                     </DialogHeader>
-
                     <div className="space-y-3">
                         {snips.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
@@ -200,7 +177,6 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                             ))
                         )}
                     </div>
-
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { void onOpenChange(false); }} disabled={importing}>
                             Cancel
@@ -221,7 +197,6 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
             {/* Collision Resolution Modal */}
             <CollisionResolutionModal
                 open={showCollisionModal}

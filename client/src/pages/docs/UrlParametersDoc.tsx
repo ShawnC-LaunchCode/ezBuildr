@@ -2,25 +2,20 @@
  * URL Parameters Documentation Page
  * Explains how to use default values and URL parameter overrides
  */
-
-import { ArrowLeft, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, Check } from "lucide-react";
 import React, { useState } from "react";
 import { useLocation } from "wouter";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-
 export default function UrlParametersDoc() {
   const [, navigate] = useLocation();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
-
   const examples = [
     {
       title: "Simple Text Values",
@@ -53,7 +48,6 @@ export default function UrlParametersDoc() {
       description: "Use the step's alias (set in builder) as the parameter name"
     }
   ];
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -73,9 +67,7 @@ export default function UrlParametersDoc() {
             Learn how to pre-fill workflow fields using default values and URL parameters
           </p>
         </div>
-
         <Separator className="mb-8" />
-
         {/* Overview */}
         <Card className="mb-8">
           <CardHeader>
@@ -99,7 +91,6 @@ export default function UrlParametersDoc() {
             </div>
           </CardContent>
         </Card>
-
         {/* Setting Default Values */}
         <Card className="mb-8">
           <CardHeader>
@@ -126,7 +117,6 @@ export default function UrlParametersDoc() {
             </div>
           </CardContent>
         </Card>
-
         {/* URL Parameters */}
         <Card className="mb-8">
           <CardHeader>
@@ -140,7 +130,6 @@ export default function UrlParametersDoc() {
                 https://your-app.com/workflows/your-workflow<span className="text-primary">?key1=value1&key2=value2</span>
               </div>
             </div>
-
             <div>
               <h3 className="font-semibold mb-2">Parameter Names</h3>
               <p className="text-sm text-muted-foreground mb-2">
@@ -151,9 +140,7 @@ export default function UrlParametersDoc() {
                 <li>• <strong>Step ID:</strong> <code className="bg-background px-1 py-0.5 rounded">?123e4567-e89b-12d3-a456-426614174000=John</code> (UUID)</li>
               </ul>
             </div>
-
             <Separator />
-
             <div>
               <h3 className="font-semibold mb-3">Examples</h3>
               <div className="space-y-4">
@@ -185,7 +172,6 @@ export default function UrlParametersDoc() {
             </div>
           </CardContent>
         </Card>
-
         {/* Advanced Tips */}
         <Card className="mb-8">
           <CardHeader>
@@ -203,7 +189,6 @@ export default function UrlParametersDoc() {
                 <li>• Brackets [ ] → <code className="bg-background px-1 py-0.5 rounded">%5B %5D</code></li>
               </ul>
             </div>
-
             <div>
               <h3 className="font-semibold mb-2">2. Complex Values (JSON)</h3>
               <p className="text-muted-foreground mb-2">
@@ -216,7 +201,6 @@ export default function UrlParametersDoc() {
                 This decodes to: <code className="bg-background px-1 py-0.5 rounded">?tags=["urgent","follow-up"]</code>
               </p>
             </div>
-
             <div>
               <h3 className="font-semibold mb-2">3. Reserved Parameters</h3>
               <p className="text-muted-foreground">
@@ -226,7 +210,6 @@ export default function UrlParametersDoc() {
                 ref, source, utm_source, utm_medium, utm_campaign
               </code>
             </div>
-
             <div>
               <h3 className="font-semibold mb-2">4. Setting Step Aliases</h3>
               <p className="text-muted-foreground">
@@ -241,7 +224,6 @@ export default function UrlParametersDoc() {
             </div>
           </CardContent>
         </Card>
-
         {/* Use Cases */}
         <Card className="mb-8">
           <CardHeader>
@@ -255,21 +237,18 @@ export default function UrlParametersDoc() {
                   Pre-fill recipient details from your CRM: <code className="bg-background px-1 py-0.5 rounded">?email=john@example.com&name=John</code>
                 </p>
               </div>
-
               <div className="border-l-4 border-primary pl-4">
                 <h3 className="font-semibold mb-1">Customer Support</h3>
                 <p className="text-muted-foreground">
                   Include ticket info: <code className="bg-background px-1 py-0.5 rounded">?ticketId=12345&category=Technical</code>
                 </p>
               </div>
-
               <div className="border-l-4 border-primary pl-4">
                 <h3 className="font-semibold mb-1">Event Registration</h3>
                 <p className="text-muted-foreground">
                   Pass event details: <code className="bg-background px-1 py-0.5 rounded">?eventName=Summit%202025&attendeeType=VIP</code>
                 </p>
               </div>
-
               <div className="border-l-4 border-primary pl-4">
                 <h3 className="font-semibold mb-1">Product Inquiries</h3>
                 <p className="text-muted-foreground">
@@ -279,7 +258,6 @@ export default function UrlParametersDoc() {
             </div>
           </CardContent>
         </Card>
-
         {/* Footer */}
         <div className="text-center py-8 border-t">
           <p className="text-sm text-muted-foreground mb-4">

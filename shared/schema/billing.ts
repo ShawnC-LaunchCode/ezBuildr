@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm';
+import { type InferSelectModel, type  } from 'drizzle-orm';
 import {
     index,
     uniqueIndex,
@@ -15,16 +15,12 @@ import {
     primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-
 import { organizations, users } from './auth'; // Workflows might be in workflow.ts, check circular dep
-
 // Placeholder for Workflows import - will update once workflow.ts is created
 import { workflows as workflowsRef } from './workflow';
-
 // ===================================================================
 // BILLING & MONETIZATION
 // ===================================================================
-
 // Billing Plans (Free, Pro, Team, Enterprise)
 export const billingPlans = pgTable("billing_plans", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -38,10 +34,8 @@ export const billingPlans = pgTable("billing_plans", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
-
 // Subscription Status Enum
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'past_due', 'canceled', 'trialing', 'incomplete', 'incomplete_expired', 'unpaid']);
-
 // Organization Subscriptions
 export const subscriptions = pgTable("subscriptions", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -61,7 +55,6 @@ export const subscriptions = pgTable("subscriptions", {
 }, (table) => [
     uniqueIndex("sub_org_idx").on(table.organizationId), // One active subscription per org for now
 ]);
-
 // Subscription Seats (for per-seat billing)
 export const subscriptionSeats = pgTable("subscription_seats", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -71,7 +64,6 @@ export const subscriptionSeats = pgTable("subscription_seats", {
 }, (table) => [
     uniqueIndex("seat_sub_user_idx").on(table.subscriptionId, table.userId),
 ]);
-
 // Customer Billing Info (Stripe Mapping)
 export const customerBillingInfo = pgTable("customer_billing_info", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -85,7 +77,6 @@ export const customerBillingInfo = pgTable("customer_billing_info", {
     uniqueIndex("billing_info_org_idx").on(table.organizationId),
     uniqueIndex("billing_info_stripe_idx").on(table.stripeCustomerId),
 ]);
-
 // Usage Records (Metering)
 export const usageRecords = pgTable("usage_records", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -98,13 +89,11 @@ export const usageRecords = pgTable("usage_records", {
 }, (table) => [
     index("usage_org_metric_date_idx").on(table.organizationId, table.metric, table.recordedAt),
 ]);
-
 export const insertBillingPlanSchema = createInsertSchema(billingPlans);
 export const insertSubscriptionSchema = createInsertSchema(subscriptions);
 export const insertSubscriptionSeatSchema = createInsertSchema(subscriptionSeats);
 export const insertCustomerBillingInfoSchema = createInsertSchema(customerBillingInfo);
 export const insertUsageRecordSchema = createInsertSchema(usageRecords);
-
 export type BillingPlan = InferSelectModel<typeof billingPlans>;
 export type Subscription = InferSelectModel<typeof subscriptions>;
 export type SubscriptionSeat = InferSelectModel<typeof subscriptionSeats>;

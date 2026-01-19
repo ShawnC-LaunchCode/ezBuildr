@@ -4,9 +4,7 @@
  * Displays a visual indicator when an element has conditional visibility rules.
  * Can be used in compact (icon-only) or expanded (with count) modes.
  */
-
-import { EyeOff, Eye } from "lucide-react";
-
+import { EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -15,10 +13,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
 import type { ConditionExpression } from "@shared/types/conditions";
 import { countConditions } from "@shared/types/conditions";
-
 interface LogicIndicatorProps {
   /** The condition expression (null means always visible) */
   visibleIf: ConditionExpression | null | undefined;
@@ -31,7 +27,6 @@ interface LogicIndicatorProps {
   /** Element type for tooltip text */
   elementType?: "section" | "question" | "page";
 }
-
 export function LogicIndicator({
   visibleIf,
   variant = "badge",
@@ -43,18 +38,13 @@ export function LogicIndicator({
   if (!visibleIf) {
     return null;
   }
-
   const conditionCount = countConditions(visibleIf);
-
   // Don't show if somehow we have an expression with 0 conditions
   if (conditionCount === 0) {
     return null;
   }
-
   const tooltipText = `This ${elementType} has ${conditionCount} visibility condition${conditionCount !== 1 ? "s" : ""}`;
-
   const iconSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
-
   if (variant === "icon") {
     return (
       <TooltipProvider>
@@ -71,7 +61,6 @@ export function LogicIndicator({
       </TooltipProvider>
     );
   }
-
   if (variant === "compact") {
     return (
       <TooltipProvider>
@@ -93,7 +82,6 @@ export function LogicIndicator({
       </TooltipProvider>
     );
   }
-
   // Default badge variant
   return (
     <TooltipProvider>
@@ -118,7 +106,6 @@ export function LogicIndicator({
     </TooltipProvider>
   );
 }
-
 /**
  * Simple text indicator for inline use
  */
@@ -136,9 +123,7 @@ export function LogicStatusText({
       </span>
     );
   }
-
   const conditionCount = countConditions(visibleIf);
-
   return (
     <span className={cn("text-xs text-amber-600 font-medium", className)}>
       Conditional ({conditionCount} rule{conditionCount !== 1 ? "s" : ""})

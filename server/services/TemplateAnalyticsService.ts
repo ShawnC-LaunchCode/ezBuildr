@@ -26,17 +26,13 @@
  * console.log('Avg duration:', insights.avgDuration);
  * ```
  */
-
 import { eq, and, desc, gte, sql, count } from 'drizzle-orm';
-
-import { templateGenerationMetrics, templates, workflowRuns } from '../../shared/schema';
+import { templateGenerationMetrics, templates } from '../../shared/schema';
 import { db } from '../db';
 import { logger } from '../logger';
-
 // ============================================================================
 // TYPES
 // ============================================================================
-
 export interface GenerationMetric {
   id: string;
   templateId: string;
@@ -46,7 +42,6 @@ export interface GenerationMetric {
   errorMessage: string | null;
   createdAt: Date;
 }
-
 export interface TemplateInsights {
   templateId: string;
   templateName: string;
@@ -69,7 +64,6 @@ export interface TemplateInsights {
     last30Days: TrendData;
   };
 }
-
 export interface TrendData {
   totalGenerations: number;
   successRate: number;
@@ -80,7 +74,6 @@ export interface TrendData {
     duration: number; // % change
   };
 }
-
 export interface SystemWideMetrics {
   totalTemplates: number;
   totalGenerations: number;
@@ -99,11 +92,9 @@ export interface SystemWideMetrics {
     occurredAt: Date;
   }>;
 }
-
 // ============================================================================
 // SERVICE CLASS
 // ============================================================================
-
 export class TemplateAnalyticsService {
   /**
    * Track a document generation event
@@ -123,7 +114,6 @@ export class TemplateAnalyticsService {
         durationMs: durationMs || null,
         errorMessage: errorMessage || null,
       });
-
       logger.debug(
         {
           templateId,
@@ -137,69 +127,57 @@ export class TemplateAnalyticsService {
       // Don't throw - metrics tracking shouldn't break generation
     }
   }
-
   /**
    * Get comprehensive insights for a template
    */
   async getTemplateInsights(templateId: string): Promise<TemplateInsights> {
     logger.info({ templateId }, 'Fetching template insights');
-
     // Get template info
     const [template] = await db
       .select()
       .from(templates)
       .where(eq(templates.id, templateId))
       .limit(1);
-
     if (!template) {
       throw new Error('Template not found');
     }
-
     // Get all metrics for this template
     const metrics = await db
       .select()
       .from(templateGenerationMetrics)
       .where(eq(templateGenerationMetrics.templateId, templateId))
       .orderBy(desc(templateGenerationMetrics.createdAt));
-
     // Calculate basic stats
     const totalGenerations = metrics.length;
     const successCount = metrics.filter((m) => m.result === 'success').length;
     const failureCount = metrics.filter((m) => m.result === 'failure').length;
     const skippedCount = metrics.filter((m) => m.result === 'skipped').length;
     const successRate = totalGenerations > 0 ? (successCount / totalGenerations) * 100 : 0;
-
     // Calculate duration stats (only for successful generations)
     const durations = metrics
       .filter((m) => m.result === 'success' && m.durationMs !== null)
       .map((m) => m.durationMs as number)
       .sort((a, b) => a - b);
-
     const avgDuration =
       durations.length > 0
         ? durations.reduce((sum, d) => sum + d, 0) / durations.length
         : null;
-
     const medianDuration =
       durations.length > 0
         ? durations[Math.floor(durations.length / 2)]
         : null;
-
     const p95Duration =
       durations.length > 0
         ? durations[Math.floor(durations.length * 0.95)]
         : null;
-
     // Analyze common errors
     const errors = metrics
       .filter((m) => m.result === 'failure' && m.errorMessage)
       .map((m) => m.errorMessage as string);
-
     const errorCounts = errors.reduce((acc, error) => {
       acc[error] = (acc[error] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     const commonErrors = Object.entries(errorCounts)
       .map(([error, count]) => ({
         error,
@@ -208,15 +186,12 @@ export class TemplateAnalyticsService {
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5); // Top 5 errors
-
     // Get recent generations (last 10)
     const recentGenerations = metrics.slice(0, 10) as GenerationMetric[];
-
     // Calculate trends
     const now = new Date();
     const last7Days = await this.calculateTrend(templateId, 7);
     const last30Days = await this.calculateTrend(templateId, 30);
-
     return {
       templateId,
       templateName: template.name,
@@ -236,17 +211,14 @@ export class TemplateAnalyticsService {
       },
     };
   }
-
   /**
    * Calculate trend data for a time period
    */
   private async calculateTrend(templateId: string, days: number): Promise<TrendData> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
-
     const previousStartDate = new Date();
     previousStartDate.setDate(previousStartDate.getDate() - days * 2);
-
     // Current period
     const currentMetrics = await db
       .select()
@@ -257,7 +229,6 @@ export class TemplateAnalyticsService {
           gte(templateGenerationMetrics.createdAt, startDate)
         )
       );
-
     // Previous period (for comparison)
     const previousMetrics = await db
       .select()
@@ -269,7 +240,6 @@ export class TemplateAnalyticsService {
           sql`${templateGenerationMetrics.createdAt} < ${startDate}`
         )
       );
-
     // Calculate current stats
     const currentTotal = currentMetrics.length;
     const currentSuccess = currentMetrics.filter((m) => m.result === 'success').length;
@@ -281,7 +251,6 @@ export class TemplateAnalyticsService {
       currentDurations.length > 0
         ? currentDurations.reduce((sum, d) => sum + d, 0) / currentDurations.length
         : null;
-
     // Calculate previous stats
     const previousTotal = previousMetrics.length;
     const previousSuccess = previousMetrics.filter((m) => m.result === 'success').length;
@@ -293,7 +262,6 @@ export class TemplateAnalyticsService {
       previousDurations.length > 0
         ? previousDurations.reduce((sum, d) => sum + d, 0) / previousDurations.length
         : null;
-
     // Calculate changes
     const generationsChange =
       previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
@@ -302,7 +270,6 @@ export class TemplateAnalyticsService {
       previousAvgDuration && currentAvgDuration
         ? ((currentAvgDuration - previousAvgDuration) / previousAvgDuration) * 100
         : 0;
-
     return {
       totalGenerations: currentTotal,
       successRate: Math.round(currentSuccessRate * 100) / 100,
@@ -314,35 +281,29 @@ export class TemplateAnalyticsService {
       },
     };
   }
-
   /**
    * Get system-wide metrics
    */
   async getSystemWideMetrics(): Promise<SystemWideMetrics> {
     logger.info('Fetching system-wide metrics');
-
     // Total templates
     const totalTemplates = await db
       .select({ count: count() })
       .from(templates)
       .then((result) => result[0]?.count || 0);
-
     // Total generations
     const totalGenerations = await db
       .select({ count: count() })
       .from(templateGenerationMetrics)
       .then((result) => result[0]?.count || 0);
-
     // Overall success rate
     const successCount = await db
       .select({ count: count() })
       .from(templateGenerationMetrics)
       .where(eq(templateGenerationMetrics.result, 'success'))
       .then((result) => result[0]?.count || 0);
-
     const overallSuccessRate =
       totalGenerations > 0 ? (successCount / totalGenerations) * 100 : 0;
-
     // Average generation time
     const avgGenerationTime = await db
       .select({
@@ -356,7 +317,6 @@ export class TemplateAnalyticsService {
         )
       )
       .then((result) => result[0]?.avg || null);
-
     // Top templates by generation count
     const topTemplatesData = await db
       .select({
@@ -368,7 +328,6 @@ export class TemplateAnalyticsService {
       .groupBy(templateGenerationMetrics.templateId)
       .orderBy(desc(count()))
       .limit(5);
-
     // Get template names
     const topTemplates = await Promise.all(
       topTemplatesData.map(async (t) => {
@@ -377,7 +336,6 @@ export class TemplateAnalyticsService {
           .from(templates)
           .where(eq(templates.id, t.templateId))
           .limit(1);
-
         return {
           templateId: t.templateId,
           templateName: template?.name || 'Unknown',
@@ -386,7 +344,6 @@ export class TemplateAnalyticsService {
         };
       })
     );
-
     // Recent errors (last 10)
     const recentErrorsData = await db
       .select()
@@ -394,7 +351,6 @@ export class TemplateAnalyticsService {
       .where(eq(templateGenerationMetrics.result, 'failure'))
       .orderBy(desc(templateGenerationMetrics.createdAt))
       .limit(10);
-
     const recentErrors = await Promise.all(
       recentErrorsData.map(async (e) => {
         const [template] = await db
@@ -402,7 +358,6 @@ export class TemplateAnalyticsService {
           .from(templates)
           .where(eq(templates.id, e.templateId))
           .limit(1);
-
         return {
           templateId: e.templateId,
           templateName: template?.name || 'Unknown',
@@ -411,7 +366,6 @@ export class TemplateAnalyticsService {
         };
       })
     );
-
     return {
       totalTemplates,
       totalGenerations,
@@ -421,26 +375,20 @@ export class TemplateAnalyticsService {
       recentErrors,
     };
   }
-
   /**
    * Clean up old metrics (keep last N days)
    */
   async cleanupOldMetrics(retentionDays: number = 90): Promise<number> {
     logger.info({ retentionDays }, 'Cleaning up old metrics');
-
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-
     const deleted = await db
       .delete(templateGenerationMetrics)
       .where(sql`${templateGenerationMetrics.createdAt} < ${cutoffDate}`)
       .returning({ id: templateGenerationMetrics.id });
-
     logger.info({ deletedCount: deleted.length, retentionDays }, 'Old metrics cleaned up');
-
     return deleted.length;
   }
-
   /**
    * Get metrics for a specific time range
    */
@@ -460,10 +408,8 @@ export class TemplateAnalyticsService {
         )
       )
       .orderBy(desc(templateGenerationMetrics.createdAt));
-
     return metrics as GenerationMetric[];
   }
-
   /**
    * Export metrics to CSV
    */
@@ -473,20 +419,16 @@ export class TemplateAnalyticsService {
       .from(templateGenerationMetrics)
       .where(eq(templateGenerationMetrics.templateId, templateId))
       .orderBy(desc(templateGenerationMetrics.createdAt));
-
     // CSV header
     let csv = 'ID,Template ID,Run ID,Result,Duration (ms),Error,Created At\n';
-
     // CSV rows
     for (const metric of metrics) {
       csv += `${metric.id},${metric.templateId},${metric.runId || ''},${metric.result},${
         metric.durationMs || ''
       },"${(metric.errorMessage || '').replace(/"/g, '""')}",${metric.createdAt}\n`;
     }
-
     return csv;
   }
 }
-
 // Singleton instance
 export const templateAnalytics = new TemplateAnalyticsService();

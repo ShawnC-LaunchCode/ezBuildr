@@ -1,10 +1,8 @@
-
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Upload, FileText, Loader2, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
+import {   Loader2, Sparkles, CheckCircle, ArrowRight } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,15 +17,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-
-
 interface TemplateUploadWizardProps {
     projectId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     workflowVariables?: any[];
 }
-
 export function TemplateUploadWizard({
     projectId,
     open,
@@ -36,26 +31,21 @@ export function TemplateUploadWizard({
 }: TemplateUploadWizardProps) {
     const queryClient = useQueryClient();
     const [step, setStep] = useState(1);
-
     // Form State
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
-
     // AI State
     const [analysis, setAnalysis] = useState<any>(null);
     const [mappings, setMappings] = useState<any[]>([]);
-
     // 1. Upload & Analyze Mutation
     const uploadAndAnalyzeMutation = useMutation({
         mutationFn: async () => {
             // Just analyze first, don't save to DB yet (or save as draft?)
             // We'll analyze the file buffer directly
-            if (!file) {throw new Error("No file");}
-
+            if (!file) { throw new Error("No file"); }
             const formData = new FormData();
             formData.append('file', file);
-
             const res = await axios.post('/api/ai/doc/analyze', formData);
             return res.data.data;
         },
@@ -68,7 +58,6 @@ export function TemplateUploadWizard({
             setStep(2);
         }
     });
-
     // 2. Suggest Mappings
     const suggestMappingMutation = useMutation({
         mutationFn: async (variables: any[]) => {
@@ -82,26 +71,22 @@ export function TemplateUploadWizard({
             setMappings(data);
         }
     });
-
     // 3. Final Save
     const saveMutation = useMutation({
         mutationFn: async () => {
-            if (!file || !name) {throw new Error("Missing data");}
-
+            if (!file || !name) { throw new Error("Missing data"); }
             const formData = new FormData();
             formData.append('name', name);
             formData.append('description', description);
             formData.append('type', 'docx');
             formData.append('file', file);
             // We could also save the mappings metadata here if backend supported it
-
             const response = await fetch(`/api/projects/${projectId}/templates`, {
                 method: 'POST',
                 credentials: 'include',
                 body: formData,
             });
-
-            if (!response.ok) {throw new Error("Failed to save");}
+            if (!response.ok) { throw new Error("Failed to save"); }
             return response.json();
         },
         onSuccess: () => {
@@ -111,7 +96,6 @@ export function TemplateUploadWizard({
             reset();
         }
     });
-
     const reset = () => {
         setStep(1);
         setName('');
@@ -120,15 +104,13 @@ export function TemplateUploadWizard({
         setAnalysis(null);
         setMappings([]);
     };
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
             setFile(selectedFile);
-            if (!name) {setName(selectedFile.name.replace(/\.[^/.]+$/, ''));}
+            if (!name) { setName(selectedFile.name.replace(/\.[^/.]+$/, '')); }
         }
     };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl">
@@ -137,12 +119,11 @@ export function TemplateUploadWizard({
                         {step === 1 ? "Upload New Template" : "AI Template Analysis"}
                     </DialogTitle>
                 </DialogHeader>
-
                 {step === 1 && (
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="file">Template File (.docx)</Label>
-                            <Input id="file" type="file" accept=".docx" onChange={() => { void handleFileChange(); }} />
+                            <Input id="file" type="file" accept=".docx" onChange={handleFileChange} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="name">Name</Label>
@@ -154,7 +135,6 @@ export function TemplateUploadWizard({
                         </div>
                     </div>
                 )}
-
                 {step === 2 && (
                     <div className="space-y-4 py-4">
                         <Alert className="bg-blue-50 dark:bg-blue-900/10 border-blue-200">
@@ -164,7 +144,6 @@ export function TemplateUploadWizard({
                                 We found {analysis?.variables?.length || 0} variables. Review suggestions below.
                             </AlertDescription>
                         </Alert>
-
                         <ScrollArea className="h-[250px] border rounded-md p-4">
                             <div className="space-y-3">
                                 {analysis?.variables?.map((v: any, i: number) => {
@@ -185,13 +164,11 @@ export function TemplateUploadWizard({
                                 })}
                             </div>
                         </ScrollArea>
-
                         <p className="text-xs text-muted-foreground">
                             Variables marked "New" can be automatically created in your workflow later.
                         </p>
                     </div>
                 )}
-
                 <DialogFooter>
                     {step === 1 ? (
                         <Button onClick={() => { void uploadAndAnalyzeMutation.mutate(); }} disabled={!file || !name || uploadAndAnalyzeMutation.isPending}>

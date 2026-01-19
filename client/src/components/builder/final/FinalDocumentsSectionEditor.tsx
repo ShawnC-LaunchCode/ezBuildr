@@ -2,15 +2,12 @@
  * Final Documents Section Editor
  * Configure Final Documents blocks for document generation
  */
-
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { FileText, Eye, HelpCircle, ExternalLink, CheckCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { FileText, Eye, HelpCircle, CheckCircle } from "lucide-react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -20,25 +17,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection } from "@/lib/vault-hooks";
-
 interface FinalDocumentsSectionEditorProps {
   section: ApiSection;
   workflowId: string;
 }
-
 interface WorkflowTemplate {
   id: string;
   name: string;
   description: string | null;
 }
-
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
   const { mode } = useWorkflowBuilder();
   const isEasyMode = mode === 'easy';
-
   // Get config from section or use defaults
   const config = section.config || {
     finalBlock: true,
@@ -47,11 +39,9 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
     advanced: {}
   };
-
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>(config.templates || []);
   const [screenTitle, setScreenTitle] = useState(config.screenTitle || "Your Completed Documents");
   const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage || "# Thank You!\n\nYour documents are ready for download below.");
-
   // Fetch workflow to get projectId
   const { data: workflow } = useQuery({
     queryKey: ["workflow", workflowId],
@@ -60,7 +50,6 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
       return response.data;
     },
   });
-
   // Fetch available templates for this project
   const { data: templatesData } = useQuery({
     queryKey: ["project-templates", workflow?.projectId],
@@ -71,49 +60,39 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     },
     enabled: !!workflow?.projectId,
   });
-
   // API returns paginated response: { items: [...], nextCursor, hasMore }
   const templates = templatesData?.items || [];
-
   // Update section config when values change
   const handleUpdate = (field: string, value: any) => {
     const newConfig = {
       ...config,
       [field]: value
     };
-
     updateSectionMutation.mutate({
       id: section.id,
       workflowId,
       config: newConfig
     });
   };
-
   const handleTemplateToggle = (templateId: string) => {
     const newSelection = selectedTemplates.includes(templateId)
       ? selectedTemplates.filter(id => id !== templateId)
       : [...selectedTemplates, templateId];
-
     setSelectedTemplates(newSelection);
     handleUpdate("templates", newSelection);
   };
-
   const handleScreenTitleChange = (value: string) => {
     setScreenTitle(value);
   };
-
   const handleScreenTitleBlur = () => {
     handleUpdate("screenTitle", screenTitle);
   };
-
   const handleMarkdownChange = (value: string) => {
     setMarkdownMessage(value);
   };
-
   const handleMarkdownBlur = () => {
     handleUpdate("markdownMessage", markdownMessage);
   };
-
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <Card>
@@ -142,7 +121,6 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
               </p>
             </div>
           )}
-
           {/* Message with Markdown Preview */}
           <div className="space-y-2">
             <Label>Completion Message</Label>
@@ -194,7 +172,6 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
               </TabsContent>
             </Tabs>
           </div>
-
           {/* Template Selection */}
           <div className="space-y-2">
             <Label>Selected Documents</Label>
@@ -237,7 +214,6 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
               </p>
             )}
           </div>
-
           {/* Advanced Options - Hidden in Easy Mode */}
           {!isEasyMode && (
             <div className="space-y-2">

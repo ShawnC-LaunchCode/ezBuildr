@@ -1,21 +1,16 @@
-
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Copy } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import React, { useState } from "react";
-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-
 export default function OAuthApps() {
     const [isCreating, setIsCreating] = useState(false);
     const [newAppName, setNewAppName] = useState("");
     const [newRedirectUri, setNewRedirectUri] = useState("");
     const queryClient = useQueryClient();
-
     // Mock Query - In real implementation, add GET /api/oauth-apps endpoint
     const { data: apps, isLoading } = useQuery({
         queryKey: ['oauth-apps'],
@@ -24,13 +19,11 @@ export default function OAuthApps() {
             return []; // Mock empty for now until endpoint exists
         }
     });
-
     const handleCreate = async () => {
         // Implement POST /api/oauth-apps
         console.log("Create app", newAppName, newRedirectUri);
         setIsCreating(false);
     };
-
     return (
         <div className="container mx-auto py-10 space-y-8">
             <div className="flex justify-between items-center">
@@ -42,7 +35,6 @@ export default function OAuthApps() {
                     <Plus className="mr-2 h-4 w-4" /> New Application
                 </Button>
             </div>
-
             {isCreating && (
                 <Card>
                     <CardHeader>
@@ -65,7 +57,6 @@ export default function OAuthApps() {
                     </CardContent>
                 </Card>
             )}
-
             <div className="grid gap-6">
                 {(apps || []).length === 0 ? (
                     <Card className="bg-muted/50 border-dashed">

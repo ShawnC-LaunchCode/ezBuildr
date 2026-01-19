@@ -1,16 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, TrendingUp, TrendingDown, Star, Award, BarChart3, Activity, Users, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Loader2, Star, Award, Activity, Users, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import React, { useState } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiRequest } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
-
 interface FeedbackStats {
   totalFeedback: number;
   avgRating: number;
@@ -37,7 +34,6 @@ interface FeedbackStats {
   }>;
   period: string;
 }
-
 interface RecentFeedback {
   id: string;
   workflowId: string | null;
@@ -53,56 +49,46 @@ interface RecentFeedback {
   requestDescription: string | null;
   createdAt: Date;
 }
-
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
-
 export function AIPerformanceMonitor() {
   const [timeRange, setTimeRange] = useState('30');
   const [selectedOperationType, setSelectedOperationType] = useState<string | undefined>(undefined);
-
   // Fetch statistics
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['/api/admin/ai-settings/feedback/stats', timeRange, selectedOperationType],
     queryFn: async () => {
       const params = new URLSearchParams({ days: timeRange });
       if (selectedOperationType) {params.append('operationType', selectedOperationType);}
-
       const res = await apiRequest('GET', `/api/admin/ai-settings/feedback/stats?${params}`);
       const data = await res.json();
       return data.stats as FeedbackStats;
     },
   });
-
   // Fetch recent feedback
   const { data: recentData, isLoading: recentLoading } = useQuery({
     queryKey: ['/api/admin/ai-settings/feedback/recent', selectedOperationType],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '20' });
       if (selectedOperationType) {params.append('operationType', selectedOperationType);}
-
       const res = await apiRequest('GET', `/api/admin/ai-settings/feedback/recent?${params}`);
       const data = await res.json();
       return data.feedback as RecentFeedback[];
     },
   });
-
   const getRatingColor = (rating: number) => {
     if (rating >= 4.5) {return 'text-green-600 dark:text-green-400';}
     if (rating >= 3.5) {return 'text-blue-600 dark:text-blue-400';}
     if (rating >= 2.5) {return 'text-yellow-600 dark:text-yellow-400';}
     return 'text-red-600 dark:text-red-400';
   };
-
   const getQualityColor = (score: number) => {
     if (score >= 80) {return 'text-green-600 dark:text-green-400';}
     if (score >= 70) {return 'text-yellow-600 dark:text-yellow-400';}
     return 'text-red-600 dark:text-red-400';
   };
-
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-
   const formatDateTime = (date: Date | string) => {
     return new Date(date).toLocaleString('en-US', {
       month: 'short',
@@ -111,7 +97,6 @@ export function AIPerformanceMonitor() {
       minute: '2-digit'
     });
   };
-
   if (statsLoading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -119,7 +104,6 @@ export function AIPerformanceMonitor() {
       </div>
     );
   }
-
   if (!statsData) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -128,7 +112,6 @@ export function AIPerformanceMonitor() {
       </div>
     );
   }
-
   // Prepare rating distribution data for pie chart
   const ratingChartData = Object.entries(statsData.ratingDistribution)
     .reverse()
@@ -137,7 +120,6 @@ export function AIPerformanceMonitor() {
       value: count,
       rating: parseInt(rating),
     }));
-
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -153,7 +135,6 @@ export function AIPerformanceMonitor() {
             <SelectItem value="365">Last year</SelectItem>
           </SelectContent>
         </Select>
-
         <Select value={selectedOperationType || 'all'} onValueChange={(v) => setSelectedOperationType(v === 'all' ? undefined : v)}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="All operations" />
@@ -168,7 +149,6 @@ export function AIPerformanceMonitor() {
           </SelectContent>
         </Select>
       </div>
-
       {/* Overview Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -181,7 +161,6 @@ export function AIPerformanceMonitor() {
             <p className="text-xs text-muted-foreground">{statsData.period}</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
@@ -206,7 +185,6 @@ export function AIPerformanceMonitor() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Quality Score</CardTitle>
@@ -219,7 +197,6 @@ export function AIPerformanceMonitor() {
             <p className="text-xs text-muted-foreground">Automated validation</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Quality Pass Rate</CardTitle>
@@ -233,7 +210,6 @@ export function AIPerformanceMonitor() {
           </CardContent>
         </Card>
       </div>
-
       {/* Charts */}
       <Tabs defaultValue="trends" className="space-y-4">
         <TabsList>
@@ -243,7 +219,6 @@ export function AIPerformanceMonitor() {
           <TabsTrigger value="providers">By Provider</TabsTrigger>
           <TabsTrigger value="recent">Recent Feedback</TabsTrigger>
         </TabsList>
-
         {/* Trends Tab */}
         <TabsContent value="trends" className="space-y-4">
           <Card>
@@ -296,7 +271,6 @@ export function AIPerformanceMonitor() {
             </CardContent>
           </Card>
         </TabsContent>
-
         {/* Distribution Tab */}
         <TabsContent value="distribution" className="space-y-4">
           <Card>
@@ -325,7 +299,6 @@ export function AIPerformanceMonitor() {
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-
                 <div className="space-y-3">
                   {Object.entries(statsData.ratingDistribution)
                     .reverse()
@@ -333,7 +306,6 @@ export function AIPerformanceMonitor() {
                       const percentage = statsData.totalFeedback > 0
                         ? (count / statsData.totalFeedback) * 100
                         : 0;
-
                       return (
                         <div key={rating} className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -357,7 +329,6 @@ export function AIPerformanceMonitor() {
             </CardContent>
           </Card>
         </TabsContent>
-
         {/* Operations Tab */}
         <TabsContent value="operations" className="space-y-4">
           <Card>
@@ -386,7 +357,6 @@ export function AIPerformanceMonitor() {
                       <Bar yAxisId="right" dataKey="avgQualityScore" fill="#3b82f6" name="Avg Quality (0-100)" />
                     </BarChart>
                   </ResponsiveContainer>
-
                   <div className="space-y-2">
                     {statsData.byOperationType.map((op) => (
                       <div key={op.operationType} className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -418,7 +388,6 @@ export function AIPerformanceMonitor() {
             </CardContent>
           </Card>
         </TabsContent>
-
         {/* Providers Tab */}
         <TabsContent value="providers" className="space-y-4">
           <Card>
@@ -464,7 +433,6 @@ export function AIPerformanceMonitor() {
             </CardContent>
           </Card>
         </TabsContent>
-
         {/* Recent Feedback Tab */}
         <TabsContent value="recent" className="space-y-4">
           <Card>
@@ -512,19 +480,16 @@ export function AIPerformanceMonitor() {
                           )}
                         </div>
                       </div>
-
                       {feedback.requestDescription && (
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           "{feedback.requestDescription}"
                         </p>
                       )}
-
                       {feedback.comment && (
                         <p className="text-sm bg-muted p-2 rounded italic">
                           "{feedback.comment}"
                         </p>
                       )}
-
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />

@@ -2,21 +2,16 @@
  * HTTP Node Executor
  * Handles HTTP/API requests with authentication, retries, and response mapping
  */
-
 import crypto from 'crypto';
-
 import { logger } from '../../logger';
 import { httpCache } from '../../services/cache';
 import { resolveConnection as resolveNewConnection, markConnectionUsed } from '../../services/connections';
 import { resolveConnection as resolveOldConnection } from '../../services/externalConnections';
 import { getOAuth2Token } from '../../services/oauth2';
 import { getSecretValue } from '../../services/secrets';
-import { redactObject } from '../../utils/encryption';
-import { select, selectMultiple } from '../../utils/jsonselect';
+import { select } from '../../utils/jsonselect';
 import { evaluateExpression } from '../expr';
-
 import type { EvalContext } from '../expr';
-
 /**
  * HTTP Node Configuration
  */
@@ -26,12 +21,10 @@ export interface HttpNodeConfig {
   baseUrl?: string;                   // Required if no connectionId
   path: string;                       // URL path (supports {{var}} templates)
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
   // Request configuration
   query?: Record<string, any>;        // Query parameters (supports {{var}} templates)
   headers?: Record<string, string>;   // Headers (supports {{var}} templates)
   body?: any;                         // Request body (JSON only for MVP)
-
   // Authentication
   auth?: {
     type: 'api_key' | 'bearer' | 'oauth2' | 'basic_auth' | 'none';
@@ -46,32 +39,26 @@ export interface HttpNodeConfig {
       scope?: string;
     };
   };
-
   // Retry and timeout configuration
   timeoutMs?: number;                 // Request timeout (default 8000ms)
   retries?: number;                   // Number of retries (default 2)
   backoffMs?: number;                 // Initial backoff delay (default 250ms)
-
   // Caching
   cacheTtlMs?: number;                // Optional cache TTL in milliseconds
-
   // Response mapping
   map: Array<{
     as: string;                       // Output variable name
     select: string;                   // JSONPath selector (e.g., $.data.user.id)
   }>;
-
   // Conditional execution
   condition?: string;                 // Optional condition expression
 }
-
 export interface HttpNodeInput {
   nodeId: string;
   config: HttpNodeConfig;
   context: EvalContext;
   projectId: string;                  // For secret/connection resolution
 }
-
 export interface HttpNodeOutput {
   status: 'executed' | 'skipped' | 'error';
   variables?: Record<string, any>;    // Mapped variables
@@ -85,14 +72,12 @@ export interface HttpNodeOutput {
   error?: string;
   durationMs?: number;
 }
-
 /**
  * Execute an HTTP node
  */
 export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOutput> {
   const { nodeId, config, context, projectId } = input;
   const startTime = Date.now();
-
   try {
     // IDEMPOTENCY GUARD
     if (context.executedSideEffects?.has(nodeId)) {
@@ -102,7 +87,6 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         durationMs: 0
       };
     }
-
     // Check condition if present
     if (config.condition) {
       const conditionResult = evaluateExpression(config.condition, context);
@@ -113,19 +97,14 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         };
       }
     }
-
     // Resolve connection or use direct config
     const requestConfig = await resolveRequestConfig(config, projectId);
-
     // Build the full URL
     const url = buildUrl(requestConfig.baseUrl, config.path, config.query, context);
-
     // Resolve headers
     const headers = await resolveHeaders(requestConfig, config, context, projectId);
-
     // Resolve body
     const body = config.body ? interpolateTemplate(JSON.stringify(config.body), context) : undefined;
-
     // Check cache if enabled
     if (config.cacheTtlMs && config.method === 'GET') {
       const cacheKey = generateCacheKey(projectId, config.method, url, body);
@@ -136,7 +115,6 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         for (const [key, value] of Object.entries(variables)) {
           context.vars[key] = value;
         }
-
         return {
           status: 'executed',
           variables,
@@ -150,7 +128,6 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         };
       }
     }
-
     // Mock requests in preview mode
     if (context.executionMode === 'preview') {
       // Mock response
@@ -160,20 +137,17 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         data: { message: 'Mocked response in preview mode' },
         cached: false,
       };
-
       // Map mock response to variables
       const variables = mapResponse(mockResponse.data, config.map);
       for (const [key, value] of Object.entries(variables)) {
         context.vars[key] = value;
       }
-
       logger.info({
         url,
         method: config.method,
         body,
         headers,
       }, 'External send skipped in preview mode');
-
       return {
         status: 'executed',
         variables,
@@ -182,7 +156,6 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
         durationMs: 0,
       };
     }
-
     // Execute HTTP request with retries
     const response = await executeWithRetries({
       url,
@@ -193,24 +166,20 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
       retries: config.retries ?? 2,
       backoffMs: config.backoffMs ?? 250,
     });
-
     // Cache response if enabled
     if (config.cacheTtlMs && config.method === 'GET') {
       const cacheKey = generateCacheKey(projectId, config.method, url, body);
       httpCache.set(cacheKey, response, config.cacheTtlMs);
     }
-
     // Map response to variables
     const variables = mapResponse(response.data, config.map);
     for (const [key, value] of Object.entries(variables)) {
       context.vars[key] = value;
     }
-
     // MARK EXECUTED
     if (context.executedSideEffects) {
       context.executedSideEffects.add(nodeId);
     }
-
     return {
       status: 'executed',
       variables,
@@ -230,7 +199,6 @@ export async function executeHttpNode(input: HttpNodeInput): Promise<HttpNodeOut
     };
   }
 }
-
 /**
  * Resolve request configuration from connection or direct config
  * Tries new connections service first (Stage 16), then falls back to old externalConnections (Stage 9)
@@ -253,12 +221,10 @@ async function resolveRequestConfig(
     try {
       const resolved = await resolveNewConnection(projectId, config.connectionId);
       const connection = resolved.connection;
-
       // Mark connection as used
       markConnectionUsed(config.connectionId).catch(err => {
         logger.error({ err, connectionId: config.connectionId }, 'Failed to mark connection as used');
       });
-
       // Build auth config based on connection type
       let auth: HttpNodeConfig['auth'] | undefined;
       if (connection.type === 'api_key') {
@@ -290,7 +256,6 @@ async function resolveRequestConfig(
           tokenRef: resolved.accessToken || '',
         };
       }
-
       return {
         baseUrl: connection.baseUrl || '',
         auth,
@@ -306,13 +271,11 @@ async function resolveRequestConfig(
         connectionId: config.connectionId,
         error: (error as Error).message,
       }, 'New connection not found, trying old externalConnection');
-
       // Fall back to old externalConnections service
       const connection = await resolveOldConnection(projectId, config.connectionId);
       if (!connection) {
         throw new Error(`Connection not found: ${config.connectionId}`);
       }
-
       return {
         baseUrl: connection.baseUrl,
         auth: {
@@ -326,11 +289,9 @@ async function resolveRequestConfig(
       };
     }
   }
-
   if (!config.baseUrl) {
     throw new Error('baseUrl is required when connectionId is not provided');
   }
-
   return {
     baseUrl: config.baseUrl,
     auth: config.auth,
@@ -340,7 +301,6 @@ async function resolveRequestConfig(
     backoffMs: config.backoffMs ?? 250,
   };
 }
-
 /**
  * Resolve and build headers with authentication
  */
@@ -356,12 +316,10 @@ async function resolveHeaders(
     ...requestConfig.defaultHeaders,
     ...config.headers,
   };
-
   // Interpolate template variables in headers
   for (const [key, value] of Object.entries(headers)) {
     headers[key] = interpolateTemplate(value, context);
   }
-
   // Apply authentication
   const auth = config.auth || requestConfig.auth;
   if (auth && auth.type !== 'none') {
@@ -374,7 +332,6 @@ async function resolveHeaders(
           }
         }
         break;
-
       case 'bearer':
         if (auth.tokenRef) {
           const token = await getSecretValue(projectId, auth.tokenRef);
@@ -383,12 +340,10 @@ async function resolveHeaders(
           }
         }
         break;
-
       case 'oauth2':
         if (auth.oauth2) {
           const clientId = await getSecretValue(projectId, auth.oauth2.clientIdRef);
           const clientSecret = await getSecretValue(projectId, auth.oauth2.clientSecretRef);
-
           if (clientId && clientSecret) {
             const tokenResponse = await getOAuth2Token({
               tokenUrl: auth.oauth2.tokenUrl,
@@ -401,7 +356,6 @@ async function resolveHeaders(
           }
         }
         break;
-
       case 'basic_auth':
         if (auth.secretRef) {
           const credentials = await getSecretValue(projectId, auth.secretRef);
@@ -414,10 +368,8 @@ async function resolveHeaders(
         break;
     }
   }
-
   return headers;
 }
-
 /**
  * Build full URL with query parameters
  */
@@ -429,14 +381,12 @@ function buildUrl(
 ): string {
   // Interpolate templates in path
   const interpolatedPath = interpolateTemplate(path, context);
-
   // Build base URL
   let url = baseUrl;
   if (!url.endsWith('/') && !interpolatedPath.startsWith('/')) {
     url += '/';
   }
   url += interpolatedPath;
-
   // Add query parameters
   if (query && Object.keys(query).length > 0) {
     const params = new URLSearchParams();
@@ -446,10 +396,8 @@ function buildUrl(
     }
     url += `?${  params.toString()}`;
   }
-
   return url;
 }
-
 /**
  * Interpolate {{var}} templates in a string
  */
@@ -459,7 +407,6 @@ function interpolateTemplate(template: string, context: EvalContext): string {
     return value !== undefined ? String(value) : match;
   });
 }
-
 /**
  * Execute HTTP request with retries and exponential backoff
  */
@@ -473,21 +420,17 @@ async function executeWithRetries(config: {
   backoffMs: number;
 }): Promise<{ status: number; headers: Record<string, string>; data: any }> {
   let lastError: Error | null = null;
-
   for (let attempt = 0; attempt <= config.retries; attempt++) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
-
       const response = await fetch(config.url, {
         method: config.method,
         headers: config.headers,
         body: config.body ? JSON.stringify(config.body) : undefined,
         signal: controller.signal,
       });
-
       clearTimeout(timeoutId);
-
       // Parse response
       const text = await response.text();
       let data: any;
@@ -496,28 +439,23 @@ async function executeWithRetries(config: {
       } catch {
         data = text;
       }
-
       // Extract headers
       const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         headers[key] = value;
       });
-
       // Check for HTTP errors
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-
       return { status: response.status, headers, data };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-
       // Don't retry on certain errors
       if (lastError.message.includes('HTTP 4')) {
         // Client errors (4xx) shouldn't be retried
         throw lastError;
       }
-
       // Exponential backoff
       if (attempt < config.retries) {
         const delay = config.backoffMs * Math.pow(2, attempt);
@@ -525,16 +463,13 @@ async function executeWithRetries(config: {
       }
     }
   }
-
   throw lastError || new Error('Request failed after retries');
 }
-
 /**
  * Map response data to variables using JSONPath selectors
  */
 function mapResponse(data: any, mappings: Array<{ as: string; select: string }>): Record<string, any> {
   const variables: Record<string, any> = {};
-
   for (const mapping of mappings) {
     try {
       const value = select(data, mapping.select);
@@ -544,10 +479,8 @@ function mapResponse(data: any, mappings: Array<{ as: string; select: string }>)
       variables[mapping.as] = undefined;
     }
   }
-
   return variables;
 }
-
 /**
  * Generate a cache key for HTTP responses
  */

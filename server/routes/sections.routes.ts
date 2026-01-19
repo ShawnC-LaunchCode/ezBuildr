@@ -1,18 +1,11 @@
-import { z } from "zod";
-
-import { insertSectionSchema } from "@shared/schema";
-
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { sectionService } from "../services/SectionService";
 import { asyncHandler } from "../utils/asyncHandler";
-
 import type { Express, Request, Response, NextFunction } from "express";
-
 const logger = createLogger({ module: "sections-routes" });
-
 /**
  * Middleware helper: Look up workflowId from sectionId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -27,13 +20,11 @@ async function lookupWorkflowIdMiddleware(
     if (!sectionId) {
       return next();
     }
-
     const section = await sectionRepository.findById(sectionId);
     if (!section) {
       res.status(404).json({ message: "Section not found" });
       return;
     }
-
     // Add workflowId to params so autoRevertToDraft can access it
     req.params.workflowId = section.workflowId;
     next();
@@ -42,7 +33,6 @@ async function lookupWorkflowIdMiddleware(
     next(error);
   }
 }
-
 /**
  * Register section-related routes
  * Handles section CRUD operations and reordering
@@ -58,10 +48,8 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId } = req.params;
       const sectionData = req.body;
-
       const section = await sectionService.createSection(workflowId, userId, sectionData);
       res.status(201).json(section);
     } catch (error) {
@@ -71,7 +59,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * GET /api/workflows/:workflowId/sections
    * Get all sections for a workflow
@@ -82,7 +69,6 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId } = req.params;
       const sections = await sectionService.getSections(workflowId, userId);
       res.json(sections);
@@ -93,7 +79,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * GET /api/workflows/:workflowId/sections/:sectionId
    * Get a single section with steps
@@ -104,7 +89,6 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId, sectionId } = req.params;
       const section = await sectionService.getSectionWithSteps(sectionId, workflowId, userId);
       res.json(section);
@@ -115,7 +99,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * PUT /api/workflows/:workflowId/sections/reorder
    * Reorder sections
@@ -127,17 +110,13 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId } = req.params;
       const { sections } = req.body;
-
       if (!Array.isArray(sections)) {
         return res.status(400).json({ message: "Invalid sections array" });
       }
-
       // Log the sections data for debugging
       logger.info({ sections, workflowId }, "Reordering sections");
-
       // Validate that all section IDs are valid UUIDs
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       for (const section of sections) {
@@ -149,7 +128,6 @@ export function registerSectionRoutes(app: Express): void {
           });
         }
       }
-
       await sectionService.reorderSections(workflowId, userId, sections);
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {
@@ -159,7 +137,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * PUT /api/workflows/:workflowId/sections/:sectionId
    * Update a section
@@ -170,10 +147,8 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId, sectionId } = req.params;
       const updateData = req.body;
-
       const section = await sectionService.updateSection(sectionId, workflowId, userId, updateData);
       res.json(section);
     } catch (error) {
@@ -183,7 +158,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * DELETE /api/workflows/:workflowId/sections/:sectionId
    * Delete a section
@@ -194,7 +168,6 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { workflowId, sectionId } = req.params;
       await sectionService.deleteSection(sectionId, workflowId, userId);
       res.status(204).send();
@@ -205,12 +178,10 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   // ===================================================================
   // SIMPLIFIED SECTION ENDPOINTS (without workflowId in path)
   // These endpoints look up the workflow from the section automatically
   // ===================================================================
-
   /**
    * PUT /api/sections/:sectionId
    * Update a section (workflow looked up automatically)
@@ -221,10 +192,8 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { sectionId } = req.params;
       const updateData = req.body;
-
       const updatedSection = await sectionService.updateSectionById(sectionId, userId, updateData);
       res.json(updatedSection);
     } catch (error) {
@@ -234,7 +203,6 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
-
   /**
    * DELETE /api/sections/:sectionId
    * Delete a section (workflow looked up automatically)
@@ -245,7 +213,6 @@ export function registerSectionRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-
       const { sectionId } = req.params;
       await sectionService.deleteSectionById(sectionId, userId);
       res.status(204).send();

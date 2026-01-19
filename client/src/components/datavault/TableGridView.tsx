@@ -5,7 +5,6 @@
  * PR 8: Added drag-and-drop column reordering
  * PR 9: Added infinite scroll row loading
  */
-
 import {
   DndContext,
   closestCenter,
@@ -24,42 +23,30 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
-
 import { useToast } from "@/hooks/use-toast";
 import { useBatchReferences } from "@/hooks/useBatchReferences";
 import { useInfiniteRows } from "@/hooks/useInfiniteRows";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
-
-
 import type { DatavaultColumn } from "@shared/schema";
-
 import { AddRowButton } from "./AddRowButton";
 import { CellRenderer } from "./CellRenderer";
-import { ColumnHeaderCell } from "./ColumnHeaderCell";
 import { DeleteRowButton } from "./DeleteRowButton";
 import { SortableColumnHeader } from "./SortableColumnHeader";
-
-
-
-
 interface TableGridViewProps {
   tableId: string;
 }
-
 interface EditingCell {
   rowId: string;
   colId: string;
 }
-
 export function TableGridView({ tableId }: TableGridViewProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [localColumns, setLocalColumns] = useState<DatavaultColumn[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const loadMoreRef = useRef<HTMLTableRowElement>(null);
-
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -71,18 +58,15 @@ export function TableGridView({ tableId }: TableGridViewProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
   // Fetch table schema (columns)
   const { data: schema, isLoading: schemaLoading } = useQuery({
     queryKey: [...datavaultQueryKeys.table(tableId), 'schema'],
     queryFn: () => datavaultAPI.getTableSchema(tableId),
   });
-
   // Initialize local columns when schema loads (replaces deprecated onSuccess)
   if (schema?.columns && localColumns.length === 0) {
     setLocalColumns(schema.columns);
   }
-
   // Fetch rows with infinite scroll
   const {
     data: infiniteData,
@@ -91,7 +75,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteRows(tableId, { limit: 100 });
-
   // Intersection observer for infinite scroll trigger
   useIntersectionObserver(loadMoreRef, {
     onIntersect: () => {
@@ -101,10 +84,8 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     },
     enabled: hasNextPage ?? false,
   });
-
   // Flatten all pages into a single array of rows
   const allRows = infiniteData?.pages.flatMap((page) => page.rows) || [];
-
   // Batch fetch all reference values (fixes N+1 query problem)
   // Before: 100 rows × 3 reference columns = 300 API requests
   // After: 1 batch API request
@@ -112,47 +93,37 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     allRows,
     localColumns.length > 0 ? localColumns : (schema?.columns || [])
   );
-
   const handleCellUpdate = async (rowId: string, column: DatavaultColumn, value: any) => {
     try {
       // Get current row values
       const row = allRows.find(r => r.row.id === rowId);
       if (!row) { return; }
-
       // Update with new value
       const updatedValues = {
         ...row.values,
         [column.id]: value,
       };
-
       await datavaultAPI.updateRow(rowId, updatedValues);
-
       // Invalidate queries to refetch all pages
       queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId) });
-
       // Clear editing state
       setEditingCell(null);
     } catch (error) {
       console.error('Failed to update cell:', error);
     }
   };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = sortedColumns.findIndex((col) => col.id === active.id);
       const newIndex = sortedColumns.findIndex((col) => col.id === over.id);
-
       // Optimistically update local state
       const newColumns = arrayMove(sortedColumns, oldIndex, newIndex);
       setLocalColumns(newColumns);
-
       try {
         // Send new order to backend
         const columnIds = newColumns.map((col) => col.id);
         await datavaultAPI.reorderColumns(tableId, columnIds);
-
         toast({
           title: "Columns reordered",
           description: "Column order has been updated.",
@@ -168,7 +139,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
       }
     }
   };
-
   if (schemaLoading || rowsLoading) {
     return (
       <div className="flex items-center justify-center py-8" role="status" aria-label="Loading">
@@ -176,7 +146,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
       </div>
     );
   }
-
   if (!schema) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -184,13 +153,10 @@ export function TableGridView({ tableId }: TableGridViewProps) {
       </div>
     );
   }
-
   // Use local columns if available (for optimistic updates), otherwise use schema
   const columns = localColumns.length > 0 ? localColumns : (schema?.columns || []);
-
   // Sort columns by orderIndex
   const sortedColumns = [...columns].sort((a, b) => a.orderIndex - b.orderIndex);
-
   return (
     <div className="space-y-4">
       <div className="overflow-auto border rounded-md">
@@ -215,7 +181,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
                 </th>
               </tr>
             </thead>
-
             <tbody>
               {allRows.map((row) => (
                 <tr key={row.row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -244,7 +209,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
                   </td>
                 </tr>
               ))}
-
               {allRows.length === 0 && !rowsLoading && (
                 <tr>
                   <td
@@ -255,7 +219,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
                   </td>
                 </tr>
               )}
-
               {/* Infinite scroll sentinel element */}
               {hasNextPage && (
                 <tr ref={loadMoreRef}>
@@ -270,7 +233,6 @@ export function TableGridView({ tableId }: TableGridViewProps) {
           </table>
         </DndContext>
       </div>
-
       <AddRowButton
         tableId={tableId}
         columns={sortedColumns}

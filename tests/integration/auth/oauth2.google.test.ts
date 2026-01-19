@@ -3,35 +3,26 @@
  *
  * Tests the Google OAuth2 login flow with mocked Google token verification
  */
-
 import { eq } from 'drizzle-orm';
 import express from 'express';
-import { nanoid } from 'nanoid';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-
 import { users, tenants, refreshTokens } from '@shared/schema';
-
 import { db } from '../../../server/db';
 import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
-
 import type { Express } from 'express';
 import type { TokenPayload } from 'google-auth-library';
-
 describe('OAuth2 Google Authentication Flow', () => {
   let app: Express;
   let testTenantId: string;
   let mockGoogleClient: any;
-
   beforeAll(async () => {
     // Create test Express app
     app = express();
     app.use(express.json());
     app.set('trust proxy', 1);
-
     // Register auth routes
     await setupAuth(app);
-
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({
       name: 'Test Tenant',
@@ -39,18 +30,15 @@ describe('OAuth2 Google Authentication Flow', () => {
     }).returning();
     testTenantId = tenant.id;
   });
-
   beforeEach(async () => {
     // Setup mock Google OAuth client
     mockGoogleClient = {
       verifyIdToken: vi.fn(),
     };
     _testOnly_setGoogleClient(mockGoogleClient);
-
     // Clean up test users
     await db.delete(users).where(eq(users.email, 'testuser@example.com'));
   });
-
   afterAll(async () => {
     // Clean up
     if (testTenantId) {
@@ -58,7 +46,6 @@ describe('OAuth2 Google Authentication Flow', () => {
     }
     _testOnly_setGoogleClient(null);
   });
-
   describe('POST /api/auth/google - Google OAuth2 Login', () => {
     it('should successfully authenticate with valid Google ID token', async () => {
       // Mock Google token verification
@@ -74,11 +61,9 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       // Make authentication request
       const response = await request(app)
         .post('/api/auth/google')
@@ -86,7 +71,6 @@ describe('OAuth2 Google Authentication Flow', () => {
         .send({
           token: 'mock-google-id-token-12345',
         });
-
       // Verify response
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
@@ -100,17 +84,14 @@ describe('OAuth2 Google Authentication Flow', () => {
           profileImageUrl: 'https://example.com/avatar.jpg',
         },
       });
-
       // Verify JWT token is returned
       expect(response.body.token).toBeTruthy();
       expect(response.body.token.split('.')).toHaveLength(3); // JWT format
-
       // Verify refresh token cookie is set
       const cookies = response.headers['set-cookie'];
       expect(cookies).toBeDefined();
       expect(Array.isArray(cookies)).toBe(true);
       expect((cookies as unknown as string[]).some((c: string) => c.startsWith('refresh_token='))).toBe(true);
-
       // Verify user was created in database
       const dbUser = await db.query.users.findFirst({
         where: eq(users.id, 'google-user-123'),
@@ -120,20 +101,17 @@ describe('OAuth2 Google Authentication Flow', () => {
       expect(dbUser?.emailVerified).toBe(true);
       expect(dbUser?.authProvider).toBe('google');
     });
-
     it('should return 400 when ID token is missing', async () => {
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
         .send({});
-
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({
         message: 'ID token is required',
         error: 'missing_token',
       });
     });
-
     it('should return 403 when Origin header is invalid', async () => {
       const mockPayload: TokenPayload = {
         sub: 'google-user-456',
@@ -144,44 +122,37 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'https://malicious-site.com')
         .send({
           token: 'mock-google-id-token',
         });
-
       expect(response.status).toBe(403);
       expect(response.body).toMatchObject({
         message: 'Invalid request origin',
         error: 'invalid_origin',
       });
     });
-
     it('should return 401 when Google token verification fails', async () => {
       mockGoogleClient.verifyIdToken.mockRejectedValue(
         new Error('Invalid token')
       );
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
         .send({
           token: 'invalid-token',
         });
-
       expect(response.status).toBe(401);
       expect(response.body).toMatchObject({
         message: 'Authentication failed',
         error: 'auth_failed',
       });
     });
-
     it('should return 401 when email is not verified by Google', async () => {
       const mockPayload: TokenPayload = {
         sub: 'google-user-unverified',
@@ -192,28 +163,22 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
         .send({
           token: 'unverified-email-token',
         });
-
       expect(response.status).toBe(401);
       expect(response.body.error).toBe('auth_failed');
     });
-
     it('should update existing user on subsequent logins', async () => {
       const userId = 'google-user-existing';
-
       // Clean up any existing user first
       await db.delete(users).where(eq(users.id, userId));
-
       // Create existing user
       await db.insert(users).values({
         id: userId,
@@ -228,7 +193,6 @@ describe('OAuth2 Google Authentication Flow', () => {
         emailVerified: true,
         defaultMode: 'easy',
       });
-
       // Mock Google token with updated info
       const mockPayload: TokenPayload = {
         sub: userId,
@@ -242,25 +206,21 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
         .send({
           token: 'existing-user-token',
         });
-
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
         firstName: 'Updated',
         lastName: 'User',
         profileImageUrl: 'https://example.com/new-avatar.jpg',
       });
-
       // Verify database was updated
       const updatedUser = await db.query.users.findFirst({
         where: eq(users.id, userId),
@@ -268,7 +228,6 @@ describe('OAuth2 Google Authentication Flow', () => {
       expect(updatedUser?.firstName).toBe('Updated');
       expect(updatedUser?.lastName).toBe('User');
     });
-
     it('should create refresh token record in database', async () => {
       const mockPayload: TokenPayload = {
         sub: 'google-user-refresh',
@@ -281,11 +240,9 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
@@ -293,19 +250,15 @@ describe('OAuth2 Google Authentication Flow', () => {
         .send({
           token: 'refresh-token-test',
         });
-
       expect(response.status).toBe(200);
-
       // Verify refresh token exists in database
       const token = await db.query.refreshTokens.findFirst({
         where: eq(refreshTokens.userId, 'google-user-refresh'),
       });
-
       expect(token).toBeDefined();
       expect(token?.revoked).toBe(false);
       expect(token?.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
-
     it('should support both "token" and "idToken" fields', async () => {
       const mockPayload: TokenPayload = {
         sub: 'google-user-idtoken',
@@ -316,11 +269,9 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       // Test with "idToken" field
       const response = await request(app)
         .post('/api/auth/google')
@@ -328,18 +279,15 @@ describe('OAuth2 Google Authentication Flow', () => {
         .send({
           idToken: 'test-id-token',
         });
-
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Authentication successful');
     });
-
     it('should respect rate limiting', async () => {
       // Skip in test environment (rate limiting is disabled)
       if (process.env.NODE_ENV === 'test') {
         expect(true).toBe(true);
         return;
       }
-
       const mockPayload: TokenPayload = {
         sub: 'google-user-rate',
         email: 'rate@example.com',
@@ -349,11 +297,9 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       // Make multiple requests rapidly
       const requests = Array.from({ length: 12 }, () =>
         request(app)
@@ -361,14 +307,11 @@ describe('OAuth2 Google Authentication Flow', () => {
           .set('Origin', 'http://localhost:5000')
           .send({ token: 'rate-test-token' })
       );
-
       const responses = await Promise.all(requests);
-
       // Some requests should be rate limited (429)
       const rateLimited = responses.filter(r => r.status === 429);
       expect(rateLimited.length).toBeGreaterThan(0);
     });
-
     it('should handle missing profile information gracefully', async () => {
       const mockPayload: TokenPayload = {
         sub: 'google-user-minimal',
@@ -380,18 +323,15 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const response = await request(app)
         .post('/api/auth/google')
         .set('Origin', 'http://localhost:5000')
         .send({
           token: 'minimal-profile-token',
         });
-
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
         email: 'minimal@example.com',
@@ -401,7 +341,6 @@ describe('OAuth2 Google Authentication Flow', () => {
       });
     });
   });
-
   describe('Google Token Verification', () => {
     it('should verify valid Google ID token', async () => {
       const mockPayload: TokenPayload = {
@@ -413,11 +352,9 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       const payload = await verifyGoogleToken('valid-token');
       expect(payload).toMatchObject({
         sub: 'test-sub',
@@ -425,15 +362,12 @@ describe('OAuth2 Google Authentication Flow', () => {
         email_verified: true,
       });
     });
-
     it('should throw error when token verification fails', async () => {
       mockGoogleClient.verifyIdToken.mockRejectedValue(
         new Error('Token verification failed')
       );
-
       await expect(verifyGoogleToken('invalid-token')).rejects.toThrow();
     });
-
     it('should throw error when email is not verified', async () => {
       const mockPayload: TokenPayload = {
         sub: 'test-sub',
@@ -444,21 +378,17 @@ describe('OAuth2 Google Authentication Flow', () => {
         iat: Date.now() / 1000,
         exp: Date.now() / 1000 + 3600,
       };
-
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => mockPayload,
       });
-
       await expect(verifyGoogleToken('unverified-email-token')).rejects.toThrow(
         'Email not verified by Google'
       );
     });
-
     it('should throw error when payload is null', async () => {
       mockGoogleClient.verifyIdToken.mockResolvedValue({
         getPayload: () => null,
       });
-
       await expect(verifyGoogleToken('null-payload-token')).rejects.toThrow(
         'Invalid token payload'
       );

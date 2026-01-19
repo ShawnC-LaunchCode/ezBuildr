@@ -3,7 +3,6 @@
  * Main canvas that renders the vertical stack of page cards
  * Supports drag-and-drop for both sections and steps (including cross-section)
  */
-
 import {
   DndContext,
   closestCenter,
@@ -25,27 +24,20 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import React, { useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { UI_LABELS } from "@/lib/labels";
-import type { ApiStep } from "@/lib/vault-api";
+import type {  } from "@/lib/vault-api";
 import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps, useCreateSection, useWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
-
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
-import { QuestionCard } from "../questions/QuestionCard";
-
 import { PageCard } from "./PageCard";
-
 interface PageCanvasProps {
   workflowId: string;
 }
-
 interface DragData {
   type: 'section' | 'step';
   id: string;
   sectionId?: string; // For steps, which section they belong to
 }
-
 export function PageCanvas({ workflowId }: PageCanvasProps) {
   const { data: pages = [] } = useSections(workflowId);
   const { data: allBlocks = [] } = useBlocks(workflowId);
@@ -56,12 +48,10 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
   const reorderStepsMutation = useReorderSteps();
   const updateStepMutation = useUpdateStep();
   const createSectionMutation = useCreateSection();
-
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeDragData, setActiveDragData] = useState<DragData | null>(null);
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
-
   const handleCreateSection = async () => {
     const order = pages?.length || 0;
     await createSectionMutation.mutateAsync({
@@ -70,12 +60,10 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       order,
     });
   };
-
   const handleEditBlock = (blockId: string) => {
     // Find the block in regular blocks or transform blocks
     const regularBlock = allBlocks.find(b => b.id === blockId);
     const transformBlock = transformBlocks.find(tb => tb.id === blockId);
-
     if (regularBlock) {
       setEditingBlock({
         id: regularBlock.id,
@@ -104,11 +92,9 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       setIsBlockEditorOpen(true);
     }
   };
-
   // Fetch all steps for all sections using the proper useAllSteps hook
   // This respects React's Rules of Hooks by using useQueries internally
   const allSteps = useAllSteps(pages);
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -119,11 +105,9 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
   const handleDragStart = (event: any) => {
     const { active } = event;
     setActiveId(active.id);
-
     // Determine what type of item is being dragged
     const isSection = pages.some(p => p.id === active.id);
     if (isSection) {
@@ -138,27 +122,21 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       }
     }
   };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     setActiveId(null);
     setActiveDragData(null);
-
     if (!over || active.id === over.id) {return;}
-
     // Handle section reordering
     if (activeDragData?.type === 'section') {
       const oldIndex = pages.findIndex((p) => p.id === active.id);
       const newIndex = pages.findIndex((p) => p.id === over.id);
-
       if (oldIndex !== -1 && newIndex !== -1) {
         const reordered = arrayMove(pages, oldIndex, newIndex);
         const updates = reordered.map((page, index) => ({
           id: page.id,
           order: index,
         }));
-
         reorderSectionsMutation.mutate({
           workflowId,
           sections: updates,
@@ -166,15 +144,12 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       }
       return;
     }
-
     // Handle step drag
     if (activeDragData?.type === 'step') {
       const sourceSectionId = activeDragData.sectionId!;
-
       // Determine target section (could be a section ID or a step ID)
       let targetSectionId: string | null = null;
       let targetStepId: string | null = null;
-
       // Check if dropped on a section
       if (pages.some(p => p.id === over.id)) {
         targetSectionId = over.id as string;
@@ -185,29 +160,22 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
           sId => allSteps[sId].some(step => step.id === targetStepId)
         ) || null;
       }
-
       if (!targetSectionId) {return;}
-
       const sourceSteps = [...allSteps[sourceSectionId]];
       const oldIndex = sourceSteps.findIndex(s => s.id === active.id);
-
       if (oldIndex === -1) {return;}
-
       // Same section - just reorder
       if (sourceSectionId === targetSectionId) {
         const targetSteps = [...allSteps[targetSectionId]];
         const newIndex = targetStepId
           ? targetSteps.findIndex(s => s.id === targetStepId)
           : targetSteps.length;
-
         if (newIndex === -1) {return;}
-
         const reordered = arrayMove(targetSteps, oldIndex, newIndex);
         const updates = reordered.map((step, index) => ({
           id: step.id,
           order: index,
         }));
-
         reorderStepsMutation.mutate({
           sectionId: targetSectionId,
           steps: updates,
@@ -216,32 +184,27 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         // Different section - move step and reorder both sections
         const draggedStep = sourceSteps[oldIndex];
         const targetSteps = [...allSteps[targetSectionId]];
-
         const newIndex = targetStepId
           ? targetSteps.findIndex(s => s.id === targetStepId)
           : targetSteps.length;
-
         // Update the step's section
         await updateStepMutation.mutateAsync({
           id: draggedStep.id,
           sectionId: targetSectionId,
           order: newIndex,
         });
-
         // Reorder remaining steps in source section
         const remainingSourceSteps = sourceSteps.filter(s => s.id !== draggedStep.id);
         const sourceUpdates = remainingSourceSteps.map((step, index) => ({
           id: step.id,
           order: index,
         }));
-
         if (sourceUpdates.length > 0) {
           reorderStepsMutation.mutate({
             sectionId: sourceSectionId,
             steps: sourceUpdates,
           });
         }
-
         // Reorder steps in target section
         const targetUpdatesWithNew = [
           ...targetSteps.slice(0, newIndex),
@@ -251,7 +214,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
           id: step.id,
           order: index,
         }));
-
         reorderStepsMutation.mutate({
           sectionId: targetSectionId,
           steps: targetUpdatesWithNew,
@@ -259,7 +221,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       }
     }
   };
-
   if (pages.length === 0) {
     return (
       <div className="h-full flex items-center justify-center p-8">
@@ -272,13 +233,11 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
       </div>
     );
   }
-
   // Get all sortable item IDs (sections + all steps from all sections)
   const allItemIds = [
     ...pages.map(p => p.id),
     ...Object.values(allSteps).flat().map(s => s.id),
   ];
-
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto p-6">
@@ -305,7 +264,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
                   onEditBlock={handleEditBlock}
                 />
               ))}
-
               {/* Add Page Button at Bottom */}
               <div className="flex justify-center pt-4 pb-8">
                 <Button
@@ -320,7 +278,6 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
             </div>
           </SortableContext>
         </DndContext>
-
         {/* Block Editor Dialog */}
         <BlockEditorDialog
           workflowId={workflowId}

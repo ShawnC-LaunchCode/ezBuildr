@@ -1,15 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users, FileText, BarChart, CheckCircle, Shield, TrendingUp, Database, Trash2 } from "lucide-react";
 import React, { useEffect } from "react";
-import { Link } from "wouter";
-
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-
 interface AdminStats {
   totalUsers: number;
   adminUsers: number;
@@ -22,17 +18,14 @@ interface AdminStats {
   completedRuns: number;
   inProgressRuns: number;
 }
-
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-
   const { data: stats, isLoading: statsLoading, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     enabled: !!isAuthenticated,
     retry: false,
   });
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -46,7 +39,6 @@ export default function AdminDashboard() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   // Show error if access denied (not admin)
   useEffect(() => {
     if (error) {
@@ -60,21 +52,17 @@ export default function AdminDashboard() {
       }, 1000);
     }
   }, [error, toast]);
-
   if (authLoading || !isAuthenticated || error) {
     return null;
   }
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
-
       <main className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="Admin Dashboard"
           description="System-wide statistics and management"
         />
-
         <div className="flex-1 overflow-auto p-6 space-y-6">
           {/* Admin Badge */}
           <Card className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
@@ -90,7 +78,6 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-
           {/* Stats Grid */}
           {statsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -121,7 +108,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -135,7 +121,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -151,7 +136,6 @@ export default function AdminDashboard() {
                   </Card>
                 </div>
               </div>
-
   // Platform Stats
               <div>
                 <h3 className="text-lg font-semibold mb-4">Workflow Statistics</h3>
@@ -172,7 +156,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -186,7 +169,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -200,7 +182,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -216,7 +197,6 @@ export default function AdminDashboard() {
                   </Card>
                 </div>
               </div>
-
               {/* Run Stats */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Run Statistics</h3>
@@ -234,7 +214,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -253,7 +232,6 @@ export default function AdminDashboard() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -277,8 +255,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           )}
-
-
         </div>
       </main>
     </div>

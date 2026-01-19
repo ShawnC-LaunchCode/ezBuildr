@@ -1,8 +1,5 @@
-
 import { toast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { useCreateSection, useCreateStep, useUpdateStep, useUpdateWorkflow } from "@/lib/vault-hooks";
-
 /**
  * AI Operations Application Logic
  * 
@@ -12,7 +9,6 @@ import { useCreateSection, useCreateStep, useUpdateStep, useUpdateWorkflow } fro
  * This ensures that all validation, internal ID generation, and side-effects
  * (like updating the sidebar or graph) happen consistently with manual edits.
  */
-
 interface AiSuggestion {
     newSections?: Array<{
         title: string;
@@ -30,13 +26,11 @@ interface AiSuggestion {
     }>;
     // We can expand this for modifications later
 }
-
 // NOTE: This function needs to be used within a React component or hook context because 
 // it relies on TanStack Query hooks. 
 // However, hooks can't be called conditionally or in loops easily.
 // A better pattern for this "Batch Operation" is to use the QueryClient directly 
 // or pass the mutate functions in.
-
 export async function applyAiSuggestions(
     workflowId: string,
     suggestions: AiSuggestion,
@@ -48,7 +42,6 @@ export async function applyAiSuggestions(
 ) {
     console.log("Applying AI Suggestions:", suggestions);
     const sectionMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs
-
     try {
         // 1. Create New Sections
         if (suggestions.newSections) {
@@ -59,9 +52,7 @@ export async function applyAiSuggestions(
                     title: section.title,
                     order: section.order ?? 999
                 };
-
                 const newSection = await mutations.createSection.mutateAsync(sectionData);
-
                 // Add Steps for this new section
                 if (section.steps) {
                     for (const step of section.steps) {
@@ -75,7 +66,6 @@ export async function applyAiSuggestions(
                 }
             }
         }
-
         // 2. Add Steps to Existing Sections (if any)
         if (suggestions.newSteps) {
             for (const step of suggestions.newSteps) {
@@ -92,10 +82,8 @@ export async function applyAiSuggestions(
                 }
             }
         }
-
         toast({ title: "Changes Applied", description: "AI suggestions have been successfully applied." });
         return true;
-
     } catch (error: any) {
         console.error("Failed to apply AI changes:", error);
         toast({
@@ -106,7 +94,6 @@ export async function applyAiSuggestions(
         return false;
     }
 }
-
 function normalizeStepType(type: string): string {
     const t = type.toLowerCase();
     if (t.includes("text") || t.includes("string")) {return "text";}

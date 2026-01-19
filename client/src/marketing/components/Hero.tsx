@@ -1,9 +1,7 @@
 ﻿import { motion } from "framer-motion";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "wouter";
-
 import { brand } from "../lib/brand";
-
 export default function Hero() {
   return (
     <section className={`${brand.sectionPad} pt-20 pb-20 sm:pt-24 sm:pb-32 ${brand.gradient} text-white overflow-hidden relative`}>
@@ -18,19 +16,16 @@ export default function Hero() {
             <span className="mr-2">✨</span>
             <span>Now with Advanced Logic Engine</span>
           </div>
-
           <h1 className="text-5xl sm:text-7xl font-bold leading-tight tracking-tight mb-6">
             Build workflows <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">
               without the chaos.
             </span>
           </h1>
-
           <p className="mt-6 text-white/80 text-lg sm:text-xl max-w-2xl leading-relaxed">
             ezBuildr makes it simple to create powerful, logic-driven workflows and forms.
             Guided for beginners, limitless for experts.
           </p>
-
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <Link
               href="/auth/register"
@@ -46,7 +41,6 @@ export default function Hero() {
             </Link>
           </div>
         </motion.div>
-
         {/* Hero Abstract Graphic */}
         <div className="pointer-events-none absolute -right-20 top-20 opacity-40 mix-blend-overlay">
           <svg width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">

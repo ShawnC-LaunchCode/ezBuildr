@@ -1,10 +1,8 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2, Send, RotateCcw, Check, X } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
-
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -12,16 +10,11 @@ import { applyAiSuggestions } from "@/lib/ai-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useCreateSection, useCreateStep } from "@/lib/vault-hooks";
-
-import { AiDiffView } from "./AiDiffView";
-
-
 interface AiAssistantDialogProps {
     workflowId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
 interface Message {
     id: string;
     role: 'user' | 'assistant';
@@ -29,37 +22,31 @@ interface Message {
     suggestions?: any;
     applied?: boolean;
 }
-
 export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistantDialogProps) {
     const [prompt, setPrompt] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const scrollRef = useRef<HTMLDivElement>(null);
-
     // Hooks for mutations
     const createSection = useCreateSection();
     const createStep = useCreateStep();
-
     // Scroll to bottom when messages change
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
-
     const handleApply = async (suggestions: any) => {
         const success = await applyAiSuggestions(workflowId, suggestions, {
             createSection,
             createStep
         });
-
         if (success) {
             onOpenChange(false);
             // Optionally mark message as applied in UI if we kept dialog open
         }
     };
-
     const suggestMutation = useMutation({
         mutationFn: async (description: string) => {
             const res = await apiRequest("POST", `/api/ai/workflows/${workflowId}/suggest`, {
@@ -85,10 +72,8 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             });
         },
     });
-
     const handleGenerate = () => {
         if (!prompt.trim()) {return;}
-
         // Add user message via optimistic update
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -96,11 +81,9 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             content: prompt
         };
         setMessages(prev => [...prev, userMsg]);
-
         suggestMutation.mutate(prompt);
         setPrompt("");
     };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl flex flex-col h-[600px] p-0 gap-0">
@@ -113,7 +96,6 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                         Refine your workflow using natural language. Review changes before applying.
                     </DialogDescription>
                 </DialogHeader>
-
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-6">
                         {messages.length === 0 && (
@@ -124,7 +106,6 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                                 <p className="text-xs opacity-70">"Create a new page for payment info"</p>
                             </div>
                         )}
-
                         {messages.map((msg) => (
                             <div key={msg.id} className={cn(
                                 "flex gap-3",
@@ -141,7 +122,6 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                                     msg.role === 'user' ? "bg-slate-100 text-slate-900" : "bg-white border text-slate-900"
                                 )}>
                                     <p>{msg.content}</p>
-
                                     {/* Placeholder for Diff View */}
                                     {msg.suggestions && (
                                         <div className="mt-3 border rounded-md p-2 bg-slate-50">
@@ -153,7 +133,6 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                                             <pre className="text-[10px] overflow-x-auto p-2 bg-white rounded border">
                                                 {JSON.stringify(msg.suggestions, null, 2).slice(0, 200)}...
                                             </pre>
-
                                             <div className="flex gap-2 mt-3">
                                                 <Button
                                                     size="sm"
@@ -188,7 +167,6 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                         <div ref={scrollRef} />
                     </div>
                 </ScrollArea>
-
                 <div className="p-4 border-t bg-slate-50 shrink-0">
                     <div className="flex gap-2">
                         <Textarea

@@ -8,25 +8,21 @@ import {
     Plus
 } from "lucide-react";
 import React, { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkflow, useProjectWorkflows, useUpdateWorkflow, queryKeys } from "@/lib/vault-hooks";
+import { useWorkflow, useProjectWorkflows, useUpdateWorkflow } from "@/lib/vault-hooks";
 // import { LogicBuilder } from "@/components/builder/logic/LogicBuilder"; // Assuming this exists or we use a simplified version
 // If LogicBuilder doesn't exist at that path, we might need to build a simple condition builder here.
 // Re-using specific parts if possible.
-
 interface AssignmentRule {
     targetWorkflowId: string;
     condition: any; // ConditionExpression
     enabled: boolean;
 }
-
 export function AssignmentTab({ workflowId }: { workflowId: string }) {
     const { data: workflow } = useWorkflow(workflowId);
     // Fix: handle potentially null projectId by defaulting to undefined if it's absent
@@ -34,19 +30,15 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
     const updateWorkflow = useUpdateWorkflow();
     const { toast } = useToast();
     const queryClient = useQueryClient();
-
     const [searchTerm, setSearchTerm] = useState("");
     const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-
     // Parse existing assignments
     const assignments: AssignmentRule[] = workflow?.intakeConfig?.assignments || [];
-
     // Filter out self and upstream (loops)
     const candidateWorkflows = projectWorkflows?.filter(w =>
         w.id !== workflowId &&
         w.intakeConfig?.upstreamWorkflowId === workflowId
     ) || [];
-
     // If a workflow is NOT linked as upstream, it shouldn't show up here? 
     // OR, this tab suggests which workflows *could* be assigned.
     // The Prompt says: "If intake data matches X, then make Y workflows available."
@@ -55,20 +47,16 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
     // LET'S ASSUME: We only show workflows that have explicitly linked this Intake as their upstream.
     // OR, we show all, and if selected, we warn? 
     // Better: Show all project flows, but highlight linked ones.
-
     const filteredWorkflows = projectWorkflows?.filter(w =>
         w.id !== workflowId &&
         w.title.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
-
     const handleToggleAssignment = async (targetId: string, currentEnabled: boolean) => {
         // If enabling, we need a rule entry. If disabling, we just set enabled: false?
         // Or we remove it?
         // Let's create a default rule if none exists.
-
         const newAssignments = [...assignments];
         const existingIndex = newAssignments.findIndex(a => a.targetWorkflowId === targetId);
-
         if (existingIndex >= 0) {
             newAssignments[existingIndex] = {
                 ...newAssignments[existingIndex],
@@ -81,7 +69,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                 enabled: true
             });
         }
-
         try {
             await updateWorkflow.mutateAsync({
                 id: workflowId,
@@ -95,7 +82,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
             toast({ title: "Failed to update", variant: "destructive" });
         }
     };
-
     return (
         <div className="container mx-auto max-w-4xl py-6 space-y-6">
             <div className="flex items-center justify-between">
@@ -109,7 +95,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                     </p>
                 </div>
             </div>
-
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -131,7 +116,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                             const rule = assignments.find(a => a.targetWorkflowId === target.id);
                             const isAssigned = rule?.enabled;
                             const isLinked = target.intakeConfig?.upstreamWorkflowId === workflowId;
-
                             return (
                                 <div key={target.id} className={`
                                 border rounded-lg p-4 transition-all
@@ -162,7 +146,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                                                 </div>
                                             </div>
                                         </div>
-
                                         {isAssigned && (
                                             <Button
                                                 variant="ghost"
@@ -174,7 +157,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                                             </Button>
                                         )}
                                     </div>
-
                                     {/* Condition Editor Area */}
                                     {isAssigned && editingRuleId === target.id && (
                                         <div className="mt-4 pl-12 border-t pt-4">
@@ -197,7 +179,6 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                                 </div>
                             );
                         })}
-
                         {filteredWorkflows.length === 0 && (
                             <div className="text-center py-8 text-muted-foreground">
                                 No workflows found matching your search.

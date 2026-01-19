@@ -2,13 +2,8 @@
  * RecordEditorModal Component
  * Dynamic form for creating/editing collection records
  */
-
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -30,7 +25,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiCollectionField, ApiCollectionRecord } from "@/lib/vault-api";
-
 interface RecordEditorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,7 +33,6 @@ interface RecordEditorModalProps {
   onSubmit: (data: Record<string, any>) => Promise<void>;
   isLoading?: boolean;
 }
-
 export function RecordEditorModal({
   open,
   onOpenChange,
@@ -50,12 +43,10 @@ export function RecordEditorModal({
 }: RecordEditorModalProps) {
   const isEditing = !!record;
   const [formData, setFormData] = useState<Record<string, any>>({});
-
   // Initialize form data from record or defaults
   useEffect(() => {
     if (open) {
       const initialData: Record<string, any> = {};
-
       fields.forEach((field) => {
         if (record) {
           // Editing: use existing value
@@ -65,17 +56,14 @@ export function RecordEditorModal({
           initialData[field.slug] = getDefaultValue(field);
         }
       });
-
       setFormData(initialData);
     }
   }, [open, record, fields]);
-
   // Get default value for a field
   const getDefaultValue = (field: ApiCollectionField): any => {
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       return field.defaultValue;
     }
-
     switch (field.type) {
       case "boolean":
         return false;
@@ -89,16 +77,13 @@ export function RecordEditorModal({
         return "";
     }
   };
-
   // Update form field value
   const updateField = (slug: string, value: any) => {
     setFormData((prev) => ({ ...prev, [slug]: value }));
   };
-
   // Validate and submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     // Validate required fields
     const missingFields = fields
       .filter((field) => field.isRequired)
@@ -109,28 +94,22 @@ export function RecordEditorModal({
         return false;
       })
       .map((field) => field.name);
-
     if (missingFields.length > 0) {
       alert(`Please fill in required fields: ${missingFields.join(", ")}`);
       return;
     }
-
     // Clean up data (remove empty optional fields, convert types)
     const cleanedData: Record<string, any> = {};
-
     fields.forEach((field) => {
       let value = formData[field.slug];
-
       // Skip empty optional fields
       if (!field.isRequired && (value === "" || value === null || value === undefined)) {
         return;
       }
-
       // Type conversions
       if (field.type === "number" && value !== "" && value !== null) {
         value = Number(value);
       }
-
       if (field.type === "json" && typeof value === "string") {
         try {
           value = JSON.parse(value);
@@ -138,17 +117,13 @@ export function RecordEditorModal({
           // Keep as string if invalid JSON
         }
       }
-
       cleanedData[field.slug] = value;
     });
-
     await onSubmit(cleanedData);
   };
-
   // Render field input based on type
   const renderFieldInput = (field: ApiCollectionField) => {
     const value = formData[field.slug] ?? getDefaultValue(field);
-
     switch (field.type) {
       case "text":
         return (
@@ -158,7 +133,6 @@ export function RecordEditorModal({
             placeholder={`Enter ${field.name.toLowerCase()}`}
           />
         );
-
       case "number":
         return (
           <Input
@@ -168,7 +142,6 @@ export function RecordEditorModal({
             placeholder="0"
           />
         );
-
       case "boolean":
         return (
           <div className="flex items-center gap-2">
@@ -181,7 +154,6 @@ export function RecordEditorModal({
             </span>
           </div>
         );
-
       case "date":
         return (
           <Input
@@ -190,7 +162,6 @@ export function RecordEditorModal({
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
           />
         );
-
       case "datetime":
         return (
           <Input
@@ -199,7 +170,6 @@ export function RecordEditorModal({
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
           />
         );
-
       case "select":
         const selectOptions = Array.isArray(field.options) ? field.options : [];
         return (
@@ -219,11 +189,9 @@ export function RecordEditorModal({
             </SelectContent>
           </Select>
         );
-
       case "multi_select":
         const multiOptions = Array.isArray(field.options) ? field.options : [];
         const selectedValues = Array.isArray(value) ? value : [];
-
         return (
           <div className="space-y-2">
             {multiOptions.map((option) => (
@@ -246,7 +214,6 @@ export function RecordEditorModal({
             ))}
           </div>
         );
-
       case "file":
         return (
           <div className="space-y-2">
@@ -268,7 +235,6 @@ export function RecordEditorModal({
             )}
           </div>
         );
-
       case "json":
         const jsonValue = typeof value === "object" ? JSON.stringify(value, null, 2) : value;
         return (
@@ -280,7 +246,6 @@ export function RecordEditorModal({
             rows={4}
           />
         );
-
       default:
         return (
           <Textarea
@@ -292,7 +257,6 @@ export function RecordEditorModal({
         );
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -306,7 +270,6 @@ export function RecordEditorModal({
               : "Fill in the details to create a new record."}
           </DialogDescription>
         </DialogHeader>
-
         <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} className="space-y-6">
           {fields.map((field) => (
             <div key={field.id} className="space-y-2">
@@ -322,7 +285,6 @@ export function RecordEditorModal({
               {renderFieldInput(field)}
             </div>
           ))}
-
           <DialogFooter>
             <Button
               type="button"

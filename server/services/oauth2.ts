@@ -2,14 +2,10 @@
  * OAuth2 Service
  * Handles OAuth2 Client Credentials flow and 3-legged OAuth2 flow with token caching
  */
-
 import crypto from 'crypto';
-
 import { logger } from '../logger';
-import { redactObject, encrypt, decrypt } from '../utils/encryption';
-
+import { redactObject, decrypt } from '../utils/encryption';
 import { oauth2Cache } from './cache';
-
 /**
  * OAuth2 token response
  */
@@ -19,7 +15,6 @@ export interface OAuth2TokenResponse {
   expires_in: number; // Seconds
   scope?: string;
 }
-
 /**
  * OAuth2 client credentials config
  */
@@ -31,7 +26,6 @@ export interface OAuth2ClientCredentialsConfig {
   tenantId?: string; // For cache key scoping
   projectId?: string; // For cache key scoping
 }
-
 /**
  * Generate a cache key for OAuth2 tokens
  */
@@ -45,7 +39,6 @@ function generateCacheKey(config: OAuth2ClientCredentialsConfig): string {
   ];
   return parts.join(':');
 }
-
 /**
  * Fetch an OAuth2 access token using client credentials flow
  * Implements caching to avoid unnecessary token requests
@@ -55,14 +48,12 @@ function generateCacheKey(config: OAuth2ClientCredentialsConfig): string {
  */
 export async function getOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<OAuth2TokenResponse> {
   const cacheKey = generateCacheKey(config);
-
   // Check cache first
   const cached = oauth2Cache.get(cacheKey);
   if (cached) {
     // Check if token is still valid (with 30s buffer)
     const expiresAt = cached.obtainedAt + (cached.expires_in * 1000);
     const now = Date.now();
-
     if (now < expiresAt - 30000) {
       // Token is still valid, return from cache
       return {
@@ -71,20 +62,15 @@ export async function getOAuth2Token(config: OAuth2ClientCredentialsConfig): Pro
         expires_in: Math.floor((expiresAt - now) / 1000), // Remaining lifetime
       };
     }
-
     // Token expired or near expiry, delete from cache
     oauth2Cache.delete(cacheKey);
   }
-
   // Fetch new token
   const token = await fetchOAuth2Token(config);
-
   // Cache the token (with 30s buffer before expiry)
   oauth2Cache.set(cacheKey, token);
-
   return token;
 }
-
 /**
  * Fetch a fresh OAuth2 token (no caching)
  * Uses application/x-www-form-urlencoded POST with client credentials
@@ -94,7 +80,6 @@ export async function getOAuth2Token(config: OAuth2ClientCredentialsConfig): Pro
  */
 async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<OAuth2TokenResponse> {
   const { tokenUrl, clientId, clientSecret, scope } = config;
-
   try {
     // Build form body
     const params = new URLSearchParams();
@@ -104,7 +89,6 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
     if (scope) {
       params.append('scope', scope);
     }
-
     // Make request
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -114,7 +98,6 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
       },
       body: params.toString(),
     });
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       logger.error({
@@ -125,15 +108,12 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
       }, 'OAuth2 token request failed');
       throw new Error(`OAuth2 token request failed: ${response.status} ${response.statusText}`);
     }
-
     const data = await response.json();
-
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');
       throw new Error('Invalid OAuth2 token response: missing access_token or token_type');
     }
-
     return {
       access_token: data.access_token,
       token_type: data.token_type,
@@ -148,7 +128,6 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
     throw new Error(`Failed to obtain OAuth2 token: ${(error as Error).message}`);
   }
 }
-
 /**
  * Invalidate a cached OAuth2 token
  * Useful when a token is known to be invalid (e.g., revoked)
@@ -159,14 +138,12 @@ export function invalidateOAuth2Token(config: OAuth2ClientCredentialsConfig): vo
   const cacheKey = generateCacheKey(config);
   oauth2Cache.delete(cacheKey);
 }
-
 /**
  * Clear all cached OAuth2 tokens
  */
 export function clearOAuth2TokenCache(): void {
   oauth2Cache.clear();
 }
-
 /**
  * Test OAuth2 credentials by attempting to fetch a token
  * Returns true if successful, false otherwise
@@ -182,11 +159,9 @@ export async function testOAuth2Credentials(config: OAuth2ClientCredentialsConfi
     return false;
   }
 }
-
 // =====================================================================
 // OAuth2 3-Legged Authorization Flow (Authorization Code Grant)
 // =====================================================================
-
 /**
  * OAuth2 3-legged flow configuration
  */
@@ -200,7 +175,6 @@ export interface OAuth2ThreeLegConfig {
   tenantId?: string;        // For cache key scoping
   projectId?: string;       // For cache key scoping
 }
-
 /**
  * OAuth2 state record for CSRF protection
  * Stored temporarily during auth flow
@@ -211,14 +185,12 @@ export interface OAuth2StateRecord {
   codeVerifier?: string;    // For PKCE (if needed in future)
   createdAt: number;        // Unix timestamp
 }
-
 /**
  * OAuth2 token response with refresh token
  */
 export interface OAuth2ThreeLegTokenResponse extends OAuth2TokenResponse {
   refresh_token?: string;
 }
-
 /**
  * In-memory state store for OAuth2 flows
  * Key: state token, Value: state record
@@ -226,7 +198,6 @@ export interface OAuth2ThreeLegTokenResponse extends OAuth2TokenResponse {
  */
 const oauth2StateStore = new Map<string, OAuth2StateRecord>();
 const OAUTH2_STATE_TTL = 10 * 60 * 1000; // 10 minutes
-
 /**
  * Clean up expired state records
  */
@@ -238,10 +209,8 @@ function cleanExpiredStates() {
     }
   }
 }
-
 // RESOURCE LEAK FIX: Store interval ID for proper cleanup
 let cleanupIntervalId: NodeJS.Timeout | null = null;
-
 /**
  * Start OAuth2 state cleanup interval
  */
@@ -252,7 +221,6 @@ export function startOAuth2StateCleanup(): void {
   // Clean up expired states every minute
   cleanupIntervalId = setInterval(cleanExpiredStates, 60000);
 }
-
 /**
  * Stop OAuth2 state cleanup interval (for graceful shutdown)
  */
@@ -262,10 +230,8 @@ export function stopOAuth2StateCleanup(): void {
     cleanupIntervalId = null;
   }
 }
-
 // Start cleanup on module load
 startOAuth2StateCleanup();
-
 /**
  * Generate OAuth2 authorization URL for 3-legged flow
  *
@@ -279,14 +245,12 @@ export function generateOAuth2AuthorizationUrl(
 ): { authorizationUrl: string; state: string } {
   // Generate random state token for CSRF protection
   const state = crypto.randomBytes(32).toString('hex');
-
   // Store state for later validation
   oauth2StateStore.set(state, {
     connectionId,
     state,
     createdAt: Date.now(),
   });
-
   // Build authorization URL
   const params = new URLSearchParams({
     client_id: config.clientId,
@@ -294,16 +258,12 @@ export function generateOAuth2AuthorizationUrl(
     response_type: 'code',
     state,
   });
-
   if (config.scope) {
     params.append('scope', config.scope);
   }
-
   const authorizationUrl = `${config.authUrl}?${params.toString()}`;
-
   return { authorizationUrl, state };
 }
-
 /**
  * Validate OAuth2 callback state token
  *
@@ -315,16 +275,13 @@ export function validateOAuth2State(state: string): OAuth2StateRecord | undefine
   if (!record) {
     return undefined;
   }
-
   // Check expiration
   if (Date.now() - record.createdAt > OAUTH2_STATE_TTL) {
     oauth2StateStore.delete(state);
     return undefined;
   }
-
   return record;
 }
-
 /**
  * Exchange authorization code for access token
  *
@@ -345,7 +302,6 @@ export async function exchangeOAuth2Code(
       code,
       redirect_uri: config.redirectUri,
     });
-
     // Make request
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
@@ -355,7 +311,6 @@ export async function exchangeOAuth2Code(
       },
       body: params.toString(),
     });
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       logger.error({
@@ -366,15 +321,12 @@ export async function exchangeOAuth2Code(
       }, 'OAuth2 code exchange failed');
       throw new Error(`OAuth2 code exchange failed: ${response.status} ${response.statusText}`);
     }
-
     const data = await response.json();
-
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');
       throw new Error('Invalid OAuth2 token response: missing access_token or token_type');
     }
-
     return {
       access_token: data.access_token,
       token_type: data.token_type,
@@ -390,7 +342,6 @@ export async function exchangeOAuth2Code(
     throw new Error(`Failed to exchange OAuth2 code: ${(error as Error).message}`);
   }
 }
-
 /**
  * Refresh OAuth2 access token using refresh token
  *
@@ -405,7 +356,6 @@ export async function refreshOAuth2Token(
   try {
     // Decrypt refresh token
     const decryptedRefreshToken = decrypt(refreshToken);
-
     // Build form body
     const params = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -413,7 +363,6 @@ export async function refreshOAuth2Token(
       client_secret: config.clientSecret,
       refresh_token: decryptedRefreshToken,
     });
-
     // Make request
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
@@ -423,7 +372,6 @@ export async function refreshOAuth2Token(
       },
       body: params.toString(),
     });
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       logger.error({
@@ -434,15 +382,12 @@ export async function refreshOAuth2Token(
       }, 'OAuth2 token refresh failed');
       throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}`);
     }
-
     const data = await response.json();
-
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');
       throw new Error('Invalid OAuth2 token response: missing access_token or token_type');
     }
-
     return {
       access_token: data.access_token,
       token_type: data.token_type,
@@ -458,7 +403,6 @@ export async function refreshOAuth2Token(
     throw new Error(`Failed to refresh OAuth2 token: ${(error as Error).message}`);
   }
 }
-
 /**
  * Clean up OAuth2 state after successful callback
  *

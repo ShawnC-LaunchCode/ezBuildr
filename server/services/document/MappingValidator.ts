@@ -25,23 +25,16 @@
  * }
  * ```
  */
-
 import { eq } from 'drizzle-orm';
-
 import { templates } from '../../../shared/schema';
 import { db } from '../../db';
 import { logger } from '../../logger';
-import { createError } from '../../utils/errors';
-
 import { applyMapping } from './MappingInterpreter';
 import { normalizeVariables } from './VariableNormalizer';
-
 import type { DocumentMapping } from './MappingInterpreter';
-
 // ============================================================================
 // TYPES
 // ============================================================================
-
 export interface ValidationError {
   type: string;
   message: string;
@@ -49,7 +42,6 @@ export interface ValidationError {
   details?: any;
   suggestion?: string;
 }
-
 export interface ValidationWarning {
   type: string;
   message: string;
@@ -57,7 +49,6 @@ export interface ValidationWarning {
   suggestion?: string;
   details?: any;
 }
-
 export interface CoverageStats {
   totalTemplateFields: number;
   mappedFields: number;
@@ -65,7 +56,6 @@ export interface CoverageStats {
   unusedSources: string[];
   coveragePercentage: number;
 }
-
 export interface TypeMismatch {
   field: string;
   expectedType: string;
@@ -73,7 +63,6 @@ export interface TypeMismatch {
   value: any;
   suggestion?: string;
 }
-
 export interface ValidationReport {
   valid: boolean;
   errors: ValidationError[];
@@ -83,11 +72,9 @@ export interface ValidationReport {
   dryRunSuccess: boolean;
   dryRunOutput?: any;
 }
-
 // ============================================================================
 // MAPPING VALIDATOR CLASS
 // ============================================================================
-
 export class MappingValidator {
   /**
    * Validate mapping with test data
@@ -105,7 +92,6 @@ export class MappingValidator {
     testStepValues: Record<string, any>
   ): Promise<ValidationReport> {
     logger.info({ templateId }, 'Validating mapping with test data');
-
     const report: ValidationReport = {
       valid: true,
       errors: [],
@@ -120,7 +106,6 @@ export class MappingValidator {
       typeMismatches: [],
       dryRunSuccess: false,
     };
-
     try {
       // Step 1: Load template
       const [template] = await db
@@ -128,7 +113,6 @@ export class MappingValidator {
         .from(templates)
         .where(eq(templates.id, templateId))
         .limit(1);
-
       if (!template) {
         report.errors.push({
           type: 'template_not_found',
@@ -137,19 +121,15 @@ export class MappingValidator {
         report.valid = false;
         return report;
       }
-
       // Step 2: Structural validation
       const structuralErrors = this.validateStructure(mapping);
       report.errors.push(...structuralErrors);
-
       if (structuralErrors.length > 0) {
         report.valid = false;
         return report;
       }
-
       // Step 3: Coverage analysis
       report.coverage = this.analyzeCoverage(template, mapping);
-
       // Warn about unmapped fields
       if (report.coverage.unmappedFields.length > 0) {
         report.warnings.push({
@@ -159,19 +139,15 @@ export class MappingValidator {
           suggestion: 'Map all template fields to ensure complete document generation',
         });
       }
-
       // Step 4: Source variable existence check
       const sourceErrors = this.validateSourceVariables(mapping, testStepValues);
       report.warnings.push(...sourceErrors);
-
       // Step 5: Dry-run generation
       try {
         const normalized = normalizeVariables(testStepValues);
         const mappingResult = applyMapping(normalized, mapping);
-
         report.dryRunSuccess = true;
         report.dryRunOutput = mappingResult.data;
-
         // Step 6: Type compatibility check
         if (template.metadata && (template.metadata as any).fields) {
           const typeMismatches = this.checkTypeCompatibility(
@@ -179,7 +155,6 @@ export class MappingValidator {
             mappingResult.data
           );
           report.typeMismatches = typeMismatches;
-
           if (typeMismatches.length > 0) {
             report.warnings.push({
               type: 'type_mismatches',
@@ -189,7 +164,6 @@ export class MappingValidator {
             });
           }
         }
-
         // Warn about unused sources
         if (report.coverage.unusedSources.length > 0) {
           report.warnings.push({
@@ -208,10 +182,8 @@ export class MappingValidator {
         report.valid = false;
         report.dryRunSuccess = false;
       }
-
       // Final validation status
       report.valid = report.errors.length === 0;
-
       logger.info(
         {
           templateId,
@@ -222,7 +194,6 @@ export class MappingValidator {
         },
         'Mapping validation completed'
       );
-
       return report;
     } catch (error: any) {
       logger.error({ error, templateId }, 'Mapping validation failed');
@@ -234,7 +205,6 @@ export class MappingValidator {
       return report;
     }
   }
-
   /**
    * Validate mapping structure
    *
@@ -246,7 +216,6 @@ export class MappingValidator {
    */
   private validateStructure(mapping: DocumentMapping): ValidationError[] {
     const errors: ValidationError[] = [];
-
     if (!mapping || typeof mapping !== 'object') {
       errors.push({
         type: 'invalid_structure',
@@ -254,9 +223,7 @@ export class MappingValidator {
       });
       return errors;
     }
-
     const targetFields = Object.keys(mapping);
-
     // Check for duplicate target fields (shouldn't happen in object, but check anyway)
     const duplicates = targetFields.filter(
       (field, index) => targetFields.indexOf(field) !== index
@@ -268,7 +235,6 @@ export class MappingValidator {
         details: { duplicates },
       });
     }
-
     // Validate each mapping entry
     for (const [target, config] of Object.entries(mapping || {})) {
       if (!config || typeof config !== 'object') {
@@ -279,7 +245,6 @@ export class MappingValidator {
         });
         continue;
       }
-
       // Check for required properties
       if (!config.type) {
         errors.push({
@@ -288,7 +253,6 @@ export class MappingValidator {
           field: target,
         });
       }
-
       if (!config.source) {
         errors.push({
           type: 'missing_source',
@@ -296,7 +260,6 @@ export class MappingValidator {
           field: target,
         });
       }
-
       // Check for circular references (target === source)
       if (config.source === target) {
         errors.push({
@@ -306,7 +269,6 @@ export class MappingValidator {
           suggestion: 'Change the source variable to a different field',
         });
       }
-
       // Validate mapping type
       const validTypes = ['variable', 'constant', 'expression'];
       if (config.type && !validTypes.includes(config.type)) {
@@ -319,10 +281,8 @@ export class MappingValidator {
         });
       }
     }
-
     return errors;
   }
-
   /**
    * Analyze coverage (which fields are mapped vs unmapped)
    */
@@ -333,17 +293,14 @@ export class MappingValidator {
     const templateFields =
       template.metadata?.fields?.map((f: any) => f.name) || [];
     const mappedFields = Object.keys(mapping || {});
-
     const unmappedFields = templateFields.filter(
       (field: string) => !mappedFields.includes(field)
     );
-
     const totalFields = templateFields.length;
     const coverage =
       totalFields > 0
         ? (mappedFields.length / totalFields) * 100
         : 0;
-
     return {
       totalTemplateFields: totalFields,
       mappedFields: mappedFields.length,
@@ -352,7 +309,6 @@ export class MappingValidator {
       coveragePercentage: Math.round(coverage * 100) / 100,
     };
   }
-
   /**
    * Check if source variables exist in test data
    */
@@ -362,7 +318,6 @@ export class MappingValidator {
   ): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
     const normalized = normalizeVariables(testStepValues);
-
     for (const [target, config] of Object.entries(mapping || {})) {
       if (config.type === 'variable' && config.source) {
         if (!(config.source in normalized)) {
@@ -375,10 +330,8 @@ export class MappingValidator {
         }
       }
     }
-
     return warnings;
   }
-
   /**
    * Check type compatibility between template fields and mapped values
    */
@@ -387,17 +340,13 @@ export class MappingValidator {
     mappedData: Record<string, any>
   ): TypeMismatch[] {
     const mismatches: TypeMismatch[] = [];
-
     for (const field of templateFields) {
       const value = mappedData[field.name];
-
       if (value === undefined || value === null) {
         continue; // Skip missing values
       }
-
       const expectedType = field.type || 'unknown';
       const receivedType = this.getValueType(value);
-
       if (!this.isCompatibleType(expectedType, receivedType, value)) {
         mismatches.push({
           field: field.name,
@@ -408,10 +357,8 @@ export class MappingValidator {
         });
       }
     }
-
     return mismatches;
   }
-
   /**
    * Get the type of a value
    */
@@ -421,7 +368,6 @@ export class MappingValidator {
     if (value instanceof Date) {return 'date';}
     return typeof value;
   }
-
   /**
    * Check if types are compatible
    */
@@ -432,7 +378,6 @@ export class MappingValidator {
   ): boolean {
     // Exact match
     if (expectedType === receivedType) {return true;}
-
     // Compatible conversions
     const compatibilityMap: Record<string, string[]> = {
       text: ['string', 'number', 'boolean', 'date'],
@@ -441,11 +386,9 @@ export class MappingValidator {
       radio: ['string', 'number'],
       unknown: ['string', 'number', 'boolean', 'date', 'array', 'object'],
     };
-
     const compatibleTypes = compatibilityMap[expectedType] || [];
     return compatibleTypes.includes(receivedType);
   }
-
   /**
    * Get suggestion for type mismatch
    */
@@ -457,22 +400,17 @@ export class MappingValidator {
     if (expectedType === 'checkbox' && receivedType === 'string') {
       return 'Convert string to boolean ("true"/"false")';
     }
-
     if (expectedType === 'text' && receivedType === 'date') {
       return 'Format date as string (e.g., YYYY-MM-DD)';
     }
-
     if (expectedType === 'text' && receivedType === 'array') {
       return 'Join array elements into a string';
     }
-
     if (expectedType === 'dropdown' && receivedType === 'number') {
       return 'Convert number to string';
     }
-
     return `Convert ${receivedType} to ${expectedType}`;
   }
-
   /**
    * Quick validation (structure only, no test data)
    */
@@ -481,7 +419,6 @@ export class MappingValidator {
     mapping: DocumentMapping
   ): Promise<Pick<ValidationReport, 'valid' | 'errors' | 'warnings'>> {
     const errors = this.validateStructure(mapping);
-
     return {
       valid: errors.length === 0,
       errors,
@@ -489,6 +426,5 @@ export class MappingValidator {
     };
   }
 }
-
 // Singleton instance
 export const mappingValidator = new MappingValidator();

@@ -2,12 +2,10 @@
  * TableCard Component
  * Displays a DataVault table card with stats and actions
  */
-
 import { MoreVertical, Trash2, FolderInput } from "lucide-react";
 import React from 'react';
-
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 interface TableCardProps {
   table: {
     id: string;
@@ -30,13 +27,11 @@ interface TableCardProps {
   onDelete: () => void;
   onMove?: () => void;
 }
-
 export function TableCard({ table, onClick, onDelete, onMove }: TableCardProps) {
   const formatDate = (date: string | Date | null) => {
     if (!date) {return 'N/A';}
     return new Date(date).toLocaleDateString(undefined, { timeZone: 'UTC' });
   };
-
   return (
     <Card
       className="rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-shadow group relative"

@@ -2,9 +2,7 @@
  * AggregationService.ts
  * Computes aggregated metrics for runs and workflows.
  */
-
-import { eq, and, sql, desc } from "drizzle-orm";
-
+import { eq, and } from "drizzle-orm";
 import {
     workflowRunEvents,
     workflowRunMetrics,
@@ -14,7 +12,6 @@ import {
 } from "../../../shared/schema";
 import { db } from "../../db";
 import logger from "../../logger";
-
 class AggregationService {
     /**
      * Aggregate metrics for a single run after it completes
@@ -26,22 +23,16 @@ class AggregationService {
                 .from(workflowRunEvents)
                 .where(eq(workflowRunEvents.runId, runId))
                 .orderBy(workflowRunEvents.timestamp);
-
             if (events.length === 0) {return;}
-
             const startEvent = events[0];
             const endEvent = events[events.length - 1];
             const totalTimeMs = endEvent.timestamp.getTime() - startEvent.timestamp.getTime();
-
             // Count unique pages and blocks visited
             const pagesVisited = new Set(events.filter((e: any) => e.pageId).map((e: any) => e.pageId)).size;
             const blocksVisited = new Set(events.filter((e: any) => e.blockId).map((e: any) => e.blockId)).size;
-
             const validationErrors = events.filter((e: any) => e.type === 'validation.error').length;
             const scriptErrors = events.filter((e: any) => e.type === 'script.error').length;
-
             const isCompleted = events.some((e: any) => e.type === 'workflow.complete');
-
             // Upsert metrics
             await db.insert(workflowRunMetrics).values({
                 runId,
@@ -67,15 +58,12 @@ class AggregationService {
                     completedAt: isCompleted ? endEvent.timestamp : null,
                 }
             });
-
             // Update block stats (increment counts)
             this.updateBlockMetrics(events);
-
         } catch (error) {
             logger.error({ error, runId }, "Failed to aggregate run metrics");
         }
     }
-
     /**
      * Update aggregated block metrics incrementally
      * This is a naive implementation; for scale, we might want to do this in batches or background jobs
@@ -88,19 +76,15 @@ class AggregationService {
             acc[event.blockId].push(event);
             return acc;
         }, {} as Record<string, typeof workflowRunEvents.$inferSelect[]>);
-
         for (const [blockId, bEvents] of Object.entries(blockEvents)) {
             const visitCount = bEvents.filter((e: any) => e.type === 'block.enter' || e.type === 'block.start').length; // Assuming logical visit
             const errors = bEvents.filter((e: any) => e.type === 'validation.error').length;
-
             // Naive time spent: sum of (exit - enter) ... requires strict pairing logic, skipping for now
             // Just increment visit counts
-
             if (visitCount > 0 || errors > 0) {
                 // Upsert block metrics
                 const versionId = bEvents[0].versionId;
                 const workflowId = bEvents[0].workflowId;
-
                 // Check if exists
                 const existing = await db.query.blockMetrics.findFirst({
                     where: and(
@@ -108,7 +92,6 @@ class AggregationService {
                         eq(blockMetrics.blockId, blockId)
                     )
                 });
-
                 if (existing) {
                     await db.update(blockMetrics)
                         .set({
@@ -128,7 +111,6 @@ class AggregationService {
             }
         }
     }
-
     /**
      * Nightly aggregation for dashboard
      * (Can be triggered via cron or manual API)
@@ -138,5 +120,4 @@ class AggregationService {
         // Implementation deferred to Part 3 refinement
     }
 }
-
 export const aggregationService = new AggregationService();

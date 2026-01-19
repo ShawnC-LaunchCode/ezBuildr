@@ -1,10 +1,8 @@
 /**
  * Toolbar - Add nodes, publish, run preview, version control
  */
-
 import { Plus, Play, Save, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import React, { useState } from 'react';
-
+import React, {  } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,10 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
 import { usePublishWorkflow, useWorkflowVersions } from '../hooks/useWorkflowAPI';
 import { useBuilderStore } from '../store/useBuilderStore';
-
 interface ToolbarProps {
   workflowId: string;
   workflowStatus: 'draft' | 'published' | 'archived';
@@ -32,15 +28,12 @@ interface ToolbarProps {
   selectedVersion?: string;
   onVersionChange?: (version: string) => void;
 }
-
 export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = false, selectedVersion = 'current', onVersionChange }: ToolbarProps) {
   const { addNode, isDirty, isSaving, saveError, nodes, edges } = useBuilderStore();
   const publishWorkflow = usePublishWorkflow(workflowId);
   const { data: versionsData } = useWorkflowVersions(workflowId);
-
   const versions = versionsData?.data || [];
   // Removed local selectedVersion state to use prop
-
   const handleAddNode = (type: 'question' | 'compute' | 'branch' | 'template' | 'final') => {
     // Add node at center of canvas
     const position = {
@@ -49,18 +42,15 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
     };
     addNode(type, position);
   };
-
   const handlePublish = async () => {
     if (isDirty) {
       alert('Please save your changes before publishing');
       return;
     }
-
     if (confirm('Are you sure you want to publish this workflow? This will create a new immutable version.')) {
       await publishWorkflow.mutateAsync({ nodes, edges });
     }
   };
-
   return (
     <div className="border-b bg-card px-4 py-2 flex items-center justify-between gap-4">
       {/* Left side - Add Node */}
@@ -115,7 +105,6 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
         {/* Save indicator */}
         <div className="flex items-center gap-2 text-sm">
           {isSaving && (
@@ -144,7 +133,6 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
           )}
         </div>
       </div>
-
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
         {/* Version selector */}
@@ -165,7 +153,6 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
             </SelectContent>
           </Select>
         )}
-
         {/* Run Preview */}
         <Button
           variant="outline"
@@ -175,7 +162,6 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
           <Play className="w-4 h-4 mr-2" />
           Run Preview
         </Button>
-
         {/* Publish */}
         <Button
           variant="default"
@@ -186,7 +172,6 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
           <Save className="w-4 h-4 mr-2" />
           Publish
         </Button>
-
         {/* Status Badge */}
         <Badge
           variant={workflowStatus === 'published' ? 'default' : 'secondary'}

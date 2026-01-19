@@ -1,19 +1,15 @@
-import { Loader2, Sparkles, Send, Check, X, Undo, MessageSquare } from "lucide-react";
+import { Loader2, Sparkles, Send, Check, X } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
-
 import { AIFeedbackWidget, QualityScore } from "./AIFeedbackWidget";
-
 interface Message {
     role: 'user' | 'assistant';
     content: string;
@@ -22,14 +18,12 @@ interface Message {
     status?: 'pending' | 'applied' | 'discarded';
     qualityScore?: QualityScore;
 }
-
 interface AIAssistPanelProps {
     workflowId: string;
     currentWorkflow: any;
     isOpen: boolean;
     onClose: () => void;
 }
-
 export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: AIAssistPanelProps) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
@@ -44,16 +38,12 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
     const [lastQualityScore, setLastQualityScore] = useState<QualityScore | undefined>(undefined);
     const [lastOperationMeta, setLastOperationMeta] = useState<any>(null);
     const [inspirationIndex, setInspirationIndex] = useState(0);
-
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
-
     const reviseMutation = useReviseWorkflow();
     const updateMutation = useUpdateWorkflow();
     const { data: workflowMode } = useWorkflowMode(workflowId);
-
     const mode = workflowMode?.mode || 'easy';
-
     const inspirationalPhrases = [
         "Every great workflow starts with a single step.",
         "Automation is not about replacing humans, it's about empowering them.",
@@ -66,13 +56,11 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
         "Great workflows don't just save time, they create possibilities.",
         "Think of this as building the future, one question at a time."
     ];
-
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
-
     // Rotate inspirational phrases while AI is thinking
     useEffect(() => {
         if (reviseMutation.isPending) {
@@ -82,21 +70,17 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             return () => clearInterval(interval);
         }
     }, [reviseMutation.isPending, inspirationalPhrases.length]);
-
     const handleSend = async () => {
         if (!input.trim()) { return; }
-
         const userMsg: Message = { role: 'user', content: input, timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setProposedWorkflow(null); // Clear previous proposal if any
-
         try {
             // Convert messages to history format
             const history = messages
                 .filter(m => !m.diff)
                 .map(m => ({ role: m.role, content: m.content }));
-
             const result = await reviseMutation.mutateAsync({
                 workflowId,
                 currentWorkflow,
@@ -104,7 +88,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 conversationHistory: history,
                 mode: mode
             });
-
             // Capture quality score if available
             const qualityScore = result.quality;
             if (qualityScore) {
@@ -115,11 +98,9 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                     requestDescription: userMsg.content,
                 });
             }
-
             // NOTE: Backend now auto-applies changes (Option B implementation)
             // Backend returns metadata.applied: true when changes are persisted
             const backendApplied = result.metadata?.applied === true;
-
             if (backendApplied) {
                 // Backend already applied changes - show as applied
                 const assistantMsg: Message = {
@@ -135,12 +116,10 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                     title: "Changes Applied",
                     description: `${result.diff?.changes?.length || 0} changes applied successfully.`
                 });
-
                 // Show feedback widget after successful auto-apply
                 if (qualityScore) {
                     setShowFeedbackWidget(true);
                 }
-
                 // Force refetch workflow to show updated data in UI
                 window.location.reload(); // Simple approach - can be improved with cache invalidation
             } else {
@@ -153,11 +132,9 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                     status: 'pending',
                     qualityScore,
                 };
-
                 setMessages(prev => [...prev, assistantMsg]);
                 setProposedWorkflow(result.updatedWorkflow);
             }
-
         } catch (error: any) {
             setMessages(prev => [...prev, {
                 role: 'assistant',
@@ -166,7 +143,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             }]);
         }
     };
-
     const handleApply = async () => {
         if (!proposedWorkflow) { return; }
         try {
@@ -176,7 +152,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             });
             toast({ title: "Changes Applied", description: "Workflow updated successfully." });
             setProposedWorkflow(null);
-
             setMessages(prev => {
                 const newMessages = [...prev];
                 const lastMsg = newMessages[newMessages.length - 1];
@@ -192,7 +167,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 }
                 return newMessages;
             });
-
             // Show feedback widget after successful apply
             if (lastQualityScore) {
                 setShowFeedbackWidget(true);
@@ -201,7 +175,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             toast({ title: "Update Failed", variant: "destructive", description: "Could not apply changes." });
         }
     };
-
     const handleDiscard = () => {
         setProposedWorkflow(null);
         setMessages(prev => {
@@ -219,7 +192,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             return newMessages;
         });
     };
-
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0">
@@ -233,7 +205,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                         Iterate on your workflow using natural language.
                     </SheetDescription>
                 </SheetHeader>
-
                 <ScrollArea className="flex-1 p-4 h-full max-h-[calc(100vh-280px)] overflow-y-auto" ref={scrollRef}>
                     <div className="space-y-6">
                         {messages.map((msg, idx) => (
@@ -244,7 +215,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                                     }`}>
                                     <p className="whitespace-pre-wrap">{msg.content}</p>
                                 </div>
-
                                 {msg.diff?.changes && msg.diff.changes.length > 0 && (
                                     <Card className={cn(
                                         "w-full mt-2 p-3 border shadow-sm",
@@ -275,7 +245,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                                                 </li>
                                             ))}
                                         </ul>
-
                                         {msg.status === 'pending' && proposedWorkflow && idx === messages.length - 1 && (
                                             <div className="flex gap-2 justify-end pt-2 border-t border-purple-200/50">
                                                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { void handleDiscard(); }}>
@@ -324,7 +293,6 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                         <div ref={scrollRef} />
                     </div>
                 </ScrollArea>
-
                 <div className="p-4 border-t bg-background">
                     <form
                         className="flex gap-2"

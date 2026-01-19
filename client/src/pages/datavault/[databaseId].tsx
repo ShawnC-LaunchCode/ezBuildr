@@ -4,13 +4,10 @@
  * Clicking a tab loads that table's grid view
  * DataVault Phase 2: PR 6
  */
-
 import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2, FolderInput } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
-import { ColumnManagerWithDnd } from "@/components/datavault/ColumnManagerWithDnd";
 import { CreateTableModal } from "@/components/datavault/CreateTableModal";
 import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
 import { InfiniteEditableDataGrid } from "@/components/datavault/InfiniteEditableDataGrid";
@@ -53,37 +50,31 @@ import {
   useDatavaultDatabases,
   useMoveDatavaultTable,
 } from "@/lib/datavault-hooks";
-
 export default function DatabaseDetailPage() {
   const { databaseId } = useParams<{ databaseId: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-
   const { data: database, isLoading: dbLoading } = useDatavaultDatabase(databaseId);
   const { data: tables, isLoading: tablesLoading } = useDatabaseTables(databaseId);
   const { data: allDatabases } = useDatavaultDatabases();
-
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [createTableOpen, setCreateTableOpen] = useState(false);
   const [rowEditorOpen, setRowEditorOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, any> } | null>(null);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
   const [moveTableOpen, setMoveTableOpen] = useState(false);
-
   // Auto-select first table when tables load
   useEffect(() => {
     if (tables && tables.length > 0 && !activeTableId) {
       setActiveTableId(tables[0].id);
     }
   }, [tables, activeTableId]);
-
   // Data for active table
   const { data: columns, isLoading: columnsLoading } = useDatavaultColumns(activeTableId || undefined);
   const { data: rowsData, isLoading: rowsLoading } = useDatavaultRows(activeTableId || undefined, {
     limit: 25,
     offset: 0,
   });
-
   // Mutations
   const createTableMutation = useCreateDatavaultTable();
   const moveTableMutation = useMoveDatavaultTable();
@@ -94,12 +85,10 @@ export default function DatabaseDetailPage() {
   const createRowMutation = useCreateDatavaultRow();
   const updateRowMutation = useUpdateDatavaultRow();
   const deleteRowMutation = useDeleteDatavaultRow();
-
   const isColumnMutating =
     createColumnMutation.isPending || updateColumnMutation.isPending || deleteColumnMutation.isPending;
   const isRowMutating =
     createRowMutation.isPending || updateRowMutation.isPending || deleteRowMutation.isPending;
-
   // Handlers
   const handleCreateTable = async (data: { name: string; description?: string; slug?: string }) => {
     try {
@@ -118,10 +107,8 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleMoveTable = async (targetDatabaseId: string | null) => {
     if (!activeTableId || !activeTable) { return; }
-
     try {
       await moveTableMutation.mutateAsync({ tableId: activeTableId, databaseId: targetDatabaseId });
       toast({
@@ -129,7 +116,6 @@ export default function DatabaseDetailPage() {
         description: `Table "${activeTable.name}" has been moved.`
       });
       setMoveTableOpen(false);
-
       // Navigate to the target database (or main tables page if moved to main folder)
       if (targetDatabaseId) {
         setLocation(`/datavault/databases/${targetDatabaseId}`);
@@ -144,10 +130,8 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleAddColumn = async (data: { name: string; type: string; required: boolean }) => {
     if (!activeTableId) { return; }
-
     try {
       await createColumnMutation.mutateAsync({ tableId: activeTableId, ...data });
       toast({ title: "Column added", description: `Column "${data.name}" has been added.` });
@@ -159,10 +143,8 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleUpdateColumn = async (columnId: string, data: { name: string; required: boolean }) => {
     if (!activeTableId) { return; }
-
     try {
       await updateColumnMutation.mutateAsync({ columnId, tableId: activeTableId, ...data });
       toast({ title: "Column updated" });
@@ -175,10 +157,8 @@ export default function DatabaseDetailPage() {
       throw error;
     }
   };
-
   const handleDeleteColumn = async (columnId: string) => {
     if (!activeTableId) { return; }
-
     try {
       await deleteColumnMutation.mutateAsync({ columnId, tableId: activeTableId });
       toast({ title: "Column deleted" });
@@ -190,15 +170,12 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleReorderColumns = async (columnIds: string[]) => {
     if (!activeTableId) { return; }
     await reorderColumnsMutation.mutateAsync({ tableId: activeTableId, columnIds });
   };
-
   const handleAddRow = async (values: Record<string, any>) => {
     if (!activeTableId) { return; }
-
     try {
       await createRowMutation.mutateAsync({ tableId: activeTableId, values });
       toast({ title: "Row added" });
@@ -211,16 +188,12 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleCreateRow = async (values: Record<string, any>) => {
     if (!activeTableId) { return; }
-
     await createRowMutation.mutateAsync({ tableId: activeTableId, values });
   };
-
   const handleUpdateRow = async (values: Record<string, any>) => {
     if (!activeTableId || !editingRow) { return; }
-
     try {
       await updateRowMutation.mutateAsync({ rowId: editingRow.id, tableId: activeTableId, values });
       toast({ title: "Row updated" });
@@ -233,10 +206,8 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const handleDeleteRow = async () => {
     if (!activeTableId || !deleteRowConfirm) { return; }
-
     try {
       await deleteRowMutation.mutateAsync({ rowId: deleteRowConfirm, tableId: activeTableId });
       toast({ title: "Row deleted" });
@@ -249,11 +220,9 @@ export default function DatabaseDetailPage() {
       });
     }
   };
-
   const openEditRow = (rowId: string, values: Record<string, any>) => {
     setEditingRow({ id: rowId, values });
   };
-
   if (dbLoading) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
@@ -267,7 +236,6 @@ export default function DatabaseDetailPage() {
       </div>
     );
   }
-
   if (!database) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
@@ -287,9 +255,7 @@ export default function DatabaseDetailPage() {
       </div>
     );
   }
-
   const activeTable = tables?.find((t) => t.id === activeTableId);
-
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
@@ -306,7 +272,6 @@ export default function DatabaseDetailPage() {
               ]}
             />
           </div>
-
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" onClick={() => setLocation("/datavault/databases")}>
@@ -336,7 +301,6 @@ export default function DatabaseDetailPage() {
             </DropdownMenu>
           </div>
         </div>
-
         {/* Horizontal Table Tabs (Airtable-style) */}
         <DatabaseTableTabs
           tables={tables || []}
@@ -344,7 +308,6 @@ export default function DatabaseDetailPage() {
           onTabClick={(tableId) => setActiveTableId(tableId)}
           onCreateTable={() => setCreateTableOpen(true)}
         />
-
         {/* Main Content Area */}
         <main className="flex-1 overflow-hidden">
           {!activeTableId || !activeTable ? (
@@ -404,14 +367,12 @@ export default function DatabaseDetailPage() {
                     </DropdownMenu>
                   </div>
                 </div>
-
                 {/* Stats */}
                 <div className="flex items-center gap-6 mt-3 text-sm text-muted-foreground">
                   <span>{columns?.length || 0} columns</span>
                   <span>{rowsData?.pagination.total || 0} rows</span>
                 </div>
               </div>
-
               {/* Table Content */}
               <div className="flex-1 overflow-hidden">
                 {/* Data Grid */}
@@ -459,7 +420,6 @@ export default function DatabaseDetailPage() {
           )}
         </main>
       </div>
-
       {/* Modals */}
       <CreateTableModal
         open={createTableOpen}
@@ -467,7 +427,6 @@ export default function DatabaseDetailPage() {
         onSubmit={handleCreateTable}
         isLoading={createTableMutation.isPending}
       />
-
       <RowEditorModal
         open={rowEditorOpen}
         onOpenChange={setRowEditorOpen}
@@ -476,7 +435,6 @@ export default function DatabaseDetailPage() {
         isLoading={isRowMutating}
         mode="add"
       />
-
       <RowEditorModal
         open={!!editingRow}
         onOpenChange={() => setEditingRow(null)}
@@ -486,7 +444,6 @@ export default function DatabaseDetailPage() {
         isLoading={isRowMutating}
         mode="edit"
       />
-
       <AlertDialog open={!!deleteRowConfirm} onOpenChange={() => setDeleteRowConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -508,7 +465,6 @@ export default function DatabaseDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       <MoveTableModal
         open={moveTableOpen}
         onOpenChange={setMoveTableOpen}

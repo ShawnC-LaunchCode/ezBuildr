@@ -1,13 +1,10 @@
-
 import { Router } from "express";
 import multer from "multer";
-
 import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
 import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
-import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES } from "../services/fileService";
+import { MAX_FILE_SIZE } from "../services/fileService";
 import { asyncHandler } from "../utils/asyncHandler";
-
 const router = Router();
 // SECURITY FIX: Add file size and type validation
 const upload = multer({
@@ -31,18 +28,14 @@ const upload = multer({
             'text/plain',
             'text/markdown'
         ];
-
         const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.md'];
-
         logger.debug({ filename: file.originalname, mimeType: file.mimetype, size: file.size }, 'Upload Debug: File received');
-
         // Two-tier validation: MIME type OR file extension
         // This handles cases where MIME type is unreliable (common with PDFs)
         const mimeValid = allowedMimeTypes.includes(file.mimetype);
         const extValid = allowedExtensions.some(ext =>
             file.originalname.toLowerCase().endsWith(ext)
         );
-
         if (!mimeValid && !extValid) {
             logger.warn({ filename: file.originalname, mimeType: file.mimetype }, 'Upload Rejected: Invalid file');
             return cb(new Error(
@@ -50,28 +43,23 @@ const upload = multer({
                 `Received: ${file.originalname} (${file.mimetype})`
             ));
         }
-
         // Additional security: Check for suspicious double extensions
         const filename = file.originalname.toLowerCase();
         const suspiciousPatterns = [
             '.exe', '.bat', '.cmd', '.sh', '.ps1', '.vbs', '.js', '.jar', '.app',
             '.dmg', '.pkg', '.deb', '.rpm', '.msi', '.scr', '.com'
         ];
-
         if (suspiciousPatterns.some(pattern => filename.includes(pattern))) {
             logger.warn({ filename: file.originalname }, 'Upload Rejected: Suspicious extension');
             return cb(new Error(
                 `File contains suspicious extension. Only PDF and DOCX files are allowed.`
             ));
         }
-
         cb(null, true);
     }
 });
-
 // Middleware
 router.use(hybridAuth);
-
 /**
  * POST /api/ai/template/analyze
  * Upload a file buffer, get analysis (variables + suggestions)
@@ -96,7 +84,6 @@ router.post("/analyze", (req, res, next) => {
             // Custom file filter error
             return res.status(400).json({ error: err.message });
         }
-
         next();
     });
 }, asyncHandler(async (req, res) => {
@@ -105,7 +92,6 @@ router.post("/analyze", (req, res, next) => {
             res.status(400).json({ error: "No file provided" });
             return;
         }
-
         const result = await documentAIAssistService.analyzeTemplate(req.file.buffer, req.file.originalname);
         res.json({ data: result });
     } catch (err) {
@@ -114,7 +100,6 @@ router.post("/analyze", (req, res, next) => {
         res.status(500).json({ error: message });
     }
 }));
-
 /**
  * POST /api/ai/doc/extract-text
  * Upload a file, return raw extracted text for chat context
@@ -133,7 +118,6 @@ router.post("/extract-text", (req, res, next) => {
             res.status(400).json({ error: "No file provided" });
             return;
         }
-
         const text = await documentAIAssistService.extractTextContent(req.file.buffer, req.file.originalname);
         res.json({ text });
     } catch (err) {
@@ -141,7 +125,6 @@ router.post("/extract-text", (req, res, next) => {
         res.status(500).json({ error: "Text extraction failed" });
     }
 }));
-
 /**
  * POST /api/ai/template/suggest-mappings
  * Body: { templateVariables: [...], workflowVariables: [...] }
@@ -156,7 +139,6 @@ router.post("/suggest-mappings", asyncHandler(async (req, res) => {
         res.status(500).json({ error: "Mapping suggestion failed" });
     }
 }));
-
 /**
  * POST /api/ai/template/suggest-improvements
  * Body: { variables: [...] }
@@ -172,5 +154,4 @@ router.post("/suggest-improvements", asyncHandler(async (req, res) => {
         res.status(500).json({ error: "Improvement suggestion failed" });
     }
 }));
-
 export default router;

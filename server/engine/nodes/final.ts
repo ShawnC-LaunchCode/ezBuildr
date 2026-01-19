@@ -1,22 +1,15 @@
-
 import { eq } from 'drizzle-orm';
-
 import * as schema from '@shared/schema';
 import type { FinalBlockConfig } from '@shared/types/stepConfigs';
-
 import { db } from '../../db';
 import { finalBlockRenderer, createTemplateResolver, FinalBlockRenderRequest } from '../../services/document/FinalBlockRenderer';
-import { evaluateExpression } from '../expr';
-
 import type { EvalContext } from '../expr';
-
 /**
  * Final Block Executor
  * 
  * Terminal node that generates documents using the FinalBlockRenderer.
  * Supports both Live (persist) and Preview/Snapshot (ephemeral) modes.
  */
-
 export interface FinalBlockInput {
     nodeId: string;
     config: FinalBlockConfig;
@@ -25,9 +18,7 @@ export interface FinalBlockInput {
     runId?: string;
     workflowVersionId?: string;
 }
-
 export type { FinalBlockConfig };
-
 export interface FinalBlockOutput {
     status: 'executed' | 'skipped' | 'error';
     generatedDocuments?: Array<{
@@ -47,11 +38,9 @@ export interface FinalBlockOutput {
     error?: string;
     durationMs?: number;
 }
-
 export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlockOutput> {
     const { nodeId, config, context, tenantId, runId, workflowVersionId } = input;
     const startTime = Date.now();
-
     try {
         // 1. Resolve Markdown content (if any)
         let markdownContent = config.markdownHeader || '';
@@ -61,13 +50,11 @@ export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlo
                 return context.vars[varName] !== undefined ? String(context.vars[varName]) : match;
             });
         }
-
         // 2. Prepare Step Values for Renderer
         // The renderer expects global context variables.
         // The renderer internally uses the config.documents[].mapping to resolve specific fields if needed,
         // although looking at FinalBlockRenderer, it often passes stepValues directly to the doc engine.
         // We pass context.vars as the source of truth.
-
         // 3. Template Resolver
         const templateResolver = createTemplateResolver(async (id) => {
             const template = await db.query.templates.findFirst({
@@ -76,7 +63,6 @@ export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlo
             });
             return template && template.project.tenantId === tenantId ? { fileRef: template.fileRef } : null;
         });
-
         // 4. Render
         const request: FinalBlockRenderRequest = {
             finalBlockConfig: config,
@@ -86,12 +72,9 @@ export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlo
             resolveTemplate: templateResolver,
             toPdf: false // Default to false for now
         };
-
         const renderResult = await finalBlockRenderer.render(request);
-
         // 5. Build Output
         // Partial failure handling is implicitly managed by returning what succeeded.
-
         return {
             status: 'executed',
             generatedDocuments: renderResult.documents,
@@ -99,7 +82,6 @@ export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlo
             markdownContent,
             durationMs: Date.now() - startTime
         };
-
     } catch (error) {
         return {
             status: 'error',

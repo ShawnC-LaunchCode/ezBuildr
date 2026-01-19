@@ -25,7 +25,7 @@ import type { ListVariable, ListToolsFilterGroup, ListToolsSortKey } from '@shar
 // Helper to create test list
 function createTestList(rows: any[]): ListVariable {
   return {
-    metadata: { source: 'test' },
+    metadata: { source: 'list_tools' },
     rows: rows.map((row, idx) => ({ id: `row-${idx}`, ...row })),
     count: rows.length,
     columns: [
@@ -668,7 +668,7 @@ describe('List Pipeline - Select (Column Projection)', () => {
   describe('Dot notation support', () => {
     it('should support nested field paths', () => {
       const list: ListVariable = {
-        metadata: { source: 'test' },
+        metadata: { source: 'list_tools' },
         rows: [
           { id: 'row-0', name: 'Alice', address: { city: 'NYC', zip: '10001' } }
         ],

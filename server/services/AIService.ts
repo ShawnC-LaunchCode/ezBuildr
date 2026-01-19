@@ -1,4 +1,3 @@
-
 /**
  * AI Service Facade
  *
@@ -12,7 +11,6 @@
  * - Logic Assistance (via WorkflowLogicService)
  * - Workflow Optimization (via WorkflowOptimizationService)
  */
-
 import {
   AIProviderConfig,
   AIProvider,
@@ -32,7 +30,6 @@ import {
   AIVisualizeLogicResponse,
 } from '../../shared/types/ai';
 import { createLogger } from '../logger';
-
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
 import { AIProviderClient } from './ai/AIProviderClient';
 import { WorkflowGenerationService } from './ai/WorkflowGenerationService';
@@ -40,10 +37,7 @@ import { WorkflowLogicService } from './ai/WorkflowLogicService';
 import { workflowOptimizationService, WorkflowOptimizationService } from './ai/WorkflowOptimizationService';
 import { WorkflowRevisionService } from './ai/WorkflowRevisionService';
 import { WorkflowSuggestionService } from './ai/WorkflowSuggestionService';
-import { workflowQualityValidator } from './WorkflowQualityValidator';
-
 const logger = createLogger({ module: 'ai-service' });
-
 /**
  * AI Service for workflow generation and suggestions
  */
@@ -53,17 +47,13 @@ export class AIService {
   private revisionService: WorkflowRevisionService;
   private logicService: WorkflowLogicService;
   private optimizationService: WorkflowOptimizationService;
-
   // Keep config for potential introspection
   private config: AIProviderConfig;
-
   constructor(config: AIProviderConfig) {
     this.config = config;
-
     // Initialize shared dependencies
     const client = new AIProviderClient(config);
     const promptBuilder = new AIPromptBuilder();
-
     // Initialize specialized services
     this.generationService = new WorkflowGenerationService(client, promptBuilder);
     this.suggestionService = new WorkflowSuggestionService(client, promptBuilder);
@@ -71,7 +61,6 @@ export class AIService {
     this.logicService = new WorkflowLogicService(client, promptBuilder);
     this.optimizationService = workflowOptimizationService;
   }
-
   /**
    * Generate a new workflow from a natural language description
    */
@@ -80,7 +69,6 @@ export class AIService {
   ): Promise<AIGeneratedWorkflow> {
     return this.generationService.generateWorkflow(request);
   }
-
   /**
    * Suggest improvements to an existing workflow
    */
@@ -94,7 +82,6 @@ export class AIService {
   ): Promise<AIWorkflowSuggestion> {
     return this.suggestionService.suggestWorkflowImprovements(request, existingWorkflow);
   }
-
   /**
    * Suggest template variable bindings
    */
@@ -105,7 +92,6 @@ export class AIService {
   ): Promise<AITemplateBindingsResponse> {
     return this.suggestionService.suggestTemplateBindings(request, variables, placeholders);
   }
-
   /**
    * Suggest random plausible values for workflow steps
    */
@@ -121,7 +107,6 @@ export class AIService {
   ): Promise<Record<string, any>> {
     return this.suggestionService.suggestValues(steps, mode);
   }
-
   /**
    * Revise an existing workflow based on user instructions
    */
@@ -130,7 +115,6 @@ export class AIService {
   ): Promise<AIWorkflowRevisionResponse> {
     return this.revisionService.reviseWorkflow(request);
   }
-
   /**
    * Generate logic connections based on natural language description
    */
@@ -139,7 +123,6 @@ export class AIService {
   ): Promise<AIConnectLogicResponse> {
     return this.logicService.generateLogic(request);
   }
-
   /**
    * Debug logic for contradictions and issues
    */
@@ -148,7 +131,6 @@ export class AIService {
   ): Promise<AIDebugLogicResponse> {
     return this.logicService.debugLogic(request);
   }
-
   /**
    * Visualize logic as a graph
    */
@@ -158,7 +140,6 @@ export class AIService {
     return this.logicService.visualizeLogic(request);
   }
 }
-
 /**
  * Get default model for provider
  */
@@ -174,7 +155,6 @@ function getDefaultModel(provider: AIProvider): string {
       throw new Error(`Unknown provider: ${provider}`);
   }
 }
-
 /**
  * Create AIService instance from environment variables
  */
@@ -193,11 +173,9 @@ export function createAIServiceFromEnv(): AIService {
     };
     return new AIService(config);
   }
-
   // Fall back to AI_API_KEY
   const provider = (process.env.AI_PROVIDER || 'openai') as AIProvider;
   const apiKey = process.env.AI_API_KEY;
-
   if (!apiKey) {
     const errorMsg = [
       '═'.repeat(80),
@@ -208,14 +186,10 @@ export function createAIServiceFromEnv(): AIService {
       '',
       '═'.repeat(80),
     ].join('\n');
-
     throw new Error(errorMsg);
   }
-
   const modelWorkflow = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider);
-
   logger.info({ provider, model: modelWorkflow }, 'AI Service initialized');
-
   const config: AIProviderConfig = {
     provider,
     apiKey,
@@ -223,10 +197,8 @@ export function createAIServiceFromEnv(): AIService {
     temperature: 0.7,
     maxTokens: 4000,
   };
-
   return new AIService(config);
 }
-
 /**
  * Validate AI configuration at startup (non-throwing)
  */
@@ -237,7 +209,6 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
       const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
       return { configured: true, provider: 'gemini', model };
     }
-
     const apiKey = process.env.AI_API_KEY;
     if (!apiKey) {
       return {
@@ -245,10 +216,8 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
         error: 'No API key configured. Set GEMINI_API_KEY or AI_API_KEY environment variable.'
       };
     }
-
     const provider = process.env.AI_PROVIDER || 'openai';
     const model = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider as AIProvider);
-
     return { configured: true, provider, model };
   } catch (error: any) {
     return { configured: false, error: error.message };

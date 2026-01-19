@@ -1,22 +1,16 @@
 import { randomUUID } from 'crypto';
-
 import * as schema from '@shared/schema';
-
 import { getDb } from '../../server/db';
-
-import type { SQL } from 'drizzle-orm';
-
+import type {  } from 'drizzle-orm';
 // Generate a unique ID suitable for the database
 // For UUID columns, use crypto.randomUUID()
 // For string IDs, use a shorter format
 function generateId(): string {
   return randomUUID();
 }
-
 function generateSlug(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
-
 /**
  * Test Data Factory
  *
@@ -47,29 +41,23 @@ function generateSlug(prefix: string): string {
  * await factory.cleanup({ tenantIds: [tenant.id] });
  * ```
  */
-
 export interface TestTenant {
   tenant: typeof schema.tenants.$inferSelect;
   user: typeof schema.users.$inferSelect;
   project: typeof schema.projects.$inferSelect;
 }
-
 export interface TestWorkflow {
   workflow: typeof schema.workflows.$inferSelect;
   version: typeof schema.workflowVersions.$inferSelect;
 }
-
 export interface TestTemplate {
   template: typeof schema.templates.$inferSelect;
 }
-
 export interface TestRun {
   run: typeof schema.runs.$inferSelect;
 }
-
 export class TestFactory {
   private db: any;
-
   /**
    * Create a new TestFactory
    * @param txOrDb - Optional transaction or database instance. If not provided, uses global db.
@@ -78,7 +66,6 @@ export class TestFactory {
   constructor(txOrDb?: any) {
     this.db = txOrDb || getDb();
   }
-
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)
    * This is the foundation for most test scenarios
@@ -99,7 +86,6 @@ export class TestFactory {
         ...overrides?.tenant,
       })
       .returning();
-
     // Create user with admin/owner role for test permissions
     const [user] = await this.db
       .insert(schema.users)
@@ -117,7 +103,6 @@ export class TestFactory {
         ...overrides?.user,
       })
       .returning();
-
     // Create project with all required ownership fields
     const [project] = await this.db
       .insert(schema.projects)
@@ -133,10 +118,8 @@ export class TestFactory {
         ...overrides?.project,
       })
       .returning();
-
     return { tenant, user, project };
   }
-
   /**
    * Create a workflow with version
    */
@@ -162,7 +145,6 @@ export class TestFactory {
         ...overrides?.workflow,
       })
       .returning();
-
     const [version] = await this.db
       .insert(schema.workflowVersions)
       .values({
@@ -174,10 +156,8 @@ export class TestFactory {
         ...overrides?.version,
       })
       .returning();
-
     return { workflow, version };
   }
-
   /**
    * Create a section for a workflow
    */
@@ -196,10 +176,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return section;
   }
-
   /**
    * Create a step for a section
    */
@@ -220,10 +198,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return step;
   }
-
   /**
    * Create a template
    */
@@ -245,10 +221,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return { template };
   }
-
   /**
    * Create a workflow template mapping
    */
@@ -268,10 +242,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return workflowTemplate;
   }
-
   /**
    * Create a run for a workflow
    */
@@ -290,10 +262,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return { run };
   }
-
   /**
    * Create a run output
    */
@@ -314,10 +284,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return output;
   }
-
   /**
    * Create a database (DataVault)
    */
@@ -340,10 +308,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return database;
   }
-
   /**
    * Create a table (DataVault)
    */
@@ -365,10 +331,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return table;
   }
-
   /**
    * Create a collection
    */
@@ -389,10 +353,8 @@ export class TestFactory {
         ...overrides,
       })
       .returning();
-
     return collection;
   }
-
   /**
    * Clean up test data (deletes in correct order to respect foreign keys)
    * Pass the root entity IDs to delete
@@ -407,12 +369,10 @@ export class TestFactory {
     workflowIds?: string[];
     userIds?: string[];
   }) {
-    const { eq, inArray } = await import('drizzle-orm');
-
+    const {  inArray } = await import('drizzle-orm');
     // For tenant cleanup, we need to be careful about foreign keys
     // The safest approach is to delete tenants which should CASCADE to everything
     // However, if there are foreign key issues, we can add explicit deletes here
-
     try {
       if (options.workflowIds?.length) {
         // Workflow children are cascade deleted
@@ -420,28 +380,24 @@ export class TestFactory {
           .delete(schema.workflows)
           .where(inArray(schema.workflows.id, options.workflowIds));
       }
-
       if (options.projectIds?.length) {
         // Project children are cascade deleted
         await this.db
           .delete(schema.projects)
           .where(inArray(schema.projects.id, options.projectIds));
       }
-
       if (options.userIds?.length) {
         // User children are cascade deleted
         await this.db
           .delete(schema.users)
           .where(inArray(schema.users.id, options.userIds));
       }
-
       if (options.tenantIds?.length) {
         // Tenant children should be cascade deleted
         // But first, let's explicitly delete projects to trigger their cascades
         await this.db
           .delete(schema.projects)
           .where(inArray(schema.projects.tenantId, options.tenantIds));
-
         // Now delete tenants (will cascade delete users and other tenant-scoped data)
         await this.db
           .delete(schema.tenants)
@@ -453,7 +409,6 @@ export class TestFactory {
     }
   }
 }
-
 /**
  * Create a test factory instance
  */

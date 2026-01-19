@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm';
+import { type InferSelectModel, type  } from 'drizzle-orm';
 import {
     index,
     uniqueIndex,
@@ -16,14 +16,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from 'zod';
-
-import { tenants, users , ownerTypeEnum } from './auth';
+import { tenants, users, ownerTypeEnum } from './auth';
 import { workflows } from './workflow';
-
 // ===================================================================
 // ENUMS
 // ===================================================================
-
 export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
     'text', 'number', 'boolean', 'date', 'datetime', 'email', 'phone', 'url', 'json',
     'auto_number', 'autonumber', 'reference', 'select', 'multiselect'
@@ -31,15 +28,14 @@ export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
 export const autonumberResetPolicyEnum = pgEnum('autonumber_reset_policy', ['never', 'yearly']);
 export const datavaultScopeTypeEnum = pgEnum('datavault_scope_type', ['account', 'project', 'workflow']);
 export const datavaultTableRoleEnum = pgEnum('datavault_table_role', ['owner', 'write', 'read']);
+export type DatavaultTableRole = 'owner' | 'write' | 'read';
 export const dataSourceTypeEnum = pgEnum('data_source_type', ['native', 'postgres', 'google_sheets', 'airtable', 'external']);
 export const collectionFieldTypeEnum = pgEnum('collection_field_type', [
     'text', 'number', 'boolean', 'date', 'datetime', 'file', 'select', 'multi_select', 'json'
 ]);
-
 // ===================================================================
 // TABLES
 // ===================================================================
-
 // DataVault Databases
 export const datavaultDatabases = pgTable("datavault_databases", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -59,7 +55,6 @@ export const datavaultDatabases = pgTable("datavault_databases", {
     index("idx_databases_scope").on(table.scopeType, table.scopeId),
     index("idx_datavault_databases_owner").on(table.ownerType, table.ownerUuid),
 ]);
-
 // DataVault Tables
 export const datavaultTables = pgTable("datavault_tables", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -77,7 +72,6 @@ export const datavaultTables = pgTable("datavault_tables", {
     index("idx_tables_database").on(table.databaseId, table.tenantId),
     uniqueIndex("datavault_tables_tenant_slug_unique").on(table.tenantId, table.slug),
 ]);
-
 // DataVault Columns
 export const datavaultColumns = pgTable("datavault_columns", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -105,7 +99,6 @@ export const datavaultColumns = pgTable("datavault_columns", {
     index("datavault_columns_reference_table_idx").on(table.referenceTableId),
     uniqueIndex("datavault_columns_table_slug_unique").on(table.tableId, table.slug),
 ]);
-
 // DataVault Rows
 export const datavaultRows = pgTable("datavault_rows", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -119,7 +112,6 @@ export const datavaultRows = pgTable("datavault_rows", {
     index("datavault_rows_table_idx").on(table.tableId),
     index("datavault_rows_created_by_idx").on(table.createdBy),
 ]);
-
 // DataVault Values
 export const datavaultValues = pgTable("datavault_values", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -133,7 +125,6 @@ export const datavaultValues = pgTable("datavault_values", {
     index("datavault_values_column_idx").on(table.columnId),
     uniqueIndex("datavault_values_row_column_unique").on(table.rowId, table.columnId),
 ]);
-
 // DataVault Number Sequences
 export const datavaultNumberSequences = pgTable("datavault_number_sequences", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -152,7 +143,6 @@ export const datavaultNumberSequences = pgTable("datavault_number_sequences", {
     index("idx_datavault_sequences_table").on(table.tableId),
     uniqueIndex("idx_datavault_sequences_column_unique").on(table.tenantId, table.tableId, table.columnId),
 ]);
-
 // DataVault Row Notes
 export const datavaultRowNotes = pgTable("datavault_row_notes", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -165,7 +155,6 @@ export const datavaultRowNotes = pgTable("datavault_row_notes", {
     index("idx_datavault_row_notes_row_id").on(table.rowId),
     index("idx_datavault_row_notes_tenant_id").on(table.tenantId),
 ]);
-
 // DataVault API Tokens
 export const datavaultApiTokens = pgTable("datavault_api_tokens", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -181,7 +170,6 @@ export const datavaultApiTokens = pgTable("datavault_api_tokens", {
     index("idx_datavault_api_tokens_token_hash").on(table.tokenHash),
     uniqueIndex("unique_token_hash").on(table.tokenHash),
 ]);
-
 // DataVault Table Permissions
 export const datavaultTablePermissions = pgTable("datavault_table_permissions", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -193,7 +181,6 @@ export const datavaultTablePermissions = pgTable("datavault_table_permissions", 
     index("idx_table_permissions_table").on(table.tableId),
     uniqueIndex("unique_table_user_permission").on(table.tableId, table.userId),
 ]);
-
 // DataVault Writeback Mappings
 export const datavaultWritebackMappings = pgTable("datavault_writeback_mappings", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -207,7 +194,6 @@ export const datavaultWritebackMappings = pgTable("datavault_writeback_mappings"
 }, (table) => [
     index("idx_writeback_mappings_workflow").on(table.workflowId),
 ]);
-
 // Workflow Data Sources (Link workflows to data sources)
 export const workflowDataSources = pgTable("workflow_data_sources", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
@@ -217,7 +203,6 @@ export const workflowDataSources = pgTable("workflow_data_sources", {
     primaryKey({ columns: [table.workflowId, table.dataSourceId] }),
     index("idx_workflow_data_sources_workflow").on(table.workflowId),
 ]);
-
 // Workflow Queries
 export const workflowQueries = pgTable("workflow_queries", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -233,7 +218,6 @@ export const workflowQueries = pgTable("workflow_queries", {
 }, (table) => [
     index("idx_workflow_queries_workflow").on(table.workflowId),
 ]);
-
 // Legacy / Stage 19 Collections (Alternative to DataVaultTables?)
 export const collections = pgTable("collections", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -246,7 +230,6 @@ export const collections = pgTable("collections", {
 }, (table) => [
     uniqueIndex("collections_slug_unique").on(table.tenantId, table.slug),
 ]);
-
 // Collection Fields
 export const collectionFields = pgTable("collection_fields", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -266,7 +249,6 @@ export const collectionFields = pgTable("collection_fields", {
     index("collection_fields_type_idx").on(table.type),
     uniqueIndex("collection_fields_collection_slug_unique_idx").on(table.collectionId, table.slug),
 ]);
-
 // Records (for Collections)
 export const records = pgTable("records", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -281,24 +263,19 @@ export const records = pgTable("records", {
     index("records_collection_idx").on(table.collectionId),
     index("records_tenant_idx").on(table.tenantId),
 ]);
-
 // ===================================================================
 // INSERTS & TYPES
 // ===================================================================
-
 export const insertDatavaultDatabaseSchema = createInsertSchema(datavaultDatabases);
 export type InsertDatavaultDatabase = z.infer<typeof insertDatavaultDatabaseSchema>;
 export const insertDatavaultTableSchema = createInsertSchema(datavaultTables).extend({
     slug: z.string().optional()
 });
 export type InsertDatavaultTable = z.infer<typeof insertDatavaultTableSchema>;
-
-
 export const insertDatavaultColumnSchema = createInsertSchema(datavaultColumns).extend({
     slug: z.string().optional()
 });
 export type InsertDatavaultColumn = z.infer<typeof insertDatavaultColumnSchema>;
-
 export const insertDatavaultRowSchema = createInsertSchema(datavaultRows);
 export type InsertDatavaultRow = z.infer<typeof insertDatavaultRowSchema>;
 export const insertDatavaultValueSchema = createInsertSchema(datavaultValues);
@@ -311,14 +288,12 @@ export const insertDatavaultTablePermissionSchema = createInsertSchema(datavault
 export type InsertDatavaultTablePermission = z.infer<typeof insertDatavaultTablePermissionSchema>;
 export const insertDatavaultWritebackMappingSchema = createInsertSchema(datavaultWritebackMappings);
 export type InsertDatavaultWritebackMapping = z.infer<typeof insertDatavaultWritebackMappingSchema>;
-
 // Collection Schemas
 export const insertCollectionSchema = createInsertSchema(collections).strict();
 export type InsertCollection = z.infer<typeof insertCollectionSchema>;
 export const insertCollectionFieldSchema = createInsertSchema(collectionFields).strict();
 export type InsertCollectionField = z.infer<typeof insertCollectionFieldSchema>;
 export const insertRecordSchema = createInsertSchema(records).strict();
-
 // Types
 export type DatavaultDatabase = InferSelectModel<typeof datavaultDatabases>;
 export type DatavaultTable = InferSelectModel<typeof datavaultTables>;
@@ -329,7 +304,6 @@ export type DatavaultRowNote = InferSelectModel<typeof datavaultRowNotes>;
 export type DatavaultApiToken = InferSelectModel<typeof datavaultApiTokens>;
 export type DatavaultTablePermission = InferSelectModel<typeof datavaultTablePermissions>;
 export type DatavaultWritebackMapping = InferSelectModel<typeof datavaultWritebackMappings>;
-
 export type Collection = InferSelectModel<typeof collections>;
 export type CollectionField = InferSelectModel<typeof collectionFields>;
 export type CollectionRecord = InferSelectModel<typeof records>;

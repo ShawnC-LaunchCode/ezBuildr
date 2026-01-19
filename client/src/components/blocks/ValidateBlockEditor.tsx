@@ -1,6 +1,5 @@
-import { Plus, Trash2, Code, AlertCircle, Copy, Database, List } from "lucide-react";
+import {  Trash2, Database } from "lucide-react";
 import React, { useState } from "react";
-
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker"; // Ensure this path is correct
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-
 import type {
     ValidateConfig,
     ValidateRule,
@@ -20,26 +17,19 @@ import type {
     ForEachRule,
     LegacyValidateRule
 } from "@shared/types/blocks";
-
-
 import { ValidationRulesEditor } from "../builder/ValidationRulesEditor";
-
 interface ValidateBlockEditorProps {
     workflowId: string;
     config: ValidateConfig;
     onChange: (config: ValidateConfig) => void;
     mode?: "easy" | "advanced";
 }
-
 export function ValidateBlockEditor({ workflowId, config, onChange, mode = "easy" }: ValidateBlockEditorProps) {
     const [activeTab, setActiveTab] = useState<"visual" | "json">("visual");
-
     // Ensure rules array exists
     const rules = config.rules || [];
-
     const addRule = (type: string) => {
         let newRule: ValidateRule;
-
         if (type === 'compare') {
             newRule = {
                 type: 'compare',
@@ -68,22 +58,18 @@ export function ValidateBlockEditor({ workflowId, config, onChange, mode = "easy
             // Legacy fallback
             newRule = { assert: { key: '', op: 'is_not_empty' }, message: 'Invalid' } as LegacyValidateRule;
         }
-
         onChange({ ...config, rules: [...rules, newRule] });
     };
-
     const updateRule = (index: number, updated: ValidateRule) => {
         const newRules = [...rules];
         newRules[index] = updated;
         onChange({ ...config, rules: newRules });
     };
-
     const deleteRule = (index: number) => {
         const newRules = [...rules];
         newRules.splice(index, 1);
         onChange({ ...config, rules: newRules });
     };
-
     return (
         <div className="space-y-4">
             <ValidationRulesEditor
@@ -95,12 +81,8 @@ export function ValidateBlockEditor({ workflowId, config, onChange, mode = "easy
         </div>
     );
 }
-
 // Remove unused local components if they are now in ValidationRulesEditor or imported
-
-
 // --- Subcomponents for Rules ---
-
 function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: {
     rule: ValidateRule,
     index: number,
@@ -109,7 +91,6 @@ function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: {
     workflowId: string
 }) {
     const type = (rule as any).type || 'simple';
-
     return (
         <Card className="relative group">
             {/* Delete Button */}
@@ -118,7 +99,6 @@ function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: {
                     <Trash2 className="h-3 w-3" />
                 </Button>
             </div>
-
             <CardContent className="p-3 pt-3 space-y-3">
                 <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
@@ -126,25 +106,20 @@ function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: {
                     </Badge>
                     <span className="text-xs text-muted-foreground">Rule #{index + 1}</span>
                 </div>
-
                 {type === 'compare' && (
                     <CompareRuleEditor rule={rule as CompareRule} onChange={onUpdate} workflowId={workflowId} />
                 )}
-
                 {type === 'conditional_required' && (
                     <ConditionalRequiredRuleEditor rule={rule as ConditionalRequiredRule} onChange={onUpdate} workflowId={workflowId} />
                 )}
-
                 {type === 'foreach' && (
                     <ForEachRuleEditor rule={rule as ForEachRule} onChange={onUpdate} workflowId={workflowId} />
                 )}
-
                 {(type === 'simple' || !type) && (
                     <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
                         Legacy/Advanced Rule (Edit in JSON mode)
                     </div>
                 )}
-
                 <div className="pt-2 border-t mt-2">
                     <Label className="text-xs text-muted-foreground">Error Message</Label>
                     <Input
@@ -158,7 +133,6 @@ function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: {
         </Card>
     );
 }
-
 function CompareRuleEditor({ rule, onChange, workflowId }: { rule: CompareRule, onChange: (r: CompareRule) => void, workflowId: string }) {
     return (
         <div className="space-y-2">
@@ -169,7 +143,6 @@ function CompareRuleEditor({ rule, onChange, workflowId }: { rule: CompareRule, 
                     onChange={(v) => onChange({ ...rule, left: v })}
                     workflowId={workflowId}
                 />
-
                 <div className="space-y-1">
                     <Select value={rule.op} onValueChange={(v: any) => onChange({ ...rule, op: v })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -183,7 +156,6 @@ function CompareRuleEditor({ rule, onChange, workflowId }: { rule: CompareRule, 
                         </SelectContent>
                     </Select>
                 </div>
-
                 <div className="space-y-1">
                     <div className="flex justify-between items-center">
                         <Label className="text-xs">Right Side</Label>
@@ -213,7 +185,6 @@ function CompareRuleEditor({ rule, onChange, workflowId }: { rule: CompareRule, 
         </div>
     );
 }
-
 function ConditionalRequiredRuleEditor({ rule, onChange, workflowId }: { rule: ConditionalRequiredRule, onChange: (r: ConditionalRequiredRule) => void, workflowId: string }) {
     return (
         <div className="space-y-3">
@@ -241,7 +212,6 @@ function ConditionalRequiredRuleEditor({ rule, onChange, workflowId }: { rule: C
                     />
                 </div>
             </div>
-
             <div className="space-y-1">
                 <Label className="text-xs font-semibold">THEN Require Fields:</Label>
                 <div className="space-y-1">
@@ -274,7 +244,6 @@ function ConditionalRequiredRuleEditor({ rule, onChange, workflowId }: { rule: C
         </div>
     );
 }
-
 function ForEachRuleEditor({ rule, onChange, workflowId }: { rule: ForEachRule, onChange: (r: ForEachRule) => void, workflowId: string }) {
     return (
         <div className="space-y-3">
@@ -295,7 +264,6 @@ function ForEachRuleEditor({ rule, onChange, workflowId }: { rule: ForEachRule, 
                     />
                 </div>
             </div>
-
             <div className="bg-slate-50 p-2 rounded-md border text-xs">
                 <div className="font-semibold text-slate-700 mb-2">Item Validations:</div>
                 {rule.rules.map((subRule, idx) => (
@@ -338,10 +306,7 @@ function ForEachRuleEditor({ rule, onChange, workflowId }: { rule: ForEachRule, 
         </div>
     );
 }
-
-
 // --- Helper Inputs ---
-
 interface VariableInputProps {
     label?: string;
     value: any;
@@ -349,7 +314,6 @@ interface VariableInputProps {
     workflowId: string;
     placeholder?: string;
 }
-
 function VariableInput({ label, value, onChange, workflowId, placeholder }: VariableInputProps) {
     return (
         <div className="space-y-1">
@@ -363,7 +327,6 @@ function VariableInput({ label, value, onChange, workflowId, placeholder }: Vari
         </div>
     );
 }
-
 function VariablePickerInput({ value, onChange, workflowId, placeholder }: VariableInputProps) {
     return (
         <div className="relative flex items-center">

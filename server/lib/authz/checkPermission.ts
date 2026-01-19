@@ -1,10 +1,6 @@
-
 import { eq, and } from "drizzle-orm";
-
-import { workspaceMembers, workspaceRoleEnum, resourcePermissions } from "@shared/schema";
-
+import { workspaceMembers, resourcePermissions } from "@shared/schema";
 import { db } from "../../db";
-
 export const ACTION = {
     VIEW_WORKFLOW: 'workflow.view',
     EDIT_WORKFLOW: 'workflow.edit',
@@ -14,7 +10,6 @@ export const ACTION = {
     MANAGE_BILLING: 'workspace.billing',
     VIEW_ANALYTICS: 'analytics.view',
 };
-
 const ROLE_CAPABILITIES = {
     viewer: [ACTION.VIEW_WORKFLOW, ACTION.VIEW_ANALYTICS],
     contributor: [ACTION.VIEW_WORKFLOW, ACTION.EDIT_WORKFLOW], // Cannot publish
@@ -25,7 +20,6 @@ const ROLE_CAPABILITIES = {
     ],
     owner: ['*'] // All permissions
 };
-
 export async function checkPermission(
     userId: string,
     workspaceId: string,
@@ -40,16 +34,13 @@ export async function checkPermission(
             eq(workspaceMembers.userId, userId)
         )
     });
-
     if (!member) {
         return false; // Not a member
     }
-
     // 2. Check Role Capabilities
     if (checkRoleHasCapability(member.role, action)) {
         return true;
     }
-
     // 3. Check Resource-Specific Override (if applicable)
     if (resourceType && resourceId) {
         const override = await db.query.resourcePermissions.findFirst({
@@ -61,15 +52,12 @@ export async function checkPermission(
                 eq(resourcePermissions.action, action) // Permissions are granular per action
             )
         });
-
         if (override) {
             return override.allowed;
         }
     }
-
     return false;
 }
-
 function checkRoleHasCapability(role: string, action: string): boolean {
     const capabilities = ROLE_CAPABILITIES[role as keyof typeof ROLE_CAPABILITIES] || [];
     if (capabilities.includes('*')) {return true;}

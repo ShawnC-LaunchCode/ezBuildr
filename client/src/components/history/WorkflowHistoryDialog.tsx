@@ -5,7 +5,6 @@ import {
     Clock, RotateCcw, GitCommit
 } from "lucide-react";
 import React, { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,31 +16,25 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { runAPI, versionAPI, workflowExportAPI, ApiRun, ApiWorkflowVersion } from "@/lib/vault-api";
-
 import { ExecutionDetailView } from "./ExecutionDetailView";
-
 interface WorkflowHistoryDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     workflowId: string;
 }
-
 export function WorkflowHistoryDialog({
     open,
     onOpenChange,
     workflowId,
 }: WorkflowHistoryDialogProps) {
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-
     // Fetch Runs
     const { data: runs, isLoading: isRunsLoading } = useQuery<ApiRun[]>({
         queryKey: ['workflow-runs', workflowId],
         queryFn: () => runAPI.list(workflowId),
         enabled: open,
     });
-
     // Fetch Versions
     const { data: versions, isLoading: isVersionsLoading } = useQuery<ApiWorkflowVersion[]>({
         queryKey: ['workflow-versions', workflowId],
@@ -51,11 +44,9 @@ export function WorkflowHistoryDialog({
         },
         enabled: open,
     });
-
     const handleExportRuns = (format: 'json' | 'csv') => {
         workflowExportAPI.downloadExport(workflowId, format);
     };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
@@ -68,7 +59,6 @@ export function WorkflowHistoryDialog({
                         View execution history, past versions, and audit logs.
                     </DialogDescription>
                 </DialogHeader>
-
                 <div className="flex-1 overflow-hidden">
                     {selectedRunId ? (
                         <ExecutionDetailView
@@ -86,7 +76,6 @@ export function WorkflowHistoryDialog({
                                         <GitCommit className="w-4 h-4" /> Versions
                                     </TabsTrigger>
                                 </TabsList>
-
                                 <div className="flex gap-2">
                                     <Button variant="outline" size="sm" onClick={() => { void handleExportRuns('csv'); }}>
                                         <Download className="w-3 h-3 mr-2" /> Export CSV
@@ -96,7 +85,6 @@ export function WorkflowHistoryDialog({
                                     </Button>
                                 </div>
                             </div>
-
                             <TabsContent value="executions" className="flex-1 p-0 m-0 overflow-hidden">
                                 <ScrollArea className="h-full">
                                     <Table>
@@ -165,7 +153,6 @@ export function WorkflowHistoryDialog({
                                     </Table>
                                 </ScrollArea>
                             </TabsContent>
-
                             <TabsContent value="versions" className="flex-1 p-0 m-0 overflow-hidden">
                                 <ScrollArea className="h-full">
                                     <Table>

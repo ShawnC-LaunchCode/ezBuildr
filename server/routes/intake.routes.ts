@@ -1,22 +1,16 @@
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
-
 import multer from "multer";
 import { z } from "zod";
-
 import { createLogger } from "../logger";
 import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { CaptchaService } from "../services/CaptchaService.js";
 import { intakeService } from "../services/IntakeService";
-import { runService } from "../services/RunService";
 import { asyncHandler } from '../utils/asyncHandler';
-
 import type { CaptchaResponse } from "../../shared/types/intake.js";
 import type { Express, Request, Response } from "express";
-
 const logger = createLogger({ module: "intake-routes" });
-
 // Configure multer for file uploads
 const upload = multer({
   dest: process.env.UPLOAD_DIR || "./uploads/intake",
@@ -27,7 +21,6 @@ const upload = multer({
     // Accept only specific file types
     const allowedTypes = ['.pdf', '.docx', '.png', '.jpg', '.jpeg'];
     const ext = path.extname(file.originalname).toLowerCase();
-
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
@@ -35,18 +28,15 @@ const upload = multer({
     }
   },
 });
-
 // Validation schemas
 const createRunSchema = z.object({
   slug: z.string(),
   answers: z.record(z.any()).optional(),
   prefillParams: z.record(z.string()).optional(), // Stage 12.5: URL prefill
 });
-
 const saveProgressSchema = z.object({
   answers: z.record(z.any()),
 });
-
 const submitRunSchema = z.object({
   answers: z.record(z.any()),
   captcha: z.object({ // Stage 12.5: CAPTCHA validation
@@ -56,7 +46,6 @@ const submitRunSchema = z.object({
     recaptchaToken: z.string().optional(),
   }).optional(),
 });
-
 /**
  * Register intake portal routes
  * Public routes for workflow execution via slug
@@ -70,9 +59,7 @@ export function registerIntakeRoutes(app: Express): void {
   app.get('/intake/workflows/:slug/published', asyncHandler(async (req: Request, res: Response) => {
     try {
       const { slug } = req.params;
-
       const data = await intakeService.getPublishedWorkflow(slug);
-
       res.json({
         success: true,
         data: {
@@ -94,7 +81,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(status).json({ success: false, error: message });
     }
   }));
-
   /**
    * GET /intake/captcha/challenge
    * Generate a new CAPTCHA challenge
@@ -103,7 +89,6 @@ export function registerIntakeRoutes(app: Express): void {
   app.get('/intake/captcha/challenge', asyncHandler(async (req: Request, res: Response) => {
     try {
       const challenge = CaptchaService.generateSimpleChallenge();
-
       res.json({
         success: true,
         data: challenge,
@@ -116,7 +101,6 @@ export function registerIntakeRoutes(app: Express): void {
       });
     }
   }));
-
   /**
    * POST /intake/runs
    * Create a new intake run
@@ -126,18 +110,15 @@ export function registerIntakeRoutes(app: Express): void {
   app.post('/intake/runs', optionalHybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const data = createRunSchema.parse(req.body);
-
       // Get userId from AuthRequest if authenticated (via token or cookie)
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
-
       const result = await intakeService.createIntakeRun(
         data.slug,
         userId,
         data.answers,
         data.prefillParams // Stage 12.5: URL prefill
       );
-
       res.status(201).json({
         success: true,
         data: result,
@@ -149,7 +130,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(status).json({ success: false, error: message });
     }
   }));
-
   /**
    * POST /intake/runs/:token/save
    * Save intake run progress (draft)
@@ -159,9 +139,7 @@ export function registerIntakeRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const data = saveProgressSchema.parse(req.body);
-
       await intakeService.saveIntakeProgress(token, data.answers);
-
       res.json({
         success: true,
         message: "Progress saved",
@@ -173,7 +151,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(status).json({ success: false, error: message });
     }
   }));
-
   /**
    * POST /intake/runs/:token/submit
    * Submit intake run (complete workflow)
@@ -184,13 +161,11 @@ export function registerIntakeRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const data = submitRunSchema.parse(req.body);
-
       const result = await intakeService.submitIntakeRun(
         token,
         data.answers,
         data.captcha as CaptchaResponse | undefined // Stage 12.5: CAPTCHA
       );
-
       res.json({
         success: true,
         data: result,
@@ -202,7 +177,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(status).json({ success: false, error: message });
     }
   }));
-
   /**
    * GET /intake/runs/:token/status
    * Get intake run status
@@ -210,9 +184,7 @@ export function registerIntakeRoutes(app: Express): void {
   app.get('/intake/runs/:token/status', asyncHandler(async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-
       const status = await intakeService.getIntakeRunStatus(token);
-
       res.json({
         success: true,
         data: status,
@@ -224,7 +196,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(status).json({ success: false, error: message });
     }
   }));
-
   /**
    * GET /intake/runs/:token/download
    * Download generated documents
@@ -234,7 +205,6 @@ export function registerIntakeRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const { type } = req.query;
-
       if (!type || (type !== 'docx' && type !== 'pdf')) {
         res.status(400).json({
           success: false,
@@ -242,10 +212,8 @@ export function registerIntakeRoutes(app: Express): void {
         });
         return;
       }
-
       // Get run status
       const status = await intakeService.getIntakeRunStatus(token);
-
       if (!status.completed) {
         res.status(400).json({
           success: false,
@@ -253,7 +221,6 @@ export function registerIntakeRoutes(app: Express): void {
         });
         return;
       }
-
       // TODO: Implement document generation and download
       // For now, return placeholder
       res.status(501).json({
@@ -266,7 +233,6 @@ export function registerIntakeRoutes(app: Express): void {
       res.status(500).json({ success: false, error: message });
     }
   }));
-
   /**
    * POST /intake/upload
    * Upload file for intake form
@@ -281,10 +247,8 @@ export function registerIntakeRoutes(app: Express): void {
         });
         return;
       }
-
       // Generate secure file reference
       const fileRef = randomUUID() + path.extname(req.file.originalname);
-
       // SECURITY WARNING: Production deployment requires virus scanning before file storage
       // Recommended implementations:
       // 1. ClamAV integration: Use 'clamscan' npm package to scan files before storage
@@ -293,7 +257,6 @@ export function registerIntakeRoutes(app: Express): void {
       // 4. Quarantine: Move suspicious files to isolated storage for review
       // 5. Logging: Track all file uploads and scan results for audit trail
       // For now, files are accepted without virus scanning - DO NOT use in production without implementing security measures
-
       res.json({
         success: true,
         data: {

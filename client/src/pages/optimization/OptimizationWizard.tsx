@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
     Loader2,
@@ -12,8 +11,7 @@ import {
     Zap
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
-
+import { useParams } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -23,12 +21,10 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { workflowAPI } from "@/lib/vault-api";
 // Assuming fetchWorkflow exists or I'll implement fetch logic inline or from a hook
-
 export default function OptimizationWizard() {
     const { workflowId } = useParams();
     const [activeStep, setActiveStep] = useState(0);
     const { toast } = useToast();
-
     // Basic structure for steps
     const steps = [
         { id: "overview", title: "Overview", icon: Wand2 },
@@ -38,7 +34,6 @@ export default function OptimizationWizard() {
         { id: "performance", title: "Performance", icon: Zap },
         { id: "review", title: "Review & Fix", icon: CheckCircle },
     ];
-
     // Fetch Workflow Data
     const { data: workflow, isLoading: isLoadingWorkflow } = useQuery({
         queryKey: [`/api/workflows/${workflowId}`],
@@ -48,7 +43,6 @@ export default function OptimizationWizard() {
         },
         enabled: !!workflowId
     });
-
     // Analysis Mutation
     const analyzeMutation = useMutation({
         mutationFn: async (wf: any) => {
@@ -61,14 +55,12 @@ export default function OptimizationWizard() {
             return res.json();
         }
     });
-
     // Run analysis when workflow is loaded
     useEffect(() => {
         if (workflow && !analyzeMutation.data && !analyzeMutation.isPending) {
             analyzeMutation.mutate(workflow);
         }
     }, [workflow]);
-
     if (isLoadingWorkflow || analyzeMutation.isPending) {
         return (
             <div className="flex h-screen items-center justify-center flex-col gap-4">
@@ -77,7 +69,6 @@ export default function OptimizationWizard() {
             </div>
         );
     }
-
     if (analyzeMutation.isError) {
         return (
             <div className="flex h-screen items-center justify-center flex-col gap-4">
@@ -87,9 +78,7 @@ export default function OptimizationWizard() {
             </div>
         );
     }
-
     const analysis = analyzeMutation.data;
-
     return (
         <div className="container mx-auto py-8 max-w-5xl h-screen flex flex-col">
             <div className="mb-8">
@@ -98,7 +87,6 @@ export default function OptimizationWizard() {
                     AI-driven suggestions to improve your workflow's performance and usability.
                 </p>
             </div>
-
             <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden">
                 {/* Sidebar Stepper */}
                 <div className="col-span-3 space-y-2">
@@ -121,9 +109,7 @@ export default function OptimizationWizard() {
                             {index < activeStep && <CheckCircle className="h-4 w-4 ml-auto opacity-50" />}
                         </div>
                     ))}
-
                     <Separator className="my-4" />
-
                     {analysis && (
                         <Card>
                             <CardHeader className="pb-2">
@@ -139,7 +125,6 @@ export default function OptimizationWizard() {
                         </Card>
                     )}
                 </div>
-
                 {/* Main Content Area */}
                 <div className="col-span-9 h-full overflow-hidden flex flex-col">
                     <ScrollArea className="flex-1 pr-4">
@@ -165,21 +150,17 @@ export default function OptimizationWizard() {
         </div>
     );
 }
-
 // --- Sub-components (Will expand these) ---
-
 function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void }) {
     if (!analysis) {return null;}
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Analysis Overview</h2>
-
             <div className="grid grid-cols-3 gap-4">
                 <MetricCard title="Total Pages" value={analysis.metrics.totalPages} />
                 <MetricCard title="Total Blocks" value={analysis.metrics.totalBlocks} />
                 <MetricCard title="Est. Time" value={`${Math.round(analysis.metrics.estimatedCompletionTimeMs / 1000 / 60)} min`} />
             </div>
-
             <div className="space-y-4">
                 <h3 className="text-lg font-medium">Top Suggestions</h3>
                 {analysis.suggestions.map((sugg: any) => (
@@ -199,7 +180,6 @@ function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void 
                     </div>
                 )}
             </div>
-
             <div className="flex justify-end pt-4">
                 <Button onClick={onNext} className="gap-2">
                     Begin Review <ArrowRight className="h-4 w-4" />
@@ -208,17 +188,14 @@ function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void 
         </div>
     );
 }
-
 function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
     const issues = analysis.issues.filter((i: any) => i.category === stepId);
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-semibold">{title} Analysis</h2>
                 <Badge variant="outline">{issues.length} Issues Found</Badge>
             </div>
-
             <div className="space-y-4">
                 {issues.map((issue: any) => (
                     <Card key={issue.id} className="border-l-4 border-l-orange-500">
@@ -244,7 +221,6 @@ function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
                     </div>
                 )}
             </div>
-
             <div className="flex justify-between pt-8">
                 <Button variant="ghost" onClick={onBack}>Back</Button>
                 <Button onClick={onNext}>Next Step</Button>
@@ -252,27 +228,23 @@ function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
         </div>
     );
 }
-
 function ReviewStep({ analysis, workflow, onBack }: any) {
     // This will hold the logic to select fixes and Apply
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Review & Apply Fixes</h2>
             <p className="text-muted-foreground">Select the optimizations you want to apply to your workflow.</p>
-
             {/* TODO: List all fixable issues with checkboxes */}
             <div className="p-8 text-center bg-muted/20 rounded-lg">
                 <p className="mb-4">Auto-fix selection UI coming next...</p>
                 <Button disabled>Apply Selected Fixes</Button>
             </div>
-
             <div className="flex justify-between pt-8">
                 <Button variant="ghost" onClick={onBack}>Back</Button>
             </div>
         </div>
     );
 }
-
 function MetricCard({ title, value }: { title: string, value: string | number }) {
     return (
         <Card>

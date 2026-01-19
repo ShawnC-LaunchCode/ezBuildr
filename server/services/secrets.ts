@@ -3,17 +3,12 @@
  * Manages encrypted secrets (API keys, tokens, OAuth2 credentials) for projects
  * All values are encrypted at rest using AES-256-GCM envelope encryption
  */
-
 import { eq, and } from 'drizzle-orm';
-
-import { secrets, type Secret, type InsertSecret } from '@shared/schema';
-
+import { secrets, type  type InsertSecret } from '@shared/schema';
 import { db } from '../db';
 import { logger } from '../logger';
-import { encrypt, decrypt, redact, maskSecret } from '../utils/encryption';
-
-import type { z } from 'zod';
-
+import { encrypt, decrypt } from '../utils/encryption';
+import type {  } from 'zod';
 /**
  * Secret metadata returned to clients (no plaintext values)
  */
@@ -27,7 +22,6 @@ export interface SecretMetadata {
   createdAt: Date | null;
   updatedAt: Date | null;
 }
-
 /**
  * Input for creating a new secret
  */
@@ -38,7 +32,6 @@ export interface CreateSecretInput {
   type: 'api_key' | 'bearer' | 'oauth2' | 'basic_auth';
   metadata?: Record<string, any>; // OAuth2 config, etc.
 }
-
 /**
  * Input for updating a secret
  */
@@ -48,7 +41,6 @@ export interface UpdateSecretInput {
   type?: 'api_key' | 'bearer' | 'oauth2' | 'basic_auth';
   metadata?: Record<string, any>;
 }
-
 /**
  * List all secrets for a project (metadata only, no values)
  */
@@ -65,14 +57,12 @@ export async function listSecrets(projectId: string): Promise<SecretMetadata[]> 
     })
     .from(secrets)
     .where(eq(secrets.projectId, projectId));
-
   return results.map((s: any) => ({
     ...s,
     type: s.type as 'api_key' | 'bearer' | 'oauth2' | 'basic_auth',
     metadata: s.metadata as Record<string, any> | undefined,
   }));
 }
-
 /**
  * Get a secret by ID (metadata only)
  */
@@ -89,16 +79,13 @@ export async function getSecretMetadata(projectId: string, secretId: string): Pr
     })
     .from(secrets)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)));
-
   if (!result) { return null; }
-
   return {
     ...result,
     type: result.type,
     metadata: result.metadata as Record<string, any> | undefined,
   };
 }
-
 /**
  * Get a secret's plaintext value by key (use sparingly)
  * WARNING: Returns decrypted value. Only use for workflow execution, never for API responses.
@@ -108,9 +95,7 @@ export async function getSecretValue(projectId: string, key: string): Promise<st
     .select()
     .from(secrets)
     .where(and(eq(secrets.projectId, projectId), eq(secrets.key, key)));
-
   if (!result) { return null; }
-
   try {
     return decrypt(result.valueEnc);
   } catch (error) {
@@ -118,7 +103,6 @@ export async function getSecretValue(projectId: string, key: string): Promise<st
     throw new Error(`Failed to decrypt secret: ${(error as Error).message}`);
   }
 }
-
 /**
  * Get a secret's plaintext value by ID (use sparingly)
  * WARNING: Returns decrypted value. Only use for workflow execution, never for API responses.
@@ -128,9 +112,7 @@ export async function getSecretValueById(projectId: string, secretId: string): P
     .select()
     .from(secrets)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)));
-
   if (!result) { return null; }
-
   try {
     return decrypt(result.valueEnc);
   } catch (error) {
@@ -138,7 +120,6 @@ export async function getSecretValueById(projectId: string, secretId: string): P
     throw new Error(`Failed to decrypt secret: ${(error as Error).message}`);
   }
 }
-
 /**
  * Check if a secret key already exists in the project
  */
@@ -147,16 +128,12 @@ export async function secretKeyExists(projectId: string, key: string, excludeId?
     .select({ id: secrets.id })
     .from(secrets)
     .where(and(eq(secrets.projectId, projectId), eq(secrets.key, key)));
-
   const results = await query;
-
   if (excludeId) {
     return results.some((r: any) => r.id !== excludeId);
   }
-
   return results.length > 0;
 }
-
 /**
  * Create a new secret
  */
@@ -166,10 +143,8 @@ export async function createSecret(input: CreateSecretInput): Promise<SecretMeta
   if (exists) {
     throw new Error(`Secret with key '${input.key}' already exists in this project`);
   }
-
   // Encrypt the value
   const valueEnc = encrypt(input.valuePlain);
-
   // Insert
   const [result] = await db
     .insert(secrets)
@@ -181,7 +156,6 @@ export async function createSecret(input: CreateSecretInput): Promise<SecretMeta
       metadata: input.metadata || {},
     })
     .returning();
-
   return {
     id: result.id,
     projectId: result.projectId,
@@ -192,7 +166,6 @@ export async function createSecret(input: CreateSecretInput): Promise<SecretMeta
     updatedAt: result.updatedAt,
   };
 }
-
 /**
  * Update a secret
  */
@@ -206,7 +179,6 @@ export async function updateSecret(
   if (!existing) {
     throw new Error('Secret not found');
   }
-
   // Check for duplicate key if key is being changed
   if (input.key && input.key !== existing.key) {
     const exists = await secretKeyExists(projectId, input.key, secretId);
@@ -214,28 +186,23 @@ export async function updateSecret(
       throw new Error(`Secret with key '${input.key}' already exists in this project`);
     }
   }
-
   // Build update object
   const updates: Partial<InsertSecret> = {};
-
   if (input.key) { updates.key = input.key; }
   if (input.type) { updates.type = input.type; }
   if (input.metadata !== undefined) { updates.metadata = input.metadata; }
   if (input.valuePlain) {
     updates.valueEnc = encrypt(input.valuePlain);
   }
-
   // Update
   const [result] = await db
     .update(secrets)
     .set(updates as any)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)))
     .returning();
-
   if (!result) {
     throw new Error('Failed to update secret');
   }
-
   return {
     id: result.id,
     projectId: result.projectId,
@@ -246,7 +213,6 @@ export async function updateSecret(
     updatedAt: result.updatedAt,
   };
 }
-
 /**
  * Delete a secret
  */
@@ -255,10 +221,8 @@ export async function deleteSecret(projectId: string, secretId: string): Promise
     .delete(secrets)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)))
     .returning({ id: secrets.id });
-
   return result.length > 0;
 }
-
 /**
  * Rotate a secret (generate new value)
  * This is a helper that updates the value while keeping the same key
@@ -270,7 +234,6 @@ export async function rotateSecret(
 ): Promise<SecretMetadata> {
   return updateSecret(projectId, secretId, { valuePlain: newValuePlain });
 }
-
 /**
  * Test a secret by trying to decrypt it
  * Returns true if the secret can be decrypted successfully

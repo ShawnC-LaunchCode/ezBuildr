@@ -1,17 +1,13 @@
 import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
-import React, { useState, useEffect, useRef, useMemo } from "react";
-
+import React, { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-
 interface JsonViewerProps {
     data: Record<string, any>;
     className?: string;
 }
-
 // Hook to detect dark mode from HTML class
 function useDarkModeObserver() {
     const [isDark, setIsDark] = useState(document.documentElement.classList.contains("dark"));
-
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -20,18 +16,14 @@ function useDarkModeObserver() {
                 }
             });
         });
-
         observer.observe(document.documentElement, {
             attributes: true,
             attributeFilter: ["class"],
         });
-
         return () => observer.disconnect();
     }, []);
-
     return isDark;
 }
-
 // Helper to check if two values are effectively different
 function isDifferent(val1: any, val2: any): boolean {
     if (val1 === val2) {return false;}
@@ -42,18 +34,15 @@ function isDifferent(val1: any, val2: any): boolean {
     }
     return true;
 }
-
 export function JsonViewer({ data, className }: JsonViewerProps) {
     const isDark = useDarkModeObserver();
     const prevDataRef = useRef<Record<string, any>>({});
     const [changedPaths, setChangedPaths] = useState<Map<string, number>>(new Map());
-
     // Calculate changed paths
     useEffect(() => {
         const prevData = prevDataRef.current;
         const now = Date.now();
         const newChanges = new Map<string, number>();
-
         // Flatten keys to check changes? Or just recursive check?
         // Simple recursive diff
         function findChanges(current: any, prev: any, path: string) {
@@ -67,16 +56,13 @@ export function JsonViewer({ data, className }: JsonViewerProps) {
                 });
             }
         }
-
         findChanges(data, prevData, "");
-
         if (newChanges.size > 0) {
             setChangedPaths(prev => {
                 const map = new Map(prev);
                 newChanges.forEach((ts, path) => map.set(path, ts));
                 return map;
             });
-
             // Cleanup
             setTimeout(() => {
                 setChangedPaths(current => {
@@ -89,10 +75,8 @@ export function JsonViewer({ data, className }: JsonViewerProps) {
                 });
             }, 5000);
         }
-
         prevDataRef.current = data;
     }, [data]);
-
     return (
         <div className={cn("text-xs font-mono h-full w-full overflow-auto p-2 bg-slate-50 dark:bg-slate-950/50", className)}>
             <JsonNode
@@ -107,7 +91,6 @@ export function JsonViewer({ data, className }: JsonViewerProps) {
         </div>
     );
 }
-
 interface JsonNodeProps {
     name: string | null;
     value: any;
@@ -117,26 +100,21 @@ interface JsonNodeProps {
     changedPaths: Map<string, number>;
     initiallyExpanded?: boolean;
 }
-
 function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExpanded = false }: JsonNodeProps) {
     const [expanded, setExpanded] = useState(initiallyExpanded);
     const [copied, setCopied] = useState(false);
-
     // Highlight logic
     const lastChange = changedPaths.get(path);
     const isHighlighted = lastChange && (Date.now() - lastChange < 2000); // 2s highlight
-
     const isObject = typeof value === 'object' && value !== null;
     const isArray = Array.isArray(value);
     const isEmpty = isObject && Object.keys(value).length === 0;
-
     const handleCopy = (e: React.MouseEvent, text: string) => {
         e.stopPropagation();
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };
-
     const getTypeColor = (val: any) => {
         if (val === null) {return "text-rose-500";}
         switch (typeof val) {
@@ -146,22 +124,18 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
             default: return "text-gray-600 dark:text-gray-400";
         }
     };
-
     const renderValue = (val: any) => {
         if (val === null) {return "null";}
         if (typeof val === 'string') {return `"${val}"`;}
         return String(val);
     };
-
     const containerClass = cn(
         "flex items-start group rounded-sm px-1 -ml-1 border border-transparent transition-colors",
         isHighlighted ? "bg-yellow-100 dark:bg-yellow-900/30 duration-500" : "hover:bg-black/5 dark:hover:bg-white/5",
         // isHighlighted ? "animate-category-pulse" : "" 
     );
-
     if (isObject) {
         const keys = Object.keys(value);
-
         return (
             <div className="ml-0">
                 <div className={containerClass} onClick={() => { void !isEmpty && setExpanded(!expanded); }}>
@@ -171,14 +145,12 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                             {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                         </span>
                     ) : <span className="w-4 mr-1"></span>}
-
                     {/* Key */}
                     {name && (
                         <span className="text-indigo-600 dark:text-indigo-400 mr-1 select-text" onDoubleClick={(e) => handleCopy(e, path)}>
                             {name}:
                         </span>
                     )}
-
                     {/* Preview */}
                     <span className="text-gray-500 dark:text-gray-400">
                         {isArray ? "[" : "{"}
@@ -189,7 +161,6 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                         )}
                         {isEmpty && (isArray ? "]" : "}")}
                     </span>
-
                     {/* Tools */}
                     <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-2">
                         <button onClick={(e) => handleCopy(e, JSON.stringify(value, null, 2))} title="Copy Value">
@@ -197,7 +168,6 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                         </button>
                     </div>
                 </div>
-
                 {/* Children */}
                 {expanded && !isEmpty && (
                     <div className="ml-4 border-l border-gray-200 dark:border-gray-800 pl-2">
@@ -216,7 +186,6 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                         ))}
                     </div>
                 )}
-
                 {expanded && !isEmpty && (
                     <div className="ml-4 pl-1 text-gray-500 dark:text-gray-400">
                         {isArray ? "]" : "}"}{!isLast && ","}
@@ -225,7 +194,6 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
             </div>
         )
     }
-
     // Primitive
     return (
         <div className={containerClass}>
@@ -241,7 +209,6 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                 {renderValue(value)}
             </span>
             {!isLast && <span className="text-gray-400">,</span>}
-
             {/* Tools */}
             <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-2">
                 <button onClick={(e) => handleCopy(e, String(value))} title="Copy Value">

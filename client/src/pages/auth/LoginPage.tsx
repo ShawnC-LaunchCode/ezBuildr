@@ -4,33 +4,27 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "wouter";
 import { z } from "zod";
-
 import logo from "@/assets/images/logo.png";
 import { GoogleLogin } from "@/components/GoogleLogin";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { authAPI } from "@/lib/vault-api";
-
 const loginSchema = z.object({
     email: z.string().email("Please enter a valid email"),
     password: z.string().min(1, "Password is required"),
 });
-
 type LoginFormValues = z.infer<typeof loginSchema>;
-
 export default function LoginPage() {
     const [, setLocation] = useLocation();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
-
     // MFA State
     const [mfaRequired, setMfaRequired] = useState(false);
     const [mfaUserId, setMfaUserId] = useState<string>("");
     const [mfaToken, setMfaToken] = useState("");
-
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: {
@@ -38,12 +32,10 @@ export default function LoginPage() {
             password: "",
         },
     });
-
     const handleSuccess = async (response: any) => {
         if (response.token) {
             const { setAccessToken } = await import("@/lib/vault-api");
             const { queryClient } = await import("@/lib/queryClient");
-
             setAccessToken(response.token);
             queryClient.setQueryData(["auth"], {
                 user: response.user,
@@ -52,12 +44,10 @@ export default function LoginPage() {
         }
         window.location.href = "/dashboard";
     };
-
     const onSubmit = async (data: LoginFormValues) => {
         setIsLoading(true);
         try {
             const response = await authAPI.login(data);
-
             // Check for MFA requirement
             if ((response as any).requiresMfa) {
                 setMfaRequired(true);
@@ -68,7 +58,6 @@ export default function LoginPage() {
                 });
                 return;
             }
-
             await handleSuccess(response);
         } catch (error) {
             toast({
@@ -80,11 +69,9 @@ export default function LoginPage() {
             setIsLoading(false);
         }
     };
-
     const handleMfaSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!mfaToken) {return;}
-
         setIsLoading(true);
         try {
             const response = await authAPI.verifyMfaLogin(mfaUserId, mfaToken);
@@ -99,7 +86,6 @@ export default function LoginPage() {
             setIsLoading(false);
         }
     };
-
     if (mfaRequired) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -114,7 +100,6 @@ export default function LoginPage() {
                             Two-Factor Authentication
                         </h2>
                     </div>
-
                     <Card className="mt-8 shadow-xl border-dashed border-gray-200">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -141,7 +126,6 @@ export default function LoginPage() {
                                         />
                                     </div>
                                 </div>
-
                                 <Button type="submit" className="w-full" disabled={isLoading || mfaToken.length < 6}>
                                     {isLoading ? (
                                         <>
@@ -152,7 +136,6 @@ export default function LoginPage() {
                                         "Verify"
                                     )}
                                 </Button>
-
                                 <button
                                     type="button"
                                     onClick={() => { void setMfaRequired(false); }}
@@ -167,7 +150,6 @@ export default function LoginPage() {
             </div>
         );
     }
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
@@ -187,7 +169,6 @@ export default function LoginPage() {
                         </Link>
                     </p>
                 </div>
-
                 <Card className="mt-8 shadow-xl border-dashed border-gray-200">
                     <CardHeader>
                         <CardTitle>Welcome back</CardTitle>
@@ -197,7 +178,6 @@ export default function LoginPage() {
                         <div className="flex justify-center w-full">
                             <GoogleLogin onSuccess={() => window.location.href = "/dashboard"} />
                         </div>
-
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">
                                 <span className="w-full border-t" />
@@ -206,7 +186,6 @@ export default function LoginPage() {
                                 <span className="bg-white px-2 text-muted-foreground">Or continue with email</span>
                             </div>
                         </div>
-
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
@@ -235,13 +214,11 @@ export default function LoginPage() {
                                         </FormItem>
                                     )}
                                 />
-
                                 <div className="flex items-center justify-end">
                                     <Link href="/auth/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                                         Forgot password?
                                     </Link>
                                 </div>
-
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? (
                                         <>

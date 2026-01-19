@@ -1,31 +1,22 @@
-
-import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { Loader2, FileEdit } from 'lucide-react';
 import mammoth from 'mammoth';
 import React, { useState, useEffect, useMemo } from 'react';
-
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-
-
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AIAssistPanel } from './AIAssistPanel';
-
-
 interface DocumentTemplateEditorProps {
     templateId: string;
     isOpen: boolean;
     onClose: () => void;
     workflowVariables: any[];
 }
-
 export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVariables }: DocumentTemplateEditorProps) {
     const [htmlContent, setHtmlContent] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | undefined>(undefined);
     const [fileName, setFileName] = useState<string>('');
-
     // Fetch Template File
     // Note: Assuming an API exists to get the raw file or we reuse the upload buffer if new
     // For this mock, we'll try to fetch from a hypothetical download endpoint
@@ -34,7 +25,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
             fetchTemplate();
         }
     }, [isOpen, templateId]);
-
     const fetchTemplate = async () => {
         setIsLoading(true);
         try {
@@ -43,12 +33,10 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
             if (response.ok) {
                 const buffer = await response.arrayBuffer();
                 setFileBuffer(buffer);
-
                 // Extract filename from header or default
                 const disposition = response.headers.get('content-disposition');
                 const name = disposition ? disposition.split('filename=')[1] : 'template.docx';
                 setFileName(name.replace(/"/g, ''));
-
                 if (name.endsWith('.docx')) {
                     const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
                     setHtmlContent(result.value);
@@ -67,18 +55,15 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
             setIsLoading(false);
         }
     };
-
     const handleApplyMapping = (mapping: any) => {
         console.log("Applying mapping", mapping);
         // TODO: Persist mapping to backend
     };
-
     // SECURITY FIX: Sanitize HTML content to prevent XSS attacks
     const sanitizedHtml = useMemo(() => {
         if (!htmlContent || fileName.endsWith('.pdf')) {
             return htmlContent;
         }
-
         return DOMPurify.sanitize(htmlContent, {
             ALLOWED_TAGS: [
                 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -91,7 +76,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
             FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur']
         });
     }, [htmlContent, fileName]);
-
     return (
         <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
             <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
@@ -105,7 +89,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
                             </div>
                             <Button variant="ghost" size="sm" onClick={() => { void onClose(); }}>Close</Button>
                         </div>
-
                         <div className="flex-1 overflow-y-auto p-8 flex justify-center">
                             {isLoading ? (
                                 <Loader2 className="animate-spin w-8 h-8 text-muted-foreground mt-10" />
@@ -125,7 +108,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
                             )}
                         </div>
                     </div>
-
                     {/* AI Assist Sidebar */}
                     <AIAssistPanel
                         templateId={templateId}

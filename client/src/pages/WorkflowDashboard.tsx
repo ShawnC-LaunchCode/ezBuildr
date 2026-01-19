@@ -2,11 +2,8 @@
  * Workflow Dashboard
  * Lists projects and workflows, allows creation, shows hierarchy
  */
-
 import { Plus, Workflow as WorkflowIcon, Folder } from "lucide-react";
 import React, { useState } from "react";
-import { Link } from "wouter";
-
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import {
@@ -54,7 +51,6 @@ import {
   useDeleteWorkflow,
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
-
 export default function WorkflowDashboard() {
   // Dialog states
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -64,16 +60,13 @@ export default function WorkflowDashboard() {
   const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
-
   // Form states
   const [newProject, setNewProject] = useState({ title: "", description: "" });
   const [newWorkflow, setNewWorkflow] = useState({ title: "", description: "" });
   const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
-
   // Data queries
   const { data: projects, isLoading: projectsLoading } = useProjects(true); // active only
   const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
-
   // Mutations
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
@@ -83,16 +76,13 @@ export default function WorkflowDashboard() {
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const moveWorkflowMutation = useMoveWorkflow();
-
   const { toast } = useToast();
-
   // Project handlers
   const handleCreateProject = async () => {
     if (!newProject.title.trim()) {
       toast({ title: "Error", description: "Project title is required", variant: "destructive" });
       return;
     }
-
     try {
       await createProjectMutation.mutateAsync(newProject);
       toast({ title: "Success", description: "Project created successfully" });
@@ -102,13 +92,11 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to create project", variant: "destructive" });
     }
   };
-
   const handleUpdateProject = async () => {
     if (!editingProject || !newProject.title.trim()) {
       toast({ title: "Error", description: "Project title is required", variant: "destructive" });
       return;
     }
-
     try {
       await updateProjectMutation.mutateAsync({
         id: editingProject.id,
@@ -121,7 +109,6 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to update project", variant: "destructive" });
     }
   };
-
   const handleArchiveProject = async (id: string) => {
     try {
       await archiveProjectMutation.mutateAsync(id);
@@ -130,10 +117,8 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to archive project", variant: "destructive" });
     }
   };
-
   const handleDeleteProject = async () => {
     if (!deleteProjectId) {return;}
-
     try {
       await deleteProjectMutation.mutateAsync(deleteProjectId);
       toast({ title: "Success", description: "Project deleted" });
@@ -142,14 +127,12 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
     }
   };
-
   // Workflow handlers
   const handleCreateWorkflow = async () => {
     if (!newWorkflow.title.trim()) {
       toast({ title: "Error", description: "Workflow title is required", variant: "destructive" });
       return;
     }
-
     try {
       await createWorkflowMutation.mutateAsync(newWorkflow);
       toast({ title: "Success", description: "Workflow created successfully" });
@@ -159,10 +142,8 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to create workflow", variant: "destructive" });
     }
   };
-
   const handleDeleteWorkflow = async () => {
     if (!deleteWorkflowId) {return;}
-
     try {
       await deleteWorkflowMutation.mutateAsync(deleteWorkflowId);
       toast({ title: "Success", description: "Workflow deleted" });
@@ -171,7 +152,6 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to delete workflow", variant: "destructive" });
     }
   };
-
   const handleArchiveWorkflow = async (id: string) => {
     try {
       await updateWorkflowMutation.mutateAsync({ id, status: "archived" });
@@ -180,7 +160,6 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to archive workflow", variant: "destructive" });
     }
   };
-
   const handleActivateWorkflow = async (id: string) => {
     try {
       await updateWorkflowMutation.mutateAsync({ id, status: "active" });
@@ -189,10 +168,8 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to activate workflow", variant: "destructive" });
     }
   };
-
   const handleMoveWorkflow = async () => {
     if (!movingWorkflow) {return;}
-
     try {
       await moveWorkflowMutation.mutateAsync({
         id: movingWorkflow.id,
@@ -209,21 +186,17 @@ export default function WorkflowDashboard() {
       toast({ title: "Error", description: "Failed to move workflow", variant: "destructive" });
     }
   };
-
   const openMoveDialog = (workflow: ApiWorkflow) => {
     setMovingWorkflow(workflow);
     setTargetProjectId(workflow.projectId);
     setIsMoveWorkflowOpen(true);
   };
-
   const openEditProjectDialog = (project: ApiProject) => {
     setEditingProject(project);
     setNewProject({ title: project.title, description: project.description || "" });
   };
-
   const isLoading = projectsLoading || workflowsLoading;
   const hasContent = (projects && projects.length > 0) || (unfiledWorkflows && unfiledWorkflows.length > 0);
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-8 max-w-7xl">
@@ -246,7 +219,6 @@ export default function WorkflowDashboard() {
             </Button>
           </div>
         </div>
-
         {/* Empty State */}
         {!isLoading && !hasContent && (
           <Card className="border-dashed">
@@ -269,7 +241,6 @@ export default function WorkflowDashboard() {
             </CardContent>
           </Card>
         )}
-
         {/* Loading */}
         {isLoading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -284,7 +255,6 @@ export default function WorkflowDashboard() {
             ))}
           </div>
         )}
-
         {/* Projects & Workflows Grid */}
         {!isLoading && hasContent && (
           <div className="space-y-8">
@@ -305,7 +275,6 @@ export default function WorkflowDashboard() {
                 </div>
               </section>
             )}
-
             {/* Unfiled Workflows Section */}
             {unfiledWorkflows && unfiledWorkflows.length > 0 && (
               <section>
@@ -327,7 +296,6 @@ export default function WorkflowDashboard() {
           </div>
         )}
       </div>
-
       {/* Create/Edit Project Dialog */}
       <Dialog
         open={isCreateProjectOpen || !!editingProject}
@@ -396,7 +364,6 @@ export default function WorkflowDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Create Workflow Dialog */}
       <Dialog open={isCreateWorkflowOpen} onOpenChange={setIsCreateWorkflowOpen}>
         <DialogContent>
@@ -438,7 +405,6 @@ export default function WorkflowDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Move Workflow Dialog */}
       <Dialog open={isMoveWorkflowOpen} onOpenChange={setIsMoveWorkflowOpen}>
         <DialogContent>
@@ -479,7 +445,6 @@ export default function WorkflowDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Project Confirmation */}
       <AlertDialog open={!!deleteProjectId} onOpenChange={() => setDeleteProjectId(null)}>
         <AlertDialogContent>
@@ -501,7 +466,6 @@ export default function WorkflowDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Delete Workflow Confirmation */}
       <AlertDialog open={!!deleteWorkflowId} onOpenChange={() => setDeleteWorkflowId(null)}>
         <AlertDialogContent>

@@ -1,12 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
 import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
-
 import { WriteRunner } from "../../../server/lib/writes/WriteRunner";
 import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository } from "../../../server/repositories";
 import { datavaultRowsService } from "../../../server/services/DatavaultRowsService";
-import { datavaultTablesService } from "../../../server/services/DatavaultTablesService";
-
 // Mock DB
 vi.mock("../../../server/db", () => ({
     db: {
@@ -15,7 +11,6 @@ vi.mock("../../../server/db", () => ({
     initializeDatabase: vi.fn(),
     dbInitPromise: Promise.resolve(),
 }));
-
 // Mock repositories
 vi.mock("../../../server/repositories", () => ({
     datavaultRowsRepository: {
@@ -34,20 +29,17 @@ vi.mock("../../../server/repositories", () => ({
         findById: vi.fn(),
     },
 }));
-
 vi.mock("../../../server/services/DatavaultTablesService", () => ({
     datavaultTablesService: {
         verifyTenantOwnership: vi.fn().mockResolvedValue(true),
     }
 }));
-
 vi.mock("../../../server/services/DatavaultRowsService", () => ({
     datavaultRowsService: {
         createRow: vi.fn().mockResolvedValue({ row: { id: "row-new" }, values: [] }),
         updateRow: vi.fn().mockResolvedValue({}),
     }
 }));
-
 describe("WriteRunner", () => {
     let runner: WriteRunner;
     const mockTenantId = "tenant-123";
@@ -66,11 +58,9 @@ describe("WriteRunner", () => {
         },
         userId: "u-1"
     };
-
     beforeEach(() => {
         runner = new WriteRunner();
         vi.clearAllMocks();
-
         // Default mocks
         (datavaultColumnsRepository.findByTableId as any).mockResolvedValue([
             { id: "col-first", type: "text", required: false, name: "First Name" },
@@ -88,12 +78,10 @@ describe("WriteRunner", () => {
             tableId: "table-users",
         });
     });
-
     describe("Mode: Create", () => {
         beforeEach(() => {
             // Specific overrides if needed
         });
-
         it("should resolve values and call datavaultRowsService.createRow", async () => {
             const config: any = {
                 id: "block-1",
@@ -115,7 +103,6 @@ describe("WriteRunner", () => {
                 // So WriteBlockConfig is the INNER config object.
             };
             // Correcting config shape for the test based on BlockRunner usage
-
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
                 dataSourceId: "ds-native",
@@ -126,17 +113,13 @@ describe("WriteRunner", () => {
                     { columnId: "col-age", value: "{{ age }}" }
                 ]
             };
-
             (datavaultRowsRepository.createRowWithValues as any).mockResolvedValue({
                 row: { id: "row-new" },
                 values: []
             });
-
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
-
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-new");
-
             // Verify repository call
             const expectedValues = [
                 { columnId: "col-first", value: "John" },
@@ -155,7 +138,6 @@ describe("WriteRunner", () => {
                 expect.anything() // tx
             );
         });
-
         it("should simulate write in preview mode", async () => {
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
@@ -163,15 +145,12 @@ describe("WriteRunner", () => {
                 mode: "create",
                 columnMappings: []
             };
-
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId, true); // isPreview=true
-
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("preview-simulated-id");
             expect(datavaultRowsService.createRow).not.toHaveBeenCalled();
         });
     });
-
     describe("Mode: Update", () => {
         it("should find row by PK and update", async () => {
             const writeConfig: WriteBlockConfig = {
@@ -184,15 +163,11 @@ describe("WriteRunner", () => {
                     { columnId: "col-status", value: "Active" }
                 ]
             };
-
             (datavaultRowsRepository.findRowByColumnValue as any).mockResolvedValue("row-existing-1");
             (datavaultRowsRepository.updateRowValues as any).mockResolvedValue(true);
-
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
-
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-existing-1");
-
             expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
                 "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
             );
@@ -200,7 +175,6 @@ describe("WriteRunner", () => {
             expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
                 "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
             );
-
             // Then calls service execution
             expect(datavaultRowsService.updateRow).toHaveBeenCalledWith(
                 "row-existing-1",
@@ -210,7 +184,6 @@ describe("WriteRunner", () => {
                 expect.anything()
             );
         });
-
         it("should return failure result if row not found", async () => {
             const writeConfig: WriteBlockConfig = {
                 tableId: "table-users",
@@ -220,16 +193,12 @@ describe("WriteRunner", () => {
                 primaryKeyValue: "missing@example.com",
                 columnMappings: []
             };
-
-
             (datavaultTablesRepository.findById as any).mockResolvedValue({
                 id: "table-users",
                 tenantId: mockTenantId
             });
             (datavaultRowsRepository.findRowByColumnValue as any).mockResolvedValue(null);
-
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
-
             expect(result.success).toBe(false);
             expect(result.error).toContain("Row not found");
         });

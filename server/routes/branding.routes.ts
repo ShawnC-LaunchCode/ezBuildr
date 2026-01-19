@@ -1,17 +1,12 @@
-import { partialTenantBrandingSchema, createTenantDomainSchema } from '@shared/types/branding';
-
+import { partialTenantBrandingSchema } from '@shared/types/branding';
 import { createLogger } from '../logger';
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { hybridAuth, type  } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { validateTenantParam } from '../middleware/tenant';
 import { brandingService } from '../services/BrandingService';
 import { asyncHandler } from '../utils/asyncHandler';
-
 import type { Express, Request, Response } from 'express';
-
-
 const logger = createLogger({ module: 'branding-routes' });
-
 /**
  * Stage 17: Branding & Tenant Customization Routes
  *
@@ -23,7 +18,6 @@ export function registerBrandingRoutes(app: Express): void {
   // =====================================================================
   // BRANDING ENDPOINTS
   // =====================================================================
-
   /**
    * GET /api/tenants/:tenantId/branding
    * Get tenant branding configuration
@@ -35,9 +29,7 @@ export function registerBrandingRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
-
         const branding = await brandingService.getBrandingByTenantId(tenantId);
-
         res.json({
           branding: branding || null,
         });
@@ -50,7 +42,6 @@ export function registerBrandingRoutes(app: Express): void {
       }
     })
   );
-
   /**
    * PATCH /api/tenants/:tenantId/branding
    * Update tenant branding configuration (owner/builder only)
@@ -63,7 +54,6 @@ export function registerBrandingRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
-
         // Validate request body
         const validationResult = partialTenantBrandingSchema.safeParse(req.body);
         if (!validationResult.success) {
@@ -74,14 +64,11 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         const updatedBranding = await brandingService.updateBranding(
           tenantId,
           validationResult.data
         );
-
         logger.info({ tenantId }, 'Tenant branding updated');
-
         res.json({
           message: 'Branding updated successfully',
           branding: updatedBranding,
@@ -95,11 +82,9 @@ export function registerBrandingRoutes(app: Express): void {
       }
     })
   );
-
   // =====================================================================
   // DOMAIN ENDPOINTS
   // =====================================================================
-
   /**
    * GET /api/tenants/:tenantId/domains
    * Get all custom domains for a tenant
@@ -111,9 +96,7 @@ export function registerBrandingRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
-
         const domains = await brandingService.getDomainsByTenantId(tenantId);
-
         res.json({
           domains,
           total: domains.length,
@@ -127,7 +110,6 @@ export function registerBrandingRoutes(app: Express): void {
       }
     })
   );
-
   /**
    * POST /api/tenants/:tenantId/domains
    * Add a custom domain to a tenant (owner/builder only)
@@ -140,7 +122,6 @@ export function registerBrandingRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const { tenantId } = req.params;
-
         // Validate request body
         const createTenantDomainSchema = z.object({
           domain: z.string().min(1) // Assuming schema structure or defining locally if import fails? No, import should work.
@@ -149,7 +130,6 @@ export function registerBrandingRoutes(app: Express): void {
         // Assuming req.body matches schema. I'll rely on original logic unless I see it.
         // Original: const validationResult = createTenantDomainSchema.safeParse(req.body);
         // Correct.
-
         const validationResult = createTenantDomainSchema.safeParse(req.body);
         if (!validationResult.success) {
           res.status(400).json({
@@ -159,9 +139,7 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         const { domain } = validationResult.data;
-
         // Check if domain is available
         const isAvailable = await brandingService.isDomainAvailable(domain);
         if (!isAvailable) {
@@ -171,11 +149,8 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         const newDomain = await brandingService.addDomain(tenantId, domain);
-
         logger.info({ tenantId, domain }, 'Custom domain added');
-
         res.status(201).json({
           message: 'Domain added successfully',
           domain: newDomain,
@@ -188,7 +163,6 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         logger.error({ error }, 'Failed to add domain');
         res.status(500).json({
           message: 'Failed to add domain',
@@ -197,7 +171,6 @@ export function registerBrandingRoutes(app: Express): void {
       }
     })
   );
-
   /**
    * DELETE /api/tenants/:tenantId/domains/:domainId
    * Remove a custom domain from a tenant (owner/builder only)
@@ -210,9 +183,7 @@ export function registerBrandingRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const { tenantId, domainId } = req.params;
-
         const success = await brandingService.removeDomain(tenantId, domainId);
-
         if (!success) {
           res.status(404).json({
             message: 'Domain not found',
@@ -220,9 +191,7 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         logger.info({ tenantId, domainId }, 'Custom domain removed');
-
         res.json({
           message: 'Domain removed successfully',
         });
@@ -234,7 +203,6 @@ export function registerBrandingRoutes(app: Express): void {
           });
           return;
         }
-
         logger.error({ error }, 'Failed to remove domain');
         res.status(500).json({
           message: 'Failed to remove domain',

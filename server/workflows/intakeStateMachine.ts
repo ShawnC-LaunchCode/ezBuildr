@@ -4,55 +4,40 @@
  * Pure state machine for intake workflow navigation and validation.
  * Integrates page conditions, question visibility, and validation.
  */
-
 import type { Step } from "@shared/schema";
-
-import { validatePage, type PageValidationResult } from "./validation";
-
+import { validatePage, type  } from "./validation";
 import type { IntakeNavigationService } from "../services/IntakeNavigationService";
 import type { IntakeQuestionVisibilityService } from "../services/IntakeQuestionVisibilityService";
-
 export interface IntakeRunnerState {
   /** Current page index (0-based) */
   currentPageIndex: number;
-
   /** Current page ID */
   currentPageId: string | null;
-
   /** All answers collected so far */
   answers: Record<string, any>;
-
   /** Pages that have been visited */
   visitedPages: Set<string>;
-
   /** Validation errors for current page */
   errors: Map<string, string[]>;
-
   /** Can navigate to next page */
   canGoNext: boolean;
-
   /** Can navigate to previous page */
   canGoBack: boolean;
-
   /** Progress percentage (0-100) */
   progress: number;
-
   /** Is workflow complete */
   isComplete: boolean;
 }
-
 export interface StateTransition {
   type: 'NEXT' | 'BACK' | 'GOTO' | 'UPDATE_ANSWER' | 'SUBMIT';
   pageId?: string;
   answersaround?: Record<string, any>;
 }
-
 export class IntakeStateMachine {
   constructor(
     private navigationService: IntakeNavigationService,
     private visibilityService: IntakeQuestionVisibilityService
   ) {}
-
   /**
    * Initialize state for a new workflow run
    */
@@ -67,9 +52,7 @@ export class IntakeStateMachine {
       null,
       recordData
     );
-
     const firstPageId = nav.visiblePages.length > 0 ? nav.visiblePages[0] : null;
-
     return {
       currentPageIndex: 0,
       currentPageId: firstPageId,
@@ -82,7 +65,6 @@ export class IntakeStateMachine {
       isComplete: false,
     };
   }
-
   /**
    * Navigate to next page
    */
@@ -95,14 +77,12 @@ export class IntakeStateMachine {
     if (!state.canGoNext) {
       return state; // Can't advance if validation failed
     }
-
     const nav = await this.navigationService.evaluateNavigation(
       workflowId,
       runId,
       state.currentPageId,
       recordData
     );
-
     if (!nav.nextPageId) {
       // Reached end
       return {
@@ -111,11 +91,9 @@ export class IntakeStateMachine {
         canGoNext: false,
       };
     }
-
     const nextPageIndex = state.currentPageIndex + 1;
     const visitedPages = new Set(state.visitedPages);
     visitedPages.add(nav.nextPageId);
-
     return {
       ...state,
       currentPageIndex: nextPageIndex,
@@ -127,7 +105,6 @@ export class IntakeStateMachine {
       progress: nav.progress,
     };
   }
-
   /**
    * Navigate to previous page
    */
@@ -140,20 +117,16 @@ export class IntakeStateMachine {
     if (!state.canGoBack) {
       return state;
     }
-
     const nav = await this.navigationService.evaluateNavigation(
       workflowId,
       runId,
       state.currentPageId,
       recordData
     );
-
     if (!nav.previousPageId) {
       return state; // No previous page
     }
-
     const prevPageIndex = state.currentPageIndex - 1;
-
     return {
       ...state,
       currentPageIndex: prevPageIndex,
@@ -164,7 +137,6 @@ export class IntakeStateMachine {
       progress: nav.progress,
     };
   }
-
   /**
    * Update answers and revalidate
    */
@@ -180,22 +152,18 @@ export class IntakeStateMachine {
       ...state.answers,
       ...updates,
     };
-
     // Get visible steps for current page
     const visibility = await this.visibilityService.evaluatePageQuestions(
       sectionId,
       runId,
       recordData
     );
-
     // Validate page
     const validationResult = validatePage(steps, newAnswers, visibility.visibleQuestions);
-
     const errors = new Map<string, string[]>();
     for (const error of validationResult.errors) {
       errors.set(error.fieldId, error.errors);
     }
-
     return {
       ...state,
       answers: newAnswers,
@@ -203,7 +171,6 @@ export class IntakeStateMachine {
       canGoNext: validationResult.valid,
     };
   }
-
   /**
    * Submit workflow (complete)
    */

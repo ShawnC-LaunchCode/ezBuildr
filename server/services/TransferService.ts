@@ -1,21 +1,16 @@
-import { eq } from 'drizzle-orm';
-
 import { users, organizationMemberships } from '../../shared/schema';
 import { db } from '../db';
 import { canAccessAsset, isOrgMember } from '../utils/ownershipAccess';
-
 /**
  * Transfer Service
  *
  * Handles ownership transfers for all asset types (projects, workflows, databases)
  * with consistent validation and cascade rules
  */
-
 export interface TransferOwnershipInput {
   targetOwnerType: 'user' | 'org';
   targetOwnerUuid: string;
 }
-
 export class TransferService {
   /**
    * Validate that a user can transfer an asset
@@ -52,7 +47,6 @@ export class TransferService {
     } else {
       throw new Error('Invalid target owner type');
     }
-
     // Step 2 - Validate target ownership permissions
     if (targetOwnerType === 'org') {
       // User must be a member of the target org
@@ -66,14 +60,12 @@ export class TransferService {
         throw new Error('Access denied: Can only transfer to yourself');
       }
     }
-
     // Step 3 - Validate user has access to current asset (last, as it might be most expensive)
     const hasAccess = await canAccessAsset(currentUserId, currentOwnerType, currentOwnerUuid);
     if (!hasAccess) {
       throw new Error('Access denied: You do not have permission to transfer this asset');
     }
   }
-
   /**
    * Check if user can edit an asset based on ownership
    *
@@ -89,5 +81,4 @@ export class TransferService {
     return canAccessAsset(userId, ownerType, ownerUuid);
   }
 }
-
 export const transferService = new TransferService();

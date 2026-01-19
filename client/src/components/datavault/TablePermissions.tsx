@@ -3,10 +3,8 @@
  * Manages per-table RBAC permissions (owner/write/read)
  * DataVault v4 Micro-Phase 6: Table-Level Permissions
  */
-
 import { Loader2, Plus, Trash2, ShieldAlert, User, Eye, Edit, Shield } from "lucide-react";
 import React, { useState } from "react";
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -41,20 +39,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission } from "@/lib/datavault-hooks";
-
-import type { DatavaultTablePermission } from "@shared/schema";
-
+import type {  } from "@shared/schema";
 interface TablePermissionsProps {
   tableId: string;
 }
-
 export function TablePermissions({ tableId }: TablePermissionsProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: permissions, isLoading, error } = useTablePermissions(tableId);
   const grantMutation = useGrantTablePermission();
   const revokeMutation = useRevokeTablePermission();
-
   const [addUserMode, setAddUserMode] = useState(false);
   const [newUserId, setNewUserId] = useState("");
   const [newUserRole, setNewUserRole] = useState<"owner" | "write" | "read">("read");
@@ -66,7 +60,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
     newRole: string;
     userId: string;
   } | null>(null);
-
   const handleAddUser = async () => {
     if (!newUserId.trim()) {
       toast({
@@ -76,7 +69,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
       return;
     }
-
     try {
       await grantMutation.mutateAsync({
         tableId,
@@ -85,12 +77,10 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           role: newUserRole,
         },
       });
-
       toast({
         title: "Permission granted",
         description: `User added with ${newUserRole} role`,
       });
-
       setNewUserId("");
       setNewUserRole("read");
       setAddUserMode(false);
@@ -102,11 +92,9 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
     }
   };
-
   const handleUpdateRole = async (permissionId: string, newRole: "owner" | "write" | "read") => {
     const permission = permissions?.find((p) => p.id === permissionId);
     if (!permission) {return;}
-
     // If downgrading from owner, show confirmation
     if (permission.role === "owner" && newRole !== "owner") {
       setRoleChangeConfirm({
@@ -117,7 +105,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
       return;
     }
-
     try {
       await grantMutation.mutateAsync({
         tableId,
@@ -126,12 +113,10 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           role: newRole,
         },
       });
-
       toast({
         title: "Permission updated",
         description: `Role changed to ${newRole}`,
       });
-
       setEditingPermission(null);
     } catch (error) {
       toast({
@@ -141,14 +126,11 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
     }
   };
-
   const confirmRoleChange = async () => {
     if (!roleChangeConfirm) {return;}
-
     try {
       const permission = permissions?.find((p) => p.id === roleChangeConfirm.permissionId);
       if (!permission) {return;}
-
       await grantMutation.mutateAsync({
         tableId,
         data: {
@@ -156,12 +138,10 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           role: roleChangeConfirm.newRole as "owner" | "write" | "read",
         },
       });
-
       toast({
         title: "Permission updated",
         description: `Role changed to ${roleChangeConfirm.newRole}`,
       });
-
       setEditingPermission(null);
       setRoleChangeConfirm(null);
     } catch (error) {
@@ -172,21 +152,17 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
     }
   };
-
   const handleRevoke = async () => {
     if (!deletePermissionId) {return;}
-
     try {
       await revokeMutation.mutateAsync({
         permissionId: deletePermissionId,
         tableId,
       });
-
       toast({
         title: "Permission revoked",
         description: "User access has been removed",
       });
-
       setDeletePermissionId(null);
     } catch (error) {
       toast({
@@ -196,7 +172,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       });
     }
   };
-
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "owner":
@@ -209,7 +184,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
         return <User className="w-4 h-4" />;
     }
   };
-
   const getRoleBadgeVariant = (role: string): "default" | "secondary" | "outline" => {
     switch (role) {
       case "owner":
@@ -220,10 +194,8 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
         return "outline";
     }
   };
-
   if (error) {
     const errorMessage = error instanceof Error ? error.message : "Failed to load permissions";
-
     // If access denied, show info message instead of error
     if (errorMessage.includes("Access denied")) {
       return (
@@ -246,7 +218,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
         </Card>
       );
     }
-
     return (
       <Alert variant="destructive">
         <ShieldAlert className="h-4 w-4" />
@@ -254,7 +225,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
       </Alert>
     );
   }
-
   return (
     <>
       <Card>
@@ -336,7 +306,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
               </div>
             </div>
           )}
-
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -356,7 +325,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                     const isCurrentUser = user?.id === permission.userId;
                     const isOnlyOwner = permission.role === "owner" && permissions.filter(p => p.role === "owner").length === 1;
                     const cannotDelete = isCurrentUser && permission.role === "owner";
-
                     return (
                       <TableRow key={permission.id}>
                         <TableCell className="font-mono text-sm">
@@ -453,7 +421,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
               <p className="text-sm">Add users to grant them access to this table</p>
             </div>
           )}
-
           <Alert>
             <ShieldAlert className="h-4 w-4" />
             <AlertDescription className="text-xs">
@@ -467,7 +434,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           </Alert>
         </CardContent>
       </Card>
-
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletePermissionId} onOpenChange={(open) => !open && setDeletePermissionId(null)}>
         <AlertDialogContent>
@@ -487,7 +453,6 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Role Downgrade Confirmation Dialog */}
       <AlertDialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
         <AlertDialogContent>

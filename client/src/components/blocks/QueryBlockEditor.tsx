@@ -1,26 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import React, { useState, useEffect } from "react";
-
+import React, {   } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dataSourceAPI } from "@/lib/vault-api";
 import { useWorkflowDataSources } from "@/lib/vault-hooks";
-
-
 interface QueryFilter {
     column: string;
     operator: string;
     value: string;
 }
-
 interface QuerySort {
     column: string;
     direction: "asc" | "desc";
 }
-
 interface QueryConfig {
     dataSourceId?: string;
     queryId?: string;
@@ -29,44 +24,36 @@ interface QueryConfig {
     filters?: QueryFilter[];
     sort?: QuerySort;
 }
-
 interface QueryBlockEditorProps {
     workflowId: string;
     config: QueryConfig;
     onChange: (config: QueryConfig) => void;
 }
-
 export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEditorProps) {
     const { data: dataSources } = useWorkflowDataSources(workflowId);
-
     // Fetch tables
     const { data: tables } = useQuery({
         queryKey: ["dataSource", config.dataSourceId, "tables"],
         queryFn: () => config.dataSourceId ? dataSourceAPI.getTables(config.dataSourceId) : Promise.resolve([]),
         enabled: !!config.dataSourceId
     });
-
     const handleChange = (key: keyof QueryConfig, value: any) => {
         onChange({ ...config, [key]: value });
     };
-
     const addFilter = () => {
         const filters = config.filters || [];
         handleChange("filters", [...filters, { column: "", operator: "equals", value: "" }]);
     };
-
     const removeFilter = (index: number) => {
         const filters = config.filters || [];
         handleChange("filters", filters.filter((_, i) => i !== index));
     };
-
     const updateFilter = (index: number, field: keyof QueryFilter, value: string) => {
         const filters = config.filters || [];
         const newFilters = [...filters];
         newFilters[index] = { ...newFilters[index], [field]: value };
         handleChange("filters", newFilters);
     };
-
     return (
         <div className="space-y-4">
             <div className="space-y-2">
@@ -85,7 +72,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </SelectContent>
                 </Select>
             </div>
-
             <div className="space-y-2">
                 <Label>Table / Collection</Label>
                 <Select
@@ -103,7 +89,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </SelectContent>
                 </Select>
             </div>
-
             {/* Output Variable */}
             <div className="space-y-2">
                 <Label>Output List Variable</Label>
@@ -120,7 +105,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     This variable can be used in Dropdowns or Logic (e.g., <code>usersList.length</code>).
                 </p>
             </div>
-
             {/* Filters */}
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -129,7 +113,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                         <Plus className="w-3 h-3 mr-1" /> Add
                     </Button>
                 </div>
-
                 {config.filters?.map((filter, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                         <Input
@@ -164,7 +147,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     <p className="text-xs text-muted-foreground italic">No filters applied (select all).</p>
                 )}
             </div>
-
             {/* Sorting */}
             <div className="space-y-2">
                 <Label>Sort By</Label>
@@ -188,7 +170,6 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </Select>
                 </div>
             </div>
-
             {!config.dataSourceId && (
                 <div className="p-2 border border-yellow-200 bg-yellow-50 text-yellow-800 text-xs rounded">
                     Please select a data source.

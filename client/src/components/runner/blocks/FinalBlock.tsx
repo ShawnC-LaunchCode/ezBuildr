@@ -11,52 +11,39 @@
  * @version 1.0.0 - Prompt 9 (Final Block Implementation)
  * @date December 2025
  */
-
-import { FileDown, FileText, CheckCircle2 } from "lucide-react";
+import { FileDown, FileText } from "lucide-react";
 import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-
 import { Button } from "@/components/ui/button";
 import type { Step } from "@/types";
-
 import type { FinalBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
-
 // ============================================================================
 // TYPES
 // ============================================================================
-
 export interface FinalBlockRendererProps {
   /** Step/block configuration */
   step: Step;
-
   /** All step values (for evaluating conditions) */
   stepValues?: Record<string, any>;
-
   /** Whether we're in preview mode */
   preview?: boolean;
 }
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-
 export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: FinalBlockRendererProps) {
   const config = step.config as FinalBlockConfig;
-
   // Evaluate which documents should be shown
   const visibleDocuments = useMemo(() => {
     if (!config?.documents) {return [];}
-
     return config.documents.filter(doc => {
       // If no conditions, always show
       if (!doc.conditions) {return true;}
-
       // Evaluate conditions (simplified for now)
       // Full logic evaluation will be enhanced in future prompts
       return evaluateDocumentConditions(doc.conditions, stepValues);
     });
   }, [config?.documents, stepValues]);
-
   if (!config) {
     return (
       <div className="text-sm text-muted-foreground italic">
@@ -64,7 +51,6 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       {/* Markdown Header */}
@@ -73,12 +59,10 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
           <ReactMarkdown>{config.markdownHeader}</ReactMarkdown>
         </div>
       )}
-
       {/* Documents List */}
       {visibleDocuments.length > 0 ? (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Your Documents</h3>
-
           <div className="grid gap-3">
             {visibleDocuments.map((doc, index) => (
               <DocumentCard
@@ -96,7 +80,6 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
           <p>No documents are available based on your responses.</p>
         </div>
       )}
-
       {/* Preview Notice */}
       {preview && (
         <div className="mt-6 p-4 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
@@ -108,23 +91,19 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
     </div>
   );
 }
-
 // ============================================================================
 // DOCUMENT CARD COMPONENT
 // ============================================================================
-
 interface DocumentCardProps {
   document: FinalBlockConfig['documents'][0];
   index: number;
   preview: boolean;
 }
-
 function DocumentCard({ document, index, preview }: DocumentCardProps) {
   const handleDownload = () => {
     // Placeholder - actual download will be implemented in Prompt 10
     alert(`Document generation will be implemented in Prompt 10.\n\nDocument: ${document.alias}`);
   };
-
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-3">
@@ -138,7 +117,6 @@ function DocumentCard({ document, index, preview }: DocumentCardProps) {
           </p>
         </div>
       </div>
-
       {preview ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileText className="h-4 w-4" />
@@ -157,11 +135,9 @@ function DocumentCard({ document, index, preview }: DocumentCardProps) {
     </div>
   );
 }
-
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
 /**
  * Evaluate document conditions
  * Simplified implementation - will be enhanced with full logic engine later
@@ -173,11 +149,9 @@ function evaluateDocumentConditions(
   if (!conditions?.conditions || conditions.conditions.length === 0) {
     return true;
   }
-
   const operator = conditions.operator || 'AND';
   const results = conditions.conditions.map(cond => {
     const value = stepValues[cond.key];
-
     switch (cond.op) {
       case 'equals':
         return value === cond.value;
@@ -203,7 +177,6 @@ function evaluateDocumentConditions(
         return true;
     }
   });
-
   if (operator === 'AND') {
     return results.every(r => r);
   } else {

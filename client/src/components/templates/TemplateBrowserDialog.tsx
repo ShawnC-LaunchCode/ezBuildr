@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import {
     Search,
@@ -11,8 +10,7 @@ import {
     Tag,
     Grid
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-
+import React, {  useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,7 +27,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { blueprintAPI, ApiBlueprint } from '@/lib/vault-api';
-
 interface TemplateBrowserDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -39,7 +36,6 @@ interface TemplateBrowserDialogProps {
     selectLabel?: string;
     mode?: 'create' | 'insert';
 }
-
 export function TemplateBrowserDialog({
     open,
     onOpenChange,
@@ -53,14 +49,12 @@ export function TemplateBrowserDialog({
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [selectedTemplate, setSelectedTemplate] = useState<ApiBlueprint | null>(null);
-
     // Fetch templates
     const { data: templates, isLoading, isError } = useQuery({
         queryKey: ['templates'],
         queryFn: () => blueprintAPI.list(),
         enabled: open,
     });
-
     // Filter templates
     const filteredTemplates = templates?.filter(t => {
         // Search filter
@@ -68,7 +62,6 @@ export function TemplateBrowserDialog({
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-
         // Tab filter (mock logic since we don't have separate lists yet)
         // In a real app, 'mine' would filter by creatorId === currentUserId
         const matchesTab =
@@ -76,24 +69,20 @@ export function TemplateBrowserDialog({
                 activeTab === 'mine' ? true : // Placeholder for ownership check
                     activeTab === 'system' ? t.tags?.includes('system') :
                         true;
-
         return matchesSearch && matchesTab;
     }) || [];
-
     const handleSelect = () => {
         if (selectedTemplate) {
             onSelect(selectedTemplate);
             onOpenChange(false);
         }
     };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
                 <DialogHeader className="p-6 border-b">
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
-
                     <div className="flex items-center gap-4 mt-4">
                         <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -106,7 +95,6 @@ export function TemplateBrowserDialog({
                         </div>
                     </div>
                 </DialogHeader>
-
                 <div className="flex-1 flex overflow-hidden">
                     {/* Sidebar Tabs */}
                     <div className="w-48 bg-muted/30 border-r p-4 hidden md:block">
@@ -138,7 +126,6 @@ export function TemplateBrowserDialog({
                             </Button>
                         </div>
                     </div>
-
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {isLoading ? (
                             <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -171,14 +158,12 @@ export function TemplateBrowserDialog({
                                             <div className="h-32 bg-muted/50 p-4 border-b group-hover:bg-muted/70 transition-colors flex items-center justify-center">
                                                 <Layout className="w-12 h-12 text-muted-foreground/40" />
                                             </div>
-
                                             {/* Content */}
                                             <div className="p-4">
                                                 <h3 className="font-semibold truncate mb-1" title={template.name}>{template.name}</h3>
                                                 <p className="text-sm text-muted-foreground line-clamp-2 h-10 mb-3">
                                                     {template.description || "No description provided."}
                                                 </p>
-
                                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                                     <div className="flex items-center gap-1">
                                                         <Clock className="w-3 h-3" />
@@ -199,7 +184,6 @@ export function TemplateBrowserDialog({
                         )}
                     </div>
                 </div>
-
                 <DialogFooter className="p-4 border-t bg-background">
                     <div className="flex-1 flex items-center text-sm text-muted-foreground">
                         {selectedTemplate ? (

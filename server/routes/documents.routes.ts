@@ -8,22 +8,15 @@
  * @version 1.0.0 - Prompt 9 (Final Block)
  * @date December 2025
  */
-
 import { eq, and } from 'drizzle-orm';
-
 import { templates } from '@/../../shared/schema';
-
 import { db } from '../db';
 import { createLogger } from '../logger';
-import { requireProjectRole } from '../middleware/aclAuth';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { aclService } from '../services/AclService';
 import { asyncHandler } from '../utils/asyncHandler';
-
 import type { Express, Request, Response } from 'express';
-
 const logger = createLogger({ module: 'documents-routes' });
-
 /**
  * Register document-related routes
  */
@@ -45,14 +38,11 @@ export function registerDocumentRoutes(app: Express): void {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
-
       if (!userId) {
         res.status(401).json({ message: 'Unauthorized - no user ID' });
         return;
       }
-
       const { projectId } = req.query;
-
       let filteredDocs: Array<{
         id: string;
         name: string;
@@ -61,7 +51,6 @@ export function registerDocumentRoutes(app: Express): void {
         fileRef: string | null;
         projectId: string | null;
       }> = [];
-
       // If projectId is specified, verify user has access to that project
       if (projectId && typeof projectId === 'string') {
         const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
@@ -70,7 +59,6 @@ export function registerDocumentRoutes(app: Express): void {
           res.status(403).json({ message: 'Forbidden - insufficient permissions for this project' });
           return;
         }
-
         // Fetch only documents for the specified project (Dec 2025 - Security fix)
         filteredDocs = await db.select({
           id: templates.id,
@@ -88,7 +76,6 @@ export function registerDocumentRoutes(app: Express): void {
         logger.warn({ userId }, 'GET /api/documents called without projectId - returning empty array for security');
         filteredDocs = [];
       }
-
       // Format response
       const formattedDocs = filteredDocs.map((doc) => ({
         id: doc.id,
@@ -97,16 +84,13 @@ export function registerDocumentRoutes(app: Express): void {
         uploadedAt: doc.uploadedAt,
         fileRef: doc.fileRef,
       }));
-
       logger.info({ count: formattedDocs.length, userId, projectId }, 'Fetched documents');
-
       res.json(formattedDocs);
     } catch (error) {
       logger.error({ error }, 'Error fetching documents');
       res.status(500).json({ message: 'Failed to fetch documents' });
     }
   }));
-
   /**
    * GET /api/documents/:id
    * Get a single document template by ID
@@ -118,14 +102,11 @@ export function registerDocumentRoutes(app: Express): void {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
-
       if (!userId) {
         res.status(401).json({ message: 'Unauthorized - no user ID' });
         return;
       }
-
       const { id } = req.params;
-
       const [document] = await db
         .select()
         .from(templates)
@@ -135,12 +116,10 @@ export function registerDocumentRoutes(app: Express): void {
           )
         )
         .limit(1);
-
       if (!document) {
         res.status(404).json({ message: 'Document not found' });
         return;
       }
-
       // Check ACL based on document's project
       if (document.projectId) {
         const hasAccess = await aclService.hasProjectRole(userId, document.projectId, 'view');
@@ -150,9 +129,7 @@ export function registerDocumentRoutes(app: Express): void {
           return;
         }
       }
-
       logger.info({ documentId: id, userId }, 'Fetched document');
-
       res.json({
         id: document.id,
         name: document.name,
@@ -166,6 +143,5 @@ export function registerDocumentRoutes(app: Express): void {
       res.status(500).json({ message: 'Failed to fetch document' });
     }
   }));
-
   logger.info('Document routes registered');
 }

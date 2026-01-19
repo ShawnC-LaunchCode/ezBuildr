@@ -2,19 +2,12 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClientProvider } from "@tanstack/react-query";
 import React, { Suspense, lazy } from "react";
 import { Switch, Route, useLocation } from "wouter";
-
 import FeedbackWidget from "@/components/FeedbackWidget";
-import { CommandPalette } from "@/components/layout/CommandPalette";
-import { ShortcutHelper } from "@/components/layout/ShortcutHelper";
 import { FullScreenLoader } from "@/components/ui/loader";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-
-
-
 import { queryClient } from "./lib/queryClient";
-
 // Lazy load pages
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Landing = lazy(() => import("@/marketing/LandingPage"));
@@ -70,41 +63,31 @@ const PortalDashboard = lazy(() => import("@/pages/portal/PortalDashboard"));
 const Organizations = lazy(() => import("@/pages/Organizations"));
 const OrganizationDetail = lazy(() => import("@/pages/OrganizationDetail"));
 const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
-
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Switch>
         {/* Public Workflow Runner */}
         <Route path="/w/:slug" component={PublicRunner} />
-
         {/* Public Shared Run View */}
         <Route path="/share/:token" component={RunCompletionView} />
-
         {/* Client Portal Routes - Independent Auth */}
         <Route path="/portal/login" component={PortalLogin} />
         <Route path="/portal/auth/verify" component={PortalMagicLink} />
         <Route path="/portal" component={PortalDashboard} />
-
         {/* Workflow runner - available to everyone */}
         <Route path="/run/:id">
           {(params) => <WorkflowRunner runId={params.id} />}
         </Route>
-
-
         {/* New preview mode (in-memory, no database) - authenticated only */}
         {isAuthenticated && (
           <Route path="/workflows/:workflowId/preview" component={WorkflowPreview} />
         )}
-
         {/* Intake preview - public branded intake portal preview */}
         <Route path="/intake/preview" component={IntakePreviewPage} />
-
         {/* Documentation - available to everyone */}
         <Route path="/docs/url-parameters" component={UrlParametersDoc} />
-
         {isLoading || !isAuthenticated ? (
           <>
             <Route path="/" component={Landing} />
@@ -114,7 +97,6 @@ function Router() {
             <Route path="/auth/forgot-password" component={ForgotPasswordPage} />
             <Route path="/auth/reset-password" component={ResetPasswordPage} />
             <Route path="/auth/verify-email" component={VerifyEmailPage} />
-
             {/* Redirect all other routes to landing for unauthenticated users */}
             <Route component={Landing} />
           </>
@@ -122,28 +104,23 @@ function Router() {
           <>
             <Route path="/" component={Dashboard} />
             <Route path="/dashboard" component={Dashboard} />
-
             {/* Workflow routes */}
             <Route path="/workflows" component={WorkflowsList} />
             <Route path="/workflows/new" component={NewWorkflow} />
             <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
             <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
-
             <Route path="/workflows/:id/analytics" component={WorkflowAnalytics} />
             <Route path="/workflows/:workflowId/optimize" component={OptimizationWizard} />
             {/* Template Test Runner - PR1 */}
             <Route path="/workflows/:workflowId/builder/templates/test/:templateId">
               {(params) => <TemplateTestRunner />}
             </Route>
-
             {/* Project routes */}
             <Route path="/projects/:id" component={ProjectView} />
-
             {/* Stage 8: Document Runs routes */}
             <Route path="/runs" component={RunsDashboard} />
             <Route path="/runs/compare" component={RunsCompare} />
             <Route path="/runs/:id" component={RunDetails} />
-
             <Route path="/marketplace" component={Marketplace} />
             <Route path="/templates" component={TemplatesPage} />
             <Route path="/settings" component={SettingsPage} />
@@ -168,19 +145,15 @@ function Router() {
             <Route path="/admin/users" component={AdminUsers} />
             <Route path="/admin/logs" component={AdminLogs} />
             <Route path="/admin/ai-settings" component={AdminAiSettings} />
-
             {/* Billing Routes */}
             <Route path="/billing" component={BillingDashboard} />
             <Route path="/billing/plans" component={PricingPage} />
-
             {/* Organizations Routes */}
             <Route path="/organizations" component={Organizations} />
             <Route path="/organizations/:id" component={OrganizationDetail} />
             <Route path="/invites/:token/accept" component={AcceptInvite} />
-
             {/* Developer Settings */}
             <Route path="/developer/oauth" component={OAuthApps} />
-
             <Route component={NotFound} />
           </>
         )}
@@ -188,13 +161,10 @@ function Router() {
     </Suspense>
   );
 }
-
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const [location] = useLocation();
-
   const isBuilder = location.includes('/builder') || location.includes('/visual-builder');
-
   if (!googleClientId) {
     console.warn('VITE_GOOGLE_CLIENT_ID environment variable is not set - running in development mode');
     // Allow app to run without Google OAuth in development mode
@@ -209,7 +179,6 @@ function App() {
       </QueryClientProvider>
     );
   }
-
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <QueryClientProvider client={queryClient}>
@@ -223,5 +192,4 @@ function App() {
     </GoogleOAuthProvider>
   );
 }
-
 export default App;

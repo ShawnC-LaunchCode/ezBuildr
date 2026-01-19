@@ -1,8 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, PenSquare, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
+import {   useQueryClient } from "@tanstack/react-query";
+import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
-
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import Header from "@/components/layout/Header";
@@ -13,20 +12,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest } from "@/lib/queryClient";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 import { workflowAPI } from "@/lib/vault-api";
 import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
-
-import type { Workflow } from "@shared/schema";
-
+import type {  } from "@shared/schema";
 export default function WorkflowsList() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -39,7 +35,6 @@ export default function WorkflowsList() {
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [transferringWorkflow, setTransferringWorkflow] = useState<{ id: string; title: string } | null>(null);
   const [transferringProject, setTransferringProject] = useState<{ id: string; title: string } | null>(null);
-
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -54,16 +49,13 @@ export default function WorkflowsList() {
       return;
     }
   }, [isAuthenticated, isLoading, toast]);
-
   const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const deleteProjectMutation = useDeleteProject();
   const transferWorkflowMutation = useTransferWorkflow();
   const transferProjectMutation = useTransferProject();
-
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
-
   // Wrap the shared mutation to handle toast/reset logic locally
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
@@ -96,7 +88,6 @@ export default function WorkflowsList() {
       },
     });
   };
-
   const handleDeleteWorkflow = (workflowId: string) => {
     setDeletingWorkflowId(workflowId);
     deleteWorkflowMutation.mutate(workflowId, {
@@ -117,7 +108,6 @@ export default function WorkflowsList() {
       },
     });
   };
-
   const handleDeleteProject = (projectId: string) => {
     setDeletingProjectId(projectId);
     deleteProjectMutation.mutate(projectId, {
@@ -138,22 +128,18 @@ export default function WorkflowsList() {
       },
     });
   };
-
   const handleTransferWorkflow = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
     if (!transferringWorkflow) {return;}
-
     try {
       await transferWorkflowMutation.mutateAsync({
         id: transferringWorkflow.id,
         targetOwnerType,
         targetOwnerUuid,
       });
-
       toast({
         title: "Success",
         description: `Workflow transferred successfully`,
       });
-
       setTransferringWorkflow(null);
     } catch (error: any) {
       toast({
@@ -164,22 +150,18 @@ export default function WorkflowsList() {
       throw error;
     }
   };
-
   const handleTransferProject = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
     if (!transferringProject) {return;}
-
     try {
       await transferProjectMutation.mutateAsync({
         id: transferringProject.id,
         targetOwnerType,
         targetOwnerUuid,
       });
-
       toast({
         title: "Success",
         description: `Project transferred successfully (all workflows also transferred)`,
       });
-
       setTransferringProject(null);
     } catch (error: any) {
       toast({
@@ -190,7 +172,6 @@ export default function WorkflowsList() {
       throw error;
     }
   };
-
   const handleCopyLink = async (workflowId: string) => {
     try {
       const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
@@ -207,15 +188,12 @@ export default function WorkflowsList() {
       });
     }
   };
-
   if (isLoading || !isAuthenticated) {
     return null;
   }
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
-
       <main className="flex-1 flex flex-col overflow-hidden">
         <Header
           title="My Workflows"
@@ -258,7 +236,6 @@ export default function WorkflowsList() {
             </div>
           }
         />
-
         <div className="flex-1 overflow-auto p-6 space-y-6">
           {/* Projects and Workflows Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -276,7 +253,6 @@ export default function WorkflowsList() {
                     onDelete={(id) => setDeletingProjectId(id)}
                   />
                 ))}
-
                 {/* Workflows */}
                 {unfiledWorkflows?.map((workflow) => (
                   <Card key={workflow.id} className="hover:shadow-md transition-shadow min-h-[220px]">
@@ -299,12 +275,10 @@ export default function WorkflowsList() {
                           {workflow.description}
                         </p>
                       )}
-
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>Created: {workflow.createdAt ? new Date(workflow.createdAt).toLocaleDateString() : 'Unknown'}</span>
                         </div>
-
                         <div className="flex flex-wrap gap-2 pt-2">
                           <Link href={`/workflows/${workflow.id}/builder`}>
                             <Button variant="outline" size="sm" data-testid={`button-edit-workflow-${workflow.id}`}>
@@ -413,7 +387,6 @@ export default function WorkflowsList() {
           </div>
         </div>
       </main>
-
       {/* Delete Project Confirmation Dialog */}
       {deletingProjectId && (
         <AlertDialog open={!!deletingProjectId} onOpenChange={() => setDeletingProjectId(null)}>
@@ -438,7 +411,6 @@ export default function WorkflowsList() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-
       {/* New Project Dialog */}
       <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
         <DialogContent>
@@ -495,7 +467,6 @@ export default function WorkflowsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Transfer Ownership Dialog - Workflow */}
       {transferringWorkflow && (
         <TransferOwnershipDialog
@@ -507,7 +478,6 @@ export default function WorkflowsList() {
           isPending={transferWorkflowMutation.isPending}
         />
       )}
-
       {/* Transfer Ownership Dialog - Project */}
       {transferringProject && (
         <TransferOwnershipDialog

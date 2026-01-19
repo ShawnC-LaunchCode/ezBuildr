@@ -4,7 +4,6 @@
  * Allows users to configure tenant branding including logo, colors, dark mode,
  * header text, and email sender information.
  */
-
 import {
   Palette,
   Upload,
@@ -22,8 +21,6 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
-
-import { useBranding } from '@/components/branding';
 import BrandingPreview from '@/components/branding/BrandingPreview';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
@@ -31,21 +28,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { isValidHexColor, normalizeHexColor } from '@/lib/colorUtils';
 import { brandingAPI, type TenantBranding } from '@/lib/vault-api';
-
 export default function BrandingSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-
   const tenantId = user?.tenantId;
-
   // Local form state
   const [formData, setFormData] = useState<Partial<TenantBranding>>({
     logoUrl: '',
@@ -56,22 +49,18 @@ export default function BrandingSettingsPage() {
     emailSenderName: '',
     emailSenderAddress: '',
   });
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-
   // Load initial branding
   useEffect(() => {
     if (tenantId) {
       loadBranding();
     }
   }, [tenantId]);
-
   const loadBranding = async () => {
     if (!tenantId) {return;}
-
     setIsLoading(true);
     try {
       const { branding } = await brandingAPI.getBranding(tenantId);
@@ -89,12 +78,10 @@ export default function BrandingSettingsPage() {
       setIsLoading(false);
     }
   };
-
   const handleChange = (field: keyof TenantBranding, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
   };
-
   const handleColorChange = (field: 'primaryColor' | 'accentColor', value: string) => {
     // Only update if valid hex or empty
     if (value === '' || isValidHexColor(value)) {
@@ -102,7 +89,6 @@ export default function BrandingSettingsPage() {
       handleChange(field, normalized);
     }
   };
-
   const handleSave = async () => {
     if (!tenantId) {
       toast({
@@ -112,7 +98,6 @@ export default function BrandingSettingsPage() {
       });
       return;
     }
-
     // Validate colors
     if (formData.primaryColor && !isValidHexColor(formData.primaryColor)) {
       toast({
@@ -122,7 +107,6 @@ export default function BrandingSettingsPage() {
       });
       return;
     }
-
     if (formData.accentColor && !isValidHexColor(formData.accentColor)) {
       toast({
         title: 'Invalid Color',
@@ -131,7 +115,6 @@ export default function BrandingSettingsPage() {
       });
       return;
     }
-
     setIsSaving(true);
     try {
       await brandingAPI.updateBranding(tenantId, formData);
@@ -151,7 +134,6 @@ export default function BrandingSettingsPage() {
       setIsSaving(false);
     }
   };
-
   const handleReset = () => {
     loadBranding();
     setHasUnsavedChanges(false);
@@ -160,7 +142,6 @@ export default function BrandingSettingsPage() {
       description: 'Changes have been discarded',
     });
   };
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -174,7 +155,6 @@ export default function BrandingSettingsPage() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   if (authLoading || isLoading) {
     return (
       <div className="flex h-screen bg-background">
@@ -188,7 +168,6 @@ export default function BrandingSettingsPage() {
       </div>
     );
   }
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -235,7 +214,6 @@ export default function BrandingSettingsPage() {
                 </Button>
               </div>
             </div>
-
             {hasUnsavedChanges && (
               <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
                 <CardContent className="pt-6">
@@ -266,7 +244,6 @@ export default function BrandingSettingsPage() {
                 </CardContent>
               </Card>
             )}
-
             <div className="grid gap-6 md:grid-cols-2">
               {/* Left Column: Form */}
               <div className="space-y-6">
@@ -310,7 +287,6 @@ export default function BrandingSettingsPage() {
                     )}
                   </CardContent>
                 </Card>
-
                 {/* Colors */}
                 <Card>
                   <CardHeader>
@@ -345,7 +321,6 @@ export default function BrandingSettingsPage() {
                         Used for headers, buttons, and primary UI elements
                       </p>
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="accentColor">Accent Color</Label>
                       <div className="flex items-center gap-2">
@@ -370,7 +345,6 @@ export default function BrandingSettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Dark Mode */}
                 <Card>
                   <CardHeader>
@@ -401,7 +375,6 @@ export default function BrandingSettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Intake Portal */}
                 <Card>
                   <CardHeader>
@@ -430,7 +403,6 @@ export default function BrandingSettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Email Settings */}
                 <Card>
                   <CardHeader>
@@ -453,7 +425,6 @@ export default function BrandingSettingsPage() {
                         onChange={(e) => { void handleChange('emailSenderName', e.target.value); }}
                       />
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="emailSenderAddress">Sender Email Address</Label>
                       <Input
@@ -467,7 +438,6 @@ export default function BrandingSettingsPage() {
                   </CardContent>
                 </Card>
               </div>
-
               {/* Right Column: Preview */}
               {showPreview && (
                 <div className="space-y-6">
@@ -475,7 +445,6 @@ export default function BrandingSettingsPage() {
                 </div>
               )}
             </div>
-
             {/* Save Actions (Bottom) */}
             <Card>
               <CardContent className="pt-6">

@@ -1,38 +1,28 @@
 import { CheckCircle2, ArrowRight, GitBranch, AlertCircle, FileText } from "lucide-react";
 import React, { useMemo } from "react";
-
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiWorkflow } from "@/lib/vault-api";
 import { useProjectWorkflows } from "@/lib/vault-hooks";
-
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-
-
 interface AssignmentRule {
     targetWorkflowId: string;
     condition: any;
     enabled: boolean;
 }
-
 interface IntakeAssignmentSectionProps {
     workflow: ApiWorkflow;
     runValues: Record<string, any>;
     onComplete?: () => void;
 }
-
 export function IntakeAssignmentSection({ workflow, runValues, onComplete }: IntakeAssignmentSectionProps) {
     // Fetch candidate workflows to display their names/details
     const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId || undefined);
-
     // Evaluate assignments
     const assignedWorkflows = useMemo(() => {
         if (!workflow.intakeConfig?.assignments) {return [];}
         if (!projectWorkflows) {return [];}
-
         const assignments = workflow.intakeConfig.assignments as AssignmentRule[];
-
         return assignments
             .filter(rule => {
                 if (!rule.enabled) {return false;}
@@ -56,7 +46,6 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
             })
             .filter(item => item.targetWorkflow); // Ensure target exists
     }, [workflow.intakeConfig, runValues, projectWorkflows]);
-
     return (
         <div className="space-y-6">
             <Card className="border-emerald-200 bg-emerald-50/20">
@@ -72,13 +61,11 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                     </div>
                 </CardHeader>
             </Card>
-
             <div className="grid gap-4 md:grid-cols-1">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                     <GitBranch className="h-5 w-5 text-indigo-500" />
                     Recommended Next Actions
                 </h3>
-
                 {assignedWorkflows.length > 0 ? (
                     <div className="grid gap-4">
                         {assignedWorkflows.map(({ targetWorkflow }, index) => (

@@ -1,14 +1,9 @@
-import { Info, Sparkles, X } from "lucide-react";
+import {  Sparkles, X } from "lucide-react";
 import React, { useState } from "react";
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-
 export function AdvancedModeBanner() {
   const [isVisible, setIsVisible] = useState(true);
-
   if (!isVisible) {return null;}
-
   return (
     <Alert className="relative border-indigo-200 bg-indigo-50/80 dark:bg-indigo-950/30 dark:border-indigo-800">
       <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />

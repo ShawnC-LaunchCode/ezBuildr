@@ -2,27 +2,18 @@
  * Workflow Builder - Tabbed interface with Sections, Templates, Data Sources, Settings, Snapshots
  * PR1: Added tab-based navigation structure
  */
-
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings, Play, Eye, EyeOff, ChevronDown, ArrowLeft, Database, GitCommit, Sparkles, GitGraph } from "lucide-react";
-
+import {   Eye, ChevronDown, ArrowLeft, Database, Sparkles, GitGraph } from "lucide-react";
 // Removed AdvancedModeBanner
-
-
 // Tab components
 // VisualBuilderTab removed
-
-
 // Versioning Imports
 import { DiffViewer } from "@/components/builder/versioning/DiffViewer";
 import { PublishWorkflowDialog } from "@/components/builder/versioning/PublishWorkflowDialog";
 import { ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
-
-import { AIAssistPanel } from "@/components/builder/AIAssistPanel";
 import { AiConversationPanel } from "@/components/builder/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
 import { IntakeProvider } from "@/components/builder/IntakeContext";
@@ -52,15 +43,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { UI_LABELS } from "@/lib/labels";
 import { getModeLabel, type Mode } from "@/lib/mode";
-import { useVersions, usePublishWorkflow, useRestoreVersion , useWorkflow, useCreateRun, useSetWorkflowMode, queryKeys, useSections, useLogicRules, useTransformBlocks } from "@/lib/vault-hooks";
-import { usePreviewStore } from "@/store/preview";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
-
+import { useVersions, usePublishWorkflow, useRestoreVersion , useWorkflow, useSetWorkflowMode, useSections, useLogicRules, useTransformBlocks } from "@/lib/vault-hooks";
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   // ... existing hooks ...
@@ -78,7 +64,6 @@ export default function WorkflowBuilder() {
   const restoreMutation = useRestoreVersion();
   const setWorkflowModeMutation = useSetWorkflowMode();
   const { toast } = useToast();
-
   // State
   const searchParams = new URLSearchParams(window.location.search);
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
@@ -90,7 +75,6 @@ export default function WorkflowBuilder() {
   const [aiPanelOpen, setAiPanelOpen] = useState(searchParams.get("aiPanel") === "true");
   const [logicPanelOpen, setLogicPanelOpen] = useState(false);
   const [collabToken, setCollabToken] = useState<string | null>(null);
-
   // Fetch collaboration token
   useEffect(() => {
     const fetchToken = async () => {
@@ -104,7 +88,6 @@ export default function WorkflowBuilder() {
     };
     fetchToken();
   }, []);
-
   // ... existing state ...
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [launchingPreview, setLaunchingPreview] = useState(false);
@@ -112,23 +95,17 @@ export default function WorkflowBuilder() {
   const [activeTab, setActiveTab] = useState<BuilderTab>(
     (searchParams.get("tab") as BuilderTab) || "sections"
   );
-
   const mode = workflowMode?.mode || 'easy';
-
   const handleRestore = async (versionId: string) => {
     // Stub or restore logic
     console.log("Restoring version", versionId);
   };
-
-
-
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   // Sort versions to find latest published
   const versionsArray = Array.isArray(versions) ? versions : [];
   const latestPublished = versionsArray.filter(v => !v.isDraft).sort((a, b) => b.versionNumber - a.versionNumber)[0];
   // Determine label: "Draft" or "vX" (if we were viewing history, but we are always editing draft here)
   const versionLabel = latestPublished ? `Draft (v${latestPublished.versionNumber} +)` : "Draft (v1)";
-
   const handlePublish = async (notes: string) => {
     if (!workflowId) { return; }
     try {
@@ -138,7 +115,6 @@ export default function WorkflowBuilder() {
       toast({ title: "Publish Failed", variant: "destructive", description: "Could not publish workflow." });
     }
   };
-
   const handleDiff = (version: ApiWorkflowVersion) => {
     // Diff selected version against CURRENT Draft (which implicitly is the 'latest' state in DB tables)
     // Wait, API requires two version IDs.
@@ -153,14 +129,11 @@ export default function WorkflowBuilder() {
     setDiffTargetVersion(draftVersion);
     setDiffOpen(true);
   };
-
   // ... existing handlers (handleStatusChange, handleTabChange, etc.) ...
-
   // ... (Paste existing handlers like handleModeChange, handleStartPreview) ...
   // Re-implementing them briefly to ensure context is valid if replace cuts them off.
   // Actually, I should try to preserve them. The 'TargetContent' for the replace must be careful.
   // I will use a larger block replacement strategy.
-
   // Memoize collaborative user to prevent WebSocket reconnects
   // This MUST be before any early returns to comply with Rules of Hooks
   const collabUser = useMemo(() => ({
@@ -169,11 +142,9 @@ export default function WorkflowBuilder() {
     color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
     email: user?.email
   }), [user?.id, user?.firstName, user?.email]);
-
   // ... Render ...
   if (isLoading || modeLoading) { return <div className="h-screen flex items-center justify-center"><Skeleton className="h-12 w-64" /></div>; }
   if (!workflow) { return <div className="h-screen flex items-center justify-center"><p className="text-muted-foreground">Workflow not found</p></div>; }
-
   if (isPreviewMode) {
     return (
       <PreviewRunner
@@ -182,11 +153,9 @@ export default function WorkflowBuilder() {
       />
     );
   }
-
   // Only enable collaboration when we have the token AND the user is loaded with a tenantId
   // This prevents the "default-tenant" race condition
   const isCollabReady = !!collabToken && !authLoading && !!user?.tenantId;
-
   return (
     <CollaborationProvider config={{
       workflowId: workflowId,
@@ -197,16 +166,13 @@ export default function WorkflowBuilder() {
     }}>
       <IntakeProvider workflowId={workflowId}>
         <CollabSync mode={mode} />
-
         <ResizableBuilderLayout
           workflowId={workflowId}
           rightPanelOpen={aiPanelOpen}
           onRightPanelToggle={setAiPanelOpen}
-
           leftPanel={
             <Sidebar className="w-full border-r-0 h-full" />
           }
-
           centerPanel={
             <div className="h-screen flex flex-col bg-background">
               {/* Header */}
@@ -229,12 +195,10 @@ export default function WorkflowBuilder() {
                         <span>Advanced</span>
                       </div>
                     )}
-
                     {/* Presence */}
                     <div className="ml-4 border-l pl-4 hidden md:block">
                       <CollabHeader />
                     </div>
-
                     {/* Version Badge */}
                     <div className="ml-4 border-l pl-4">
                       <VersionBadge
@@ -243,7 +207,6 @@ export default function WorkflowBuilder() {
                         onClick={() => { void setHistoryOpen(true); }}
                       />
                     </div>
-
                     {/* Mode Selector */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -261,7 +224,6 @@ export default function WorkflowBuilder() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-
                     <div className="border-l pl-2 ml-2">
                       <ActivateToggle
                         workflowId={workflowId}
@@ -272,17 +234,14 @@ export default function WorkflowBuilder() {
                         }}
                       />
                     </div>
-
                     {mode === 'advanced' && (
                       <Button variant="outline" size="sm" onClick={() => { void navigate(`/workflows/${workflowId}/visual-builder`); }} className="mr-2">
                         <GitGraph className="w-4 h-4 mr-2" /> Visual Builder
                       </Button>
                     )}
-
                     <Button variant="outline" size="sm" onClick={() => { void setIsPreviewMode(true); }} disabled={launchingPreview}>
                       <Eye className="w-4 h-4 mr-2" /> Preview
                     </Button>
-
                     <Button
                       variant={aiPanelOpen ? "secondary" : "outline"}
                       size="sm"
@@ -299,7 +258,6 @@ export default function WorkflowBuilder() {
                   isIntake={workflow.intakeConfig?.isIntake}
                 />
               </div>
-
               {/* Content */}
               <div className="flex-1 flex flex-col overflow-hidden relative">
                 {activeTab === "sections" && (
@@ -308,33 +266,25 @@ export default function WorkflowBuilder() {
                     mode={mode}
                   />
                 )}
-
                 {activeTab === "templates" && <TemplatesTab workflowId={workflowId} />}
-
                 {activeTab === "data-sources" && (
                   <DataSourcesTab
                     workflowId={workflowId}
                     onCollectionsClick={() => setCollectionsDrawerOpen(true)}
                   />
                 )}
-
                 {activeTab === "review" && (
                   <ReviewTab workflowId={workflowId} />
                 )}
-
                 {activeTab === "snapshots" && (
                   <SnapshotsTab
                     workflowId={workflowId}
                   />
                 )}
-
                 {activeTab === "settings" && <SettingsTab workflowId={workflowId} />}
-
                 {activeTab === "assignment" && <AssignmentTab workflowId={workflowId} />}
               </div>
-
               <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId} />
-
               {/* Versioning Components */}
               <VersionHistoryPanel
                 workflowId={workflowId}
@@ -343,14 +293,12 @@ export default function WorkflowBuilder() {
                 onRestore={(v) => restoreMutation.mutate({ workflowId: workflowId, versionId: v.id })}
                 onDiff={handleDiff}
               />
-
               <PublishWorkflowDialog
                 isOpen={publishOpen}
                 onClose={() => setPublishOpen(false)}
                 onPublish={handlePublish}
                 isPublishing={publishMutation.isPending}
               />
-
               <DiffViewer
                 workflowId={workflowId}
                 version1={diffBaseVersion}
@@ -358,7 +306,6 @@ export default function WorkflowBuilder() {
                 isOpen={diffOpen}
                 onClose={() => setDiffOpen(false)}
               />
-
               <LogicInspectorPanel
                 workflowId={workflowId}
                 currentWorkflow={workflow}
@@ -368,7 +315,6 @@ export default function WorkflowBuilder() {
               <FeedbackWidget className="absolute bottom-6 right-6" />
             </div>
           }
-
           rightPanel={
             <AiConversationPanel
               workflowId={workflowId}
@@ -382,12 +328,10 @@ export default function WorkflowBuilder() {
     </CollaborationProvider >
   );
 }
-
 function CollabHeader() {
   const { users } = useCollaboration();
   return <PresenceAvatars users={users} />;
 }
-
 function CollabSync({ mode }: { mode: 'easy' | 'advanced' }) {
   const { updateMode } = useCollaboration();
   useEffect(() => { void updateMode(mode); }, [mode, updateMode]);

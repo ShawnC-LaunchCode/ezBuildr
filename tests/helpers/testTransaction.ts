@@ -1,7 +1,5 @@
 import { getDb } from '../../server/db';
-
-import type { PgTransaction } from 'drizzle-orm/pg-core';
-
+import type {  } from 'drizzle-orm/pg-core';
 /**
  * Transaction-based Test Isolation
  *
@@ -21,7 +19,6 @@ import type { PgTransaction } from 'drizzle-orm/pg-core';
  * });
  * ```
  */
-
 /**
  * @deprecated Use runInTransaction() instead - this pattern uses a never-resolving
  * promise which is an anti-pattern and can cause memory leaks and unpredictable behavior.
@@ -48,9 +45,7 @@ export async function beginTestTransaction(): Promise<any> {
     'DEPRECATION WARNING: beginTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead. See TESTING_STRATEGY.md for migration guide.'
   );
-
   const db = getDb() as any;
-
   // This pattern is fundamentally flawed - uses never-resolving promise
   return new Promise((resolve, reject) => {
     db.transaction(async (tx: any) => {
@@ -66,7 +61,6 @@ export async function beginTestTransaction(): Promise<any> {
     });
   });
 }
-
 /**
  * @deprecated Use runInTransaction() instead - this pattern is fragile and uses
  * raw SQL which may not work correctly with all connection types.
@@ -78,9 +72,7 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
     'DEPRECATION WARNING: rollbackTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead.'
   );
-
   if (!tx) {return;}
-
   try {
     // Force rollback using raw SQL (fragile, PostgreSQL-specific)
     await tx.execute('ROLLBACK');
@@ -88,7 +80,6 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
     // Rollback errors are expected
   }
 }
-
 /**
  * Savepoint utilities for nested transactions
  * Useful when you need to test partial rollback behavior
@@ -98,15 +89,12 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
 export async function createSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`SAVEPOINT ${name}`);
 }
-
 export async function rollbackToSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`ROLLBACK TO SAVEPOINT ${name}`);
 }
-
 export async function releaseSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`RELEASE SAVEPOINT ${name}`);
 }
-
 /**
  * Run a test function in a transaction with automatic rollback (RECOMMENDED)
  *
@@ -153,7 +141,6 @@ export async function runInTransaction<T>(
 ): Promise<T> {
   const db = getDb() as any;
   let result: T;
-
   try {
     await db.transaction(async (tx: any) => {
       result = await testFn(tx);
@@ -168,21 +155,17 @@ export async function runInTransaction<T>(
     // Otherwise, re-throw the actual error
     throw error;
   }
-
   // This line should never be reached
   return result!;
 }
-
 /**
  * Helper to truncate all tables (use sparingly, prefer transactions)
  * This is useful for integration tests that need a clean slate
  */
 export async function truncateAllTables(): Promise<void> {
   const db = getDb() as any;
-
   // Disable foreign key checks temporarily
   await db.execute('SET session_replication_role = replica;');
-
   try {
     // Get all table names
     const tables = await db.execute(`
@@ -192,7 +175,6 @@ export async function truncateAllTables(): Promise<void> {
       AND tablename NOT LIKE 'pg_%'
       AND tablename NOT LIKE 'drizzle%'
     `);
-
     // Truncate all tables
     for (const { tablename } of tables.rows || []) {
       await db.execute(`TRUNCATE TABLE "${tablename}" CASCADE`);

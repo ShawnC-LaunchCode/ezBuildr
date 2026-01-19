@@ -1,19 +1,13 @@
-import { createServer, type Server } from "http";
-
+import {  type Server } from "http";
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";
-import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-
-
 import * as schema from "@shared/schema";
-
 import { db } from "../../server/db";
 import { setupAuth } from "../../server/googleAuth";
 import { registerRoutes } from "../../server/routes";
 import { createGraphWorkflow, createGraphRun, createQuestionNode, createGraph } from "../factories/graphFactory";
-
 describe("Stage 13: Workflow Snapshots & Versioning", () => {
     let app: Express;
     let server: Server;
@@ -23,10 +17,8 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
     let projectId: string;
     let workflowId: string;
     let agent: any;
-
     // Hoisted state for auth
     const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
-
     vi.mock("../../server/googleAuth", async (importOriginal) => {
         const actual = await importOriginal<any>();
         return {
@@ -43,7 +35,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                     }
                     next();
                 });
-
                 app.post("/api/auth/google", (req, res) => {
                     // Backdoor login
                     if (req.body.user) {
@@ -55,7 +46,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             },
         };
     });
-
     // Mock auth middleware to respect req.user set by setupAuth
     vi.mock("../../server/middleware/auth", async (importOriginal) => {
         const actual = await importOriginal<any>();
@@ -77,14 +67,12 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             }
         };
     });
-
     beforeAll(async () => {
         app = express();
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
         setupAuth(app); // Call setupAuth to attach the middleware
         server = await registerRoutes(app);
-
         const port = await new Promise<number>((resolve) => {
             const testServer = server.listen(0, () => {
                 const addr = testServer.address();
@@ -92,10 +80,8 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 resolve(port);
             });
         });
-
         baseURL = `http://localhost:${port}`;
         agent = request.agent(baseURL);
-
         // Setup tenant
         const [tenant] = await db.insert(schema.tenants).values({
             name: "Test Tenant for Snapshots",
@@ -105,7 +91,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         // Setup user with matching ID from mock
         userId = "test-user-id";
         const email = "test-snapshots@example.com";
-
         // Create user
         await db.insert(schema.users).values({
             id: userId,
@@ -123,7 +108,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 email: email,
             }
         });
-
         // Login to establish session via backdoor
         await agent.post("/api/auth/google").send({
             user: {
@@ -138,7 +122,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 role: "admin",
             }
         });
-
         // Create project
         const [project] = await db.insert(schema.projects).values({
             title: "Test Project for Snapshots",
@@ -149,7 +132,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         }).returning();
         projectId = project.id;
     });
-
     afterAll(async () => {
         if (tenantId) {
             // Cleanup workflows to cascade delete runs and versions
@@ -166,7 +148,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         // 1. Create Draft Workflow with Version 1 Graph
         const nodeV1 = createQuestionNode('q1', 'Version 1 Question');
         const graphV1 = createGraph([nodeV1]);
-
         const { workflow: wfData, version: vData } = createGraphWorkflow({
             projectId,
             creatorId: userId,
@@ -174,10 +155,8 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             name: "Versioning Test Workflow",
             status: "draft",
         }, graphV1);
-
         const [workflow] = await db.insert(schema.workflows).values(wfData).returning();
         workflowId = workflow.id;
-
         // 2. Publish Version 1
         const [version1] = await db.insert(schema.workflowVersions).values({
             ...vData,
@@ -189,15 +168,12 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             versionNumber: 1,
             createdBy: userId,
         } as any).returning();
-
         // 3. Create Run on Version 1
         const run1Data = createGraphRun(version1.id, { createdBy: userId });
         const [run1] = await db.insert(schema.runs).values(run1Data).returning();
-
         // 4. Create Draft for Version 2 (Modify Graph)
         const nodeV2 = createQuestionNode('q1', 'Version 2 Question (Updated)');
         const graphV2 = createGraph([nodeV2]);
-
         // 5. Publish Version 2
         const [version2] = await db.insert(schema.workflowVersions).values({
             workflowId,
@@ -209,11 +185,9 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
             versionNumber: 2,
             createdBy: userId,
         } as any).returning();
-
         // 6. Create Run on Version 2
         const run2Data = createGraphRun(version2.id, { createdBy: userId });
         const [run2] = await db.insert(schema.runs).values(run2Data).returning();
-
         // 7. Verify Run 1 still sees Version 1 Question
         const run1Response = await agent.get(`/api/runs/${run1.id}`);
         if (run1Response.status !== 200) {
@@ -223,7 +197,6 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         expect(run1Response.status).toBe(200);
         const run1Graph = run1Response.body.workflowVersion.graphJson;
         expect(run1Graph.nodes[0].config.question).toBe('Version 1 Question');
-
         // 8. Verify Run 2 sees Version 2 Question
         const run2Response = await agent.get(`/api/runs/${run2.id}`);
         expect(run2Response.status).toBe(200);

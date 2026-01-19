@@ -1,7 +1,5 @@
-﻿import { Settings, Sparkles, Moon, Sun, Lightbulb, RotateCcw, Layers, Shield, Smartphone, QrCode, Lock } from "lucide-react";
+﻿import { Settings, Sparkles, Moon, Lightbulb, RotateCcw, Layers, Shield } from "lucide-react";
 import React, { useEffect, useState } from "react";
-
-
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -16,7 +14,6 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { Mode } from "@/lib/mode";
 import { authAPI } from "@/lib/vault-api";
 import { useAccountPreferences, useUpdateAccountPreferences } from "@/lib/vault-hooks";
-
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { prefs, isLoading, update, reset, isUpdating } = useUserPreferences();
@@ -24,7 +21,6 @@ export default function SettingsPage() {
   const updateAccountPrefsMutation = useUpdateAccountPreferences();
   const { toast } = useToast();
   const [localMode, setLocalMode] = useState<Mode>('easy');
-
   // MFA State
   const [mfaStatus, setMfaStatus] = useState<{ enabled: boolean; backupCodesRemaining: number } | null>(null);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
@@ -34,14 +30,12 @@ export default function SettingsPage() {
   const [setupStep, setSetupStep] = useState<'qr' | 'success'>('qr');
   const [isDisableOpen, setIsDisableOpen] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
-
   // Sync local mode state with fetched account preferences
   useEffect(() => {
     if (accountPrefs) {
       setLocalMode(accountPrefs.defaultMode);
     }
   }, [accountPrefs]);
-
   // Fetch MFA Status
   useEffect(() => {
     if (isAuthenticated) {
@@ -50,7 +44,6 @@ export default function SettingsPage() {
         .catch(console.error);
     }
   }, [isAuthenticated]);
-
   const startMfaSetup = async () => {
     try {
       const res = await authAPI.setupMfa();
@@ -66,7 +59,6 @@ export default function SettingsPage() {
       });
     }
   };
-
   const finishMfaSetup = async () => {
     try {
       await authAPI.verifyMfa(verifyCode);
@@ -84,7 +76,6 @@ export default function SettingsPage() {
       });
     }
   };
-
   const handleDisableMfa = async () => {
     try {
       await authAPI.disableMfa(disablePassword);
@@ -103,7 +94,6 @@ export default function SettingsPage() {
       });
     }
   };
-
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -117,7 +107,6 @@ export default function SettingsPage() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   const handleToggle = (key: string, value: boolean) => {
     update({ [key]: value });
     toast({
@@ -125,7 +114,6 @@ export default function SettingsPage() {
       description: `${formatLabel(key)} ${value ? "enabled" : "disabled"}.`,
     });
   };
-
   const handleDarkModeChange = (value: string) => {
     update({ darkMode: value as "system" | "light" | "dark" });
     toast({
@@ -133,7 +121,6 @@ export default function SettingsPage() {
       description: `Theme set to ${value}.`,
     });
   };
-
   const handleReset = () => {
     reset();
     // Reset mode to easy
@@ -147,7 +134,6 @@ export default function SettingsPage() {
       description: "All preferences have been reset to defaults.",
     });
   };
-
   const handleModeChange = (mode: Mode) => {
     setLocalMode(mode);
     updateAccountPrefsMutation.mutate({ defaultMode: mode }, {
@@ -168,13 +154,11 @@ export default function SettingsPage() {
       },
     });
   };
-
   const formatLabel = (key: string) => {
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/^./, (str) => str.toUpperCase());
   };
-
   if (authLoading || isLoading || accountPrefsLoading) {
     return (
       <div className="flex h-screen bg-gray-50">
@@ -193,7 +177,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -222,7 +205,6 @@ export default function SettingsPage() {
                 Reset to Defaults
               </Button>
             </div>
-
             {/* Account Security (MFA) */}
             <Card>
               <CardHeader>
@@ -252,7 +234,6 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Workflow Mode Settings */}
             <Card>
               <CardHeader>
@@ -299,7 +280,6 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Appearance Settings */}
             <Card>
               <CardHeader>
@@ -336,7 +316,6 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Celebration & Effects */}
             <Card>
               <CardHeader>
@@ -368,7 +347,6 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* AI Features */}
             <Card>
               <CardHeader>
@@ -400,14 +378,12 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Info Footer */}
             <div className="text-center text-sm text-gray-500 py-4">
               Your preferences are automatically saved and synced across sessions.
             </div>
           </div>
         </main>
-
         {/* MFA Setup Dialog */}
         <Dialog open={isSetupOpen} onOpenChange={setIsSetupOpen}>
           <DialogContent>
@@ -419,7 +395,6 @@ export default function SettingsPage() {
                   : "Your backup codes are below. Store them in a safe place."}
               </DialogDescription>
             </DialogHeader>
-
             {setupStep === 'qr' ? (
               <div className="space-y-4">
                 <div className="flex justify-center p-4 bg-white rounded-lg border">
@@ -453,7 +428,6 @@ export default function SettingsPage() {
             )}
           </DialogContent>
         </Dialog>
-
         {/* MFA Disable Dialog */}
         <Dialog open={isDisableOpen} onOpenChange={setIsDisableOpen}>
           <DialogContent>
@@ -477,7 +451,6 @@ export default function SettingsPage() {
             </div>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );

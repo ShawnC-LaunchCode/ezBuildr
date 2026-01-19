@@ -1,9 +1,6 @@
-import { InsertWorkflowRun, InsertStepValue, WorkflowRun } from "@shared/schema";
-
-import { logger } from "../../logger";
+import { InsertWorkflowRun, WorkflowRun } from "@shared/schema";
 import { workflowRunRepository, stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
 import { DbTransaction } from "../../repositories/BaseRepository";
-
 export class RunPersistenceWriter {
     constructor(
         private runRepo = workflowRunRepository,
@@ -11,21 +8,18 @@ export class RunPersistenceWriter {
         private stepRepo = stepRepository,
         private sectionRepo = sectionRepository
     ) { }
-
     /**
      * Create a new run record
      */
     async createRun(data: InsertWorkflowRun, tx?: DbTransaction): Promise<WorkflowRun> {
         return this.runRepo.create(data, tx);
     }
-
     /**
      * Update run properties
      */
     async updateRun(runId: string, data: Partial<WorkflowRun>): Promise<void> {
         await this.runRepo.update(runId, data as any);
     }
-
     /**
      * Save a single step value
      */
@@ -33,19 +27,16 @@ export class RunPersistenceWriter {
         // Validate step belongs to workflow
         const step = await this.stepRepo.findById(stepId);
         if (!step) {throw new Error(`Step not found: ${stepId}`);}
-
         const section = await this.sectionRepo.findById(step.sectionId);
         if (!section || section.workflowId !== workflowId) {
             throw new Error(`Step ${stepId} does not belong to workflow ${workflowId}`);
         }
-
         await this.valueRepo.upsert({
             runId,
             stepId,
             value
         });
     }
-
     /**
      * Bulk save values
      */
@@ -54,7 +45,6 @@ export class RunPersistenceWriter {
             await this.saveStepValue(runId, v.stepId, v.value, workflowId);
         }
     }
-
     /**
      * Get all values for a run
      */
@@ -66,5 +56,4 @@ export class RunPersistenceWriter {
         }, {} as Record<string, any>);
     }
 }
-
 export const runPersistenceWriter = new RunPersistenceWriter();

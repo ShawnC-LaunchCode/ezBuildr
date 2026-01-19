@@ -1,7 +1,7 @@
 export * from "./auth";
 export * from "./workflow";
 export * from "./run";
-export * from "./legacy";
+
 export * from "./datavault";
 export * from "./integrations";
 export * from "./relations";

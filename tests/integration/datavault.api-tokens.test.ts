@@ -1,19 +1,14 @@
-import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-
 import {
   datavaultApiTokens,
   datavaultDatabases,
   tenants,
   users,
 } from '@shared/schema';
-
-import { db } from '../../server/db';
 import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
 import { hashToken, generateApiToken } from '../../server/utils/encryption';
-
 /**
  * DataVault v4 Micro-Phase 5: API Tokens Integration Tests
  *
@@ -32,7 +27,6 @@ import { hashToken, generateApiToken } from '../../server/utils/encryption';
  * 7. Revoking tokens
  * 8. Cross-tenant access prevention
  */
-
 describe('DataVault API Tokens', () => {
   let app: Express;
   let testTenantId: string;
@@ -40,12 +34,10 @@ describe('DataVault API Tokens', () => {
   let testDatabaseId: string;
   let testTokenId: string;
   let plainToken: string;
-
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();
     app.use(express.json());
-
     // Mock authentication middleware for tests
     app.use((req: any, res, next) => {
       req.user = {
@@ -55,9 +47,7 @@ describe('DataVault API Tokens', () => {
       req.session = { userId: testUserId };
       next();
     });
-
     registerDatavaultApiTokenRoutes(app);
-
     // In real tests, create test tenant, user, and database:
     //
     // // Create test tenant
@@ -84,21 +74,18 @@ describe('DataVault API Tokens', () => {
     // }).returning();
     // testDatabaseId = database.id;
   });
-
   afterAll(async () => {
     // Cleanup test data
     // if (testTenantId) {
     //   await db.delete(tenants).where(eq(tenants.id, testTenantId));
     // }
   });
-
   beforeEach(async () => {
     // Clean up tokens before each test
     // if (testDatabaseId) {
     //   await db.delete(datavaultApiTokens).where(eq(datavaultApiTokens.databaseId, testDatabaseId));
     // }
   });
-
   describe('POST /api/datavault/databases/:databaseId/tokens', () => {
     it('should create a new token and return plain token once', async () => {
       // Template test - in real implementation:
@@ -119,10 +106,8 @@ describe('DataVault API Tokens', () => {
       //
       // testTokenId = response.body.token.id;
       // plainToken = response.body.plainToken;
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should create a token with expiration date', async () => {
       // Template test:
       // const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -136,10 +121,8 @@ describe('DataVault API Tokens', () => {
       //   .expect(201);
       //
       // expect(response.body.token.expiresAt).toBeTruthy();
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject token creation with invalid scopes', async () => {
       // Template test:
       // await request(app)
@@ -149,10 +132,8 @@ describe('DataVault API Tokens', () => {
       //     scopes: ['invalid_scope'],
       //   })
       //   .expect(400);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject token creation with empty label', async () => {
       // Template test:
       // await request(app)
@@ -162,10 +143,8 @@ describe('DataVault API Tokens', () => {
       //     scopes: ['read'],
       //   })
       //   .expect(400);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject token creation with past expiration date', async () => {
       // Template test:
       // const pastDate = new Date(Date.now() - 1000); // 1 second ago
@@ -177,11 +156,9 @@ describe('DataVault API Tokens', () => {
       //     expiresAt: pastDate.toISOString(),
       //   })
       //   .expect(400);
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('GET /api/datavault/databases/:databaseId/tokens', () => {
     it('should list all tokens for a database without exposing hashes', async () => {
       // Template test - in real implementation:
@@ -209,10 +186,8 @@ describe('DataVault API Tokens', () => {
       // expect(token).toHaveProperty('label');
       // expect(token).toHaveProperty('scopes');
       // expect(token).toHaveProperty('createdAt');
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should return empty array for database with no tokens', async () => {
       // Template test:
       // const response = await request(app)
@@ -220,11 +195,9 @@ describe('DataVault API Tokens', () => {
       //   .expect(200);
       //
       // expect(response.body.tokens).toEqual([]);
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('DELETE /api/datavault/tokens/:tokenId', () => {
     it('should revoke a token', async () => {
       // Template test - in real implementation:
@@ -252,28 +225,22 @@ describe('DataVault API Tokens', () => {
       //
       // const revokedToken = listResponse.body.tokens.find((t: any) => t.id === tokenId);
       // expect(revokedToken).toBeUndefined();
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject revoking token without database ID', async () => {
       // Template test:
       // await request(app)
       //   .delete(`/api/datavault/tokens/${testTokenId}`)
       //   .expect(400);
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should prevent cross-tenant token access', async () => {
       // Template test - verify tenant isolation:
       // This would require creating a second tenant and verifying
       // that tokens from one tenant cannot be accessed by another
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('Token Authentication', () => {
     it('should authenticate valid token', async () => {
       // Template test - verify token validation service:
@@ -291,10 +258,8 @@ describe('DataVault API Tokens', () => {
       //
       // // Test authentication would be done via middleware
       // // This is a placeholder for service-level tests
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject expired token', async () => {
       // Template test:
       // const token = generateApiToken();
@@ -312,38 +277,29 @@ describe('DataVault API Tokens', () => {
       // });
       //
       // // Token validation should fail
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should reject invalid token', async () => {
       // Template test:
       // const invalidToken = 'invalid_token_string';
       // // Token validation should fail
-
       expect(true).toBe(true); // Placeholder
     });
   });
-
   describe('Scope Authorization', () => {
     it('should allow read access with read scope', async () => {
       // Template test - verify scope enforcement:
       // Token with 'read' scope should be able to access read endpoints
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should deny write access with read-only scope', async () => {
       // Template test:
       // Token with only 'read' scope should be denied write operations
-
       expect(true).toBe(true); // Placeholder
     });
-
     it('should allow write access with write scope', async () => {
       // Template test:
       // Token with 'write' scope should be able to write
-
       expect(true).toBe(true); // Placeholder
     });
   });

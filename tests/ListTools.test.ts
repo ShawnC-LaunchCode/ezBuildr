@@ -83,6 +83,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -114,6 +116,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -146,6 +150,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -177,6 +183,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -206,6 +214,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -234,6 +244,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -263,6 +275,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -293,6 +307,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -318,6 +334,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -345,6 +363,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -374,6 +394,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -412,6 +434,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -445,6 +469,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -473,6 +499,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -517,6 +545,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -565,6 +595,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -589,6 +621,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);
@@ -619,6 +653,8 @@ describe('List Tools Block', () => {
         updatedAt: new Date(),
         enabled: true,
         order: 0,
+        sectionId: null,
+        virtualStepId: null,
       };
 
       const result = await runner.execute(config, context, block);

@@ -4,10 +4,8 @@
  * Handles repeating groups/subforms for Intake Runner 2.0.
  * Provides validation, instance management, and data flattening.
  */
-
 import { createLogger } from "../logger";
-import { evaluateCondition, type ConditionExpression, type EvaluationContext } from "../workflows/conditions";
-
+import { evaluateCondition, type  type EvaluationContext } from "../workflows/conditions";
 import type { ListVariable } from "../../shared/types/query";
 import type {
   RepeaterConfig,
@@ -17,9 +15,7 @@ import type {
   RepeaterFieldValidation,
   FlattenedRepeaterData,
 } from "../../shared/types/repeater";
-
 const logger = createLogger({ module: "repeater-service" });
-
 export class RepeaterService {
   /**
    * Validates a repeater value against its configuration
@@ -34,36 +30,28 @@ export class RepeaterService {
       instanceErrors: new Map(),
       globalErrors: [],
     };
-
     const instances = value?.instances || [];
-
     // Check instance count constraints
     const minInstances = config.minInstances || 0;
     const maxInstances = config.maxInstances || Infinity;
-
     if (instances.length < minInstances) {
       result.valid = false;
       result.globalErrors.push(`At least ${minInstances} item(s) required`);
     }
-
     if (instances.length > maxInstances) {
       result.valid = false;
       result.globalErrors.push(`Maximum ${maxInstances} item(s) allowed`);
     }
-
     // Validate each instance
     for (const instance of instances) {
       const instanceErrors = this.validateInstance(instance, config);
-
       if (instanceErrors.length > 0) {
         result.valid = false;
         result.instanceErrors.set(instance.instanceId, instanceErrors);
       }
     }
-
     return result;
   }
-
   /**
    * Validates a single repeater instance
    *
@@ -73,12 +61,10 @@ export class RepeaterService {
    */
   private validateInstance(instance: RepeaterInstance, config: RepeaterConfig): string[] {
     const errors: string[] = [];
-
     // Build context for field visibility evaluation
     const context: EvaluationContext = {
       variables: instance.values,
     };
-
     for (const field of config.fields) {
       // Check field visibility
       let isVisible = true;
@@ -90,12 +76,10 @@ export class RepeaterService {
           isVisible = true; // Fail-safe
         }
       }
-
       // Skip validation for hidden fields
       if (!isVisible) {
         continue;
       }
-
       // Check required fields
       if (field.required) {
         const value = instance.values[field.id];
@@ -103,14 +87,11 @@ export class RepeaterService {
           errors.push(`${field.title} is required`);
         }
       }
-
       // Type-specific validation
       // TODO: Add type-specific validation (email format, date format, etc.)
     }
-
     return errors;
   }
-
   /**
    * Flattens repeater data for variable resolution in conditions
    * Enables references like "dependents[0].age", "dependents[1].name"
@@ -128,7 +109,6 @@ export class RepeaterService {
       })),
     };
   }
-
   /**
    * Creates an empty repeater value with minimum instances
    *
@@ -138,52 +118,41 @@ export class RepeaterService {
   createEmptyRepeater(config: RepeaterConfig): RepeaterValue {
     const minInstances = config.minInstances || 0;
     const instances: RepeaterInstance[] = [];
-
     for (let i = 0; i < minInstances; i++) {
       instances.push(this.createEmptyInstance(i));
     }
-
     return { instances };
   }
-
   /**
    * Create repeater value from a ListVariable
    * (Stage 20: List-Based Inputs)
    */
   createFromList(list: ListVariable, config: RepeaterConfig): RepeaterValue {
     const instances: RepeaterInstance[] = [];
-
     // Determine count (list size, bounded by maxInstances)
     const max = config.maxInstances || Infinity;
     const count = Math.min(list.rowCount || list.rows.length, max);
-
     for (let i = 0; i < count; i++) {
       const row = list.rows[i];
       if (!row) {continue;}
-
       const values: Record<string, any> = {};
-
       // Map fields from list row
       for (const field of config.fields) {
         // Determine source key: explicit sourceKey > field alias > field ID
         // This allows mapping "Employee Name" column to "name" field
         const key = field.sourceKey || field.alias || field.id;
-
         if (row[key] !== undefined) {
           values[field.id] = row[key];
         }
       }
-
       instances.push({
         instanceId: `instance-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
         index: i,
         values
       });
     }
-
     return { instances };
   }
-
   /**
    * Creates a single empty instance
    *
@@ -197,7 +166,6 @@ export class RepeaterService {
       values: {},
     };
   }
-
   /**
    * Adds a new instance to a repeater
    *
@@ -208,18 +176,14 @@ export class RepeaterService {
   addInstance(value: RepeaterValue, config: RepeaterConfig): RepeaterValue | null {
     const maxInstances = config.maxInstances || Infinity;
     const currentCount = value.instances.length;
-
     if (currentCount >= maxInstances) {
       return null; // Max instances reached
     }
-
     const newInstance = this.createEmptyInstance(currentCount);
-
     return {
       instances: [...value.instances, newInstance],
     };
   }
-
   /**
    * Removes an instance from a repeater
    *
@@ -231,24 +195,19 @@ export class RepeaterService {
   removeInstance(value: RepeaterValue, instanceId: string, config: RepeaterConfig): RepeaterValue | null {
     const minInstances = config.minInstances || 0;
     const currentCount = value.instances.length;
-
     if (currentCount <= minInstances) {
       return null; // Min instances constraint
     }
-
     const filtered = value.instances.filter(i => i.instanceId !== instanceId);
-
     // Re-index instances
     const reindexed = filtered.map((instance, index) => ({
       ...instance,
       index,
     }));
-
     return {
       instances: reindexed,
     };
   }
-
   /**
    * Reorders instances in a repeater
    *
@@ -261,18 +220,15 @@ export class RepeaterService {
     const instances = [...value.instances];
     const [moved] = instances.splice(fromIndex, 1);
     instances.splice(toIndex, 0, moved);
-
     // Re-index
     const reindexed = instances.map((instance, index) => ({
       ...instance,
       index,
     }));
-
     return {
       instances: reindexed,
     };
   }
-
   /**
    * Gets the instance title for display
    *
@@ -284,12 +240,9 @@ export class RepeaterService {
     if (!config.showInstanceTitle) {
       return '';
     }
-
     const template = config.instanceTitleTemplate || 'Item #{index}';
-
     return template.replace('{index}', (instance.index + 1).toString());
   }
 }
-
 // Singleton instance
 export const repeaterService = new RepeaterService();

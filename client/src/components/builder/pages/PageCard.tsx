@@ -3,12 +3,10 @@
  * Displays one page (section) with its questions and logic blocks
  * Includes toolbars for adding questions and logic
  */
-
 import { useSortable , SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff, FileText } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-
 import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import { Badge } from "@/components/ui/badge";
@@ -27,16 +25,13 @@ import { combinePageItems, getNextOrder } from "@/lib/dnd";
 import { UI_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
-import { useBlocks, useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
+import {  useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-
 import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
 import { QuestionCard } from "../questions/QuestionCard";
-
 import { BlockCard } from "./BlockCard";
 import { LogicAddMenu } from "./LogicAddMenu";
 import { QuestionAddMenu } from "./QuestionAddMenu";
-
 interface PageCardProps {
   workflowId: string;
   page: ApiSection;
@@ -46,7 +41,6 @@ interface PageCardProps {
   total?: number;
   onEditBlock?: (blockId: string) => void;
 }
-
 export function PageCard({ workflowId, page, blocks, allSteps: steps, index, total, onEditBlock }: PageCardProps) {
   const { data: transformBlocks = [] } = useTransformBlocks(workflowId);
   const { data: modeData } = useWorkflowMode(workflowId);
@@ -64,19 +58,15 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
   const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
   const prevSelectionRef = useRef<typeof selection>(null);
   const prevItemsLengthRef = useRef<number>(0);
-
   // Check if this is a Final Documents section
   const isFinalDocumentsSection = (page.config)?.finalBlock === true;
-
   // For Final Documents sections, filter out all steps (they shouldn't exist, but if they do, hide them)
   // The only step should be the system step of type 'final_documents' which is hidden anyway
   const filteredSteps = isFinalDocumentsSection
     ? steps.filter(s => s.type === 'final_documents')
     : steps;
-
   // Combine steps and blocks into sortable items
   const pageBlocks = blocks.filter((b) => b.sectionId === page.id);
-
   // Convert transform blocks to ApiBlock format for this section
   const pageTransformBlocks: ApiBlock[] = transformBlocks
     .filter((tb) => tb.sectionId === page.id)
@@ -99,11 +89,9 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       createdAt: tb.createdAt,
       updatedAt: tb.updatedAt,
     }));
-
   // Combine regular blocks and transform blocks
   const allPageBlocks = [...pageBlocks, ...pageTransformBlocks];
   const items = combinePageItems(filteredSteps, allPageBlocks);
-
   // Auto-expand and focus newly selected items
   useEffect(() => {
     // Check if a new step was just selected
@@ -118,12 +106,10 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
         // Expand and auto-focus
         setExpandedStepIds((prev) => new Set(prev).add(selection.id));
         setAutoFocusStepId(selection.id);
-
         // Clear auto-focus after a short delay
         setTimeout(() => setAutoFocusStepId(null), 100);
       }
     }
-
     // Check if a new block was just selected
     if (
       selection?.type === "block" &&
@@ -139,7 +125,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
     }
     prevSelectionRef.current = selection;
   }, [selection, steps, allPageBlocks]);
-
   // Auto-expand newly created items
   useEffect(() => {
     if (items.length > prevItemsLengthRef.current && prevItemsLengthRef.current > 0) {
@@ -157,7 +142,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
     }
     prevItemsLengthRef.current = items.length;
   }, [items]);
-
   // Make the page card sortable for page reordering
   const {
     attributes,
@@ -167,22 +151,18 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
     transition,
     isDragging,
   } = useSortable({ id: page.id });
-
   // Immediate update with optimistic rendering
   const handleTitleChange = (title: string) => {
     updateSectionMutation.mutate({ id: page.id, workflowId, title });
   };
-
   // Immediate update with optimistic rendering
   const handleDescriptionChange = (description: string) => {
     updateSectionMutation.mutate({ id: page.id, workflowId, description });
   };
-
   const handleDelete = async () => {
     if (!confirm(`Delete page "${page.title}"? This will remove all questions and logic blocks.`)) {
       return;
     }
-
     try {
       await deleteSectionMutation.mutateAsync({ id: page.id, workflowId });
       toast({
@@ -197,9 +177,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       });
     }
   };
-
   const nextOrder = getNextOrder(items);
-
   const handleToggleExpand = (stepId: string) => {
     setExpandedStepIds((prev) => {
       const next = new Set(prev);
@@ -211,7 +189,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       return next;
     });
   };
-
   const handleToggleBlockExpand = (blockId: string) => {
     setExpandedBlockIds((prev) => {
       const next = new Set(prev);
@@ -223,12 +200,10 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
       return next;
     });
   };
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
-
   return (
     <div ref={setNodeRef} style={style}>
       <Card className={cn("shadow-sm", isDragging && "opacity-50")}>
@@ -242,7 +217,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
             >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </button>
-
             {/* Collapse/Expand button */}
             <Button
               variant="ghost"
@@ -259,7 +233,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                 <ChevronDown className="h-4 w-4" />
               )}
             </Button>
-
             {/* Page title and description */}
             <div className="flex-1 space-y-1">
               {mode === 'easy' && typeof index === 'number' && typeof total === 'number' && !isFinalDocumentsSection && (
@@ -296,7 +269,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                 maxRows={4}
               />
             </div>
-
             {/* Page actions */}
             <div className="flex items-center gap-1">
               <DropdownMenu>
@@ -330,7 +302,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
             </div>
           </div>
         </CardHeader>
-
         {!isCollapsed && (
           <CardContent className="pt-0 space-y-3">
             {isFinalDocumentsSection ? (
@@ -373,7 +344,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                         }
                       }
                     };
-
                     if (item.kind === "step") {
                       return (
                         <QuestionCard
@@ -405,7 +375,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                 </div>
               </SortableContext>
             )}
-
             {/* Add buttons at the bottom - hidden for Final Documents sections */}
             {!isFinalDocumentsSection && (
               <div className="space-y-2">
@@ -433,7 +402,6 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
           </CardContent>
         )}
       </Card>
-
       {/* Section Logic Sheet */}
       <SectionLogicSheet
         open={isLogicSheetOpen}

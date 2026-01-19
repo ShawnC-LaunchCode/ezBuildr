@@ -2,12 +2,10 @@
  * Visual Workflow Builder - Stage 7
  * Full Afterpattern-style visual builder using React Flow
  */
-
-import { ArrowLeft, Share2, History, Clock, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Share2, Clock, BarChart3 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { useParams, useLocation } from 'wouter';
-
 import { DropoffList } from '@/components/analytics/DropoffList';
 import { WorkflowHealthPanel } from '@/components/analytics/WorkflowHealthPanel';
 import { ShareWorkflowDialog } from '@/components/dashboard/ShareWorkflowDialog';
@@ -33,7 +31,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { blueprintAPI } from '@/lib/vault-api';
-
 import { BuilderCanvas } from './visual-builder/components/BuilderCanvas';
 import { ConnectionsPanel } from './visual-builder/components/ConnectionsPanel';
 import { NodeSidebar } from './visual-builder/components/NodeSidebar';
@@ -41,29 +38,22 @@ import { PreviewPanel } from './visual-builder/components/PreviewPanel';
 import { Toolbar } from './visual-builder/components/Toolbar';
 import { useWorkflowGraph, useUpdateWorkflow } from './visual-builder/hooks/useWorkflowAPI';
 import { useBuilderStore } from './visual-builder/store/useBuilderStore';
-
-
 export default function VisualWorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-
   const [showPreview, setShowPreview] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
-
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [selectedVersion, setSelectedVersion] = useState<string>('current');
-
   const { data: workflow, isLoading } = useWorkflowGraph(workflowId);
   const updateWorkflow = useUpdateWorkflow(workflowId);
   const { user } = useAuth();
-
   // Safe default: If we can't verify owner, assume read-only if it's not our own
   const isReadOnly = workflow && user ? workflow.creatorId !== user.id : false;
-
   const {
     loadGraph,
     exportGraph,
@@ -76,10 +66,8 @@ export default function VisualWorkflowBuilder() {
     deleteNode,
     selectedNodeId,
   } = useBuilderStore();
-
   const handleSaveTemplate = async () => {
     if (!templateName.trim() || !workflowId) {return;}
-
     try {
       await blueprintAPI.create({ name: templateName, sourceWorkflowId: workflowId });
       toast({
@@ -96,7 +84,6 @@ export default function VisualWorkflowBuilder() {
       });
     }
   };
-
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,16 +91,13 @@ export default function VisualWorkflowBuilder() {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
         return;
       }
-
       // Save: Cmd+S
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-
         if (isReadOnly) {
           toast({ title: 'View Only', description: 'You cannot save changes in view-only mode.', variant: 'destructive' });
           return;
         }
-
         setSaving(true);
         const graphJson = exportGraph();
         updateWorkflow.mutate(graphJson, {
@@ -129,13 +113,11 @@ export default function VisualWorkflowBuilder() {
           }
         });
       }
-
       // Preview: Cmd+Enter
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         setShowPreview(prev => !prev);
       }
-
       // Duplicate: Cmd+D
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
         e.preventDefault();
@@ -145,7 +127,6 @@ export default function VisualWorkflowBuilder() {
           toast({ title: 'Duplicated', description: 'Block duplicated.' });
         }
       }
-
       // Delete: Backspace or Delete
       if (e.key === 'Backspace' || e.key === 'Delete') {
         // Warning: destructive action. Only if node selected.
@@ -157,22 +138,18 @@ export default function VisualWorkflowBuilder() {
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId, duplicateNode, deleteNode, exportGraph, updateWorkflow, setSaving, setDirty, setSaveError, toast]);
-
   // Load workflow graph on mount
   useEffect(() => {
     if (workflow?.currentVersion?.graphJson) {
       loadGraph(workflow.currentVersion.graphJson);
     }
   }, [workflow, loadGraph]);
-
   // Auto-save on changes (debounced)
   useEffect(() => {
     if (!isDirty || !workflowId || isReadOnly) {return;}
-
     const timeoutId = setTimeout(async () => {
       try {
         setSaving(true);
@@ -191,10 +168,8 @@ export default function VisualWorkflowBuilder() {
         setSaving(false);
       }
     }, 2000); // 2 second debounce
-
     return () => clearTimeout(timeoutId);
   }, [isDirty, workflowId, exportGraph, updateWorkflow, setDirty, setSaving, setSaveError, toast]);
-
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -202,7 +177,6 @@ export default function VisualWorkflowBuilder() {
       </div>
     );
   }
-
   if (!workflow) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -210,7 +184,6 @@ export default function VisualWorkflowBuilder() {
       </div>
     );
   }
-
   return (
     <ReactFlowProvider>
       <div className="h-screen flex flex-col bg-background">
@@ -275,7 +248,6 @@ export default function VisualWorkflowBuilder() {
             </DropdownMenu>
           </div>
         </div>
-
         {/* Toolbar */}
         <Toolbar
           workflowId={workflowId}
@@ -285,14 +257,12 @@ export default function VisualWorkflowBuilder() {
           selectedVersion={selectedVersion}
           onVersionChange={setSelectedVersion}
         />
-
         {/* Main Layout: Left Panel | Canvas | Right Panel */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Connections */}
           <div className="w-64 border-r bg-card overflow-y-auto">
             <ConnectionsPanel />
           </div>
-
           {/* Center - Canvas */}
           <div className="flex-1 overflow-hidden relative flex flex-col">
             {selectedVersion !== 'current' && (
@@ -309,7 +279,6 @@ export default function VisualWorkflowBuilder() {
               )}
             </div>
           </div>
-
           {/* Right Panel - Inspector or Preview */}
           {showPreview ? (
             <div className="w-96 bg-muted/30 overflow-y-auto">
@@ -368,7 +337,6 @@ export default function VisualWorkflowBuilder() {
         onOpenChange={setShowHistoryDialog}
         workflowId={workflowId}
       />
-
       <Dialog open={showInsights} onOpenChange={setShowInsights}>
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -380,7 +348,6 @@ export default function VisualWorkflowBuilder() {
               Performance metrics and user flow analysis for {selectedVersion === 'current' ? 'Current Version' : 'Selected Version'}.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-8 py-4">
             {/* Health Stats */}
             <div className="space-y-3">
@@ -392,7 +359,6 @@ export default function VisualWorkflowBuilder() {
                 versionId={selectedVersion === 'current' ? undefined : selectedVersion}
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Dropoff Funnel */}
               <div className="md:col-span-2 space-y-3">
@@ -402,7 +368,6 @@ export default function VisualWorkflowBuilder() {
                   versionId={selectedVersion === 'current' ? workflow?.currentVersionId! : selectedVersion}
                 />
               </div>
-
               {/* Future: Heatmap or other insights */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Optimization Tips</h3>

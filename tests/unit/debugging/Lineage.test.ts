@@ -1,6 +1,4 @@
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
+import { describe, it, expect, vi } from 'vitest';
 import { runGraph } from '../../../server/engine/index';
 // Mocks need to be consistent with existing setups
 vi.mock('../../../server/repositories/DatavaultRowsRepository', () => ({
@@ -9,7 +7,6 @@ vi.mock('../../../server/repositories/DatavaultRowsRepository', () => ({
         getRowsWithValues: vi.fn(),
     },
 }));
-
 describe('Debug & Lineage', () => {
     const defaultInput = {
         workflowVersion: {
@@ -61,48 +58,37 @@ describe('Debug & Lineage', () => {
     // `executeQuestionNode` looks up `userInputs[node.id]`.
     // My inputJson above has `q1: 'Alice'`.
     // So context.vars['userName'] should be set to 'Alice'.
-
     // Issue might be `+` operator in expr-eval.
     // It usually supports string concat.
     // Let's try explicitly casting or using concat helper just to be safe,
     // OR simpler: just check if 'userName' is accessible.
-
     it('should generate execution trace with lineage', async () => {
         const result = await runGraph(defaultInput);
-
         // Debug output if it fails again
         if (result.status === 'success' && result.executionTrace?.steps[1]?.outputs?.greeting !== 'Hello Alice') {
             // console.log('Context vars at end:', result.executionTrace?.steps);
         }
-
         expect(result.status).toBe('success');
         expect(result.executionTrace).toBeDefined();
-
         const trace = result.executionTrace!;
         expect(trace.steps).toHaveLength(2);
-
         // Verify steps
         expect(trace.steps[0].blockId).toBe('q1');
         expect(trace.steps[0].outputs).toEqual({ userName: 'Alice' });
-
         expect(trace.steps[1].blockId).toBe('c1');
         expect(trace.steps[1].outputs).toEqual({ greeting: 'Hello Alice' }); // If this is still NaN, I'll fix the expression options.
-
         // Verify lineage
         expect(trace.variableLineage).toBeDefined();
         expect(trace.variableLineage['userName']).toBeDefined();
         expect(trace.variableLineage['userName'].sourceType).toBe('question');
         expect(trace.variableLineage['userName'].createdByBlockId).toBe('q1');
-
         expect(trace.variableLineage['greeting']).toBeDefined();
         expect(trace.variableLineage['greeting'].sourceType).toBe('compute');
         expect(trace.variableLineage['greeting'].createdByBlockId).toBe('c1');
-
         // Check timestamps (basic existence)
         expect(trace.startTime).toBeInstanceOf(Date);
         expect(trace.endTime).toBeInstanceOf(Date);
     });
-
     it('should track skipped blocks in trace', async () => {
         const inputWithSkip = {
             ...defaultInput,
@@ -124,12 +110,9 @@ describe('Debug & Lineage', () => {
                 }
             }
         };
-
         const result = await runGraph(inputWithSkip);
-
         expect(result.executionTrace).toBeDefined();
         const step = result.executionTrace!.steps[0];
-
         expect(step.status).toBe('skipped');
         expect(step.skippedReason).toBe('condition false');
         expect(result.executionTrace!.variableLineage['skippedVar']).toBeUndefined();

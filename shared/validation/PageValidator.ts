@@ -1,24 +1,17 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
-
-import { formatMessage } from "./messages";
 import { ValidationSchema, PageValidationResult } from "./ValidationSchema";
 import { validateValue } from "./Validator";
-
-
 import type { ValidateRule, ConditionalRequiredRule, CompareRule, ForEachRule, WhenCondition, ComparisonOperator } from "../types/blocks";
 import type { ConditionExpression } from "../types/conditions"; // Import ConditionExpression types
-
 /**
  * Type guards for ValidateRule types
  */
 interface RuleWithLeft {
     left: string;
 }
-
 interface RuleWithListKey {
     listKey: string;
 }
-
 interface LegacySubRule {
     assert?: {
         key: string;
@@ -27,19 +20,15 @@ interface LegacySubRule {
     };
     message?: string;
 }
-
 function hasLeftProperty(rule: unknown): rule is RuleWithLeft {
     return typeof rule === 'object' && rule !== null && 'left' in rule;
 }
-
 function hasListKeyProperty(rule: unknown): rule is RuleWithListKey {
     return typeof rule === 'object' && rule !== null && 'listKey' in rule;
 }
-
 function isLegacySubRule(rule: unknown): rule is LegacySubRule {
     return typeof rule === 'object' && rule !== null && !('type' in rule);
 }
-
 /**
  * Validates a map of block values against their schemas.
  */
@@ -56,9 +45,7 @@ export async function validatePage({
 }): Promise<PageValidationResult> {
     const blockErrors: Record<string, string[]> = {};
     let valid = true;
-
     const contextValues = allValues || values;
-
     // 1. Standard Field Validation
     for (const [blockId, schema] of Object.entries(schemas)) {
         const value = values[blockId];
@@ -67,13 +54,11 @@ export async function validatePage({
             value,
             values: contextValues,
         });
-
         if (!result.valid) {
             blockErrors[blockId] = result.errors;
             valid = false;
         }
     }
-
     // 2. Page-Level Rules Validation
     for (const rule of pageRules) {
         const error = await validatePageRule(rule, contextValues);
@@ -94,7 +79,6 @@ export async function validatePage({
                 }
                 continue;
             }
-
             // Generic fallback - determine which field to attach error to
             let target = "_general";
             if (hasLeftProperty(rule)) {
@@ -107,13 +91,11 @@ export async function validatePage({
             valid = false;
         }
     }
-
     return {
         valid,
         blockErrors,
     };
 }
-
 // Logic implementations
 async function validatePageRule(rule: ValidateRule, values: Record<string, any>): Promise<string | null> {
     // Type guard / Check
@@ -121,13 +103,11 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
         // Legacy rule
         return null;
     }
-
     switch (rule.type) {
         case 'compare': {
             const r = rule;
             const leftVal = getVal(r.left, values);
             const rightVal = r.rightType === 'variable' ? getVal(r.right, values) : r.right;
-
             if (!compare(leftVal, r.op, rightVal)) {
                 return r.message || `Condition failed`;
             }
@@ -135,16 +115,13 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
         }
         case 'conditional_required':
             return null; // Handled in main loop
-
         case 'foreach': {
             const r = rule;
             const list = getVal(r.listKey, values);
             if (!Array.isArray(list)) {return null;}
-
             for (let i = 0; i < list.length; i++) {
                 const item = list[i];
                 const itemContext = { ...values, [r.itemAlias]: item };
-
                 for (const subRule of r.rules) {
                     // Check legacy inner rules
                     if (isLegacySubRule(subRule) && subRule.assert) {
@@ -157,12 +134,10 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
             }
             return null;
         }
-
         default:
             return null;
     }
 }
-
 function whenToCondition(when: WhenCondition): ConditionExpression {
     if (!when) {return null;}
     return {
@@ -179,18 +154,15 @@ function whenToCondition(when: WhenCondition): ConditionExpression {
         }]
     };
 }
-
 // Helpers
 function getVal(key: string, values: Record<string, any>) {
     // support dot syntax?
     if (key.includes('.')) {return resolvePath(key, values);}
     return values[key];
 }
-
 function resolvePath(path: string, obj: any) {
     return path.split('.').reduce((prev, curr) => prev ? prev[curr] : undefined, obj);
 }
-
 function compare(left: any, op: string, right: any): boolean {
     switch (op) {
         case 'equals': return left == right;
@@ -201,7 +173,6 @@ function compare(left: any, op: string, right: any): boolean {
         default: return false;
     }
 }
-
 function checkOp(val: any, op: string, compareVal?: any): boolean {
     switch (op) {
         case 'is_not_empty': return val !== null && val !== undefined && val !== "";

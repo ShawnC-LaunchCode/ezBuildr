@@ -1,10 +1,6 @@
 import Database from "better-sqlite3";
-import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-
 import * as schema from "@shared/schema";
-
-
 /**
  * Create an in-memory SQLite database for tests
  * This mimics the PostgreSQL schema but uses SQLite for fast testing
@@ -12,10 +8,8 @@ import * as schema from "@shared/schema";
 export function createTestDb() {
   const sqlite = new Database(":memory:");
   const db = drizzle(sqlite, { schema });
-
   // Create tables matching our schema
   // Note: SQLite syntax differs slightly from PostgreSQL
-
   // Users table
   sqlite.exec(`
     CREATE TABLE users (
@@ -29,7 +23,6 @@ export function createTestDb() {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
-
   // Surveys table
   sqlite.exec(`
     CREATE TABLE surveys (
@@ -47,7 +40,6 @@ export function createTestDb() {
       FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
-
   // Survey pages table
   sqlite.exec(`
     CREATE TABLE survey_pages (
@@ -59,7 +51,6 @@ export function createTestDb() {
       FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
     );
   `);
-
   // Questions table
   sqlite.exec(`
     CREATE TABLE questions (
@@ -77,7 +68,6 @@ export function createTestDb() {
       FOREIGN KEY (page_id) REFERENCES survey_pages(id) ON DELETE CASCADE
     );
   `);
-
   // Responses table
   sqlite.exec(`
     CREATE TABLE responses (
@@ -95,7 +85,6 @@ export function createTestDb() {
       FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
     );
   `);
-
   // Answers table
   sqlite.exec(`
     CREATE TABLE answers (
@@ -110,7 +99,6 @@ export function createTestDb() {
       FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
     );
   `);
-
   // Analytics events table
   sqlite.exec(`
     CREATE TABLE analytics_events (
@@ -127,10 +115,8 @@ export function createTestDb() {
       FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
     );
   `);
-
   return { db, sqlite };
 }
-
 /**
  * Clean up test database
  */

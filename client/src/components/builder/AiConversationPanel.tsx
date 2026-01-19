@@ -1,17 +1,14 @@
 import { Loader2, Sparkles, Send, Check, X, Paperclip, FileText } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/vault-api";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
-
 interface Message {
     role: 'user' | 'assistant';
     content: string;
@@ -19,12 +16,10 @@ interface Message {
     timestamp: number;
     status?: 'pending' | 'applied' | 'discarded';
 }
-
 interface UploadedFile {
     name: string;
     content: string;
 }
-
 interface AiConversationPanelProps {
     workflowId: string;
     currentWorkflow: any; // Basic workflow metadata
@@ -32,7 +27,6 @@ interface AiConversationPanelProps {
     initialPrompt?: string;
     className?: string;
 }
-
 export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], initialPrompt, className }: AiConversationPanelProps) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
@@ -46,22 +40,17 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [contextFiles, setContextFiles] = useState<UploadedFile[]>([]);
-
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
-
     const reviseMutation = useReviseWorkflow();
     const updateMutation = useUpdateWorkflow();
     const { data: workflowMode } = useWorkflowMode(workflowId);
-
     const mode = workflowMode?.mode || 'easy';
-
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
-
     // Handle initial prompt from "Create with AI" flow
     const hasSentInitialPrompt = useRef(false);
     useEffect(() => {
@@ -74,29 +63,23 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             }, 100);
         }
     }, [initialPrompt, messages.length]);
-
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(true);
     };
-
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         // Prevent flickering: only disable if leaving the main container, not entering a child
         if (e.currentTarget.contains(e.relatedTarget as Node)) { return; }
         setIsDragging(false);
     };
-
     const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
-
         const files = Array.from(e.dataTransfer.files);
         if (files.length === 0) { return; }
-
         setUploading(true);
         const newContextFiles: UploadedFile[] = [];
-
         try {
             for (const file of files) {
                 // Check type (MIME or Extension)
@@ -108,37 +91,29 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     'text/markdown'
                 ];
                 const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt', '.md'];
-
                 const isTypeValid = allowedTypes.includes(file.type);
                 const isExtValid = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
-
                 if (!isTypeValid && !isExtValid) {
                     toast({ title: "Skipped File", description: `${file.name} is not a supported document type (PDF/Word/Txt).` });
                     continue;
                 }
-
                 const formData = new FormData();
                 formData.append('file', file);
-
                 try {
                     // Use fetch directly to handle FormData correctly (apiRequest forces JSON)
                     const token = getAccessToken();
                     const headers: Record<string, string> = {};
                     if (token) { headers['Authorization'] = `Bearer ${token}`; }
-
                     const res = await fetch('/api/ai/doc/extract-text', {
                         method: 'POST',
                         body: formData,
                         headers
                     });
-
                     if (!res.ok) {
                         const errData = await res.json().catch(() => ({}));
                         throw new Error(errData.message || res.statusText);
                     }
-
                     const data = await res.json();
-
                     if (data.text) {
                         newContextFiles.push({
                             name: file.name,
@@ -155,11 +130,9 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             setUploading(false);
         }
     };
-
     const handleSend = async (textOverride?: string) => {
         const textToSend = textOverride !== undefined ? textOverride : input;
         if (!textToSend.trim() && contextFiles.length === 0) { return; }
-
         // Construct full message with context
         let fullMessage = textToSend;
         if (contextFiles.length > 0) {
@@ -169,31 +142,25 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             });
             fullMessage += `--- END CONTEXT ---\n`;
         }
-
         // Display message (hide massive context from UI, show attachment badges instead)
         const displayContent = textToSend || (contextFiles.length > 0 ? "Processed uploaded files." : "");
-
         const userMsg: Message = {
             role: 'user',
             content: displayContent,
             timestamp: Date.now()
         };
-
         // Add a "visible" note about attachments if they exist
         if (contextFiles.length > 0) {
             userMsg.content += `\n\n[Attached: ${contextFiles.map(f => f.name).join(', ')}]`;
         }
-
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setContextFiles([]); // Clear context after sending
         setProposedWorkflow(null);
-
         try {
             const history = messages
                 .filter(m => !m.diff)
                 .map(m => ({ role: m.role, content: m.content }));
-
             const fullWorkflow = {
                 title: currentWorkflow.title || 'Untitled Workflow',
                 description: currentWorkflow.description || '',
@@ -202,7 +169,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 transformBlocks: transformBlocks,
                 notes: ''
             };
-
             const result = await reviseMutation.mutateAsync({
                 workflowId,
                 currentWorkflow: fullWorkflow,
@@ -210,7 +176,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 conversationHistory: history,
                 mode: mode
             });
-
             // Auto-apply if in easy mode
             if (mode === 'easy' && result.updatedWorkflow) {
                 try {
@@ -218,7 +183,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                         id: workflowId,
                         ...result.updatedWorkflow
                     });
-
                     const assistantMsg: Message = {
                         role: 'assistant',
                         content: result.explanation ? result.explanation.join(' ') : 'I have updated the workflow.',
@@ -234,7 +198,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     // Fallback to manual if update fails
                 }
             }
-
             // Normal Flow (Manual Review)
             const assistantMsg: Message = {
                 role: 'assistant',
@@ -243,10 +206,8 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 timestamp: Date.now(),
                 status: 'pending'
             };
-
             setMessages(prev => [...prev, assistantMsg]);
             setProposedWorkflow(result.updatedWorkflow);
-
         } catch (error: any) {
             setMessages(prev => [...prev, {
                 role: 'assistant',
@@ -255,7 +216,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             }]);
         }
     };
-
     const handleApply = async () => {
         if (!proposedWorkflow) { return; }
         try {
@@ -265,7 +225,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             });
             toast({ title: "Changes Applied", description: "Workflow updated successfully." });
             setProposedWorkflow(null);
-
             // Update the last message status to applied
             setMessages(prev => {
                 const newMessages = [...prev];
@@ -283,12 +242,10 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 }
                 return newMessages;
             });
-
         } catch (error) {
             toast({ title: "Update Failed", variant: "destructive", description: "Could not apply changes." });
         }
     };
-
     const handleDiscard = () => {
         setProposedWorkflow(null);
         setMessages(prev => {
@@ -306,7 +263,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             return newMessages;
         });
     };
-
     return (
         <div
             className={cn("flex flex-col h-full bg-background relative", className)}
@@ -324,13 +280,11 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     </div>
                 </div>
             )}
-
             <div className="p-4 border-b flex items-center gap-2 font-semibold bg-muted/40">
                 <Sparkles className="w-5 h-5 text-purple-500" />
                 AI Assistant
                 {mode === 'easy' && <Badge variant="secondary" className="ml-auto text-xs">Easy Mode</Badge>}
             </div>
-
             <ScrollArea className="flex-1 p-4" ref={scrollRef}>
                 <div className="space-y-6 pb-4">
                     {messages.map((msg, idx) => (
@@ -341,7 +295,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                                 }`}>
                                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                             </div>
-
                             {msg.diff?.changes && msg.diff.changes.length > 0 && (
                                 <Card className={cn(
                                     "w-full max-w-[80%] mt-1 p-3 border shadow-sm self-start",
@@ -378,7 +331,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                                             </li>
                                         ))}
                                     </ul>
-
                                     {/* Only show buttons if pending */}
                                     {msg.status === 'pending' && proposedWorkflow && idx === messages.length - 1 && (
                                         <div className="flex gap-2 justify-end pt-2 border-t border-purple-200/50 dark:border-purple-800/50">
@@ -407,7 +359,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     <div ref={scrollRef} />
                 </div>
             </ScrollArea>
-
             <div className="p-4 border-t bg-background">
                 {/* File Previews */}
                 {contextFiles.length > 0 && (
@@ -426,7 +377,6 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                         ))}
                     </div>
                 )}
-
                 <form
                     className="flex gap-2"
                     onSubmit={(e) => {

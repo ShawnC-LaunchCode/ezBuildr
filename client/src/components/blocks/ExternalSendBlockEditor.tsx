@@ -1,23 +1,19 @@
 import { Plus, Trash2, Clock } from "lucide-react";
-import React, { useState } from "react";
-
+import React, {  } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useWorkflowDataSources, useWorkflowVariables } from "@/lib/vault-hooks";
-
 interface PayloadMapping {
     key: string;
     value: string;
 }
-
 interface ExternalSendConfig {
     destinationId: string;
     payloadMappings: PayloadMapping[];
 }
-
 interface ExternalSendBlockEditorProps {
     workflowId: string;
     config: ExternalSendConfig;
@@ -25,33 +21,27 @@ interface ExternalSendBlockEditorProps {
     phase?: string;
     onPhaseChange?: (phase: string) => void;
 }
-
 export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, onPhaseChange }: ExternalSendBlockEditorProps) {
     const { data: dataSources } = useWorkflowDataSources(workflowId);
     const { data: variables = [] } = useWorkflowVariables(workflowId);
     const destinations = dataSources?.filter(ds => ds.type === 'external' || (ds.type as any) === 'api'); // Adjust logic as needed
-
     const updateConfig = (updates: Partial<ExternalSendConfig>) => {
         onChange({ ...config, ...updates });
     };
-
     const addMapping = () => {
         const mappings = config.payloadMappings || [];
         updateConfig({ payloadMappings: [...mappings, { key: "", value: "" }] });
     };
-
     const updateMapping = (index: number, key: keyof PayloadMapping, value: string) => {
         const mappings = [...(config.payloadMappings || [])];
         mappings[index] = { ...mappings[index], [key]: value };
         updateConfig({ payloadMappings: mappings });
     };
-
     const removeMapping = (index: number) => {
         const mappings = [...(config.payloadMappings || [])];
         mappings.splice(index, 1);
         updateConfig({ payloadMappings: mappings });
     };
-
     return (
         <div className="space-y-4">
             <div className="space-y-2">
@@ -73,7 +63,6 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                     Link external APIs in the Data Sources tab.
                 </p>
             </div>
-
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <Label>Payload Mappings</Label>
@@ -82,7 +71,6 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                         Add Field
                     </Button>
                 </div>
-
                 <div className="space-y-2">
                     {config.payloadMappings?.map((mapping, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
@@ -93,7 +81,6 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                 className="flex-1"
                             />
                             <span className="text-muted-foreground">=</span>
-
                             {/* Variable Select for Mapping Value */}
                             <div className="flex-1 min-w-0">
                                 <Select
@@ -131,7 +118,6 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                             </div>
                                         </SelectItem>
                                         {variables.length > 0 && <hr className="my-1" />}
-
                                         {/* Workflow Variables */}
                                         {variables.map(v => (
                                             <SelectItem key={v.key} value={v.alias || v.key}>
@@ -144,7 +130,6 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                     </SelectContent>
                                 </Select>
                             </div>
-
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeMapping(idx)}>
                                 <Trash2 className="w-4 h-4 text-muted-foreground" />
                             </Button>
@@ -155,13 +140,11 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                     )}
                 </div>
             </div>
-
             {(!config.destinationId) && (
                 <div className="p-2 border border-yellow-200 bg-yellow-50 text-yellow-800 text-xs rounded">
                     Please select a destination.
                 </div>
             )}
-
             {/* Execution Timing */}
             {phase && onPhaseChange && (
                 <Card>

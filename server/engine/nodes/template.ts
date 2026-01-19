@@ -1,19 +1,14 @@
 import fs from 'fs/promises';
 import path from 'path';
-
 import { eq, and } from 'drizzle-orm';
-
 import * as schema from '@shared/schema';
-
 import { db } from '../../db';
 import { logger } from '../../logger';
 import { pdfService } from '../../services/document/PdfService';
 import { renderDocx2 } from '../../services/docxRenderer2';
-import { renderTemplate , getTemplateFilePath, getOutputFilePath } from '../../services/templates';
+import { renderTemplate , getTemplateFilePath } from '../../services/templates';
 import { evaluateExpression } from '../expr';
-
 import type { EvalContext } from '../expr';
-
 /**
  * Template Node Executor (Stage 21 - Multi-Template Support)
  * Handles document generation from templates with support for:
@@ -22,7 +17,6 @@ import type { EvalContext } from '../expr';
  * - Enhanced DOCX rendering with loops/conditionals/helpers
  * - Output tracking in runOutputs table
  */
-
 export interface TemplateNodeConfig {
   templateId?: string;             // Direct reference to template (legacy)
   templateKey?: string;            // Key to resolve from workflowTemplates mapping (new)
@@ -33,7 +27,6 @@ export interface TemplateNodeConfig {
   toPdf?: boolean;                 // Generate PDF version (Stage 21)
   engine?: 'legacy' | 'v2';        // Which rendering engine to use (default: v2)
 }
-
 export interface TemplateNodeInput {
   nodeId: string;
   config: TemplateNodeConfig;
@@ -42,7 +35,6 @@ export interface TemplateNodeInput {
   runId?: string;                  // Run ID for output tracking (Stage 21)
   workflowVersionId?: string;      // Workflow version for template key resolution (Stage 21)
 }
-
 export interface TemplateNodeOutput {
   status: 'executed' | 'skipped';
   outputRef?: {
@@ -55,7 +47,6 @@ export interface TemplateNodeOutput {
   skipReason?: string;
   error?: string;
 }
-
 /**
  * Execute a template node (Stage 21 - Multi-Template Support)
  *
@@ -66,7 +57,6 @@ export async function executeTemplateNode(
   input: TemplateNodeInput
 ): Promise<TemplateNodeOutput> {
   const { nodeId, config, context, tenantId, runId, workflowVersionId } = input;
-
   try {
     // Check condition if present
     if (config.condition) {
@@ -78,7 +68,6 @@ export async function executeTemplateNode(
         };
       }
     }
-
     // Resolve bindings by evaluating expressions
     const resolvedBindings: Record<string, any> = {};
     for (const [placeholder, expression] of Object.entries(config.bindings)) {
@@ -90,15 +79,12 @@ export async function executeTemplateNode(
         );
       }
     }
-
     // Resolve template: either by templateKey (new) or templateId (legacy)
     let template: any;
     let templateKey: string | undefined;
-
     if (config.templateKey && workflowVersionId) {
       // New path: resolve template from workflowTemplates mapping
       templateKey = config.templateKey;
-
       const mapping = await db.query.workflowTemplates.findFirst({
         where: and(
           eq(schema.workflowTemplates.workflowVersionId, workflowVersionId),
@@ -112,13 +98,11 @@ export async function executeTemplateNode(
           },
         },
       });
-
       if (!mapping) {
         throw new Error(
           `Template with key '${config.templateKey}' not found in workflow version ${workflowVersionId}`
         );
       }
-
       template = mapping.template;
     } else if (config.templateId) {
       // Legacy path: direct templateId lookup
@@ -128,7 +112,6 @@ export async function executeTemplateNode(
           project: true,
         },
       });
-
       if (!template) {
         throw new Error(`Template ${config.templateId} not found`);
       }
@@ -137,27 +120,21 @@ export async function executeTemplateNode(
         'Template node must specify either templateKey (with workflowVersionId) or templateId'
       );
     }
-
     // Verify tenant access
     if (template.project.tenantId !== tenantId) {
       throw new Error(`Access denied to template ${template.id}`);
     }
-
     // Choose rendering engine (default to v2)
     const engine = config.engine || 'v2';
     const toPdf = config.toPdf || false;
-
     let result: { fileRef: string; pdfRef?: string; size: number; format: string };
-
     if (template.type === 'pdf') {
       // Stage 22: PDF Form Filling
       const templatePath = getTemplateFilePath(template.fileRef);
       const fileBuffer = await fs.readFile(templatePath);
-
       // Resolve mappings
       const pdfData: Record<string, string> = {};
       const mapping = (template.mapping as Record<string, string>) || {};
-
       for (const [field, variable] of Object.entries(mapping)) {
         try {
           // Resolve value. If it's a direct variable name or simple expression, evaluate it.
@@ -170,35 +147,27 @@ export async function executeTemplateNode(
           logger.warn({ field, variable, error: e }, "Failed to resolve PDF mapping");
         }
       }
-
       const filledBuffer = await pdfService.fillPdf(fileBuffer, pdfData);
-
       // Save output
       const outputName = config.outputName
         ? (config.outputName.endsWith('.pdf') ? config.outputName : `${config.outputName}.pdf`)
         : `output-${nodeId}-${Date.now()}.pdf`;
-
       const outputDir = path.join(process.cwd(), 'server', 'files', 'outputs');
       await fs.mkdir(outputDir, { recursive: true });
       const outputPath = path.join(outputDir, outputName);
-
       await fs.writeFile(outputPath, filledBuffer);
-
       result = {
         fileRef: outputName,
         pdfRef: outputName,
         size: filledBuffer.length,
         format: 'pdf'
       };
-
     } else if (engine === 'v2') {
       // Use new docxRenderer2 with loops, conditionals, helpers
       const templatePath = getTemplateFilePath(template.fileRef);
       const outputDir = path.join(process.cwd(), 'server', 'files', 'outputs');
-
       // Ensure output directory exists
       await fs.mkdir(outputDir, { recursive: true });
-
       const renderResult = await renderDocx2({
         templatePath,
         data: resolvedBindings,
@@ -206,7 +175,6 @@ export async function executeTemplateNode(
         outputName: config.outputName,
         toPdf,
       });
-
       result = {
         fileRef: path.basename(renderResult.docxPath),
         pdfRef: renderResult.pdfPath ? path.basename(renderResult.pdfPath) : undefined,
@@ -220,12 +188,10 @@ export async function executeTemplateNode(
         toPdf,
       });
     }
-
     // Store output in runOutputs table if runId is provided
     if (runId && workflowVersionId) {
       const fileType = toPdf && result.pdfRef ? 'pdf' : 'docx';
       const storagePath = toPdf && result.pdfRef ? result.pdfRef : result.fileRef;
-
       await db.insert(schema.runOutputs).values({
         runId,
         workflowVersionId,
@@ -235,7 +201,6 @@ export async function executeTemplateNode(
         status: 'ready',
       });
     }
-
     return {
       status: 'executed',
       outputRef: {
@@ -248,7 +213,6 @@ export async function executeTemplateNode(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'unknown error';
-
     // Store failed output in runOutputs table if runId is provided
     if (runId && workflowVersionId) {
       await db.insert(schema.runOutputs).values({
@@ -261,7 +225,6 @@ export async function executeTemplateNode(
         error: errorMessage,
       });
     }
-
     // Return error status instead of throwing
     // This allows the workflow to continue and log the error
     return {
@@ -271,7 +234,6 @@ export async function executeTemplateNode(
     };
   }
 }
-
 /**
  * Stub for future docx service integration
  */

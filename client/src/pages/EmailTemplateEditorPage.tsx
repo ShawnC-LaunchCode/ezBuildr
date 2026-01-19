@@ -3,7 +3,6 @@
  *
  * Edit email template metadata and configure branding token bindings
  */
-
 import {
   ArrowLeft,
   Save,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
-
 import { useBranding } from '@/components/branding';
 import EmailPreview from '@/components/branding/EmailPreview';
 import Header from '@/components/layout/Header';
@@ -28,7 +26,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -38,7 +35,6 @@ import {
   type EmailTemplateMetadata,
   type UpdateEmailTemplateMetadataRequest,
 } from '@/lib/vault-api';
-
 // Available branding tokens
 const BRANDING_TOKENS = [
   { key: 'logoUrl', label: 'Logo URL', description: 'Organization logo image', icon: Image },
@@ -63,22 +59,18 @@ const BRANDING_TOKENS = [
     icon: Mail,
   },
 ];
-
 export default function EmailTemplateEditorPage() {
   const { id: projectId, templateId } = useParams<{ id: string; templateId: string }>();
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-
   const tenantId = user?.tenantId;
   const { branding } = useBranding();
-
   const [template, setTemplate] = useState<EmailTemplateMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-
   // Form state
   const [formData, setFormData] = useState<UpdateEmailTemplateMetadataRequest>({
     name: '',
@@ -86,17 +78,14 @@ export default function EmailTemplateEditorPage() {
     subjectPreview: '',
     brandingTokens: {},
   });
-
   // Load template
   useEffect(() => {
     if (templateId) {
       loadTemplate();
     }
   }, [templateId]);
-
   const loadTemplate = async () => {
     if (!templateId) {return;}
-
     setIsLoading(true);
     try {
       const { template: fetchedTemplate } = await emailTemplateAPI.getTemplate(templateId);
@@ -118,7 +107,6 @@ export default function EmailTemplateEditorPage() {
       setIsLoading(false);
     }
   };
-
   const handleChange = <K extends keyof UpdateEmailTemplateMetadataRequest>(
     field: K,
     value: UpdateEmailTemplateMetadataRequest[K]
@@ -126,7 +114,6 @@ export default function EmailTemplateEditorPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
   };
-
   const handleTokenToggle = (tokenKey: string, enabled: boolean) => {
     setFormData((prev) => ({
       ...prev,
@@ -137,10 +124,8 @@ export default function EmailTemplateEditorPage() {
     }));
     setHasUnsavedChanges(true);
   };
-
   const handleSave = async () => {
     if (!templateId) {return;}
-
     setIsSaving(true);
     try {
       await emailTemplateAPI.updateTemplateMetadata(templateId, formData);
@@ -161,7 +146,6 @@ export default function EmailTemplateEditorPage() {
       setIsSaving(false);
     }
   };
-
   const handleReset = () => {
     if (template) {
       setFormData({
@@ -177,7 +161,6 @@ export default function EmailTemplateEditorPage() {
       });
     }
   };
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -191,7 +174,6 @@ export default function EmailTemplateEditorPage() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   if (authLoading || isLoading) {
     return (
       <div className="flex h-screen bg-background">
@@ -205,7 +187,6 @@ export default function EmailTemplateEditorPage() {
       </div>
     );
   }
-
   if (!template) {
     return (
       <div className="flex h-screen bg-background">
@@ -228,9 +209,7 @@ export default function EmailTemplateEditorPage() {
       </div>
     );
   }
-
   const enabledTokenCount = Object.values(formData.brandingTokens || {}).filter(Boolean).length;
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -266,7 +245,6 @@ export default function EmailTemplateEditorPage() {
                 {showPreview ? 'Hide' : 'Show'} Preview
               </Button>
             </div>
-
             {/* Unsaved Changes Banner */}
             {hasUnsavedChanges && (
               <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
@@ -298,7 +276,6 @@ export default function EmailTemplateEditorPage() {
                 </CardContent>
               </Card>
             )}
-
             <div className="grid gap-6 md:grid-cols-2">
               {/* Left Column: Form */}
               <div className="space-y-6">
@@ -320,7 +297,6 @@ export default function EmailTemplateEditorPage() {
                         placeholder="Workflow Invitation"
                       />
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="description">Description</Label>
                       <Textarea
@@ -331,7 +307,6 @@ export default function EmailTemplateEditorPage() {
                         rows={3}
                       />
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="subjectPreview">Subject Preview</Label>
                       <Input
@@ -346,7 +321,6 @@ export default function EmailTemplateEditorPage() {
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Branding Tokens */}
                 <Card>
                   <CardHeader>
@@ -384,7 +358,6 @@ export default function EmailTemplateEditorPage() {
                   </CardContent>
                 </Card>
               </div>
-
               {/* Right Column: Preview */}
               {showPreview && (
                 <div className="space-y-6">
@@ -397,7 +370,6 @@ export default function EmailTemplateEditorPage() {
                 </div>
               )}
             </div>
-
             {/* Save Actions (Bottom) */}
             <Card>
               <CardContent className="pt-6">

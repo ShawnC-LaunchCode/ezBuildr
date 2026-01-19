@@ -1,14 +1,11 @@
-
 import { Loader2, ArrowRight } from "lucide-react";
 import React, { useEffect, useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { versionAPI, ApiWorkflowVersion } from "@/lib/vault-api";
-
 interface DiffViewerProps {
     workflowId: string;
     version1: ApiWorkflowVersion | null;
@@ -16,7 +13,6 @@ interface DiffViewerProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
 interface DiffResult {
     sections: any[];
     steps: any[];
@@ -28,18 +24,15 @@ interface DiffResult {
         stepsModified: number;
     };
 }
-
 export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: DiffViewerProps) {
     const [diff, setDiff] = useState<DiffResult | null>(null);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
-
     useEffect(() => {
         if (isOpen && workflowId && version1 && version2) {
             void loadDiff();
         }
     }, [isOpen, workflowId, version1, version2]);
-
     const loadDiff = async () => {
         if (!version1 || !version2) { return; }
         setLoading(true);
@@ -56,7 +49,6 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
             setLoading(false);
         }
     };
-
     const renderChangeBadge = (type: string) => {
         switch (type) {
             case 'added': return <Badge className="bg-green-500">Added</Badge>;
@@ -65,7 +57,6 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
             default: return null;
         }
     };
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
@@ -75,7 +66,6 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                         Comparing v{version1?.versionNumber} to v{version2?.versionNumber}
                     </DialogDescription>
                 </DialogHeader>
-
                 {loading ? (
                     <div className="flex justify-center items-center flex-1">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -106,7 +96,6 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                     <div className="text-xs text-muted-foreground">Steps Modified</div>
                                 </div>
                             </div>
-
                             {/* Sections Diff */}
                             {diff.sections.length > 0 && (
                                 <div className="space-y-2">
@@ -138,7 +127,6 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                     ))}
                                 </div>
                             )}
-
                             {/* Steps Diff */}
                             {diff.steps.length > 0 && (
                                 <div className="space-y-2">

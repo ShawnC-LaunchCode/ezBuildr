@@ -1,7 +1,5 @@
-import type { UserPreferences } from "@shared/schema";
-
+import type {  } from "@shared/schema";
 import { userPreferencesRepository } from "../repositories";
-
 /**
  * Service layer for user preferences business logic
  * Handles user personalization settings management
@@ -13,7 +11,6 @@ export class UserPreferencesService {
    */
   async getByUserId(userId: string): Promise<Record<string, any>> {
     const prefs = await userPreferencesRepository.findByUserId(userId);
-
     if (!prefs) {
       // Return default preferences if none exist
       return {
@@ -22,10 +19,8 @@ export class UserPreferencesService {
         aiHints: true,
       };
     }
-
     return prefs.settings as Record<string, any>;
   }
-
   /**
    * Update user preferences
    * Merges new settings with existing ones
@@ -34,7 +29,6 @@ export class UserPreferencesService {
     const updated = await userPreferencesRepository.upsert(userId, updates);
     return updated.settings as Record<string, any>;
   }
-
   /**
    * Reset user preferences to defaults
    */
@@ -44,11 +38,9 @@ export class UserPreferencesService {
       darkMode: "system",
       aiHints: true,
     };
-
     const updated = await userPreferencesRepository.upsert(userId, defaults);
     return updated.settings as Record<string, any>;
   }
-
   /**
    * Delete user preferences
    */
@@ -56,5 +48,4 @@ export class UserPreferencesService {
     await userPreferencesRepository.deleteByUserId(userId);
   }
 }
-
 export const userPreferencesService = new UserPreferencesService();

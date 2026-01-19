@@ -2,13 +2,10 @@
  * TemplatesTab - Manage document templates (DOCX/PDF)
  * PR4: Full UI implementation with stubs
  */
-
 import axios from "axios";
-import { Upload, FileText, Trash2, RefreshCw, TestTube, AlertCircle, CheckCircle, ExternalLink , Edit } from "lucide-react";
+import { Upload, FileText, Trash2, TestTube, AlertCircle, CheckCircle, ExternalLink , Edit } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-
-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,13 +24,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { type ApiWorkflowVariable } from "@/lib/vault-api";
-import { useWorkflow, useSteps, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
+import { useWorkflow, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
 import { DocumentTemplateEditor } from "@/pages/visual-builder/components/DocumentTemplateEditor";
-
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { PdfMappingEditor } from "../templates/PdfMappingEditor";
-
-
 interface Template {
   id: string;
   name: string;
@@ -43,11 +37,9 @@ interface Template {
   fileSize?: number;
   variables?: string[];
 }
-
 interface TemplatesTabProps {
   workflowId: string;
 }
-
 export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -58,15 +50,12 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const [templateKey, setTemplateKey] = useState("");
   const [workflowProjectId, setWorkflowProjectId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-
   // Fetch workflow for project context
   const { data: workflow } = useWorkflow(workflowId);
   // Fetch variables for variable analysis
   const { data: variables } = useWorkflowVariables(workflowId);
-
   // Fetch projects to find fallback
   const { data: projects } = useProjects();
-
   const workflowVariables = (variables || []).map((v: ApiWorkflowVariable) => ({
     id: v.key,
     alias: v.alias || null,
@@ -74,12 +63,10 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   }));
   // console.log("TemplatesTab: Computed workflowVariables", workflowVariables);
   const workflowVariableAliases = new Set(workflowVariables.map(v => v.alias).filter((a): a is string => !!a));
-
   // Fetch templates for this project
   const fetchTemplates = async () => {
     try {
       if (!workflowProjectId) {return;}
-
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data = response.data;
       const mappedTemplates = (data.items || []).map((t: any) => ({
@@ -92,13 +79,11 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         // Mock variables if backend doesn't return them yet, for UX demonstration
         variables: t.variables || ["clientName", "matterDate", "unmatched_variable"]
       }));
-
       setTemplates(mappedTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
     }
   };
-
   useEffect(() => {
     if (workflow?.projectId) {
       setWorkflowProjectId(workflow.projectId);
@@ -107,20 +92,17 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       setWorkflowProjectId(projects[0].id);
     }
   }, [workflow?.projectId, projects]);
-
   useEffect(() => {
     if (workflowProjectId) {
       fetchTemplates();
     }
   }, [workflowProjectId]);
-
   // Helper to check variable status
   const getVariableStatus = (templateVars: string[]) => {
     const missing = templateVars.filter(v => !workflowVariableAliases.has(v));
     const matched = templateVars.filter(v => workflowVariableAliases.has(v));
     return { missing, matched, total: templateVars.length };
   };
-
   // Handle template upload
   const handleUpload = async () => {
     if (!selectedFile || !templateKey || !workflowProjectId) {
@@ -131,22 +113,18 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
       return;
     }
-
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("name", templateKey);
-
       await axios.post(`/api/projects/${workflowProjectId}/templates`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       toast({
         title: "Template uploaded",
         description: `${templateKey} has been uploaded successfully.`,
       });
-
       setUploadDialogOpen(false);
       setSelectedFile(null);
       setTemplateKey("");
@@ -162,7 +140,6 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       setIsUploading(false);
     }
   };
-
   // Handle template test
   const handleTest = async (templateId: string) => {
     try {
@@ -170,11 +147,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         title: "Testing template",
         description: "Generating test document...",
       });
-
       const response = await axios.post(`/api/templates/${templateId}/test`, {
         workflowId,
       });
-
       if (response.data?.url) {
         window.open(response.data.url, "_blank");
         toast({
@@ -191,21 +166,17 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
     }
   };
-
   // Handle template deletion
   const handleDelete = async (templateId: string, templateName: string) => {
     if (!confirm(`Are you sure you want to delete "${templateName}"?`)) {
       return;
     }
-
     try {
       await axios.delete(`/api/templates/${templateId}`);
-
       toast({
         title: "Template deleted",
         description: `${templateName} has been deleted.`,
       });
-
       fetchTemplates();
     } catch (error: any) {
       console.error("Delete error:", error);
@@ -216,10 +187,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
     }
   };
-
   const renderTemplateGrid = (type: 'docx' | 'pdf') => {
     const filteredTemplates = templates.filter(t => t.type === type);
-
     if (filteredTemplates.length === 0 && workflowProjectId) {
       return (
         <div className="flex flex-col items-center justify-center h-64 text-center border-2 border-dashed rounded-lg bg-slate-50/50">
@@ -229,13 +198,11 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         </div>
       );
     }
-
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => {
           const { missing, matched, total } = getVariableStatus(template.variables || []);
           const hasMissing = missing.length > 0;
-
           return (
             <Card key={template.id} className="flex flex-col hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
@@ -266,7 +233,6 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                       </span>
                     )}
                   </div>
-
                   {/* Progress Bar */}
                   <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                     <div
@@ -274,7 +240,6 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                       style={{ width: `${total > 0 ? (matched.length / total) * 100 : 100}%` }}
                     />
                   </div>
-
                   {hasMissing && (
                     <div className="pt-2 border-t border-slate-200/50 mt-2">
                       <p className="font-semibold text-amber-700 mb-1.5">Create these variables:</p>
@@ -308,7 +273,6 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       </div>
     );
   };
-
   return (
     <BuilderLayout>
       <BuilderLayoutHeader>
@@ -358,10 +322,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
           </Dialog>
         </div>
       </BuilderLayoutHeader>
-
       <BuilderLayoutContent>
         <div className="space-y-12">
-
           {/* Word Templates Section */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
@@ -388,10 +350,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                 </Button>
               </div>
             </div>
-
             {renderTemplateGrid('docx')}
           </section>
-
           {/* PDF Templates Section */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
@@ -409,10 +369,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                 Upload
               </Button>
             </div>
-
             {renderTemplateGrid('pdf')}
           </section>
-
           {/* Email Templates Section (Placeholder) */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
@@ -426,14 +384,12 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                 Create
               </Button>
             </div>
-
             <div className="flex flex-col items-center justify-center h-24 text-center border-2 border-dashed rounded-lg bg-slate-50/50">
               <p className="text-sm text-muted-foreground font-medium">You have no email templates</p>
             </div>
           </section>
         </div>
       </BuilderLayoutContent>
-
       {/* Editors */}
       {editingTemplate && editingTemplate.type === 'docx' && (
         <DocumentTemplateEditor
@@ -443,7 +399,6 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
           workflowVariables={Array.from(workflowVariableAliases)}
         />
       )}
-
       {editingTemplate && editingTemplate.type === 'pdf' && workflowProjectId && (
         <PdfMappingEditor
           templateId={editingTemplate.id}

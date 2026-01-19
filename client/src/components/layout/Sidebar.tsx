@@ -1,25 +1,18 @@
-
-import { Home, Plus, Settings, FileText, BarChart2, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
+import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
-
 import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-
-import type { User } from "@shared/schema";
-
-
+import type {  } from "@shared/schema";
 interface SidebarProps {
   className?: string;
 }
-
 export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { toast } = useToast();
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -36,10 +29,8 @@ export default function Sidebar({ className }: SidebarProps) {
       });
     }
   };
-
   // Check if user is admin (from server response)
   const isAdmin = (user as any)?.role === 'admin';
-
   const navigation = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Workflows", href: "/workflows", icon: Workflow },
@@ -49,14 +40,12 @@ export default function Sidebar({ className }: SidebarProps) {
     { name: "DataVault", href: "/datavault", icon: Folder },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
-
   const adminNavigation = [
     { name: "Admin Dashboard", href: "/admin", icon: Shield },
     { name: "Manage Users", href: "/admin/users", icon: Users },
     { name: "Activity Logs", href: "/admin/logs", icon: List },
     { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },
   ];
-
   const isActive = (href: string) => {
     if (href === "/") {
       return location === "/";
@@ -68,7 +57,6 @@ export default function Sidebar({ className }: SidebarProps) {
     }
     return location.startsWith(href);
   };
-
   return (
     <aside className={`hidden md:flex w-64 bg-card border-r border-border flex-col ${className || ''}`} data-testid="sidebar">
       {/* Logo and Brand */}
@@ -82,7 +70,6 @@ export default function Sidebar({ className }: SidebarProps) {
           <span className="text-lg sm:text-xl font-bold text-foreground">ezBuildr</span>
         </div>
       </div>
-
       {/* Navigation Menu */}
       <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
         {navigation.map((item) => (
@@ -99,7 +86,6 @@ export default function Sidebar({ className }: SidebarProps) {
             </div>
           </Link>
         ))}
-
         {/* Admin Section */}
         {isAdmin && (
           <>
@@ -125,7 +111,6 @@ export default function Sidebar({ className }: SidebarProps) {
           </>
         )}
       </nav>
-
       {/* User Profile */}
       <div className="p-3 sm:p-4 border-t border-border">
         <div className="flex flex-col space-y-3">

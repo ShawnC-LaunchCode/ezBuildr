@@ -1,16 +1,9 @@
 import type { User } from '@shared/schema';
-
 import { createLogger } from '../logger';
 import { userRepository } from '../repositories';
-
-import { isAuthRequest, type AuthRequest } from './auth';
-
+import { isAuthRequest, type  } from './auth';
 import type { Request, Response, NextFunction } from 'express';
-
-
-
 const logger = createLogger({ module: 'require-user-middleware' });
-
 /**
  * Extended AuthRequest with attached user object
  */
@@ -22,14 +15,12 @@ export interface UserRequest extends Request {
   jwtPayload?: unknown;
   user: User | any;
 }
-
 /**
  * Type guard to check if a request has user attached
  */
 export function hasUser(req: Request): req is UserRequest {
   return isAuthRequest(req) && 'user' in req && req.user !== undefined;
 }
-
 /**
  * Middleware to fetch and attach user to request
  * Requires authentication middleware to run first (hybridAuth or requireAuth)
@@ -51,10 +42,8 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
       });
       return;
     }
-
     // Fetch user from database
     const user = await userRepository.findById(req.userId);
-
     if (!user) {
       logger.warn({ userId: req.userId, path: req.path }, 'User not found in database');
       res.status(404).json({
@@ -63,10 +52,8 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
       });
       return;
     }
-
     // Attach user to request (type-safe)
     Object.assign(req as any, { user } as Partial<UserRequest>);
-
     logger.debug({ userId: user.id, email: user.email }, 'User attached to request');
     next();
   } catch (error) {
@@ -77,7 +64,6 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
     });
   }
 }
-
 /**
  * Optional user middleware - attaches user if authenticated, continues if not
  * Useful for routes that should work both authenticated and unauthenticated
@@ -94,16 +80,13 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
     if (!isAuthRequest(req) || !req.userId) {
       return next();
     }
-
     // Fetch user from database
     const user = await userRepository.findById(req.userId);
-
     if (user) {
       // Attach user to request (type-safe)
       Object.assign(req as any, { user } as Partial<UserRequest>);
       logger.debug({ userId: user.id }, 'User attached to request (optional)');
     }
-
     next();
   } catch (error) {
     // Don't fail the request if user fetch fails in optional mode
@@ -111,7 +94,6 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
     next();
   }
 }
-
 /**
  * Helper function to get user from request (type-safe)
  * Returns undefined if user is not attached
@@ -119,7 +101,6 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
 export function getUser(req: Request): User | undefined {
   return hasUser(req) ? req.user : undefined;
 }
-
 /**
  * Helper function to assert user exists on request
  * Throws error if user is not attached (use in middleware chains where requireUser was used)

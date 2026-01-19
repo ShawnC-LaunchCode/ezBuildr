@@ -1,44 +1,35 @@
-
-import { Check, Copy, UserPlus, X, Shield, ShieldAlert, Eye } from "lucide-react";
+import {  Copy, UserPlus, X } from "lucide-react";
 import React, { useState } from "react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-
 interface ShareWorkflowDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     workflowId: string;
     workflowTitle: string;
 }
-
 type Role = "viewer" | "editor" | "owner";
-
 interface Collaborator {
     email: string;
     role: Role;
     isPending?: boolean;
 }
-
 // Mock initial data
 const INITIAL_collaborators: Collaborator[] = [
     { email: "you@example.com", role: "owner" },
 ];
-
 export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTitle }: ShareWorkflowDialogProps) {
     const { toast } = useToast();
     const [collaborators, setCollaborators] = useState<Collaborator[]>(INITIAL_collaborators);
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteRole, setInviteRole] = useState<Role>("viewer");
-
     const handleCopyLink = () => {
         // In real app, this might be a specific share link
         const link = `${window.location.origin}/workflows/${workflowId}/builder`;
@@ -48,10 +39,8 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
             description: "Builder link copied to clipboard.",
         });
     };
-
     const handleInvite = () => {
         if (!inviteEmail.trim()) {return;}
-
         // Simulate api call
         setTimeout(() => {
             setCollaborators([...collaborators, { email: inviteEmail, role: inviteRole, isPending: true }]);
@@ -62,11 +51,9 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
             });
         }, 500);
     };
-
     const removeCollaborator = (email: string) => {
         setCollaborators(collaborators.filter(c => c.email !== email));
     };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
@@ -76,7 +63,6 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                         Invite teammates to collaborate on this workflow.
                     </DialogDescription>
                 </DialogHeader>
-
                 <div className="space-y-6 py-4">
                     {/* Invite Section */}
                     <div className="flex gap-2 items-end">
@@ -104,9 +90,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                             Invite
                         </Button>
                     </div>
-
                     <Separator />
-
                     {/* Link Copy Section */}
                     <div className="flex items-center justify-between space-x-2 bg-muted/40 p-2 rounded-md border">
                         <div className="text-sm text-muted-foreground truncate flex-1 pl-1">
@@ -117,7 +101,6 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                             Copy Link
                         </Button>
                     </div>
-
                     {/* Collaborators List */}
                     <div className="space-y-3">
                         <h4 className="text-sm font-medium">People with access</h4>

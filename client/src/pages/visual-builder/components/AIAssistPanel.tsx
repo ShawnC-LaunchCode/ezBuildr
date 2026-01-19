@@ -1,16 +1,11 @@
-
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { Wand2, Check, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
+import { Wand2, Check, Loader2 } from 'lucide-react';
 import React, { useState } from 'react';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
-
-
 interface AIAssistPanelProps {
     templateId: string;
     fileBuffer?: ArrayBuffer; // If analyzing a new upload
@@ -18,11 +13,9 @@ interface AIAssistPanelProps {
     onApplyMapping?: (mapping: any) => void;
     workflowVariables?: any[];
 }
-
 export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping, workflowVariables }: AIAssistPanelProps) {
     const [analysis, setAnalysis] = useState<any>(null);
     const [mappings, setMappings] = useState<any[]>([]);
-
     // Analyze Mutation
     const analyzeMutation = useMutation({
         mutationFn: async () => {
@@ -45,7 +38,6 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
             }
         }
     });
-
     // Suggest Mapping Mutation
     const suggestMappingMutation = useMutation({
         mutationFn: async (variables: any[]) => {
@@ -59,7 +51,6 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
             setMappings(data);
         }
     });
-
     return (
         <div className="h-full flex flex-col border-l bg-white dark:bg-zinc-900 w-[350px]">
             <div className="p-4 border-b flex items-center justify-between">
@@ -69,7 +60,6 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
                 </h3>
                 <Badge variant="secondary" className="text-xs">Beta</Badge>
             </div>
-
             <ScrollArea className="flex-1 p-4">
                 {!analysis && !analyzeMutation.isPending && (
                     <div className="text-center py-10 space-y-4">
@@ -81,14 +71,12 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
                         </Button>
                     </div>
                 )}
-
                 {analyzeMutation.isPending && (
                     <div className="flex flex-col items-center justify-center py-10 gap-2">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Analyzing document structure...</span>
                     </div>
                 )}
-
                 {analysis && (
                     <div className="space-y-6">
                         {/* Variables Detected */}
@@ -107,14 +95,12 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
                                                     {Math.round(v.confidence * 100)}%
                                                 </Badge>
                                             </div>
-
                                             {/* Mapping Suggestion */}
                                             {mappings.length > 0 && (
                                                 <div className="mt-3 pt-2 border-t">
                                                     {(() => {
                                                         const mapping = mappings.find(m => m.templateVariable === v.name);
                                                         if (!mapping) {return <span className="text-xs text-muted-foreground">No mapping found</span>;}
-
                                                         return (
                                                             <div className="flex flex-col gap-1">
                                                                 <span className="text-xs text-muted-foreground">Mapped to:</span>
@@ -142,7 +128,6 @@ export function AIAssistPanel({ templateId, fileBuffer, fileName, onApplyMapping
                                 ))}
                             </div>
                         </div>
-
                         {/* Suggestions */}
                         {analysis.suggestions && analysis.suggestions.length > 0 && (
                             <div className="space-y-2">

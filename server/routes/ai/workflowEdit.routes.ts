@@ -1,19 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
 import { createLogger } from "../../logger";
-import { hybridAuth, type AuthRequest } from "../../middleware/auth";
+import { hybridAuth, type  } from "../../middleware/auth";
 import { aiWorkflowEditRequestSchema } from "../../schemas/aiWorkflowEdit.schema";
 import { aiSettingsService } from "../../services/AiSettingsService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
-
 import type { AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
-
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
-
 /**
  * Register AI workflow editing routes
  */
@@ -31,7 +27,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         const { workflowId } = req.params;
         const userId = req.user.id;
         console.log(`[DEBUG] Validating request body`);
-
         // 1. Validate request body (merge param ID into body for schema validation)
         const bodyToValidate = {
           ...req.body,
@@ -46,14 +41,12 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           });
         }
         const requestData = validationResult.data;
-
         // 2. Get current workflow
         console.log(`[DEBUG] Fetching workflow details`);
         const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
         if (!currentWorkflow) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
-
         // 3. Create BEFORE snapshot
         console.log(`[DEBUG] Creating snapshot`);
         let beforeSnapshot;
@@ -68,7 +61,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           // Continue? Or fail? Usually fail safety.
           // For now assume success or log
         }
-
         // 4. (Optional) Check permissions (handled by service mostly but context useful)
         // 5. Call AI model (Gemini)
         console.log(`[DEBUG] Calling Gemini`);
@@ -89,7 +81,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             error: `AI model call failed: ${error instanceof Error ? error.message : "Unknown error"}`,
           });
         }
-
         // 6. Apply patch operations
         console.log(`[DEBUG] Calling applyOps with ${aiResponse.ops.length} ops`);
         try {
@@ -99,7 +90,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             aiResponse.ops
           );
           console.log(`[DEBUG] applyOps returned. Errors: ${errors.length}`);
-
           if (errors.length > 0) {
             logger.error({ errors, workflowId }, "Failed to apply some AI operations");
             return res.status(400).json({
@@ -112,16 +102,12 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           console.error("Debug: applyOps THREW error:", applyError);
           throw applyError;
         }
-
         // 7. Get updated workflow
         const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
-
         // 8. Create new version (DRAFT)
         const graphJson = convertWorkflowToGraphJson(updatedWorkflow);
-
         let draftVersion;
         let noChanges = false;
-
         try {
           draftVersion = await versionService.createDraftVersion(
             workflowId,
@@ -137,7 +123,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
               // snapshots added after creation to avoid circular dep
             }
           );
-
           if (!draftVersion) {
             noChanges = true;
           } else {
@@ -145,7 +130,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             if (updatedWorkflow.status === 'active') {
               await workflowService.changeStatus(workflowId, userId, 'draft');
             }
-
             // 9. Create AFTER snapshot
             let afterSnapshot;
             try {
@@ -154,7 +138,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
                 `AI Edit AFTER: ${draftVersion.versionNumber}`,
                 draftVersion.id
               );
-
               // 10. Update version metadata with snapshot IDs
               await versionService.updateAiMetadata(draftVersion.id, {
                 source: 'ai-edit',
@@ -165,7 +148,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
                 beforeSnapshotId: beforeSnapshot?.id,
                 afterSnapshotId: afterSnapshot?.id
               });
-
             } catch (error) {
               logger.error({ error, workflowId }, "Failed to create after snapshot or update metadata");
             }
@@ -174,7 +156,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           logger.error({ error, workflowId }, "Failed to create draft version after AI edit");
           // Proceed, but warn?
         }
-
         res.status(200).json({
           success: true,
           data: {
@@ -187,25 +168,20 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             questions: aiResponse.questions || []
           }
         });
-
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const message = error instanceof Error ? error.message : "Failed to process AI edit";
-
         // Map common validation/duplicate errors to 400
         const isUserError = message.includes("Access denied") ||
           message.includes("already exists") ||
           message.includes("Duplicate") ||
           message.includes("duplicate key");
-
         const status = isUserError ? (message.includes("Access denied") ? 403 : 400) : 500;
-
         res.status(status).json({ success: false, error: message });
       }
     }
   );
 }
-
 /**
  * Call Gemini API to generate workflow edit operations
  */
@@ -216,11 +192,9 @@ async function callGeminiForWorkflowEdit(
   systemPromptTemplate?: string
 ): Promise<AiModelResponse> {
   const geminiApiKey = process.env.GEMINI_API_KEY;
-
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY not configured");
   }
-
   let genAI;
   try {
     genAI = new GoogleGenerativeAI(geminiApiKey);
@@ -228,24 +202,17 @@ async function callGeminiForWorkflowEdit(
     logger.error({ err }, "GoogleGenerativeAI Constructor Error");
     throw err;
   }
-
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-
   // Build system prompt
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
-
   // Build workflow context
   const workflowContext = buildWorkflowContext(currentWorkflow);
-
   // Full prompt
   const fullPrompt = `${systemPrompt}
-
 ## Current Workflow State
 ${workflowContext}
-
 ## User Request
 ${userMessage}
-
 ## Instructions
 Analyze the user's request and generate a JSON response with the following structure:
 {
@@ -265,17 +232,11 @@ Analyze the user's request and generate a JSON response with the following struc
     { operation objects following the schema }
   ]
 }
-
 Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
-
   logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
-
   const result = await model.generateContent(fullPrompt);
-
   const responseText = result.response.text();
-
   logger.debug({ responseLength: responseText.length }, "Received Gemini response");
-
   // Parse JSON response
   let parsedResponse: any;
   try {
@@ -287,15 +248,12 @@ Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
     logger.error({ error, responseText }, "Failed to parse Gemini JSON response");
     throw new Error("Invalid JSON response from AI model");
   }
-
   // Validate structure (basic check)
   if (!parsedResponse.summary || !parsedResponse.ops || typeof parsedResponse.confidence !== 'number') {
     throw new Error("Invalid AI response structure");
   }
-
   return parsedResponse as AiModelResponse;
 }
-
 /**
  * Build system prompt based on preferences
  */
@@ -303,11 +261,8 @@ function buildSystemPrompt(preferences?: any, template?: string): string {
   const readingLevel = preferences?.readingLevel || "standard";
   const tone = preferences?.tone || "neutral";
   const interviewerRole = preferences?.interviewerRole || "workflow designer";
-
   const baseTemplate = template || `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
-
 Your task is to analyze the user's request and generate structured operations to modify the workflow.
-
 Guidelines:
 - Reading level: {{readingLevel}}
 - Tone: {{tone}}
@@ -317,7 +272,6 @@ Guidelines:
 - Provide confidence score based on request clarity
 - Ask questions if requirements are ambiguous
 - Include warnings for potentially breaking changes
-
 Available operation types:
 - workflow.setMetadata
 - section.create/update/delete/reorder
@@ -325,26 +279,21 @@ Available operation types:
 - logicRule.create/update/delete (stub)
 - document.add/update/setConditional/bindFields (stub)
 - datavault.createTable/addColumns/createWritebackMapping (stub)`;
-
   return baseTemplate
     .replace(/{{interviewerRole}}/g, interviewerRole)
     .replace(/{{readingLevel}}/g, readingLevel)
     .replace(/{{tone}}/g, tone);
 }
-
 /**
  * Build workflow context summary
  */
 function buildWorkflowContext(workflow: any): string {
   const sections = workflow.sections || [];
   const logicRules = workflow.logicRules || [];
-
   let context = `Workflow: ${workflow.title}
 Status: ${workflow.status}
 Sections: ${sections.length}
-
 `;
-
   for (const section of sections) {
     const steps = section.steps || [];
     context += `\n### Section ${section.order}: ${section.title}
@@ -358,14 +307,11 @@ Steps: ${steps.length}
       context += '\n';
     }
   }
-
   if (logicRules.length > 0) {
     context += `\nLogic Rules: ${logicRules.length}\n`;
   }
-
   return context;
 }
-
 /**
  * Convert workflow object to graphJson format for versioning
  */

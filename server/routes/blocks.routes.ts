@@ -1,7 +1,4 @@
-import { z } from "zod";
-
 import type { BlockPhase } from "@shared/types/blocks";
-
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
@@ -12,11 +9,8 @@ import { listToolsBlockService } from "../services/ListToolsBlockService";
 import { queryBlockService } from "../services/QueryBlockService";
 import { readTableBlockService } from "../services/ReadTableBlockService";
 import { asyncHandler } from '../utils/asyncHandler';
-
 import type { Express, Request, Response } from "express";
-
 const logger = createLogger({ module: 'blocks-routes' });
-
 /**
  * Register block management routes
  * Handles CRUD operations for workflow blocks
@@ -33,10 +27,8 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { workflowId } = req.params;
       const blockData = req.body;
-
       // Validate required fields
       if (!blockData.type || !blockData.phase || !blockData.config) {
         res.status(400).json({
@@ -45,7 +37,6 @@ export function registerBlockRoutes(app: Express): void {
         });
         return;
       }
-
       // Route to specialized service for query, read_table, and list_tools blocks (they need virtual steps)
       let block;
       if (blockData.type === 'query') {
@@ -73,7 +64,6 @@ export function registerBlockRoutes(app: Express): void {
         // Generic block creation for other block types
         block = await blockService.createBlock(workflowId, userId, blockData);
       }
-
       res.status(201).json({ success: true, data: block });
     } catch (error) {
       logger.error({ error }, "Error creating block");
@@ -82,7 +72,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * GET /api/workflows/:workflowId/blocks
    * List all blocks for a workflow
@@ -94,10 +83,8 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { workflowId } = req.params;
       const phase = req.query.phase as BlockPhase | undefined;
-
       const blocks = await blockService.listBlocks(workflowId, userId, phase);
       res.json({ success: true, data: blocks });
     } catch (error) {
@@ -107,7 +94,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * GET /api/blocks/:blockId
    * Get a single block by ID
@@ -119,7 +105,6 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { blockId } = req.params;
       const block = await blockService.getBlock(blockId, userId);
       res.json({ success: true, data: block });
@@ -130,7 +115,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * PUT /api/blocks/:blockId
    * Update a block
@@ -142,10 +126,8 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { blockId } = req.params;
       const updates = req.body;
-
       // Look up workflowId for auto-revert middleware
       const block = await blockRepository.findById(blockId);
       if (!block) {
@@ -153,10 +135,8 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       req.params.workflowId = block.workflowId;
-
       // Apply auto-revert
       await autoRevertToDraft(req, res, () => { });
-
       // Route to specialized service for query, read_table, and list_tools blocks
       let updatedBlock;
       if ((block.type as string) === 'query') {
@@ -180,7 +160,6 @@ export function registerBlockRoutes(app: Express): void {
       } else {
         updatedBlock = await blockService.updateBlock(blockId, userId, updates);
       }
-
       res.json({ success: true, data: updatedBlock });
     } catch (error) {
       logger.error({ error }, "Error updating block");
@@ -189,7 +168,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * DELETE /api/blocks/:blockId
    * Delete a block
@@ -201,9 +179,7 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { blockId } = req.params;
-
       // Look up workflowId for auto-revert middleware
       const block = await blockRepository.findById(blockId);
       if (!block) {
@@ -211,10 +187,8 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       req.params.workflowId = block.workflowId;
-
       // Apply auto-revert
       await autoRevertToDraft(req, res, () => { });
-
       await blockService.deleteBlock(blockId, userId);
       res.json({ success: true, data: { message: "Block deleted successfully" } });
     } catch (error) {
@@ -224,7 +198,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * PUT /api/workflows/:workflowId/blocks/reorder
    * Bulk reorder blocks
@@ -236,10 +209,8 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { workflowId } = req.params;
       const { blocks } = req.body;
-
       if (!Array.isArray(blocks)) {
         res.status(400).json({
           success: false,
@@ -247,7 +218,6 @@ export function registerBlockRoutes(app: Express): void {
         });
         return;
       }
-
       await blockService.reorderBlocks(workflowId, userId, blocks);
       res.json({ success: true, data: { message: "Blocks reordered successfully" } });
     } catch (error) {
@@ -257,7 +227,6 @@ export function registerBlockRoutes(app: Express): void {
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
-
   /**
    * POST /api/workflows/:workflowId/steps/:stepId/create-list-tools
    * Create a List Tools block inline from a Choice question
@@ -270,10 +239,8 @@ export function registerBlockRoutes(app: Express): void {
         res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
         return;
       }
-
       const { workflowId, stepId } = req.params;
       const { sourceListVar, transformConfig, sectionId } = req.body;
-
       // Validation
       if (!sourceListVar) {
         res.status(400).json({
@@ -282,7 +249,6 @@ export function registerBlockRoutes(app: Express): void {
         });
         return;
       }
-
       if (!sectionId) {
         res.status(400).json({
           success: false,
@@ -290,25 +256,21 @@ export function registerBlockRoutes(app: Express): void {
         });
         return;
       }
-
       // Generate unique output variable name
       const allSteps = await stepRepository.findByWorkflowId(workflowId);
       const existingAliases = new Set(allSteps.map((s) => s.alias).filter(Boolean));
-
       let outputVar = `${sourceListVar}_filtered`;
       let counter = 2;
       while (existingAliases.has(outputVar)) {
         outputVar = `${sourceListVar}_filtered_${counter}`;
         counter++;
       }
-
       // Build List Tools config from transform config
       const listToolsConfig: any = {
         sourceListVar,
         outputKey: outputVar,
         outputListVar: outputVar,
       };
-
       // Map transform config from Choice question format to List Tools format
       if (transformConfig) {
         if (transformConfig.filters) {
@@ -330,7 +292,6 @@ export function registerBlockRoutes(app: Express): void {
           listToolsConfig.select = transformConfig.select;
         }
       }
-
       // Create the List Tools block
       const block = await listToolsBlockService.createBlock(workflowId, userId, {
         name: `Options for ${stepId.substring(0, 8)}`,
@@ -338,7 +299,6 @@ export function registerBlockRoutes(app: Express): void {
         config: listToolsConfig,
         phase: 'onSectionEnter',
       });
-
       logger.info({
         blockId: block.id,
         stepId,
@@ -346,7 +306,6 @@ export function registerBlockRoutes(app: Express): void {
         outputVar,
         sectionId
       }, "Created List Tools block inline from Choice question");
-
       res.status(201).json({
         success: true,
         data: {

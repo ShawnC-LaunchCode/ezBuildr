@@ -2,13 +2,11 @@
  * CollectionsDrawer - Configuration drawer for Collections data source
  * PR6: Stub implementation for Collections configuration
  */
-
 import { Database, Plus, Trash2 } from "lucide-react";
 import React, { useState } from "react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,20 +25,17 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-
 interface Collection {
   id: string;
   name: string;
   key: string;
   recordCount: number;
 }
-
 interface CollectionsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workflowId: string;
 }
-
 export function CollectionsDrawer({ open, onOpenChange, workflowId }: CollectionsDrawerProps) {
   const { toast } = useToast();
   const [collections, setCollections] = useState<Collection[]>([
@@ -57,10 +52,8 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
       recordCount: 156,
     },
   ]);
-
   const [newCollectionName, setNewCollectionName] = useState("");
   const [selectedCollection, setSelectedCollection] = useState<string>("");
-
   // Stub: Create new collection
   const handleCreateCollection = () => {
     if (!newCollectionName) {
@@ -71,30 +64,23 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
       });
       return;
     }
-
     // Stub implementation
     console.log("Creating collection:", newCollectionName);
-
     toast({
       title: "Coming Soon",
       description: `Collection "${newCollectionName}" creation will be implemented soon`,
     });
-
     setNewCollectionName("");
   };
-
   // Stub: Delete collection
   const handleDeleteCollection = (id: string, name: string) => {
     console.log("Deleting collection:", id);
-
     toast({
       title: "Success",
       description: `Collection "${name}" removed`,
     });
-
     setCollections(collections.filter(c => c.id !== id));
   };
-
   // Stub: Link collection to workflow
   const handleLinkCollection = () => {
     if (!selectedCollection) {
@@ -105,17 +91,13 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
       });
       return;
     }
-
     const collection = collections.find(c => c.id === selectedCollection);
-
     console.log("Linking collection to workflow:", { workflowId, collectionId: selectedCollection });
-
     toast({
       title: "Coming Soon",
       description: `Linking collection "${collection?.name}" will be implemented soon`,
     });
   };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg overflow-y-auto">
@@ -129,7 +111,6 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
             that can be used for prefilling, validation, and data lookups.
           </SheetDescription>
         </SheetHeader>
-
         <div className="space-y-6 py-6">
           {/* Link Existing Collection Section */}
           <div>
@@ -150,13 +131,11 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
                   </SelectContent>
                 </Select>
               </div>
-
               <Button onClick={handleLinkCollection} className="w-full">
                 Link Collection
               </Button>
             </div>
           </div>
-
           {/* Create New Collection Section */}
           <div>
             <h3 className="text-sm font-semibold mb-3">Create New Collection</h3>
@@ -170,14 +149,12 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
                   onChange={(e) => setNewCollectionName(e.target.value)}
                 />
               </div>
-
               <Button onClick={handleCreateCollection} variant="outline" className="w-full">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Collection
               </Button>
             </div>
           </div>
-
           {/* Available Collections */}
           <div>
             <h3 className="text-sm font-semibold mb-3">Available Collections</h3>
@@ -216,7 +193,6 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
               )}
             </div>
           </div>
-
           {/* Info Box */}
           <div className="p-4 bg-muted/50 rounded-lg border border-border">
             <h4 className="text-sm font-semibold mb-2">About Collections</h4>
@@ -231,7 +207,6 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
             </ul>
           </div>
         </div>
-
         <SheetFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close

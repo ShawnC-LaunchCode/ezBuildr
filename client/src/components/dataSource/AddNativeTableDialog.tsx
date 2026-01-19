@@ -1,8 +1,6 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Database, Table, Check, Search } from "lucide-react";
-import React, { useState, useEffect } from "react";
-
+import React, { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-
 interface NativeCatalog {
     databases: {
         id: string;
@@ -19,13 +16,11 @@ interface NativeCatalog {
     }[];
     orphanTables: { id: string; name: string }[];
 }
-
 interface AddNativeTableDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onComplete: () => void;
 }
-
 export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNativeTableDialogProps) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -33,12 +28,10 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
     const [selectedTableName, setSelectedTableName] = useState<string>("");
     const [selectedDatabaseId, setSelectedDatabaseId] = useState<string | null>(null);
     const [filter, setFilter] = useState("");
-
     const { data: catalog, isLoading } = useQuery<NativeCatalog>({
         queryKey: ["/api/data-sources/native/catalog"],
         enabled: open,
     });
-
     const createMutation = useMutation({
         mutationFn: async (data: { name: string; type: string; config: any }) => {
             const res = await fetch("/api/data-sources", {
@@ -65,10 +58,8 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
             toast({ title: "Error", description: err.message, variant: "destructive" });
         },
     });
-
     const handleAdd = () => {
         if (!selectedTableId) {return;}
-
         createMutation.mutate({
             name: selectedTableName || "Native Table",
             type: "native_table",
@@ -78,21 +69,17 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
             },
         });
     };
-
     const handleSelect = (tableId: string, tableName: string, databaseId: string | null) => {
         setSelectedTableId(tableId);
         setSelectedTableName(tableName);
         setSelectedDatabaseId(databaseId);
     };
-
     // Filter logic
     const filteredDatabases = catalog?.databases.map(db => ({
         ...db,
         tables: db.tables.filter(t => t.name.toLowerCase().includes(filter.toLowerCase()))
     })).filter(db => db.tables.length > 0) || [];
-
     const filteredOrphans = catalog?.orphanTables.filter(t => t.name.toLowerCase().includes(filter.toLowerCase())) || [];
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md h-[500px] flex flex-col">
@@ -102,7 +89,6 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                         Choose a table to use as a data source.
                     </DialogDescription>
                 </DialogHeader>
-
                 <div className="flex items-center gap-2 mb-2">
                     <Search className="w-4 h-4 text-muted-foreground" />
                     <Input
@@ -112,7 +98,6 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                         className="h-8"
                     />
                 </div>
-
                 <ScrollArea className="flex-1 border rounded-md p-2">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-40">
@@ -156,7 +141,6 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                                     ))}
                                 </Accordion>
                             )}
-
                             {/* Orphan Tables */}
                             {filteredOrphans.length > 0 && (
                                 <div className="space-y-1 mt-2">
@@ -181,7 +165,6 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                                     ))}
                                 </div>
                             )}
-
                             {filteredDatabases.length === 0 && filteredOrphans.length === 0 && (
                                 <div className="text-center py-8 text-muted-foreground text-sm">
                                     No tables found.
@@ -190,7 +173,6 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                         </div>
                     )}
                 </ScrollArea>
-
                 <DialogFooter className="mt-4">
                     <Button variant="outline" onClick={() => { void onOpenChange(false); }}>
                         Cancel

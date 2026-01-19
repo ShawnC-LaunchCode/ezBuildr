@@ -1,38 +1,29 @@
 import dotenv from "dotenv";
-
 // Load environment variables from .env file FIRST
 dotenv.config();
-
 // CRITICAL: Initialize OpenTelemetry BEFORE any other imports
 // This ensures auto-instrumentation can hook into all modules
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type    } from "express";
 import helmet from "helmet";
-
-import { logger, requestLogger } from "./logger";
+import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
-import { globalLimiter, authLimiter } from "./middleware/rateLimiting";
+import { globalLimiter } from "./middleware/rateLimiting";
 import { requestIdMiddleware } from "./middleware/requestId";
 import { requestTimeout } from "./middleware/timeout.js";
 import { initTelemetry } from "./observability/telemetry";
 initTelemetry();
-
 import cors from "cors";
-
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
-
 const app = express();
-
 // Note: Session and auth setup is handled by setupAuth() in registerRoutes()
 // to avoid duplicate middleware registration
-
 // =====================================================================
 // 1️⃣ REQUEST ID TRACKING (FIRST - needed for logging)
 // =====================================================================
 app.use(requestIdMiddleware);
-
 // =====================================================================
 // 2️⃣ HELMET SECURITY HEADERS (SECOND - before content processing)
 // =====================================================================
@@ -67,7 +58,6 @@ app.use(helmet({
         policy: "same-origin-allow-popups",
     },
 }));
-
 // =====================================================================
 // 3️⃣ CORS CONFIGURATION
 // Dynamically determines allowed origins based on environment
@@ -77,12 +67,10 @@ const corsOptions = {
         callback: (err: Error | null, allow?: boolean) => void,
     ) {
         const isDevelopment = process.env.NODE_ENV === "development";
-
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) {
             return callback(null, true);
         }
-
         // Extract hostname from origin
         let hostname: string;
         try {
@@ -90,7 +78,6 @@ const corsOptions = {
         } catch (e) {
             return callback(new Error("Invalid origin URL"), false);
         }
-
         // In development, allow localhost origins
         if (isDevelopment) {
             const allowedPatterns = [
@@ -98,29 +85,24 @@ const corsOptions = {
                 /^127\.0\.0\.1$/,
                 /^0\.0\.0\.0$/,
             ];
-
             if (allowedPatterns.some((pattern) => pattern.test(hostname))) {
                 return callback(null, true);
             }
         }
-
         // Allow ezBuildr production domains (explicit)
         // These correspond to the ezBuildr production domains
         if (hostname === "ezbuildr.com" || hostname === "www.ezbuildr.com") {
             return callback(null, true);
         }
-
         // In production, check against ALLOWED_ORIGIN environment variable
         const allowedOrigin = process.env.ALLOWED_ORIGIN;
         if (allowedOrigin) {
             // Split by comma to support multiple origins
             const allowedHosts = allowedOrigin.split(",").map((h) => h.trim());
-
             if (allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`))) {
                 return callback(null, true);
             }
         }
-
         // Default: deny
         callback(new Error("Not allowed by CORS"), false);
     },
@@ -128,33 +110,26 @@ const corsOptions = {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
-
 app.use(cors(corsOptions));
-
 // =====================================================================
 // 4️⃣ PAYLOAD SIZE LIMITS (DoS Protection)
 // =====================================================================
 const maxRequestSize = process.env.MAX_REQUEST_SIZE || '10mb';
 app.use(express.json({ limit: maxRequestSize }));
 app.use(express.urlencoded({ extended: false, limit: maxRequestSize }));
-
 // =====================================================================
 // 5️⃣ XSS PROTECTION (Input Sanitization)
 // =====================================================================
 app.use(sanitizeInputs);
-
 // =====================================================================
 // 6️⃣ REQUEST TIMEOUT PROTECTION
 // =====================================================================
 app.use(requestTimeout);
-
 // =====================================================================
 // 7️⃣ GLOBAL RATE LIMITING (Apply before routes)
 // =====================================================================
 // Note: This is a baseline. Specific routes may apply stricter limits.
 app.use('/api', globalLimiter);
-
-
 void (async () => {
     try {
         // =====================================================================
@@ -169,7 +144,6 @@ void (async () => {
             // Log but don't crash if docs fail
             logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
         }
-
         // CONFIGURATION FIX: Validate master key at startup (fail fast if misconfigured)
         const { validateMasterKey } = await import("./utils/encryption.js");
         try {
@@ -181,7 +155,6 @@ void (async () => {
             logger.fatal('Generate a new key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"');
             process.exit(1);
         }
-
         // CONFIGURATION CHECK: Validate AI provider configuration
         const { validateAIConfig } = await import("./services/AIService.js");
         const aiConfig = validateAIConfig();
@@ -192,29 +165,23 @@ void (async () => {
             logger.warn('To enable AI features, set GEMINI_API_KEY or AI_API_KEY environment variable');
             logger.warn('Get your key at: https://makersuite.google.com/app/apikey (Gemini) or https://platform.openai.com/api-keys (OpenAI)');
         }
-
         // Ensure database is initialized before starting server
         logger.info('Initializing database...');
         const { dbInitPromise } = await import("./db.js");
         await dbInitPromise;
         logger.info('Database initialized.');
-
         // Start Email Queue Worker
         const { emailQueueService } = await import('./services/EmailQueueService.js');
         emailQueueService.startWorker();
-
         // Initialize Cron Jobs
         const { initCronJobs } = await import('./cron.js');
         initCronJobs();
-
         // Initialize routes and collaboration server
         logger.debug('Registering routes...');
         const server = await registerRoutes(app);
         logger.debug('Routes registered. Server created.');
-
         // Register centralized error handler middleware (must be after all routes)
         app.use(errorHandler);
-
         // importantly only setup vite in development and test modes and after
         // setting up all the other routes so the catch-all route
         // doesn't interfere with the other routes
@@ -234,7 +201,6 @@ void (async () => {
         } else {
             serveStatic(app);
         }
-
         // ALWAYS serve the app on the port specified in the environment variable PORT
         // Other ports are firewalled. Default to 5000 if not specified.
         // this serves both the API and the client.
@@ -246,36 +212,29 @@ void (async () => {
         }, () => {
             log(`serving on port ${port}`);
         });
-
         // RESOURCE LEAK FIX: Graceful shutdown handlers
         const shutdown = async (signal: string) => {
             logger.info({ signal }, 'Shutdown signal received, cleaning up...');
-
             // Shutdown OpenTelemetry
             const { shutdownTelemetry } = await import('./observability/telemetry.js');
             await shutdownTelemetry();
-
             // Clean up OAuth2 state cleanup interval
             const { stopOAuth2StateCleanup } = await import('./services/oauth2.js');
             stopOAuth2StateCleanup();
-
             // Stop Email Queue Worker
             const { emailQueueService } = await import('./services/EmailQueueService.js');
             emailQueueService.stopWorker();
-
             // Close server
             server.close(() => {
                 logger.info('Server closed successfully');
                 process.exit(0);
             });
-
             // Force exit after timeout
             setTimeout(() => {
                 logger.error('Forced shutdown after timeout');
                 process.exit(1);
             }, 10000);
         };
-
         process.on('SIGTERM', () => shutdown('SIGTERM'));
         process.on('SIGINT', () => shutdown('SIGINT'));
     } catch (error) {
@@ -283,6 +242,5 @@ void (async () => {
         process.exit(1);
     }
 })();
-
 // Export app for testing purposes
 export default app;

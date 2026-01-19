@@ -1,7 +1,6 @@
-import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,17 +22,14 @@ import {
   useLeaveOrganization,
   useDeleteOrganization,
 } from '@/hooks/useOrganizations';
-
 export default function OrganizationDetail() {
   const { id: orgId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-
   const { data: organization, isLoading: orgLoading, error: orgError } = useOrganization(orgId);
   const { data: members, isLoading: membersLoading } = useOrganizationMembers(orgId);
   const { data: invites, isLoading: invitesLoading } = useOrganizationInvites(orgId);
-
   const updateOrg = useUpdateOrganization(orgId);
   const promoteMember = usePromoteMember(orgId);
   const demoteMember = useDemoteMember(orgId);
@@ -42,26 +38,20 @@ export default function OrganizationDetail() {
   const revokeInvite = useRevokeInvite(orgId);
   const leaveOrg = useLeaveOrganization();
   const deleteOrg = useDeleteOrganization(orgId);
-
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
-
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
-
   const isAdmin = organization?.role === 'admin';
-
   const handleEditOrg = () => {
     setOrgName(organization?.name || '');
     setOrgDescription(organization?.description || '');
     setIsEditingOrg(true);
   };
-
   const handleSaveOrg = async () => {
     if (!orgName.trim()) {
       toast({
@@ -71,18 +61,15 @@ export default function OrganizationDetail() {
       });
       return;
     }
-
     try {
       await updateOrg.mutateAsync({
         name: orgName.trim(),
         description: orgDescription.trim() || undefined,
       });
-
       toast({
         title: 'Organization updated',
         description: 'Changes saved successfully',
       });
-
       setIsEditingOrg(false);
     } catch (error) {
       console.error('Failed to update organization:', error);
@@ -93,7 +80,6 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handlePromote = async (userId: string) => {
     try {
       await promoteMember.mutateAsync(userId);
@@ -110,7 +96,6 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleDemote = async (userId: string) => {
     try {
       await demoteMember.mutateAsync(userId);
@@ -127,7 +112,6 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleRemoveMember = async (userId: string) => {
     try {
       await removeMember.mutateAsync(userId);
@@ -145,10 +129,8 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!inviteEmail.trim()) {
       toast({
         title: 'Email required',
@@ -157,7 +139,6 @@ export default function OrganizationDetail() {
       });
       return;
     }
-
     try {
       await createInvite.mutateAsync({ email: inviteEmail.trim() });
       toast({
@@ -175,7 +156,6 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleRevokeInvite = async (inviteId: string) => {
     try {
       await revokeInvite.mutateAsync(inviteId);
@@ -192,10 +172,8 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleLeaveOrganization = async () => {
     if (!orgId) {return;}
-
     try {
       await leaveOrg.mutateAsync(orgId);
       toast({
@@ -212,10 +190,8 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   const handleDeleteOrganization = async () => {
     if (!orgId) {return;}
-
     try {
       await deleteOrg.mutateAsync();
       toast({
@@ -233,7 +209,6 @@ export default function OrganizationDetail() {
       });
     }
   };
-
   if (orgLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -244,7 +219,6 @@ export default function OrganizationDetail() {
       </div>
     );
   }
-
   if (orgError || !organization) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -262,7 +236,6 @@ export default function OrganizationDetail() {
       </div>
     );
   }
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       {/* Header */}
@@ -271,7 +244,6 @@ export default function OrganizationDetail() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Organizations
         </Button>
-
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -329,7 +301,6 @@ export default function OrganizationDetail() {
           </CardHeader>
         </Card>
       </div>
-
       {/* Members Section */}
       <Card className="mb-8">
         <CardHeader>
@@ -381,7 +352,6 @@ export default function OrganizationDetail() {
                       <p className="text-sm text-muted-foreground">{member.email}</p>
                     </div>
                   </div>
-
                   {isAdmin && member.userId !== user?.id && (
                     <div className="flex items-center space-x-2">
                       {member.role === 'member' ? (
@@ -420,7 +390,6 @@ export default function OrganizationDetail() {
           )}
         </CardContent>
       </Card>
-
       {/* Invites Section (Admin Only) */}
       {isAdmin && (
         <Card className="mb-8">
@@ -472,7 +441,6 @@ export default function OrganizationDetail() {
           </CardContent>
         </Card>
       )}
-
       {/* Danger Zone */}
       <Card className="border-destructive">
         <CardHeader>
@@ -493,7 +461,6 @@ export default function OrganizationDetail() {
           </div>
         </CardContent>
       </Card>
-
       {/* Delete Organization (Admins Only) */}
       {isAdmin && (
         <Card className="border-destructive mt-4">
@@ -521,7 +488,6 @@ export default function OrganizationDetail() {
           </CardContent>
         </Card>
       )}
-
       {/* Invite Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent>
@@ -560,7 +526,6 @@ export default function OrganizationDetail() {
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Leave Confirmation Dialog */}
       <Dialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
         <DialogContent>
@@ -585,7 +550,6 @@ export default function OrganizationDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
@@ -614,7 +578,6 @@ export default function OrganizationDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Remove Member Confirmation Dialog */}
       <Dialog open={!!removingMemberId} onOpenChange={() => setRemovingMemberId(null)}>
         <DialogContent>

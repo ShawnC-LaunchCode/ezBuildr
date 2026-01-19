@@ -1,10 +1,6 @@
-
-import { WorkflowJSON, WorkflowBlock, WorkflowPage } from "@shared/types/workflow";
-
+import { WorkflowJSON, WorkflowBlock } from "@shared/types/workflow";
 import { ChangeImpactReport, ChangeReason, Severity } from "./types";
-
 export class WorkflowChangeAnalyzer {
-
     /**
      * Analyzes changes between two workflow versions and returns an impact report.
      * @param oldVersion The baseline version (e.g., current published).
@@ -21,15 +17,12 @@ export class WorkflowChangeAnalyzer {
                 externalSends: false
             }
         };
-
         // 1. Flatten items for easy lookup
         const oldItems = this.flattenWorkflow(oldVersion);
         const newItems = this.flattenWorkflow(newVersion);
-
         // 2. Analyze Deleted/Changed Variables
         for (const [id, oldBlock] of oldItems) {
             const newBlock = newItems.get(id);
-
             if (!newBlock) {
                 // Block/Variable Deleted
                 this.checkDeletionImpact(id, oldBlock, newItems, report);
@@ -38,20 +31,16 @@ export class WorkflowChangeAnalyzer {
                 this.checkModificationImpact(oldBlock, newBlock, report);
             }
         }
-
         // 3. Analyze New Variables (Soft Breaking mostly)
         for (const [id, newBlock] of newItems) {
             if (!oldItems.has(id)) {
                 this.checkAdditionImpact(newBlock, report);
             }
         }
-
         // 4. Aggregation Severity
         report.severity = this.calculateOverallSeverity(report.reasons);
-
         return report;
     }
-
     private flattenWorkflow(workflow: WorkflowJSON): Map<string, WorkflowBlock> {
         const map = new Map<string, WorkflowBlock>();
         workflow.pages.forEach(page => {
@@ -61,20 +50,16 @@ export class WorkflowChangeAnalyzer {
         });
         return map;
     }
-
     private checkDeletionImpact(id: string, oldBlock: WorkflowBlock, newItems: Map<string, WorkflowBlock>, report: ChangeImpactReport) {
         // Simple heuristic: If it's a step (variable), deleting it is RISKY.
         // We need usage detection to be precise, but for now, let's assume if it was a data-bearing step, it's Hard Breaking.
-
         const type = oldBlock.type;
         // Check if it was a variable-bearing step
         const isVariable = !["prefill", "validate", "branch", "delete_record", "display"].includes(type as string);
-
         if (isVariable) {
             const alias = oldBlock.alias || oldBlock.variableName; // Check both legacy and new props
             // Check usage in NEW version to see if anything breaks
             const usage = this.findUsage(id, alias, newItems);
-
             if (usage.length > 0) {
                 report.reasons.push({
                     severity: "hard_breaking",
@@ -82,7 +67,6 @@ export class WorkflowChangeAnalyzer {
                     targetId: id,
                     targetType: "variable"
                 });
-
                 // Set affected systems based on usage types
                 report.affectedSystems.snapshots = true;
                 report.affectedSystems.documents = usage.some(u => u.includes("Document"));
@@ -101,7 +85,6 @@ export class WorkflowChangeAnalyzer {
             }
         }
     }
-
     private checkModificationImpact(oldBlock: WorkflowBlock, newBlock: WorkflowBlock, report: ChangeImpactReport) {
         // Type Change
         if (oldBlock.type !== newBlock.type) {
@@ -113,7 +96,6 @@ export class WorkflowChangeAnalyzer {
             });
             report.affectedSystems.snapshots = true;
         }
-
         // Required Flag Change (Soft Breaking)
         if (!oldBlock.required && newBlock.required) {
             report.reasons.push({
@@ -124,10 +106,8 @@ export class WorkflowChangeAnalyzer {
             });
             report.affectedSystems.snapshots = true;
         }
-
         // TODO: Deep check on config changes (e.g. column mapping changes)
     }
-
     private checkAdditionImpact(newBlock: WorkflowBlock, report: ChangeImpactReport) {
         if (newBlock.required) {
             report.reasons.push({
@@ -139,8 +119,6 @@ export class WorkflowChangeAnalyzer {
             report.affectedSystems.snapshots = true; // Snapshots won't have this value
         }
     }
-
-
     // Helper to build alias map
     private buildAliasMap(items: Map<string, WorkflowBlock>): Map<string, string> {
         const aliasMap = new Map<string, string>(); // ID -> Alias
@@ -151,7 +129,6 @@ export class WorkflowChangeAnalyzer {
         }
         return aliasMap;
     }
-
     // Reverse map for lookup
     private buildReverseAliasMap(items: Map<string, WorkflowBlock>): Map<string, string> {
         const revMap = new Map<string, string>(); // Alias -> ID
@@ -162,10 +139,8 @@ export class WorkflowChangeAnalyzer {
         }
         return revMap;
     }
-
     private findUsage(targetId: string, targetAlias: string | undefined, items: Map<string, WorkflowBlock>): string[] {
         const usages: string[] = [];
-
         for (const [id, block] of items) {
             // Check config for references
             // 1. JS Question inputs
@@ -175,7 +150,6 @@ export class WorkflowChangeAnalyzer {
                     usages.push(`JS Block '${block.title || id}'`);
                 }
             }
-
             // 2. Logic (References in visibleIf) - Simple String Match for now (imperfect but safe)
             if (block.visibleIf) {
                 const json = JSON.stringify(block.visibleIf);
@@ -183,7 +157,6 @@ export class WorkflowChangeAnalyzer {
                     usages.push(`Logic in '${block.title || id}'`);
                 }
             }
-
             // 3. Data writes (Create/Update Record)
             if ((block.type === 'create_record' || block.type === 'update_record') && block.config?.fieldMap) {
                 const map = block.config.fieldMap as Record<string, string>;
@@ -192,7 +165,6 @@ export class WorkflowChangeAnalyzer {
                     usages.push(`Record Write '${block.title || id}'`);
                 }
             }
-
             // 4. External Sends
             if ((block.type as string) === 'external_send' && block.config?.payloadMappings) {
                 const mappings = block.config.payloadMappings as Array<{ key: string, value: string }>;
@@ -206,11 +178,9 @@ export class WorkflowChangeAnalyzer {
         }
         return usages;
     }
-
     private calculateOverallSeverity(reasons: ChangeReason[]): Severity {
         if (reasons.some(r => r.severity === "hard_breaking")) {return "hard_breaking";}
         if (reasons.some(r => r.severity === "soft_breaking")) {return "soft_breaking";}
         return "safe";
     }
-
 }

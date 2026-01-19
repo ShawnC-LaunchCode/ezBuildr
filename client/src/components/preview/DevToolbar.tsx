@@ -10,8 +10,6 @@ import {
     Bug
 } from "lucide-react";
 import React, { useState } from "react";
-
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -30,8 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useSnapshots } from "@/lib/vault-hooks";
-
-
 interface DevToolbarProps {
     workflowId: string;
     onExit: () => void;
@@ -43,7 +39,6 @@ interface DevToolbarProps {
     showDevTools: boolean;
     isAiLoading?: boolean;
 }
-
 export function DevToolbar({
     workflowId,
     onExit,
@@ -57,12 +52,10 @@ export function DevToolbar({
 }: DevToolbarProps) {
     const { data: snapshots } = useSnapshots(workflowId);
     const [selectedSnapshot, setSelectedSnapshot] = useState<string>("");
-
     const handleSnapshotSelect = (snapshotId: string) => {
         setSelectedSnapshot(snapshotId);
         onLoadSnapshot(snapshotId);
     };
-
     return (
         <div className="h-14 border-b bg-muted/40 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-4">
@@ -74,9 +67,7 @@ export function DevToolbar({
                         </span>
                     </div>
                 </div>
-
                 <Separator orientation="vertical" className="h-6" />
-
                 {/* Snapshot Selector */}
                 <div className="flex items-center gap-2">
                     <Files className="w-4 h-4 text-muted-foreground" />
@@ -100,7 +91,6 @@ export function DevToolbar({
                     </Select>
                 </div>
             </div>
-
             <div className="flex items-center gap-2">
                 {/* Random Data Actions */}
                 <DropdownMenu>
@@ -121,7 +111,6 @@ export function DevToolbar({
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-
                 <Button
                     variant="ghost"
                     size="sm"
@@ -131,9 +120,7 @@ export function DevToolbar({
                 >
                     <RotateCcw className="w-4 h-4" />
                 </Button>
-
                 <Separator orientation="vertical" className="h-6 mx-1" />
-
                 <Button
                     variant={showDevTools ? "secondary" : "ghost"}
                     size="sm"
@@ -143,7 +130,6 @@ export function DevToolbar({
                     <Bug className="w-4 h-4" />
                     DevTools
                 </Button>
-
                 <Button
                     variant="default"
                     size="sm"

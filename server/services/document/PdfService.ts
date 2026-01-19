@@ -6,22 +6,15 @@
  * - node-qpdf2 (qpdf): For robust unlocking/decryption of government forms
  * - pdf-lib: For field extraction and filling
  */
-
 import { exec } from 'child_process';
-import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { pipeline } from 'stream/promises';
 import { promisify } from 'util';
-
 import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
-
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-
 const execAsync = promisify(exec);
-
 export interface PdfField {
     name: string;
     type: 'text' | 'checkbox' | 'radio' | 'dropdown' | 'button' | 'signature' | 'unknown';
@@ -31,13 +24,11 @@ export interface PdfField {
     options?: string[]; // For dropdowns/radios
     isReadOnly?: boolean;
 }
-
 export interface PdfMetadata {
     pageCount: number;
     fields: PdfField[];
     isEncrypted: boolean;
 }
-
 export class PdfService {
     /**
      * Unlock a PDF by removing encryption/restrictions using qpdf
@@ -47,15 +38,12 @@ export class PdfService {
         const tempDir = os.tmpdir();
         const inputPath = path.join(tempDir, `locked-${Date.now()}.pdf`);
         const outputPath = path.join(tempDir, `unlocked-${Date.now()}.pdf`);
-
         try {
             await fs.writeFile(inputPath, inputBuffer);
-
             // Sanitize paths for command line
             // qpdf --decrypt input.pdf output.pdf
             // This command removes restrictions (like filling prevention)
             await execAsync(`qpdf --decrypt "${inputPath}" "${outputPath}"`);
-
             return await fs.readFile(outputPath);
         } catch (error: any) {
             logger.error({ error }, 'Failed to unlock PDF with qpdf');
@@ -71,7 +59,6 @@ export class PdfService {
             ]);
         }
     }
-
     /**
      * Extract form fields and metadata from a PDF
      */
@@ -80,20 +67,16 @@ export class PdfService {
             const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
             const form = pdfDoc.getForm();
             const fields = form.getFields();
-
             const extractedFields: PdfField[] = [];
             const pageCount = pdfDoc.getPageCount();
             const pages = pdfDoc.getPages();
-
             for (const field of fields) {
                 const name = field.getName();
                 const type = this.getFieldType(field);
-
                 // Find which page the field is on and its coordinates
                 const widgets = field.acroField.getWidgets();
                 let pageIndex = 0;
                 let rect: { x: number; y: number; width: number; height: number } | undefined;
-
                 if (widgets.length > 0) {
                     const widget = widgets[0];
                     const rectangle = widget.getRectangle();
@@ -103,7 +86,6 @@ export class PdfService {
                         width: rectangle.width,
                         height: rectangle.height,
                     };
-
                     // Find page index
                     const pageRef = widget.P;
                     if (pageRef) {
@@ -119,16 +101,13 @@ export class PdfService {
                         }
                     }
                 }
-
                 if (pageIndex === -1) {pageIndex = 0;}
-
                 let options: string[] | undefined;
                 if (field instanceof PDFDropdown) {
                     options = field.getOptions();
                 } else if (field instanceof PDFRadioGroup) {
                     options = field.getOptions();
                 }
-
                 extractedFields.push({
                     name,
                     type,
@@ -138,7 +117,6 @@ export class PdfService {
                     isReadOnly: field.isReadOnly(),
                 });
             }
-
             return {
                 pageCount,
                 fields: extractedFields,
@@ -149,7 +127,6 @@ export class PdfService {
             throw createError.internal(`Failed to parse PDF: ${  error.message}`);
         }
     }
-
     /**
      * Fill a PDF form with data
      * @param mapping - Map of PDF field names to string values
@@ -158,13 +135,10 @@ export class PdfService {
         try {
             const pdfDoc = await PDFDocument.load(pdfBuffer);
             const form = pdfDoc.getForm();
-
             for (const [fieldName, value] of Object.entries(mapping)) {
                 if (value === undefined || value === null || value === '') {continue;}
-
                 try {
                     const field = form.getField(fieldName);
-
                     if (field instanceof PDFTextField) {
                         field.setText(String(value));
                     } else if (field instanceof PDFCheckBox) {
@@ -183,17 +157,14 @@ export class PdfService {
                     logger.warn({ fieldName, error: err }, 'Failed to fill PDF field');
                 }
             }
-
             // Flatten the form to prevent further editing (optional, but good for final docs)
             form.flatten();
-
             return Buffer.from(await pdfDoc.save());
         } catch (error: any) {
             logger.error({ error }, 'Failed to fill PDF');
             throw createError.internal(`Failed to generate PDF: ${  error.message}`);
         }
     }
-
     private getFieldType(field: any): PdfField['type'] {
         if (field instanceof PDFTextField) {return 'text';}
         if (field instanceof PDFCheckBox) {return 'checkbox';}
@@ -202,5 +173,4 @@ export class PdfService {
         return 'unknown';
     }
 }
-
 export const pdfService = new PdfService();

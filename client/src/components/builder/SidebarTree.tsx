@@ -1,7 +1,6 @@
 /**
  * Sidebar Tree - Drag-and-drop page/question hierarchy
  */
-
 import {
   DndContext,
   closestCenter,
@@ -18,11 +17,8 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Info, Lock, Zap, Settings, Trash2 } from "lucide-react";
+import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Lock, Zap, Settings, Trash2 } from "lucide-react";
 import React, { useState } from "react";
-
-import { LogicIndicator } from "@/components/logic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,17 +31,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UI_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { useSections, useSteps, useCreateSection, useCreateStep, useReorderSections, useReorderSteps, useWorkflowMode, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
+import { useSections, useSteps, useCreateSection, useCreateStep, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
-
-
-
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
@@ -61,21 +53,18 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   const [isSectionSettingsOpen, setIsSectionSettingsOpen] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
   const [showSnipDialog, setShowSnipDialog] = useState(false);
-
   // Group blocks by section
   const blocksBySection = (blocks || []).reduce((acc: Record<string, any[]>, block: any) => {
     if (block.sectionId) {
-      if (!acc[block.sectionId]) {acc[block.sectionId] = [];}
+      if (!acc[block.sectionId]) { acc[block.sectionId] = []; }
       acc[block.sectionId].push({ ...block, source: 'regular' });
     }
     return acc;
   }, {});
-
   // We don't have sectionId for transform blocks easily available in current API mock/usage potentially?
   // If they don't have sectionId, we might not be able to map them easily. 
   // Assuming they might be mapped by logic or assume they are global if not mapped.
   // For now, let's just map regular blocks which have explicit sectionId.
-
   const handleCreateSection = async () => {
     const order = sections?.length || 0;
     await createSectionMutation.mutateAsync({
@@ -84,7 +73,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       order,
     });
   };
-
   const handleCreateFinalDocumentsSection = async () => {
     const order = sections?.length || 0;
     const section = await createSectionMutation.mutateAsync({
@@ -99,7 +87,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
         advanced: {}
       }
     });
-
     // Create the system step for this section
     await createStepMutation.mutateAsync({
       sectionId: section.id,
@@ -113,7 +100,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       config: {},
     });
   };
-
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -125,7 +111,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       return next;
     });
   };
-
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b space-y-2">
@@ -147,8 +132,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-
         {/* AI Assistant Button */}
         <Button
           variant="outline"
@@ -159,7 +142,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           <Sparkles className="w-3 h-3 mr-2" />
           Edit with AI
         </Button>
-
         {/* Add Snip Button */}
         <Button
           variant="outline"
@@ -171,11 +153,9 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           Add Snip
         </Button>
       </div>
-
       {mode === 'easy' && workflow?.projectId && (
         <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
       )}
-
       <ScrollArea className="flex-1">
         <div className="p-2">
           {sections && sections.length === 0 && (
@@ -229,7 +209,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           ))}
         </div>
       </ScrollArea>
-
       {/* Block Editor Dialog */}
       <BlockEditorDialog
         workflowId={workflowId}
@@ -241,7 +220,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           setEditingBlock(null);
         }}
       />
-
       {/* Section Settings Dialog */}
       <SectionSettingsDialog
         workflowId={workflowId}
@@ -253,13 +231,11 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
         }}
         mode={mode as any}
       />
-
       <AiAssistantDialog
         workflowId={workflowId}
         open={showAiDialog}
         onOpenChange={setShowAiDialog}
       />
-
       <AddSnipDialog
         workflowId={workflowId}
         open={showSnipDialog}
@@ -268,7 +244,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
     </div>
   );
 }
-
 function SectionItem({
   section,
   workflowId,
@@ -292,23 +267,17 @@ function SectionItem({
   const createStepMutation = useCreateStep();
   const createBlockMutation = useCreateBlock();
   const { selection, selectSection } = useWorkflowBuilder();
-
   const isSelected = selection?.type === "section" && selection.id === section.id;
-
   // Check if this is a Final Documents section
   const isFinalSection = (section.config)?.finalBlock === true;
-
   // Don't show page-level required pill based on questions - only show if page is conditional
   const isPageConditional = !!section.visibleIf;
-
   const handleCreateStep = async (e: React.MouseEvent) => {
     e.stopPropagation();
-
     // Prevent adding questions to Final Documents sections
     if (isFinalSection) {
       return;
     }
-
     const order = steps?.length || 0;
     await createStepMutation.mutateAsync({
       sectionId: section.id,
@@ -321,9 +290,8 @@ function SectionItem({
       order,
       config: {},
     });
-    if (!isExpanded) {onToggle();}
+    if (!isExpanded) { onToggle(); }
   };
-
   const handleCreateLogicBlock = async (type: "write" | "read_table" | "list_tools" | "external_send") => {
     const order = blocks?.length || 0;
     // Default configs for quick-add
@@ -337,7 +305,6 @@ function SectionItem({
       outputKey: "list_data",
       filters: []
     } : {};
-
     await createBlockMutation.mutateAsync({
       workflowId,
       type,
@@ -347,9 +314,8 @@ function SectionItem({
       enabled: true,
       order
     });
-    if (!isExpanded) {onToggle();}
+    if (!isExpanded) { onToggle(); }
   };
-
   // Combine steps and blocks for display (if advanced mode or simple mode interoperability)
   // In Advanced: Show items interleaved based on something? 
   // Blocks have 'order'. Steps have 'order'. They might clash.
@@ -357,10 +323,8 @@ function SectionItem({
   // Blocks have phases. 
   // onSectionEnter -> Top
   // onSectionSubmit -> Bottom
-
   const topBlocks = blocks.filter(b => b.phase === 'onSectionEnter' || b.phase === 'onRunStart');
   const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
-
   return (
     <div className="mb-1">
       <div
@@ -376,10 +340,10 @@ function SectionItem({
             selectSection(section.id);
           }
           if (e.key === 'ArrowRight') {
-            if (!isExpanded) {onToggle();}
+            if (!isExpanded) { onToggle(); }
           }
           if (e.key === 'ArrowLeft') {
-            if (isExpanded) {onToggle();}
+            if (isExpanded) { onToggle(); }
           }
         }}
       >
@@ -430,7 +394,7 @@ function SectionItem({
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => { void handleCreateStep(); }}
+              onClick={() => { void handleCreateStep(new MouseEvent('click') as any); }}
               title="Add Question"
             >
               <Plus className="h-3 w-3" />
@@ -483,53 +447,45 @@ function SectionItem({
           </div>
         )}
       </div>
-
       {isExpanded && (
         <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
-
           {/* Top Blocks (Prefill/Enter) */}
           {topBlocks.map((block: any) => (
             <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
           ))}
-
           {/* Steps */}
           {steps && steps.length > 0 &&
             steps
               // Filter out system steps and questions in final sections
               .filter((step) => {
                 // Hide final_documents system steps (they're just metadata)
-                if (step.type === 'final_documents') {return false;}
+                if (step.type === 'final_documents') { return false; }
                 // Hide any other questions that might exist in final sections (orphaned data)
-                if (isFinalSection) {return false;}
+                if (isFinalSection) { return false; }
                 return true;
               })
               .map((step) => (
                 <StepItem key={step.id} step={step} sectionId={section.id} />
               ))}
-
           {/* Bottom Blocks (Submit/Next) */}
           {bottomBlocks.map((block: any) => (
             <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
           ))}
-
         </div>
       )}
     </div>
   );
 }
-
 function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
   const { selection, selectStep } = useWorkflowBuilder();
   const deleteStepMutation = useDeleteStep();
   const isSelected = selection?.type === "step" && selection.id === step.id;
-
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this question?")) {
       deleteStepMutation.mutate({ id: step.id, sectionId });
     }
   };
-
   return (
     <div
       className={cn(
@@ -546,16 +502,13 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
       }}
     >
       <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-
       {/* Required pill before question */}
       {step.required && (
         <Badge variant="destructive" className="text-[8px] h-3.5 px-1 font-medium shrink-0 mt-0.5">
           Req
         </Badge>
       )}
-
       <FileText className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-
       {/* Question title and alias stacked */}
       <div className="flex-1 min-w-0">
         <div className="truncate text-xs leading-tight">{step.title || "(Untitled)"}</div>
@@ -565,20 +518,18 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
           </div>
         )}
       </div>
-
       {step.visibleIf && (
         <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium shrink-0 mt-0.5">
           Cond
         </Badge>
       )}
-
       {/* Delete Action (Hover) */}
       <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
         <Button
           variant="ghost"
           size="icon"
           className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={() => { void handleDelete(); }}
+          onClick={(e) => { void handleDelete(e); }}
           title="Delete Question"
         >
           <Trash2 className="h-3 w-3" />
@@ -587,20 +538,17 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
     </div>
   );
 }
-
 function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: string, onEdit: () => void, workflowId: string }) {
   // Unlock editing for supported blocks in Easy Mode
   const isEditableInEasyMode = ['read_table', 'write', 'send_table', 'external_send', 'list_tools', 'query'].includes(block.type);
   const isLocked = mode === 'easy' && !isEditableInEasyMode;
   const deleteBlockMutation = useDeleteBlock();
-
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this block?")) {
       deleteBlockMutation.mutate({ id: block.id, workflowId });
     }
   };
-
   const getIcon = (type: string) => {
     switch (type) {
       case 'prefill': return <Play className="w-3 h-3" />;
@@ -614,7 +562,6 @@ function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: 
       default: return <Blocks className="w-3 h-3" />;
     }
   }
-
   const getLabel = (type: string) => {
     switch (type) {
       case 'read_table': return 'Read Table';
@@ -626,7 +573,6 @@ function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: 
       default: return type;
     }
   }
-
   return (
     <div
       className={cn(
@@ -653,7 +599,6 @@ function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: 
         {getLabel(block.type)}
         {block.phase === 'onSectionEnter' ? ' (Enter)' : ' (Submit)'}
       </span>
-
       {/* Delete Action (Hover) */}
       {!isLocked && (
         <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
@@ -661,7 +606,7 @@ function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: 
             variant="ghost"
             size="icon"
             className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={() => { void handleDelete(); }}
+            onClick={(e) => { void handleDelete(e); }}
             title="Delete Block"
           >
             <Trash2 className="h-3 w-3" />

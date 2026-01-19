@@ -1,13 +1,8 @@
-import { eq, and } from "drizzle-orm";
-
+import { eq } from "drizzle-orm";
 import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
-
 import { db } from "../db";
-
 export const DEFAULT_SYSTEM_PROMPT = `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
-
 Your task is to analyze the user's request and generate structured operations to modify the workflow.
-
 Guidelines:
 - Reading level: {{readingLevel}}
 - Tone: {{tone}}
@@ -17,7 +12,6 @@ Guidelines:
 - Provide confidence score based on request clarity
 - Ask questions if requirements are ambiguous
 - Include warnings for potentially breaking changes
-
 Available operation types:
 - workflow.setMetadata
 - section.create/update/delete/reorder
@@ -25,7 +19,6 @@ Available operation types:
 - logicRule.create/update/delete (stub)
 - document.add/update/setConditional/bindFields (stub)
 - datavault.createTable/addColumns/createWritebackMapping (stub)`;
-
 export class AiSettingsService {
     /**
      * Get the effective system prompt based on hierarchy:
@@ -40,10 +33,8 @@ export class AiSettingsService {
         if (globalSettings?.systemPrompt) {
             return globalSettings.systemPrompt;
         }
-
         return DEFAULT_SYSTEM_PROMPT;
     }
-
     /**
      * Get global AI settings
      */
@@ -52,14 +43,12 @@ export class AiSettingsService {
             where: eq(aiSettings.scope, "global"),
         });
     }
-
     /**
      * Update global system prompt
      */
     async updateGlobalSettings(systemPrompt: string, userId: string) {
         // Check if global settings exist
         const existing = await this.getGlobalSettings();
-
         if (existing) {
             return db
                 .update(aiSettings)
@@ -82,5 +71,4 @@ export class AiSettingsService {
         }
     }
 }
-
 export const aiSettingsService = new AiSettingsService();

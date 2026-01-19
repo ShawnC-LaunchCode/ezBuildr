@@ -1,21 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { z } from "zod";
-
-import { TransformBlock, transformBlockTypeEnum } from "shared/schema";
-
+import { TransformBlock } from "shared/schema";
 interface GenerationRequest {
   workflowContext: any; // Simplified workflow context
   description: string;
   currentTransforms?: TransformBlock[];
 }
-
 // Lazy initialization helper
 const getModel = () => {
   const apiKey = process.env.GEMINI_API_KEY || "";
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
-
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
@@ -32,7 +27,6 @@ const getModel = () => {
     throw e;
   }
 };
-
 export const generateTransforms = async (request: GenerationRequest): Promise<{
   updatedTransforms: Partial<TransformBlock>[];
   explanation: string[];
@@ -40,13 +34,10 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
   const prompt = `
     You are an ETL expert for VaultLogic.
     Your goal is to generate data transformation blocks based on the user's natural language request.
-    
     Context:
     Workflow Structure: ${JSON.stringify(request.workflowContext, null, 2)}
     Current Transforms: ${JSON.stringify(request.currentTransforms || [], null, 2)}
-    
     User Request: "${request.description}"
-    
     Available Transform Types:
     - map: Simple value mapping
     - rename: Rename a key
@@ -54,7 +45,6 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
     - conditional: If/Else logic
     - loop: Iterate over array
     - script: Custom JS code (use sparingly, prefer structured types)
-    
     Output JSON format:
     {
       "transforms": [
@@ -69,7 +59,6 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
       ]
     }
   `;
-
   let text = "";
   try {
     const model = getModel();
@@ -81,7 +70,6 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
     // Fallback or rethrow
     return { updatedTransforms: [], explanation: ["AI generation failed"] };
   }
-
   try {
     // Basic JSON cleanup if markdown code blocks are used
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();

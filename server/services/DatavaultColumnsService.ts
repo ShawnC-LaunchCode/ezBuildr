@@ -1,8 +1,6 @@
-import { like, or , sql } from "drizzle-orm";
-
+import {  or , sql } from "drizzle-orm";
 import { blocks, transformBlocks } from "@shared/schema";
 import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
-
 import { db } from "../db";
 import { ConflictError } from "../errors/AppError";
 import {
@@ -11,7 +9,6 @@ import {
   datavaultRowsRepository,
   type DbTransaction,
 } from "../repositories";
-
 /**
  * Service layer for DataVault column business logic
  * Handles column CRUD operations with validation and authorization
@@ -20,7 +17,6 @@ export class DatavaultColumnsService {
   private columnsRepo: typeof datavaultColumnsRepository;
   private tablesRepo: typeof datavaultTablesRepository;
   private rowsRepo: typeof datavaultRowsRepository;
-
   constructor(
     columnsRepo?: typeof datavaultColumnsRepository,
     tablesRepo?: typeof datavaultTablesRepository,
@@ -30,7 +26,6 @@ export class DatavaultColumnsService {
     this.tablesRepo = tablesRepo || datavaultTablesRepository;
     this.rowsRepo = rowsRepo || datavaultRowsRepository;
   }
-
   /**
    * Generate URL-safe slug from name
    */
@@ -41,7 +36,6 @@ export class DatavaultColumnsService {
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
   }
-
   /**
    * Ensure slug is unique for the table
    */
@@ -53,15 +47,12 @@ export class DatavaultColumnsService {
   ): Promise<string> {
     let slug = baseSlug;
     let counter = 1;
-
     while (await this.columnsRepo.slugExists(tableId, slug, excludeId, tx)) {
       slug = `${baseSlug}_${counter}`;
       counter++;
     }
-
     return slug;
   }
-
   /**
    * Verify table belongs to tenant
    */
@@ -71,17 +62,14 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<void> {
     const table = await this.tablesRepo.findById(tableId, tx);
-
     if (!table) {
       console.log(`[DEBUG] Table not found: ${tableId}`);
       throw new Error("Table not found");
     }
-
     if (table.tenantId !== tenantId) {
       throw new Error("Access denied - table belongs to different tenant");
     }
   }
-
   /**
    * Verify column belongs to tenant's table
    */
@@ -91,17 +79,13 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
     const column = await this.columnsRepo.findById(columnId, tx);
-
     if (!column) {
       throw new Error("Column not found");
     }
-
     // Verify the table belongs to the tenant
     await this.verifyTableOwnership(column.tableId, tenantId, tx);
-
     return column;
   }
-
   /**
    * Validate primary key constraints
    */
@@ -114,7 +98,6 @@ export class DatavaultColumnsService {
     if (isPrimaryKey) {
       const columns = await this.columnsRepo.findByTableId(tableId, tx);
       const existingPrimaryKey = columns.find(c => c.isPrimaryKey && c.id !== columnId);
-
       if (existingPrimaryKey) {
         throw new Error(
           `Table already has a primary key column: "${existingPrimaryKey.name}". ` +
@@ -123,7 +106,6 @@ export class DatavaultColumnsService {
       }
     }
   }
-
   /**
    * Validate unique constraints for column values
    */
@@ -143,7 +125,6 @@ export class DatavaultColumnsService {
       }
     }
   }
-
   /**
    * Validate select/multiselect column options
    */
@@ -156,20 +137,17 @@ export class DatavaultColumnsService {
       if (!options || !Array.isArray(options) || options.length === 0) {
         throw new Error('Select and multiselect columns require at least one option');
       }
-
       // Validate option structure
       const valueSet = new Set<string>();
       for (const option of options) {
         if (!option.label || !option.value) {
           throw new Error('Each option must have both label and value');
         }
-
         // Check for duplicate values
         if (valueSet.has(option.value)) {
           throw new Error(`Duplicate option value: ${option.value}`);
         }
         valueSet.add(option.value);
-
         // Validate color if provided (simple Tailwind color names)
         if (option.color && typeof option.color !== 'string') {
           throw new Error('Option color must be a string');
@@ -177,7 +155,6 @@ export class DatavaultColumnsService {
       }
     }
   }
-
   /**
    * Validate reference column configuration
    */
@@ -193,7 +170,6 @@ export class DatavaultColumnsService {
       if (!referenceTableId) {
         throw new Error('Reference columns require referenceTableId');
       }
-
       // Verify the referenced table exists and belongs to the same tenant
       const refTable = await this.tablesRepo.findById(referenceTableId, tx);
       if (!refTable) {
@@ -202,7 +178,6 @@ export class DatavaultColumnsService {
       if (refTable.tenantId !== tenantId) {
         throw new Error('Referenced table must belong to the same tenant');
       }
-
       // If displayColumnSlug is provided, verify it exists in the referenced table
       if (referenceDisplayColumnSlug) {
         const refColumn = await this.columnsRepo.findByTableAndSlug(
@@ -218,7 +193,6 @@ export class DatavaultColumnsService {
       }
     }
   }
-
   /**
    * Detect circular reference dependencies
    * Uses depth-first search to find cycles in the reference graph
@@ -230,38 +204,30 @@ export class DatavaultColumnsService {
   ): Promise<boolean> {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
-
     const hasCycle = async (currentTableId: string): Promise<boolean> => {
       if (recursionStack.has(currentTableId)) {
         return true; // Cycle detected
       }
-
       if (visited.has(currentTableId)) {
         return false; // Already checked this path
       }
-
       visited.add(currentTableId);
       recursionStack.add(currentTableId);
-
       // Get all reference columns for current table
       const columns = await this.columnsRepo.findByTableId(currentTableId, tx);
       const referenceColumns = columns.filter(col => col.type === 'reference' && col.referenceTableId);
-
       // Check each reference for cycles
       for (const col of referenceColumns) {
         if (await hasCycle(col.referenceTableId!)) {
           return true;
         }
       }
-
       recursionStack.delete(currentTableId);
       return false;
     };
-
     // Simulate adding the new reference and check for cycles
     return hasCycle(referenceTableId);
   }
-
   /**
    * Create a new column
    */
@@ -272,10 +238,8 @@ export class DatavaultColumnsService {
   ): Promise<DatavaultColumn> {
     // Verify table ownership
     await this.verifyTableOwnership(data.tableId, tenantId, tx);
-
     // Validate select/multiselect options
     this.validateSelectOptions(data.type, data.options);
-
     // Validate reference column configuration
     await this.validateReferenceColumn(
       data.type,
@@ -284,7 +248,6 @@ export class DatavaultColumnsService {
       tenantId,
       tx
     );
-
     // Check for circular reference dependencies
     if (data.type === 'reference' && data.referenceTableId) {
       const hasCircularRef = await this.detectCircularReference(
@@ -292,14 +255,12 @@ export class DatavaultColumnsService {
         data.referenceTableId,
         tx
       );
-
       if (hasCircularRef) {
         throw new ConflictError(
           `Cannot create reference column: would create circular dependency with table ${data.referenceTableId}`
         );
       }
     }
-
     // Clear reference fields if type is not 'reference'
     let referenceTableId = data.referenceTableId;
     let referenceDisplayColumnSlug = data.referenceDisplayColumnSlug;
@@ -307,33 +268,27 @@ export class DatavaultColumnsService {
       referenceTableId = null;
       referenceDisplayColumnSlug = null;
     }
-
     // Clear options if type is not 'select' or 'multiselect'
     let options = data.options;
     if (data.type !== 'select' && data.type !== 'multiselect') {
       options = null;
     }
-
     // Validate primary key constraints
     if (data.isPrimaryKey) {
       await this.validatePrimaryKey(data.tableId, true, undefined, tx);
     }
-
     // Generate slug if not provided
     const baseSlug = data.slug || this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tableId, baseSlug, undefined, tx);
-
     // Get next order index if not provided
     let orderIndex = data.orderIndex;
     if (orderIndex === undefined || orderIndex === null) {
       const maxOrder = await this.columnsRepo.getMaxOrderIndex(data.tableId, tx);
       orderIndex = maxOrder + 1;
     }
-
     // Primary key columns must be required and unique
     const required = data.isPrimaryKey ? true : (data.required ?? false);
     const isUnique = data.isPrimaryKey ? true : (data.isUnique ?? false);
-
     return this.columnsRepo.create(
       {
         ...data,
@@ -348,7 +303,6 @@ export class DatavaultColumnsService {
       tx
     );
   }
-
   /**
    * Get column by ID with tenant verification
    */
@@ -359,7 +313,6 @@ export class DatavaultColumnsService {
   ): Promise<DatavaultColumn> {
     return this.verifyColumnOwnership(columnId, tenantId, tx);
   }
-
   /**
    * List columns for a table
    */
@@ -371,7 +324,6 @@ export class DatavaultColumnsService {
     await this.verifyTableOwnership(tableId, tenantId, tx);
     return this.columnsRepo.findByTableId(tableId, tx);
   }
-
   /**
    * Update column (name only - type changes not allowed)
    */
@@ -382,23 +334,19 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<DatavaultColumn> {
     const column = await this.verifyColumnOwnership(columnId, tenantId, tx);
-
     // Prevent type changes
     if (data.type && data.type !== column.type) {
       throw new Error("Cannot change column type after creation");
     }
-
     // If select/multiselect options are being updated, validate them
     const typeToValidate = data.type || column.type;
     const optionsToValidate = data.options !== undefined ? data.options : column.options;
     this.validateSelectOptions(typeToValidate, optionsToValidate);
-
     // If reference-related fields are being updated, validate them
     const refTableId = data.referenceTableId !== undefined ? data.referenceTableId : column.referenceTableId;
     const refDisplaySlug = data.referenceDisplayColumnSlug !== undefined
       ? data.referenceDisplayColumnSlug
       : column.referenceDisplayColumnSlug;
-
     await this.validateReferenceColumn(
       typeToValidate,
       refTableId,
@@ -406,7 +354,6 @@ export class DatavaultColumnsService {
       tenantId,
       tx
     );
-
     // Check for circular reference dependencies if referenceTableId is being changed
     if (typeToValidate === 'reference' && refTableId && refTableId !== column.referenceTableId) {
       const hasCircularRef = await this.detectCircularReference(
@@ -414,25 +361,21 @@ export class DatavaultColumnsService {
         refTableId,
         tx
       );
-
       if (hasCircularRef) {
         throw new ConflictError(
           `Cannot update reference column: would create circular dependency with table ${refTableId}`
         );
       }
     }
-
     // Clear reference fields if type is not 'reference'
     if (typeToValidate !== 'reference') {
       data.referenceTableId = null;
       data.referenceDisplayColumnSlug = null;
     }
-
     // Clear options if type is not 'select' or 'multiselect'
     if (typeToValidate !== 'select' && typeToValidate !== 'multiselect') {
       data.options = null;
     }
-
     // Validate primary key changes
     if (data.isPrimaryKey !== undefined && data.isPrimaryKey !== column.isPrimaryKey) {
       if (data.isPrimaryKey) {
@@ -451,46 +394,37 @@ export class DatavaultColumnsService {
         // (this is handled by the frontend)
       }
     }
-
     // Validate unique constraint changes
     if (data.isUnique !== undefined && data.isUnique && !column.isUnique) {
       await this.validateUniqueConstraint(columnId, true, tx);
     }
-
     // If name changed, regenerate slug
     if (data.name && !data.slug) {
       const baseSlug = this.generateSlug(data.name);
       data.slug = await this.ensureUniqueSlug(column.tableId, baseSlug, columnId, tx);
     }
-
     // If slug provided, ensure it's unique
     if (data.slug) {
       data.slug = await this.ensureUniqueSlug(column.tableId, data.slug, columnId, tx);
     }
-
     // If setting as primary key, force required and unique
     if (data.isPrimaryKey) {
       data.required = true;
       data.isUnique = true;
     }
-
     return this.columnsRepo.update(columnId, data, tx);
   }
-
   /**
    * Delete column (also deletes all associated values)
    */
   async deleteColumn(columnId: string, tenantId: string, tx?: DbTransaction): Promise<void> {
     const column = await this.verifyColumnOwnership(columnId, tenantId, tx);
-
     // Guardrail: Check for references in workflows
     await this.checkColumnUsage(columnId, tx);
-
     // Prevent deleting the only primary key column
     if (column.isPrimaryKey) {
       const allColumns = await this.columnsRepo.findByTableId(column.tableId, tx);
       const primaryKeyColumns = allColumns.filter(c => c.isPrimaryKey);
-
       if (primaryKeyColumns.length === 1) {
         throw new Error(
           'Cannot delete the primary key column. Tables must have at least one primary key column. ' +
@@ -498,19 +432,15 @@ export class DatavaultColumnsService {
         );
       }
     }
-
     // Delete all values for this column first (though CASCADE should handle it)
     await this.rowsRepo.deleteValuesByColumnId(columnId, tx);
-
     // If this is an auto-number column, cleanup its PostgreSQL sequence
     if (column.type === 'auto_number') {
       await this.rowsRepo.cleanupAutoNumberSequence(columnId, tx);
     }
-
     // Delete the column
     await this.columnsRepo.delete(columnId, tx);
   }
-
   /**
    * Reorder columns for a table
    */
@@ -521,20 +451,16 @@ export class DatavaultColumnsService {
     tx?: DbTransaction
   ): Promise<void> {
     await this.verifyTableOwnership(tableId, tenantId, tx);
-
     // Verify all columns belong to the table
     const columns = await this.columnsRepo.findByTableId(tableId, tx);
     const tableColumnIds = new Set(columns.map((c) => c.id));
-
     for (const columnId of columnIds) {
       if (!tableColumnIds.has(columnId)) {
         throw new Error(`Column ${columnId} does not belong to table ${tableId}`);
       }
     }
-
     await this.columnsRepo.reorderColumns(tableId, columnIds, tx);
   }
-
   /**
    * Get column by slug
    */
@@ -553,7 +479,6 @@ export class DatavaultColumnsService {
    */
   private async checkColumnUsage(columnId: string, tx?: DbTransaction): Promise<void> {
     const database = tx || db;
-
     // Check blocks config for column ID reference (naive JSON string search for UUID)
     // This catches usage in "Create Record", "Update Record", etc.
     const matchingBlocks = await database
@@ -561,13 +486,11 @@ export class DatavaultColumnsService {
       .from(blocks)
       .where(sql`${blocks.config}::text LIKE ${`%${columnId}%`}`)
       .limit(1);
-
     if (matchingBlocks.length > 0) {
       throw new Error(
         `Cannot delete column: It is referenced by a ${matchingBlocks[0].type} block in workflow ${matchingBlocks[0].workflowId}`
       );
     }
-
     // Check transform blocks code or config
     const matchingTransforms = await database
       .select({ id: transformBlocks.id, name: transformBlocks.name, workflowId: transformBlocks.workflowId })
@@ -579,7 +502,6 @@ export class DatavaultColumnsService {
         )
       )
       .limit(1);
-
     if (matchingTransforms.length > 0) {
       throw new Error(
         `Cannot delete column: It is referenced by transform block "${matchingTransforms[0].name}" in workflow ${matchingTransforms[0].workflowId}`
@@ -587,6 +509,5 @@ export class DatavaultColumnsService {
     }
   }
 }
-
 // Singleton instance
 export const datavaultColumnsService = new DatavaultColumnsService();

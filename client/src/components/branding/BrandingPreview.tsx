@@ -3,31 +3,21 @@
  *
  * Shows a live preview of how the branding will look in the intake portal
  */
-
 import { Eye, Smartphone, Monitor } from 'lucide-react';
 import React, { useMemo , useState } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { brandingToThemeTokens } from '@/lib/tenantTheme';
 import type { TenantBranding } from '@/lib/vault-api';
-
-
 export interface BrandingPreviewProps {
   branding: Partial<TenantBranding>;
 }
-
 export default function BrandingPreview({ branding }: BrandingPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
-
   // Generate theme tokens from branding
   const themeTokens = useMemo(() => {
     return brandingToThemeTokens(branding);
   }, [branding]);
-
   // Apply tokens to inline styles
   const themeStyles = useMemo(() => {
     const styles: React.CSSProperties = {};
@@ -40,21 +30,17 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
     });
     return styles;
   }, [themeTokens]);
-
   const primaryColor = branding.primaryColor || '#3B82F6';
   const accentColor = branding.accentColor || '#10B981';
   const isDarkMode = branding.darkModeEnabled || false;
   const logoUrl = branding.logoUrl;
   const headerText = branding.intakeHeaderText || 'Welcome to Our Portal';
-
   const bgColor = isDarkMode ? '#0F172A' : '#FFFFFF';
   const textColor = isDarkMode ? '#F8FAFC' : '#0F172A';
   const mutedColor = isDarkMode ? '#CBD5E1' : '#64748B';
   const surfaceColor = isDarkMode ? '#1E293B' : '#FFFFFF';
   const borderColor = isDarkMode ? '#334155' : '#E2E8F0';
-
   const containerClass = viewMode === 'mobile' ? 'max-w-sm' : 'w-full';
-
   return (
     <Card className="sticky top-6">
       <CardHeader>
@@ -122,7 +108,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                 {headerText}
               </h2>
             </div>
-
             {/* Progress Bar */}
             <div className="p-6 border-b" style={{ borderColor }}>
               <div className="space-y-2">
@@ -138,7 +123,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                 </div>
               </div>
             </div>
-
             {/* Form Content */}
             <div className="p-6 space-y-6" style={{ backgroundColor: surfaceColor }}>
               <div className="space-y-2">
@@ -159,7 +143,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                   This is a sample question in your intake portal
                 </p>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium" style={{ color: textColor }}>
                   Another Field
@@ -175,7 +158,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                   }}
                 />
               </div>
-
               {/* Buttons */}
               <div className="flex items-center gap-3 pt-4">
                 <button
@@ -196,7 +178,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                   Next
                 </button>
               </div>
-
               {/* Accent Button Example */}
               <button
                 className="w-full px-4 py-2 rounded-md font-medium text-white transition-colors hover:opacity-90"
@@ -207,7 +188,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                 Submit
               </button>
             </div>
-
             {/* Footer */}
             <div
               className="p-4 text-center text-xs border-t"
@@ -216,7 +196,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
               <p>Powered by VaultLogic</p>
             </div>
           </div>
-
           {/* Color Swatches */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -232,7 +211,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
                 </div>
               </div>
             </div>
-
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Accent Color</p>
               <div className="flex items-center gap-2">
@@ -247,7 +225,6 @@ export default function BrandingPreview({ branding }: BrandingPreviewProps) {
               </div>
             </div>
           </div>
-
           {/* Theme Mode */}
           <div className="pt-4 border-t">
             <div className="flex items-center justify-between text-sm">

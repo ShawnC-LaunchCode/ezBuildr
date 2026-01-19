@@ -1,42 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, FileText, CheckCircle2, XCircle, Clock } from "lucide-react";
-
+import { ArrowLeft, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { runAPI } from "@/lib/vault-api";
-
-
 interface ExecutionDetailViewProps {
     runId: string;
     onBack: () => void;
 }
-
 export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps) {
     const { data: run, isLoading } = useQuery({
         queryKey: ['run-detail', runId],
         queryFn: () => runAPI.getWithValues(runId),
     });
-
     const { data: documents } = useQuery({
         queryKey: ['run-documents', runId],
         queryFn: () => runAPI.getDocuments(runId),
     });
-
     if (isLoading) {
         return <div className="p-8 text-center">Loading execution details...</div>;
     }
-
     if (!run) {
         return <div className="p-8 text-center text-destructive">Execution not found.</div>;
     }
-
     const duration = run.completed && run.completedAt
         ? Math.round((new Date(run.completedAt).getTime() - new Date(run.createdAt).getTime()) / 1000)
         : null;
-
     return (
         <div className="flex flex-col h-full bg-muted/10">
             <div className="flex items-center gap-2 p-4 border-b bg-background">
@@ -62,7 +53,6 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                     </div>
                 )}
             </div>
-
             <ScrollArea className="flex-1 p-6">
                 <div className="space-y-6 max-w-4xl mx-auto">
                     {/* Metadata Card */}
@@ -94,7 +84,6 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                             </CardContent>
                         </Card>
                     </div>
-
                     {/* Documents */}
                     {documents && documents.length > 0 && (
                         <Card>
@@ -113,7 +102,6 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                             </CardContent>
                         </Card>
                     )}
-
                     {/* Variable State */}
                     <Card>
                         <CardHeader>

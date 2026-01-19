@@ -2,60 +2,47 @@
  * SortBuilderUI - Visual multi-key sorting builder for List Tools blocks
  * Supports arrow buttons for reordering (drag-drop deferred to v2)
  */
-
 import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import React from "react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 import type { ListToolsSortKey } from "@shared/types/blocks";
-
 interface SortBuilderUIProps {
   sort: ListToolsSortKey[] | undefined;
   onChange: (sort: ListToolsSortKey[] | undefined) => void;
   className?: string;
 }
-
 export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps) {
   const sortKeys = sort || [];
-
   const handleAddSort = () => {
     const newSort: ListToolsSortKey = {
       fieldPath: '',
       direction: 'asc'
     };
-
     onChange([...sortKeys, newSort]);
   };
-
   const handleUpdateSort = (index: number, updates: Partial<ListToolsSortKey>) => {
     const newSort = [...sortKeys];
     newSort[index] = { ...newSort[index], ...updates };
     onChange(newSort);
   };
-
   const handleRemoveSort = (index: number) => {
     const newSort = sortKeys.filter((_, i) => i !== index);
     onChange(newSort.length > 0 ? newSort : undefined);
   };
-
   const handleMoveUp = (index: number) => {
     if (index === 0) {return;}
     const newSort = [...sortKeys];
     [newSort[index - 1], newSort[index]] = [newSort[index], newSort[index - 1]];
     onChange(newSort);
   };
-
   const handleMoveDown = (index: number) => {
     if (index === sortKeys.length - 1) {return;}
     const newSort = [...sortKeys];
     [newSort[index], newSort[index + 1]] = [newSort[index + 1], newSort[index]];
     onChange(newSort);
   };
-
   return (
     <div className={className}>
       <div className="space-y-2">
@@ -71,7 +58,6 @@ export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps)
             onMoveDown={() => handleMoveDown(index)}
           />
         ))}
-
         <Button
           type="button"
           size="sm"
@@ -82,7 +68,6 @@ export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps)
           <Plus className="w-3 h-3 mr-1" />
           Add Sort Key
         </Button>
-
         {sortKeys.length > 0 && (
           <p className="text-[11px] text-muted-foreground">
             Multi-key sorting: Applied in order. First key has priority.
@@ -92,7 +77,6 @@ export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps)
     </div>
   );
 }
-
 interface SortKeyRowProps {
   sortKey: ListToolsSortKey;
   index: number;
@@ -102,7 +86,6 @@ interface SortKeyRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
 }
-
 function SortKeyRow({
   sortKey,
   index,
@@ -142,7 +125,6 @@ function SortKeyRow({
           </Button>
         </div>
       </div>
-
       {/* Field Path */}
       <div className="flex-1">
         <Input
@@ -152,7 +134,6 @@ function SortKeyRow({
           onChange={(e) => onUpdate({ fieldPath: e.target.value })}
         />
       </div>
-
       {/* Direction */}
       <Select
         value={sortKey.direction}
@@ -166,7 +147,6 @@ function SortKeyRow({
           <SelectItem value="desc">Descending</SelectItem>
         </SelectContent>
       </Select>
-
       {/* Remove button */}
       <Button
         type="button"

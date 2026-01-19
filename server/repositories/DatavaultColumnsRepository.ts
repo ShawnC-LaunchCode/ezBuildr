@@ -1,15 +1,11 @@
-import { eq, and, desc, sql, asc } from "drizzle-orm";
-
+import { eq, and, sql, asc } from "drizzle-orm";
 import {
   datavaultColumns,
   type DatavaultColumn,
   type InsertDatavaultColumn,
 } from "@shared/schema";
-
 import { db } from "../db";
-
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-
 /**
  * Repository for DataVault column data access
  * Handles CRUD operations for table column definitions
@@ -22,7 +18,6 @@ export class DatavaultColumnsRepository extends BaseRepository<
   constructor(dbInstance?: typeof db) {
     super(datavaultColumns, dbInstance);
   }
-
   /**
    * Find columns by table ID (ordered by orderIndex)
    */
@@ -34,7 +29,6 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .where(eq(datavaultColumns.tableId, tableId))
       .orderBy(asc(datavaultColumns.orderIndex));
   }
-
   /**
    * Find column by table ID and slug
    */
@@ -48,10 +42,8 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .select()
       .from(datavaultColumns)
       .where(and(eq(datavaultColumns.tableId, tableId), eq(datavaultColumns.slug, slug)));
-
     return column;
   }
-
   /**
    * Check if slug exists for table (excluding specific ID if provided)
    */
@@ -62,25 +54,20 @@ export class DatavaultColumnsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<boolean> {
     const database = this.getDb(tx);
-
     const conditions = [
       eq(datavaultColumns.tableId, tableId),
       eq(datavaultColumns.slug, slug)
     ];
-
     if (excludeId) {
       conditions.push(sql`${datavaultColumns.id} != ${excludeId}`);
     }
-
     const [result] = await database
       .select({ id: datavaultColumns.id })
       .from(datavaultColumns)
       .where(and(...conditions))
       .limit(1);
-
     return !!result;
   }
-
   /**
    * Count columns for a table
    */
@@ -90,10 +77,8 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultColumns)
       .where(eq(datavaultColumns.tableId, tableId));
-
     return result?.count || 0;
   }
-
   /**
    * Get max order index for a table
    */
@@ -103,10 +88,8 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .select({ max: sql<number>`COALESCE(MAX(${datavaultColumns.orderIndex}), -1)::int` })
       .from(datavaultColumns)
       .where(eq(datavaultColumns.tableId, tableId));
-
     return result?.max ?? -1;
   }
-
   /**
    * Reorder columns for a table
    */
@@ -116,7 +99,6 @@ export class DatavaultColumnsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<void> {
     const database = this.getDb(tx);
-
     // Update each column with its new order index
     for (let i = 0; i < columnIds.length; i++) {
       await database
@@ -125,7 +107,6 @@ export class DatavaultColumnsRepository extends BaseRepository<
         .where(and(eq(datavaultColumns.id, columnIds[i]), eq(datavaultColumns.tableId, tableId)));
     }
   }
-
   /**
    * Delete all columns for a table
    */
@@ -133,7 +114,6 @@ export class DatavaultColumnsRepository extends BaseRepository<
     const database = this.getDb(tx);
     await database.delete(datavaultColumns).where(eq(datavaultColumns.tableId, tableId));
   }
-
   /**
    * Update column with automatic timestamp update
    */
@@ -145,6 +125,5 @@ export class DatavaultColumnsRepository extends BaseRepository<
     return super.update(id, { ...updates, updatedAt: new Date() } as Partial<InsertDatavaultColumn>, tx);
   }
 }
-
 // Singleton instance
 export const datavaultColumnsRepository = new DatavaultColumnsRepository();

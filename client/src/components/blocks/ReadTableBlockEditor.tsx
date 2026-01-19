@@ -2,11 +2,9 @@
  * Read Table Block Editor
  * Simplified UX for reading workflow data from DataVault tables
  */
-
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Plus, Trash2 } from "lucide-react";
-import React, { useState, useEffect } from "react";
-
+import {  Plus, Trash2 } from "lucide-react";
+import React, {  useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +15,7 @@ import { useTableColumns } from "@/hooks/useTableColumns";
 import { cn } from "@/lib/utils";
 import { dataSourceAPI } from "@/lib/vault-api";
 import { useWorkflowDataSources } from "@/lib/vault-hooks";
-
 import type { ReadTableConfig } from "@shared/types/blocks";
-
-
 interface ReadTableBlockEditorProps {
   workflowId: string;
   config: ReadTableConfig;
@@ -33,7 +28,6 @@ interface ReadTableBlockEditorProps {
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
 }
-
 export function ReadTableBlockEditor({
   workflowId,
   config,
@@ -47,70 +41,55 @@ export function ReadTableBlockEditor({
 }: ReadTableBlockEditorProps) {
   const { data: dataSources } = useWorkflowDataSources(workflowId);
   const selectedDataSource = dataSources?.find(ds => ds.id === config.dataSourceId);
-
   // Fetch tables
   const { data: fetchedTables } = useQuery({
     queryKey: ["dataSource", config.dataSourceId, "tables"],
     queryFn: () => config.dataSourceId ? dataSourceAPI.getTables(config.dataSourceId) : Promise.resolve([]),
     enabled: !!config.dataSourceId && !selectedDataSource?.config?.isNativeTable
   });
-
   const { data: allNativeTables } = useTables();
-
   let tables: { name: string; type: string; id: string }[] = [];
-
   if (fetchedTables) {
     tables = fetchedTables.map((t: any) => ({ ...t, id: t.id || t.name }));
   }
-
   if (selectedDataSource?.config?.isNativeTable && selectedDataSource?.config?.tableId) {
     const targetTable = allNativeTables?.find(t => t.id === selectedDataSource.config.tableId);
     if (targetTable) {
       tables = [{ name: targetTable.name, type: 'native', id: targetTable.id }];
     }
   }
-
   const resolvedTableId = config.tableId && tables.find(t => t.name === config.tableId || t.id === config.tableId)?.id;
   const { data: columns } = useTableColumns(resolvedTableId);
-
   // Auto-select table if native table proxy
   useEffect(() => {
     if (selectedDataSource?.config?.isNativeTable && tables.length === 1 && config.tableId !== tables[0].id) {
       updateConfig({ tableId: tables[0].id });
     }
   }, [selectedDataSource, tables, config.tableId]);
-
   const updateConfig = (updates: Partial<ReadTableConfig>) => {
     onChange({ ...config, ...updates });
   };
-
   // ---------------------------------------------------------------------------
   // Validation & Progress Logic
   // ---------------------------------------------------------------------------
   const hasSource = !!config.dataSourceId && !!config.tableId;
   const hasOutput = !!config.outputKey;
-
   // Logic Steps:
   // 1. Source (Data Source + Table) -> When done, highlights Output
   // 2. Output (Variable Name) -> When done, highlights Settings
   // 3. Settings (Filters, Sort, Limit) -> Always available after Output
-
   const step1Complete = hasSource;
   const step2Complete = step1Complete && hasOutput;
-
   // Visual States
   const isStep1Active = !step1Complete;
   const isStep2Active = step1Complete && !step2Complete;
-
   // Highlighting classes
   const activeRingClass = "ring-2 ring-green-500 ring-offset-2 bg-green-50/50";
   const inactiveClass = "opacity-40 pointer-events-none grayscale-[0.5]";
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
       {/* LEFT COLUMN: Data Source, Table, Output */}
       <div className="space-y-6">
-
         {/* 1. DATA SOURCE & TABLE */}
         <div className={cn(
           "space-y-3 p-4 rounded-lg transition-all duration-300 border",
@@ -120,7 +99,6 @@ export function ReadTableBlockEditor({
             <Label className="text-base font-medium">Data Source</Label>
             {step1Complete && <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Configured</Badge>}
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Data Source</Label>
@@ -150,7 +128,6 @@ export function ReadTableBlockEditor({
             </div>
           </div>
         </div>
-
         {/* 2. OUTPUT VARIABLE */}
         <div className={cn(
           "space-y-3 rounded-lg transition-all duration-300",
@@ -161,7 +138,6 @@ export function ReadTableBlockEditor({
             <Label className="text-base font-medium">Output Variable</Label>
             {step2Complete && !isStep1Active && <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100"><span className="mr-1">✓</span> Ready</Badge>}
           </div>
-
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Variable Name</Label>
             <Input
@@ -175,7 +151,6 @@ export function ReadTableBlockEditor({
             </p>
           </div>
         </div>
-
         {/* 3. COLUMNS SELECTOR */}
         <div className={cn(
           "space-y-3 rounded-lg transition-all duration-300",
@@ -188,7 +163,6 @@ export function ReadTableBlockEditor({
             <Label className="text-base font-medium">Columns</Label>
             <Badge variant="outline">{(config.columns === undefined || config.columns === null) ? `All (${columns?.length || 0})` : config.columns.length}</Badge>
           </div>
-
           <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
             <div className="flex items-center space-x-2 pb-2 border-b border-slate-200">
               <input
@@ -210,7 +184,6 @@ export function ReadTableBlockEditor({
                 Read All Columns
               </Label>
             </div>
-
             {/* Individual Columns List */}
             {config.columns !== undefined && config.columns !== null && (
               <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
@@ -242,7 +215,6 @@ export function ReadTableBlockEditor({
                 })}
               </div>
             )}
-
             {(config.columns === undefined || config.columns === null) && (
               <div className="py-4 text-center text-xs text-muted-foreground italic">
                 Retrieving all({columns?.length || 0}) fields.
@@ -250,22 +222,18 @@ export function ReadTableBlockEditor({
             )}
           </div>
         </div>
-
       </div>
-
       {/* RIGHT COLUMN: Settings, Order, Enabled */}
       <div className={cn(
         "space-y-6 border-l pl-6 transition-opacity duration-500",
         !step2Complete ? inactiveClass : "opacity-100"
       )}>
-
         {/* 3. FILTERS (Moved to Top of Right Column) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Filters</h3>
             <Badge variant="outline">{config.filters?.length || 0}</Badge>
           </div>
-
           <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
             {(config.filters || []).map((filter, index) => (
               <div key={index} className="flex gap-2 items-start p-2 bg-white rounded border shadow-sm">
@@ -288,7 +256,6 @@ export function ReadTableBlockEditor({
                       {columns?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-
                   <Select
                     value={filter.operator}
                     onValueChange={(val: any) => {
@@ -305,7 +272,6 @@ export function ReadTableBlockEditor({
                       <SelectItem value="lt">Less Than</SelectItem>
                     </SelectContent>
                   </Select>
-
                   <Input
                     value={filter.value}
                     onChange={(e) => {
@@ -326,7 +292,6 @@ export function ReadTableBlockEditor({
                 </Button>
               </div>
             ))}
-
             <Button variant="outline" size="sm" className="w-full border-dashed" onClick={() => {
               updateConfig({ filters: [...(config.filters || []), { columnId: '', operator: 'equals', value: '' }] });
             }}>
@@ -335,12 +300,9 @@ export function ReadTableBlockEditor({
             </Button>
           </div>
         </div>
-
         <div className="h-px bg-gray-100 my-4" />
-
         <div className="space-y-4">
           <h3 className="font-semibold mb-4">Query Settings</h3>
-
           {/* Sorting */}
           <div className="space-y-2">
             <Label>Sort By</Label>
@@ -360,7 +322,6 @@ export function ReadTableBlockEditor({
                   {columns?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-
               {config.sort && (
                 <Select value={config.sort.direction} onValueChange={(val: 'asc' | 'desc') => {
                   updateConfig({ sort: { ...config.sort!, direction: val } });
@@ -376,7 +337,6 @@ export function ReadTableBlockEditor({
               )}
             </div>
           </div>
-
           {/* Limit */}
           <div className="space-y-2">
             <Label>Row Limit</Label>
@@ -388,9 +348,7 @@ export function ReadTableBlockEditor({
             />
             <p className="text-xs text-muted-foreground">Max rows to fetch (default 100).</p>
           </div>
-
           <div className="h-px bg-gray-100 my-4" />
-
           {/* Execution Phase */}
           <div className="space-y-2">
             <Label>When to Run</Label>
@@ -407,7 +365,6 @@ export function ReadTableBlockEditor({
               </SelectContent>
             </Select>
           </div>
-
           {/* Order */}
           <div className="space-y-2">
             <Label>Order</Label>
@@ -418,7 +375,6 @@ export function ReadTableBlockEditor({
               className="bg-white"
             />
           </div>
-
           {/* Enabled */}
           <div className="pt-2">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -431,7 +387,6 @@ export function ReadTableBlockEditor({
               <span className="text-sm font-medium">Enabled</span>
             </label>
           </div>
-
         </div>
       </div>
     </div>

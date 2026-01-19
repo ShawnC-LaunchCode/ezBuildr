@@ -1,10 +1,7 @@
-import { eq, and, desc, inArray } from "drizzle-orm";
-
-import { workflowRuns, workflows, sections } from "@shared/schema";
-
+import { eq, and, desc } from "drizzle-orm";
+import { workflowRuns } from "@shared/schema";
 import { db } from "../db";
 import { logger } from "../logger";
-
 export class PortalService {
     /**
      * List runs accessible to a given email
@@ -29,7 +26,6 @@ export class PortalService {
                     }
                 }
             });
-
             return runs.map((run: any) => ({
                 id: run.id,
                 workflowTitle: run.workflow?.name || run.workflow?.title || "Untitled Workflow",
@@ -39,13 +35,11 @@ export class PortalService {
                 accessSettings: run.workflow?.accessSettings,
                 shareToken: run.shareToken
             }));
-
         } catch (error) {
             logger.error({ error, email }, "Error listing portal runs");
             throw new Error("Failed to list runs");
         }
     }
-
     /**
      * Verify access to a specific run for a user (email)
      */
@@ -59,5 +53,4 @@ export class PortalService {
         return !!run;
     }
 }
-
 export const portalService = new PortalService();

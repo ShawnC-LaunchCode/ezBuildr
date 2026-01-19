@@ -2,10 +2,8 @@
  * RecordTable Component
  * Displays collection records in a table format with type-specific rendering
  */
-
 import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import React, { useState } from "react";
-
+import React, {  } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ApiCollectionRecord, ApiCollectionField } from "@/lib/vault-api";
-
 interface RecordTableProps {
   records: ApiCollectionRecord[];
   fields: ApiCollectionField[];
@@ -36,7 +33,6 @@ interface RecordTableProps {
   onRecordClick?: (record: ApiCollectionRecord) => void;
   onDelete?: (recordId: string) => void;
 }
-
 export function RecordTable({
   records,
   fields,
@@ -51,13 +47,11 @@ export function RecordTable({
   const totalPages = Math.ceil(totalRecords / pageSize);
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
-
   // Render field value based on field type
   const renderFieldValue = (value: any, field: ApiCollectionField) => {
     if (value === null || value === undefined) {
       return <span className="text-muted-foreground italic">—</span>;
     }
-
     switch (field.type) {
       case "boolean":
         return value ? (
@@ -65,21 +59,18 @@ export function RecordTable({
         ) : (
           <XCircle className="w-4 h-4 text-red-600" />
         );
-
       case "date":
         try {
           return new Date(value).toLocaleDateString();
         } catch {
           return value;
         }
-
       case "datetime":
         try {
           return new Date(value).toLocaleString();
         } catch {
           return value;
         }
-
       case "file":
         if (typeof value === "string") {
           return (
@@ -90,10 +81,8 @@ export function RecordTable({
           );
         }
         return value;
-
       case "select":
         return <Badge variant="secondary">{value}</Badge>;
-
       case "multi_select":
         if (Array.isArray(value)) {
           return (
@@ -107,17 +96,14 @@ export function RecordTable({
           );
         }
         return value;
-
       case "json":
         return (
           <code className="text-xs bg-muted px-2 py-1 rounded">
             {JSON.stringify(value)}
           </code>
         );
-
       case "number":
         return <span className="font-mono">{value}</span>;
-
       case "text":
       default:
         const strValue = String(value);
@@ -128,7 +114,6 @@ export function RecordTable({
         );
     }
   };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -136,7 +121,6 @@ export function RecordTable({
       </div>
     );
   }
-
   if (records.length === 0) {
     return (
       <div className="text-center py-12">
@@ -144,7 +128,6 @@ export function RecordTable({
       </div>
     );
   }
-
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
@@ -217,7 +200,6 @@ export function RecordTable({
           </TableBody>
         </Table>
       </div>
-
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">

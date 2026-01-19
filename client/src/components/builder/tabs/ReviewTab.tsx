@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import {
     CheckCircle2,
     AlertTriangle,
@@ -10,21 +9,16 @@ import {
     Share2,
     Users
 } from "lucide-react";
-import React, { useState } from "react";
+import React, {  } from "react";
 import { useLocation } from "wouter";
-
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useWorkflows, useSections, useAllSteps, usePublishWorkflow } from "@/lib/vault-hooks";
-
+import {  useSections, useAllSteps } from "@/lib/vault-hooks";
 interface ReviewTabProps {
     workflowId: string;
 }
-
 export function ReviewTab({ workflowId }: ReviewTabProps) {
     const { data: sections } = useSections(workflowId);
     // We need all steps to check for aliases/content
@@ -33,27 +27,23 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
     // We don't have a direct 'publish' mutation that doesn't ask for generic JSON, 
     // but existing usePublishWorkflow takes graphJson. We'll reuse it or just simulate for now.
     const [location, setLocation] = useLocation();
-
     // Basic stats
     const totalSections = sections?.length || 0;
     let totalQuestions = 0;
     let missingAliases = 0;
     let emptyTitles = 0;
     let conditionalQuestions = 0;
-
     const activeIssues: Array<{
         type: 'warning' | 'info' | 'success';
         message: string;
         sectionId?: string;
         stepId?: string;
     }> = [];
-
     // Analyze structure
     if (sections) {
         sections.forEach(section => {
             const steps = allStepsMap[section.id] || [];
             totalQuestions += steps.length;
-
             steps.forEach(step => {
                 if (!step.title) {
                     emptyTitles++;
@@ -64,7 +54,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                         stepId: step.id
                     });
                 }
-
                 if (!step.alias) {
                     missingAliases++;
                     activeIssues.push({
@@ -74,21 +63,17 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                         stepId: step.id
                     });
                 }
-
                 if (step.visibleIf) {
                     conditionalQuestions++;
                 }
             });
         });
     }
-
     const isReady = emptyTitles === 0;
-
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50/50">
             <ScrollArea className="flex-1 p-6">
                 <div className="max-w-4xl mx-auto space-y-8">
-
                     {/* Header */}
                     <div className="space-y-2">
                         <h2 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
@@ -100,7 +85,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                             We've checked for common issues and best practices.
                         </p>
                     </div>
-
                     {/* Key Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <StatsCard label="Pages" value={totalSections} icon={FileText} />
@@ -112,7 +96,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                             highlight={conditionalQuestions > 0}
                         />
                     </div>
-
                     {/* Readiness Checklist */}
                     <Card>
                         <CardHeader>
@@ -122,7 +105,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-
                             {/* Ready Status */}
                             {isReady && missingAliases === 0 ? (
                                 <div className="flex items-center gap-3 p-3 bg-green-50 text-green-700 rounded-md border border-green-100">
@@ -133,7 +115,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                                     </div>
                                 </div>
                             ) : null}
-
                             {/* Blocking Issues (Empty Titles) */}
                             {emptyTitles > 0 && (
                                 <div className="space-y-2">
@@ -158,7 +139,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                                     </div>
                                 </div>
                             )}
-
                             {/* Soft Suggestions (Aliases) */}
                             {missingAliases > 0 && (
                                 <div className="space-y-2 pt-2">
@@ -177,7 +157,6 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                                     </div>
                                 </div>
                             )}
-
                             {/* Collaboration Hint */}
                             <div className="pt-4 border-t flex items-center gap-2 text-sm text-slate-500">
                                 <Users className="w-4 h-4" />
@@ -185,19 +164,15 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                                     Others can edit this workflow with you.
                                 </span>
                             </div>
-
                         </CardContent>
                         <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end gap-2">
-
                         </CardFooter>
                     </Card>
-
                 </div>
             </ScrollArea>
         </div>
     );
 }
-
 function StatsCard({ label, value, icon: Icon, highlight }: { label: string, value: string | number, icon: any, highlight?: boolean }) {
     return (
         <Card>

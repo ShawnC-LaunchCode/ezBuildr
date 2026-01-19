@@ -4,13 +4,10 @@
  * Captures runtime events for analytics, SLI tracking, and observability.
  * Events are stored in metrics_events table and aggregated by rollup jobs.
  */
-
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
-
+import { eq, and, gte, desc } from 'drizzle-orm';
 import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
 import { db } from '../db';
 import logger from '../logger';
-
 export interface MetricsEventInput {
   type: 'run_started' | 'run_succeeded' | 'run_failed' | 'pdf_succeeded' | 'pdf_failed' | 'docx_succeeded' | 'docx_failed' | 'queue_enqueued' | 'queue_dequeued';
   tenantId: string;
@@ -21,7 +18,6 @@ export interface MetricsEventInput {
   durationMs?: number;
   payload?: Record<string, any>;
 }
-
 /**
  * Emit a metrics event
  * Records the event in the database for later aggregation
@@ -30,7 +26,6 @@ export async function emit(event: MetricsEventInput): Promise<void> {
   try {
     // Redact sensitive fields from payload
     const sanitizedPayload = event.payload ? redactPayload(event.payload) : {};
-
     const insertData: InsertMetricsEvent = {
       type: event.type,
       tenantId: event.tenantId,
@@ -41,9 +36,7 @@ export async function emit(event: MetricsEventInput): Promise<void> {
       durationMs: event.durationMs || null,
       payload: sanitizedPayload,
     };
-
     await db.insert(metricsEvents).values(insertData);
-
     logger.debug({
       type: event.type,
       projectId: event.projectId,
@@ -55,7 +48,6 @@ export async function emit(event: MetricsEventInput): Promise<void> {
     logger.error({ error, event }, 'Failed to emit metrics event');
   }
 }
-
 /**
  * Capture run lifecycle events
  * Helper to emit events at key points in workflow run execution
@@ -82,7 +74,6 @@ export const captureRunLifecycle = {
       },
     });
   },
-
   /**
    * Emit run_succeeded event when a run completes successfully
    */
@@ -106,7 +97,6 @@ export const captureRunLifecycle = {
       },
     });
   },
-
   /**
    * Emit run_failed event when a run fails
    */
@@ -131,7 +121,6 @@ export const captureRunLifecycle = {
     });
   },
 };
-
 /**
  * Capture document generation events (PDF/DOCX)
  */
@@ -159,7 +148,6 @@ export const captureDocumentGeneration = {
       },
     });
   },
-
   /**
    * Emit pdf_failed event
    */
@@ -183,7 +171,6 @@ export const captureDocumentGeneration = {
       },
     });
   },
-
   /**
    * Emit docx_succeeded event
    */
@@ -207,7 +194,6 @@ export const captureDocumentGeneration = {
       },
     });
   },
-
   /**
    * Emit docx_failed event
    */
@@ -232,7 +218,6 @@ export const captureDocumentGeneration = {
     });
   },
 };
-
 /**
  * Capture queue events (if using job queue)
  */
@@ -256,7 +241,6 @@ export const captureQueue = {
       },
     });
   },
-
   /**
    * Emit queue_dequeued event when a job is processed from queue
    */
@@ -279,7 +263,6 @@ export const captureQueue = {
     });
   },
 };
-
 /**
  * Get recent events for a project or workflow
  */
@@ -290,15 +273,12 @@ export async function getRecentEvents(params: {
   since?: Date;
 }): Promise<typeof metricsEvents.$inferSelect[]> {
   const conditions = [eq(metricsEvents.projectId, params.projectId)];
-
   if (params.workflowId) {
     conditions.push(eq(metricsEvents.workflowId, params.workflowId));
   }
-
   if (params.since) {
     conditions.push(gte(metricsEvents.ts, params.since));
   }
-
   return db
     .select()
     .from(metricsEvents)
@@ -306,7 +286,6 @@ export async function getRecentEvents(params: {
     .orderBy(desc(metricsEvents.ts))
     .limit(params.limit || 100);
 }
-
 /**
  * Redact sensitive fields from payload
  * Prevents secrets, PII, and other sensitive data from being logged
@@ -328,13 +307,10 @@ function redactPayload(payload: Record<string, any>): Record<string, any> {
     'auth',
     'authorization',
   ];
-
   const redacted: Record<string, any> = {};
-
   for (const [key, value] of Object.entries(payload)) {
     const lowerKey = key.toLowerCase();
     const isSensitive = sensitiveFields.some((field) => lowerKey.includes(field));
-
     if (isSensitive) {
       redacted[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
@@ -344,10 +320,8 @@ function redactPayload(payload: Record<string, any>): Record<string, any> {
       redacted[key] = value;
     }
   }
-
   return redacted;
 }
-
 /**
  * Export all metrics service functions
  */

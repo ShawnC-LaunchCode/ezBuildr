@@ -1,13 +1,10 @@
-
-import { Loader2, Zap, Layout, FileText, Upload } from "lucide-react";
+import { Loader2, Zap, FileText, Upload } from "lucide-react";
 import React, { useEffect, useState } from 'react';
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-
 interface Subscription {
     status: string;
     plan: {
@@ -16,28 +13,23 @@ interface Subscription {
     };
     currentPeriodEnd: string;
 }
-
 interface Usage {
     workflow_run?: number;
     document_generated?: number;
     storage_bytes?: number;
 }
-
 interface Limits {
     runs: number;
     documents: number;
     storage_mb: number;
 }
-
 export default function BillingDashboard() {
     const [loading, setLoading] = useState(true);
     const [sub, setSub] = useState<Subscription | null>(null);
     const [usage, setUsage] = useState<Usage>({});
     const [limits, setLimits] = useState<Limits | null>(null);
     const { toast } = useToast();
-
     useEffect(() => { void fetchBillingData(); }, []);
-
     const fetchBillingData = async () => {
         try {
             const res = await fetch('/api/billing/subscription');
@@ -57,7 +49,6 @@ export default function BillingDashboard() {
             setLoading(false);
         }
     };
-
     const handleManageSubscription = async () => {
         try {
             const res = await fetch('/api/billing/portal', { method: 'POST' });
@@ -69,16 +60,12 @@ export default function BillingDashboard() {
             toast({ title: "Error", description: "Failed to redirect to billing portal." });
         }
     };
-
     if (loading) {return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;}
-
     const getUsagePercent = (used: number = 0, limit: number) => {
         if (limit === -1) {return 0;} // Unlimited
         return Math.min(100, (used / limit) * 100);
     };
-
     const isUnlimited = (val: number) => val === -1;
-
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8">
             <div className="flex justify-between items-center">
@@ -88,7 +75,6 @@ export default function BillingDashboard() {
                 </div>
                 <Button onClick={() => { void handleManageSubscription(); }}>Manage Subscription</Button>
             </div>
-
             {/* Current Plan Card */}
             <Card>
                 <CardHeader>
@@ -111,10 +97,8 @@ export default function BillingDashboard() {
                     </div>
                 </CardContent>
             </Card>
-
             {/* Usage Metrics */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-
                 {/* Workflow Runs */}
                 <Card>
                     <CardHeader className="pb-2">
@@ -134,7 +118,6 @@ export default function BillingDashboard() {
                         )}
                     </CardContent>
                 </Card>
-
                 {/* Documents Generated */}
                 <Card>
                     <CardHeader className="pb-2">
@@ -154,7 +137,6 @@ export default function BillingDashboard() {
                         )}
                     </CardContent>
                 </Card>
-
                 {/* Storage */}
                 <Card>
                     <CardHeader className="pb-2">
@@ -174,7 +156,6 @@ export default function BillingDashboard() {
                         )}
                     </CardContent>
                 </Card>
-
             </div>
         </div>
     );

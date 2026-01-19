@@ -1,4 +1,4 @@
-import { sql, relations } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm';
 import {
     index,
@@ -16,11 +16,9 @@ import {
     unique
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-
 // ===================================================================
 // ENUMS
 // ===================================================================
-
 export const userRoleEnum = pgEnum('user_role', ['admin', 'creator', 'user', 'guest']);
 export const tenantPlanEnum = pgEnum('tenant_plan', ['free', 'pro', 'enterprise']);
 export const userTenantRoleEnum = pgEnum('user_tenant_role', ['owner', 'builder', 'runner', 'viewer']);
@@ -30,16 +28,12 @@ export const organizationInviteStatusEnum = pgEnum('organization_invite_status',
 export const ownerTypeEnum = pgEnum('owner_type', ['user', 'org']);
 export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disabled', 'unlimited', 'one_per_ip', 'one_per_session']);
 export const workspaceRoleEnum = pgEnum('workspace_role', ['owner', 'admin', 'editor', 'contributor', 'viewer']);
-
 // Types for ACL (Access Control Lists)
 export type AccessRole = "owner" | "edit" | "view" | "none";
 export type PrincipalType = "user" | "org"; // Maps to ownerTypeEnum but as strict string union if needed, or alias ownerTypeEnum
-
-
 // ===================================================================
 // TABLES
 // ===================================================================
-
 // Tenants (Platform Level - Billing/Instance)
 export const tenants = pgTable("tenants", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -53,7 +47,6 @@ export const tenants = pgTable("tenants", {
 }, (table) => [
     index("tenants_plan_idx").on(table.plan),
 ]);
-
 // Users table (Central identity)
 export const users = pgTable("users", {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -83,7 +76,6 @@ export const users = pgTable("users", {
     index("idx_users_is_placeholder").on(table.isPlaceholder),
     index("idx_users_placeholder_email").on(table.placeholderEmail),
 ]);
-
 // Organizations (Customer Level - scoped to Tenant)
 export const organizations = pgTable("organizations", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -101,7 +93,6 @@ export const organizations = pgTable("organizations", {
     index("idx_organizations_created_by").on(table.createdByUserId),
     index("idx_organizations_tenant").on(table.tenantId),
 ]);
-
 // Organization Memberships
 export const organizationMemberships = pgTable("organization_memberships", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -115,7 +106,6 @@ export const organizationMemberships = pgTable("organization_memberships", {
     index("idx_org_memberships_user").on(table.userId),
     index("idx_org_memberships_role").on(table.role),
 ]);
-
 // Organization Invites
 export const organizationInvites = pgTable("organization_invites", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -137,7 +127,6 @@ export const organizationInvites = pgTable("organization_invites", {
     index("idx_org_invites_status").on(table.status),
     index("idx_org_invites_expires").on(table.expiresAt),
 ]);
-
 // Workspaces
 export const workspaces = pgTable("workspaces", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -150,7 +139,6 @@ export const workspaces = pgTable("workspaces", {
 }, (table) => [
     uniqueIndex("workspace_org_slug_idx").on(table.organizationId, table.slug),
 ]);
-
 // Workspace Members
 export const workspaceMembers = pgTable("workspace_members", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -162,7 +150,6 @@ export const workspaceMembers = pgTable("workspace_members", {
 }, (table) => [
     uniqueIndex("workspace_member_idx").on(table.workspaceId, table.userId),
 ]);
-
 // Workspace Invitations
 export const workspaceInvitations = pgTable("workspace_invitations", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -177,7 +164,6 @@ export const workspaceInvitations = pgTable("workspace_invitations", {
     index("invitation_token_idx").on(table.token),
     index("invitation_ws_email_idx").on(table.workspaceId, table.email),
 ]);
-
 // Tenant Domains
 export const tenantDomains = pgTable("tenant_domains", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -191,7 +177,6 @@ export const tenantDomains = pgTable("tenant_domains", {
     index("tenant_domains_tenant_idx").on(table.tenantId),
     index("tenant_domains_domain_idx").on(table.domain),
 ]);
-
 // User Credentials (Local Auth)
 export const userCredentials = pgTable("user_credentials", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -202,7 +187,6 @@ export const userCredentials = pgTable("user_credentials", {
 }, (table) => [
     index("user_credentials_user_idx").on(table.userId),
 ]);
-
 // Refresh Tokens
 export const refreshTokens = pgTable("refresh_tokens", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -220,7 +204,6 @@ export const refreshTokens = pgTable("refresh_tokens", {
     index("refresh_token_user_idx").on(table.userId),
     index("refresh_token_token_idx").on(table.token),
 ]);
-
 // Password Reset Tokens
 export const passwordResetTokens = pgTable("password_reset_tokens", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -233,7 +216,6 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
     index("pwd_reset_token_idx").on(table.token),
     index("pwd_reset_user_idx").on(table.userId),
 ]);
-
 // Email Verification Tokens
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -245,7 +227,6 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
     index("email_verify_token_idx").on(table.token),
     index("email_verify_user_idx").on(table.userId),
 ]);
-
 // Security: Login Attempts
 export const loginAttempts = pgTable("login_attempts", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -257,7 +238,6 @@ export const loginAttempts = pgTable("login_attempts", {
     index("login_attempts_email_idx").on(table.email),
     index("login_attempts_timestamp_idx").on(table.attemptedAt),
 ]);
-
 // Security: Account Locks
 export const accountLocks = pgTable("account_locks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -271,7 +251,6 @@ export const accountLocks = pgTable("account_locks", {
     index("account_locks_user_idx").on(table.userId),
     index("account_locks_until_idx").on(table.lockedUntil),
 ]);
-
 // MFA Secrets
 export const mfaSecrets = pgTable("mfa_secrets", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -283,7 +262,6 @@ export const mfaSecrets = pgTable("mfa_secrets", {
 }, (table) => [
     index("mfa_secrets_user_idx").on(table.userId),
 ]);
-
 // MFA Backup Codes
 export const mfaBackupCodes = pgTable("mfa_backup_codes", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -296,7 +274,6 @@ export const mfaBackupCodes = pgTable("mfa_backup_codes", {
     index("mfa_backup_codes_user_idx").on(table.userId),
     index("mfa_backup_codes_hash_idx").on(table.codeHash),
 ]);
-
 // Trusted Devices
 export const trustedDevices = pgTable("trusted_devices", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -315,7 +292,6 @@ export const trustedDevices = pgTable("trusted_devices", {
     index("trusted_devices_fingerprint_idx").on(table.deviceFingerprint),
     index("trusted_devices_user_fingerprint_idx").on(table.userId, table.deviceFingerprint),
 ]);
-
 // User Preferences
 export const userPreferences = pgTable("user_preferences", {
     userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
@@ -327,7 +303,6 @@ export const userPreferences = pgTable("user_preferences", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
-
 // User Personalization Settings
 export const userPersonalizationSettings = pgTable("user_personalization_settings", {
     userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).primaryKey(),
@@ -340,7 +315,6 @@ export const userPersonalizationSettings = pgTable("user_personalization_setting
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
-
 // Portal Authentication Tokens
 export const portalTokens = pgTable("portal_tokens", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -350,7 +324,6 @@ export const portalTokens = pgTable("portal_tokens", {
     usedAt: timestamp("used_at"),
     createdAt: timestamp("created_at").defaultNow(),
 });
-
 // Audit Logs
 export const auditLogs = pgTable("audit_logs", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -373,7 +346,6 @@ export const auditLogs = pgTable("audit_logs", {
     index("audit_logs_user_idx").on(table.userId),
     index("audit_logs_action_idx").on(table.action),
 ]);
-
 // Resource Permissions (for granular RBAC)
 export const resourcePermissions = pgTable("resource_permissions", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -387,14 +359,12 @@ export const resourcePermissions = pgTable("resource_permissions", {
 }, (table) => [
     uniqueIndex("resource_perm_idx").on(table.resourceId, table.userId, table.action),
 ]);
-
 // Sessions
 export const sessions = pgTable("sessions", {
     sid: varchar("sid").primaryKey(),
     sess: jsonb("sess").notNull(),
     expire: timestamp("expire").notNull(),
 }, (table) => [index("IDX_session_expire").on(table.expire)]);
-
 // Teams
 export const teams = pgTable("teams", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -406,7 +376,6 @@ export const teams = pgTable("teams", {
 }, (table) => [
     index("teams_tenant_idx").on(table.tenantId),
 ]);
-
 // Team Members
 export const teamMembers = pgTable("team_members", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -417,11 +386,9 @@ export const teamMembers = pgTable("team_members", {
 }, (table) => [
     uniqueIndex("team_members_idx").on(table.teamId, table.userId),
 ]);
-
 // ===================================================================
 // INSERTS & TYPES
 // ===================================================================
-
 export const insertUserSchema = createInsertSchema(users);
 export const insertOrganizationSchema = createInsertSchema(organizations);
 export const insertOrganizationMembershipSchema = createInsertSchema(organizationMemberships);
@@ -434,7 +401,6 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
 export const insertUserPersonalizationSettingsSchema = createInsertSchema(userPersonalizationSettings);
 export const insertTeamSchema = createInsertSchema(teams);
 export const insertTeamMemberSchema = createInsertSchema(teamMembers);
-
 export type User = InferSelectModel<typeof users>;
 export type UpsertUser = InferInsertModel<typeof users>;
 export type InsertUser = InferInsertModel<typeof users>;
@@ -449,6 +415,7 @@ export type WorkspaceInvitation = InferSelectModel<typeof workspaceInvitations>;
 export type UserCredentials = InferSelectModel<typeof userCredentials>;
 export type InsertUserCredentials = InferInsertModel<typeof userCredentials>;
 export type UserPreferences = InferSelectModel<typeof userPreferences>;
+export type InsertUserPreferences = InferInsertModel<typeof userPreferences>;
 export type UserPersonalizationSettings = InferSelectModel<typeof userPersonalizationSettings>;
 export type AuditLog = InferSelectModel<typeof auditLogs>;
 export type InsertAuditLog = InferInsertModel<typeof auditLogs>;

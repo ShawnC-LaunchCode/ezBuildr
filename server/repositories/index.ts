@@ -14,8 +14,8 @@ export { BaseRepository, type DbTransaction } from "./BaseRepository";
 export { UserRepository, userRepository } from "./UserRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
-export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
-export { FileRepository, fileRepository } from "./FileRepository";
+// export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
+// export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
 
 // Vault-Logic Workflow repositories
@@ -68,5 +68,5 @@ export { DatavaultTablePermissionsRepository, datavaultTablePermissionsRepositor
 export { DatavaultWritebackMappingsRepository, datavaultWritebackMappingsRepository } from "./DatavaultWritebackMappingsRepository";
 
 // Export type for Insert operations
-export type { InsertAnalyticsEvent } from "./AnalyticsRepository";
+
 export * from "./ExternalDestinationsRepository";

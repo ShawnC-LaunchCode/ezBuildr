@@ -1,13 +1,10 @@
 import type { WriteBlockConfig, WriteResult, ColumnMapping, BlockContext } from "@shared/types/blocks";
-
 import { db } from "../../db";
 import { createLogger } from "../../logger";
-import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository, type DbTransaction } from "../../repositories";
+import { datavaultRowsRepository, type DbTransaction } from "../../repositories";
 import { datavaultRowsService } from "../../services/DatavaultRowsService";
 import { resolveSingleValue, resolveColumnMappings } from "../shared/variableResolver";
-
 const logger = createLogger({ module: "write-runner" });
-
 export class WriteRunner {
     /**
      * Execute a write operation
@@ -25,21 +22,17 @@ export class WriteRunner {
             tableId: config.tableId,
             preview: isPreview
         }, "Starting write execution");
-
         try {
             // 0. Verify table exists and user has write permission
             const { datavaultTablesService } = await import("../../services/DatavaultTablesService");
             await datavaultTablesService.verifyTenantOwnership(config.tableId, tenantId);
-
             // 1. Resolve Values (Variables & Expressions)
             // This happens BEFORE preview check so we validate logic even in preview
             // Pass aliasMap to allow resolving variable aliases to step IDs
             const mappedValues = resolveColumnMappings(config.columnMappings, context.data, context.aliasMap);
-
             // 2. Resolve match strategy (for update and upsert modes)
             let matchColumnId: string | undefined;
             let matchValue: any = undefined;
-
             if (config.mode === "update" || config.mode === "upsert") {
                 // Support new matchStrategy or legacy primaryKey fields
                 if (config.matchStrategy) {
@@ -66,7 +59,6 @@ export class WriteRunner {
                 } else {
                     throw new Error(`${config.mode} mode requires matchStrategy or primaryKeyColumnId/primaryKeyValue`);
                 }
-
                 if (matchValue === undefined || matchValue === null) {
                     if (config.mode === "update") {
                         throw new Error("Match value is null/undefined for update mode");
@@ -74,7 +66,6 @@ export class WriteRunner {
                     // For upsert, null match value means create new
                 }
             }
-
             // 3. Preview Safety Check
             if (isPreview) {
                 logger.info({
@@ -83,7 +74,6 @@ export class WriteRunner {
                     matchColumnId,
                     matchValue
                 }, "Simulating write in preview mode");
-
                 return {
                     success: true,
                     tableId: config.tableId,
@@ -93,12 +83,10 @@ export class WriteRunner {
                     writtenData: mappedValues
                 };
             }
-
             // 4. Execute Real Write (wrapped in transaction for atomicity)
             const writeResult = await db.transaction(async (tx: DbTransaction) => {
                 let resultRowId: string;
                 let actualOperation: "create" | "update" | "upsert" = config.mode;
-
                 if (config.mode === "create") {
                     resultRowId = await this.executeCreate(config.tableId, mappedValues, tenantId, context.userId, tx);
                 } else if (config.mode === "update") {
@@ -111,13 +99,11 @@ export class WriteRunner {
                 } else {
                     throw new Error(`Unknown write mode: ${config.mode}`);
                 }
-
                 return {
                     rowId: resultRowId,
                     operation: actualOperation
                 };
             });
-
             return {
                 success: true,
                 tableId: config.tableId,
@@ -126,7 +112,6 @@ export class WriteRunner {
                 operation: writeResult.operation,
                 writtenData: mappedValues
             };
-
         } catch (error) {
             logger.error({ error, config }, "Write execution failed");
             return {
@@ -138,7 +123,6 @@ export class WriteRunner {
             };
         }
     }
-
     /**
      * Execute Create Operation
      */
@@ -159,7 +143,6 @@ export class WriteRunner {
         );
         return result.row.id;
     }
-
     /**
      * Execute Update Operation
      */
@@ -174,13 +157,10 @@ export class WriteRunner {
     ): Promise<string> {
         // 1. Find the row ID based on the "Primary Key" logical concept (Column Value = pkValue)
         // Datavault doesn't strictly enforce one PK, but we treat `pkColumnId` as the lookup key.
-
         const rowId = await this.findRowIdByColumnValue(tableId, pkColumnId, pkValue, tenantId, tx);
-
         if (!rowId) {
             throw new Error(`Row not found for Table ${tableId} where Column ${pkColumnId} = ${pkValue}`);
         }
-
         // Update row via service
         await datavaultRowsService.updateRow(
             rowId,
@@ -191,7 +171,6 @@ export class WriteRunner {
         );
         return rowId;
     }
-
     private async findRowIdByColumnValue(
         tableId: string,
         columnId: string,
@@ -202,7 +181,6 @@ export class WriteRunner {
     ): Promise<string | null> {
         return datavaultRowsRepository.findRowByColumnValue(tableId, columnId, value, tenantId, tx, forUpdate);
     }
-
     /**
      * Execute Upsert Operation
      * Try to find existing row by match column, update if found, create if not
@@ -224,11 +202,9 @@ export class WriteRunner {
             const rowId = await this.executeCreate(tableId, values, tenantId, userId, tx);
             return { rowId, operation: "create" };
         }
-
         // RACE CONDITION FIX: Use row-level locking (SELECT FOR UPDATE) to prevent race conditions
         // This locks the row if it exists, preventing another transaction from inserting a duplicate
         const existingRowId = await this.findRowIdByColumnValue(tableId, matchColumnId, matchValue, tenantId, tx, true);
-
         if (existingRowId) {
             // Row exists (and is now locked), update it
             logger.info({ tableId, matchColumnId, matchValue, existingRowId }, "Upsert: found existing row, updating");
@@ -248,5 +224,4 @@ export class WriteRunner {
         }
     }
 }
-
 export const writeRunner = new WriteRunner();

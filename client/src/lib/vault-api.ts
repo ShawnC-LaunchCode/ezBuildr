@@ -2,28 +2,21 @@
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
-
-import type { TestResult } from "@/components/templates-test-runner/types";
-
+import type {  } from "@/components/templates-test-runner/types";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-
 // Global Access Token (Memory Only)
 let globalAccessToken: string | null = null;
-
 export function setAccessToken(token: string | null) {
   globalAccessToken = token;
 }
-
 export function getAccessToken() {
   return globalAccessToken;
 }
-
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-
   // Check if we have a run token in localStorage for this run
   // Extract runId from endpoint (e.g., /api/runs/:runId/values)
   const runIdMatch = endpoint.match(/\/api\/runs\/([^\/]+)/);
@@ -32,17 +25,14 @@ export async function fetchAPI<T>(
     const runId = runIdMatch[1];
     runToken = localStorage.getItem(`run_token_${runId}`);
   }
-
   // IMPORTANT: Only send run tokens for run-specific endpoints
   // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
   // Preview/run endpoints use bearer tokens for anonymous access
   const isRunEndpoint = endpoint.startsWith('/api/runs/');
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-
   // Only add bearer token for run endpoints
   if (runToken && isRunEndpoint) {
     headers["Authorization"] = `Bearer ${runToken}`;
@@ -50,14 +40,12 @@ export async function fetchAPI<T>(
     // Inject standard Access Token for all other authenticated requests
     headers["Authorization"] = `Bearer ${globalAccessToken}`;
   }
-
   // Initial request
   let response = await fetch(url, {
     ...options,
     headers,
     credentials: "include", // Include cookies for auth
   });
-
   // Handle 401 (Unauthorized) - Attempt Refresh
   if (response.status === 401 && !isRunEndpoint && !endpoint.includes('/api/auth/login')) {
     // Try to refresh token
@@ -74,7 +62,6 @@ export async function fetchAPI<T>(
         } else {
           console.warn('[VaultAPI] Refresh successful but NO TOKEN payload:', refreshData);
         }
-
         // Retry original request
         response = await fetch(url, {
           ...options,
@@ -86,26 +73,21 @@ export async function fetchAPI<T>(
       // Refresh failed, proceed to throw error
     }
   }
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
-
   // Check for auto-revert header and dispatch event
   if (response.headers.get('X-Workflow-Auto-Reverted') === 'true') {
     // Dispatch custom event that can be caught by components
     window.dispatchEvent(new CustomEvent('workflow-auto-reverted'));
   }
-
   // Handle 204 No Content - don't try to parse JSON from empty response
   if (response.status === 204) {
     return undefined as T;
   }
-
   return response.json();
 }
-
 /**
  * Creates an API client that includes a Bearer token for authentication
  * Used for preview mode where runs are accessed via runToken instead of session
@@ -128,7 +110,6 @@ export function apiWithToken(runToken: string) {
         }
         return res.json() as Promise<T>;
       }),
-
     post: <T>(endpoint: string, body?: any) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
@@ -146,7 +127,6 @@ export function apiWithToken(runToken: string) {
         }
         return res.json() as Promise<T>;
       }),
-
     put: <T>(endpoint: string, body?: any) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "PUT",
@@ -166,11 +146,9 @@ export function apiWithToken(runToken: string) {
       }),
   };
 }
-
 // ============================================================================
 // Projects
 // ============================================================================
-
 export interface ApiProject {
   id: string;
   title: string;
@@ -183,11 +161,9 @@ export interface ApiProject {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface ApiProjectWithWorkflows extends ApiProject {
   workflows: ApiWorkflow[];
 }
-
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
     const query = activeOnly ? '?active=true' : '';
@@ -198,50 +174,40 @@ export const projectAPI = {
     }
     return response.items || [];
   },
-
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
-
   create: (data: { title: string; description?: string }) =>
     fetchAPI<ApiProject>("/api/projects", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
   update: (id: string, data: Partial<Omit<ApiProject, 'id' | 'creatorId' | 'createdAt' | 'updatedAt'>>) =>
     fetchAPI<ApiProject>(`/api/projects/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-
   archive: (id: string) =>
     fetchAPI<ApiProject>(`/api/projects/${id}/archive`, {
       method: "PUT",
     }),
-
   unarchive: (id: string) =>
     fetchAPI<ApiProject>(`/api/projects/${id}/unarchive`, {
       method: "PUT",
     }),
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/projects/${id}`, {
       method: "DELETE",
     }),
-
   getWorkflows: (projectId: string) =>
     fetchAPI<ApiWorkflow[]>(`/api/projects/${projectId}/workflows`),
-
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
     fetchAPI<ApiProject>(`/api/projects/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
     }),
 };
-
 // ============================================================================
 // Workflows
 // ============================================================================
-
 export interface ApiWorkflow {
   id: string;
   title: string;
@@ -262,51 +228,40 @@ export interface ApiWorkflow {
     allow_redownload: boolean;
   };
 }
-
 export const workflowAPI = {
   list: () => fetchAPI<ApiWorkflow[]>("/api/workflows"),
-
   listUnfiled: () => fetchAPI<ApiWorkflow[]>("/api/workflows/unfiled"),
-
   get: (id: string) => fetchAPI<ApiWorkflow>(`/api/workflows/${id}`),
-
   create: (data: { title: string; description?: string; projectId?: string | null }) =>
     fetchAPI<ApiWorkflow>("/api/workflows", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
   update: (id: string, data: Partial<ApiWorkflow>) =>
     fetchAPI<ApiWorkflow>(`/api/workflows/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-
   moveToProject: (id: string, projectId: string | null) =>
     fetchAPI<ApiWorkflow>(`/api/workflows/${id}/move`, {
       method: "PUT",
       body: JSON.stringify({ projectId }),
     }),
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/workflows/${id}`, {
       method: "DELETE",
     }),
-
   getPublicLink: (id: string) =>
     fetchAPI<{ publicUrl: string }>(`/api/workflows/${id}/public-link`),
-
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
     fetchAPI<ApiWorkflow>(`/api/workflows/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
     }),
 };
-
 // ============================================================================
 // Workflow Versions
 // ============================================================================
-
 export interface ApiWorkflowVersion {
   id: string;
   workflowId: string;
@@ -322,7 +277,6 @@ export interface ApiWorkflowVersion {
   pinned: boolean; // Computed field
   migrationInfo?: any; // Metadata including AI generation info
 }
-
 export interface ApiVersionDiff {
   sections: any[];
   steps: any[];
@@ -334,7 +288,6 @@ export interface ApiVersionDiff {
     stepsModified: number;
   };
 }
-
 export const versionAPI = {
   list: async (workflowId: string) => {
     const response = await fetchAPI<{ success: boolean; data: ApiWorkflowVersion[] }>(
@@ -342,36 +295,29 @@ export const versionAPI = {
     );
     return response.data || [];
   },
-
   publish: (workflowId: string, data: { graphJson: any; notes?: string; force?: boolean }) =>
     fetchAPI<{ success: boolean; data: ApiWorkflowVersion }>(`/api/workflows/${workflowId}/publish`, {
       method: 'POST',
       body: JSON.stringify(data),
     }).then(res => res.data),
-
   rollback: (workflowId: string, toVersionId: string, notes?: string) =>
     fetchAPI<{ success: boolean; message: string }>(`/api/workflows/${workflowId}/rollback`, {
       method: "POST",
       body: JSON.stringify({ toVersionId, notes }),
     }),
-
   diff: (versionId: string, otherVersionId: string) =>
     fetchAPI<{ success: boolean; data: ApiVersionDiff }>(`/api/workflowVersions/${versionId}/diff/${otherVersionId}`).then(res => res.data),
-
   restore: (workflowId: string, versionId: string) =>
     fetchAPI<{ success: boolean; message: string }>(`/api/workflows/${workflowId}/rollback`, {
       method: "POST",
       body: JSON.stringify({ toVersionId: versionId }),
     }),
-
   export: (workflowId: string) =>
     fetchAPI<any>(`/api/workflows/${workflowId}/export`),
 };
-
 // ============================================================================
 // Workflow Snapshots
 // ============================================================================
-
 export interface ApiSnapshot {
   id: string;
   workflowId: string;
@@ -381,48 +327,38 @@ export interface ApiSnapshot {
   createdAt: string;
   updatedAt: string;
 }
-
 export const snapshotAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiSnapshot[]>(`/api/workflows/${workflowId}/snapshots`),
-
   get: (workflowId: string, snapshotId: string) =>
     fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`),
-
   create: (workflowId: string, name: string) =>
     fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots`, {
       method: "POST",
       body: JSON.stringify({ name }),
     }),
-
   rename: (workflowId: string, snapshotId: string, name: string) =>
     fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`, {
       method: "PUT",
       body: JSON.stringify({ name }),
     }),
-
   delete: (workflowId: string, snapshotId: string) =>
     fetchAPI<void>(`/api/workflows/${workflowId}/snapshots/${snapshotId}`, {
       method: "DELETE",
     }),
-
   saveFromRun: (workflowId: string, snapshotId: string, runId: string) =>
     fetchAPI<ApiSnapshot>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/save-from-run`, {
       method: "POST",
       body: JSON.stringify({ runId }),
     }),
-
   getValues: (workflowId: string, snapshotId: string) =>
     fetchAPI<Record<string, any>>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/values`),
-
   validate: (workflowId: string, snapshotId: string) =>
     fetchAPI<{ isValid: boolean; outdatedSteps: string[] }>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/validate`),
 };
-
 // ============================================================================
 // Workflow Variables (Step Aliases)
 // ============================================================================
-
 export interface ApiWorkflowVariable {
   key: string;           // canonical step ID
   alias?: string | null; // human-friendly variable name
@@ -432,78 +368,61 @@ export interface ApiWorkflowVariable {
   sectionTitle: string;  // section title for grouping
   stepId: string;
 }
-
 export const variableAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiWorkflowVariable[]>(`/api/workflows/${workflowId}/variables`),
 };
-
 // ============================================================================
 // Auth
 // ============================================================================
-
 export const authAPI = {
   getToken: () => fetchAPI<{ token: string; expiresIn: string }>("/api/auth/token"),
-
   login: (data: any) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(data)
   }),
-
   register: (data: any) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(data)
   }),
-
   logout: () => fetchAPI<{ message: string }>("/api/auth/logout", {
     method: "POST"
   }),
-
   forgotPassword: (email: string) => fetchAPI<{ message: string }>("/api/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email })
   }),
-
   resetPassword: (data: any) => fetchAPI<{ message: string }>("/api/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(data)
   }),
-
   verifyEmail: (token: string) => fetchAPI<{ message: string }>("/api/auth/verify-email", {
     method: "POST",
     body: JSON.stringify({ token })
   }),
-
   verifyMfaLogin: (userId: string, token: string, backupCode?: string) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/mfa/verify-login", {
     method: "POST",
     body: JSON.stringify({ userId, token, backupCode })
   }),
-
   setupMfa: () => fetchAPI<{ message: string; qrCodeDataUrl: string; backupCodes: string[] }>("/api/auth/mfa/setup", {
     method: "POST"
   }),
-
   verifyMfa: (token: string) => fetchAPI<{ message: string }>("/api/auth/mfa/verify", {
     method: "POST",
     body: JSON.stringify({ token })
   }),
-
   disableMfa: (password: string) => fetchAPI<{ message: string }>("/api/auth/mfa/disable", {
     method: "POST",
     body: JSON.stringify({ password })
   }),
-
   getMfaStatus: () => fetchAPI<{ mfaEnabled: boolean; backupCodesRemaining: number }>("/api/auth/mfa/status"),
-
   regenerateBackupCodes: () => fetchAPI<{ message: string; backupCodes: string[] }>("/api/auth/mfa/backup-codes/regenerate", {
     method: "POST"
   }),
 };
-
 // ============================================================================
 // Sections
 // ============================================================================
-
 export interface ApiSection {
   id: string;
   workflowId: string;
@@ -515,43 +434,35 @@ export interface ApiSection {
   config?: any;
   createdAt: string;
 }
-
 export const sectionAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiSection[]>(`/api/workflows/${workflowId}/sections`),
-
   get: (workflowId: string, sectionId: string) =>
     fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections/${sectionId}`),
-
   create: (workflowId: string, data: { title: string; description?: string; order: number }) =>
     fetchAPI<ApiSection>(`/api/workflows/${workflowId}/sections`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
   update: (id: string, data: Partial<ApiSection>) =>
     fetchAPI<ApiSection>(`/api/sections/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-
   reorder: (workflowId: string, sections: Array<{ id: string; order: number }>) =>
     fetchAPI<void>(`/api/workflows/${workflowId}/sections/reorder`, {
       method: "PUT",
       body: JSON.stringify({ sections }),
     }),
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/sections/${id}`, {
       method: "DELETE",
       body: JSON.stringify({}), // Some servers require body for DELETE
     }),
 };
-
 // ============================================================================
 // Logic Rules
 // ============================================================================
-
 export interface ApiLogicRule {
   id: string;
   workflowId: string;
@@ -563,16 +474,13 @@ export interface ApiLogicRule {
   action: 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
   description?: string;
 }
-
 export const logicRuleAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiLogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
 };
-
 // ============================================================================
 // Steps
 // ============================================================================
-
 export type StepType =
   // Input Types
   | "short_text"
@@ -588,20 +496,17 @@ export type StepType =
   | "date"
   | "time"
   | "date_time"
-
   // Choice Types
   | "multiple_choice"
   | "radio"
   | "yes_no"
   | "boolean" // Alias for yes_no
   | "choice" // Generic alias
-
   // Advanced Types
   | "file_upload"
   | "signature"
   | "signature_block"
   | "multi_field"
-
   // Display/Logic Types
   | "display"
   | "js_question"
@@ -610,7 +515,6 @@ export type StepType =
   | "display_advanced"
   | "final_documents"
   | "true_false";
-
 export interface ApiStep {
   id: string;
   sectionId: string;
@@ -629,45 +533,36 @@ export interface ApiStep {
   createdAt: string;
   updatedAt?: string;
 }
-
 export const stepAPI = {
   list: (sectionId: string) =>
     fetchAPI<ApiStep[]>(`/api/sections/${sectionId}/steps`),
-
   get: (id: string) =>
     fetchAPI<ApiStep>(`/api/steps/${id}`),
-
   create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId">) =>
     fetchAPI<ApiStep>(`/api/sections/${sectionId}/steps`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
   update: (id: string, data: Partial<ApiStep>) =>
     fetchAPI<ApiStep>(`/api/steps/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-
   reorder: (sectionId: string, steps: Array<{ id: string; order: number }>) =>
     fetchAPI<void>(`/api/sections/${sectionId}/steps/reorder`, {
       method: "PUT",
       body: JSON.stringify({ steps }),
     }),
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/steps/${id}`, {
       method: "DELETE",
     }),
 };
-
 // ============================================================================
 // Blocks
 // ============================================================================
-
 export type BlockType = "prefill" | "validate" | "branch" | "js" | "query" | "read_table" | "list_tools" | "write" | "external_send";
 export type BlockPhase = "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
-
 export interface ApiBlock {
   id: string;
   workflowId: string;
@@ -680,41 +575,34 @@ export interface ApiBlock {
   createdAt: string;
   updatedAt: string;
 }
-
 export const blockAPI = {
   list: (workflowId: string, phase?: BlockPhase) => {
     const params = phase ? `?phase=${phase}` : "";
     return fetchAPI<{ success: boolean; data: ApiBlock[] }>(`/api/workflows/${workflowId}/blocks${params}`)
       .then(res => res.data);
   },
-
   get: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiBlock }>(`/api/blocks/${id}`)
       .then(res => res.data),
-
   create: (workflowId: string, data: Omit<ApiBlock, "id" | "createdAt" | "updatedAt" | "workflowId">) =>
     fetchAPI<{ success: boolean; data: ApiBlock }>(`/api/workflows/${workflowId}/blocks`, {
       method: "POST",
       body: JSON.stringify(data),
     }).then(res => res.data),
-
   update: (id: string, data: Partial<Omit<ApiBlock, "id" | "createdAt" | "updatedAt" | "workflowId">>) =>
     fetchAPI<{ success: boolean; data: ApiBlock }>(`/api/blocks/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }).then(res => res.data),
-
   reorder: (workflowId: string, blocks: Array<{ id: string; order: number }>) =>
     fetchAPI<{ success: boolean }>(`/api/workflows/${workflowId}/blocks/reorder`, {
       method: "PUT",
       body: JSON.stringify({ blocks }),
     }),
-
   delete: (id: string) =>
     fetchAPI<{ success: boolean }>(`/api/blocks/${id}`, {
       method: "DELETE",
     }),
-
   createListToolsFromChoice: (workflowId: string, stepId: string, data: {
     sourceListVar: string;
     transformConfig?: any;
@@ -728,13 +616,10 @@ export const blockAPI = {
       }
     ).then(res => res.data),
 };
-
 // ============================================================================
 // Transform Blocks (JavaScript/Python code execution)
 // ============================================================================
-
 export type TransformBlockLanguage = "javascript" | "python";
-
 export interface ApiTransformBlock {
   id: string;
   workflowId: string;
@@ -751,44 +636,36 @@ export interface ApiTransformBlock {
   createdAt: string;
   updatedAt: string;
 }
-
 export const transformBlockAPI = {
   list: (workflowId: string) =>
     fetchAPI<{ success: boolean; data: ApiTransformBlock[] }>(`/api/workflows/${workflowId}/transform-blocks`)
       .then(res => res.data),
-
   get: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`)
       .then(res => res.data),
-
   create: (workflowId: string, data: Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">) =>
     fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/workflows/${workflowId}/transform-blocks`, {
       method: "POST",
       body: JSON.stringify(data),
     }).then(res => res.data),
-
   update: (id: string, data: Partial<Omit<ApiTransformBlock, "id" | "createdAt" | "updatedAt" | "workflowId">>) =>
     fetchAPI<{ success: boolean; data: ApiTransformBlock }>(`/api/transform-blocks/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }).then(res => res.data),
-
   delete: (id: string) =>
     fetchAPI<{ success: boolean }>(`/api/transform-blocks/${id}`, {
       method: "DELETE",
     }),
-
   test: (id: string, testData: Record<string, any>) =>
     fetchAPI<{ success: boolean; output: any; error?: string }>(`/api/transform-blocks/${id}/test`, {
       method: "POST",
       body: JSON.stringify({ testData }),
     }),
 };
-
 // ============================================================================
 // Runs
 // ============================================================================
-
 export interface ApiRun {
   id: string;
   workflowId: string;
@@ -800,7 +677,6 @@ export interface ApiRun {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface ApiStepValue {
   id: string;
   runId: string;
@@ -809,7 +685,6 @@ export interface ApiStepValue {
   createdAt: string;
   updatedAt: string;
 }
-
 // Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
   create: (
@@ -829,48 +704,37 @@ export const runAPI = {
       body: JSON.stringify(data),
     });
   },
-
   list: (workflowId: string) =>
     fetchAPI<ApiRun[]>(`/api/workflows/${workflowId}/runs`),
-
   get: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRun }>(`/api/runs/${id}`).then(res => res.data),
-
   getWithValues: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRun & { values: ApiStepValue[] } }>(`/api/runs/${id}/values`).then(res => res.data),
-
   getDocuments: (id: string) =>
     fetchAPI<{ success: boolean; documents: any[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
-
   upsertValue: (runId: string, stepId: string, value: any) =>
     fetchAPI<{ message: string }>(`/api/runs/${runId}/values`, {
       method: "POST",
       body: JSON.stringify({ stepId, value }),
     }),
-
   submitSection: (runId: string, sectionId: string, values: Array<{ stepId: string; value: any }>) =>
     fetchAPI<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }>(`/api/runs/${runId}/sections/${sectionId}/submit`, {
       method: "POST",
       body: JSON.stringify({ values }),
     }),
-
   next: (runId: string, currentSectionId: string) =>
     fetchAPI<{ success: boolean; data: { nextSectionId?: string } }>(`/api/runs/${runId}/next`, {
       method: "POST",
       body: JSON.stringify({ currentSectionId }),
     }).then(res => res.data),
-
   complete: (runId: string) =>
     fetchAPI<{ success: boolean; data: ApiRun }>(`/api/runs/${runId}/complete`, {
       method: "PUT",
     }).then(res => res.data),
-
 };
-
 // ============================================================================
 // Document Runs (Stage 8: Run History UI + Debug Traces)
 // ============================================================================
-
 export interface TraceEntry {
   nodeId: string;
   type: string;
@@ -881,7 +745,6 @@ export interface TraceEntry {
   error?: string;
   timestamp: string;
 }
-
 export interface DocumentRun {
   id: string;
   workflowVersionId: string;
@@ -910,7 +773,6 @@ export interface DocumentRun {
     fullName?: string;
   };
 }
-
 export interface RunLogEntry {
   id: string;
   runId: string;
@@ -920,7 +782,6 @@ export interface RunLogEntry {
   context?: Record<string, any> | null;
   createdAt: string;
 }
-
 export interface ListRunsParams {
   cursor?: string;
   limit?: number;
@@ -931,12 +792,10 @@ export interface ListRunsParams {
   to?: string;
   q?: string;
 }
-
 export interface PaginatedResponse<T> {
   items: T[];
   nextCursor?: string;
 }
-
 export interface CompareRunsResponse {
   runA: {
     id: string;
@@ -965,7 +824,6 @@ export interface CompareRunsResponse {
     durationDiff: number;
   };
 }
-
 // Stage 8: Document runs API (for template/document generation workflows)
 export const documentRunsAPI = {
   /**
@@ -981,17 +839,14 @@ export const documentRunsAPI = {
     if (params.from) {queryParams.set('from', params.from);}
     if (params.to) {queryParams.set('to', params.to);}
     if (params.q) {queryParams.set('q', params.q);}
-
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<PaginatedResponse<DocumentRun>>(`/runs${query}`);
   },
-
   /**
    * Get a single run by ID (includes trace, logs, etc.)
    */
   get: (id: string) =>
     fetchAPI<DocumentRun>(`/runs/${id}`),
-
   /**
    * Get logs for a run
    */
@@ -999,11 +854,9 @@ export const documentRunsAPI = {
     const queryParams = new URLSearchParams();
     if (params.cursor) {queryParams.set('cursor', params.cursor);}
     if (params.limit) {queryParams.set('limit', params.limit.toString());}
-
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<PaginatedResponse<RunLogEntry>>(`/runs/${id}/logs${query}`);
   },
-
   /**
    * Download run output (DOCX or PDF)
    */
@@ -1011,7 +864,6 @@ export const documentRunsAPI = {
     const queryParams = new URLSearchParams({ type });
     return `${API_BASE}/runs/${id}/download?${queryParams.toString()}`;
   },
-
   /**
    * Re-run a workflow with same or override inputs
    */
@@ -1024,7 +876,6 @@ export const documentRunsAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-
   /**
    * Export runs to CSV
    */
@@ -1036,11 +887,9 @@ export const documentRunsAPI = {
     if (params.from) {queryParams.set('from', params.from);}
     if (params.to) {queryParams.set('to', params.to);}
     if (params.q) {queryParams.set('q', params.q);}
-
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return `${API_BASE}/runs/export.csv${query}`;
   },
-
   /**
    * Compare two runs
    */
@@ -1048,7 +897,6 @@ export const documentRunsAPI = {
     const queryParams = new URLSearchParams({ runA, runB });
     return fetchAPI<CompareRunsResponse>(`/runs/compare?${queryParams.toString()}`);
   },
-
   /**
    * Share a run (generate public link)
    */
@@ -1057,51 +905,41 @@ export const documentRunsAPI = {
       method: "POST",
     }).then(res => res.data),
 };
-
 // ============================================================================
 // Account & Mode Preferences
 // ============================================================================
-
 export type Mode = 'easy' | 'advanced';
 export type ModeSource = 'user' | 'workflow';
-
 export interface AccountPreferences {
   defaultMode: Mode;
 }
-
 export interface WorkflowModeResponse {
   mode: Mode;
   source: ModeSource;
 }
-
 export const accountAPI = {
   getPreferences: () =>
     fetchAPI<{ success: boolean; data: AccountPreferences }>("/api/account/preferences")
       .then(res => res.data),
-
   updatePreferences: (preferences: AccountPreferences) =>
     fetchAPI<{ success: boolean; data: AccountPreferences }>("/api/account/preferences", {
       method: "PUT",
       body: JSON.stringify(preferences),
     }).then(res => res.data),
 };
-
 export const workflowModeAPI = {
   getMode: (workflowId: string) =>
     fetchAPI<{ success: boolean; data: WorkflowModeResponse }>(`/api/workflows/${workflowId}/mode`)
       .then(res => res.data),
-
   setMode: (workflowId: string, modeOverride: Mode | null) =>
     fetchAPI<{ success: boolean; data: ApiWorkflow }>(`/api/workflows/${workflowId}/mode`, {
       method: "PUT",
       body: JSON.stringify({ modeOverride }),
     }).then(res => res.data),
 };
-
 // ============================================================================
 // Branding & Tenant Customization (Stage 17)
 // ============================================================================
-
 export interface TenantBranding {
   logoUrl?: string | null;
   primaryColor?: string | null;
@@ -1111,7 +949,6 @@ export interface TenantBranding {
   emailSenderName?: string | null;
   emailSenderAddress?: string | null;
 }
-
 export interface TenantDomain {
   id: string;
   tenantId: string;
@@ -1119,45 +956,36 @@ export interface TenantDomain {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface GetBrandingResponse {
   branding: TenantBranding | null;
 }
-
 export interface UpdateBrandingRequest {
   branding?: Partial<TenantBranding>;
 }
-
 export interface UpdateBrandingResponse {
   message: string;
   branding: TenantBranding;
 }
-
 export interface GetDomainsResponse {
   domains: TenantDomain[];
   total: number;
 }
-
 export interface CreateDomainRequest {
   domain: string;
 }
-
 export interface CreateDomainResponse {
   message: string;
   domain: TenantDomain;
 }
-
 export interface DeleteDomainResponse {
   message: string;
 }
-
 export const brandingAPI = {
   /**
    * Get tenant branding configuration
    */
   getBranding: (tenantId: string) =>
     fetchAPI<GetBrandingResponse>(`/api/tenants/${tenantId}/branding`),
-
   /**
    * Update tenant branding configuration
    */
@@ -1166,7 +994,6 @@ export const brandingAPI = {
       method: "PATCH",
       body: JSON.stringify(branding),
     }),
-
   /**
    * Get tenant branding by domain (public endpoint, no auth required)
    */
@@ -1174,13 +1001,11 @@ export const brandingAPI = {
     fetchAPI<{ tenantId: string; branding: TenantBranding | null }>(
       `/api/branding/by-domain?domain=${encodeURIComponent(domain)}`
     ),
-
   /**
    * Get all custom domains for a tenant
    */
   getDomains: (tenantId: string) =>
     fetchAPI<GetDomainsResponse>(`/api/tenants/${tenantId}/domains`),
-
   /**
    * Add a custom domain to a tenant
    */
@@ -1189,7 +1014,6 @@ export const brandingAPI = {
       method: "POST",
       body: JSON.stringify({ domain }),
     }),
-
   /**
    * Remove a custom domain from a tenant
    */
@@ -1198,11 +1022,9 @@ export const brandingAPI = {
       method: "DELETE",
     }),
 };
-
 // =====================================================================
 // EMAIL TEMPLATE METADATA API
 // =====================================================================
-
 export interface EmailTemplateMetadata {
   id: string;
   templateKey: string;
@@ -1213,41 +1035,34 @@ export interface EmailTemplateMetadata {
   createdAt: Date;
   updatedAt: Date;
 }
-
 export interface GetEmailTemplatesResponse {
   templates: EmailTemplateMetadata[];
   total: number;
 }
-
 export interface GetEmailTemplateResponse {
   template: EmailTemplateMetadata;
 }
-
 export interface UpdateEmailTemplateMetadataRequest {
   name?: string;
   description?: string | null;
   subjectPreview?: string | null;
   brandingTokens?: Record<string, boolean> | null;
 }
-
 export interface UpdateEmailTemplateMetadataResponse {
   message: string;
   template: EmailTemplateMetadata;
 }
-
 export const emailTemplateAPI = {
   /**
    * Get all email template metadata
    */
   listTemplates: () =>
     fetchAPI<GetEmailTemplatesResponse>("/api/email-templates"),
-
   /**
    * Get a specific email template metadata
    */
   getTemplate: (templateId: string) =>
     fetchAPI<GetEmailTemplateResponse>(`/api/email-templates/${templateId}`),
-
   /**
    * Update email template metadata
    */
@@ -1262,7 +1077,6 @@ export const emailTemplateAPI = {
         body: JSON.stringify(metadata),
       }
     ),
-
   /**
    * Get templates that use a specific branding token
    */
@@ -1271,11 +1085,9 @@ export const emailTemplateAPI = {
       `/api/email-templates/token/${tokenKey}`
     ),
 };
-
 // ============================================================================
 // Collections / Datastore API (Stage 19)
 // ============================================================================
-
 export interface ApiCollection {
   id: string;
   tenantId: string;
@@ -1285,12 +1097,10 @@ export interface ApiCollection {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface ApiCollectionWithStats extends ApiCollection {
   fieldCount: number;
   recordCount: number;
 }
-
 export interface ApiCollectionField {
   id: string;
   collectionId: string;
@@ -1303,7 +1113,6 @@ export interface ApiCollectionField {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface ApiCollectionRecord {
   id: string;
   tenantId: string;
@@ -1314,78 +1123,63 @@ export interface ApiCollectionRecord {
   createdBy: string | null;
   updatedBy: string | null;
 }
-
 export interface ApiCollectionWithFields extends ApiCollection {
   fields: ApiCollectionField[];
 }
-
 export interface ListRecordsResponse {
   records: ApiCollectionRecord[];
   count?: number;
 }
-
 export const collectionsAPI = {
   // Collections
   list: (tenantId: string, withStats?: boolean) => {
     const query = withStats ? '?stats=true' : '';
     return fetchAPI<ApiCollectionWithStats[]>(`/api/tenants/${tenantId}/collections${query}`);
   },
-
   get: (tenantId: string, collectionId: string, withFields?: boolean) => {
     const query = withFields ? '?fields=true' : '';
     return fetchAPI<ApiCollectionWithFields>(`/api/tenants/${tenantId}/collections/${collectionId}${query}`);
   },
-
   getBySlug: (tenantId: string, slug: string) =>
     fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections/slug/${slug}`),
-
   create: (tenantId: string, data: { name: string; slug?: string; description?: string | null }) =>
     fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-
   update: (tenantId: string, collectionId: string, data: Partial<Pick<ApiCollection, 'name' | 'slug' | 'description'>>) =>
     fetchAPI<ApiCollection>(`/api/tenants/${tenantId}/collections/${collectionId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-
   delete: (tenantId: string, collectionId: string) =>
     fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}`, {
       method: 'DELETE',
     }),
-
   // Fields
   listFields: (tenantId: string, collectionId: string) =>
     fetchAPI<ApiCollectionField[]>(`/api/tenants/${tenantId}/collections/${collectionId}/fields`),
-
   createField: (tenantId: string, collectionId: string, data: Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>) =>
     fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-
   createFieldsBulk: (tenantId: string, collectionId: string, fields: Array<Omit<ApiCollectionField, 'id' | 'collectionId' | 'createdAt' | 'updatedAt'>>) =>
     fetchAPI<ApiCollectionField[]>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/bulk`, {
       method: 'POST',
       body: JSON.stringify({ fields }),
     }),
-
   getField: (tenantId: string, collectionId: string, fieldId: string) =>
     fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`),
-
   updateField: (tenantId: string, collectionId: string, fieldId: string, data: Partial<Pick<ApiCollectionField, 'name' | 'slug' | 'isRequired' | 'options' | 'defaultValue'>>) =>
     fetchAPI<ApiCollectionField>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-
   deleteField: (tenantId: string, collectionId: string, fieldId: string) =>
     fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}/fields/${fieldId}`, {
       method: 'DELETE',
     }),
-
   // Records
   listRecords: (tenantId: string, collectionId: string, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) => {
     const queryParams = new URLSearchParams();
@@ -1394,52 +1188,41 @@ export const collectionsAPI = {
     if (params?.orderBy) {queryParams.set('orderBy', params.orderBy);}
     if (params?.order) {queryParams.set('order', params.order);}
     if (params?.includeCount) {queryParams.set('includeCount', 'true');}
-
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<ApiCollectionRecord[] | ListRecordsResponse>(`/api/tenants/${tenantId}/collections/${collectionId}/records${query}`);
   },
-
   createRecord: (tenantId: string, collectionId: string, data: Record<string, any>) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records`, {
       method: 'POST',
       body: JSON.stringify({ data }),
     }),
-
   createRecordsBulk: (tenantId: string, collectionId: string, records: Array<Record<string, any>>) =>
     fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/bulk`, {
       method: 'POST',
       body: JSON.stringify({ records }),
     }),
-
   queryRecords: (tenantId: string, collectionId: string, filters: Record<string, any>) =>
     fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/query`, {
       method: 'POST',
       body: JSON.stringify({ filters }),
     }),
-
   getRecord: (tenantId: string, collectionId: string, recordId: string) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`),
-
   updateRecord: (tenantId: string, collectionId: string, recordId: string, data: Record<string, any>) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`, {
       method: 'PATCH',
       body: JSON.stringify({ data }),
     }),
-
   deleteRecord: (tenantId: string, collectionId: string, recordId: string) =>
     fetchAPI<void>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`, {
       method: 'DELETE',
     }),
-
   countRecords: (tenantId: string, collectionId: string) =>
     fetchAPI<{ count: number }>(`/api/tenants/${tenantId}/collections/${collectionId}/records/count`),
 };
-
-
 // ============================================================================
 // Data Sources
 // ============================================================================
-
 export interface ApiDataSource {
   id: string;
   tenantId: string;
@@ -1452,53 +1235,42 @@ export interface ApiDataSource {
   createdAt: string;
   updatedAt: string;
 }
-
 export const dataSourceAPI = {
   list: () =>
     fetchAPI<ApiDataSource[]>(`/api/data-sources`),
-
   listForWorkflow: (workflowId: string) =>
     fetchAPI<ApiDataSource[]>(`/api/data-sources/workflow/${workflowId}`),
-
   get: (id: string) =>
     fetchAPI<ApiDataSource>(`/api/data-sources/${id}`),
-
   getTables: (id: string) =>
     fetchAPI<{ name: string; type: string }[]>(`/api/data-sources/${id}/tables`),
-
   create: (data: Partial<ApiDataSource>) =>
     fetchAPI<ApiDataSource>(`/api/data-sources`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-
   update: (id: string, data: Partial<ApiDataSource>) =>
     fetchAPI<ApiDataSource>(`/api/data-sources/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/data-sources/${id}`, {
       method: "DELETE",
     }),
-
   linkToWorkflow: (id: string, workflowId: string) =>
     fetchAPI<{ success: boolean }>(`/api/data-sources/${id}/link`, {
       method: "POST",
       body: JSON.stringify({ workflowId }),
     }),
-
   unlinkFromWorkflow: (id: string, workflowId: string) =>
     fetchAPI<void>(`/api/data-sources/${id}/link/${workflowId}`, {
       method: "DELETE",
     }),
 };
-
 // ============================================================================
 // AI Services
 // ============================================================================
-
 export interface AIStepData {
   key: string;
   type: string;
@@ -1506,7 +1278,6 @@ export interface AIStepData {
   options?: string[];
   description?: string;
 }
-
 export const aiAPI = {
   suggestValues: (steps: AIStepData[], mode: 'full' | 'partial' = 'full') =>
     fetchAPI<{ success: boolean; data: Record<string, any> }>(`/api/ai/suggest-values`, {
@@ -1514,11 +1285,9 @@ export const aiAPI = {
       body: JSON.stringify({ steps, mode }),
     }).then(res => res.data),
 };
-
 // ============================================================================
 // Templates
 // ============================================================================
-
 export interface ApiTemplate {
   id: string;
   creatorId: string;
@@ -1530,49 +1299,37 @@ export interface ApiTemplate {
   createdAt: string;
   updatedAt: string;
 }
-
 export const templateAPI = {
   list: () =>
     fetchAPI<ApiTemplate[]>(`/api/templates`),
-
   get: (id: string) =>
     fetchAPI<ApiTemplate>(`/api/templates/${id}`),
-
   createFromWorkflow: (workflowId: string, name: string, description?: string, tags?: string[]) =>
     fetchAPI<ApiTemplate>(`/api/templates/from-survey/${workflowId}`, {
       method: 'POST',
       body: JSON.stringify({ name, description, tags }),
     }),
-
   insertIntoWorkflow: (templateId: string, workflowId: string) =>
     fetchAPI<{ success: boolean; insertedPages: number; insertedBlocks: number }>(`/api/templates/${templateId}/insert/${workflowId}`, {
       method: 'POST',
     }),
-
   update: (id: string, data: Partial<ApiTemplate>) =>
     fetchAPI<ApiTemplate>(`/api/templates/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-
-
   delete: (id: string) =>
     fetchAPI<void>(`/api/templates/${id}`, {
       method: 'DELETE',
     }),
-
   getPlaceholders: (id: string) =>
     fetchAPI<{ templateId: string; placeholders: ApiPlaceholderInfo[] }>(
       `/api/templates/${id}/placeholders`
     ),
 };
-
-
-
 // ============================================================================
 // Blueprints (Workflow Templates) FE-15
 // ============================================================================
-
 export interface ApiBlueprint {
   id: string;
   name: string;
@@ -1584,27 +1341,22 @@ export interface ApiBlueprint {
   updatedAt: string;
   tags?: string[]; // Derived from metadata potentially
 }
-
 export const blueprintAPI = {
   list: (activeOnly?: boolean) => fetchAPI<{ data: ApiBlueprint[] }>('/api/blueprints').then(res => res.data),
-
   create: (data: { name: string; description?: string; sourceWorkflowId: string; isPublic?: boolean; metadata?: any }) =>
     fetchAPI<{ data: ApiBlueprint }>('/api/blueprints', {
       method: 'POST',
       body: JSON.stringify(data)
     }).then(res => res.data),
-
   instantiate: (id: string, data: { projectId: string; name?: string }) =>
     fetchAPI<{ data: { workflowId: string; versionId: string } }>(`/api/blueprints/${id}/instantiate`, {
       method: 'POST',
       body: JSON.stringify(data)
     }).then(res => res.data),
 };
-
 // ============================================================================
 // Exports
 // ============================================================================
-
 export const workflowExportAPI = {
   // Triggers browser download
   downloadExport: async (workflowId: string, format: 'json' | 'csv') => {
@@ -1612,7 +1364,6 @@ export const workflowExportAPI = {
     // But if we want to use fetch to verify auth first:
     const token = await localStorage.getItem('auth_token'); // Or however auth is handled
     const url = `/api/workflows/${workflowId}/export?format=${format}`;
-
     // For simple implementation, constructing URL with valid session cookie or token is easiest.
     // Assuming hybridAuth uses cookies or headers.
     // If using fetchAPI (which wraps fetch with headers):
@@ -1623,9 +1374,7 @@ export const workflowExportAPI = {
         Authorization: `Bearer ${token}`
       }
     });
-
     if (!response.ok) {throw new Error('Export failed');}
-
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1636,11 +1385,9 @@ export const workflowExportAPI = {
     a.remove();
   }
 };
-
 // ============================================================================
 // Workflow Analytics (Stage 15: FE-16 Usage Insights)
 // ============================================================================
-
 export interface ApiAnalyticsHealth {
   totalRuns: number;
   completedRuns: number;
@@ -1648,7 +1395,6 @@ export interface ApiAnalyticsHealth {
   avgTimeMs: number;
   errorRate: number;
 }
-
 export interface ApiDropoffStep {
   stepId: string;
   stepTitle: string;
@@ -1656,7 +1402,6 @@ export interface ApiDropoffStep {
   dropoffs: number;
   dropoffRate: number;
 }
-
 export interface ApiBlockHeatmap {
   [blockId: string]: {
     executions: number;
@@ -1664,7 +1409,6 @@ export interface ApiBlockHeatmap {
     avgDurationMs: number;
   };
 }
-
 export interface ApiBranchingNode {
   id: string;
   type: string;
@@ -1674,7 +1418,6 @@ export interface ApiBranchingNode {
     exits: number;
   };
 }
-
 export interface ApiBranchingEdge {
   id: string;
   source: string;
@@ -1683,12 +1426,10 @@ export interface ApiBranchingEdge {
   count: number;
   percentage: number;
 }
-
 export interface ApiBranchingGraph {
   nodes: ApiBranchingNode[];
   edges: ApiBranchingEdge[];
 }
-
 export interface ApiTimelineEvent {
   id: string;
   type: string;
@@ -1696,7 +1437,6 @@ export interface ApiTimelineEvent {
   blockId?: string;
   payload?: any;
 }
-
 export const analyticsAPI = {
   getHealth: (workflowId: string, versionId?: string, window: '1d' | '7d' | '30d' = '30d') => {
     const params = new URLSearchParams();
@@ -1706,36 +1446,29 @@ export const analyticsAPI = {
       `/api/workflow-analytics/${workflowId}/health?${params.toString()}`
     ).then((res) => res.data);
   },
-
   getDropoff: (workflowId: string, versionId: string) => {
     return fetchAPI<{ success: boolean; data: ApiDropoffStep[] }>(
       `/api/workflow-analytics/${workflowId}/dropoff?versionId=${versionId}`
     ).then((res) => res.data);
   },
-
   getHeatmap: (workflowId: string, versionId: string) => {
     return fetchAPI<{ success: boolean; data: ApiBlockHeatmap }>(
       `/api/workflow-analytics/${workflowId}/heatmap?versionId=${versionId}`
     ).then((res) => res.data);
   },
-
   getBranching: (workflowId: string, versionId: string) => {
     return fetchAPI<{ success: boolean; data: ApiBranchingGraph }>(
       `/api/workflow-analytics/${workflowId}/branching?versionId=${versionId}`
     ).then((res) => res.data);
   },
-
   getRunTimeline: (runId: string) => {
     return fetchAPI<{ success: boolean; data: ApiTimelineEvent[] }>(
       `/api/workflow-analytics/run/${runId}/timeline`
     ).then((res) => res.data);
   },
 };
-
 export interface ApiPlaceholderInfo {
   name: string;
   type: string;
   example: string;
 }
-
-

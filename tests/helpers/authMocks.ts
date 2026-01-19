@@ -86,7 +86,7 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Partial<Req
     url: '/',
     path: '/',
     ...overrides,
-  };
+  } as any;
 };
 
 export const createMockResponse = (): Partial<Response> => {

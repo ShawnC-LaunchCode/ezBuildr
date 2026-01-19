@@ -23,8 +23,8 @@ import {
   logicRuleRepository,
   blockRepository,
   transformBlockRepository,
-  analyticsRepository,
-  fileRepository,
+
+
   systemStatsRepository,
   teamRepository,
   projectAccessRepository,
@@ -128,17 +128,9 @@ function registerRepositories(): void {
   );
 
   // Analytics and system repositories
-  container.register(
-    tokens.REPOSITORY_ANALYTICS,
-    () => analyticsRepository,
-    'singleton'
-  );
 
-  container.register(
-    tokens.REPOSITORY_FILE,
-    () => fileRepository,
-    'singleton'
-  );
+
+
 
   container.register(
     tokens.REPOSITORY_SYSTEM_STATS,

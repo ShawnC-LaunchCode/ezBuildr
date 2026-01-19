@@ -1,7 +1,5 @@
-
 import { Loader2, Zap, Bug, GitGraph, CheckCircle, AlertTriangle, AlertOctagon } from "lucide-react";
 import React, { useState } from 'react';
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,25 +7,21 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useConnectLogic, useDebugLogic, useVisualizeLogic, useUpdateWorkflow } from "@/lib/vault-hooks";
-
+import { useConnectLogic, useDebugLogic, useUpdateWorkflow } from "@/lib/vault-hooks";
 interface LogicInspectorPanelProps {
     workflowId: string;
     currentWorkflow: any;
     isOpen: boolean;
     onClose: () => void;
 }
-
 export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClose }: LogicInspectorPanelProps) {
     const [description, setDescription] = useState('');
     const [activeTab, setActiveTab] = useState('generate');
     const [debugResult, setDebugResult] = useState<any>(null);
-
     const connectMutation = useConnectLogic();
     const debugMutation = useDebugLogic();
     const updateMutation = useUpdateWorkflow();
     const { toast } = useToast();
-
     const handleGenerate = async () => {
         if (!description.trim()) {return;}
         try {
@@ -45,7 +39,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
             toast({ title: "Error", description: e.message, variant: "destructive" });
         }
     };
-
     const handleDebug = async () => {
         try {
             const result = await debugMutation.mutateAsync({
@@ -57,9 +50,7 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
             toast({ title: "Error", description: e.message, variant: "destructive" });
         }
     };
-
     if (!isOpen) {return null;}
-
     return (
         <div className="fixed inset-y-0 right-0 w-[400px] bg-background border-l shadow-xl z-50 flex flex-col transition-transform duration-300">
             <div className="p-4 border-b flex justify-between items-center">
@@ -69,7 +60,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                 </h2>
                 <Button variant="ghost" size="sm" onClick={() => { void onClose(); }}>Close</Button>
             </div>
-
             <div className="flex-1 overflow-hidden">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                     <TabsList className="m-4 grid grid-cols-3">
@@ -77,7 +67,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                         <TabsTrigger value="debug">Debug</TabsTrigger>
                         <TabsTrigger value="variables">Variables</TabsTrigger>
                     </TabsList>
-
                     <TabsContent value="generate" className="flex-1 p-4 space-y-4 overflow-auto">
                         <Card>
                             <CardHeader>
@@ -100,7 +89,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                                 </Button>
                             </CardContent>
                         </Card>
-
                         <div className="bg-muted/30 p-4 rounded-lg text-sm text-muted-foreground">
                             <p>Tips:</p>
                             <ul className="list-disc pl-5 mt-2 space-y-1">
@@ -110,7 +98,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                             </ul>
                         </div>
                     </TabsContent>
-
                     <TabsContent value="variables" className="flex-1 p-4 space-y-4 overflow-auto">
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
@@ -139,7 +126,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                             </ScrollArea>
                         </div>
                     </TabsContent>
-
                     <TabsContent value="debug" className="flex-1 p-4 flex flex-col overflow-hidden">
                         <div className="mb-4">
                             <Button
@@ -152,7 +138,6 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                                 Run Analysis
                             </Button>
                         </div>
-
                         <ScrollArea className="flex-1">
                             {debugResult ? (
                                 <div className="space-y-4">

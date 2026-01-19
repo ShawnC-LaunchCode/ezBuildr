@@ -1,17 +1,12 @@
 ﻿import logo from "@/assets/images/logo.png";
-import { GoogleLogin } from "@/components/GoogleLogin";
 import { Button } from "@/components/ui/button";
-
 import EasyAdvancedStory from "./components/EasyAdvancedStory";
 import FeatureGrid from "./components/FeatureGrid";
 import FinalCTA from "./components/FinalCTA";
 import Hero from "./components/Hero";
 import TargetAudience from "./components/TargetAudience";
-
-
 export default function LandingPage() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
   return (
     <main className="min-h-screen bg-white font-sans">
       {/* Header with Login */}
@@ -44,14 +39,12 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
-
       {/* Marketing Sections */}
       <Hero />
       <EasyAdvancedStory />
       <FeatureGrid />
       <TargetAudience />
       <FinalCTA />
-
       {/* Footer */}
       <footer className="bg-slate-50 border-t border-gray-200 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

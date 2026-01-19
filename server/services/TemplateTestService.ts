@@ -5,31 +5,23 @@
  * Handles template validation and rendering for the test runner.
  * Uses real services where available, stubs where not yet implemented.
  */
-
 import fs from 'fs/promises';
 import path from 'path';
-
 import { logger } from '../logger';
-import { createError } from '../utils/errors';
-
 import { renderDocx, type RenderResult } from './docxRenderer';
-import { analyzeTemplate, type TemplateAnalysis } from './TemplateAnalysisService';
-
-
+import {  type TemplateAnalysis } from './TemplateAnalysisService';
 export interface TemplateTestRequest {
   workflowId: string;
   templateId: string;
   outputType: 'docx' | 'pdf' | 'both';
   sampleData: Record<string, any>;
 }
-
 export interface TemplateTestError {
   code: string;
   message: string;
   placeholder?: string;
   path?: string;
 }
-
 export interface TemplateTestResult {
   ok: boolean;
   status: 'validated' | 'rendered' | 'error';
@@ -43,14 +35,12 @@ export interface TemplateTestResult {
     conditionalCount: number;
   };
 }
-
 export class TemplateTestService {
   /**
    * Run a template test with sample data
    */
   async runTest(request: TemplateTestRequest): Promise<TemplateTestResult> {
     const startTime = Date.now();
-
     try {
       // 1. Validate JSON (already done by caller, but double-check)
       if (!request.sampleData || typeof request.sampleData !== 'object') {
@@ -66,10 +56,8 @@ export class TemplateTestService {
           ],
         };
       }
-
       // 2. Get template file path (STUB - will be replaced with actual template lookup)
       const templatePath = await this.getTemplatePath(request.templateId);
-
       if (!templatePath) {
         return {
           ok: false,
@@ -83,7 +71,6 @@ export class TemplateTestService {
           ],
         };
       }
-
       // 3. Analyze template (if analysis service available)
       let analysis: TemplateAnalysis | undefined;
       try {
@@ -93,33 +80,26 @@ export class TemplateTestService {
       } catch (error) {
         logger.warn({ error, templateId: request.templateId }, 'Template analysis failed (non-fatal)');
       }
-
       // 4. Render DOCX
       let renderResult: RenderResult | undefined;
       let docxUrl: string | undefined;
       let pdfUrl: string | undefined;
-
       try {
         // Use real renderDocx via helper
         const toPdf = request.outputType === 'pdf' || request.outputType === 'both';
-
         renderResult = await this.renderTemplateInternal(
           request.templateId,
           request.sampleData,
           toPdf
         );
-
         // Create URLs for the generated files
         if (renderResult.docxPath) {
           docxUrl = `/api/files/test-outputs/${path.basename(renderResult.docxPath)}`;
         }
-
         if (renderResult.pdfPath) {
           pdfUrl = `/api/files/test-outputs/${path.basename(renderResult.pdfPath)}`;
         }
-
         const durationMs = Date.now() - startTime;
-
         return {
           ok: true,
           status: 'rendered',
@@ -136,7 +116,6 @@ export class TemplateTestService {
         };
       } catch (error) {
         logger.error({ error, templateId: request.templateId }, 'Template rendering failed');
-
         return {
           ok: false,
           status: 'error',
@@ -151,7 +130,6 @@ export class TemplateTestService {
       }
     } catch (error) {
       logger.error({ error, request }, 'Template test failed');
-
       return {
         ok: false,
         status: 'error',
@@ -165,7 +143,6 @@ export class TemplateTestService {
       };
     }
   }
-
   /**
    * Get template file path (STUB)
    * TODO: Replace with actual template repository lookup
@@ -176,7 +153,6 @@ export class TemplateTestService {
     // and return the actual file path
     return `/tmp/template-${templateId}.docx`;
   }
-
   /**
    * Stub DOCX renderer
    * TODO: Replace with actual renderDocx call when templates exist
@@ -193,12 +169,10 @@ export class TemplateTestService {
     // For now, we still need a template path. 
     // We will assume the template is at a fixed location or use a dummy for testing if not found.
     // But better to fail if not found.
-
     const templatePath = await this.getTemplatePath(templateId);
     if (!templatePath) {
       throw new Error(`Template ${templateId} not found`);
     }
-
     // Use the real service
     return renderDocx({
       templatePath,
@@ -206,22 +180,19 @@ export class TemplateTestService {
       toPdf: false // We handle PDF separately in runTest
     });
   }
-
   /**
    * Convert DOCX to PDF using real converter
    */
   private async stubConvertToPdf(docxPath: string): Promise<string | null> {
     try {
-      const { convertDocxToPdf } = await import('./docxRenderer'); // Import internal function or expose it
+      const {  } = await import('./docxRenderer'); // Import internal function or expose it
       // Check if we can export convertDocxToPdf from docxRenderer.ts
       // It is not exported in the file I read!
       // So I should just call renderDocx with toPdf: true if I want PDF.
       // But runTest logic separates them.
-
       // Let's assume we update docxRenderer to export it or usage renderDocx options.
       // Re-reading docxRenderer.ts: convertDocxToPdf is NOT exported.
       // But renderDocx returns result.pdfPath if toPdf=true.
-
       // So I should refactor runTest to just call renderDocx with toPdf: true if needed.
       return null; // Placeholder until refactor
     } catch (e) {
@@ -229,6 +200,5 @@ export class TemplateTestService {
     }
   }
 }
-
 // Singleton instance
 export const templateTestService = new TemplateTestService();

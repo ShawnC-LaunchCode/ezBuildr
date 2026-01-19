@@ -5,38 +5,27 @@
  * Evaluates visibleIf and skipIf conditions to determine page visibility
  * and automatic skip logic.
  */
-
 import { createLogger } from "../logger";
 import { sectionRepository, stepRepository, stepValueRepository } from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
-
-import type { Section } from "../../shared/schema";
-
+import type {  } from "../../shared/schema";
 const logger = createLogger({ module: "intake-navigation" });
-
 export interface PageNavigationResult {
   /** List of visible page IDs in order */
   visiblePages: string[];
-
   /** Current page index (0-based) */
   currentPageIndex: number;
-
   /** Next page ID (null if at end) */
   nextPageId: string | null;
-
   /** Previous page ID (null if at start) */
   previousPageId: string | null;
-
   /** Progress percentage (0-100) */
   progress: number;
-
   /** Pages that were skipped due to skipIf conditions */
   skippedPages: string[];
-
   /** Pages that were hidden due to visibleIf conditions */
   hiddenPages: string[];
 }
-
 export class IntakeNavigationService {
   /**
    * Evaluates page conditions and returns navigation state
@@ -56,10 +45,8 @@ export class IntakeNavigationService {
     // Load all pages (sections) for this workflow
     const allPages = await sectionRepository.findByWorkflowId(workflowId);
     const sortedPages = allPages.sort((a, b) => a.order - b.order);
-
     // Load all step values for this run to build context
     const stepValues = await stepValueRepository.findByRunId(runId);
-
     // Load all steps to map stepId -> alias
     const allSteps = await stepRepository.findByWorkflowIdWithAliases(workflowId);
     const stepIdToAlias = new Map<string, string>();
@@ -68,7 +55,6 @@ export class IntakeNavigationService {
         stepIdToAlias.set(step.id, step.alias);
       }
     }
-
     // Build evaluation context
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
@@ -76,24 +62,19 @@ export class IntakeNavigationService {
       const key = alias || sv.stepId;
       variables[key] = sv.value;
     }
-
     // Include record data in variables if present
     if (recordData) {
       Object.assign(variables, recordData);
     }
-
     // Evaluate visibility for each page
     const visibilityResults = new Map<string, boolean>();
     const hiddenPages: string[] = [];
-
     for (const page of sortedPages) {
       let isVisible = true;
-
       // Evaluate visibleIf condition
       if (page.visibleIf) {
         try {
           isVisible = evaluateVisibility(page.visibleIf, variables);
-
           if (!isVisible) {
             logger.debug({ pageId: page.id, pageTitle: page.title }, "Page hidden by visibleIf condition");
             hiddenPages.push(page.id);
@@ -104,20 +85,16 @@ export class IntakeNavigationService {
           isVisible = true;
         }
       }
-
       visibilityResults.set(page.id, isVisible);
     }
-
     // Filter to visible pages
     const visiblePages = sortedPages.filter(p => visibilityResults.get(p.id));
-
     // Evaluate skipIf for visible pages
     const skippedPages: string[] = [];
     const navigablePages = visiblePages.filter(page => {
       if (page.skipIf) {
         try {
           const shouldSkip = evaluateVisibility(page.skipIf, variables);
-
           if (shouldSkip) {
             logger.debug({ pageId: page.id, pageTitle: page.title }, "Page skipped by skipIf condition");
             skippedPages.push(page.id);
@@ -131,28 +108,23 @@ export class IntakeNavigationService {
       }
       return true;
     });
-
     // Calculate current page index
     let currentPageIndex = 0;
     if (currentPageId) {
       const index = navigablePages.findIndex(p => p.id === currentPageId);
       currentPageIndex = index >= 0 ? index : 0;
     }
-
     // Calculate next and previous page IDs
     const nextPageId = currentPageIndex < navigablePages.length - 1
       ? navigablePages[currentPageIndex + 1].id
       : null;
-
     const previousPageId = currentPageIndex > 0
       ? navigablePages[currentPageIndex - 1].id
       : null;
-
     // Calculate progress (0-100)
     const progress = navigablePages.length > 0
       ? Math.round(((currentPageIndex + 1) / navigablePages.length) * 100)
       : 0;
-
     return {
       visiblePages: navigablePages.map(p => p.id),
       currentPageIndex,
@@ -163,7 +135,6 @@ export class IntakeNavigationService {
       hiddenPages,
     };
   }
-
   /**
    * Finds the first navigable page for a workflow run
    *
@@ -180,7 +151,6 @@ export class IntakeNavigationService {
     const nav = await this.evaluateNavigation(workflowId, runId, null, recordData);
     return nav.visiblePages.length > 0 ? nav.visiblePages[0] : null;
   }
-
   /**
    * Validates that a page is currently navigable
    *
@@ -199,7 +169,6 @@ export class IntakeNavigationService {
     const nav = await this.evaluateNavigation(workflowId, runId, pageId, recordData);
     return nav.visiblePages.includes(pageId);
   }
-
   /**
    * Gets the complete page sequence for a workflow run
    * Useful for progress indicators and navigation breadcrumbs
@@ -217,7 +186,6 @@ export class IntakeNavigationService {
     const nav = await this.evaluateNavigation(workflowId, runId, null, recordData);
     return nav.visiblePages;
   }
-
   /**
    * Detects potential infinite navigation loops
    * Checks if skipIf conditions could create circular skips
@@ -228,7 +196,6 @@ export class IntakeNavigationService {
   async validatePageConditions(workflowId: string): Promise<string[]> {
     const errors: string[] = [];
     const pages = await sectionRepository.findByWorkflowId(workflowId);
-
     // Check for pages with both visibleIf and skipIf (valid but potentially confusing)
     for (const page of pages) {
       if (page.visibleIf && page.skipIf) {
@@ -238,13 +205,10 @@ export class IntakeNavigationService {
         );
       }
     }
-
     // TODO: Add more sophisticated circular dependency detection
     // For now, we rely on the runner to detect infinite loops at runtime
-
     return errors;
   }
 }
-
 // Singleton instance
 export const intakeNavigationService = new IntakeNavigationService();

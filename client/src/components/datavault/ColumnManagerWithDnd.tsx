@@ -2,7 +2,6 @@
  * ColumnManager Component with Drag & Drop
  * Manage columns for a table: add, edit, delete, reorder with drag & drop
  */
-
 import {
   DndContext,
   closestCenter,
@@ -20,9 +19,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
+import { Loader2, Edit2, Trash2, GripVertical } from "lucide-react";
 import React, { useState, useEffect } from "react";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,13 +48,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useTables, useTableSchema } from "@/hooks/useDatavaultTables";
-
 import type { DatavaultColumn } from "@shared/schema";
-
 import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
-
-
-
 interface ColumnManagerProps {
   columns: DatavaultColumn[];
   tableId: string;
@@ -73,7 +66,6 @@ interface ColumnManagerProps {
   onReorderColumns?: (columnIds: string[]) => Promise<void>;
   isLoading?: boolean;
 }
-
 interface SortableColumnProps {
   column: DatavaultColumn;
   onEdit: () => void;
@@ -81,7 +73,6 @@ interface SortableColumnProps {
   isLoading: boolean;
   canDelete: boolean;
 }
-
 function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: SortableColumnProps) {
   const {
     attributes,
@@ -91,13 +82,11 @@ function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: Sort
     transition,
     isDragging,
   } = useSortable({ id: column.id });
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
-
   return (
     <div
       ref={setNodeRef}
@@ -170,7 +159,6 @@ function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: Sort
     </div>
   );
 }
-
 export function ColumnManagerWithDnd({
   columns,
   tableId,
@@ -185,7 +173,6 @@ export function ColumnManagerWithDnd({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialog, setEditDialog] = useState<{ id: string; name: string; required: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-
   // Add column state
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<string>("text");
@@ -193,17 +180,14 @@ export function ColumnManagerWithDnd({
   const [newColumnDescription, setNewColumnDescription] = useState("");
   const [newReferenceTableId, setNewReferenceTableId] = useState<string>("");
   const [newReferenceDisplayColumnSlug, setNewReferenceDisplayColumnSlug] = useState<string>("");
-
   // Edit column state
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnRequired, setEditColumnRequired] = useState(false);
   const [editColumnDescription, setEditColumnDescription] = useState("");
-
   // Fetch tables for reference column dropdown
   const { data: tables } = useTables();
   // Fetch schema of selected reference table to get columns
   const { data: refTableSchema } = useTableSchema(newReferenceTableId || undefined);
-
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -211,34 +195,26 @@ export function ColumnManagerWithDnd({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
   // Update local columns when props change
   // Update local columns when props change
   useEffect(() => { void setLocalColumns(columns); }, [columns]);
-
   // Listen for custom event from header button
   useEffect(() => {
     const handleOpenDialog = () => {
       setAddDialogOpen(true);
     };
-
     window.addEventListener('openAddColumnDialog', handleOpenDialog);
-
     return () => {
       window.removeEventListener('openAddColumnDialog', handleOpenDialog);
     };
   }, []);
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = localColumns.findIndex((col) => col.id === active.id);
       const newIndex = localColumns.findIndex((col) => col.id === over.id);
-
       const newColumns = arrayMove(localColumns, oldIndex, newIndex);
       setLocalColumns(newColumns);
-
       // Call reorder API
       if (onReorderColumns) {
         try {
@@ -259,10 +235,8 @@ export function ColumnManagerWithDnd({
       }
     }
   };
-
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) {return;}
-
     // Validate reference column
     if (newColumnType === 'reference' && !newReferenceTableId) {
       toast({
@@ -272,7 +246,6 @@ export function ColumnManagerWithDnd({
       });
       return;
     }
-
     await onAddColumn({
       name: newColumnName.trim(),
       type: newColumnType,
@@ -281,7 +254,6 @@ export function ColumnManagerWithDnd({
       referenceTableId: newColumnType === 'reference' ? newReferenceTableId : undefined,
       referenceDisplayColumnSlug: newColumnType === 'reference' ? newReferenceDisplayColumnSlug : undefined,
     });
-
     // Reset form
     setNewColumnName("");
     setNewColumnType("text");
@@ -291,37 +263,30 @@ export function ColumnManagerWithDnd({
     setNewReferenceDisplayColumnSlug("");
     setAddDialogOpen(false);
   };
-
   const handleEditColumn = async () => {
     if (!editDialog || !editColumnName.trim()) {return;}
-
     try {
       await onUpdateColumn(editDialog.id, {
         name: editColumnName.trim(),
         required: editColumnRequired,
         description: editColumnDescription.trim() || undefined,
       });
-
       setEditDialog(null);
     } catch (error) {
       console.error('Failed to update column:', error);
     }
   };
-
   const handleDeleteColumn = async () => {
     if (!deleteConfirm) {return;}
-
     await onDeleteColumn(deleteConfirm.id);
     setDeleteConfirm(null);
   };
-
   const openEditDialog = (column: DatavaultColumn) => {
     setEditDialog({ id: column.id, name: column.name, required: column.required });
     setEditColumnName(column.name);
     setEditColumnRequired(column.required);
     setEditColumnDescription(column.description || "");
   };
-
   return (
     <>
       <div className="space-y-2">
@@ -355,7 +320,6 @@ export function ColumnManagerWithDnd({
           </DndContext>
         )}
       </div>
-
       {/* Add Column Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent>
@@ -403,7 +367,6 @@ export function ColumnManagerWithDnd({
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid gap-2">
               <Label htmlFor="column-description">Description (optional)</Label>
               <Textarea
@@ -414,7 +377,6 @@ export function ColumnManagerWithDnd({
                 rows={3}
               />
             </div>
-
             {/* Reference-specific fields */}
             {newColumnType === 'reference' && (
               <>
@@ -437,7 +399,6 @@ export function ColumnManagerWithDnd({
                     </SelectContent>
                   </Select>
                 </div>
-
                 {newReferenceTableId && refTableSchema?.columns && (
                   <div className="grid gap-2">
                     <Label htmlFor="ref-display-column">Display Field (optional)</Label>
@@ -460,7 +421,6 @@ export function ColumnManagerWithDnd({
                 )}
               </>
             )}
-
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="column-required"
@@ -483,7 +443,6 @@ export function ColumnManagerWithDnd({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Edit Column Dialog */}
       <Dialog open={!!editDialog} onOpenChange={() => setEditDialog(null)}>
         <DialogContent>
@@ -537,7 +496,6 @@ export function ColumnManagerWithDnd({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>

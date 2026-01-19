@@ -1,26 +1,20 @@
 import type { InsertDatavaultDatabase, DatavaultDatabase } from "@shared/schema";
-
 import { datavaultDatabasesRepository } from "../repositories/DatavaultDatabasesRepository";
-
-import type { DbTransaction } from "../repositories/BaseRepository";
-
+import type {  } from "../repositories/BaseRepository";
 /**
  * Service for managing DataSources (Databases) and their connections to Workflows.
  */
 export class DataSourceService {
     private repo: typeof datavaultDatabasesRepository;
-
     constructor(repo?: typeof datavaultDatabasesRepository) {
         this.repo = repo || datavaultDatabasesRepository;
     }
-
     /**
      * List data sources for a tenant
      */
     async listDataSources(tenantId: string): Promise<DatavaultDatabase[]> {
         return this.repo.findByTenantId(tenantId);
     }
-
     /**
      * Get data source by ID
      */
@@ -31,7 +25,6 @@ export class DataSourceService {
         }
         return dataSource;
     }
-
     /**
      * Create a new data source
      * Handles mapping of 'native_table' virtual type to 'native' DB type
@@ -53,7 +46,6 @@ export class DataSourceService {
         }
         return this.repo.create(data as InsertDatavaultDatabase);
     }
-
     /**
      * Update a data source
      */
@@ -72,7 +64,6 @@ export class DataSourceService {
         }
         return updated;
     }
-
     /**
      * Delete a data source
      */
@@ -83,14 +74,12 @@ export class DataSourceService {
         }
         return this.repo.delete(id);
     }
-
     /**
      * Find data sources linked to a workflow
      */
     async listDataSourcesForWorkflow(workflowId: string): Promise<DatavaultDatabase[]> {
         return this.repo.findByWorkflowId(workflowId);
     }
-
     /**
      * Link a data source to a workflow
      */
@@ -102,14 +91,12 @@ export class DataSourceService {
         // Verify workflow ownership if needed (assuming caller checks workflow access)
         await this.repo.linkToWorkflow(workflowId, dataSourceId);
     }
-
     /**
      * Unlink a data source from a workflow
      */
     async unlinkDataSourceFromWorkflow(workflowId: string, dataSourceId: string): Promise<void> {
         await this.repo.unlinkFromWorkflow(workflowId, dataSourceId);
     }
-
     /**
      * Get tables within a data source
      */
@@ -121,5 +108,4 @@ export class DataSourceService {
         return this.repo.getTablesInDatabase(dataSourceId);
     }
 }
-
 export const dataSourceService = new DataSourceService();

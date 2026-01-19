@@ -3,7 +3,6 @@
  *
  * Manage custom domains and subdomains for tenant intake portals
  */
-
 import {
   Globe,
   Plus,
@@ -16,7 +15,6 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
-
 import AddDomainModal from '@/components/branding/AddDomainModal';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
@@ -32,34 +30,27 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { brandingAPI, type TenantDomain } from '@/lib/vault-api';
-
 export default function DomainSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-
   const tenantId = user?.tenantId;
-
   const [domains, setDomains] = useState<TenantDomain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [domainToDelete, setDomainToDelete] = useState<TenantDomain | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   // Load domains
   useEffect(() => {
     if (tenantId) {
       loadDomains();
     }
   }, [tenantId]);
-
   const loadDomains = async () => {
     if (!tenantId) {return;}
-
     setIsLoading(true);
     try {
       const { domains: fetchedDomains } = await brandingAPI.getDomains(tenantId);
@@ -75,10 +66,8 @@ export default function DomainSettingsPage() {
       setIsLoading(false);
     }
   };
-
   const handleAddDomain = async (domain: string) => {
     if (!tenantId) {return;}
-
     try {
       await brandingAPI.addDomain(tenantId, domain);
       toast({
@@ -97,10 +86,8 @@ export default function DomainSettingsPage() {
       throw error; // Re-throw to let modal handle it
     }
   };
-
   const handleDeleteDomain = async () => {
     if (!tenantId || !domainToDelete) {return;}
-
     setIsDeleting(true);
     try {
       await brandingAPI.removeDomain(tenantId, domainToDelete.id);
@@ -121,7 +108,6 @@ export default function DomainSettingsPage() {
       setIsDeleting(false);
     }
   };
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -135,7 +121,6 @@ export default function DomainSettingsPage() {
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
-
   if (authLoading || isLoading) {
     return (
       <div className="flex h-screen bg-background">
@@ -149,9 +134,7 @@ export default function DomainSettingsPage() {
       </div>
     );
   }
-
   const isVaultLogicDomain = (domain: string) => domain.endsWith('.vaultlogic.com');
-
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -180,7 +163,6 @@ export default function DomainSettingsPage() {
                 Add Domain
               </Button>
             </div>
-
             {/* Info Card */}
             <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
               <CardContent className="pt-6">
@@ -204,7 +186,6 @@ export default function DomainSettingsPage() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Domains List */}
             <Card>
               <CardHeader>
@@ -300,7 +281,6 @@ export default function DomainSettingsPage() {
                 )}
               </CardContent>
             </Card>
-
             {/* Domain Instructions */}
             {domains.some((d) => !isVaultLogicDomain(d.domain)) && (
               <Card>
@@ -336,7 +316,6 @@ export default function DomainSettingsPage() {
           </div>
         </main>
       </div>
-
       {/* Add Domain Modal */}
       <AddDomainModal
         open={isAddModalOpen}
@@ -344,7 +323,6 @@ export default function DomainSettingsPage() {
         onAddDomain={handleAddDomain}
         existingDomains={domains.map((d) => d.domain)}
       />
-
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!domainToDelete} onOpenChange={() => setDomainToDelete(null)}>
         <AlertDialogContent>

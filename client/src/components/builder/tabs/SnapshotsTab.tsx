@@ -2,12 +2,9 @@
  * SnapshotsTab - Manage workflow test snapshots
  * Fully integrated with backend API for snapshot management
  */
-
-import { Camera, Plus, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Camera, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
 import React, { useState } from "react";
 import { useLocation } from "wouter";
-
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,30 +12,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { runAPI, type ApiSnapshot } from "@/lib/vault-api";
+import {  type ApiSnapshot } from "@/lib/vault-api";
 import {
   useSnapshots,
   useRenameSnapshot,
   useDeleteSnapshot,
 } from "@/lib/vault-hooks";
 import { usePreviewStore } from "@/store/preview";
-
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
-
 interface SnapshotsTabProps {
   workflowId: string;
 }
-
 export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const setPreviewToken = usePreviewStore((s) => s.setToken);
-
   // Fetch snapshots from API
   const { data: snapshots, isLoading, error } = useSnapshots(workflowId);
   const renameSnapshot = useRenameSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
-
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -46,11 +38,9 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
   const [selectedSnapshot, setSelectedSnapshot] = useState<ApiSnapshot | null>(null);
   const [newName, setNewName] = useState("");
   const [isCreatingRun, setIsCreatingRun] = useState(false);
-
   // Handle rename snapshot
   const handleRename = async () => {
     if (!selectedSnapshot || !newName.trim()) {return;}
-
     try {
       await renameSnapshot.mutateAsync({
         workflowId,
@@ -69,11 +59,9 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
       });
     }
   };
-
   // Handle delete snapshot
   const handleDelete = async () => {
     if (!selectedSnapshot) {return;}
-
     try {
       await deleteSnapshot.mutateAsync({
         workflowId,
@@ -90,37 +78,31 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
       });
     }
   };
-
   // Handle preview with snapshot (navigate to new WorkflowPreview with snapshot parameter)
   const handlePreview = async (snapshot: ApiSnapshot) => {
     toast({
       title: "Scenario Loaded",
       description: `Previewing scenario "${snapshot.name}"`,
     });
-
     // Navigate to workflow preview with snapshot ID
     setLocation(`/workflows/${workflowId}/preview?snapshotId=${snapshot.id}`);
   };
-
   // Handle view snapshot data
   const handleView = (snapshot: ApiSnapshot) => {
     setSelectedSnapshot(snapshot);
     setViewDialogOpen(true);
   };
-
   // Open rename dialog
   const handleOpenRename = (snapshot: ApiSnapshot) => {
     setSelectedSnapshot(snapshot);
     setNewName(snapshot.name);
     setRenameDialogOpen(true);
   };
-
   // Open delete confirmation
   const handleOpenDelete = (snapshot: ApiSnapshot) => {
     setSelectedSnapshot(snapshot);
     setDeleteDialogOpen(true);
   };
-
   return (
     <BuilderLayout>
       <BuilderLayoutHeader>
@@ -131,7 +113,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
           </p>
         </div>
       </BuilderLayoutHeader>
-
       <BuilderLayoutContent>
         {error && (
           <Alert variant="destructive" className="mb-4">
@@ -141,7 +122,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
             </AlertDescription>
           </Alert>
         )}
-
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-muted-foreground">Loading scenarios...</div>
@@ -171,7 +151,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
                 const valueCount = Object.keys(snapshot.values).length;
                 // Show outdated indicator if no versionHash (old snapshot) or hash missing
                 const isOutdated = !snapshot.versionHash;
-
                 return (
                   <TableRow key={snapshot.id}>
                     <TableCell className="font-medium">
@@ -218,7 +197,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
             </TableBody>
           </Table>
         )}
-
         {/* Rename Dialog */}
         <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
           <DialogContent>
@@ -253,7 +231,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent>
@@ -273,7 +250,6 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
         {/* View Dialog with JSON */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
           <DialogContent className="max-w-2xl">

@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, RefreshCw, Download, BarChart2, GitMerge, Thermometer, Users } from "lucide-react";
+import { Loader2, RefreshCw, Download, BarChart2, Thermometer, Users } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "wouter";
-
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -20,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // import { DateRangePicker } from "@/components/ui/date-range-picker"; // component not available
-
 // Types
 interface AnalyticsOverview {
     totalRuns: number;
@@ -29,7 +27,6 @@ interface AnalyticsOverview {
     avgDuration: number;
     totalViews: number;
 }
-
 interface DropoffStep {
     stepId: string;
     stepTitle: string;
@@ -37,11 +34,9 @@ interface DropoffStep {
     dropoffs: number;
     dropoffRate: number;
 }
-
 export function WorkflowAnalytics() {
     const { id: workflowId } = useParams();
     const [timeRange, setTimeRange] = useState("30d");
-
     // Fetch Overview Data
     const { data: overview, isLoading: isLoadingOverview } = useQuery({
         queryKey: ["analytics", workflowId, "overview", timeRange],
@@ -52,7 +47,6 @@ export function WorkflowAnalytics() {
         },
         enabled: !!workflowId,
     });
-
     // Fetch Dropoff Data
     const { data: dropoff, isLoading: isLoadingDropoff } = useQuery({
         queryKey: ["analytics", workflowId, "dropoff", timeRange],
@@ -63,9 +57,7 @@ export function WorkflowAnalytics() {
         },
         enabled: !!workflowId,
     });
-
     if (!workflowId) {return <div>Invalid Workflow ID</div>;}
-
     return (
         <div className="container mx-auto p-8 space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -95,7 +87,6 @@ export function WorkflowAnalytics() {
                     </Button>
                 </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <OverviewCard
                     title="Total Runs"
@@ -122,14 +113,12 @@ export function WorkflowAnalytics() {
                     loading={isLoadingOverview}
                 />
             </div>
-
             <Tabs defaultValue="funnel" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="funnel">Conversion Funnel</TabsTrigger>
                     <TabsTrigger value="heatmap">Block Heatmap</TabsTrigger>
                     <TabsTrigger value="network">Branching Network</TabsTrigger>
                 </TabsList>
-
                 <TabsContent value="funnel" className="space-y-4">
                     <Card>
                         <CardHeader>
@@ -165,7 +154,6 @@ export function WorkflowAnalytics() {
                         </CardContent>
                     </Card>
                 </TabsContent>
-
                 <TabsContent value="heatmap">
                     <Card>
                         <CardHeader>
@@ -179,7 +167,6 @@ export function WorkflowAnalytics() {
                         </CardContent>
                     </Card>
                 </TabsContent>
-
                 <TabsContent value="network">
                     <Card>
                         <CardHeader>
@@ -197,7 +184,6 @@ export function WorkflowAnalytics() {
         </div>
     );
 }
-
 function OverviewCard({ title, value, icon, loading }: { title: string, value: string | number | undefined, icon: React.ReactNode, loading: boolean }) {
     return (
         <Card>

@@ -480,3 +480,13 @@ export type CollabUpdate = InferSelectModel<typeof collabUpdates>;
 export type InsertCollabUpdate = InferInsertModel<typeof collabUpdates>;
 export type CollabSnapshot = InferSelectModel<typeof collabSnapshots>;
 export type InsertCollabSnapshot = InferInsertModel<typeof collabSnapshots>;
+
+export interface WorkflowVariable {
+    key: string;
+    alias: string | null;
+    type: string;
+    label: string;
+    sectionId: string;
+    sectionTitle: string;
+    stepId: string;
+}

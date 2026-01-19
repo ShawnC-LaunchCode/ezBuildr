@@ -2,19 +2,15 @@
  * Final Documents Section - Runner View
  * Displays generated documents for download
  */
-
 import { useQuery, useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import DOMPurify from "isomorphic-dompurify";
 import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-
 interface FinalDocumentsSectionProps {
   runId: string;
   runToken?: string; // Optional run token for preview mode
@@ -31,7 +27,6 @@ interface FinalDocumentsSectionProps {
     templates?: string[];
   };
 }
-
 interface GeneratedDocument {
   id: string;
   fileName: string;
@@ -40,12 +35,10 @@ interface GeneratedDocument {
   fileSize?: number;
   createdAt: string;
 }
-
 export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
   const title = sectionConfig.title || sectionConfig.screenTitle || "Your Completed Documents";
   const message = sectionConfig.message || sectionConfig.markdownMessage || "";
   const { showDocuments = true, customLinks, brandingColor, redirectUrl, redirectDelaySeconds = 5 } = sectionConfig;
-
   // Handle Redirect
   useEffect(() => {
     if (redirectUrl) {
@@ -55,10 +48,8 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       return () => clearTimeout(timer);
     }
   }, [redirectUrl, redirectDelaySeconds]);
-
   // Validate runId - don't proceed if it's null/undefined/empty
   const isValidRunId = runId && runId !== 'null' && runId !== 'undefined';
-
   // Mutation to trigger document generation
   const generateDocsMutation = useMutation({
     mutationFn: async () => {
@@ -81,7 +72,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       console.error('[FinalDocumentsSection] Document generation failed:', error);
     },
   });
-
   // Trigger document generation when component mounts - only if runId is valid
   useEffect(() => {
     if (isValidRunId) {
@@ -91,7 +81,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       console.warn('[FinalDocumentsSection] Invalid runId:', runId);
     }
   }, [runId]); // Only run once when runId changes
-
   // Fetch generated documents for this run - only if runId is valid
   const { data: documents = [], isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
@@ -110,7 +99,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     refetchInterval: (query) => {
       // Only refetch if runId is valid
       if (!isValidRunId) {return false;}
-
       // If no documents yet, refetch every 2 seconds until they're ready
       const docs = query.state.data;
       if (!docs || docs.length === 0) {
@@ -120,7 +108,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       return false;
     },
   });
-
   const formatFileSize = (bytes?: number) => {
     if (!bytes) {return '';}
     const kb = bytes / 1024;
@@ -128,7 +115,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     const mb = kb / 1024;
     return `${mb.toFixed(1)} MB`;
   };
-
   const getFileIcon = (mimeType?: string) => {
     if (mimeType?.includes('pdf')) {
       return '📄';
@@ -138,7 +124,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     }
     return '📎';
   };
-
   // Show error if runId is invalid
   if (!isValidRunId) {
     return (
@@ -159,7 +144,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       </div>
     );
   }
-
   return (
     <div className="max-w-2xl mx-auto py-12 px-6 space-y-8 animate-in fade-in duration-500">
       {/* Success Header */}
@@ -167,7 +151,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
         <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
           <CheckCircle className="w-8 h-8" />
         </div>
-
         <div className="space-y-2">
           <h1
             className="text-3xl font-bold tracking-tight text-slate-900"
@@ -183,7 +166,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           )}
         </div>
       </div>
-
       {/* Markdown Message */}
       {message && (
         <div className="prose prose-slate prose-sm md:prose-base dark:prose-invert max-w-none text-center text-slate-600">
@@ -200,7 +182,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           </ReactMarkdown>
         </div>
       )}
-
       {/* Documents Section */}
       {showDocuments && (
         <Card className="border-slate-200 shadow-md overflow-hidden bg-white">
@@ -259,7 +240,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           </CardContent>
         </Card>
       )}
-
       {/* Custom Links */}
       {
         customLinks && customLinks.length > 0 && (
@@ -281,7 +261,6 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           </div>
         )
       }
-
       {/* Footer */}
       <div className="text-center pt-8 border-t border-slate-100 mt-8">
         <p className="text-sm text-slate-400">
