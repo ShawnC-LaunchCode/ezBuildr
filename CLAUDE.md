@@ -1,6 +1,6 @@
 # ezBuildr - Architecture Quick Reference
 
-**Version:** 1.7.0 | **Status:** Production Ready | **Updated:** December 26, 2025
+**Version:** 1.7.0 | **Status:** Production Ready | **Updated:** January 19, 2026
 
 ## What is ezBuildr?
 
@@ -118,10 +118,9 @@ npm run kill-server      # Kill server on port 5000
 | "Code did not call emit()" | Ensure code calls `emit(value)` exactly once |
 | Google OAuth fails | Check `GOOGLE_CLIENT_ID`, origins, CORS |
 
-## Detailed Documentation Index
+## Documentation Index
 
-For detailed reference, see these documents:
-
+### Quick Reference (Claude-optimized)
 | Document | Contents |
 |----------|----------|
 | [Schema Reference](./docs/claude/SCHEMA.md) | All 80+ database tables with columns |
@@ -130,15 +129,60 @@ For detailed reference, see these documents:
 | [Frontend Pages](./docs/claude/PAGES.md) | 30+ pages with routes and features |
 | [Features & Security](./docs/claude/FEATURES.md) | Feature status, security, changelog |
 
-### Existing Documentation
-| Area | Location |
-|------|----------|
-| Scripting System | [docs/scripting/](./docs/scripting/) |
-| API Details | [docs/api/](./docs/api/) |
-| Testing | [docs/testing/](./docs/testing/) |
-| Troubleshooting | [docs/troubleshooting/](./docs/troubleshooting/) |
-| Architecture | [docs/architecture/](./docs/architecture/) |
-| Deployment | [docs/deployment/](./docs/deployment/) |
+### Core Documentation
+| Document | Contents |
+|----------|----------|
+| [README.md](./README.md) | Project overview, quick start, setup |
+| [docs/INDEX.md](./docs/INDEX.md) | Full documentation hub |
+| [Developer Reference](./docs/reference/DEVELOPER_REFERENCE.md) | Technical architecture guide |
+
+### API & Blocks
+| Document | Contents |
+|----------|----------|
+| [API Reference](./docs/api/API.md) | Complete workflow API endpoints |
+| [Block Framework](./docs/api/BLOCKS.md) | Block types and examples |
+| [Transform Blocks](./docs/api/TRANSFORM_BLOCKS.md) | JS/Python code blocks |
+
+### Custom Scripting System
+| Document | Contents |
+|----------|----------|
+| [Scripting Overview](./docs/scripting/overview.md) | Scripting system introduction |
+| [Lifecycle Hooks](./docs/scripting/lifecycle-hooks.md) | 4 workflow phases |
+| [Document Hooks](./docs/scripting/document-hooks.md) | 2 document phases |
+| [Helper Library](./docs/scripting/helper-library.md) | 40+ utility functions |
+| [Script Context](./docs/scripting/script-context.md) | Context object reference |
+| [Debugging](./docs/scripting/debugging.md) | Script console, logging |
+| [Examples](./docs/scripting/examples.md) | Code examples |
+
+### Guides
+| Document | Contents |
+|----------|----------|
+| [Auth System](./docs/guides/AUTH_SYSTEM.md) | Full auth architecture (JWT, MFA, sessions) |
+| [Run Token Auth](./docs/guides/AUTHENTICATION.md) | Workflow run authentication |
+| [Frontend Guide](./docs/guides/FRONTEND.md) | Frontend architecture |
+| [Step Aliases](./docs/guides/STEP_ALIASES.md) | Variable naming system |
+| [E-Signature](./docs/guides/ESIGNATURE_INTEGRATION.md) | DocuSign, HelloSign integration |
+| [Variables in Documents](./docs/guides/VARIABLES_IN_DOCUMENTS.md) | Template variables |
+
+### Architecture
+| Document | Contents |
+|----------|----------|
+| [Shared Components](./docs/architecture/SHARED_COMPONENTS.md) | UI component library |
+| [Error Handling](./docs/architecture/ERROR_HANDLING.md) | Error middleware |
+| [Step Aliases Architecture](./docs/architecture/STEP_ALIASES_ARCHITECTURE.md) | Aliases deep dive |
+
+### Testing & Deployment
+| Document | Contents |
+|----------|----------|
+| [Testing Framework](./docs/testing/TESTING.md) | Vitest + Playwright |
+| [CI/CD Setup](./docs/deployment/CI_CD_SETUP.md) | GitHub Actions, Railway |
+
+### Troubleshooting
+| Document | Contents |
+|----------|----------|
+| [Common Issues](./docs/troubleshooting/TROUBLESHOOTING.md) | General troubleshooting |
+| [OAuth Issues](./docs/troubleshooting/OAUTH_TROUBLESHOOTING.md) | OAuth debugging |
+| [DataVault Fixes](./docs/troubleshooting/DATAVAULT_TABLE_CREATION_FIX.md) | DataVault issues |
 
 ## Key Conventions
 

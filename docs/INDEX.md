@@ -2,185 +2,160 @@
 
 Welcome to the VaultLogic documentation! This index provides an organized overview of all available documentation.
 
----
-
-## 🚀 Getting Started
-
-Start here if you're new to VaultLogic:
-
-- [README](../README.md) - Project overview, quick start, and setup instructions
-- [Developer Reference](reference/DEVELOPER_REFERENCE.md) - Comprehensive technical documentation
+**Last Updated:** January 19, 2026
 
 ---
 
-## 📚 API Documentation
+## Getting Started
 
-Complete API reference for VaultLogic workflows:
-
-- **[API Reference](api/API.md)** - Complete Workflow API documentation with endpoints, schemas, and examples
-- **[Block Framework](api/BLOCKS.md)** - Block framework examples and curl commands
-- **[Transform Blocks](api/TRANSFORM_BLOCKS.md)** - Custom JavaScript/Python code blocks documentation
+- [README](../README.md) - Project overview, quick start, setup instructions
+- [CLAUDE.md](../CLAUDE.md) - Architecture quick reference (Claude-optimized)
+- [Developer Reference](reference/DEVELOPER_REFERENCE.md) - Technical architecture guide
 
 ---
 
-## 📖 Development Guides
+## API Documentation
 
-Step-by-step guides for implementing features:
-
-- **[Frontend Guide](guides/FRONTEND.md)** - Frontend setup, architecture, and usage
-- **[Authentication](guides/AUTHENTICATION.md)** - Run token authentication system
-- **[Easy/Advanced Mode](guides/EASY_ADVANCED_MODE.md)** - Easy and Advanced mode implementation
-- **[Step Aliases](guides/STEP_ALIASES.md)** - Epic 3: Step Aliases implementation guide
-- **[Workflow Enhancements](guides/WORKFLOW_ENHANCEMENTS.md)** - Section skip logic and navigation
+- [API Reference](api/API.md) - Complete workflow API endpoints
+- [API Documentation](api/API_DOCUMENTATION.md) - Additional API details
+- [Block Framework](api/BLOCKS.md) - Block types and examples
+- [Transform Blocks](api/TRANSFORM_BLOCKS.md) - JS/Python code blocks
 
 ---
 
-## 🏗️ Architecture & Design
+## Development Guides
 
-Technical architecture and design decisions:
+### Authentication
+- [Auth System](guides/AUTH_SYSTEM.md) - Full auth architecture (JWT, MFA, sessions, audit)
+- [Run Token Auth](guides/AUTHENTICATION.md) - Workflow run authentication
 
-- **[Shared Components](architecture/SHARED_COMPONENTS.md)** - Reusable UI components library
-- **[Step Aliases Architecture](architecture/STEP_ALIASES_ARCHITECTURE.md)** - Detailed step aliases codebase analysis
-- **[Error Handling](architecture/ERROR_HANDLING.md)** - Centralized error handler middleware
+### Features
+- [Frontend Guide](guides/FRONTEND.md) - Frontend setup and architecture
+- [Step Aliases](guides/STEP_ALIASES.md) - Variable naming system
+- [Workflow Enhancements](guides/WORKFLOW_ENHANCEMENTS.md) - Skip logic, navigation
+- [Variables in Documents](guides/VARIABLES_IN_DOCUMENTS.md) - Template variables
+- [E-Signature Integration](guides/ESIGNATURE_INTEGRATION.md) - DocuSign, HelloSign
+- [Easy/Advanced Mode](guides/EASY_ADVANCED_MODE.md) - Mode implementation
+- [Autonumber Guide](guides/AUTONUMBER_FRONTEND_GUIDE.md) - Autonumber columns
+- [Choice Lists](guides/CHOICE_LIST_OPTIONS.md) - Choice list configuration
 
----
-
-## 🧪 Testing
-
-Testing framework and guidelines:
-
-- **[Testing Framework](testing/TESTING.md)** - Complete testing infrastructure overview
-- **[Analytics Tests](../tests/README.md)** - Analytics-specific testing documentation
-- **[Auth Tests](../tests/AUTH_TESTING.md)** - Authentication testing guide
-- **[Auth Test Summary](../tests/AUTH_TEST_SUMMARY.md)** - Auth test suite summary
-
----
-
-## 🚢 Deployment
-
-Deployment and CI/CD setup:
-
-- **[CI/CD Setup](deployment/CI_CD_SETUP.md)** - GitHub Actions and Railway deployment guide
+### Database
+- [Drizzle Upsert](guides/DRIZZLE_UPSERT_QUICK_REFERENCE.md) - Upsert patterns
+- [Drizzle Upsert Index](guides/DRIZZLE_UPSERT_INDEX.md) - ORM indexing
+- [OnConflict Expressions](guides/DRIZZLE_ONCONFLICT_WITH_EXPRESSIONS.md) - Advanced upserts
 
 ---
 
-## 🔧 Troubleshooting
+## Custom Scripting System
 
-Common issues and solutions:
-
-- **[Common Issues](troubleshooting/TROUBLESHOOTING.md)** - General troubleshooting guide
-- **[OAuth Issues](troubleshooting/OAUTH_TROUBLESHOOTING.md)** - OAuth 2.0 debugging guide
-- **[Slack Bot Setup](troubleshooting/SLACK_BOT_SETUP.md)** - Slack notifications setup
-
----
-
-## 📋 Reference
-
-Additional reference materials:
-
-- **[User Stories](reference/USER_STORIES.md)** - Complete user stories for all features
-- **[Teams & Sharing Testing](reference/EPIC4_TEAMS_SHARING_TESTING.md)** - Epic 4 API examples and test checklist
-- **[Developer Reference](reference/DEVELOPER_REFERENCE.md)** - Comprehensive developer guide
+- [Overview](scripting/overview.md) - Scripting system introduction
+- [Lifecycle Hooks](scripting/lifecycle-hooks.md) - 4 workflow phases
+- [Document Hooks](scripting/document-hooks.md) - 2 document phases
+- [Helper Library](scripting/helper-library.md) - 40+ utility functions
+- [Script Context](scripting/script-context.md) - Context object reference
+- [Data Flow](scripting/data-flow.md) - Data flow patterns
+- [Debugging](scripting/debugging.md) - Script console, logging
+- [Examples](scripting/examples.md) - Code examples
 
 ---
 
-## 📦 Archive
+## Architecture & Design
 
-Historical documents and reports:
-
-- **[Build Progress](../archive/2025-10/BUILD_PROGRESS.md)** - Feature build progress (Oct 2025)
-- **[Test Report](../archive/2025-10/TEST_REPORT.md)** - Test session report (Oct 2025)
-- **[Security Audit](../archive/2025-10/SECURITY_AUDIT_REPORT.md)** - Security audit findings (Oct 2025)
+- [Shared Components](architecture/SHARED_COMPONENTS.md) - UI component library
+- [Step Aliases Architecture](architecture/STEP_ALIASES_ARCHITECTURE.md) - Aliases deep dive
+- [Error Handling](architecture/ERROR_HANDLING.md) - Error middleware
 
 ---
 
-## 📂 Documentation Organization
+## Testing
+
+- [Testing Framework](testing/TESTING.md) - Vitest + Playwright overview
+- [Testing Strategy](testing/TESTING_STRATEGY.md) - Testing approach
+- [Test Improvements](testing/TESTING_IMPROVEMENTS_DEC_2025.md) - Recent improvements
+
+---
+
+## Deployment
+
+- [CI/CD Setup](deployment/CI_CD_SETUP.md) - GitHub Actions, Railway
+
+---
+
+## Troubleshooting
+
+- [Common Issues](troubleshooting/TROUBLESHOOTING.md) - General troubleshooting
+- [OAuth Issues](troubleshooting/OAUTH_TROUBLESHOOTING.md) - OAuth debugging
+- [DataVault Fixes](troubleshooting/DATAVAULT_TABLE_CREATION_FIX.md) - DataVault issues
+- [Slack Bot Setup](troubleshooting/SLACK_BOT_SETUP.md) - Slack notifications
+
+---
+
+## Reference
+
+- [Developer Reference](reference/DEVELOPER_REFERENCE.md) - Comprehensive guide
+- [User Stories](reference/USER_STORIES.md) - Feature user stories
+- [Shared Quick Reference](reference/SHARED_QUICK_REFERENCE.md) - Shared utilities
+- [Metrics Reference](reference/METRICS_QUICK_REFERENCE.md) - Metrics system
+- [Teams & Sharing](reference/EPIC4_TEAMS_SHARING_TESTING.md) - Teams API
+
+---
+
+## Claude-Optimized References
+
+Detailed reference docs optimized for Claude:
+
+- [Schema Reference](claude/SCHEMA.md) - All 80+ database tables
+- [API Endpoints](claude/API_ENDPOINTS.md) - All routes by domain
+- [Services Reference](claude/SERVICES.md) - 90+ service classes
+- [Frontend Pages](claude/PAGES.md) - 30+ pages with routes
+- [Features & Security](claude/FEATURES.md) - Status, security, changelog
+
+---
+
+## Examples
+
+- [Fee Waiver Demo](examples/FEE_WAIVER_DEMO_README.md) - Demo workflow
+- [Upsert Examples](examples/UPSERT_EXAMPLES.md) - Database examples
+
+---
+
+## Documentation Structure
 
 ```
 docs/
-├── INDEX.md                           # This file
-├── api/                               # API Reference
-│   ├── API.md                         # Complete API documentation
-│   ├── BLOCKS.md                      # Block framework examples
-│   └── TRANSFORM_BLOCKS.md            # Transform blocks guide
-├── guides/                            # Development Guides
-│   ├── FRONTEND.md                    # Frontend guide
-│   ├── AUTHENTICATION.md              # Auth system guide
-│   ├── EASY_ADVANCED_MODE.md          # Mode implementation
-│   ├── STEP_ALIASES.md                # Step aliases implementation
-│   └── WORKFLOW_ENHANCEMENTS.md       # Workflow features
-├── architecture/                      # Architecture & Design
-│   ├── SHARED_COMPONENTS.md           # Component library
-│   ├── STEP_ALIASES_ARCHITECTURE.md   # Step aliases architecture
-│   └── ERROR_HANDLING.md              # Error handler guide
-├── testing/                           # Testing Documentation
-│   └── TESTING.md                     # Testing framework
-├── deployment/                        # Deployment Guides
-│   └── CI_CD_SETUP.md                 # CI/CD configuration
-├── troubleshooting/                   # Troubleshooting
-│   ├── TROUBLESHOOTING.md             # Common issues
-│   ├── OAUTH_TROUBLESHOOTING.md       # OAuth debugging
-│   └── SLACK_BOT_SETUP.md             # Slack setup
-└── reference/                         # Reference Materials
-    ├── USER_STORIES.md                # User stories
-    ├── EPIC4_TEAMS_SHARING_TESTING.md # Epic 4 testing
-    └── DEVELOPER_REFERENCE.md         # Developer guide
+├── INDEX.md                    # This file
+├── api/                        # API reference
+├── architecture/               # Architecture decisions
+├── claude/                     # Claude-optimized references
+├── deployment/                 # Deployment guides
+├── examples/                   # Code examples
+├── guides/                     # Feature guides
+├── reference/                  # Reference materials
+├── scripting/                  # Custom scripting docs
+├── testing/                    # Testing documentation
+├── troubleshooting/            # Troubleshooting guides
+└── archive/                    # Historical docs
 ```
 
 ---
 
-## 🔍 Quick Links by Role
+## Quick Links by Role
 
-### For New Developers
-1. [README](../README.md) - Start here
-2. [Developer Reference](reference/DEVELOPER_REFERENCE.md) - Complete technical overview
-3. [Frontend Guide](guides/FRONTEND.md) - Frontend development
-4. [API Reference](api/API.md) - Backend API
+### New Developers
+1. [README](../README.md)
+2. [CLAUDE.md](../CLAUDE.md)
+3. [Developer Reference](reference/DEVELOPER_REFERENCE.md)
 
-### For Frontend Developers
+### Frontend Developers
 1. [Frontend Guide](guides/FRONTEND.md)
 2. [Shared Components](architecture/SHARED_COMPONENTS.md)
 3. [API Reference](api/API.md)
-4. [User Stories](reference/USER_STORIES.md)
 
-### For Backend Developers
+### Backend Developers
 1. [API Reference](api/API.md)
-2. [Error Handling](architecture/ERROR_HANDLING.md)
-3. [Authentication](guides/AUTHENTICATION.md)
-4. [Testing Framework](testing/TESTING.md)
+2. [Auth System](guides/AUTH_SYSTEM.md)
+3. [Error Handling](architecture/ERROR_HANDLING.md)
 
-### For DevOps
+### DevOps
 1. [CI/CD Setup](deployment/CI_CD_SETUP.md)
 2. [Troubleshooting](troubleshooting/TROUBLESHOOTING.md)
-3. [Slack Bot Setup](troubleshooting/SLACK_BOT_SETUP.md)
-
-### For QA/Testing
-1. [Testing Framework](testing/TESTING.md)
-2. [User Stories](reference/USER_STORIES.md)
-3. [API Reference](api/API.md)
-
----
-
-## 📝 Contributing to Documentation
-
-When adding or updating documentation:
-
-1. **Place files in appropriate directories** based on the structure above
-2. **Update this INDEX.md** with links to new documentation
-3. **Use clear, descriptive titles** and maintain consistent formatting
-4. **Include examples** and code snippets where applicable
-5. **Keep README.md focused** on quick start - link to detailed docs
-6. **Cross-reference related docs** to help readers navigate
-
----
-
-## 🆘 Need Help?
-
-- **Can't find what you're looking for?** Search the repository or check the [Developer Reference](reference/DEVELOPER_REFERENCE.md)
-- **Found an issue?** Please report it or submit a PR with corrections
-- **Need to add documentation?** Follow the organization structure above
-
----
-
-**Last Updated:** 2025-11-07
-**Documentation Version:** 2.0
