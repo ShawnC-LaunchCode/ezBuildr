@@ -1,6 +1,7 @@
 import { partialTenantBrandingSchema } from '@shared/types/branding';
+import { z } from 'zod';
 import { createLogger } from '../logger';
-import { hybridAuth, type  } from '../middleware/auth';
+import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { validateTenantParam } from '../middleware/tenant';
 import { brandingService } from '../services/BrandingService';

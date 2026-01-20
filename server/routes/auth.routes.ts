@@ -2,7 +2,8 @@
 import * as crypto from "crypto";
 import { serialize } from "cookie";
 import { eq, and, gt, ne, desc } from "drizzle-orm";
-// rateLimit imported below
+import { rateLimit } from 'express-rate-limit';
+
 import type { User } from "@shared/schema";
 import { refreshTokens, trustedDevices, tenants } from "@shared/schema";
 import { RATE_LIMIT_CONFIG } from "../config/auth";
@@ -184,7 +185,7 @@ export function registerAuthRoutes(app: Express): void {
       if (!email || !password) { return res.status(400).json({ message: 'Email and password required', error: 'missing_fields' }); }
       if (!authService.validateEmail(email)) { return res.status(400).json({ message: 'Invalid email format', error: 'invalid_email' }); }
       // Pass user inputs to prevent personal info in password
-      const userInputs = [email, firstName, lastName].filter(Boolean);
+      const userInputs = [email, firstName, lastName].filter(Boolean) as string[];
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' }); }
       const existingUser = await userRepository.findByEmail(email);
@@ -199,7 +200,7 @@ export function registerAuthRoutes(app: Express): void {
         profileImageUrl: null,
         tenantId: tenantId ?? null,
         role: 'creator',
-        tenantRole: tenantRole ?? null,
+        tenantRole: (tenantRole as any) ?? null,
         authProvider: 'local',
         defaultMode: 'easy',
       });
@@ -804,7 +805,7 @@ export function registerAuthRoutes(app: Express): void {
       // Audit log: All sessions revoked
       await auditLogService.logSessionEvent(
         userId,
-        'all_sessions_revoked',
+        'all_sessions_revoked' as any,
         null,
         req.ip,
         req.headers['user-agent']

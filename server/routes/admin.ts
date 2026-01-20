@@ -52,8 +52,7 @@ router.post("/organizations", asyncHandler(async (req, res) => {
     await db.insert(workspaces).values({
         organizationId: org.id,
         name: "Default Workspace",
-        slug: "default",
-        tenantId
+        slug: "default"
     });
 
     res.json(org);

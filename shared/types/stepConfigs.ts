@@ -447,7 +447,9 @@ export interface LegacyMultipleChoiceConfig {
   }>;
   minSelections?: number;
   maxSelections?: number;
+  allowMultiple?: boolean;
 }
+
 
 /**
  * Legacy Radio Config

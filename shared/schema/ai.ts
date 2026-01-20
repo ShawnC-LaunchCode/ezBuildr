@@ -12,7 +12,8 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 import { users } from './auth';
-import { workflows } from './workflow';
+import { workflows, type TransformBlock } from './workflow';
+
 
 export const aiSettings = pgTable("ai_settings", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -46,3 +47,16 @@ export const workflowPersonalizationSettings = pgTable("workflow_personalization
 export const insertWorkflowPersonalizationSettingsSchema = createInsertSchema(workflowPersonalizationSettings);
 export type WorkflowPersonalizationSettings = InferSelectModel<typeof workflowPersonalizationSettings>;
 export type InsertWorkflowPersonalizationSettings = InferInsertModel<typeof workflowPersonalizationSettings>;
+
+
+export interface TransformResult {
+    updatedTransforms: TransformBlock[];
+    diff: {
+        added: string[];
+        removed: string[];
+        modified: string[];
+        details: Record<string, { before: any; after: any }>;
+    };
+    explanation: string[];
+}
+

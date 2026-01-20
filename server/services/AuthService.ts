@@ -58,6 +58,12 @@ export interface JWTPayload {
     exp?: number;
 }
 
+export interface RefreshTokenMetadata {
+    userAgent?: string;
+    ip?: string;
+    [key: string]: any;
+}
+
 export class AuthService {
     private db: typeof db;
 
@@ -82,8 +88,8 @@ export class AuthService {
                 userId: user.id,
                 email: user.email,
                 tenantId: user.tenantId || null,
-                role: user.role, // System role (admin/creator)
-                tenantRole: user.tenantRole || null, // Tenant role (owner/builder/etc)
+                role: user.role as any, // System role (admin/creator)
+                tenantRole: user.tenantRole as any, // Tenant role (owner/builder/etc)
             };
 
             const options: SignOptions = {

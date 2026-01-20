@@ -15,7 +15,15 @@ import {
     primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
+export interface FileUploadConfig {
+    maxFileSize?: number;
+    acceptedTypes?: string[];
+    maxFiles?: number;
+    allowMultiple?: boolean;
+    required?: boolean;
+}
 import { tenants, users } from './auth';
 
 // ===================================================================
@@ -456,6 +464,7 @@ export type InsertWorkflowVersion = InferInsertModel<typeof workflowVersions>;
 export type Template = InferSelectModel<typeof templates>;
 export type InsertTemplate = InferInsertModel<typeof templates>;
 export type WorkflowTemplate = InferSelectModel<typeof workflowTemplates>;
+export type InsertWorkflowTemplate = InferInsertModel<typeof workflowTemplates>;
 export type Section = InferSelectModel<typeof sections>;
 export type InsertSection = InferInsertModel<typeof sections>;
 export type Step = InferSelectModel<typeof steps>;

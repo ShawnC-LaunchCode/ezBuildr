@@ -44,10 +44,10 @@ function useDarkModeObserver() {
 
 // Helper to check if two values are effectively different
 function isDifferent(val1: any, val2: any): boolean {
-  if (val1 === val2) {return false;}
-  if (typeof val1 !== typeof val2) {return true;}
+  if (val1 === val2) { return false; }
+  if (typeof val1 !== typeof val2) { return true; }
   if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
-    if (Array.isArray(val1) !== Array.isArray(val2)) {return true;}
+    if (Array.isArray(val1) !== Array.isArray(val2)) { return true; }
     return JSON.stringify(val1) !== JSON.stringify(val2);
   }
   return true;
@@ -61,7 +61,7 @@ export function JsonViewer({ data, className, maxHeight = '400px', readOnly = tr
 
   // Calculate changed paths
   useEffect(() => {
-    if (!highlightChanges) {return;}
+    if (!highlightChanges) { return; }
 
     const prevData = prevDataRef.current;
     const now = Date.now();
@@ -94,7 +94,7 @@ export function JsonViewer({ data, className, maxHeight = '400px', readOnly = tr
           const threshold = Date.now() - 5000;
           const map = new Map();
           current.forEach((ts, path) => {
-            if (ts > threshold) {map.set(path, ts);}
+            if (ts > threshold) { map.set(path, ts); }
           });
           return map;
         });
@@ -202,7 +202,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
   };
 
   const getTypeColor = (val: any) => {
-    if (val === null) {return "text-rose-500";}
+    if (val === null) { return "text-rose-500"; }
     switch (typeof val) {
       case 'string': return "text-emerald-600 dark:text-emerald-400";
       case 'number': return "text-blue-600 dark:text-blue-400";
@@ -212,8 +212,8 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
   };
 
   const renderValue = (val: any) => {
-    if (val === null) {return "null";}
-    if (typeof val === 'string') {return `"${val}"`;}
+    if (val === null) { return "null"; }
+    if (typeof val === 'string') { return `"${val}"`; }
     return String(val);
   };
 
@@ -227,7 +227,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
 
     return (
       <div className="ml-0">
-        <div className={containerClass} onClick={() => { void !isEmpty && setExpanded(!expanded); }}>
+        <div className={containerClass} onClick={() => { if (!isEmpty) setExpanded(!expanded); }}>
           {/* Toggle */}
           {!isEmpty ? (
             <span className="cursor-pointer mr-1 mt-0.5 opacity-50 hover:opacity-100">

@@ -3,7 +3,7 @@
  * Manages reusable API connection configurations for HTTP nodes
  */
 import { eq, and } from 'drizzle-orm';
-import { externalConnections, secrets, type  type  } from '@shared/schema';
+import { externalConnections, secrets } from '@shared/schema';
 import { db } from '../db';
 import { getSecretValueById } from './secrets';
 /**

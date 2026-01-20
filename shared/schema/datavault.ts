@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { type InferSelectModel, type  } from 'drizzle-orm';
+import { type InferSelectModel } from 'drizzle-orm';
 import {
     index,
     uniqueIndex,
@@ -27,6 +27,7 @@ export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
 ]);
 export const autonumberResetPolicyEnum = pgEnum('autonumber_reset_policy', ['never', 'yearly']);
 export const datavaultScopeTypeEnum = pgEnum('datavault_scope_type', ['account', 'project', 'workflow']);
+export type DatavaultScopeType = 'account' | 'project' | 'workflow';
 export const datavaultTableRoleEnum = pgEnum('datavault_table_role', ['owner', 'write', 'read']);
 export type DatavaultTableRole = 'owner' | 'write' | 'read';
 export const dataSourceTypeEnum = pgEnum('data_source_type', ['native', 'postgres', 'google_sheets', 'airtable', 'external']);

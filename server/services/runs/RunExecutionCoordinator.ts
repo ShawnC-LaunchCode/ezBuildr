@@ -1,4 +1,4 @@
-import { isJsQuestionConfig, type  } from "@shared/types/steps";
+import { isJsQuestionConfig } from "@shared/types/steps";
 import { logger } from "../../logger";
 import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
 import { validatePage } from "../../workflows/validation";
@@ -146,7 +146,7 @@ export class RunExecutionCoordinator {
         const allSteps = await this.stepRepo.findBySectionId(sectionId);
         const jsQuestions = allSteps.filter(step => step.type === 'js_question');
         for (const step of jsQuestions) {
-            if (!step.options || !isJsQuestionConfig(step.options)) {continue;}
+            if (!step.options || !isJsQuestionConfig(step.options)) { continue; }
             const config = step.options;
             const result = await scriptEngine.execute({
                 language: 'javascript',

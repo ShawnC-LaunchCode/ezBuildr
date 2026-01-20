@@ -441,6 +441,7 @@ describe('Collections Schema', () => {
         isRequired: true,
         options: null,
         defaultValue: null,
+        order: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -17,7 +17,18 @@ import { logger } from '../logger';
 import { createError } from '../utils/errors';
 import { formatters } from '../utils/formatters';
 
-// const execAsync = promisify(exec); // Removed
+// import { execAsync } from '../utils/exec'; // Use PdfConverter instead
+import { PdfConverter } from './document/PdfConverter';
+
+async function convertDocxToPdf(inputPath: string): Promise<string> {
+  const converter = new PdfConverter();
+  const outputPath = inputPath.replace(/\.docx$/, '.pdf');
+  await converter.convert({
+    docxPath: inputPath,
+    outputPath,
+  });
+  return outputPath;
+}
 
 export interface RenderOptions {
   templatePath: string;

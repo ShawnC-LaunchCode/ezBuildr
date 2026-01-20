@@ -56,6 +56,9 @@ export interface FinalBlockRenderRequest {
   /** Whether to convert documents to PDF */
   toPdf?: boolean;
 
+  /** PDF conversion strategy */
+  pdfStrategy?: 'puppeteer' | 'libreoffice';
+
   /** Output directory (optional, defaults to server/files/archives) */
   outputDir?: string;
 }

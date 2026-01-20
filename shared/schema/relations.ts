@@ -2,7 +2,7 @@ import { relations } from 'drizzle-orm';
 
 import {
     users, tenants, tenantDomains, organizations, workspaces, teams, teamMembers,
-    organizationMemberships, auditLogs, portalTokens
+    organizationMemberships, auditLogs, portalTokens, workspaceMembers
 } from './auth';
 // analyticsEvents is in legacy.ts! import it from there or run.ts?
 // Checked Step 545: analyticsEvents is in legacy.ts.
@@ -18,9 +18,7 @@ import {
     secrets, externalConnections, externalDestinations, apiKeys,
     webhookSubscriptions, webhookEvents, oauthApps, oauthAuthCodes, oauthAccessTokens
 } from './integrations';
-import {
-    analyticsEvents
-} from './legacy';
+// } from './legacy';
 import {
     runs, workflowRuns, stepValues, runLogs, reviewTasks, signatureRequests,
     signatureEvents, runOutputs, runGeneratedDocuments, transformBlockRuns,
@@ -97,6 +95,7 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
     }),
     webhookSubscriptions: many(webhookSubscriptions),
     oauthApps: many(oauthApps),
+    members: many(workspaceMembers),
 }));
 
 
@@ -113,8 +112,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     externalConnections: many(externalConnections),
     sliConfigs: many(sliConfigs),
     sliWindows: many(sliWindows),
-    metricsEvents: many(metricsEvents),
-    metricsRollups: many(metricsRollups),
+    // metricsEvents: many(metricsEvents),
+    // metricsRollups: many(metricsRollups),
+
 }));
 
 export const workflowsRelations = relations(workflows, ({ one, many }) => ({

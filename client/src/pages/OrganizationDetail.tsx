@@ -173,7 +173,7 @@ export default function OrganizationDetail() {
     }
   };
   const handleLeaveOrganization = async () => {
-    if (!orgId) {return;}
+    if (!orgId) { return; }
     try {
       await leaveOrg.mutateAsync(orgId);
       toast({
@@ -191,7 +191,7 @@ export default function OrganizationDetail() {
     }
   };
   const handleDeleteOrganization = async () => {
-    if (!orgId) {return;}
+    if (!orgId) { return; }
     try {
       await deleteOrg.mutateAsync();
       toast({
@@ -594,7 +594,7 @@ export default function OrganizationDetail() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => { void removingMemberId && handleRemoveMember(removingMemberId); }}
+              onClick={() => { if (removingMemberId) void handleRemoveMember(removingMemberId); }}
               disabled={removeMember.isPending}
             >
               {removeMember.isPending ? 'Removing...' : 'Remove Member'}

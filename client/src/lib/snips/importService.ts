@@ -2,7 +2,7 @@
  * Snip Import Service (Hardened for MVP Safety - Prompt 30)
  * Handles importing snips into workflows with collision detection and versioning
  */
-import { v4 as  } from "uuid";
+
 import { getSnipById } from "./registry";
 import type { SnipDefinition, SnipImportRequest, SnipImportResult } from "./types";
 /**
@@ -61,7 +61,7 @@ function generateAliasMappings(
             // Has namespace (e.g., "respondent.name.first")
             // Rename the namespace: respondent -> respondent_2
             baseName = parts[0];
-            suffix = `.${  parts.slice(1).join('.')}`;
+            suffix = `.${parts.slice(1).join('.')}`;
         }
         // Find next available suffix
         let counter = 2;

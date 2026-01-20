@@ -520,6 +520,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
             });
 
             expect(run).toBeDefined();
+            if (!run) throw new Error("Run not found");
             expect(run.createdBy).toBe("anon");
         });
 
@@ -563,6 +564,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
                 .expect(200);
 
             expect(run).toBeDefined();
+            if (!run) throw new Error("Run not found");
             expect(run.createdBy).toBe(`creator:${meRes.body.id}`);
         });
     });

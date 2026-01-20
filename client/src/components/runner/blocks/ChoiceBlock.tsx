@@ -231,7 +231,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
                 setOptions(newOptions);
               } else {
                 // If not found, it might be loading or empty.
-                if (options.length > 0) {setOptions([]);}
+                if (options.length > 0) { setOptions([]); }
               }
             }
 
@@ -354,7 +354,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
         <SearchableDropdown
           options={options}
           value={currentValue as string}
-          onChange={(val) => { void !readOnly && onChange(val); }}
+          onChange={(val) => { if (!readOnly) onChange(val); }}
           disabled={readOnly}
         />
       );
@@ -387,7 +387,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
     const selectedAliases = Array.isArray(currentValue) ? currentValue : [];
 
     const handleToggle = (optionAlias: string, checked: boolean) => {
-      if (readOnly) {return;}
+      if (readOnly) { return; }
 
       let newValue: string[];
       if (checked) {

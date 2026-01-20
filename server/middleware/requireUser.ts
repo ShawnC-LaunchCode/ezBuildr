@@ -1,7 +1,7 @@
 import type { User } from '@shared/schema';
 import { createLogger } from '../logger';
 import { userRepository } from '../repositories';
-import { isAuthRequest, type  } from './auth';
+import { isAuthRequest } from './auth';
 import type { Request, Response, NextFunction } from 'express';
 const logger = createLogger({ module: 'require-user-middleware' });
 /**

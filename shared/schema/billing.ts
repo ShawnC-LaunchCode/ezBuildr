@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { type InferSelectModel, type  } from 'drizzle-orm';
+import { type InferSelectModel } from 'drizzle-orm';
 import {
     index,
     uniqueIndex,

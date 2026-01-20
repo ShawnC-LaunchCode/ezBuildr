@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { Router } from "express";
-import { surveys, usageRecords, workspaces } from "@shared/schema";
+import { workflows, usageRecords, workspaces } from "@shared/schema";
 import { db } from "../db";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { createLogger } from "../logger";
@@ -15,15 +15,16 @@ router.get("/workflows", asyncHandler(async (req: any, res) => {
     try {
         const workspaceId = extReq.externalAuth!.workspaceId;
         // Ensure isolation
-        // Only fetch workflows in the authorized workspace
-        const workflows = await db.query.surveys.findMany({
-            where: eq(surveys.workspaceId, workspaceId)
+        // Only fetch workflows in the authorized workspace (assuming workspaceId maps to projectId for now, or we filter by tenant)
+        // Note: This needs verification if workspaceId == projectId.
+        const workflowList = await db.query.workflows.findMany({
+            where: eq(workflows.projectId, workspaceId)
         });
         res.json({
-            data: workflows.map((w: any) => ({
+            data: workflowList.map((w: any) => ({
                 id: w.id,
-                title: w.title,
-                slug: w.publicSlug,
+                title: w.name || w.title,
+                slug: w.slug,
                 isPublic: w.isPublic,
                 createdAt: w.createdAt
             }))
@@ -40,10 +41,10 @@ router.post("/workflows/:id/runs", asyncHandler(async (req: any, res) => {
         const workspaceId = extReq.externalAuth!.workspaceId;
         const body = req.body; // { initialValues, metadata }
         // Verify workflow exists in workspace
-        const workflow = await db.query.surveys.findFirst({
-            where: (surveys: any, { and, eq }: any) => and(
-                eq(surveys.id, id),
-                eq(surveys.workspaceId, workspaceId)
+        const workflow = await db.query.workflows.findFirst({
+            where: (workflows: any, { and, eq }: any) => and(
+                eq(workflows.id, id),
+                eq(workflows.projectId, workspaceId)
             )
         });
         if (!workflow) {

@@ -182,6 +182,22 @@ export const oauthAccessTokens = pgTable("oauth_access_tokens", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Email Queue
+export const emailQueue = pgTable("email_queue", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    to: varchar("to").notNull(),
+    subject: varchar("subject").notNull(),
+    html: text("html").notNull(),
+    status: varchar("status", { length: 20 }).default('pending').notNull(), // pending, processing, completed, failed
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at").defaultNow(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+    index("email_queue_status_next_attempt_idx").on(table.status, table.nextAttemptAt),
+]);
+
 // ===================================================================
 // INSERTS & TYPES
 // ===================================================================
@@ -197,5 +213,7 @@ export type ExternalConnection = InferSelectModel<typeof externalConnections>;
 export type InsertExternalConnection = InferInsertModel<typeof externalConnections>;
 export type ExternalDestination = InferSelectModel<typeof externalDestinations>;
 export type InsertExternalDestination = InferInsertModel<typeof externalDestinations>;
+export type InsertEmailQueue = InferInsertModel<typeof emailQueue>;
+
 export type ApiKey = InferSelectModel<typeof apiKeys>;
 export type InsertApiKey = InferInsertModel<typeof apiKeys>;

@@ -1,4 +1,5 @@
-import { TransformBlock, TransformIssue, TransformFix } from "shared/schema";
+import { TransformBlock } from "shared/schema";
+import { TransformIssue, TransformFix } from "shared/types/debug";
 
 export class TransformDebugger {
     static debug(transforms: TransformBlock[]): TransformIssue[] {
@@ -42,7 +43,7 @@ export class TransformDebugger {
             if (block.outputPath) {
                 // This transform produces 't.outputPath'
                 // It consumes 't.inputPaths'
-                if (!edges[block.outputPath]) {edges[block.outputPath] = [];}
+                if (!edges[block.outputPath]) { edges[block.outputPath] = []; }
                 // We track what PRODUCES this item -> depends on inputs
                 // A cycle exists if A depends on B, and B depends on A.
                 // Standard graph cycle detection would be better here.

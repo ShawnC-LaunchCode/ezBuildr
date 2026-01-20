@@ -9,6 +9,7 @@ export interface DocumentGenerationOptions {
     outputName: string;
     outputDir?: string;
     toPdf?: boolean;
+    pdfStrategy?: 'puppeteer' | 'libreoffice';
 }
 export interface DocumentGenerationResult {
     docxPath: string;

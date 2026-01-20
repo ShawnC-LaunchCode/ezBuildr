@@ -5,7 +5,7 @@
  * Integrates page conditions, question visibility, and validation.
  */
 import type { Step } from "@shared/schema";
-import { validatePage, type  } from "./validation";
+import { validatePage } from "./validation";
 import type { IntakeNavigationService } from "../services/IntakeNavigationService";
 import type { IntakeQuestionVisibilityService } from "../services/IntakeQuestionVisibilityService";
 export interface IntakeRunnerState {
@@ -37,7 +37,7 @@ export class IntakeStateMachine {
   constructor(
     private navigationService: IntakeNavigationService,
     private visibilityService: IntakeQuestionVisibilityService
-  ) {}
+  ) { }
   /**
    * Initialize state for a new workflow run
    */

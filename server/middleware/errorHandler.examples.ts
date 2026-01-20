@@ -317,7 +317,7 @@ function exampleComplexErrors(app: Express) {
     asyncHandler(async (req: any, res) => {
       const userId = req.user.claims.sub;
       const { teamId } = req.params;
-      const { email } = validateInput(addMemberSchema, req.body);
+      const { email } = validateInput(addMemberSchema, req.body) as any;
 
       // Check if team exists
       const team = await getTeam(teamId);

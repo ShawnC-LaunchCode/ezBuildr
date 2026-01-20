@@ -1,5 +1,5 @@
-import type {  } from "@shared/schema";
-import { userRepository, type  } from "../repositories";
+import type { } from "@shared/schema";
+import { userRepository } from '../repositories';
 /**
  * Service layer for account-related operations
  * Handles user account preferences including mode settings

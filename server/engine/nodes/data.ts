@@ -108,7 +108,8 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
             // First, map existing rows by ID for easy access
             const rowMap = new Map(flatRows.map(r => [r.id, r]));
 
-            for (const [rowId, write] of Object.entries(tableWrites)) {
+            for (const [rowId, writeVal] of Object.entries(tableWrites)) {
+                const write = writeVal as any;
                 if (write.deleted) {
                     rowMap.delete(rowId);
                 } else {
@@ -240,10 +241,10 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
             const tableWrites = context.writes[config.tableId];
 
             if (config.operation === 'delete') {
-                if (!rowId) {throw new Error('Row ID required for delete');}
+                if (!rowId) { throw new Error('Row ID required for delete'); }
                 tableWrites[rowId] = { deleted: true };
             } else if (config.operation === 'update') {
-                if (!rowId) {throw new Error('Row ID required for update');}
+                if (!rowId) { throw new Error('Row ID required for update'); }
                 // We merge with existing "live" data logically, but here we just store the delta
                 const currentWrite = tableWrites[rowId] || {};
                 tableWrites[rowId] = {
@@ -290,20 +291,20 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
             );
             result = row;
             // Re-fetch to get full object with IDs if needed? Usually just ID is enough.
-            if (config.outputKey) {context.vars[config.outputKey] = row;}
+            if (config.outputKey) { context.vars[config.outputKey] = row; }
 
         } else if (config.operation === 'update') {
-            if (!rowId) {throw new Error('Row ID required for update');}
+            if (!rowId) { throw new Error('Row ID required for update'); }
             await datavaultRowsRepository.updateRowValues(
                 rowId,
                 Object.entries(dataToWrite).map(([k, v]) => ({ columnId: k, value: v }))
             );
             result = { id: rowId, ...dataToWrite };
             const outKey = config.outputKey;
-            if (outKey) {context.vars[outKey] = result;}
+            if (outKey) { context.vars[outKey] = result; }
 
         } else if (config.operation === 'delete') {
-            if (!rowId) {throw new Error('Row ID required for delete');}
+            if (!rowId) { throw new Error('Row ID required for delete'); }
             await datavaultRowsRepository.deleteRow(rowId);
             result = { id: rowId, deleted: true };
         }

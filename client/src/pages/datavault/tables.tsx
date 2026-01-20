@@ -135,7 +135,7 @@ export default function DataVaultTablesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) {return;}
+    if (!deleteConfirm) { return; }
 
     try {
       await deleteTableMutation.mutateAsync(deleteConfirm.id);
@@ -156,7 +156,7 @@ export default function DataVaultTablesPage() {
   };
 
   const handleMoveTable = async (targetDatabaseId: string | null) => {
-    if (!moveTable) {return;}
+    if (!moveTable) { return; }
 
     try {
       await moveTableMutation.mutateAsync({ tableId: moveTable.id, databaseId: targetDatabaseId });
@@ -331,7 +331,7 @@ export default function DataVaultTablesPage() {
       <CreateTableModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSubmit={(e) => { e.preventDefault(); void handleCreate(e); }}
+        onSubmit={handleCreate}
         isLoading={createTableMutation.isPending || createColumnMutation.isPending}
       />
 

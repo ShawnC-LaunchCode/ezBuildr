@@ -362,7 +362,7 @@ export default function TemplatesPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => { void deletingTemplate && handleDeleteTemplate(deletingTemplate); }}
+                onClick={() => { if (deletingTemplate) void handleDeleteTemplate(deletingTemplate); }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { workflows, users, tenants, projects, auditEvents, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, auditLogs } from "@shared/schema";
 import { db } from "../../server/db";
 import { workflowDiffService } from "../../server/services/diff/WorkflowDiffService";
 import { snapshotService } from "../../server/services/SnapshotService";
@@ -45,16 +45,17 @@ describe("Workflow Versioning & Lineage", () => {
         workflowId = workflow.id;
     });
     afterAll(async () => {
-        if (workflowId) {await db.delete(workflows).where(eq(workflows.id, workflowId));}
-        if (projectId) {await db.delete(projects).where(eq(projects.id, projectId));}
+        if (workflowId) { await db.delete(workflows).where(eq(workflows.id, workflowId)); }
+        if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
         // Cleanup audit logs/events to satisfy FK constraints
         if (userId) {
             // Try to delete from both tables if they exist/are imported
-            try { await db.delete(auditEvents).where(eq(auditEvents.actorId, userId)); } catch (e) { }
+            // auditEvents removed as it is not in schema
+
             try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { }
             await db.delete(users).where(eq(users.id, userId));
         }
-        if (tenantId) {await db.delete(tenants).where(eq(tenants.id, tenantId));}
+        if (tenantId) { await db.delete(tenants).where(eq(tenants.id, tenantId)); }
     });
     it("should diff two versions correctly", () => {
         const v1 = {

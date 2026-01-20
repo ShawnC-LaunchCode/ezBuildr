@@ -53,11 +53,15 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
 
   /** Whether to apply normalization (default: true) */
   normalize?: boolean;
+
+  /** PDF conversion strategy */
+  pdfStrategy?: 'puppeteer' | 'libreoffice';
 }
 
 /**
  * Enhanced generation result (with mapping metadata)
  */
+
 export interface EnhancedGenerationResult extends DocumentGenerationResult {
   /** Normalized data that was used */
   normalizedData: NormalizedData;
@@ -417,10 +421,10 @@ export class EnhancedDocumentEngine {
         const docError = isDocumentGenerationError(error)
           ? error
           : wrapAsDocumentGenerationError(error, {
-              phase: 'render',
-              templateId: doc.documentId,
-              templateAlias: doc.alias,
-            });
+            phase: 'render',
+            templateId: doc.documentId,
+            templateAlias: doc.alias,
+          });
 
         failed.push({
           alias: doc.alias,

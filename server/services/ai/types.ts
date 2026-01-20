@@ -2,7 +2,7 @@
  * Shared types for AI services
  */
 
-import type { AIGeneratedWorkflow, AIGeneratedStep } from '../../../shared/types/ai';
+export type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedSection, AIGeneratedLogicRule, AIGeneratedTransformBlock } from '../../../shared/types/ai';
 
 /**
  * Valid step types from database schema

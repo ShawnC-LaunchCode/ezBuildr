@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useSections, useActiveTemplateVariables, useWorkflowVariables, useAllSteps, type  type  } from "@/lib/vault-hooks";
+import { useSections, useActiveTemplateVariables, useWorkflowVariables, useAllSteps } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 interface DocumentStatusPanelProps {
     workflowId: string;
@@ -52,22 +52,22 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
     const isComplete = missing.length === 0;
     // Helper to find a relevant page for a missing variable
     const getRelevantSectionId = (variableName: string): string | null => {
-        if (!sections) {return null;}
+        if (!sections) { return null; }
         // Simple heuristic: matching prefix (e.g. "client." matches other "client." vars)
         const parts = variableName.split('.');
         const prefix = parts.length > 1 ? parts[0] : null; // Only use prefix if dot notation exists
         // If no prefix, maybe look for exact match of "term" in step titles? Too fuzzy. 
         // Let's stick to prefix grouping as it's safer for strict "Easy Mode" guidance.
-        if (!prefix) {return null;}
+        if (!prefix) { return null; }
         let bestSectionId: string | null = null;
         let maxMatches = 0;
         sections.forEach(section => {
             // Skip final docs or system sections
-            if ((section.config)?.finalBlock) {return;}
+            if ((section.config)?.finalBlock) { return; }
             const steps = allSteps[section.id] || [];
             let matches = 0;
             steps.forEach(step => {
-                if (step.alias && step.alias.startsWith(`${prefix  }.`)) {
+                if (step.alias && step.alias.startsWith(`${prefix}.`)) {
                     matches++;
                 }
                 // Also maybe check questions with similar names?

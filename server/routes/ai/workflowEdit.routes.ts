@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createLogger } from "../../logger";
-import { hybridAuth, type  } from "../../middleware/auth";
+import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowEditRequestSchema } from "../../schemas/aiWorkflowEdit.schema";
 import { aiSettingsService } from "../../services/AiSettingsService";
 import { snapshotService } from "../../services/SnapshotService";

@@ -6,7 +6,7 @@ import {
   insertDatavaultRowSchema,
 } from '@shared/schema';
 import { logger } from '../logger';
-import { hybridAuth, type  getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
+import { hybridAuth, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
 import {
   apiLimiter,
   batchLimiter,

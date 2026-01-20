@@ -30,7 +30,8 @@ export const anonymousAccessTypeEnum = pgEnum('anonymous_access_type', ['disable
 export const workspaceRoleEnum = pgEnum('workspace_role', ['owner', 'admin', 'editor', 'contributor', 'viewer']);
 // Types for ACL (Access Control Lists)
 export type AccessRole = "owner" | "edit" | "view" | "none";
-export type PrincipalType = "user" | "org"; // Maps to ownerTypeEnum but as strict string union if needed, or alias ownerTypeEnum
+export type TeamRole = "admin" | "member"; // Simple team role definition
+export type PrincipalType = "user" | "org" | "team"; // Maps to ownerTypeEnum but as strict string union if needed, or alias ownerTypeEnum
 // ===================================================================
 // TABLES
 // ===================================================================
@@ -405,6 +406,7 @@ export type User = InferSelectModel<typeof users>;
 export type UpsertUser = InferInsertModel<typeof users>;
 export type InsertUser = InferInsertModel<typeof users>;
 export type Tenant = InferSelectModel<typeof tenants>;
+export type InsertTenant = InferInsertModel<typeof tenants>;
 export type Organization = InferSelectModel<typeof organizations>;
 export type InsertOrganization = InferInsertModel<typeof organizations>;
 export type OrganizationMembership = InferSelectModel<typeof organizationMemberships>;

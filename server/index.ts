@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 // CRITICAL: Initialize OpenTelemetry BEFORE any other imports
 // This ensures auto-instrumentation can hook into all modules
-import express, { type    } from "express";
+import express from "express";
 import helmet from "helmet";
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";

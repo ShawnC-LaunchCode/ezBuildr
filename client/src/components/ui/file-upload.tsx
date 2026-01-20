@@ -43,7 +43,7 @@ export function FileUpload({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const validateFile = (file: File): string | null => {
-    if (!config) {return null;}
+    if (!config) { return null; }
 
     // Check file size
     if (config.maxFileSize && file.size > config.maxFileSize) {
@@ -55,7 +55,7 @@ export function FileUpload({
       const isAccepted = config.acceptedTypes.some(type => {
         if (type.includes('*')) {
           const [category] = type.split('/');
-          return file.type.startsWith(`${category  }/`);
+          return file.type.startsWith(`${category}/`);
         }
 
         if (type.startsWith('.')) {
@@ -109,7 +109,7 @@ export function FileUpload({
       });
     }
 
-    if (validFiles.length === 0) {return;}
+    if (validFiles.length === 0) { return; }
 
     setUploading(true);
     setUploadProgress(0);
@@ -222,8 +222,8 @@ export function FileUpload({
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) {return <Image className="h-4 w-4" />;}
-    if (mimeType.includes('pdf')) {return <FileText className="h-4 w-4" />;}
+    if (mimeType.startsWith('image/')) { return <Image className="h-4 w-4" />; }
+    if (mimeType.includes('pdf')) { return <FileText className="h-4 w-4" />; }
     return <File className="h-4 w-4" />;
   };
 
@@ -236,13 +236,13 @@ export function FileUpload({
       {canUploadMore && (
         <Card
           className={`border-2 border-dashed transition-colors cursor-pointer ${dragOver
-              ? 'border-primary bg-primary/10'
-              : 'border-muted-foreground/25 hover:border-primary/50'
+            ? 'border-primary bg-primary/10'
+            : 'border-muted-foreground/25 hover:border-primary/50'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => { void !disabled && fileInputRef.current?.click(); }}
+          onClick={() => { if (!disabled) fileInputRef.current?.click(); }}
           data-testid="file-upload-dropzone"
         >
           <CardContent className="flex flex-col items-center justify-center py-8 px-4">
@@ -273,7 +273,7 @@ export function FileUpload({
         type="file"
         multiple={config?.allowMultiple !== false}
         accept={config?.acceptedTypes?.join(',')}
-        onChange={() => { void handleFileSelect(); }}
+        onChange={(e) => { void handleFileSelect(e); }}
         className="hidden"
         disabled={disabled}
         data-testid="file-upload-input"

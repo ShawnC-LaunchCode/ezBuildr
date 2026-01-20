@@ -53,7 +53,7 @@ export default function CollectionsPage() {
   });
 
   const handleCreate = async (data: { name: string; slug?: string; description?: string }) => {
-    if (!tenantId) {return;}
+    if (!tenantId) { return; }
 
     try {
       await createMutation.mutateAsync({
@@ -77,7 +77,7 @@ export default function CollectionsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm || !tenantId) {return;}
+    if (!deleteConfirm || !tenantId) { return; }
 
     try {
       await deleteMutation.mutateAsync({
@@ -150,7 +150,7 @@ export default function CollectionsPage() {
             <CollectionCard
               key={collection.id}
               collection={collection}
-              onClick={() => { void handleCollectionClick(); }}
+              onClick={() => { void handleCollectionClick(collection); }}
               onDelete={(id) =>
                 setDeleteConfirm({
                   id,
@@ -183,7 +183,7 @@ export default function CollectionsPage() {
       <CreateCollectionModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSubmit={(e) => { e.preventDefault(); void handleCreate(e); }}
+        onSubmit={(data) => { void handleCreate(data); }}
         isLoading={createMutation.isPending}
       />
 

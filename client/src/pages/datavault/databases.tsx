@@ -82,7 +82,7 @@ export default function DataVaultDatabasesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) {return;}
+    if (!deleteConfirm) { return; }
 
     try {
       await deleteDatabaseMutation.mutateAsync(deleteConfirm.id);
@@ -103,7 +103,7 @@ export default function DataVaultDatabasesPage() {
   };
 
   const handleTransfer = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
-    if (!transferringDatabase) {return;}
+    if (!transferringDatabase) { return; }
 
     try {
       await transferDatabaseMutation.mutateAsync({
@@ -258,7 +258,7 @@ export default function DataVaultDatabasesPage() {
       <CreateDatabaseModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSubmit={(e) => { e.preventDefault(); void handleCreate(e); }}
+        onSubmit={(data) => handleCreate(data)}
         isLoading={createDatabaseMutation.isPending}
       />
 

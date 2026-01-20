@@ -1,4 +1,4 @@
-import { diff as  } from "deep-object-diff";
+
 import _ from "lodash";
 import { WorkflowSchema } from "../migrations/registry";
 export interface PropertyChange {
@@ -134,9 +134,9 @@ export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSche
         if (oldS) {
             const changes: Record<string, PropertyChange> = {};
             // Core props
-            if (oldS.title !== newS.title) {changes['title'] = { oldValue: oldS.title, newValue: newS.title };}
-            if (oldS.type !== newS.type) {changes['type'] = { oldValue: oldS.type, newValue: newS.type };}
-            if (oldS.required !== newS.required) {changes['required'] = { oldValue: oldS.required, newValue: newS.required };}
+            if (oldS.title !== newS.title) { changes['title'] = { oldValue: oldS.title, newValue: newS.title }; }
+            if (oldS.type !== newS.type) { changes['type'] = { oldValue: oldS.type, newValue: newS.type }; }
+            if (oldS.required !== newS.required) { changes['required'] = { oldValue: oldS.required, newValue: newS.required }; }
             // Move check
             if (oldS.sectionId !== newS.sectionId) {
                 changes['sectionId'] = { oldValue: oldS.sectionId, newValue: newS.sectionId };

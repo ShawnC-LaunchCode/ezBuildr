@@ -22,6 +22,8 @@ export class AuditLogger {
                 workspaceId: event.workspaceId || null,
                 userId: event.userId,
                 action: event.action,
+                entityType: event.resourceType,
+                entityId: event.resourceId || 'global',
                 resourceType: event.resourceType,
                 resourceId: event.resourceId,
                 changes: {

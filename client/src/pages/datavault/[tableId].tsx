@@ -49,7 +49,8 @@ import {
   useDeleteDatavaultRow,
   useMoveDatavaultTable,
   useDatavaultDatabases,
- datavaultQueryKeys } from "@/lib/datavault-hooks";
+  datavaultQueryKeys
+} from "@/lib/datavault-hooks";
 import { useDatavaultFilterStore, EMPTY_FILTERS } from "@/stores/useDatavaultFilterStore";
 
 export default function TableViewPage() {
@@ -180,7 +181,7 @@ export default function TableViewPage() {
     referenceTableId?: string;
     referenceDisplayColumnSlug?: string;
   }) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await createColumnMutation.mutateAsync({ tableId, ...data });
@@ -199,7 +200,7 @@ export default function TableViewPage() {
     required: boolean;
     description?: string;
   }) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await updateColumnMutation.mutateAsync({ columnId, tableId, ...data });
@@ -215,7 +216,7 @@ export default function TableViewPage() {
   };
 
   const handleDeleteColumn = async (columnId: string) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await deleteColumnMutation.mutateAsync({ columnId, tableId });
@@ -230,14 +231,14 @@ export default function TableViewPage() {
   };
 
   const handleReorderColumns = async (columnIds: string[]) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     await reorderColumnsMutation.mutateAsync({ tableId, columnIds });
   };
 
   // Row handlers
   const handleAddRow = async (values: Record<string, any>) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await createRowMutation.mutateAsync({ tableId, values });
@@ -253,7 +254,7 @@ export default function TableViewPage() {
   };
 
   const handleUpdateRow = async (values: Record<string, any>) => {
-    if (!tableId || !editingRow) {return;}
+    if (!tableId || !editingRow) { return; }
 
     try {
       await updateRowMutation.mutateAsync({ rowId: editingRow.id, tableId, values });
@@ -269,7 +270,7 @@ export default function TableViewPage() {
   };
 
   const handleDeleteRow = async () => {
-    if (!tableId || !deleteRowConfirm) {return;}
+    if (!tableId || !deleteRowConfirm) { return; }
 
     try {
       await deleteRowMutation.mutateAsync({ rowId: deleteRowConfirm, tableId });
@@ -285,7 +286,7 @@ export default function TableViewPage() {
   };
 
   const handleMoveTable = async (databaseId: string | null) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await moveTableMutation.mutateAsync({ tableId, databaseId });
@@ -317,7 +318,7 @@ export default function TableViewPage() {
   };
 
   const handleSelectAll = (selected: boolean) => {
-    if (!rowsData?.rows) {return;}
+    if (!rowsData?.rows) { return; }
     if (selected) {
       setSelectedRowIds(new Set(rowsData.rows.map((r) => r.row.id)));
     } else {
@@ -327,17 +328,17 @@ export default function TableViewPage() {
 
   // Bulk action handlers
   const handleBulkArchive = () => {
-    if (selectedRowIds.size === 0) {return;}
+    if (selectedRowIds.size === 0) { return; }
     bulkArchiveRowsMutation.mutate(Array.from(selectedRowIds));
   };
 
   const handleBulkUnarchive = () => {
-    if (selectedRowIds.size === 0) {return;}
+    if (selectedRowIds.size === 0) { return; }
     bulkUnarchiveRowsMutation.mutate(Array.from(selectedRowIds));
   };
 
   const handleBulkDelete = async () => {
-    if (selectedRowIds.size === 0) {return;}
+    if (selectedRowIds.size === 0) { return; }
     setBulkDeleteConfirmOpen(true);
   };
 
@@ -364,7 +365,7 @@ export default function TableViewPage() {
 
   // Column resize handler
   const handleColumnResize = async (columnId: string, widthPx: number) => {
-    if (!tableId) {return;}
+    if (!tableId) { return; }
 
     try {
       await updateColumnMutation.mutateAsync({
@@ -588,7 +589,7 @@ export default function TableViewPage() {
         open={rowEditorOpen}
         onOpenChange={setRowEditorOpen}
         columns={columns || []}
-        onSubmit={(e) => { e.preventDefault(); void handleAddRow(e); }}
+        onSubmit={handleAddRow}
         isLoading={isRowMutating}
         mode="add"
       />
@@ -599,7 +600,7 @@ export default function TableViewPage() {
         onOpenChange={() => setEditingRow(null)}
         columns={columns || []}
         initialValues={editingRow?.values || {}}
-        onSubmit={(e) => { e.preventDefault(); void handleUpdateRow(e); }}
+        onSubmit={handleUpdateRow}
         isLoading={isRowMutating}
         mode="edit"
       />

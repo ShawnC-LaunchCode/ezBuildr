@@ -2,7 +2,7 @@ import type { WorkflowVersion } from '@shared/schema';
 import type { ExecutionStep, VariableLineage, WorkflowTrace } from '@shared/types/debug';
 import { createError } from '../utils/errors';
 import { type EvalContext, evaluateExpression } from './expr';
-import { executeNode, type  type  } from './registry';
+import { executeNode } from './registry';
 import { validateGraph, validateNodeConditions, type GraphJson } from './validate';
 /**
  * Workflow Engine
@@ -350,7 +350,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
       logs,
       trace: options.debug ? trace : undefined,
       executionTrace: options.debug ? {
-        executionId: `exec-${  new Date().toISOString()}`, // TODO: Use real ID
+        executionId: `exec-${new Date().toISOString()}`, // TODO: Use real ID
         workflowId: workflowVersion.workflowId,
         workflowVersionId: workflowVersion.id,
         startTime: new Date(startTime),
@@ -387,7 +387,7 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
     const visited = new Set<string>();
     const order: string[] = [];
     const visit = (nodeId: string): void => {
-      if (visited.has(nodeId)) {return;}
+      if (visited.has(nodeId)) { return; }
       visited.add(nodeId);
       order.push(nodeId);
       // Find outgoing edges

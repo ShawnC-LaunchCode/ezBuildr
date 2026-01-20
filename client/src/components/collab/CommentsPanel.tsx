@@ -35,7 +35,7 @@ export function CommentsPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!newComment.trim()) {return;}
+    if (!newComment.trim()) { return; }
 
     setIsSubmitting(true);
     try {
@@ -103,7 +103,7 @@ export function CommentsPanel({
             placeholder="Add a comment... (Cmd/Ctrl+Enter to submit)"
             value={newComment}
             onChange={(e) => { void setNewComment(e.target.value); }}
-            onKeyDown={() => { void handleKeyDown(); }}
+            onKeyDown={(e) => { void handleKeyDown(e); }}
             className="min-h-[80px] resize-none"
             disabled={isSubmitting}
           />
