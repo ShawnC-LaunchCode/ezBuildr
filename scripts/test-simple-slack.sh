@@ -12,7 +12,7 @@ fi
 
 curl -X POST "$SLACK_WEBHOOK_URL" \
   -H 'Content-Type: application/json' \
-  -d '{"text":"🧪 Test notification from Poll-Vault CI setup"}'
+  -d '{"text":"🧪 Test notification from ezBuildr CI setup"}'
 
 if [ $? -eq 0 ]; then
   echo ""

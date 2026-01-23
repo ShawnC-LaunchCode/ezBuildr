@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test Slack bot token for Poll-Vault CI/CD
+# Test Slack bot token for ezBuildr CI/CD
 # Usage:
 #   SLACK_BOT_TOKEN="xoxb-..." SLACK_CHANNEL_ID="C0XXXXX" bash test-slack-bot-token.sh
 
@@ -32,7 +32,7 @@ RESPONSE1=$(curl -s -X POST https://slack.com/api/chat.postMessage \
   -H "Content-Type: application/json" \
   -d "{
     \"channel\": \"$SLACK_CHANNEL_ID\",
-    \"text\": \"🧪 Test notification from Poll-Vault bot token setup\"
+    \"text\": \"🧪 Test notification from ezBuildr bot token setup\"
   }")
 
 OK1=$(echo "$RESPONSE1" | jq -r '.ok')
@@ -58,7 +58,7 @@ echo ""
 cat > /tmp/slack-test-payload.json <<EOF
 {
   "channel": "$SLACK_CHANNEL_ID",
-  "text": "🚀 Poll-Vault CI/CD Test Report",
+  "text": "🚀 ezBuildr CI/CD Test Report",
   "blocks": [
     {
       "type": "header",
@@ -97,7 +97,7 @@ cat > /tmp/slack-test-payload.json <<EOF
       "elements": [
         {
           "type": "plain_text",
-          "text": "Bot Token Test • Poll-Vault",
+          "text": "Bot Token Test • ezBuildr",
           "emoji": true
         }
       ]

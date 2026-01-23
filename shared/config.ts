@@ -1,5 +1,5 @@
 /**
- * VaultLogic Configuration Constants
+ * ezBuildr Configuration Constants
  *
  * Centralized configuration for DataVault and other system settings.
  * Eliminates magic numbers scattered throughout the codebase.

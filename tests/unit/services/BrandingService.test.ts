@@ -175,7 +175,7 @@ describe('BrandingService', () => {
       (db.select as any)
         .mockReturnValueOnce(mockDomainSelect)
         .mockReturnValueOnce(mockBrandingSelect);
-      const result = await brandingService.getBrandingForDomain('acme.vaultlogic.com');
+      const result = await brandingService.getBrandingForDomain('acme.ezbuildr.com');
       expect(result).toEqual({
         tenantId: 'test-tenant-id',
         branding: mockBranding,
@@ -204,7 +204,7 @@ describe('BrandingService', () => {
       (db.select as any)
         .mockReturnValueOnce(mockDomainSelect)
         .mockReturnValueOnce(mockBrandingSelect);
-      const result = await brandingService.getBrandingForDomain('acme.vaultlogic.com');
+      const result = await brandingService.getBrandingForDomain('acme.ezbuildr.com');
       expect(result).toEqual({
         tenantId: 'test-tenant-id',
         branding: null,
@@ -217,7 +217,7 @@ describe('BrandingService', () => {
         {
           id: 'domain-1',
           tenantId: 'test-tenant-id',
-          domain: 'acme.vaultlogic.com',
+          domain: 'acme.ezbuildr.com',
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -253,7 +253,7 @@ describe('BrandingService', () => {
       const mockDomain = {
         id: 'domain-1',
         tenantId: 'test-tenant-id',
-        domain: 'acme.vaultlogic.com',
+        domain: 'acme.ezbuildr.com',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -262,11 +262,11 @@ describe('BrandingService', () => {
         returning: vi.fn().mockResolvedValue([mockDomain]),
       };
       (db.insert as any).mockReturnValue(mockInsert);
-      const result = await brandingService.addDomain('test-tenant-id', 'ACME.VaultLogic.com');
+      const result = await brandingService.addDomain('test-tenant-id', 'ACME.ezBuildr.com');
       expect(result).toEqual(mockDomain);
       expect(mockInsert.values).toHaveBeenCalledWith({
         tenantId: 'test-tenant-id',
-        domain: 'acme.vaultlogic.com', // Should be normalized to lowercase
+        domain: 'acme.ezbuildr.com', // Should be normalized to lowercase
       });
     });
     it('should throw error when domain already exists', async () => {
@@ -295,7 +295,7 @@ describe('BrandingService', () => {
       const mockDomain = {
         id: 'domain-1',
         tenantId: 'test-tenant-id',
-        domain: 'acme.vaultlogic.com',
+        domain: 'acme.ezbuildr.com',
       };
       const mockSelect = {
         from: vi.fn().mockReturnThis(),

@@ -3,7 +3,7 @@ import { versionService } from "./VersionService";
 import { workflowService } from "./WorkflowService";
 export class WorkflowBundleService {
     /**
-     * Export workflow as .vaultlogic bundle (Zip)
+     * Export workflow as .ezbuildr bundle (Zip)
      */
     async exportBundle(workflowId: string, userId: string): Promise<Buffer> {
         const zip = new AdmZip();
@@ -30,7 +30,7 @@ export class WorkflowBundleService {
         return zip.toBuffer();
     }
     /**
-     * Import .vaultlogic bundle
+     * Import .ezbuildr bundle
      */
     async importBundle(
         buffer: Buffer,

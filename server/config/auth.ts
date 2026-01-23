@@ -177,7 +177,7 @@ export const SESSION_CONFIG = {
   /**
    * Session cookie name
    */
-  COOKIE_NAME: 'vaultlogic.sid',
+  COOKIE_NAME: 'ezbuildr.sid',
 
   /**
    * Cookie security settings

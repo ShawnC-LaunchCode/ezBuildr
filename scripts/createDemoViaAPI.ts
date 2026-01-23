@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// This script creates a demo workflow using the VaultLogic API
+// This script creates a demo workflow using the ezBuildr API
 // Make sure the server is running on localhost:5000
 
 const BASE_URL = "http://localhost:5000/api";
@@ -44,7 +44,7 @@ async function apiCall(method: string, endpoint: string, body?: any): Promise<Ap
 async function createDemoWorkflow() {
   console.log("🎨 Creating Demo Workflow via API\n");
   console.log("⚠️  This script requires a valid session cookie.");
-  console.log("   Please log in to VaultLogic in your browser first,");
+  console.log("   Please log in to ezBuildr in your browser first,");
   console.log("   then use the browser's developer tools to get your session cookie.\n");
   console.log("Alternative: We can create it directly via database with correct schema.\n");
   console.log("Let me create a simpler script that works with the actual database schema...\n");

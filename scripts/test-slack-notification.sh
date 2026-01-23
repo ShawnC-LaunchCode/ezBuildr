@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test Slack notification for Poll-Vault CI/CD
+# Test Slack notification for ezBuildr CI/CD
 # Usage: SLACK_WEBHOOK_URL="your-webhook-url" bash test-slack-notification.sh
 
 if [ -z "$SLACK_WEBHOOK_URL" ]; then
@@ -14,11 +14,11 @@ fi
 BRANCH="main"
 COMMIT_SHORT="3de53d1"
 COMMIT_MSG="chore(ci): add rich Slack notifications for build/test/deploy events"
-AUTHOR="Poll-Vault DevOps"
+AUTHOR="ezBuildr DevOps"
 COVERAGE="82.5%"
 ENVIRONMENT="Production"
-DEPLOY_URL="https://poll-vault-production.up.railway.app"
-RUN_URL="https://github.com/ShawnC-LaunchCode/Poll-Vault/actions"
+DEPLOY_URL="https://ezbuildr-production.up.railway.app"
+RUN_URL="https://github.com/ShawnC-LaunchCode/ezBuildr/actions"
 STATUS_ICON="✅"
 STATUS_TEXT="Build Passed"
 COLOR="#36A64F"
@@ -34,7 +34,7 @@ cat > /tmp/slack-test-payload.json <<EOF
           "type": "header",
           "text": {
             "type": "plain_text",
-            "text": "🚀 Poll-Vault CI/CD Report [TEST]",
+            "text": "🚀 ezBuildr CI/CD Report [TEST]",
             "emoji": true
           }
         },
@@ -118,7 +118,7 @@ cat > /tmp/slack-test-payload.json <<EOF
           "elements": [
             {
               "type": "plain_text",
-              "text": "GitHub Actions • Railway CI • Poll-Vault [TEST NOTIFICATION]",
+              "text": "GitHub Actions • Railway CI • ezBuildr [TEST NOTIFICATION]",
               "emoji": true
             }
           ]

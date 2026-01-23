@@ -392,7 +392,7 @@ Routes → Services → Repositories → Database
 
 ### Legacy Survey System
 
-For legacy survey endpoints (Poll-Vault), use `/api/surveys/*` paths. See CLAUDE.md for details.
+For legacy survey endpoints, use `/api/surveys/*` paths. See CLAUDE.md for details.
 
 ---
 
@@ -605,7 +605,7 @@ We welcome contributions! To get started:
 
 MIT © 2025 ezBuildr Contributors
 
-Originally inspired by Poll-Vault, rebuilt for next-generation workflow automation.
+Originally inspired by legacy systems, rebuilt for next-generation workflow automation.
 
 ---
 

@@ -133,7 +133,7 @@ async function sendWebhook(url: string, alert: AlertPayload): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'VaultLogic-Alerts/1.0',
+        'User-Agent': 'ezBuildr-Alerts/1.0',
       },
       body: JSON.stringify(alert),
     });

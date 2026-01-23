@@ -73,7 +73,7 @@ describe("MfaService", () => {
         // Mock speakeasy secret generation
         const mockSecret = {
           base32: "JBSWY3DPEHPK3PXP",
-          otpauth_url: "otpauth://totp/VaultLogic(test@example.com)?secret=JBSWY3DPEHPK3PXP&issuer=VaultLogic",
+          otpauth_url: "otpauth://totp/ezBuildr(test@example.com)?secret=JBSWY3DPEHPK3PXP&issuer=ezBuildr",
         };
         (speakeasy.generateSecret as Mock).mockReturnValue(mockSecret);
 
@@ -101,8 +101,8 @@ describe("MfaService", () => {
 
         // Verify speakeasy was called correctly
         expect(speakeasy.generateSecret).toHaveBeenCalledWith({
-          name: "VaultLogic (test@example.com)",
-          issuer: "VaultLogic",
+          name: "ezBuildr (test@example.com)",
+          issuer: "ezBuildr",
           length: 32,
         });
 

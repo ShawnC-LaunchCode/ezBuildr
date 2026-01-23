@@ -1,10 +1,10 @@
-# Run Token Authentication - Vault-Logic
+# Run Token Authentication - ezBuildr
 
 This document describes the new authentication system for Vault-Logic workflow runs.
 
 ## Overview
 
-Workflow runs in Vault-Logic now use **run tokens** instead of participants/recipients. This simplifies the architecture and enables both authenticated (creator) and anonymous runs.
+Workflow runs in ezBuildr now use **run tokens** instead of participants/recipients. This simplifies the architecture and enables both authenticated (creator) and anonymous runs.
 
 ## Key Changes
 
@@ -259,4 +259,4 @@ curl -X POST "http://localhost:4001/api/workflows/<workflowId>/runs?publicLink=t
 ✅ **Token-based auth** - Simple bearer token for run access
 ✅ **Creator preview** - Creators can test workflows easily
 ✅ **Flexible access** - Both authenticated and anonymous modes supported
-✅ **Clean separation** - Surveys (Poll-Vault) and Workflows (Vault-Logic) are independent
+✅ **Clean separation** - Surveys (Legacy) and Workflows (ezBuildr) are independent

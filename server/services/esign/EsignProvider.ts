@@ -2,7 +2,7 @@
  * E-Signature Provider Interface
  * Defines the contract for all e-signature providers
  *
- * This interface allows VaultLogic to support multiple signature providers:
+ * This interface allows ezBuildr to support multiple signature providers:
  * - DocuSign
  * - HelloSign (Dropbox Sign)
  * - Native signature UI

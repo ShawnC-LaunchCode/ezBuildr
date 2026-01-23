@@ -23,7 +23,7 @@ export class WebhookDispatcher {
                 const events = sub.events as string[];
                 return events.includes(event) || events.includes('*');
             });
-            if (relevantSubs.length === 0) {return;}
+            if (relevantSubs.length === 0) { return; }
             // 2. Create Delivery Events
             for (const sub of relevantSubs) {
                 // Insert event log
@@ -51,8 +51,8 @@ export class WebhookDispatcher {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-VaultLogic-Event': event,
-                    'X-VaultLogic-Signature': signature
+                    'X-ezBuildr-Event': event,
+                    'X-ezBuildr-Signature': signature
                 },
                 body: JSON.stringify(payload)
             });
