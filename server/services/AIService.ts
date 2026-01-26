@@ -29,6 +29,9 @@ import {
   AIVisualizeLogicRequest,
   AIVisualizeLogicResponse,
 } from '../../shared/types/ai';
+import { WorkflowWithAliases } from './AliasResolver';
+import { QualityScore } from './WorkflowQualityValidator';
+import { QualityImprovementConfig, ImprovementResult } from './ai/IterativeQualityImprover';
 import { createLogger } from '../logger';
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
 import { AIProviderClient } from './ai/AIProviderClient';
@@ -69,6 +72,33 @@ export class AIService {
   ): Promise<AIGeneratedWorkflow> {
     return this.generationService.generateWorkflow(request);
   }
+
+  /**
+   * Generate a workflow with automatic iterative quality improvement.
+   *
+   * This method generates an initial workflow, then iteratively refines it
+   * until quality targets are met or cost limits are reached.
+   *
+   * Cost vs Quality Balancing:
+   * - targetQualityScore: Stop when this score is reached (default: 80)
+   * - maxIterations: Maximum refinement attempts (default: 3)
+   * - minImprovementThreshold: Stop if improvement per iteration drops below this (default: 5)
+   * - maxTotalCostCents: Budget cap for iterations (default: 25)
+   *
+   * @param request - The generation request with description and constraints
+   * @param qualityConfig - Optional configuration for quality improvement loop
+   * @returns The improved workflow with quality metrics and iteration details
+   */
+  async generateWorkflowWithQualityLoop(
+    request: AIWorkflowGenerationRequest,
+    qualityConfig?: Partial<QualityImprovementConfig>,
+  ): Promise<{
+    workflow: AIGeneratedWorkflow;
+    qualityScore: QualityScore;
+    improvement: ImprovementResult;
+  }> {
+    return this.generationService.generateWorkflowWithQualityLoop(request, qualityConfig);
+  }
   /**
    * Suggest improvements to an existing workflow
    */
@@ -84,13 +114,18 @@ export class AIService {
   }
   /**
    * Suggest template variable bindings
+   * @param request - The binding request
+   * @param variables - Available workflow variables
+   * @param placeholders - Template placeholders to match
+   * @param workflow - Optional workflow structure for alias validation
    */
   async suggestTemplateBindings(
     request: AITemplateBindingsRequest,
     variables: Array<{ alias: string; label: string; type: string }>,
     placeholders: string[],
+    workflow?: WorkflowWithAliases,
   ): Promise<AITemplateBindingsResponse> {
-    return this.suggestionService.suggestTemplateBindings(request, variables, placeholders);
+    return this.suggestionService.suggestTemplateBindings(request, variables, placeholders, workflow);
   }
   /**
    * Suggest random plausible values for workflow steps

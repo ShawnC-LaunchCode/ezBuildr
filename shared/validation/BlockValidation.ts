@@ -83,8 +83,8 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
             // Advanced text
             const c = config as TextAdvancedConfig;
             if (c.validation) {
-                if (c.validation.minLength) {rules.push({ type: "minLength", value: c.validation.minLength });}
-                if (c.validation.maxLength) {rules.push({ type: "maxLength", value: c.validation.maxLength });}
+                if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
+                if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
                 if (c.validation.pattern) {
                     rules.push({
                         type: "pattern",
@@ -98,10 +98,23 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
         case "short_text":
         case "long_text": {
-            // Legacy or simple types
-            if (hasTextConstraints(config)) {
-                if (config.minLength) {rules.push({ type: "minLength", value: config.minLength });}
-                if (config.maxLength) {rules.push({ type: "maxLength", value: config.maxLength });}
+            // Check for nested validation object (new style)
+            const c = config as TextAdvancedConfig;
+            if (c?.validation) {
+                if (c.validation.minLength) { rules.push({ type: "minLength", value: c.validation.minLength }); }
+                if (c.validation.maxLength) { rules.push({ type: "maxLength", value: c.validation.maxLength }); }
+                if (c.validation.pattern) {
+                    rules.push({
+                        type: "pattern",
+                        regex: c.validation.pattern,
+                        message: c.validation.patternMessage
+                    });
+                }
+            }
+            // Legacy/Simple style (root props)
+            else if (hasTextConstraints(config)) {
+                if (config.minLength) { rules.push({ type: "minLength", value: config.minLength }); }
+                if (config.maxLength) { rules.push({ type: "maxLength", value: config.maxLength }); }
             }
             break;
         }
@@ -112,12 +125,12 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
                 // Check if it is advanced config (has validation object)
                 if ('validation' in config && config.validation) {
                     const adv = config;
-                    if (adv.validation?.min !== undefined) {rules.push({ type: "minValue", value: adv.validation.min });}
-                    if (adv.validation?.max !== undefined) {rules.push({ type: "maxValue", value: adv.validation.max });}
+                    if (adv.validation?.min !== undefined) { rules.push({ type: "minValue", value: adv.validation.min }); }
+                    if (adv.validation?.max !== undefined) { rules.push({ type: "maxValue", value: adv.validation.max }); }
                 } else if (hasNumberConstraints(config)) {
                     // Simple config (min/max at root)
-                    if (config.min !== undefined) {rules.push({ type: "minValue", value: config.min });}
-                    if (config.max !== undefined) {rules.push({ type: "maxValue", value: config.max });}
+                    if (config.min !== undefined) { rules.push({ type: "minValue", value: config.min }); }
+                    if (config.max !== undefined) { rules.push({ type: "maxValue", value: config.max }); }
                 }
             }
             break;
@@ -145,10 +158,10 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
         case "multiple_choice": {
             // Check for min/max selections
             if (hasChoiceConstraints(config)) {
-                if (config.min) {rules.push({ type: "minLength", value: config.min });}
-                if (config.max) {rules.push({ type: "maxLength", value: config.max });}
-                if (config.minSelections) {rules.push({ type: "minLength", value: config.minSelections });}
-                if (config.maxSelections) {rules.push({ type: "maxLength", value: config.maxSelections });}
+                if (config.min) { rules.push({ type: "minLength", value: config.min }); }
+                if (config.max) { rules.push({ type: "maxLength", value: config.max }); }
+                if (config.minSelections) { rules.push({ type: "minLength", value: config.minSelections }); }
+                if (config.maxSelections) { rules.push({ type: "maxLength", value: config.maxSelections }); }
             }
             break;
         }

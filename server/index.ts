@@ -210,7 +210,7 @@ void (async () => {
             port,
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
         }, () => {
-            log(`serving on port ${port}`);
+            logger.warn(`serving on port ${port}`);
         });
         // RESOURCE LEAK FIX: Graceful shutdown handlers
         const shutdown = async (signal: string) => {

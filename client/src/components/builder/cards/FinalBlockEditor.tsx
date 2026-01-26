@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
+import { DocumentPicker } from "./common/DocumentPicker";
 
 
 import type { FinalBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
@@ -202,12 +203,13 @@ export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorPr
                   required
                 />
 
-                {/* Document ID (Placeholder) */}
-                <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-                  <p className="font-medium mb-1">Document Template: {doc.documentId}</p>
-                  <p className="italic">
-                    Document selection will be implemented in Prompt 10
-                  </p>
+                {/* Document ID */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Document Template</label>
+                  <DocumentPicker
+                    value={doc.documentId === "placeholder" ? "" : doc.documentId}
+                    onChange={(val) => handleUpdateDocument(doc.id, { documentId: val })}
+                  />
                 </div>
 
                 {/* Conditions (Placeholder) */}

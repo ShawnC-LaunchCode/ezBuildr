@@ -11,6 +11,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { WebsiteConfig } from "@/../../shared/types/stepConfigs";
@@ -111,6 +112,16 @@ export function WebsiteCardEditor({ stepId, sectionId, step }: StepEditorCommonP
           </div>
         )}
       </div>
+
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
+      )}
     </div>
   );
 }

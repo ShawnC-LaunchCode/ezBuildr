@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { promisify } from 'util';
 
 import multer from 'multer';
@@ -178,7 +179,7 @@ export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
   const dirsToClean = [
     UPLOAD_DIR,
     path.join(process.cwd(), 'server', 'files', 'outputs', 'previews'),
-    require('os').tmpdir()
+    os.tmpdir()
   ];
 
   let cleaned = 0;
@@ -190,7 +191,7 @@ export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
       const files = await fs.promises.readdir(dir);
 
       for (const file of files) {
-        const isSystemTemp = dir === require('os').tmpdir();
+        const isSystemTemp = dir === os.tmpdir();
         // Prefixes used by our app in temp
         // file- : multer default (we changed to fieldname-...) fieldname is 'file' so 'file-'
         // preview- : TemplatePreviewService

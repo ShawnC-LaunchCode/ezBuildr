@@ -39,7 +39,8 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
                 suggestTemplateBindings: vi.fn().mockResolvedValue({
                     suggestions: [{ placeholder: '{{name}}', variable: 'text_1', confidence: 0.9 }],
                     unmatchedPlaceholders: [],
-                    unmatchedVariables: []
+                    unmatchedVariables: [],
+                    warnings: []
                 }),
                 suggestValues: vi.fn().mockResolvedValue({
                     'field_1': 'Suggested Value'

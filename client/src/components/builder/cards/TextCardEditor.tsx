@@ -16,6 +16,7 @@ import { AliasField } from "./common/AliasField";
 import { TextField, NumberField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DefaultValueField } from "./common/DefaultValueField";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
@@ -272,14 +273,23 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
       )}
 
       {workflowId && (
-        <DefaultValueField
-          stepId={stepId}
-          sectionId={sectionId}
-          workflowId={workflowId}
-          defaultValue={step.defaultValue}
-          type={step.type}
-          mode={isEasyMode ? 'easy' : 'advanced'}
-        />
+        <>
+          <DefaultValueField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            defaultValue={step.defaultValue}
+            type={step.type}
+            mode={isEasyMode ? 'easy' : 'advanced'}
+          />
+          <VisibilityField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            visibleIf={step.visibleIf}
+            mode={isAdvancedMode ? 'advanced' : 'easy'}
+          />
+        </>
       )}
     </div>
   );

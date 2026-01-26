@@ -56,6 +56,12 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
           if (userData.authProvider) { updateData.authProvider = userData.authProvider; }
           if (userData.emailVerified !== undefined) { updateData.emailVerified = userData.emailVerified; }
 
+          // DEV FIX: In development, force update tenantRole to 'owner' if provided
+          // This ensures developers are not stuck as 'viewer'
+          if (process.env.NODE_ENV === 'development' && userData.tenantRole === 'owner') {
+            updateData.tenantRole = 'owner';
+          }
+
           // Note: We intentionally don't update email or role here to preserve existing values
 
           const [updatedUser] = await database

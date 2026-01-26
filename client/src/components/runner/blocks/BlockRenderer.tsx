@@ -75,9 +75,15 @@ export function BlockRenderer(props: BlockRendererProps) {
   // -------------------------------------------------------------------------
   if (step.type === "js_question" || step.isVirtual) {
     // JS blocks and virtual steps do not render any UI
-    // They are executed server-side or via transform block system
     return null;
   }
+
+  // Generate ARIA IDs
+  const descriptionId = step.description ? `${step.id}-description` : undefined;
+  const errorId = showValidation && error ? `${step.id}-error` : undefined;
+
+  // Combine IDs for aria-describedby
+  const ariaDescribedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
 
   // -------------------------------------------------------------------------
   // Render block input based on type
@@ -88,7 +94,8 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "short_text":
       case "long_text":
       case "text":
-        return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        // @ts-ignore - Prop injection for accessibility
+        return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} />;
 
       // Boolean blocks
       case "yes_no":
@@ -180,7 +187,7 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       {/* Description/Help Text */}
       {step.description && (
-        <p className="text-sm text-muted-foreground">{step.description}</p>
+        <p id={descriptionId} className="text-sm text-muted-foreground">{step.description}</p>
       )}
 
       {/* Input */}
@@ -188,7 +195,7 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       {/* Validation Error */}
       {showValidation && error && (
-        <p className="text-sm text-destructive">{error}</p>
+        <p id={errorId} className="text-sm text-destructive" role="alert">{error}</p>
       )}
     </div>
   );

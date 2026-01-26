@@ -12,6 +12,7 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
@@ -100,6 +101,16 @@ export function PhoneCardEditor({ stepId, sectionId, step }: StepEditorCommonPro
         <p className="text-xs font-medium mb-1">Format Preview</p>
         <p className="text-sm font-mono">(555) 123-4567</p>
       </div>
+
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
+      )}
     </div>
   );
 }

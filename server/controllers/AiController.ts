@@ -253,6 +253,19 @@ export class AiController {
                 workflowId: requestData.workflowId,
             }, 'AI template binding suggestion requested');
 
+            // Fetch the workflow for alias validation
+            const workflow = await workflowService.getWorkflowWithDetails(
+                requestData.workflowId,
+                userId
+            );
+            if (!workflow) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Workflow not found',
+                    error: 'not_found',
+                });
+            }
+
             // Get workflow variables
             const variables = await (variableService as any).getWorkflowVariables(
                 requestData.workflowId
@@ -273,11 +286,12 @@ export class AiController {
             // Create AI service
             const aiService = createAIServiceFromEnv();
 
-            // Generate binding suggestions
+            // Generate binding suggestions with workflow for alias validation
             const bindingSuggestions = await aiService.suggestTemplateBindings(
                 requestData,
                 variables,
-                placeholders
+                placeholders,
+                workflow // Pass workflow for alias validation
             );
 
             const duration = Date.now() - startTime;
@@ -288,6 +302,7 @@ export class AiController {
                 workflowId: requestData.workflowId,
                 duration,
                 suggestionsCount: bindingSuggestions.suggestions.length,
+                warningsCount: bindingSuggestions.warnings?.length || 0,
             }, 'AI template binding suggestion succeeded');
 
             res.status(200).json({
@@ -298,6 +313,7 @@ export class AiController {
                     suggestionsCount: bindingSuggestions.suggestions.length,
                     unmatchedPlaceholdersCount: bindingSuggestions.unmatchedPlaceholders.length,
                     unmatchedVariablesCount: bindingSuggestions.unmatchedVariables.length,
+                    warningsCount: bindingSuggestions.warnings?.length || 0,
                 },
             });
         } catch (error: any) {
@@ -324,11 +340,6 @@ export class AiController {
         try {
             const requestData = AIWorkflowRevisionRequestSchema.parse(req.body);
 
-            aiLogger.info({
-                userId,
-                workflowId: requestData.workflowId,
-            }, 'AI workflow revision job enqueued');
-
             // Verify ownership first
             await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
 
@@ -338,6 +349,12 @@ export class AiController {
                 userId
             });
 
+            aiLogger.info({
+                userId,
+                workflowId: requestData.workflowId,
+                jobId: job.id
+            }, 'AI workflow revision job enqueued');
+
             res.status(202).json({
                 success: true,
                 message: 'AI revision started in background',
@@ -346,7 +363,10 @@ export class AiController {
             });
 
         } catch (error: any) {
-            aiLogger.error({ error }, 'Failed to enqueue AI revision job');
+            aiLogger.error({
+                error: error instanceof Error ? error.message : error,
+                stack: error instanceof Error ? error.stack : undefined
+            }, 'Failed to enqueue AI revision job');
 
             if (error.name === 'ZodError') {
                 return res.status(400).json({
@@ -568,6 +588,22 @@ export class AiController {
                 message: 'AI generated invalid structure.',
                 error: 'ai_validation_error',
                 details: error.details,
+            });
+        }
+
+        // Handle quality threshold errors - HTTP 422 Unprocessable Entity
+        if (error.code === 'QUALITY_THRESHOLD' || error.name === 'QualityThresholdError') {
+            return res.status(422).json({
+                success: false,
+                message: error.message || 'Generated workflow quality is below minimum threshold.',
+                error: 'quality_threshold_error',
+                quality: {
+                    score: error.qualityScore,
+                    threshold: error.threshold,
+                    breakdown: error.qualityBreakdown,
+                    issues: error.qualityIssues,
+                    suggestions: error.qualitySuggestions,
+                },
             });
         }
 

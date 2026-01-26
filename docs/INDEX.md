@@ -46,6 +46,16 @@ Welcome to the VaultLogic documentation! This index provides an organized overvi
 
 ---
 
+## AI Features
+
+- [AI Documentation Index](ai/INDEX.md) - Overview of AI capabilities
+- [User Guide](ai/USER_GUIDE.md) - How to use AI features
+- [Architecture](ai/ARCHITECTURE.md) - System design and components
+- [API Reference](ai/API_REFERENCE.md) - AI endpoint documentation
+- [Troubleshooting](ai/TROUBLESHOOTING.md) - AI-specific issues
+
+---
+
 ## Custom Scripting System
 
 - [Overview](scripting/overview.md) - Scripting system introduction

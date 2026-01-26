@@ -5,7 +5,7 @@ import { createLogger } from "./logger";
 import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
 import { templateSharingService } from "./services/TemplateSharingService";
-import type {  } from "./types";
+import type { } from "./types";
 import type { Express } from "express";
 const logger = createLogger({ module: 'auth' });
 // Initialize Google OAuth2 client
@@ -36,7 +36,7 @@ async function upsertUser(payload: TokenPayload) {
     const { getDb } = await import('./db');
     const { tenants } = await import('@shared/schema');
     const db = getDb();
-    if (!db) {throw new Error("Database not initialized");}
+    if (!db) { throw new Error("Database not initialized"); }
     const [defaultTenant] = await db.select().from(tenants).limit(1);
     if (!defaultTenant) {
       logger.error('No default tenant found in database');
@@ -50,7 +50,7 @@ async function upsertUser(payload: TokenPayload) {
       profileImageUrl: payload.picture || null,
       defaultMode: 'easy' as const,
       tenantId: defaultTenant.id,
-      tenantRole: 'viewer' as const,
+      tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer') as 'owner' | 'viewer',
       authProvider: 'google' as const,
       emailVerified: true,
       lastPasswordChange: null
@@ -72,7 +72,7 @@ export async function verifyGoogleToken(token: string): Promise<TokenPayload> {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    if (!payload) {throw new Error("Invalid token payload");}
+    if (!payload) { throw new Error("Invalid token payload"); }
     if (!payload.email_verified) {
       logger.warn({ email: payload.email }, 'Email not verified by Google');
       throw new Error("Email not verified by Google");
@@ -94,7 +94,7 @@ const authRateLimit = rateLimit({
 // Helper function to validate Origin/Referer
 function validateOrigin(req: any): boolean {
   const origin = req.get('Origin') || req.get('Referer');
-  if (!origin) {return false;}
+  if (!origin) { return false; }
   try {
     const originUrl = new URL(origin);
     const allowedHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
@@ -133,7 +133,7 @@ export async function setupAuth(app: Express) {
       const payload = await verifyGoogleToken(googleToken);
       await upsertUser(payload);
       const dbUser = await userRepository.findById(payload.sub);
-      if (!dbUser) {throw new Error('User not found after upsert');}
+      if (!dbUser) { throw new Error('User not found after upsert'); }
       // Accept pending shares
       try {
         await templateSharingService.acceptPendingOnLogin({ ...dbUser, authProvider: 'google' } as any);

@@ -41,7 +41,7 @@ export default function SettingsPage() {
     if (isAuthenticated) {
       authAPI.getMfaStatus()
         .then(res => setMfaStatus({ enabled: res.mfaEnabled, backupCodesRemaining: res.backupCodesRemaining }))
-        .catch(console.error);
+        .catch(() => { });
     }
   }, [isAuthenticated]);
   const startMfaSetup = async () => {

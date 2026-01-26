@@ -18,6 +18,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { DefaultValueField } from "./common/DefaultValueField";
 
 
+
 import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -284,14 +285,23 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       </div>
 
       {workflowId && (
-        <DefaultValueField
-          stepId={stepId}
-          sectionId={sectionId}
-          workflowId={workflowId}
-          defaultValue={step.defaultValue}
-          type={step.type}
-          mode={isEasyMode ? 'easy' : 'advanced'}
-        />
+        <>
+          <DefaultValueField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            defaultValue={step.defaultValue}
+            type={step.type}
+            mode={isEasyMode ? 'easy' : 'advanced'}
+          />
+          <VisibilityField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            visibleIf={step.visibleIf}
+            mode={isAdvancedMode ? 'advanced' : 'easy'}
+          />
+        </>
       )}
     </div>
   );

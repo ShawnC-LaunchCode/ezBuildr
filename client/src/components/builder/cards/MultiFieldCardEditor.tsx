@@ -22,6 +22,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import { AliasField } from "./common/AliasField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { MultiFieldConfig } from "@/../../shared/types/stepConfigs";
@@ -215,6 +216,16 @@ export function MultiFieldCardEditor({ stepId, sectionId, step }: StepEditorComm
         <p className="font-medium mb-1">Preview:</p>
         <p>Fields will be displayed inline in a row</p>
       </div>
+
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
+      )}
     </div>
   );
 }

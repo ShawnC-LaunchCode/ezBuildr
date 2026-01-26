@@ -63,7 +63,7 @@ export const AIGeneratedStepSchema = z.object({
   alias: z.string().nullable().optional().describe('Human-friendly variable name for this step'),
   required: z.boolean().default(false).describe('Whether this step is required'),
   config: z.record(z.any()).nullable().optional().describe('Type-specific configuration (choices, validation, etc)'),
-  visibleIf: z.string().nullable().optional().describe('Condition expression for visibility'),
+  visibleIf: z.any().describe('Condition expression for visibility (string or object)'),
   order: z.number().int().optional().describe('Display order'),
   defaultValue: z.any().optional().describe('Default value'),
 });
@@ -88,7 +88,7 @@ export type AIGeneratedSection = z.infer<typeof AIGeneratedSectionSchema>;
  */
 export const AIGeneratedLogicRuleSchema = z.object({
   id: z.string().describe('Unique identifier for the logic rule'),
-  conditionStepAlias: z.string().describe('Step alias to check condition on'),
+  conditionStepAlias: z.string().optional().describe('Step alias to check condition on'),
   operator: z.enum([
     'equals',
     'not_equals',
@@ -102,7 +102,7 @@ export const AIGeneratedLogicRuleSchema = z.object({
   ]).describe('Comparison operator'),
   conditionValue: z.any().describe('Value to compare against'),
   targetType: z.enum(['section', 'step']).describe('Whether the target is a section or step'),
-  targetAlias: z.string().describe('Alias of the target section/step'),
+  targetAlias: z.string().optional().describe('Alias of the target section/step'),
   action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']).describe('Action to perform when condition is met'),
   description: z.string().nullable().optional().describe('Human-readable description of what this rule does'),
 });
@@ -141,6 +141,12 @@ export const AIGeneratedWorkflowSchema = z.object({
 export type AIGeneratedWorkflow = z.infer<typeof AIGeneratedWorkflowSchema>;
 
 /**
+ * Default minimum quality score for workflow generation
+ * Can be overridden via environment variable AI_MIN_QUALITY_SCORE
+ */
+export const DEFAULT_MIN_QUALITY_SCORE = 60;
+
+/**
  * AI workflow generation request
  */
 export const AIWorkflowGenerationRequestSchema = z.object({
@@ -152,6 +158,10 @@ export const AIWorkflowGenerationRequestSchema = z.object({
     maxStepsPerSection: z.number().int().min(1).max(20).default(10).optional(),
     preferredStepTypes: z.array(z.string()).optional(),
   }).optional().describe('Optional constraints for workflow generation'),
+  minQualityScore: z.number().int().min(0).max(100).optional().describe(
+    'Minimum quality score threshold (0-100). Workflows below this score will be rejected. ' +
+    'Defaults to AI_MIN_QUALITY_SCORE env var or 60.'
+  ),
 });
 
 export type AIWorkflowGenerationRequest = z.infer<typeof AIWorkflowGenerationRequestSchema>;
@@ -214,6 +224,7 @@ export const AITemplateBindingsResponseSchema = z.object({
   suggestions: z.array(AIBindingSuggestionSchema).describe('Suggested variable bindings'),
   unmatchedPlaceholders: z.array(z.string()).default([]).describe('Placeholders with no good match'),
   unmatchedVariables: z.array(z.string()).default([]).describe('Variables not used in any binding'),
+  warnings: z.array(z.string()).default([]).describe('Warnings about filtered or invalid bindings'),
 });
 
 export type AITemplateBindingsResponse = z.infer<typeof AITemplateBindingsResponseSchema>;

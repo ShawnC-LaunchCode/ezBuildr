@@ -160,78 +160,120 @@ export function TableGridView({ tableId }: TableGridViewProps) {
   return (
     <div className="space-y-4">
       <div className="overflow-auto border rounded-md">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={(e) => { void handleDragEnd(e); }}
-        >
-          <table className="min-w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                <SortableContext
-                  items={sortedColumns.map((col) => col.id)}
-                  strategy={horizontalListSortingStrategy}
-                >
-                  {sortedColumns.map((col) => (
-                    <SortableColumnHeader key={col.id} column={col} />
-                  ))}
-                </SortableContext>
-                <th className="border-b px-3 py-2 bg-gray-50 dark:bg-gray-800 w-20">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {allRows.map((row) => (
-                <tr key={row.row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  {sortedColumns.map((col) => (
-                    <td
-                      key={col.id}
-                      className="px-3 py-2 border-b cursor-pointer"
-                      onDoubleClick={() => setEditingCell({ rowId: row.row.id, colId: col.id })}
-                    >
-                      <CellRenderer
-                        row={row}
-                        column={col}
-                        editing={editingCell?.rowId === row.row.id && editingCell?.colId === col.id}
-                        onCommit={(value) => { void handleCellUpdate(row.row.id, col, value); }}
-                        onCancel={() => setEditingCell(null)}
-                        batchReferencesData={batchReferencesData}
+        <div className="hidden md:block">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={(e) => { void handleDragEnd(e); }}
+          >
+            <table className="min-w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <SortableContext
+                    items={sortedColumns.map((col) => col.id)}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {sortedColumns.map((col) => (
+                      <SortableColumnHeader key={col.id} column={col} />
+                    ))}
+                  </SortableContext>
+                  <th className="border-b px-3 py-2 bg-gray-50 dark:bg-gray-800 w-20">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {allRows.map((row) => (
+                  <tr key={row.row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    {sortedColumns.map((col) => (
+                      <td
+                        key={col.id}
+                        className="px-3 py-2 border-b cursor-pointer"
+                        onDoubleClick={() => setEditingCell({ rowId: row.row.id, colId: col.id })}
+                      >
+                        <CellRenderer
+                          row={row}
+                          column={col}
+                          editing={editingCell?.rowId === row.row.id && editingCell?.colId === col.id}
+                          onCommit={(value) => { void handleCellUpdate(row.row.id, col, value); }}
+                          onCancel={() => setEditingCell(null)}
+                          batchReferencesData={batchReferencesData}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-2 py-2 border-b text-right">
+                      <DeleteRowButton
+                        tableId={tableId}
+                        rowId={row.row.id}
+                        onDelete={() => queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId) })}
                       />
                     </td>
-                  ))}
-                  <td className="px-2 py-2 border-b text-right">
-                    <DeleteRowButton
-                      tableId={tableId}
-                      rowId={row.row.id}
-                      onDelete={() => queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId) })}
+                  </tr>
+                ))}
+                {allRows.length === 0 && !rowsLoading && (
+                  <tr>
+                    <td
+                      colSpan={sortedColumns.length + 1}
+                      className="px-3 py-8 text-center text-muted-foreground"
+                    >
+                      No rows yet. Click "Add Row" to create your first row.
+                    </td>
+                  </tr>
+                )}
+                {/* Infinite scroll sentinel element */}
+                {hasNextPage && (
+                  <tr ref={loadMoreRef}>
+                    <td colSpan={sortedColumns.length + 1} className="h-12 text-center">
+                      {isFetchingNextPage && (
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground inline-block" />
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </DndContext>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4 p-4">
+          {allRows.map((row) => (
+            <div key={row.row.id} className="bg-card border rounded-lg p-4 space-y-3 shadow-sm">
+              {sortedColumns.map((col) => (
+                <div key={col.id} className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">{col.name}</span>
+                  <div className="text-sm">
+                    <CellRenderer
+                      row={row}
+                      column={col}
+                      editing={editingCell?.rowId === row.row.id && editingCell?.colId === col.id}
+                      onCommit={(value) => { void handleCellUpdate(row.row.id, col, value); }}
+                      onCancel={() => setEditingCell(null)}
+                      batchReferencesData={batchReferencesData}
                     />
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-              {allRows.length === 0 && !rowsLoading && (
-                <tr>
-                  <td
-                    colSpan={sortedColumns.length + 1}
-                    className="px-3 py-8 text-center text-muted-foreground"
-                  >
-                    No rows yet. Click "Add Row" to create your first row.
-                  </td>
-                </tr>
-              )}
-              {/* Infinite scroll sentinel element */}
-              {hasNextPage && (
-                <tr ref={loadMoreRef}>
-                  <td colSpan={sortedColumns.length + 1} className="h-12 text-center">
-                    {isFetchingNextPage && (
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground inline-block" />
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </DndContext>
+              <div className="pt-2 border-t flex justify-end">
+                <DeleteRowButton
+                  tableId={tableId}
+                  rowId={row.row.id}
+                  onDelete={() => queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId) })}
+                />
+              </div>
+            </div>
+          ))}
+          {allRows.length === 0 && !rowsLoading && (
+            <div className="text-center py-8 text-muted-foreground">
+              No rows yet.
+            </div>
+          )}
+          {hasNextPage && (
+            <div ref={loadMoreRef} className="h-12 flex items-center justify-center">
+              {isFetchingNextPage && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
+            </div>
+          )}
+        </div>
       </div>
       <AddRowButton
         tableId={tableId}

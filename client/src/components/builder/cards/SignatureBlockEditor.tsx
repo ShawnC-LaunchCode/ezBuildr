@@ -31,6 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
+import { DocumentPicker } from "./common/DocumentPicker";
 
 
 import type { SignatureBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
@@ -335,14 +336,14 @@ export function SignatureBlockEditor({ stepId, sectionId, step }: SignatureBlock
                   </Button>
                 </div>
 
-                {/* Document ID placeholder */}
-                <TextField
-                  label="Document ID"
-                  value={doc.documentId}
-                  onChange={(val) => handleUpdateDocument(doc.id, { documentId: val })}
-                  placeholder="Select from uploaded templates or use output from Final Block"
-                  description="In production, this will be a document picker"
-                />
+                {/* Document ID */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Document Template</label>
+                  <DocumentPicker
+                    value={doc.documentId === "placeholder" ? "" : doc.documentId}
+                    onChange={(val) => handleUpdateDocument(doc.id, { documentId: val })}
+                  />
+                </div>
 
                 {/* Mapping UI placeholder */}
                 <div className="text-xs text-muted-foreground p-2 bg-muted rounded">

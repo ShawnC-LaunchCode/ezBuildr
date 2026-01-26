@@ -22,11 +22,11 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
     "/api/workflows/:workflowId/ai/edit",
     hybridAuth,
     async (req: any, res: Response) => {
-      console.log(`[DEBUG] Entered workflowEdit route handler. WorkflowId: ${req.params.workflowId}`);
+
       try {
         const { workflowId } = req.params;
-        const userId = req.user.id;
-        console.log(`[DEBUG] Validating request body`);
+        const userId = req.userId || (req.user as any)?.id;
+
         // 1. Validate request body (merge param ID into body for schema validation)
         const bodyToValidate = {
           ...req.body,
@@ -42,20 +42,18 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         }
         const requestData = validationResult.data;
         // 2. Get current workflow
-        console.log(`[DEBUG] Fetching workflow details`);
+
         const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
         if (!currentWorkflow) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
         // 3. Create BEFORE snapshot
-        console.log(`[DEBUG] Creating snapshot`);
         let beforeSnapshot;
         try {
           beforeSnapshot = await snapshotService.createSnapshot(
             workflowId,
             `AI Edit BEFORE: ${new Date().toISOString()}`
           );
-          console.log(`[DEBUG] Snapshot created`);
         } catch (error) {
           logger.error({ error, workflowId }, "Failed to create before snapshot");
           // Continue? Or fail? Usually fail safety.
@@ -63,7 +61,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         }
         // 4. (Optional) Check permissions (handled by service mostly but context useful)
         // 5. Call AI model (Gemini)
-        console.log(`[DEBUG] Calling Gemini`);
         let aiResponse: AiModelResponse;
         try {
           const systemPromptTemplate = await aiSettingsService.getEffectivePrompt({ userId });
@@ -73,7 +70,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             requestData.preferences,
             systemPromptTemplate
           );
-          console.log(`[DEBUG] Gemini returned`);
         } catch (error) {
           logger.error({ error, workflowId }, "AI model call failed");
           return res.status(500).json({
@@ -82,14 +78,12 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           });
         }
         // 6. Apply patch operations
-        console.log(`[DEBUG] Calling applyOps with ${aiResponse.ops.length} ops`);
         try {
           const { summary, errors } = await workflowPatchService.applyOps(
             workflowId,
             userId,
             aiResponse.ops
           );
-          console.log(`[DEBUG] applyOps returned. Errors: ${errors.length}`);
           if (errors.length > 0) {
             logger.error({ errors, workflowId }, "Failed to apply some AI operations");
             return res.status(400).json({
@@ -99,9 +93,9 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
             });
           }
         } catch (applyError) {
-          console.error("Debug: applyOps THREW error:", applyError);
           throw applyError;
         }
+
         // 7. Get updated workflow
         const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
         // 8. Create new version (DRAFT)

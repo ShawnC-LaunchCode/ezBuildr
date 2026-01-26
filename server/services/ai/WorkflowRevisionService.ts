@@ -13,8 +13,21 @@ import {
 import type {
     AIWorkflowRevisionRequest,
     AIWorkflowRevisionResponse,
+    AIGeneratedSection,
 } from '../../../shared/types/ai';
 const logger = createLogger({ module: 'workflow-revision-service' });
+
+/**
+ * Represents a chunk of sections for semantic chunking
+ */
+interface SectionChunk {
+    /** Indices of sections in this chunk (relative to original sections array) */
+    sectionIndices: number[];
+    /** Estimated token count for this chunk */
+    estimatedTokens: number;
+    /** Whether any section in this chunk was split (exceeds limit alone) */
+    containsSplitSection: boolean;
+}
 export class WorkflowRevisionService {
     private client: AIProviderClient;
     private promptBuilder: AIPromptBuilder;
@@ -22,6 +35,129 @@ export class WorkflowRevisionService {
         this.client = client;
         this.promptBuilder = promptBuilder;
     }
+
+    /**
+     * Semantic section-aware chunking for large workflows
+     *
+     * Groups sections into chunks that respect section boundaries:
+     * - Never splits a section unless it alone exceeds the token limit
+     * - Keeps logically related sections together when possible
+     * - Returns chunks as arrays of section indices for proper tracking
+     *
+     * @param sections - Array of workflow sections
+     * @param maxTokensPerChunk - Maximum tokens allowed per chunk (output estimate)
+     * @param outputMultiplier - Multiplier for estimating output tokens (default 2x input)
+     * @returns Array of SectionChunk objects with section indices and metadata
+     */
+    private chunkWorkflowBySections(
+        sections: AIGeneratedSection[],
+        maxTokensPerChunk: number = 6400,
+        outputMultiplier: number = 2,
+    ): SectionChunk[] {
+        if (sections.length === 0) {
+            return [];
+        }
+
+        // Calculate token count for each section
+        const sectionTokens = sections.map((section, index) => {
+            const sectionJson = JSON.stringify(section);
+            const inputTokens = estimateTokenCount(sectionJson);
+            const estimatedOutputTokens = inputTokens * outputMultiplier;
+            return {
+                index,
+                inputTokens,
+                estimatedOutputTokens,
+                section,
+            };
+        });
+
+        logger.debug({
+            sectionCount: sections.length,
+            maxTokensPerChunk,
+            sectionSizes: sectionTokens.map(s => ({
+                index: s.index,
+                title: s.section.title,
+                estimatedOutputTokens: s.estimatedOutputTokens,
+            })),
+        }, 'Section token analysis for semantic chunking');
+
+        const chunks: SectionChunk[] = [];
+        let currentChunk: SectionChunk = {
+            sectionIndices: [],
+            estimatedTokens: 0,
+            containsSplitSection: false,
+        };
+
+        for (const sectionData of sectionTokens) {
+            const { index, estimatedOutputTokens, section } = sectionData;
+
+            // Check if this single section exceeds the limit
+            if (estimatedOutputTokens > maxTokensPerChunk) {
+                // Finish current chunk if it has content
+                if (currentChunk.sectionIndices.length > 0) {
+                    chunks.push(currentChunk);
+                    currentChunk = {
+                        sectionIndices: [],
+                        estimatedTokens: 0,
+                        containsSplitSection: false,
+                    };
+                }
+
+                // This section alone exceeds the limit - it gets its own chunk
+                // Mark it as containing a "split section" for special handling
+                logger.warn({
+                    sectionIndex: index,
+                    sectionTitle: section.title,
+                    estimatedOutputTokens,
+                    maxTokensPerChunk,
+                }, 'Section exceeds token limit - will be processed alone');
+
+                chunks.push({
+                    sectionIndices: [index],
+                    estimatedTokens: estimatedOutputTokens,
+                    containsSplitSection: true,
+                });
+                continue;
+            }
+
+            // Check if adding this section would exceed the chunk limit
+            if (currentChunk.estimatedTokens + estimatedOutputTokens > maxTokensPerChunk) {
+                // Start a new chunk (don't split the section)
+                if (currentChunk.sectionIndices.length > 0) {
+                    chunks.push(currentChunk);
+                }
+                currentChunk = {
+                    sectionIndices: [index],
+                    estimatedTokens: estimatedOutputTokens,
+                    containsSplitSection: false,
+                };
+            } else {
+                // Add to current chunk
+                currentChunk.sectionIndices.push(index);
+                currentChunk.estimatedTokens += estimatedOutputTokens;
+            }
+        }
+
+        // Don't forget the last chunk
+        if (currentChunk.sectionIndices.length > 0) {
+            chunks.push(currentChunk);
+        }
+
+        logger.info({
+            totalSections: sections.length,
+            totalChunks: chunks.length,
+            chunkDetails: chunks.map((chunk, i) => ({
+                chunkIndex: i,
+                sectionIndices: chunk.sectionIndices,
+                sectionTitles: chunk.sectionIndices.map(idx => sections[idx].title),
+                estimatedTokens: chunk.estimatedTokens,
+                containsSplitSection: chunk.containsSplitSection,
+            })),
+        }, 'Semantic chunking complete');
+
+        return chunks;
+    }
+
     /**
      * Revise an existing workflow based on user instructions
      * Automatically chunks large workflows to avoid token limits
@@ -238,120 +374,155 @@ export class WorkflowRevisionService {
         logger.info({
             totalSections: sections.length,
             instruction: request.userInstruction,
-        }, 'Starting chunked workflow revision');
-        // Determine optimal chunk size
-        // Calculate average section size in tokens
-        const totalWorkflowSize = estimateTokenCount(JSON.stringify(workflow));
-        const avgSectionInputTokens = Math.ceil(totalWorkflowSize / sections.length);
+        }, 'Starting chunked workflow revision with semantic section-aware chunking');
+
         // Check if sections are mostly empty (e.g., from Pass 1 of two-pass strategy)
         const hasEmptySections = sections.every(s => !s.steps || s.steps.length === 0);
-        // Estimate output tokens per section
-        let avgSectionOutputTokens;
-        let maxSectionsPerChunk = 10;  // Default for normal sections
+
+        // Determine output multiplier based on content type
+        // Empty sections being filled from large instruction need higher multiplier
+        let outputMultiplier = 2;  // Default: output ~2x input
+        let maxTokensPerChunk = 6400;  // 80% of 8K limit
+
         if (hasEmptySections && request.userInstruction) {
             // Empty sections being filled from large instruction (like PDF content)
-            // CRITICAL: Each section needs to reference the FULL instruction
-            // Real-world data shows ~2600 tokens output per section for 4500-token instruction
-            // Use multiplier of 6x instead of 2x
+            // Use higher multiplier as each section will generate substantial content
             const instructionSize = estimateTokenCount(request.userInstruction);
-            avgSectionOutputTokens = Math.max(
-                avgSectionInputTokens * 2,
-                Math.ceil(instructionSize / sections.length) * 6  // 6x multiplier for empty sections
-            );
-            // AGGRESSIVE CAPS based on instruction size
+            outputMultiplier = instructionSize > 3000 ? 6 : 4;
+
+            // For very large instructions, reduce chunk size further
             if (instructionSize > 5000) {
-                maxSectionsPerChunk = 1;  // Very large instruction = 1 section per chunk
+                maxTokensPerChunk = 3200;  // More aggressive chunking
             } else if (instructionSize > 3000) {
-                maxSectionsPerChunk = 2;  // Large instruction = 2 sections per chunk
-            } else {
-                maxSectionsPerChunk = 3;  // Medium instruction = 3 sections per chunk
+                maxTokensPerChunk = 4800;
             }
-        } else {
-            // Normal case: sections already have content
-            avgSectionOutputTokens = avgSectionInputTokens * 2;
+
+            logger.info({
+                instructionSize,
+                outputMultiplier,
+                maxTokensPerChunk,
+            }, 'Adjusted chunking parameters for empty sections with large instruction');
         }
-        // Maximum output tokens per chunk (leave 20% headroom from 8K limit)
-        const MAX_OUTPUT_TOKENS_PER_CHUNK = 6400;  // 80% of 8K
-        // Calculate how many sections fit in one chunk
-        const sectionsPerChunk = Math.max(1, Math.floor(MAX_OUTPUT_TOKENS_PER_CHUNK / avgSectionOutputTokens));
-        // Apply the cap
-        const finalSectionsPerChunk = Math.min(sectionsPerChunk, maxSectionsPerChunk);
-        const instructionSize = hasEmptySections && request.userInstruction
-            ? estimateTokenCount(request.userInstruction)
-            : 0;
-        logger.info({
-            totalSections: sections.length,
-            hasEmptySections,
-            instructionSize,
-            avgSectionInputTokens,
-            avgSectionOutputTokens,
-            sectionsPerChunk: finalSectionsPerChunk,
-            maxSectionsPerChunk,
-            estimatedChunks: Math.ceil(sections.length / finalSectionsPerChunk),
-        }, 'Calculated optimal chunk size');
-        // Create section chunks
-        const chunks: typeof sections[] = [];
-        for (let i = 0; i < sections.length; i += finalSectionsPerChunk) {
-            chunks.push(sections.slice(i, i + finalSectionsPerChunk));
-        }
+
+        // Use semantic section-aware chunking
+        const sectionChunks = this.chunkWorkflowBySections(
+            sections,
+            maxTokensPerChunk,
+            outputMultiplier,
+        );
+
+        // Convert SectionChunk objects to actual section arrays for processing
+        const chunks: { sections: typeof sections; chunkMeta: SectionChunk }[] = sectionChunks.map(chunk => ({
+            sections: chunk.sectionIndices.map(idx => sections[idx]),
+            chunkMeta: chunk,
+        }));
+
         logger.info({
             totalSections: sections.length,
             chunksCount: chunks.length,
-            sectionsPerChunk: finalSectionsPerChunk,
-            avgSectionInputTokens,
-            avgSectionOutputTokens,
-        }, 'Workflow chunked for processing');
+            hasEmptySections,
+            outputMultiplier,
+            maxTokensPerChunk,
+            chunkSummary: chunks.map((c, i) => ({
+                chunk: i + 1,
+                sectionCount: c.sections.length,
+                sectionIndices: c.chunkMeta.sectionIndices,
+                estimatedTokens: c.chunkMeta.estimatedTokens,
+                containsSplitSection: c.chunkMeta.containsSplitSection,
+            })),
+        }, 'Semantic chunking complete - ready for processing');
         // Process chunks sequentially (to maintain context and order)
         // We could do parallel, but sequential gives better context awareness
-        const revisedSections: typeof sections = [];
+        // Track revised sections by their original index for proper ordering
+        const revisedSectionsByIndex: Map<number, typeof sections[0]> = new Map();
         const allChanges: any[] = [];
         const allExplanations: string[] = [];
         const allSuggestions: string[] = [];
+
         for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
+            const { sections: chunkSections, chunkMeta } = chunks[i];
             const chunkNumber = i + 1;
+
             logger.info({
                 chunkNumber,
                 totalChunks: chunks.length,
-                sectionCount: chunk.length,
-                sectionTitles: chunk.map(s => s.title),
-            }, `Processing chunk ${chunkNumber}/${chunks.length}`);
+                sectionCount: chunkSections.length,
+                sectionIndices: chunkMeta.sectionIndices,
+                sectionTitles: chunkSections.map(s => s.title),
+                containsSplitSection: chunkMeta.containsSplitSection,
+                estimatedTokens: chunkMeta.estimatedTokens,
+            }, `Processing chunk ${chunkNumber}/${chunks.length} (semantic chunking)`);
+
             try {
-                // Create a mini-workflow with just this chunk
+                // Create a mini-workflow with just this chunk's sections
                 const chunkWorkflow = {
                     ...workflow,
-                    sections: chunk,
+                    sections: chunkSections,
                 };
+
+                // Build context about which sections are in this chunk
+                const sectionRange = chunkMeta.sectionIndices.length === 1
+                    ? `section ${chunkMeta.sectionIndices[0] + 1}`
+                    : `sections ${chunkMeta.sectionIndices[0] + 1}-${chunkMeta.sectionIndices[chunkMeta.sectionIndices.length - 1] + 1}`;
+
                 // Create chunk-specific request with context about other chunks
                 const chunkRequest: AIWorkflowRevisionRequest = {
                     ...request,
                     currentWorkflow: chunkWorkflow,
                     userInstruction: `${request.userInstruction}
-IMPORTANT CONTEXT: You are processing sections ${chunk[0].order + 1}-${chunk[chunk.length - 1].order + 1} out of ${sections.length} total sections in this workflow. Focus your revisions on these sections only. Other sections will be processed separately.
-Section titles in this chunk: ${chunk.map(s => s.title).join(', ')}`,
+
+IMPORTANT CONTEXT: You are processing ${sectionRange} out of ${sections.length} total sections in this workflow. Focus your revisions on these sections only. Other sections will be processed separately.
+Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
                 };
+
                 const chunkResult = await this.reviseWorkflowSingleShot(chunkRequest);
-                // Collect revised sections
+
+                // Map revised sections back to their original indices
                 if (chunkResult.updatedWorkflow.sections) {
-                    revisedSections.push(...chunkResult.updatedWorkflow.sections);
+                    chunkResult.updatedWorkflow.sections.forEach((revisedSection, idx) => {
+                        const originalIndex = chunkMeta.sectionIndices[idx];
+                        if (originalIndex !== undefined) {
+                            revisedSectionsByIndex.set(originalIndex, revisedSection);
+                        }
+                    });
                 }
+
                 // Collect changes and metadata
                 allChanges.push(...(chunkResult.diff?.changes || []));
                 allExplanations.push(...(chunkResult.explanation || []));
                 allSuggestions.push(...(chunkResult.suggestions || []));
+
                 logger.info({
                     chunkNumber,
                     revisedSectionCount: chunkResult.updatedWorkflow.sections?.length || 0,
                     changesCount: chunkResult.diff?.changes.length || 0,
+                    mappedIndices: chunkMeta.sectionIndices,
                 }, `Chunk ${chunkNumber}/${chunks.length} completed`);
             } catch (error) {
                 logger.error({
                     chunkNumber,
                     totalChunks: chunks.length,
+                    sectionIndices: chunkMeta.sectionIndices,
                     error,
                 }, `Failed to process chunk ${chunkNumber}, keeping original sections`);
+
                 // On error, keep original sections for this chunk
-                revisedSections.push(...chunk);
+                chunkMeta.sectionIndices.forEach((originalIndex, idx) => {
+                    revisedSectionsByIndex.set(originalIndex, chunkSections[idx]);
+                });
+            }
+        }
+
+        // Reconstruct sections array in original order
+        const revisedSections: typeof sections = [];
+        for (let i = 0; i < sections.length; i++) {
+            const revisedSection = revisedSectionsByIndex.get(i);
+            if (revisedSection) {
+                revisedSections.push(revisedSection);
+            } else {
+                // Fallback: use original section if somehow missing
+                logger.warn({ sectionIndex: i }, 'Section missing from revised map, using original');
+                revisedSections.push(sections[i]);
             }
         }
         // Merge results back together
@@ -371,13 +542,19 @@ Section titles in this chunk: ${chunk.map(s => s.title).join(', ')}`,
             revisedSections: revisedSections.length,
             totalChanges: allChanges.length,
         }, 'Chunked workflow revision completed');
+        // Count how many chunks contained oversized sections
+        const oversizedChunks = chunks.filter(c => c.chunkMeta.containsSplitSection).length;
+
         return {
             updatedWorkflow: mergedWorkflow,
             diff: {
                 changes: allChanges,
             },
             explanation: [
-                `✨ Large workflow processed in ${chunks.length} chunks for better quality`,
+                `Large workflow processed using semantic section-aware chunking (${chunks.length} chunks)`,
+                ...(oversizedChunks > 0
+                    ? [`Note: ${oversizedChunks} section(s) exceeded token limits and were processed individually`]
+                    : []),
                 ...allExplanations,
             ],
             suggestions: [...new Set(allSuggestions)], // Deduplicate suggestions

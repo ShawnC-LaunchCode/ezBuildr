@@ -12,6 +12,7 @@ import { AliasField } from "./common/AliasField";
 import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DefaultValueField } from "./common/DefaultValueField";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
@@ -194,14 +195,23 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
       )}
 
       {workflowId && (
-        <DefaultValueField
-          stepId={stepId}
-          sectionId={sectionId}
-          workflowId={workflowId}
-          defaultValue={step.defaultValue}
-          type={step.type}
-          mode={isEasyMode ? 'easy' : 'advanced'}
-        />
+        <>
+          <DefaultValueField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            defaultValue={step.defaultValue}
+            type={step.type}
+            mode={isEasyMode ? 'easy' : 'advanced'}
+          />
+          <VisibilityField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            visibleIf={step.visibleIf}
+            mode={isAdvancedMode ? 'advanced' : 'easy'}
+          />
+        </>
       )}
     </div>
   );

@@ -20,14 +20,14 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
     const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId || undefined);
     // Evaluate assignments
     const assignedWorkflows = useMemo(() => {
-        if (!workflow.intakeConfig?.assignments) {return [];}
-        if (!projectWorkflows) {return [];}
+        if (!workflow.intakeConfig?.assignments) { return []; }
+        if (!projectWorkflows) { return []; }
         const assignments = workflow.intakeConfig.assignments as AssignmentRule[];
         return assignments
             .filter(rule => {
-                if (!rule.enabled) {return false;}
+                if (!rule.enabled) { return false; }
                 // If no condition, it's always available
-                if (!rule.condition) {return true;}
+                if (!rule.condition) { return true; }
                 // Evaluate condition against run values
                 // Note: evaluateConditionExpression generic might need 'any' cast if strict types aren't matching
                 try {
@@ -48,10 +48,10 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
     }, [workflow.intakeConfig, runValues, projectWorkflows]);
     return (
         <div className="space-y-6">
-            <Card className="border-emerald-200 bg-emerald-50/20">
+            <Card className="border-primary/20 bg-primary/5">
                 <CardHeader>
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                             <CheckCircle2 className="h-6 w-6" />
                         </div>
                         <div>
@@ -63,16 +63,16 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
             </Card>
             <div className="grid gap-4 md:grid-cols-1">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <GitBranch className="h-5 w-5 text-indigo-500" />
+                    <GitBranch className="h-5 w-5 text-secondary" />
                     Recommended Next Actions
                 </h3>
                 {assignedWorkflows.length > 0 ? (
                     <div className="grid gap-4">
                         {assignedWorkflows.map(({ targetWorkflow }, index) => (
-                            <Card key={targetWorkflow!.id} className="hover:border-indigo-300 transition-colors">
+                            <Card key={targetWorkflow!.id} className="hover:border-secondary transition-colors">
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
+                                        <div className="h-10 w-10 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary">
                                             <FileText className="h-5 w-5" />
                                         </div>
                                         <div>

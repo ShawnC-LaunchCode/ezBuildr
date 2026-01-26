@@ -12,12 +12,13 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { EmailConfig } from "@/../../shared/types/stepConfigs";
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
-export function EmailCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as EmailConfig | undefined;
@@ -102,6 +103,19 @@ export function EmailCardEditor({ stepId, sectionId, step }: StepEditorCommonPro
           <p className="text-sm font-mono">user@example.com</p>
         )}
       </div>
+
+
+      {
+        workflowId && (
+          <VisibilityField
+            stepId={stepId}
+            sectionId={sectionId}
+            workflowId={workflowId}
+            visibleIf={step.visibleIf}
+            mode="advanced"
+          />
+        )
+      }
     </div>
   );
 }

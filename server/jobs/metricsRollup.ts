@@ -206,7 +206,7 @@ export async function computeAndSaveSLIs(): Promise<void> {
       }, 'Failed to compute SLI');
     }
   }
-  logger.info('SLI windows computed and saved');
+  logger.debug('SLI windows computed and saved');
 }
 /**
  * Get bucket boundaries for a time range

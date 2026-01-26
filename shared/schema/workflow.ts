@@ -285,7 +285,7 @@ export const logicRules = pgTable("logic_rules", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     conditionStepId: uuid("condition_step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
     operator: conditionOperatorEnum("operator").notNull(),
-    conditionValue: jsonb("condition_value").notNull(),
+    conditionValue: jsonb("condition_value"),
     targetType: logicRuleTargetTypeEnum("target_type").notNull(),
     targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
     targetSectionId: uuid("target_section_id").references(() => sections.id, { onDelete: 'cascade' }),

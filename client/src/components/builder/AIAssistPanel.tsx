@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -205,7 +205,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                         Iterate on your workflow using natural language.
                     </SheetDescription>
                 </SheetHeader>
-                <ScrollArea className="flex-1 p-4 h-full max-h-[calc(100vh-280px)] overflow-y-auto" ref={scrollRef}>
+                <div className="flex-1 p-4 overflow-y-auto" ref={scrollRef}>
                     <div className="space-y-6">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
@@ -292,7 +292,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                         )}
                         <div ref={scrollRef} />
                     </div>
-                </ScrollArea>
+                </div>
                 <div className="p-4 border-t bg-background">
                     <form
                         className="flex gap-2"

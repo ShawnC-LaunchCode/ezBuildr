@@ -27,6 +27,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import { AliasField } from "./common/AliasField";
 import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { ScaleConfig, ScaleAdvancedConfig } from "@/../../shared/types/stepConfigs";
@@ -297,15 +298,14 @@ export function ScaleCardEditor({ stepId, sectionId, step }: StepEditorCommonPro
       )}
 
       {/* Preview Info */}
-      {localConfig.display === "stars" && (
-        <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-          <p className="font-medium mb-1">Stars Mode:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Range: 1 to {localConfig.stars || 5}</li>
-            <li>User selects by clicking a star</li>
-            <li>Value stored as number (e.g., 1, 2, 3, ...)</li>
-          </ul>
-        </div>
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
       )}
     </div>
   );

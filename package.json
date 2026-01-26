@@ -8,7 +8,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "cross-env NODE_ENV=development tsx server/index.ts",
+    "dev": "cross-env NODE_ENV=development tsx -r dotenv/config server/index.ts",
     "dev:test": "cross-env NODE_ENV=test PORT=5174 tsx server/index.ts",
     "kill-server": "kill-port 5000",
     "build": "cross-env VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID vite build && esbuild server/production.ts --platform=node --bundle --format=esm --outfile=dist/index.js --packages=external",

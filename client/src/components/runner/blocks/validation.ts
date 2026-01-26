@@ -55,6 +55,38 @@ export function validateBlockValue(step: Step, value: any, required: boolean): s
 
   // Type-specific validation
   switch (step.type) {
+    case "short_text":
+    case "long_text":
+    case "text":
+      if (value && typeof value === "string") {
+        const config = step.config as any; // TextConfig or TextAdvancedConfig
+        const validation = config?.validation;
+
+        // Max Length
+        if (validation?.maxLength !== undefined && value.length > validation.maxLength) {
+          return `Must be at most ${validation.maxLength} characters`;
+        }
+
+        // Min Length
+        if (validation?.minLength !== undefined && value.length < validation.minLength) {
+          return `Must be at least ${validation.minLength} characters`;
+        }
+
+        // Regex Pattern
+        if (validation?.pattern) {
+          try {
+            const regex = new RegExp(validation.pattern);
+            if (!regex.test(value)) {
+              return validation.patternMessage || "Invalid format";
+            }
+          } catch (e) {
+            // Ignore invalid regex in runner to prevent crash, but maybe log it
+            console.warn("Invalid regex pattern in step config:", validation.pattern);
+          }
+        }
+      }
+      break;
+
     case "email":
       if (value && typeof value === "string") {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

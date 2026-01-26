@@ -19,6 +19,7 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 
 import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { AddressConfig } from "@/../../shared/types/stepConfigs";
@@ -138,6 +139,16 @@ export function AddressCardEditor({ stepId, sectionId, step }: StepEditorCommonP
           <li>Stored as: <code className="font-mono">{`{street, city, state, zip}`}</code></li>
         </ul>
       </div>
+
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
+      )}
     </div>
   );
 }

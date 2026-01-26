@@ -6,11 +6,13 @@ import {
     AIWorkflowSuggestion,
     AITemplateBindingsRequest,
     AITemplateBindingsResponse,
+    AIBindingSuggestion,
 } from '../../../shared/types/ai';
 import { createLogger } from '../../logger';
 import { AIPromptBuilder } from './AIPromptBuilder';
 import { AIProviderClient } from './AIProviderClient';
 import { createAIError } from './AIServiceUtils';
+import { AliasResolver, WorkflowWithAliases } from '../AliasResolver';
 
 const logger = createLogger({ module: 'workflow-suggestion-service' });
 
@@ -82,11 +84,16 @@ export class WorkflowSuggestionService {
 
     /**
      * Suggest template variable bindings
+     * @param request - The binding request containing workflow and template IDs
+     * @param variables - Available workflow variables with their aliases
+     * @param placeholders - Template placeholders to match
+     * @param workflow - Optional workflow structure for alias validation
      */
     async suggestTemplateBindings(
         request: AITemplateBindingsRequest,
         variables: Array<{ alias: string; label: string; type: string }>,
         placeholders: string[],
+        workflow?: WorkflowWithAliases,
     ): Promise<AITemplateBindingsResponse> {
         const startTime = Date.now();
 
@@ -100,16 +107,31 @@ export class WorkflowSuggestionService {
             const parsed = JSON.parse(response);
             const validated = AITemplateBindingsResponseSchema.parse(parsed);
 
+            // Validate suggested aliases against the workflow if provided
+            const { validSuggestions, warnings } = this.validateBindingSuggestions(
+                validated.suggestions,
+                variables,
+                workflow,
+            );
+
+            const result: AITemplateBindingsResponse = {
+                ...validated,
+                suggestions: validSuggestions,
+                warnings: [...(validated.warnings || []), ...warnings],
+            };
+
             const duration = Date.now() - startTime;
             logger.info(
                 {
                     duration,
-                    suggestionsCount: validated.suggestions.length,
+                    suggestionsCount: result.suggestions.length,
+                    filteredCount: validated.suggestions.length - validSuggestions.length,
+                    warningsCount: warnings.length,
                 },
                 'AI binding suggestion succeeded',
             );
 
-            return validated;
+            return result;
         } catch (error: any) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI binding suggestion failed');
@@ -132,6 +154,75 @@ export class WorkflowSuggestionService {
 
             throw error;
         }
+    }
+
+    /**
+     * Validate binding suggestions against available variables and workflow aliases
+     */
+    private validateBindingSuggestions(
+        suggestions: AIBindingSuggestion[],
+        variables: Array<{ alias: string; label: string; type: string }>,
+        workflow?: WorkflowWithAliases,
+    ): { validSuggestions: AIBindingSuggestion[]; warnings: string[] } {
+        const validSuggestions: AIBindingSuggestion[] = [];
+        const warnings: string[] = [];
+
+        // Build a set of valid aliases from the provided variables
+        const validAliases = new Set(variables.map(v => v.alias.toLowerCase()));
+
+        // If workflow is provided, also use AliasResolver for comprehensive validation
+        let resolver: AliasResolver | undefined;
+        if (workflow) {
+            resolver = AliasResolver.fromWorkflow(workflow);
+        }
+
+        for (const suggestion of suggestions) {
+            const suggestedAlias = suggestion.variable;
+            const normalizedAlias = suggestedAlias.toLowerCase();
+
+            // Check if the alias exists in the provided variables
+            const existsInVariables = validAliases.has(normalizedAlias);
+
+            // If workflow provided, also check via AliasResolver
+            const existsInWorkflow = resolver ? resolver.has(suggestedAlias) : true;
+
+            if (existsInVariables && existsInWorkflow) {
+                validSuggestions.push(suggestion);
+            } else {
+                // Find similar aliases for helpful warning message
+                let similarAliases: string[] = [];
+                if (resolver) {
+                    const allAliases = resolver.getAllAliases();
+                    similarAliases = allAliases
+                        .filter(alias => {
+                            const aliasLower = alias.toLowerCase();
+                            return aliasLower.includes(normalizedAlias) ||
+                                   normalizedAlias.includes(aliasLower);
+                        })
+                        .slice(0, 3);
+                }
+
+                const suggestionText = similarAliases.length > 0
+                    ? ` Similar aliases: ${similarAliases.join(', ')}`
+                    : '';
+
+                warnings.push(
+                    `Filtered binding for placeholder "${suggestion.placeholder}": ` +
+                    `alias "${suggestedAlias}" does not exist in workflow.${suggestionText}`
+                );
+
+                logger.warn(
+                    {
+                        placeholder: suggestion.placeholder,
+                        suggestedAlias,
+                        similarAliases,
+                    },
+                    'Filtered invalid binding suggestion - alias not found',
+                );
+            }
+        }
+
+        return { validSuggestions, warnings };
     }
 
     /**

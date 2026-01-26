@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
+import { VisibilityField } from "./common/VisibilityField";
 
 import type { DisplayConfig, DisplayAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
@@ -126,6 +127,16 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
           <li>Can reference other variables using <code className="font-mono">{`{{alias}}`}</code></li>
         </ul>
       </div>
+
+      {workflowId && (
+        <VisibilityField
+          stepId={stepId}
+          sectionId={sectionId}
+          workflowId={workflowId}
+          visibleIf={step.visibleIf}
+          mode="advanced"
+        />
+      )}
     </div>
   );
 }

@@ -41,7 +41,8 @@ export type AIErrorCode =
   | 'VALIDATION_ERROR'
   | 'RATE_LIMIT'
   | 'TIMEOUT'
-  | 'RESPONSE_TRUNCATED';
+  | 'RESPONSE_TRUNCATED'
+  | 'QUALITY_THRESHOLD';
 
 /**
  * Task types for LLM calls

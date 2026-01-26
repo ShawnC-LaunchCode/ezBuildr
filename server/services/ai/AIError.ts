@@ -139,3 +139,81 @@ export function getRetryAfter(error: any): number {
   // Default to 60 seconds if no info available
   return 60000;
 }
+
+/**
+ * Quality threshold details for quality rejection errors
+ */
+export interface QualityThresholdDetails {
+  qualityScore: number;
+  threshold: number;
+  issues: Array<{
+    type: 'error' | 'warning' | 'suggestion';
+    category: string;
+    message: string;
+    location?: string;
+    suggestion?: string;
+  }>;
+  suggestions: string[];
+  breakdown: {
+    aliases: number;
+    types: number;
+    structure: number;
+    ux: number;
+    completeness: number;
+    validation: number;
+  };
+}
+
+/**
+ * Quality Threshold Error - thrown when AI-generated workflow quality is below minimum threshold
+ */
+export class QualityThresholdError extends AIError {
+  public readonly qualityScore: number;
+  public readonly threshold: number;
+  public readonly qualityIssues: QualityThresholdDetails['issues'];
+  public readonly qualitySuggestions: string[];
+  public readonly qualityBreakdown: QualityThresholdDetails['breakdown'];
+
+  constructor(details: QualityThresholdDetails) {
+    super(
+      `Generated workflow quality score (${details.qualityScore}) is below minimum threshold (${details.threshold})`,
+      'QUALITY_THRESHOLD',
+      details,
+      false // not retryable automatically
+    );
+    this.name = 'QualityThresholdError';
+    this.qualityScore = details.qualityScore;
+    this.threshold = details.threshold;
+    this.qualityIssues = details.issues;
+    this.qualitySuggestions = details.suggestions;
+    this.qualityBreakdown = details.breakdown;
+
+    // Maintains proper stack trace
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, QualityThresholdError);
+    }
+  }
+
+  /**
+   * Convert to JSON for API responses
+   */
+  toJSON(): AIErrorDetails & { quality: QualityThresholdDetails } {
+    return {
+      ...super.toJSON(),
+      quality: {
+        qualityScore: this.qualityScore,
+        threshold: this.threshold,
+        issues: this.qualityIssues,
+        suggestions: this.qualitySuggestions,
+        breakdown: this.qualityBreakdown,
+      },
+    };
+  }
+}
+
+/**
+ * Check if error is a quality threshold error
+ */
+export function isQualityThresholdError(error: any): error is QualityThresholdError {
+  return error instanceof QualityThresholdError || error?.code === 'QUALITY_THRESHOLD';
+}

@@ -30,7 +30,7 @@ export interface TextBlockProps {
   readOnly?: boolean;
 }
 
-export function TextBlockRenderer({ step, value, onChange, readOnly }: TextBlockProps) {
+export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescribedBy }: TextBlockProps) {
   const currentValue = value || "";
 
   // Determine if this is short or long text
@@ -73,6 +73,7 @@ export function TextBlockRenderer({ step, value, onChange, readOnly }: TextBlock
           rows={4}
           disabled={readOnly}
           className="resize-y"
+          aria-describedby={ariaDescribedBy}
         />
         {maxLength && (
           <p className="text-xs text-muted-foreground text-right">
@@ -93,6 +94,7 @@ export function TextBlockRenderer({ step, value, onChange, readOnly }: TextBlock
         placeholder={placeholder}
         disabled={readOnly}
         maxLength={maxLength}
+        aria-describedby={ariaDescribedBy}
       />
       {maxLength && (
         <p className="text-xs text-muted-foreground text-right">

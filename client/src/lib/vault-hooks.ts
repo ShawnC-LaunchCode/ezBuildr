@@ -1088,6 +1088,13 @@ export function useUnlinkDataSource() {
 // ============================================================================
 // Templates
 // ============================================================================
+export function useTemplates() {
+  return useQuery({
+    queryKey: ["templates"],
+    queryFn: templateAPI.list,
+  });
+}
+
 export function useTemplatePlaceholders(templateId: string | undefined) {
   return useQuery({
     queryKey: ["templates", templateId, "placeholders"],

@@ -69,7 +69,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Fallback: Legacy ownership (only for workflows without new ownership)
     conditions.push(
       and(
-        eq(workflows.ownerType, null as any),
+        isNull(workflows.ownerType),
         or(eq(workflows.creatorId, creatorId), eq(workflows.ownerId, creatorId))
       )
     );
@@ -84,7 +84,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         organizations,
         and(
           eq(workflows.ownerType, 'org'),
-          eq(workflows.ownerUuid, organizations.id)
+          eq(workflows.ownerUuid, sql`${organizations.id}::text`)
         )
       )
       .where(or(...conditions))
@@ -126,7 +126,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // 4. Legacy ownership (only for workflows without new ownership model)
     conditions.push(
       and(
-        eq(workflows.ownerType, null as any),
+        isNull(workflows.ownerType),
         or(eq(workflows.creatorId, userId), eq(workflows.ownerId, userId))
       )
     );
