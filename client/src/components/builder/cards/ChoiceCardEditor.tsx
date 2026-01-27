@@ -43,6 +43,8 @@ import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, Le
 
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
+import { useChoiceConfig } from "@/hooks/useChoiceConfig";
+import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -66,209 +68,34 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   const { data: workflow } = useWorkflow(workflowId);
   const mode = workflow?.modeOverride || 'easy';
 
-  // Determine mode
+  // Determine mode (kept for compatibility, but hook also provides this)
   const isAdvancedMode = step.type === "choice";
 
+  // Use custom hooks for config management
+  const { localConfig, setLocalConfig, sourceMode, setSourceMode } = useChoiceConfig(step);
+
   // State
-  const [localConfig, setLocalConfig] = useState<any>(null);
   const [errors, setErrors] = useState<string[]>([]);
-  const [sourceMode, setSourceMode] = useState<"static" | "dynamic">("static");
 
   // Fetch Workflow Variables (for dynamic mode)
   const { data: variables = [] } = useWorkflowVariables(workflowId);
-  const { data: blocks = [] } = useBlocks(workflowId);
 
   // Filter for List variables only
-  // ApiWorkflowVariable doesn't have 'metadata', so we filter by type 'read_table' or 'list_tools'
   const listVariables = useMemo(() => {
     return variables.filter(v => v.type === 'read_table' || v.type === 'list_tools');
   }, [variables]);
 
-  // Find the source block to get the table ID and check timing
-  const sourceBlock = useMemo(() => {
-    if (!localConfig?.dynamicOptions.listVariable || !blocks || blocks.length === 0) { return null; }
-    return blocks.find(b => b.config && b.config.outputKey === localConfig.dynamicOptions.listVariable);
-  }, [localConfig?.dynamicOptions.listVariable, blocks]);
+  // Use custom hook for validation
+  const {
+    timingWarning,
+    labelColumnWarning,
+    valueColumnWarning,
+    sourceBlock,
+    sourceTableId,
+    columns,
+    loadingColumns
+  } = useListToolsValidation({ localConfig, workflowId, sectionId });
 
-  const sourceTableId = useMemo(() => {
-    if (!sourceBlock) { return null; }
-    if (sourceBlock.type === 'read_table') {
-      return sourceBlock.config.tableId;
-    }
-    return null;
-  }, [sourceBlock]);
-
-  // Fetch sections to check order
-  const { data: sections = [] } = useSections(workflowId);
-
-  // Timing Check
-  const timingWarning = useMemo(() => {
-    if (!sourceBlock || !step || (sections.length === 0)) { return null; }
-
-    const blockPhase = sourceBlock.phase;
-    const stepSection = sections.find(s => s.id === sectionId);
-    const blockSection = sourceBlock.sectionId ? sections.find(s => s.id === sourceBlock.sectionId) : null;
-
-    if (!stepSection) { return null; }
-
-    // Safe phases
-    if (blockPhase === 'onRunStart') { return null; }
-
-    // Section-based checks
-    if (blockPhase === 'onSectionEnter') {
-      // If global block (no section), acts like RunStart? No, depends. Usually associated with a section.
-      // If blockSection is null, assume it runs ... when? API says sectionId can be null.
-      if (!blockSection) { return null; } // Assume safe if global?
-
-      if (blockSection.order > stepSection.order) {
-        return "Read block runs in a later section.";
-      }
-      // Same section is safe for onSectionEnter
-      return null;
-    }
-
-    if (blockPhase === 'onSectionSubmit' || blockPhase === 'onNext') {
-      if (!blockSection) { return "Block runs on submit but has no section?"; }
-      // Must be strictly previous section
-      if (blockSection.order < stepSection.order) { return null; }
-      return "Read block runs after the page is displayed (on Next/Submit).";
-    }
-
-    if (blockPhase === 'onRunComplete') {
-      return "Read block runs at the end of the workflow.";
-    }
-
-    return null;
-  }, [sourceBlock, sections, sectionId]);
-
-  const { data: columnsResponse, isLoading: loadingColumns } = useTableColumns(sourceTableId);
-  const columns = Array.isArray(columnsResponse) ? columnsResponse : [];
-
-  // Validation for dynamic columns
-  const labelColumnWarning = useMemo(() => {
-    const id = localConfig?.dynamicOptions?.labelColumnId;
-    if (!id || !sourceTableId || columns.length === 0) return null;
-    if (id.includes('.')) return null; // Dot notation assumed valid
-    if (!columns.find((c: any) => c.id === id || c.name === id)) return "Selected column not found in source table.";
-    return null;
-  }, [localConfig?.dynamicOptions?.labelColumnId, columns, sourceTableId]);
-
-  const valueColumnWarning = useMemo(() => {
-    const id = localConfig?.dynamicOptions?.valueColumnId;
-    if (!id || !sourceTableId || columns.length === 0) return null;
-    if (id.includes('.')) return null;
-    if (!columns.find((c: any) => c.id === id || c.name === id)) return "Selected column not found in source table.";
-    return null;
-  }, [localConfig?.dynamicOptions?.valueColumnId, columns, sourceTableId]);
-
-  // Parse config on mount or change
-  useEffect(() => {
-    if (isAdvancedMode) {
-      const config = step.config as ChoiceAdvancedConfig | undefined;
-      const rawOptions = config?.options;
-
-      let mode: "static" | "dynamic" = "static";
-      let staticOptions: ChoiceOption[] = [];
-      let dynamicOptions: any = {};
-
-      if (rawOptions && typeof rawOptions === 'object' && 'type' in rawOptions) {
-        // Dynamic Config
-        const dynConfig = rawOptions;
-        if (dynConfig.type === 'static') {
-          staticOptions = dynConfig.options || [];
-        } else if (dynConfig.type === 'list') {
-          mode = "dynamic";
-          // Migrate old format to new format
-          dynamicOptions = {
-            type: 'list',
-            listVariable: dynConfig.listVariable || '',
-            labelPath: (dynConfig as any).labelPath || (dynConfig as any).labelColumnId || '',
-            valuePath: (dynConfig as any).valuePath || (dynConfig as any).valueColumnId || '',
-            labelTemplate: dynConfig.labelTemplate,
-            groupByPath: dynConfig.groupByPath,
-            enableSearch: dynConfig.enableSearch,
-            includeBlankOption: dynConfig.includeBlankOption,
-            blankLabel: dynConfig.blankLabel,
-            transform: dynConfig.transform || {
-              filters: undefined,
-              sort: undefined,
-              limit: undefined,
-              offset: undefined,
-              dedupe: undefined,
-              select: undefined
-            }
-          };
-        }
-      } else if (Array.isArray(rawOptions)) {
-        staticOptions = rawOptions;
-      }
-
-      setLocalConfig({
-        display: config?.display || "radio",
-        allowMultiple: config?.allowMultiple || false,
-        searchable: config?.searchable || false,
-        staticOptions,
-        dynamicOptions: dynamicOptions.type === 'list' ? dynamicOptions : {
-          type: 'list',
-          listVariable: '',
-          labelPath: '',
-          valuePath: '',
-          labelTemplate: '',
-          groupByPath: '',
-          enableSearch: false,
-          includeBlankOption: false,
-          blankLabel: '',
-          transform: {
-            filters: undefined,
-            sort: undefined,
-            limit: undefined,
-            offset: undefined,
-            dedupe: undefined,
-            select: undefined
-          }
-        }
-      });
-      setSourceMode(mode);
-
-    } else {
-      // Easy mode legacy conversion
-      const config = step.config as (LegacyMultipleChoiceConfig | LegacyRadioConfig) | undefined;
-      const legacyOptions = config?.options || [];
-      const options: ChoiceOption[] = Array.isArray(legacyOptions)
-        ? legacyOptions.map((opt: any, idx: number) => ({
-          id: opt.id || `opt${idx + 1}`,
-          label: typeof opt === 'string' ? opt : (opt.label || opt),
-          alias: typeof opt === 'string' ? `option${idx + 1}` : (opt.alias || opt.id || `option${idx + 1}`),
-        }))
-        : [];
-
-      setLocalConfig({
-        display: step.type === "multiple_choice" ? "multiple" : "radio",
-        allowMultiple: step.type === "multiple_choice",
-        staticOptions: options,
-        dynamicOptions: {
-          type: 'list',
-          listVariable: '',
-          labelPath: '',
-          valuePath: '',
-          labelTemplate: '',
-          groupByPath: '',
-          enableSearch: false,
-          includeBlankOption: false,
-          blankLabel: '',
-          transform: {
-            filters: undefined,
-            sort: undefined,
-            limit: undefined,
-            offset: undefined,
-            dedupe: undefined,
-            select: undefined
-          }
-        }
-      });
-      setSourceMode("static");
-    }
-  }, [step.config, step.type, isAdvancedMode]);
 
   // Derived state for Dynamic Columns
   const selectedListVarName = localConfig?.dynamicOptions?.listVariable;
