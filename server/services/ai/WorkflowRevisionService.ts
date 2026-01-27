@@ -2,6 +2,7 @@ import {
     AIWorkflowRevisionResponseSchema,
 } from '../../../shared/types/ai';
 import { createLogger } from '../../logger';
+
 import { AIPromptBuilder } from './AIPromptBuilder';
 import { AIProviderClient } from './AIProviderClient';
 import {
@@ -10,6 +11,7 @@ import {
     isResponseTruncated,
     validateWorkflowStructure
 } from './AIServiceUtils';
+
 import type {
     AIWorkflowRevisionRequest,
     AIWorkflowRevisionResponse,

@@ -1,11 +1,14 @@
-import { workflowRunRepository, stepValueRepository } from "../../repositories";
-import { createLogger } from "../../logger";
-import { blockRunner } from "../BlockRunner";
-import type { RunLifecycleService } from "./RunLifecycleService";
-import type { RunStateService } from "./RunStateService";
-import type { RunMetricsService } from "./RunMetricsService";
-import type { LogicService } from "../LogicService";
 import type { WorkflowRun } from "@shared/schema";
+
+import { createLogger } from "../../logger";
+import { workflowRunRepository, stepValueRepository } from "../../repositories";
+import { blockRunner } from "../BlockRunner";
+
+import type { RunLifecycleService } from "./RunLifecycleService";
+import type { RunMetricsService } from "./RunMetricsService";
+import type { RunStateService } from "./RunStateService";
+import type { LogicService } from "../LogicService";
+
 const logger = createLogger({ module: 'run-completion-service' });
 /**
  * Service for handling workflow run completion logic

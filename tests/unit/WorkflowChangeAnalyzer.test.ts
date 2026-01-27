@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+
 import { WorkflowJSON, WorkflowBlock } from "@shared/types/workflow";
+
 import { WorkflowChangeAnalyzer } from "../../server/services/analyzer/WorkflowChangeAnalyzer";
 describe("WorkflowChangeAnalyzer", () => {
     const analyzer = new WorkflowChangeAnalyzer();

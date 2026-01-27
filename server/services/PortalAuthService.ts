@@ -1,7 +1,10 @@
 import crypto from 'crypto';
+
 import { eq, and, gt } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
+
 import { portalTokens } from "@shared/schema";
+
 import { db } from "../db";
 import { logger } from "../logger";
 import { hashToken } from "../utils/encryption";

@@ -1,6 +1,7 @@
 import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -594,7 +595,7 @@ export default function OrganizationDetail() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => { if (removingMemberId) void handleRemoveMember(removingMemberId); }}
+              onClick={() => { if (removingMemberId) {void handleRemoveMember(removingMemberId);} }}
               disabled={removeMember.isPending}
             >
               {removeMember.isPending ? 'Removing...' : 'Remove Member'}

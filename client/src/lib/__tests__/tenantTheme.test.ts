@@ -4,7 +4,9 @@
  * Unit tests for theme token generation and application
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import type { TenantBranding } from '@/lib/vault-api';
+
 import {
   brandingToThemeTokens,
   applyThemeTokens,

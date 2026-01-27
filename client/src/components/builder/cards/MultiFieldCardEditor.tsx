@@ -19,6 +19,8 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
@@ -26,10 +28,9 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { MultiFieldConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
 // Layout presets
-const LAYOUT_PRESETS: Record<string, Array<{ key: string; label: string; type: string; required: boolean }>> = {
+const LAYOUT_PRESETS: Record<string, MultiFieldConfig['fields']> = {
   first_last: [
     { key: "first", label: "First Name", type: "text" as const, required: true },
     { key: "last", label: "Last Name", type: "text" as const, required: true },
@@ -44,14 +45,14 @@ const LAYOUT_PRESETS: Record<string, Array<{ key: string; label: string; type: s
   ],
 };
 
-export function MultiFieldCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   // Parse config
   const config = step.config as MultiFieldConfig | undefined;
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<MultiFieldConfig>({
     layout: (config?.layout || "first_last"),
-    fields: config?.fields || LAYOUT_PRESETS.first_last,
+    fields: config?.fields || LAYOUT_PRESETS.first_last as any, // Cast presets to align with full config
     storeAs: (config?.storeAs || "separate"),
   });
 
@@ -70,7 +71,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, step }: StepEditorComm
 
     const configToSave: MultiFieldConfig = {
       layout: newConfig.layout,
-      fields: newConfig.fields as any,
+      fields: newConfig.fields,
       storeAs: newConfig.storeAs,
     };
 

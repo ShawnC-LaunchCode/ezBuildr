@@ -1,13 +1,17 @@
 import fs from 'fs/promises';
 import path from 'path';
+
 import { eq, and } from 'drizzle-orm';
+
 import * as schema from '@shared/schema';
+
 import { db } from '../../db';
 import { logger } from '../../logger';
 import { pdfService } from '../../services/document/PdfService';
 import { renderDocx2 } from '../../services/docxRenderer2';
 import { renderTemplate , getTemplateFilePath } from '../../services/templates';
 import { evaluateExpression } from '../expr';
+
 import type { EvalContext } from '../expr';
 /**
  * Template Node Executor (Stage 21 - Multi-Template Support)

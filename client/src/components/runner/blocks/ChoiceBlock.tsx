@@ -354,7 +354,7 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
         <SearchableDropdown
           options={options}
           value={currentValue as string}
-          onChange={(val) => { if (!readOnly) onChange(val); }}
+          onChange={(val) => { if (!readOnly) {onChange(val);} }}
           disabled={readOnly}
         />
       );

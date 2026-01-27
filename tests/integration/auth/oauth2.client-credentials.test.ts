@@ -5,6 +5,7 @@
  * Used for API integrations and external service connections
  */
 import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
+
 import {
   getOAuth2Token,
   invalidateOAuth2Token,

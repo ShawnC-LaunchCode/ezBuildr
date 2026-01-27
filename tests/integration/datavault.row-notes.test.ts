@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import {
   datavaultTables,
   datavaultRows,
@@ -8,6 +9,7 @@ import {
   tenants,
   users,
 } from '@shared/schema';
+
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 /**
  * DataVault v4 Micro-Phase 3: Row Notes Integration Tests

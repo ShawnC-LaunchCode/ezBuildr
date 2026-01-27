@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { setupIntegrationTest } from '../../helpers/integrationTestHelper';
 
 describe('Hardening: Rate Limiting', () => {
@@ -16,7 +17,7 @@ describe('Hardening: Rate Limiting', () => {
 
     afterEach(async () => {
         process.env = oldEnv;
-        if (ctx && ctx.cleanup) await ctx.cleanup();
+        if (ctx?.cleanup) {await ctx.cleanup();}
     });
 
     it('should enforce rate limits on upload endpoint', async () => {

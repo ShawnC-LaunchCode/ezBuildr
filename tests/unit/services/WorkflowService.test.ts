@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
+
 // Use dynamic import for service to ensure mocks apply
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
+
 import type { InsertWorkflow } from "../../../shared/schema";
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";
 vi.mock("../../../server/db", () => ({

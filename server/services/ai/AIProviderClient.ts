@@ -7,13 +7,13 @@
 
 import { createLogger } from '../../logger';
 
-import { ProviderFactory } from './providers/ProviderFactory';
-import { ModelRegistry } from './ModelRegistry';
 import { AIError, isRateLimitError, isTimeoutError, getRetryAfter } from './AIError';
 import { estimateTokenCount } from './AIServiceUtils';
+import { ModelRegistry } from './ModelRegistry';
+import { ProviderFactory } from './providers/ProviderFactory';
 
-import type { TaskType } from './types';
 import type { IAIProvider } from './providers/types';
+import type { TaskType } from './types';
 import type { AIProvider, AIProviderConfig } from '../../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-provider-client' });

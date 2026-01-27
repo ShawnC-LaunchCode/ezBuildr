@@ -11,11 +11,12 @@
  * - Stop when: quality is good enough OR marginal improvement < threshold
  */
 
-import { createLogger } from '../../logger';
 import { AIGeneratedWorkflow, AIWorkflowGenerationRequest } from '../../../shared/types/ai';
+import { createLogger } from '../../logger';
 import { QualityScore, WorkflowQualityValidator, workflowQualityValidator } from '../WorkflowQualityValidator';
-import { AIProviderClient } from './AIProviderClient';
+
 import { AIPromptBuilder } from './AIPromptBuilder';
+import { AIProviderClient } from './AIProviderClient';
 
 const logger = createLogger({ module: 'iterative-quality-improver' });
 
@@ -233,19 +234,19 @@ export class IterativeQualityImprover {
     const prioritizedIssues: string[] = [];
 
     // Errors first
-    const errors = score.issues.filter(i => i.type === 'error');
+    const errors = score.issues.filter(i => i.severity === 'error');
     if (errors.length > 0) {
       prioritizedIssues.push(`CRITICAL ERRORS (must fix):\n${errors.map(e => `- ${e.message}${e.suggestion ? ` (${e.suggestion})` : ''}`).join('\n')}`);
     }
 
     // Warnings second
-    const warnings = score.issues.filter(i => i.type === 'warning');
+    const warnings = score.issues.filter(i => i.severity === 'warning');
     if (warnings.length > 0) {
       prioritizedIssues.push(`WARNINGS (should fix):\n${warnings.map(w => `- ${w.message}${w.suggestion ? ` (${w.suggestion})` : ''}`).join('\n')}`);
     }
 
     // Suggestions last
-    const suggestions = score.issues.filter(i => i.type === 'suggestion');
+    const suggestions = score.issues.filter(i => i.severity === 'suggestion');
     if (suggestions.length > 0 && prioritizedIssues.length < 10) {
       prioritizedIssues.push(`SUGGESTIONS (nice to have):\n${suggestions.slice(0, 5).map(s => `- ${s.message}`).join('\n')}`);
     }

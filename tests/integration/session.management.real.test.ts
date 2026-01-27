@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
+
 import { refreshTokens } from "@shared/schema";
+
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
@@ -9,6 +11,7 @@ import {
   deleteTestUser,
   createVerifiedUser,
 } from "../helpers/testUtils";
+
 import type { Express } from "express";
 /**
  * Session Management Integration Tests (REAL)

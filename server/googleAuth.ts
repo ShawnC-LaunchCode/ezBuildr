@@ -1,10 +1,12 @@
 import { serialize } from "cookie";
 import rateLimit from "express-rate-limit";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
+
 import { createLogger } from "./logger";
 import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
 import { templateSharingService } from "./services/TemplateSharingService";
+
 import type { } from "./types";
 import type { Express } from "express";
 const logger = createLogger({ module: 'auth' });
@@ -50,7 +52,7 @@ async function upsertUser(payload: TokenPayload) {
       profileImageUrl: payload.picture || null,
       defaultMode: 'easy' as const,
       tenantId: defaultTenant.id,
-      tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer') as 'owner' | 'viewer',
+      tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer'),
       authProvider: 'google' as const,
       emailVerified: true,
       lastPasswordChange: null

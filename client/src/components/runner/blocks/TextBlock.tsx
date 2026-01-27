@@ -25,9 +25,10 @@ import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
 export interface TextBlockProps {
   step: Step;
-  value: any;
+  value: string | undefined | null;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
 }
 
 export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescribedBy }: TextBlockProps) {

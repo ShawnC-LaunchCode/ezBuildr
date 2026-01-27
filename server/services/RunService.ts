@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
+
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from "@shared/schema";
+
 import { logger } from "../logger";
 import {
   workflowRunRepository,
@@ -11,17 +13,19 @@ import {
   projectRepository,
   runGeneratedDocumentsRepository,
 } from "../repositories";
+
 import { logicService, type NavigationResult } from "./LogicService";
 import {  RunAuthResolver } from "./runs/RunAuthResolver";
 import {  RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
 import {  RunPersistenceWriter } from "./runs/RunPersistenceWriter";
 // Specialized run services
+import { RunCompletionService } from "./workflow-runs/RunCompletionService";
 import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
-import { RunStateService } from "./workflow-runs/RunStateService";
 import { RunShareService } from "./workflow-runs/RunShareService";
-import { RunCompletionService } from "./workflow-runs/RunCompletionService";
+import { RunStateService } from "./workflow-runs/RunStateService";
 import { workflowService } from "./WorkflowService";
+
 import type { CreateRunOptions } from "./workflow-runs/types";
 /**
  * Service layer for workflow run-related business logic

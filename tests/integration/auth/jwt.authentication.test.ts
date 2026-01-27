@@ -9,7 +9,9 @@ import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
 import {  emailVerificationTokens, users } from "@shared/schema";
+
 import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
 describe.sequential("JWT Authentication Integration Tests", () => {

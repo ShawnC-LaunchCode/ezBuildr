@@ -59,7 +59,7 @@ export function validateBlockValue(step: Step, value: any, required: boolean): s
     case "long_text":
     case "text":
       if (value && typeof value === "string") {
-        const config = step.config as any; // TextConfig or TextAdvancedConfig
+        const config = step.config; // TextConfig or TextAdvancedConfig
         const validation = config?.validation;
 
         // Max Length

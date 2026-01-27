@@ -8,12 +8,15 @@ import express from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import { users, tenants, refreshTokens, auditLogs } from '@shared/schema';
+
 import { db } from '../../../server/db';
 import {  userCredentialsRepository } from '../../../server/repositories';
 import { registerAuthRoutes } from '../../../server/routes/auth.routes';
 import { authService } from '../../../server/services/AuthService';
 import { hashToken } from '../../../server/utils/encryption';
+
 import type { Express } from 'express';
 describe('OAuth2 Token Refresh Flow', () => {
   let app: Express;

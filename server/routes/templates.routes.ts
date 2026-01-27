@@ -5,25 +5,6 @@ import multer from 'multer';
 
 import * as schema from '@shared/schema';
 
-import { db } from '../db';
-import { logger } from '../logger';
-import { hybridAuth } from '../middleware/auth';
-import { requirePermission } from '../middleware/rbac';
-import { requireTenant } from '../middleware/tenant';
-import { templateScanner } from '../services/document/TemplateScanner';
-import { uploadLimiter } from '../middleware/rateLimiter';
-import { documentProcessingLimiter } from '../services/processingLimiter';
-import { virusScanner } from '../services/security/VirusScanner';
-import {
-  saveTemplateFile,
-  deleteTemplateFile,
-  extractPlaceholders,
-} from '../services/templates';
-import { createError, formatErrorResponse } from '../utils/errors';
-import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
-
-import { storageQuotaService } from '../services/StorageQuotaService';
-
 import {
   createTemplateSchema,
   updateTemplateSchema,
@@ -32,6 +13,25 @@ import {
   projectIdParamsSchema,
   type ExtractPlaceholdersResponse,
 } from '../api/validators/templates';
+import { db } from '../db';
+import { logger } from '../logger';
+import { hybridAuth } from '../middleware/auth';
+import { uploadLimiter } from '../middleware/rateLimiter';
+import { requirePermission } from '../middleware/rbac';
+import { requireTenant } from '../middleware/tenant';
+import { templateScanner } from '../services/document/TemplateScanner';
+import { documentProcessingLimiter } from '../services/processingLimiter';
+import { virusScanner } from '../services/security/VirusScanner';
+import { storageQuotaService } from '../services/StorageQuotaService';
+import {
+  saveTemplateFile,
+  deleteTemplateFile,
+  extractPlaceholders,
+} from '../services/templates';
+import { createError, formatErrorResponse } from '../utils/errors';
+import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+
+
 
 import type { AuthRequest } from '../middleware/auth';
 
@@ -48,8 +48,8 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: os.tmpdir(),
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+      const uniqueSuffix = `${Date.now()  }-${  Math.round(Math.random() * 1E9)}`;
+      cb(null, `${file.fieldname  }-${  uniqueSuffix  }${path.extname(file.originalname)}`);
     }
   }),
   limits: {

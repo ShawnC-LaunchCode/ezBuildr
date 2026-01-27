@@ -8,7 +8,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { WorkflowRevisionService } from '../../../../server/services/ai/WorkflowRevisionService';
+
 import type { AIGeneratedSection } from '../../../../shared/types/ai';
 
 // Mock the AI provider client to avoid actual API calls

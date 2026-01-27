@@ -1,13 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import request from "supertest";
-import { createTestApp } from "../helpers/testApp";
-import { TestFactory } from "../helpers/testFactory";
-import { db } from "../../server/db";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+
 import { userCredentials } from "@shared/schema";
 
-import { eq } from "drizzle-orm";
-import { authService } from "../../server/services/AuthService";
+import { db } from "../../server/db";
 import { registerAiWorkflowEditRoutes } from "../../server/routes/ai/workflowEdit.routes";
+import { authService } from "../../server/services/AuthService";
+import { createTestApp } from "../helpers/testApp";
+import { TestFactory } from "../helpers/testFactory";
+
+
+
 
 // Mock GoogleGenerativeAI
 const mockGenerateContent = vi.fn().mockResolvedValue({

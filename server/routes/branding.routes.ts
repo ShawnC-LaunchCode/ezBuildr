@@ -1,11 +1,14 @@
-import { partialTenantBrandingSchema } from '@shared/types/branding';
 import { z } from 'zod';
+
+import { partialTenantBrandingSchema } from '@shared/types/branding';
+
 import { createLogger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { validateTenantParam } from '../middleware/tenant';
 import { brandingService } from '../services/BrandingService';
 import { asyncHandler } from '../utils/asyncHandler';
+
 import type { Express, Request, Response } from 'express';
 const logger = createLogger({ module: 'branding-routes' });
 /**

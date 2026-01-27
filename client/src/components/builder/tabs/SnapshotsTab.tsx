@@ -5,6 +5,7 @@
 import { Camera, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
 import React, { useState } from "react";
 import { useLocation } from "wouter";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +20,7 @@ import {
   useDeleteSnapshot,
 } from "@/lib/vault-hooks";
 import { usePreviewStore } from "@/store/preview";
+
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 interface SnapshotsTabProps {
   workflowId: string;

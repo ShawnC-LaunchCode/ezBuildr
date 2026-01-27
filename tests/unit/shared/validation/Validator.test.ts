@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+
 import { ValidationSchema } from '../../../../shared/validation/ValidationSchema';
 import { validateValue } from '../../../../shared/validation/Validator';
 // Mock condition evaluator since it's an external dependency

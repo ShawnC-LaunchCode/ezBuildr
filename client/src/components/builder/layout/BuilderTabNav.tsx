@@ -12,6 +12,7 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
 interface TabConfig {

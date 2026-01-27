@@ -3,6 +3,7 @@
  * Displays detailed information about a row with tabs for notes and history
  */
 import React, { useState } from "react";
+
 import {
   Sheet,
   SheetContent,
@@ -11,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { NotesTab } from "./NotesTab";
 interface RowDetailDrawerProps {
   rowId: string | null;

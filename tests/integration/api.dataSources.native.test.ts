@@ -1,7 +1,9 @@
 import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
 import * as schema from "@shared/schema";
+
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 describe.sequential("Data Sources API - Native Catalog", () => {

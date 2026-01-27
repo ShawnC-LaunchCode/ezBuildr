@@ -5,6 +5,7 @@
  * Events are stored in metrics_events table and aggregated by rollup jobs.
  */
 import { eq, and, gte, desc } from 'drizzle-orm';
+
 import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
 import { db } from '../db';
 import logger from '../logger';

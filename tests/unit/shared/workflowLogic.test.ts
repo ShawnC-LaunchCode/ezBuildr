@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import type { LogicRule } from "@shared/schema";
 import {
   evaluateRules,

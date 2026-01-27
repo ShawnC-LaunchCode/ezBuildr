@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+
 import { dbInitPromise } from "./db";
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";

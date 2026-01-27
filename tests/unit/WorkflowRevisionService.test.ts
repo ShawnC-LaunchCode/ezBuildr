@@ -9,10 +9,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { WorkflowRevisionService } from '../../server/services/ai/WorkflowRevisionService';
-import { AIProviderClient } from '../../server/services/ai/AIProviderClient';
+
 import { AIPromptBuilder } from '../../server/services/ai/AIPromptBuilder';
-import type { AIWorkflowRevisionRequest } from '../../shared/types/ai';
+import { AIProviderClient } from '../../server/services/ai/AIProviderClient';
+import { WorkflowRevisionService } from '../../server/services/ai/WorkflowRevisionService';
+
+import type { AIWorkflowRevisionRequest, AIGeneratedWorkflow } from '../../shared/types/ai';
 
 // Mock the logger
 vi.mock('../../server/logger', () => ({
@@ -39,7 +41,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
   let service: WorkflowRevisionService;
 
   // Helper to create a valid workflow structure
-  const createWorkflow = (sectionCount: number, stepsPerSection: number = 3) => ({
+  const createWorkflow = (sectionCount: number, stepsPerSection: number = 3): AIGeneratedWorkflow => ({
     title: 'Test Workflow',
     description: 'A test workflow for unit testing',
     sections: Array.from({ length: sectionCount }, (_, i) => ({
@@ -60,11 +62,11 @@ describe('WorkflowRevisionService Edge Cases', () => {
       {
         id: 'rule-1',
         conditionStepAlias: 'section1Question1',
-        operator: 'equals',
-        value: 'Yes',
-        targetType: 'step',
+        operator: 'equals' as const,
+        conditionValue: 'Yes',
+        targetType: 'step' as const,
         targetAlias: 'section1Question2',
-        action: 'show',
+        action: 'show' as const,
         description: 'Show question 2 if question 1 is Yes',
       },
     ],
@@ -355,9 +357,9 @@ describe('WorkflowRevisionService Edge Cases', () => {
         {
           id: 'cross-section-rule-1',
           conditionStepAlias: 'section1Question1',
-          operator: 'equals',
-          value: 'Yes',
-          targetType: 'section',
+          operator: 'equals' as const,
+          conditionValue: 'Yes',
+          targetType: 'section' as const,
           targetAlias: 'section-10', // Points to a section in a different chunk
           action: 'show',
           description: 'Show section 10 based on section 1',
@@ -365,11 +367,11 @@ describe('WorkflowRevisionService Edge Cases', () => {
         {
           id: 'cross-section-rule-2',
           conditionStepAlias: 'section8Question1',
-          operator: 'not_equals',
-          value: '',
-          targetType: 'step',
+          operator: 'not_equals' as const,
+          conditionValue: '',
+          targetType: 'step' as const,
           targetAlias: 'section15Question1',
-          action: 'require',
+          action: 'require' as const,
           description: 'Require section 15 field if section 8 has value',
         },
       ];
@@ -399,7 +401,9 @@ describe('WorkflowRevisionService Edge Cases', () => {
       workflow.transformBlocks = [
         {
           id: 'transform-1',
-          alias: 'computedTotal',
+          name: 'computedTotal',
+          phase: 'onWorkflowComplete' as const,
+          timeoutMs: 1000,
           code: 'return inputs.section1Question1 + inputs.section15Question1;',
           language: 'javascript',
           inputKeys: ['section1Question1', 'section15Question1'],

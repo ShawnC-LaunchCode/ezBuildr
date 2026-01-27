@@ -8,6 +8,7 @@
  * - Edge cases and error handling
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import * as repositories from '../../../server/repositories';
 import { IntakeQuestionVisibilityService } from '../../../server/services/IntakeQuestionVisibilityService';
 vi.mock('../../../server/repositories', () => ({

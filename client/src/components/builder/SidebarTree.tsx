@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Lock, Zap, Settings, Trash2 } from "lucide-react";
 import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,6 +34,7 @@ import { UI_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { useSections, useSteps, useCreateSection, useCreateStep, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";

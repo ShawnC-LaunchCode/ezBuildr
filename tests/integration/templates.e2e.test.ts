@@ -1,12 +1,14 @@
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
 import fs from 'fs';
 import path from 'path';
+
 import { nanoid } from 'nanoid';
-import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll , vi } from 'vitest';
+
 import { getTemplateFilePath } from '../../server/services/templates';
-import { vi } from 'vitest';
+import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+
 
 // Mock template scanner to avoid needing valid DOCX files
 vi.mock('../../server/services/document/TemplateScanner', () => ({

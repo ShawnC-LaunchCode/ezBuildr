@@ -9,10 +9,11 @@ import {
     AIBindingSuggestion,
 } from '../../../shared/types/ai';
 import { createLogger } from '../../logger';
+import { AliasResolver, WorkflowWithAliases } from '../AliasResolver';
+
 import { AIPromptBuilder } from './AIPromptBuilder';
 import { AIProviderClient } from './AIProviderClient';
 import { createAIError } from './AIServiceUtils';
-import { AliasResolver, WorkflowWithAliases } from '../AliasResolver';
 
 const logger = createLogger({ module: 'workflow-suggestion-service' });
 

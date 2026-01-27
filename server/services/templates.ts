@@ -1,14 +1,17 @@
 
 import path from 'path';
+
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
+
 import {
   extractPlaceholdersFromDocx,
   renderDocx,
 } from './docxRenderer';
+import { storageProvider } from './storage';
+
 import type { PlaceholderInfo } from '../api/validators/templates';
 
-import { storageProvider } from './storage';
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'server', 'files', 'outputs');
 

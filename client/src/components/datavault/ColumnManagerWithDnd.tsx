@@ -21,6 +21,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Loader2, Edit2, Trash2, GripVertical } from "lucide-react";
 import React, { useState, useEffect } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +49,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useTables, useTableSchema } from "@/hooks/useDatavaultTables";
+
 import type { DatavaultColumn } from "@shared/schema";
+
 import { ColumnTypeIcon, getColumnTypeColor } from "./ColumnTypeIcon";
 interface ColumnManagerProps {
   columns: DatavaultColumn[];

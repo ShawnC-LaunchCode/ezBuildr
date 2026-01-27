@@ -24,6 +24,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
 import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
@@ -31,15 +33,25 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { ScaleConfig, ScaleAdvancedConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
-export function ScaleCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+interface ScaleCardState {
+  min: number;
+  max: number;
+  step: number;
+  display: "slider" | "stars";
+  stars?: number;
+  showValue: boolean;
+  minLabel: string;
+  maxLabel: string;
+}
+
+export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
   // Parse config (works for both easy and advanced mode)
   const config = step.config as (ScaleConfig | ScaleAdvancedConfig) | undefined;
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<ScaleCardState>({
     min: config?.min || 1,
     max: config?.max || 10,
     step: config?.step || 1,

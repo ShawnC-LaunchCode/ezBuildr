@@ -1,9 +1,9 @@
 import { Router, Express } from 'express';
 
+import { logger } from '../logger';
 import { requireAuth } from '../middleware/auth';
 import { templateService } from '../services/TemplateService';
 import { asyncHandler } from '../utils/asyncHandler';
-import { logger } from '../logger';
 
 const router = Router();
 

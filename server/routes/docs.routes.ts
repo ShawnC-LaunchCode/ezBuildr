@@ -1,9 +1,10 @@
-import fs from "fs";
+import fs, { promises as fsPromises } from "fs";
 import path from "path";
-import { promises as fsPromises } from "fs";
+
 import { Router } from "express";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
+
 import { asyncHandler } from '../utils/asyncHandler';
 const router = Router();
 /**

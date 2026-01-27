@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import request from "supertest";
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach , vi } from "vitest";
+
 
 import * as schema from "@shared/schema";
 
 // Local mock to fix constructor error
-import { vi } from "vitest";
 vi.mock('@google/generative-ai', () => {
   return {
     GoogleGenerativeAI: class MockGoogleGenerativeAI {

@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeAll } from 'vitest';
+
 import { users } from '@shared/schema';
+
 import { db, initializeDatabase } from '../../server/db';
 import { systemStatsRepository } from '../../server/repositories/SystemStatsRepository';
 import { userRepository } from '../../server/repositories/UserRepository';

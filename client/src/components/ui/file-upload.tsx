@@ -242,7 +242,7 @@ export function FileUpload({
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => { if (!disabled) fileInputRef.current?.click(); }}
+          onClick={() => { if (!disabled) {fileInputRef.current?.click();} }}
           data-testid="file-upload-dropzone"
         >
           <CardContent className="flex flex-col items-center justify-center py-8 px-4">

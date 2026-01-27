@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import type { IntakeConfig } from "../../shared/types/intake";
 /**
  * Integration tests for Stage 12.5 - Intake Portal Extras

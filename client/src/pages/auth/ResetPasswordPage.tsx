@@ -2,8 +2,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import {  useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { z } from "zod";
+
 import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,12 +50,12 @@ export default function ResetPasswordPage() {
         },
     });
     const onSubmit = async (data: ResetPasswordFormValues) => {
-        if (!token) {return;}
+        if (!token) { return; }
         setIsLoading(true);
         try {
             await authAPI.resetPassword({
                 token,
-                newPassword: data.password
+                password: data.password
             });
             toast({
                 title: "Password reset successful",

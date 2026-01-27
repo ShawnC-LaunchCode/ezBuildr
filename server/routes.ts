@@ -1,4 +1,5 @@
 import { createServer, type Server } from "http";
+
 import { setupAuth } from "./googleAuth";
 import { startRollupWorker } from "./jobs/metricsRollup";
 import { logger } from "./lib/observability/logger";
@@ -6,6 +7,7 @@ import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabSer
 import { registerDiagnosticRoutes } from "./routes/diagnostic.routes";
 import healthRouter from "./routes/health";
 import { registerAllRoutes } from "./routes/index";
+
 import type { Express } from "express";
 /**
  * Main route registration function

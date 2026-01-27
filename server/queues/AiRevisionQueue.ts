@@ -1,17 +1,19 @@
 
 import Bull, { Job, Queue } from 'bull';
+import { eq } from 'drizzle-orm';
 
+import { logicRules, transformBlocks } from '../../shared/schema';
+import { db } from '../db';
 import { createLogger } from '../logger';
 import { createAIServiceFromEnv } from '../services/AIService';
 import { sectionService } from '../services/SectionService';
 import { stepService } from '../services/StepService';
 import { workflowService } from '../services/WorkflowService';
 
-import { db } from '../db';
-import { logicRules, transformBlocks } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
 
-import type { AIWorkflowRevisionRequest } from '../../shared/types/ai';
+
+import type { InsertSection, InsertStep, Workflow, Step, InsertLogicRule, InsertTransformBlock } from '../../shared/schema';
+import type { AIWorkflowRevisionRequest, AIWorkflowRevisionResponse, AIGeneratedWorkflow } from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-revision-queue' });
 
@@ -25,8 +27,8 @@ export interface AiRevisionJobData extends AIWorkflowRevisionRequest {
 
 export interface AiRevisionJobResult {
     success: boolean;
-    updatedWorkflow?: any;
-    diff?: any;
+    updatedWorkflow?: AIGeneratedWorkflow; // Strict AI response type
+    diff?: { changes: any[] };
     error?: string;
     metadata?: {
         duration: number;
@@ -92,7 +94,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
 
         // Process Workflow Properties
         const aiWorkflow = revisionResult.updatedWorkflow;
-        const workflowUpdates: any = {};
+        const workflowUpdates: Partial<Workflow> = {};
         if (aiWorkflow.title && aiWorkflow.title !== existingWorkflow.title) { workflowUpdates.title = aiWorkflow.title; }
         if (aiWorkflow.description !== undefined && aiWorkflow.description !== existingWorkflow.description) { workflowUpdates.description = aiWorkflow.description; }
 
@@ -115,7 +117,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
 
         // Process Sections & Steps
         for (const aiSection of (aiWorkflow.sections || [])) {
-            const sectionData: any = {
+            const sectionData: Partial<InsertSection> & { title: string; order: number } = {
                 title: aiSection.title,
                 description: aiSection.description || null,
                 order: aiSection.order,
@@ -136,14 +138,15 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             processedSectionIds.add(sectionId);
 
             for (const aiStep of (aiSection.steps || [])) {
-                const stepData: any = {
-                    type: aiStep.type,
+                // Cast step type to string as DB expects
+                const stepData: Partial<InsertStep> & { type: Step['type']; title: string; order: number } = {
+                    type: (aiStep.type || 'short_text') as Step['type'],
                     title: aiStep.title,
                     description: aiStep.description || null,
                     alias: aiStep.alias || null,
                     required: aiStep.required ?? false,
-                    config: aiStep.config || {},
-                    order: aiStep.order,
+                    // config: aiStep.config ?? null,
+                    order: aiStep.order ?? 0,
                     visibleIf: aiStep.visibleIf || null,
                     defaultValue: aiStep.defaultValue || null,
                 };
@@ -194,11 +197,11 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                 }
 
                 let targetStepId: string | null = null;
-                let targetSectionId: string | null = null;
+                const targetSectionId: string | null = null;
 
                 if (rule.targetType === 'step' && rule.targetAlias) {
                     targetStepId = stepAliasToId.get(rule.targetAlias) || null;
-                    if (!targetStepId) continue; // Skip invalid target
+                    if (!targetStepId) {continue;} // Skip invalid target
                 } else if (rule.targetType === 'section' && rule.targetAlias) {
                     // We need section aliases? The AI schema defines targetAlias.
                     // But sections in AI schema often don't have explicit aliases, just IDs or titles?
@@ -350,16 +353,16 @@ class MemoryQueue<T> {
     }
 
     private async processJob(job: Job<T>) {
-        if (!this.processor) return;
+        if (!this.processor) {return;}
 
         try {
-            this.jobStates.set(job.id, 'active');
+            this.jobStates.set(String(job.id), 'active');
             const result = await this.processor(job);
             job.returnvalue = result;
-            this.jobStates.set(job.id, 'completed');
+            this.jobStates.set(String(job.id), 'completed');
         } catch (error: any) {
             job.failedReason = error.message;
-            this.jobStates.set(job.id, 'failed');
+            this.jobStates.set(String(job.id), 'failed');
             // Log error here since we don't have full event emitters
             logger.error({ jobId: job.id, error: error.message }, 'In-memory job failed');
         }
@@ -370,9 +373,9 @@ class MemoryQueue<T> {
 // QUEUE INSTANCE
 // ============================================================================
 
-let queueInstance: Queue<AiRevisionJobData> | any | null = null;
+let queueInstance: Queue<AiRevisionJobData> | null = null;
 
-export function getAiRevisionQueue(): Queue<AiRevisionJobData> | any {
+export function getAiRevisionQueue(): Queue<AiRevisionJobData> {
     if (queueInstance) { return queueInstance; }
 
     const isDev = process.env.NODE_ENV === 'development';
@@ -382,7 +385,7 @@ export function getAiRevisionQueue(): Queue<AiRevisionJobData> | any {
     // This allows local dev without Docker/Redis
     if (isDev && !hasRedis) {
         logger.info('Initializing In-Memory Queue for AI Revisions (No Redis detected)');
-        queueInstance = new MemoryQueue<AiRevisionJobData>(QUEUE_NAME);
+        queueInstance = new MemoryQueue<AiRevisionJobData>(QUEUE_NAME) as unknown as Queue<AiRevisionJobData>;
         // Bind processor
         queueInstance.process(processRevisionJob);
         return queueInstance;
@@ -401,7 +404,7 @@ export function getAiRevisionQueue(): Queue<AiRevisionJobData> | any {
         logger.error({ jobId: job.id, error: err.message }, 'AI revision job failed');
     });
 
-    return queueInstance;
+    return queueInstance as any; // Cast to any to satisfy return type if mocks are loose
 }
 
 export async function enqueueAiRevision(data: AiRevisionJobData): Promise<Job<AiRevisionJobData>> {

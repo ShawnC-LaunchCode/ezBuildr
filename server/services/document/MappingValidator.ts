@@ -26,11 +26,14 @@
  * ```
  */
 import { eq } from 'drizzle-orm';
+
 import { templates } from '../../../shared/schema';
 import { db } from '../../db';
 import { logger } from '../../logger';
+
 import { applyMapping } from './MappingInterpreter';
 import { normalizeVariables } from './VariableNormalizer';
+
 import type { DocumentMapping } from './MappingInterpreter';
 // ============================================================================
 // TYPES

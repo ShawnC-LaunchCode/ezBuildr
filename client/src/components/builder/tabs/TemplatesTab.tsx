@@ -6,6 +6,7 @@ import axios from "axios";
 import { Upload, FileText, Trash2, TestTube, AlertCircle, CheckCircle, ExternalLink, Edit } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { type ApiWorkflowVariable } from "@/lib/vault-api";
 import { useWorkflow, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
 import { DocumentTemplateEditor } from "@/pages/visual-builder/components/DocumentTemplateEditor";
+
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { PdfMappingEditor } from "../templates/PdfMappingEditor";
 interface Template {

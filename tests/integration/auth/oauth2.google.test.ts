@@ -7,9 +7,12 @@ import { eq } from 'drizzle-orm';
 import express from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
 import { users, tenants, refreshTokens } from '@shared/schema';
+
 import { db } from '../../../server/db';
 import { setupAuth, _testOnly_setGoogleClient, verifyGoogleToken } from '../../../server/googleAuth';
+
 import type { Express } from 'express';
 import type { TokenPayload } from 'google-auth-library';
 describe('OAuth2 Google Authentication Flow', () => {

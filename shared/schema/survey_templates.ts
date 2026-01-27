@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, text, timestamp, varchar, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
 import { type InferSelectModel, type InferInsertModel } from "drizzle-orm";
+import { pgTable, text, timestamp, varchar, boolean, jsonb, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+
 import { users } from "./auth";
 
 export const surveyTemplates = pgTable("survey_templates", {

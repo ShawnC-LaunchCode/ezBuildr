@@ -4,15 +4,14 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import {   Eye, ChevronDown, ArrowLeft, Database, Sparkles, GitGraph } from "lucide-react";
+
 // Removed AdvancedModeBanner
 // Tab components
 // VisualBuilderTab removed
 // Versioning Imports
-import { DiffViewer } from "@/components/builder/versioning/DiffViewer";
-import { PublishWorkflowDialog } from "@/components/builder/versioning/PublishWorkflowDialog";
-import { ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
+
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
 import { AiConversationPanel } from "@/components/builder/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
@@ -27,6 +26,8 @@ import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
 import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
 import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
 import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
+import { DiffViewer } from "@/components/builder/versioning/DiffViewer";
+import { PublishWorkflowDialog } from "@/components/builder/versioning/PublishWorkflowDialog";
 import { VersionBadge } from "@/components/builder/versioning/VersionBadge";
 import { VersionHistoryPanel } from "@/components/builder/versioning/VersionHistoryPanel";
 import { CollaborationProvider, useCollaboration } from "@/components/collab/CollaborationContext";
@@ -46,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getModeLabel, type Mode } from "@/lib/mode";
+import { ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
 import { useVersions, usePublishWorkflow, useRestoreVersion , useWorkflow, useSetWorkflowMode, useSections, useLogicRules, useTransformBlocks } from "@/lib/vault-hooks";
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();

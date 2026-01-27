@@ -257,6 +257,31 @@ export class AIServiceError extends Error {
 }
 
 /**
+ * Quality Score Types
+ */
+export const QualityScoreSchema = z.object({
+  overall: z.number().min(0).max(100),
+  breakdown: z.object({
+    aliases: z.number(),
+    types: z.number(),
+    structure: z.number(),
+    ux: z.number(),
+    completeness: z.number(),
+    validation: z.number(),
+  }),
+  issues: z.array(z.object({
+    category: z.string(),
+    severity: z.enum(['error', 'warning', 'suggestion']),
+    message: z.string(),
+    stepAlias: z.string().optional(),
+  })),
+  passed: z.boolean(),
+  suggestions: z.array(z.string()),
+});
+
+export type QualityScore = z.infer<typeof QualityScoreSchema>;
+
+/**
  * AI Workflow Revision Types
  */
 
@@ -294,6 +319,12 @@ export const AIWorkflowRevisionResponseSchema = z.object({
   diff: WorkflowDiffSchema.describe('Structured diff of changes'),
   explanation: z.array(z.string()).optional().describe('High-level explanation of what was done'),
   suggestions: z.array(z.string()).optional().describe('Follow-up suggestions'),
+  quality: QualityScoreSchema.optional().describe('Quality assessment of the revision'),
+  metadata: z.object({
+    applied: z.boolean().optional(),
+    provider: z.string().optional(),
+    model: z.string().optional(),
+  }).optional().describe('Execution metadata'),
 });
 
 export type AIWorkflowRevisionResponse = z.infer<typeof AIWorkflowRevisionResponseSchema>;

@@ -1,14 +1,15 @@
 import { Loader2, Sparkles, Send, Check, X } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+
 import { AIFeedbackWidget, QualityScore } from "./AIFeedbackWidget";
 interface Message {
     role: 'user' | 'assistant';

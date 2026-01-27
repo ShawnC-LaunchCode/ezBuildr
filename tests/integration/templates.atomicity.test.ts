@@ -5,9 +5,10 @@
  * For behavioral tests, see templates.behavioral.test.ts
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { describe, it, expect, beforeAll } from 'vitest';
 
 describe('Templates Atomicity - Code Structure Verification', () => {
   let patchHandlerCode: string;

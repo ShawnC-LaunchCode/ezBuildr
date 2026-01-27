@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 export default function PortalMagicLink() {

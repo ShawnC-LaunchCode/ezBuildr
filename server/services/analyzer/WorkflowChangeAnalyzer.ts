@@ -1,4 +1,5 @@
 import { WorkflowJSON, WorkflowBlock } from "@shared/types/workflow";
+
 import { ChangeImpactReport, ChangeReason, Severity } from "./types";
 export class WorkflowChangeAnalyzer {
     /**

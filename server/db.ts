@@ -1,8 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { env } from "./config/env";
 import * as schema from "@shared/schema";
+
+import { env } from "./config/env";
 import { logger } from './logger';
 
 import type { Pool as NeonPool } from '@neondatabase/serverless';

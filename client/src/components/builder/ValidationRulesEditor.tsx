@@ -1,5 +1,6 @@
 import {  Trash2, Code, AlertCircle, List , Database } from "lucide-react";
 import React, { useState } from "react";
+
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+
 // Types derived from existing codebase or re-declared for standalone usage if needed
 // Assuming @shared/types/blocks is available
 import type {

@@ -1,5 +1,6 @@
 import { AlertTriangle, FileText, ChevronDown, ChevronUp, ArrowRight, Lightbulb } from "lucide-react";
 import React, { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";

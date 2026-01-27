@@ -4,6 +4,7 @@
  */
 
 import { getSnipById } from "./registry";
+
 import type { SnipDefinition, SnipImportRequest, SnipImportResult } from "./types";
 /**
  * Detect all variable collisions (aliases from questions, JS outputs, list variables)

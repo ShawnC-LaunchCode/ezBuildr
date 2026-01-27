@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from "react";
 import {
     HelpCircle,
     Database,
@@ -8,6 +7,7 @@ import {
     ChevronRight,
     X,
 } from "lucide-react";
+import React, { useState, useEffect } from "react";
 
 import { LogicBuilder, LogicStatusText } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
@@ -37,6 +37,7 @@ import {
 import type { ConditionExpression } from "@shared/types/conditions";
 
 import { useIntake } from "../IntakeContext";
+
 import { JSQuestionEditor, type JSQuestionConfig } from "./JSQuestionEditor";
 import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
 

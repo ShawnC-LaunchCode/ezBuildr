@@ -3,6 +3,7 @@
  * Handles HTTP/API requests with authentication, retries, and response mapping
  */
 import crypto from 'crypto';
+
 import { logger } from '../../logger';
 import { httpCache } from '../../services/cache';
 import { resolveConnection as resolveNewConnection, markConnectionUsed } from '../../services/connections';
@@ -11,6 +12,7 @@ import { getOAuth2Token } from '../../services/oauth2';
 import { getSecretValue } from '../../services/secrets';
 import { select } from '../../utils/jsonselect';
 import { evaluateExpression } from '../expr';
+
 import type { EvalContext } from '../expr';
 /**
  * HTTP Node Configuration

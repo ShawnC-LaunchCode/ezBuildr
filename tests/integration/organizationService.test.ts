@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { organizations, organizationMemberships, users, tenants } from '../../shared/schema';

@@ -93,7 +93,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     sourceBlock,
     sourceTableId,
     columns,
-    loadingColumns
+    loadingColumns,
+    blocks
   } = useListToolsValidation({ localConfig, workflowId, sectionId });
 
 
@@ -164,6 +165,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const handleAddOption = () => {
+    if (!localConfig) return;
     const newOptions = [
       ...localConfig.staticOptions,
       {
@@ -176,12 +178,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const handleUpdateOption = (index: number, field: keyof ChoiceOption, value: string) => {
+    if (!localConfig) return;
     const newOptions = [...localConfig.staticOptions];
     newOptions[index] = { ...newOptions[index], [field]: value };
     handleUpdate({ staticOptions: newOptions });
   };
 
   const handleDeleteOption = (index: number) => {
+    if (!localConfig) return;
     const newOptions = localConfig.staticOptions.filter((_: any, i: number) => i !== index);
     handleUpdate({ staticOptions: newOptions });
   };
@@ -534,7 +538,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
               <Select
                 value={localConfig.dynamicOptions.listVariable}
                 onValueChange={(val) => {
-                  const newDynamic = { ...localConfig.dynamicOptions, listVariable: val, labelColumnId: '', valueColumnId: '' };
+                  const newDynamic = { ...localConfig.dynamicOptions, listVariable: val, labelPath: '', valuePath: '' };
                   handleUpdate({ dynamicOptions: newDynamic });
                 }}
               >
@@ -653,8 +657,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
               <div className="space-y-1.5">
                 <Label className="text-xs">Label Column (Display)</Label>
                 <Select
-                  value={localConfig.dynamicOptions.labelColumnId}
-                  onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, labelColumnId: val } })}
+                  value={localConfig.dynamicOptions.labelPath}
+                  onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, labelPath: val } })}
                   disabled={!sourceTableId || loadingColumns}
                 >
                   <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>
@@ -674,8 +678,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
               <div className="space-y-1.5">
                 <Label className="text-xs">Value Column (Saved)</Label>
                 <Select
-                  value={localConfig.dynamicOptions.valueColumnId}
-                  onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, valueColumnId: val } })}
+                  value={localConfig.dynamicOptions.valuePath}
+                  onValueChange={(val) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, valuePath: val } })}
                   disabled={!sourceTableId || loadingColumns}
                 >
                   <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>

@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
 import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 
 describe("Reproduction: API Workflow Creation (Cookie Auth)", () => {

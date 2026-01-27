@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+
 import {
     // TODO: marketplaceTemplates and marketplaceTemplateShares tables need to be added to schema
     // marketplaceTemplates,
@@ -9,8 +10,10 @@ import {
     type Workflow,
     type WorkflowVersion
 } from "@shared/schema";
+
 import { db } from "../../db";
 import { logger } from "../../logger";
+
 import type { TemplateManifest } from "./types";
 export class TemplateService {
     /**

@@ -1,7 +1,9 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import { datavaultTables, datavaultColumns, datavaultRows, datavaultValues } from '@shared/schema';
+
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 /**
  * DataVault Phase 1 PR 9: DataVault API Routes Integration Tests

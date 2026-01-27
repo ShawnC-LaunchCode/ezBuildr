@@ -1,7 +1,10 @@
 import path from 'path';
+
 import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import { Router, type Request, Response } from 'express';
+
 import * as schema from '@shared/schema';
+
 import { db } from '../db';
 import { runGraph } from '../engine';
 import { hybridAuth } from '../middleware/auth';
@@ -11,6 +14,7 @@ import { createRun, updateRun, createRunLogs, getRunById, getRunLogs } from '../
 import {   getOutputFilePath, outputFileExists } from '../services/templates';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
+
 import {
   createRunSchema,
   listRunsQuerySchema,
@@ -25,6 +29,7 @@ import {
   type RunLogEntry,
   type RerunRequest, // Stage 8
 } from './validators/runs';
+
 import type { AuthRequest } from '../middleware/auth';
 const router = Router();
 /**

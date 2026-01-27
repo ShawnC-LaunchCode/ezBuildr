@@ -1,13 +1,16 @@
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
+
 import multer from "multer";
 import { z } from "zod";
+
 import { createLogger } from "../logger";
 import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { CaptchaService } from "../services/CaptchaService.js";
 import { intakeService } from "../services/IntakeService";
 import { asyncHandler } from '../utils/asyncHandler';
+
 import type { CaptchaResponse } from "../../shared/types/intake.js";
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "intake-routes" });

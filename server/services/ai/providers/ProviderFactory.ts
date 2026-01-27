@@ -4,9 +4,9 @@
  * Creates the appropriate AI provider instance based on configuration
  */
 
-import { OpenAIProvider } from './OpenAIProvider';
 import { AnthropicProvider } from './AnthropicProvider';
 import { GeminiProvider } from './GeminiProvider';
+import { OpenAIProvider } from './OpenAIProvider';
 
 import type { IAIProvider, AIProviderConfig } from './types';
 import type { AIProvider } from '../../../../shared/types/ai';

@@ -1,5 +1,6 @@
 import { Loader2, Sparkles, Send, Check, X, Paperclip, FileText } from "lucide-react";
 import React, { useState, useRef, useEffect } from 'react';
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

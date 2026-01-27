@@ -17,12 +17,13 @@ import React, { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
 import { VisibilityField } from "./common/VisibilityField";
 
 import type { DisplayConfig, DisplayAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
 export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();

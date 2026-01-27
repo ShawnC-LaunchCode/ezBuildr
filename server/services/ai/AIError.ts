@@ -147,7 +147,7 @@ export interface QualityThresholdDetails {
   qualityScore: number;
   threshold: number;
   issues: Array<{
-    type: 'error' | 'warning' | 'suggestion';
+    severity: 'error' | 'warning' | 'suggestion';
     category: string;
     message: string;
     location?: string;

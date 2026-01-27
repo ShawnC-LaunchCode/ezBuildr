@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Plus, Sparkles, FileText, Calendar, MoreVertical, Pencil, FileEdit, Trash2, Share2, Users } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+
 import EditTemplateModal from "@/components/templates/EditTemplateModal";
 import ShareTemplateModal from "@/components/templates/ShareTemplateModal";
 import {
@@ -362,7 +363,7 @@ export default function TemplatesPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => { if (deletingTemplate) void handleDeleteTemplate(deletingTemplate); }}
+                onClick={() => { if (deletingTemplate) {void handleDeleteTemplate(deletingTemplate);} }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete

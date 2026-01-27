@@ -4,7 +4,9 @@
  * All values are encrypted at rest using AES-256-GCM envelope encryption
  */
 import { eq, and } from 'drizzle-orm';
+
 import { secrets, type InsertSecret } from '@shared/schema';
+
 import { db } from '../db';
 import { logger } from '../logger';
 import { encrypt, decrypt } from '../utils/encryption';

@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
+
 import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
+
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
@@ -11,6 +13,7 @@ import {
   createUserWithMfa,
   generateTotpCode,
 } from "../helpers/testUtils";
+
 import type { Express } from "express";
 /**
  * MFA Flow Integration Tests (REAL)

@@ -11,16 +11,26 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
-import { AliasField } from "./common/AliasField";
-import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
+import { StepEditorCommonProps } from "../StepEditorRouter";
 
-import { RequiredToggle } from "./common/RequiredToggle";
+import { AliasField } from "./common/AliasField";
 import { DefaultValueField } from "./common/DefaultValueField";
+import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
+import { RequiredToggle } from "./common/RequiredToggle";
+import { VisibilityField } from "./common/VisibilityField";
 
 
 
 import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
+
+interface NumberCardState {
+  mode: "number" | "currency_whole" | "currency_decimal";
+  min?: number;
+  max?: number;
+  step: number;
+  allowDecimal: boolean;
+  formatOnInput: boolean;
+}
 
 export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -47,23 +57,23 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     }
   };
 
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<NumberCardState>({
     mode: getInitialMode(),
-    min: (config as any)?.min,
-    max: (config as any)?.max,
-    step: (config as NumberConfig)?.step || 1,
-    allowDecimal: (config as NumberConfig | CurrencyConfig)?.allowDecimal ?? false,
-    formatOnInput: (config as NumberAdvancedConfig)?.formatOnInput ?? false,
+    min: (config as NumberConfig | undefined)?.min,
+    max: (config as NumberConfig | undefined)?.max,
+    step: (config as NumberConfig | undefined)?.step || 1,
+    allowDecimal: (config as NumberConfig | CurrencyConfig | undefined)?.allowDecimal ?? false,
+    formatOnInput: (config as NumberAdvancedConfig | undefined)?.formatOnInput ?? false,
   });
 
   useEffect(() => {
     setLocalConfig({
       mode: getInitialMode(),
-      min: (config as any)?.min,
-      max: (config as any)?.max,
-      step: (config as NumberConfig)?.step || 1,
-      allowDecimal: (config as NumberConfig | CurrencyConfig)?.allowDecimal ?? false,
-      formatOnInput: (config as NumberAdvancedConfig)?.formatOnInput ?? false,
+      min: (config as NumberConfig | undefined)?.min,
+      max: (config as NumberConfig | undefined)?.max,
+      step: (config as NumberConfig | undefined)?.step || 1,
+      allowDecimal: (config as NumberConfig | CurrencyConfig | undefined)?.allowDecimal ?? false,
+      formatOnInput: (config as NumberAdvancedConfig | undefined)?.formatOnInput ?? false,
     });
   }, [step.config, step.type, isAdvancedMode, isCurrency, config]);
 

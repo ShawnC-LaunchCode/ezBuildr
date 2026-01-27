@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
+
 import { users, loginAttempts } from "@shared/schema";
+
 import { db } from "../../server/db";
 import { createTestApp ,
 } from "../helpers/testApp";
@@ -16,6 +18,7 @@ import {
   generateTotpCode,
   createPasswordResetToken
 } from "../helpers/testUtils";
+
 import type { Express } from "express";
 /**
  * REAL Auth Routes Integration Tests

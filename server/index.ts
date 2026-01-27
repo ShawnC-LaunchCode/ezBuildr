@@ -5,14 +5,17 @@ dotenv.config();
 // This ensures auto-instrumentation can hook into all modules
 import express from "express";
 import helmet from "helmet";
+
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiting";
 import { requestIdMiddleware } from "./middleware/requestId";
 import { requestTimeout } from "./middleware/timeout.js";
 import { initTelemetry } from "./observability/telemetry";
+
 initTelemetry();
 import cors from "cors";
+
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { log } from "./utils";

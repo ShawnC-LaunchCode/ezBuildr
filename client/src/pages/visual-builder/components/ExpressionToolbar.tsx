@@ -3,6 +3,7 @@
  */
 import { Variable, FunctionSquare, FileText } from 'lucide-react';
 import React, {  } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+
 import { useAvailableVars } from '../hooks/useAvailableVars';
 import { useHelpers } from '../hooks/useHelpers';
 export interface ExpressionToolbarProps {

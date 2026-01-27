@@ -14,10 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import type { PageItem } from "@/lib/dnd";
 import { cn } from "@/lib/utils";
 import { useDeleteBlock, useDeleteTransformBlock, useUpdateTransformBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import type { PageItem } from "@/lib/dnd";
 
 // Narrowed prop type
 interface BlockCardProps {

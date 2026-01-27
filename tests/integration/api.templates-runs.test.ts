@@ -1,10 +1,13 @@
 import fs from "fs/promises";
 import path from "path";
+
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import request from "supertest";
 import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+
 import * as schema from "@shared/schema";
+
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // Mock template scanner to avoid parsing invalid zip files

@@ -9,12 +9,15 @@
  * @date December 2025
  */
 import { eq, and } from 'drizzle-orm';
+
 import { templates } from '@/../../shared/schema';
+
 import { db } from '../db';
 import { createLogger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { aclService } from '../services/AclService';
 import { asyncHandler } from '../utils/asyncHandler';
+
 import type { Express, Request, Response } from 'express';
 const logger = createLogger({ module: 'documents-routes' });
 /**

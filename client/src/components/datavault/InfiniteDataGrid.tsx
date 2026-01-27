@@ -5,9 +5,12 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useRef } from "react";
+
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
+
 import type { DatavaultColumn } from "@shared/schema";
+
 import { DataGrid } from "./DataGrid";
 import { DataGridSkeleton } from "./DataGridSkeleton";
 interface InfiniteDataGridProps {

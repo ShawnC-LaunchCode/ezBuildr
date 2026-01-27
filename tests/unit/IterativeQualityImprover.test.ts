@@ -3,12 +3,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { AIPromptBuilder } from '../../server/services/ai/AIPromptBuilder';
+import { AIProviderClient } from '../../server/services/ai/AIProviderClient';
 import {
   IterativeQualityImprover,
   QualityImprovementConfig,
 } from '../../server/services/ai/IterativeQualityImprover';
-import { AIProviderClient } from '../../server/services/ai/AIProviderClient';
-import { AIPromptBuilder } from '../../server/services/ai/AIPromptBuilder';
 
 // Mock the dependencies
 vi.mock('../../server/services/ai/AIProviderClient');
@@ -46,7 +47,7 @@ describe('IterativeQualityImprover', () => {
           },
           {
             id: 'step-2',
-            type: (score >= 80 ? 'email' : 'short_text') as const, // Correct type if high score
+            type: (score >= 80 ? 'email' : 'short_text') as any, // Correct type if high score
             title: 'Email Address',
             alias: score >= 80 ? 'emailAddress' : 'field2',
             required: true,
@@ -82,7 +83,7 @@ describe('IterativeQualityImprover', () => {
 
       const result = await improver.generateWithQualityLoop(
         workflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 
@@ -104,7 +105,7 @@ describe('IterativeQualityImprover', () => {
 
       const result = await improver.generateWithQualityLoop(
         workflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 
@@ -119,8 +120,8 @@ describe('IterativeQualityImprover', () => {
         overall: 60,
         breakdown: { aliases: 40, types: 60, structure: 70, ux: 70, completeness: 80, validation: 60 },
         issues: [
-          { type: 'error' as const, category: 'aliases' as const, message: 'Generic alias field1' },
-          { type: 'warning' as const, category: 'types' as const, message: 'Should use email type' },
+          { severity: 'error' as const, category: 'aliases' as const, message: 'Generic alias field1' },
+          { severity: 'warning' as const, category: 'types' as const, message: 'Should use email type' },
         ],
         passed: false,
         suggestions: ['Use descriptive aliases'],
@@ -132,7 +133,7 @@ describe('IterativeQualityImprover', () => {
 
       const result = await improver.generateWithQualityLoop(
         lowQualityWorkflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 
@@ -145,7 +146,7 @@ describe('IterativeQualityImprover', () => {
       const initialScore = {
         overall: 70,
         breakdown: { aliases: 60, types: 70, structure: 75, ux: 75, completeness: 80, validation: 70 },
-        issues: [{ type: 'warning' as const, category: 'aliases' as const, message: 'Could be better' }],
+        issues: [{ severity: 'warning' as const, category: 'aliases' as const, message: 'Could be better' }],
         passed: true,
         suggestions: [],
       };
@@ -163,7 +164,7 @@ describe('IterativeQualityImprover', () => {
       const improverWithConfig = new IterativeQualityImprover(mockClient, mockPromptBuilder, config);
       const result = await improverWithConfig.generateWithQualityLoop(
         workflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 
@@ -177,8 +178,8 @@ describe('IterativeQualityImprover', () => {
         overall: 50,
         breakdown: { aliases: 30, types: 50, structure: 60, ux: 60, completeness: 70, validation: 50 },
         issues: [
-          { type: 'error' as const, category: 'aliases' as const, message: 'Bad aliases' },
-          { type: 'error' as const, category: 'types' as const, message: 'Wrong types' },
+          { severity: 'error' as const, category: 'aliases' as const, message: 'Bad aliases' },
+          { severity: 'error' as const, category: 'types' as const, message: 'Wrong types' },
         ],
         passed: false,
         suggestions: [],
@@ -198,7 +199,7 @@ describe('IterativeQualityImprover', () => {
       const improverWithConfig = new IterativeQualityImprover(mockClient, mockPromptBuilder, config);
       const result = await improverWithConfig.generateWithQualityLoop(
         workflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 
@@ -212,7 +213,7 @@ describe('IterativeQualityImprover', () => {
       const initialScore = {
         overall: 60,
         breakdown: { aliases: 40, types: 60, structure: 70, ux: 70, completeness: 80, validation: 60 },
-        issues: [{ type: 'error' as const, category: 'aliases' as const, message: 'Bad' }],
+        issues: [{ severity: 'error' as const, category: 'aliases' as const, message: 'Bad' }],
         passed: false,
         suggestions: [],
       };
@@ -233,7 +234,7 @@ describe('IterativeQualityImprover', () => {
       const improverWithConfig = new IterativeQualityImprover(mockClient, mockPromptBuilder, config);
       const result = await improverWithConfig.generateWithQualityLoop(
         workflow,
-        { description: 'Test' },
+        { description: 'Test', projectId: 'test-project' },
         initialScore
       );
 

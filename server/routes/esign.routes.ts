@@ -15,10 +15,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
+import { logger } from '../logger';
 import { EsignProviderFactory } from '../services/esign';
 import { SignatureBlockService } from '../services/esign/SignatureBlockService';
 import { asyncHandler } from '../utils/asyncHandler';
-import { logger } from '../logger';
 
 import type { SignatureBlockConfig } from '../../shared/types/stepConfigs';
 

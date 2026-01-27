@@ -1,11 +1,11 @@
 import { EyeOff, ChevronDown, ChevronRight } from "lucide-react";
 import React, { useState } from "react";
 
-import { useUpdateStep } from "@/lib/vault-hooks";
 import { LogicBuilder, LogicStatusText } from "@/components/logic";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@/../../shared/types/conditions";
 

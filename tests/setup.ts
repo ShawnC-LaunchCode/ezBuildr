@@ -1,6 +1,7 @@
 ﻿import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 console.log("SETUP: Loading setup.ts...");
 import dotenv from "dotenv";
+
 // import "@testing-library/jest-dom";
 import { SchemaManager } from "./helpers/schemaManager";
 declare global {
@@ -235,7 +236,7 @@ beforeAll(async () => {
                     console.log(`⚠️ Partial failure in ${file} (Error: ${e.message} / Code: ${e.code}), retrying statement-by-statement...`);
                     const statements = sqlContent.split('--> statement-breakpoint');
                     for (const statement of statements) {
-                      if (!statement.trim()) continue;
+                      if (!statement.trim()) {continue;}
                       try {
                         // CRITICAL: Ensure each statement has the search_path set
                         // When statements are executed individually, we need to set search_path for each one
@@ -512,7 +513,7 @@ if (isIntegrationTest) {
 // Mock AI Providers Globally to prevent rate limits and network calls
 vi.mock("@google/generative-ai", () => {
   return {
-    GoogleGenerativeAI: vi.fn().mockImplementation(function () {
+    GoogleGenerativeAI: vi.fn().mockImplementation(() => {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({
           generateContent: vi.fn().mockResolvedValue({

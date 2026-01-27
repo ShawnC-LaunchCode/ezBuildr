@@ -1,6 +1,9 @@
 import { eq, and } from "drizzle-orm";
+
 import {  billingPlans, subscriptions, customerBillingInfo } from "@shared/schema";
+
 import { db } from "../../db";
+
 import { PLAN_TIERS, DEFAULT_PLANS } from "./billingConfig";
 import { StripeProvider } from "./providers/StripeProvider";
 const billingProvider = new StripeProvider();

@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
+
 import { workflowQueries } from '@shared/schema';
 import type { WorkflowQuery } from '@shared/types/query';
 import { workflowQuerySchema } from '@shared/types/query';
+
 import { db } from '../db';
 import { queryRunner } from '../lib/queries/QueryRunner';
 export class QueryService {

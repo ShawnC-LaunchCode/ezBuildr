@@ -7,6 +7,7 @@
 import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2, FolderInput } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
 import { CreateTableModal } from "@/components/datavault/CreateTableModal";
 import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";

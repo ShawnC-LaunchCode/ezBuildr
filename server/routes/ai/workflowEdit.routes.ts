@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowEditRequestSchema } from "../../schemas/aiWorkflowEdit.schema";
@@ -7,6 +8,7 @@ import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
+
 import type { AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
@@ -25,7 +27,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
 
       try {
         const { workflowId } = req.params;
-        const userId = req.userId || (req.user as any)?.id;
+        const userId = req.userId || (req.user)?.id;
 
         // 1. Validate request body (merge param ID into body for schema validation)
         const bodyToValidate = {

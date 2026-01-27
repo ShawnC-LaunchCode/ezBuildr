@@ -1,5 +1,6 @@
 ﻿import { Settings, Sparkles, Moon, Lightbulb, RotateCcw, Layers, Shield } from "lucide-react";
 import React, { useEffect, useState } from "react";
+
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";

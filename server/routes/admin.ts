@@ -2,9 +2,10 @@ import { eq, desc } from "drizzle-orm";
 import { Router } from "express";
 
 import { organizations, workspaces, users } from "@shared/schema";
-import { asyncHandler } from "../utils/asyncHandler";
 
 import { db } from "../db";
+import { asyncHandler } from "../utils/asyncHandler";
+
 
 const router = Router();
 

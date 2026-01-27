@@ -211,6 +211,7 @@ export const SERVICE_DATAVAULT_ROWS = Symbol('DatavaultRowsService');
 // Helper Type for Token-to-Service Mapping
 // ============================================================================
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Type mapping for DI tokens to their service types
  * This enables type-safe resolution in TypeScript

@@ -184,7 +184,7 @@ export class AliasResolver {
    * Returns undefined if not found
    */
   resolve(aliasOrId: string): string | undefined {
-    if (!aliasOrId) return undefined;
+    if (!aliasOrId) {return undefined;}
 
     // Try exact match first
     if (this.aliasToId.has(aliasOrId)) {
@@ -205,7 +205,7 @@ export class AliasResolver {
    */
   resolveWithDetails(aliasOrId: string): ResolutionResult | undefined {
     const id = this.resolve(aliasOrId);
-    if (!id) return undefined;
+    if (!id) {return undefined;}
 
     // Check steps first, then sections
     if (this.stepDetails.has(id)) {
@@ -340,8 +340,8 @@ export class AliasResolver {
    * Calculate Levenshtein distance for fuzzy matching
    */
   private levenshteinDistance(a: string, b: string): number {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
+    if (a.length === 0) {return b.length;}
+    if (b.length === 0) {return a.length;}
 
     const matrix: number[][] = [];
 

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
+
 import { useBranding } from '@/components/branding';
 import EmailPreview from '@/components/branding/EmailPreview';
 import Header from '@/components/layout/Header';

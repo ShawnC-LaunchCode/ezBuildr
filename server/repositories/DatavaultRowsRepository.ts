@@ -1,4 +1,5 @@
 import { eq, and, desc, sql, inArray, asc, isNull } from "drizzle-orm";
+
 import {
   datavaultRows,
   datavaultValues,
@@ -9,8 +10,10 @@ import {
   type DatavaultValue,
   type InsertDatavaultValue,
 } from "@shared/schema";
+
 import { db } from "../db";
 import { createLogger } from "../logger";
+
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 const logger = createLogger({ module: "datavault-rows-repository" });
 /**

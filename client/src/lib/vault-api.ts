@@ -2,7 +2,7 @@
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
-import type {  } from "@/components/templates-test-runner/types";
+import type { } from "@/components/templates-test-runner/types";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 // Global Access Token (Memory Only)
 let globalAccessToken: string | null = null;
@@ -110,7 +110,7 @@ export function apiWithToken(runToken: string) {
         }
         return res.json() as Promise<T>;
       }),
-    post: <T>(endpoint: string, body?: any) =>
+    post: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: {
@@ -127,7 +127,7 @@ export function apiWithToken(runToken: string) {
         }
         return res.json() as Promise<T>;
       }),
-    put: <T>(endpoint: string, body?: any) =>
+    put: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "PUT",
         headers: {
@@ -377,11 +377,11 @@ export const variableAPI = {
 // ============================================================================
 export const authAPI = {
   getToken: () => fetchAPI<{ token: string; expiresIn: string }>("/api/auth/token"),
-  login: (data: any) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/login", {
+  login: (data: { email?: string; password?: string; token?: string }) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(data)
   }),
-  register: (data: any) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/register", {
+  register: (data: { email: string; password?: string; firstName?: string; lastName?: string; orgName?: string }) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(data)
   }),
@@ -392,7 +392,7 @@ export const authAPI = {
     method: "POST",
     body: JSON.stringify({ email })
   }),
-  resetPassword: (data: any) => fetchAPI<{ message: string }>("/api/auth/reset-password", {
+  resetPassword: (data: { token: string; password: string }) => fetchAPI<{ message: string }>("/api/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(data)
   }),
@@ -712,12 +712,12 @@ export const runAPI = {
     fetchAPI<{ success: boolean; data: ApiRun & { values: ApiStepValue[] } }>(`/api/runs/${id}/values`).then(res => res.data),
   getDocuments: (id: string) =>
     fetchAPI<{ success: boolean; documents: any[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
-  upsertValue: (runId: string, stepId: string, value: any) =>
+  upsertValue: (runId: string, stepId: string, value: unknown) =>
     fetchAPI<{ message: string }>(`/api/runs/${runId}/values`, {
       method: "POST",
       body: JSON.stringify({ stepId, value }),
     }),
-  submitSection: (runId: string, sectionId: string, values: Array<{ stepId: string; value: any }>) =>
+  submitSection: (runId: string, sectionId: string, values: Array<{ stepId: string; value: unknown }>) =>
     fetchAPI<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }>(`/api/runs/${runId}/sections/${sectionId}/submit`, {
       method: "POST",
       body: JSON.stringify({ values }),
@@ -831,14 +831,14 @@ export const documentRunsAPI = {
    */
   list: (params: ListRunsParams = {}) => {
     const queryParams = new URLSearchParams();
-    if (params.cursor) {queryParams.set('cursor', params.cursor);}
-    if (params.limit) {queryParams.set('limit', params.limit.toString());}
-    if (params.workflowId) {queryParams.set('workflowId', params.workflowId);}
-    if (params.projectId) {queryParams.set('projectId', params.projectId);}
-    if (params.status) {queryParams.set('status', params.status);}
-    if (params.from) {queryParams.set('from', params.from);}
-    if (params.to) {queryParams.set('to', params.to);}
-    if (params.q) {queryParams.set('q', params.q);}
+    if (params.cursor) { queryParams.set('cursor', params.cursor); }
+    if (params.limit) { queryParams.set('limit', params.limit.toString()); }
+    if (params.workflowId) { queryParams.set('workflowId', params.workflowId); }
+    if (params.projectId) { queryParams.set('projectId', params.projectId); }
+    if (params.status) { queryParams.set('status', params.status); }
+    if (params.from) { queryParams.set('from', params.from); }
+    if (params.to) { queryParams.set('to', params.to); }
+    if (params.q) { queryParams.set('q', params.q); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<PaginatedResponse<DocumentRun>>(`/runs${query}`);
   },
@@ -852,8 +852,8 @@ export const documentRunsAPI = {
    */
   getLogs: (id: string, params: { cursor?: string; limit?: number } = {}) => {
     const queryParams = new URLSearchParams();
-    if (params.cursor) {queryParams.set('cursor', params.cursor);}
-    if (params.limit) {queryParams.set('limit', params.limit.toString());}
+    if (params.cursor) { queryParams.set('cursor', params.cursor); }
+    if (params.limit) { queryParams.set('limit', params.limit.toString()); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<PaginatedResponse<RunLogEntry>>(`/runs/${id}/logs${query}`);
   },
@@ -881,12 +881,12 @@ export const documentRunsAPI = {
    */
   exportCsvUrl: (params: Omit<ListRunsParams, 'cursor' | 'limit'> = {}) => {
     const queryParams = new URLSearchParams();
-    if (params.workflowId) {queryParams.set('workflowId', params.workflowId);}
-    if (params.projectId) {queryParams.set('projectId', params.projectId);}
-    if (params.status) {queryParams.set('status', params.status);}
-    if (params.from) {queryParams.set('from', params.from);}
-    if (params.to) {queryParams.set('to', params.to);}
-    if (params.q) {queryParams.set('q', params.q);}
+    if (params.workflowId) { queryParams.set('workflowId', params.workflowId); }
+    if (params.projectId) { queryParams.set('projectId', params.projectId); }
+    if (params.status) { queryParams.set('status', params.status); }
+    if (params.from) { queryParams.set('from', params.from); }
+    if (params.to) { queryParams.set('to', params.to); }
+    if (params.q) { queryParams.set('q', params.q); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return `${API_BASE}/runs/export.csv${query}`;
   },
@@ -1183,11 +1183,11 @@ export const collectionsAPI = {
   // Records
   listRecords: (tenantId: string, collectionId: string, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) => {
     const queryParams = new URLSearchParams();
-    if (params?.limit) {queryParams.set('limit', params.limit.toString());}
-    if (params?.offset) {queryParams.set('offset', params.offset.toString());}
-    if (params?.orderBy) {queryParams.set('orderBy', params.orderBy);}
-    if (params?.order) {queryParams.set('order', params.order);}
-    if (params?.includeCount) {queryParams.set('includeCount', 'true');}
+    if (params?.limit) { queryParams.set('limit', params.limit.toString()); }
+    if (params?.offset) { queryParams.set('offset', params.offset.toString()); }
+    if (params?.orderBy) { queryParams.set('orderBy', params.orderBy); }
+    if (params?.order) { queryParams.set('order', params.order); }
+    if (params?.includeCount) { queryParams.set('includeCount', 'true'); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<ApiCollectionRecord[] | ListRecordsResponse>(`/api/tenants/${tenantId}/collections/${collectionId}/records${query}`);
   },
@@ -1374,7 +1374,7 @@ export const workflowExportAPI = {
         Authorization: `Bearer ${token}`
       }
     });
-    if (!response.ok) {throw new Error('Export failed');}
+    if (!response.ok) { throw new Error('Export failed'); }
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1440,8 +1440,8 @@ export interface ApiTimelineEvent {
 export const analyticsAPI = {
   getHealth: (workflowId: string, versionId?: string, window: '1d' | '7d' | '30d' = '30d') => {
     const params = new URLSearchParams();
-    if (versionId) {params.append("versionId", versionId);}
-    if (window) {params.append("window", window);}
+    if (versionId) { params.append("versionId", versionId); }
+    if (window) { params.append("window", window); }
     return fetchAPI<{ success: boolean; data: ApiAnalyticsHealth }>(
       `/api/workflow-analytics/${workflowId}/health?${params.toString()}`
     ).then((res) => res.data);

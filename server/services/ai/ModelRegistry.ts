@@ -7,8 +7,8 @@
  * - Default max tokens for different task types
  */
 
-import type { AIProvider } from '../../../shared/types/ai';
 import type { TaskType } from './types';
+import type { AIProvider } from '../../../shared/types/ai';
 
 export interface ModelConfig {
   provider: AIProvider;
@@ -105,7 +105,7 @@ export class ModelRegistry {
    * Initialize the registry (called once)
    */
   private static initialize() {
-    if (this.initialized) return;
+    if (this.initialized) {return;}
 
     for (const config of MODEL_CONFIGS) {
       const key = `${config.provider}:${config.model}`;

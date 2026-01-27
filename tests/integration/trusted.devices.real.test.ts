@@ -1,7 +1,9 @@
 import { eq, and } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
+
 import { trustedDevices } from "@shared/schema";
+
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
@@ -10,6 +12,7 @@ import {
   createUserWithMfa,
   generateTotpCode,
 } from "../helpers/testUtils";
+
 import type { Express } from "express";
 /**
  * Trusted Devices Integration Tests (REAL)

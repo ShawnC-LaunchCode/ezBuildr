@@ -8,6 +8,8 @@ import React, { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
@@ -15,14 +17,18 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { WebsiteConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
-export function WebsiteCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+interface WebsiteCardState {
+  requireProtocol: boolean;
+  validate: boolean;
+}
+
+export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as WebsiteConfig | undefined;
 
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<WebsiteCardState>({
     requireProtocol: config?.requireProtocol || false,
     validate: true, // Always validate in easy mode
   });

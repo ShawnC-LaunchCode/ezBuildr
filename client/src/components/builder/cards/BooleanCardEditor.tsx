@@ -8,15 +8,16 @@ import React, { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
+import { DefaultValueField } from "./common/DefaultValueField";
 import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
-import { DefaultValueField } from "./common/DefaultValueField";
 import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
 export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();

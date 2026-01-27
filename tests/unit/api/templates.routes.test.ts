@@ -5,9 +5,10 @@
  * These tests prevent regression to the duplicate route bug.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { describe, it, expect, beforeAll } from 'vitest';
 
 describe('Templates Routes - No Duplicate Routes', () => {
   let sourceCode: string;

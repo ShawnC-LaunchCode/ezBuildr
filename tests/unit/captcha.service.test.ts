@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+
 import { CaptchaService } from "../../server/services/CaptchaService";
+
 import type { CaptchaResponse } from "../../shared/types/intake";
 describe("CaptchaService", () => {
   describe("generateSimpleChallenge", () => {

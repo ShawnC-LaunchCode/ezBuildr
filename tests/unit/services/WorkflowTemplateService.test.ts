@@ -6,8 +6,10 @@
  * NOTE: These are integration tests that require database connectivity
  */
 import { randomUUID } from 'crypto';
+
 import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { db } from '../../../server/db';
 import { documentTemplateService } from '../../../server/services/DocumentTemplateService';
 import { WorkflowTemplateService } from '../../../server/services/WorkflowTemplateService';

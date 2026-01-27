@@ -23,13 +23,16 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
+
 import { useToast } from "@/hooks/use-toast";
 import { useBatchReferences } from "@/hooks/useBatchReferences";
 import { useInfiniteRows } from "@/hooks/useInfiniteRows";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
+
 import type { DatavaultColumn } from "@shared/schema";
+
 import { AddRowButton } from "./AddRowButton";
 import { CellRenderer } from "./CellRenderer";
 import { DeleteRowButton } from "./DeleteRowButton";

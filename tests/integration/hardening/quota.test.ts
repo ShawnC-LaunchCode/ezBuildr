@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
-import { setupIntegrationTest } from '../../helpers/integrationTestHelper';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { storageQuotaService } from '../../../server/services/StorageQuotaService';
+import { setupIntegrationTest } from '../../helpers/integrationTestHelper';
 
 // Mock VirusScanner
 vi.mock('../../../server/services/security/VirusScanner', () => ({
@@ -19,7 +20,7 @@ describe('Hardening: Storage Quota', () => {
 
     afterEach(async () => {
         vi.restoreAllMocks(); // Restore spies
-        if (ctx && ctx.cleanup) await ctx.cleanup();
+        if (ctx?.cleanup) {await ctx.cleanup();}
     });
 
     it('should reject upload when quota exceeded', async () => {
@@ -39,7 +40,7 @@ describe('Hardening: Storage Quota', () => {
             .attach('file', fileContent, 'large.docx');
 
         // If 500, log body
-        if (res.status === 500) console.log('Quota 500 Body:', JSON.stringify(res.body));
+        if (res.status === 500) {console.log('Quota 500 Body:', JSON.stringify(res.body));}
 
         expect(res.status).toBe(403);
         const params = res.body.error ? res.body.error : res.body;

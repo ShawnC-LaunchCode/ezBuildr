@@ -4,6 +4,7 @@ import { userRepository } from '../repositories';
 import { authService, type JWTPayload } from '../services/AuthService';
 import { parseCookies } from "../utils/cookies";
 import { sendErrorResponse } from '../utils/responses';
+
 import type { Request, Response, NextFunction } from 'express';
 const logger = createLogger({ module: 'auth-middleware' });
 /**

@@ -483,42 +483,42 @@ export function validateStepValue(
   switch (stepType) {
     case 'email':
     case 'email_advanced':
-      validateEmail(value, config, errors);
+      validateEmail(value, config as EmailConfig | EmailAdvancedConfig, errors);
       break;
 
     case 'phone':
     case 'phone_advanced':
-      validatePhone(value, config, errors);
+      validatePhone(value, config as PhoneConfig | PhoneAdvancedConfig, errors);
       break;
 
     case 'website':
     case 'website_advanced':
-      validateWebsite(value, config, errors);
+      validateWebsite(value, config as WebsiteConfig | WebsiteAdvancedConfig, errors);
       break;
 
     case 'number':
     case 'number_advanced':
     case 'currency':
-      validateNumber(value, config, errors);
+      validateNumber(value, config as NumberConfig | NumberAdvancedConfig | CurrencyConfig, errors);
       break;
 
     case 'scale':
     case 'scale_advanced':
-      validateScale(value, config, errors);
+      validateScale(value, config as ScaleConfig | ScaleAdvancedConfig, errors);
       break;
 
     case 'choice':
     case 'multiple_choice':
-      validateChoice(value, config, errors);
+      validateChoice(value, config as ChoiceAdvancedConfig | LegacyMultipleChoiceConfig, errors);
       break;
 
     case 'address':
     case 'address_advanced':
-      validateAddress(value, config, errors);
+      validateAddress(value, config as AddressConfig | AddressAdvancedConfig, errors);
       break;
 
     case 'multi_field':
-      validateMultiField(value, config, errors);
+      validateMultiField(value, config as MultiFieldConfig, errors);
       break;
   }
 
@@ -528,7 +528,7 @@ export function validateStepValue(
   };
 }
 
-function validateEmail(value: any, config: any, errors: string[]): void {
+function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig | undefined, errors: string[]): void {
   const emails = Array.isArray(value) ? value : [value];
 
   for (const email of emails) {
@@ -536,28 +536,30 @@ function validateEmail(value: any, config: any, errors: string[]): void {
       errors.push(`Invalid email address: ${email}`);
     }
 
-    // Check domain restrictions
-    if (config?.restrictDomains?.length > 0) {
-      const domain = email.split('@')[1];
+    if (!config) {continue;}
+
+    // Type guard for advanced config
+    if ('restrictDomains' in config && config.restrictDomains && config.restrictDomains.length > 0) {
+      const domain = (email as string).split('@')[1];
       if (!config.restrictDomains.includes(domain)) {
         errors.push(`Email domain not allowed: ${domain}`);
       }
     }
 
-    if (config?.blockDomains?.length > 0) {
-      const domain = email.split('@')[1];
+    if ('blockDomains' in config && config.blockDomains && config.blockDomains.length > 0) {
+      const domain = (email as string).split('@')[1];
       if (config.blockDomains.includes(domain)) {
         errors.push(`Email domain blocked: ${domain}`);
       }
     }
   }
 
-  if (config?.maxEmails && emails.length > config.maxEmails) {
+  if (config && 'maxEmails' in config && config.maxEmails && emails.length > config.maxEmails) {
     errors.push(`Maximum ${config.maxEmails} emails allowed`);
   }
 }
 
-function validatePhone(value: any, config: any, errors: string[]): void {
+function validatePhone(value: unknown, _config: PhoneConfig | PhoneAdvancedConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Phone number must be a string');
     return;
@@ -570,7 +572,7 @@ function validatePhone(value: any, config: any, errors: string[]): void {
   }
 }
 
-function validateWebsite(value: any, config: any, errors: string[]): void {
+function validateWebsite(value: unknown, config: WebsiteConfig | WebsiteAdvancedConfig | undefined, errors: string[]): void {
   if (typeof value !== 'string') {
     errors.push('Website must be a string');
     return;
@@ -583,19 +585,21 @@ function validateWebsite(value: any, config: any, errors: string[]): void {
       errors.push('URL must include protocol (http:// or https://)');
     }
 
-    if (config?.allowedProtocols?.length > 0) {
-      if (!config.allowedProtocols.includes(url.protocol.replace(':', ''))) {
+    if (config && 'allowedProtocols' in config && config.allowedProtocols && config.allowedProtocols.length > 0) {
+      // Cast protocol to satisfy literal type if needed, or check validity first
+      const cleanProtocol = url.protocol.replace(':', '');
+      if (!config.allowedProtocols.includes(cleanProtocol as any)) {
         errors.push(`Protocol not allowed: ${url.protocol}`);
       }
     }
 
-    if (config?.restrictDomains?.length > 0) {
+    if (config && 'restrictDomains' in config && config.restrictDomains && config.restrictDomains.length > 0) {
       if (!config.restrictDomains.includes(url.hostname)) {
         errors.push(`Domain not allowed: ${url.hostname}`);
       }
     }
 
-    if (config?.blockDomains?.length > 0) {
+    if (config && 'blockDomains' in config && config.blockDomains && config.blockDomains.length > 0) {
       if (config.blockDomains.includes(url.hostname)) {
         errors.push(`Domain blocked: ${url.hostname}`);
       }
@@ -605,15 +609,21 @@ function validateWebsite(value: any, config: any, errors: string[]): void {
   }
 }
 
-function validateNumber(value: any, config: any, errors: string[]): void {
-  const num = typeof value === 'number' ? value : parseFloat(value);
+function validateNumber(value: unknown, config: NumberConfig | NumberAdvancedConfig | CurrencyConfig | NumberValidation | undefined, errors: string[]): void {
+  const num = typeof value === 'number' ? value : parseFloat(String(value));
 
   if (isNaN(num)) {
     errors.push('Invalid number');
     return;
   }
 
-  const validation = config?.validation || config;
+  // Handle both StepConfig and NumberValidation shapes
+  let validation: NumberValidation | undefined;
+  if (config && 'validation' in config) {
+    validation = (config).validation;
+  } else {
+    validation = config as NumberValidation | undefined;
+  }
 
   if (validation?.min !== undefined && num < validation.min) {
     errors.push(`Value must be at least ${validation.min}`);
@@ -624,42 +634,63 @@ function validateNumber(value: any, config: any, errors: string[]): void {
   }
 }
 
-function validateScale(value: any, config: any, errors: string[]): void {
+function validateScale(value: unknown, config: ScaleConfig | ScaleAdvancedConfig | undefined, errors: string[]): void {
   validateNumber(value, config, errors);
 }
 
-function validateChoice(value: any, config: any, errors: string[]): void {
+function validateChoice(value: unknown, config: ChoiceAdvancedConfig | LegacyMultipleChoiceConfig | undefined, errors: string[]): void {
   const values = Array.isArray(value) ? value : [value];
-  const validOptions = config?.options?.map((opt: any) => opt.id || opt.alias) || [];
+
+  // Safe extraction of options
+  let options: ChoiceOption[] = [];
+  if (config && 'options' in config) {
+    if (Array.isArray(config.options)) {
+      options = config.options;
+    } else if (config.options && typeof config.options === 'object' && 'type' in config.options && (config.options as any).type === 'static') {
+      // Handle DynamicOptionsConfig wrapper if present in schema but acting static
+      options = ((config.options as any).options) as ChoiceOption[];
+    }
+  }
+
+  const validOptions = options.map((opt) => opt.id || opt.alias);
 
   for (const val of values) {
-    if (!validOptions.includes(val)) {
+    if (typeof val === 'string' && !validOptions.includes(val)) {
       errors.push(`Invalid option: ${val}`);
     }
   }
 
-  if (config?.min && values.length < config.min) {
-    errors.push(`Select at least ${config.min} option(s)`);
+  // Safe checks for min/max
+  const min = config && 'min' in config ? config.min : undefined;
+  const max = config && 'max' in config ? config.max : undefined;
+
+  if (min !== undefined && values.length < min) {
+    errors.push(`Select at least ${min} option(s)`);
   }
 
-  if (config?.max && values.length > config.max) {
-    errors.push(`Select at most ${config.max} option(s)`);
+  if (max !== undefined && values.length > max) {
+    errors.push(`Select at most ${max} option(s)`);
   }
 }
 
-function validateAddress(value: any, config: any, errors: string[]): void {
+function validateAddress(value: unknown, config: AddressConfig | AddressAdvancedConfig | undefined, errors: string[]): void {
   if (!value || typeof value !== 'object') {
     errors.push('Address must be an object');
     return;
   }
 
-  const requiredFields = config?.requireAll
-    ? (config.fields || ['street', 'city', 'state', 'zip'])
+  const valObj = value as Record<string, unknown>;
+
+  // Check requireAll existence safely
+  const requireAll = config && 'requireAll' in config ? config.requireAll : false;
+
+  const requiredFields = requireAll
+    ? (config?.fields || ['street', 'city', 'state', 'zip'])
     : [];
 
   for (const field of requiredFields) {
     const fieldKey = typeof field === 'string' ? field : field.key;
-    if (!value[fieldKey] || String(value[fieldKey]).trim() === '') {
+    if (!valObj[fieldKey] || String(valObj[fieldKey]).trim() === '') {
       const fieldLabel = typeof field === 'object' ? field.label : fieldKey;
       errors.push(`${fieldLabel} is required`);
     }
@@ -684,13 +715,13 @@ function validateMultiField(value: unknown, config: StepConfig | undefined, erro
     if (valObj[field.key]) {
       switch (field.type) {
         case 'email':
-          validateEmail(valObj[field.key], {} as any, errors);
+          validateEmail(valObj[field.key], undefined, errors);
           break;
         case 'phone':
-          validatePhone(valObj[field.key], {} as any, errors);
+          validatePhone(valObj[field.key], undefined, errors);
           break;
         case 'number':
-          validateNumber(valObj[field.key], field.validation || {} as any, errors);
+          validateNumber(valObj[field.key], field.validation as NumberValidation, errors);
           break;
       }
     }

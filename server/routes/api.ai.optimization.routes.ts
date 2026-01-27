@@ -1,8 +1,10 @@
 import { Router } from "express";
+
 import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";
+
+import { logger } from '../logger';
 import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
 import { asyncHandler } from '../utils/asyncHandler';
-import { logger } from '../logger';
 const router = Router();
 // POST /api/ai/workflows/optimize/analyze
 router.post("/analyze", asyncHandler(async (req, res) => {

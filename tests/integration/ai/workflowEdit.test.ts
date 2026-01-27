@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
 import { db } from '../../../server/db';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditLogs } from '../../../shared/schema';
@@ -46,7 +47,7 @@ vi.mock('../../../server/middleware/auth', () => ({
 // Mock Gemini API
 vi.mock('@google/generative-ai', () => {
   return {
-    GoogleGenerativeAI: vi.fn(function () {
+    GoogleGenerativeAI: vi.fn(() => {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({
           generateContent: vi.fn().mockResolvedValue({
@@ -142,12 +143,12 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       } else {
         console.warn('⚠️ Skipping auditLogs cleanup: auditLogs or testUserId is undefined', { auditLogs: !!auditLogs, testUserId });
       }
-      if (sections && testWorkflowId) await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
-      if (workflowVersions && testWorkflowId) await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));
-      if (workflows && testWorkflowId) await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
-      if (projects && testProjectId) await db.delete(projects).where(eq(projects.id, testProjectId));
-      if (users && testUserId) await db.delete(users).where(eq(users.id, testUserId));
-      if (tenants && testTenantId) await db.delete(tenants).where(eq(tenants.id, testTenantId));
+      if (sections && testWorkflowId) {await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));}
+      if (workflowVersions && testWorkflowId) {await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId));}
+      if (workflows && testWorkflowId) {await db.delete(workflows).where(eq(workflows.id, testWorkflowId));}
+      if (projects && testProjectId) {await db.delete(projects).where(eq(projects.id, testProjectId));}
+      if (users && testUserId) {await db.delete(users).where(eq(users.id, testUserId));}
+      if (tenants && testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
     } catch (err: any) {
       console.error('❌ Error during test cleanup:', err);
     }

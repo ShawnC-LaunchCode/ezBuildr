@@ -6,6 +6,7 @@ import { ArrowLeft, Share2, Clock, BarChart3 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { useParams, useLocation } from 'wouter';
+
 import { DropoffList } from '@/components/analytics/DropoffList';
 import { WorkflowHealthPanel } from '@/components/analytics/WorkflowHealthPanel';
 import { ShareWorkflowDialog } from '@/components/dashboard/ShareWorkflowDialog';
@@ -31,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { blueprintAPI } from '@/lib/vault-api';
+
 import { BuilderCanvas } from './visual-builder/components/BuilderCanvas';
 import { ConnectionsPanel } from './visual-builder/components/ConnectionsPanel';
 import { NodeSidebar } from './visual-builder/components/NodeSidebar';

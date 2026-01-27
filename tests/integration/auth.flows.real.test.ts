@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
+
 import { loginAttempts, accountLocks } from "@shared/schema";
+
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
@@ -12,6 +14,7 @@ import {
   createVerifiedUser,
   generateTotpCode,
 } from "../helpers/testUtils";
+
 import type { Express } from "express";
 /**
  * REAL Auth Flow Integration Tests

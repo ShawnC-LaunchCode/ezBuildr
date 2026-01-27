@@ -5,14 +5,18 @@
  */
 import fs from 'fs/promises';
 import path from 'path';
+
 import { eq } from 'drizzle-orm';
 import express from 'express';
+
 import { runOutputs } from '@shared/schema';
+
 import { db } from '../db';
 import { asyncHandler } from '../middleware';
 import { hybridAuth } from '../middleware/auth';
 import { getOutputFilePath } from '../services/templates';
 import { createError } from '../utils/errors';
+
 import type { Express } from 'express';
 const router = express.Router();
 // All routes require authentication

@@ -1,9 +1,11 @@
+import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+
 import { users, tenants } from "@shared/schema";
+import { insertWorkflowSchema } from "@shared/schema"; // Import schema for parsing
+
 import { db } from "../../server/db";
 import { workflowService } from "../../server/services/WorkflowService";
-import { eq } from "drizzle-orm";
-import { insertWorkflowSchema } from "@shared/schema"; // Import schema for parsing
 
 describe("Reproduction: Workflow Creation", () => {
     let tenantId: string;

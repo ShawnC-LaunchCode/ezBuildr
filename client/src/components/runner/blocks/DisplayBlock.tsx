@@ -24,7 +24,7 @@ export interface DisplayBlockProps {
 
 // Helper to interpolate variables like {{variableName}}
 function interpolateVariables(text: string, context?: Record<string, any>): string {
-  if (!text || !context) return text;
+  if (!text || !context) {return text;}
 
   return text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
     const key = variableName.trim();

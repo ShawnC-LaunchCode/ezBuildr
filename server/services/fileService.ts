@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 import { promisify } from 'util';
 
 import multer from 'multer';
@@ -219,4 +219,13 @@ export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
     }
   }
   return cleaned;
+}
+
+/**
+ * Process deletion of soft-deleted files
+ * Currently a placeholder
+ */
+export async function processDeletions(): Promise<number> {
+  // TODO: Implement logic to find soft-deleted records in DB and remove them from storage
+  return 0;
 }

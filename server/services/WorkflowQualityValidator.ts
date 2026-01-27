@@ -12,7 +12,7 @@ import type { AIGeneratedWorkflow, AIGeneratedStep, AIGeneratedSection } from '.
 const logger = createLogger({ module: 'workflow-quality-validator' });
 
 export interface QualityIssue {
-  type: 'error' | 'warning' | 'suggestion';
+  severity: 'error' | 'warning' | 'suggestion';
   category: 'aliases' | 'types' | 'structure' | 'ux' | 'completeness' | 'validation';
   message: string;
   location?: string; // e.g., "sections[0].steps[2]"
@@ -93,7 +93,7 @@ export class WorkflowQualityValidator {
         // Check for missing alias
         if (!step.alias || step.alias.trim() === '') {
           issues.push({
-            type: 'error',
+            severity: 'error',
             category: 'aliases',
             message: `Step "${step.title}" is missing an alias`,
             location,
@@ -109,7 +109,7 @@ export class WorkflowQualityValidator {
 
         if (isGeneric) {
           issues.push({
-            type: 'error',
+            severity: 'error',
             category: 'aliases',
             message: `Generic alias "${step.alias}" for step "${step.title}"`,
             location,
@@ -120,7 +120,7 @@ export class WorkflowQualityValidator {
         // Check for too short aliases
         if (step.alias.length < 3) {
           issues.push({
-            type: 'warning',
+            severity: 'warning',
             category: 'aliases',
             message: `Alias "${step.alias}" is too short for step "${step.title}"`,
             location,
@@ -131,7 +131,7 @@ export class WorkflowQualityValidator {
         // Check for non-camelCase
         if (!/^[a-z][a-zA-Z0-9]*$/.test(step.alias)) {
           issues.push({
-            type: 'warning',
+            severity: 'warning',
             category: 'aliases',
             message: `Alias "${step.alias}" is not in camelCase format`,
             location,
@@ -142,7 +142,7 @@ export class WorkflowQualityValidator {
         // Check for duplicates
         if (seenAliases.has(step.alias)) {
           issues.push({
-            type: 'error',
+            severity: 'error',
             category: 'aliases',
             message: `Duplicate alias "${step.alias}"`,
             location,
@@ -207,7 +207,7 @@ export class WorkflowQualityValidator {
 
           if (hasKeyword && step.type !== hint.expectedType) {
             issues.push({
-              type: 'warning',
+              severity: 'warning',
               category: 'types',
               message: `Step "${step.title}" should probably use type "${hint.expectedType}" instead of "${step.type}"`,
               location,
@@ -221,7 +221,7 @@ export class WorkflowQualityValidator {
           const options = step.config?.options;
           if (!options || !Array.isArray(options) || options.length < 2) {
             issues.push({
-              type: 'error',
+              severity: 'error',
               category: 'validation',
               message: `Step "${step.title}" is type "${step.type}" but has no options`,
               location,
@@ -242,7 +242,7 @@ export class WorkflowQualityValidator {
     workflow.sections.forEach((section, sIdx) => {
       if (!section.steps || section.steps.length === 0) {
         issues.push({
-          type: 'error',
+          severity: 'error',
           category: 'structure',
           message: `Section "${section.title}" has no steps`,
           location: `sections[${sIdx}]`,
@@ -253,7 +253,7 @@ export class WorkflowQualityValidator {
       // Check for overly large sections (poor UX)
       if (section.steps.length > 15) {
         issues.push({
-          type: 'warning',
+          severity: 'warning',
           category: 'structure',
           message: `Section "${section.title}" has ${section.steps.length} steps (too many)`,
           location: `sections[${sIdx}]`,
@@ -265,7 +265,7 @@ export class WorkflowQualityValidator {
     // Check for single-section workflows (may be poorly structured)
     if (workflow.sections.length === 1 && workflow.sections[0].steps.length > 5) {
       issues.push({
-        type: 'suggestion',
+        severity: 'suggestion',
         category: 'structure',
         message: 'Workflow has only one section with multiple steps',
         suggestion: 'Consider grouping related steps into logical sections',
@@ -285,7 +285,7 @@ export class WorkflowQualityValidator {
         // Check for vague titles
         if (step.title.length < 10) {
           issues.push({
-            type: 'suggestion',
+            severity: 'suggestion',
             category: 'ux',
             message: `Step title "${step.title}" is quite short`,
             location,
@@ -297,7 +297,7 @@ export class WorkflowQualityValidator {
         const seemsLikeQuestion = /^(what|when|where|who|which|how|do|does|is|are|can|will)/i.test(step.title);
         if (seemsLikeQuestion && !step.title.includes('?')) {
           issues.push({
-            type: 'suggestion',
+            severity: 'suggestion',
             category: 'ux',
             message: `Step "${step.title}" appears to be a question but missing "?"`,
             location,
@@ -316,7 +316,7 @@ export class WorkflowQualityValidator {
     // Check for missing workflow title
     if (!workflow.title || workflow.title.trim() === '') {
       issues.push({
-        type: 'error',
+        severity: 'error',
         category: 'completeness',
         message: 'Workflow is missing a title',
         suggestion: 'Add a descriptive title for the workflow',
@@ -330,7 +330,7 @@ export class WorkflowQualityValidator {
 
     if (!hasInputSteps) {
       issues.push({
-        type: 'warning',
+        severity: 'warning',
         category: 'completeness',
         message: 'Workflow has no input fields (only display steps)',
         suggestion: 'Add input fields to collect data',
@@ -355,7 +355,7 @@ export class WorkflowQualityValidator {
 
         if (seemsImportant && step.required === false) {
           issues.push({
-            type: 'suggestion',
+            severity: 'suggestion',
             category: 'validation',
             message: `Step "${step.title}" seems important but is not required`,
             location,
@@ -375,9 +375,9 @@ export class WorkflowQualityValidator {
 
     for (const category of categories) {
       const categoryIssues = issues.filter(i => i.category === category);
-      const errorCount = categoryIssues.filter(i => i.type === 'error').length;
-      const warningCount = categoryIssues.filter(i => i.type === 'warning').length;
-      const suggestionCount = categoryIssues.filter(i => i.type === 'suggestion').length;
+      const errorCount = categoryIssues.filter(i => i.severity === 'error').length;
+      const warningCount = categoryIssues.filter(i => i.severity === 'warning').length;
+      const suggestionCount = categoryIssues.filter(i => i.severity === 'suggestion').length;
 
       // Scoring: errors -20, warnings -10, suggestions -5
       const deductions = (errorCount * 20) + (warningCount * 10) + (suggestionCount * 5);
@@ -413,8 +413,8 @@ export class WorkflowQualityValidator {
    */
   private generateSuggestions(issues: QualityIssue[]): string[] {
     const suggestions: string[] = [];
-    const errorCount = issues.filter(i => i.type === 'error').length;
-    const warningCount = issues.filter(i => i.type === 'warning').length;
+    const errorCount = issues.filter(i => i.severity === 'error').length;
+    const warningCount = issues.filter(i => i.severity === 'warning').length;
 
     if (errorCount > 0) {
       suggestions.push(`Fix ${errorCount} error${errorCount > 1 ? 's' : ''} to improve workflow quality`);
@@ -450,12 +450,12 @@ export class WorkflowQualityValidator {
 
     // Convert to camelCase
     const words = cleaned.trim().split(/\s+/);
-    if (words.length === 0) {return 'field';}
+    if (words.length === 0) { return 'field'; }
 
     return words
       .map((word, idx) => {
         word = word.toLowerCase();
-        if (idx === 0) {return word;}
+        if (idx === 0) { return word; }
         return word.charAt(0).toUpperCase() + word.slice(1);
       })
       .join('');

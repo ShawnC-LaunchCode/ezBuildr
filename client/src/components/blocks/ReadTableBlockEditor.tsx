@@ -5,6 +5,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {  Plus, Trash2 } from "lucide-react";
 import React, {  useEffect } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { useTableColumns } from "@/hooks/useTableColumns";
 import { cn } from "@/lib/utils";
 import { dataSourceAPI } from "@/lib/vault-api";
 import { useWorkflowDataSources } from "@/lib/vault-hooks";
+
 import type { ReadTableConfig } from "@shared/types/blocks";
 interface ReadTableBlockEditorProps {
   workflowId: string;

@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { describe, it, expect } from 'vitest';
+
 import app from '../../server/index';
 // Mock the openapi.yaml loading if necessary, but integration tests usually run with real app
 // We just want to ensure the endpoint serves HTML (Swing UI)

@@ -15,24 +15,24 @@ import React, { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
-
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { AddressConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
-export function AddressCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   // Parse config
   const config = step.config as AddressConfig | undefined;
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<AddressConfig>({
     country: (config?.country || "US"),
-    fields: (config?.fields || ["street", "city", "state", "zip"]),
+    fields: (config?.fields || ["street", "city", "state", "zip"]) as any, // Cast tuple
     requireAll: config?.requireAll !== undefined ? config.requireAll : true,
   });
 
@@ -123,7 +123,7 @@ export function AddressCardEditor({ stepId, sectionId, step }: StepEditorCommonP
         <SwitchField
           label="Require All Fields"
           description="All address fields must be filled"
-          checked={localConfig.requireAll}
+          checked={localConfig.requireAll ?? true}
           onChange={(checked) => handleUpdate({ requireAll: checked })}
         />
       </div>

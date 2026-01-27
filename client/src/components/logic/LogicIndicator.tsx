@@ -5,6 +5,7 @@
  * Can be used in compact (icon-only) or expanded (with count) modes.
  */
 import { EyeOff } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -13,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
 import type { ConditionExpression } from "@shared/types/conditions";
 import { countConditions } from "@shared/types/conditions";
 interface LogicIndicatorProps {

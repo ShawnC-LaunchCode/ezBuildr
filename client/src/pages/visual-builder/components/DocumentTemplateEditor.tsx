@@ -3,8 +3,10 @@ import DOMPurify from 'dompurify';
 import { Loader2, FileEdit } from 'lucide-react';
 import mammoth from 'mammoth';
 import React, { useState, useEffect, useMemo } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+
 import { AIAssistPanel } from './AIAssistPanel';
 interface DocumentTemplateEditorProps {
     templateId: string;

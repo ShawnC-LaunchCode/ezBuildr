@@ -5,9 +5,10 @@
  * These tests prevent regression to shell command injection vulnerabilities.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Read the source file to verify it uses execFile
 describe('PdfService Security - Command Execution', () => {
@@ -56,7 +57,7 @@ describe('PdfService - Functional Security', () => {
     const mockExecFile = vi.fn().mockImplementation(
       (_cmd: string, _args: string[], callback?: Function) => {
         // Simulate successful execution
-        if (callback) callback(null, '', '');
+        if (callback) {callback(null, '', '');}
         return { stdout: '', stderr: '' };
       }
     );

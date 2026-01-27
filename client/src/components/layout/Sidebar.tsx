@@ -1,5 +1,6 @@
 import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
+
 import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";

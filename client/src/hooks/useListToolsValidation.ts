@@ -32,6 +32,7 @@ export function useListToolsValidation({
     sourceTableId: string | null;
     columns: unknown[];
     loadingColumns: boolean;
+    blocks: unknown[];
 } {
     const { data: blocks = [] } = useBlocks(workflowId);
     const { data: sections = [] } = useSections(workflowId);
@@ -150,6 +151,7 @@ export function useListToolsValidation({
         sourceBlock,
         sourceTableId,
         columns,
-        loadingColumns
+        loadingColumns,
+        blocks
     };
 }

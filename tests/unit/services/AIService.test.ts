@@ -1,5 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { AIService } from '../../../server/services/AIService';
 
 // Properly hoist the mock function so it's available in the factory
@@ -17,7 +18,7 @@ vi.mock('../../../server/services/ai/WorkflowOptimizationService', () => ({
 
 vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
     return {
-        WorkflowGenerationService: vi.fn(function () {
+        WorkflowGenerationService: vi.fn(() => {
             return {
                 generateWorkflow: vi.fn().mockResolvedValue({
                     title: 'Generated Flow',
@@ -30,7 +31,7 @@ vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
 
 vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
     return {
-        WorkflowSuggestionService: vi.fn(function () {
+        WorkflowSuggestionService: vi.fn(() => {
             return {
                 suggestWorkflowImprovements: vi.fn().mockResolvedValue({
                     newSections: [{ id: 's2', title: 'New Section', order: 1, steps: [] }],
@@ -52,7 +53,7 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
 
 vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
     return {
-        WorkflowRevisionService: vi.fn(function () {
+        WorkflowRevisionService: vi.fn(() => {
             return {
                 reviseWorkflow: vi.fn().mockResolvedValue({
                     updatedWorkflow: { title: 'Revised Flow' },
@@ -66,7 +67,7 @@ vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
 
 vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
     return {
-        WorkflowLogicService: vi.fn(function () {
+        WorkflowLogicService: vi.fn(() => {
             return {
                 generateLogic: vi.fn().mockResolvedValue({
                     updatedWorkflow: { logicRules: [{ id: 'r1' }] },

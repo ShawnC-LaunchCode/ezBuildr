@@ -1,5 +1,6 @@
 ﻿import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
+
 import EasyAdvancedStory from "./components/EasyAdvancedStory";
 import FeatureGrid from "./components/FeatureGrid";
 import FinalCTA from "./components/FinalCTA";

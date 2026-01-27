@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+
 import { encrypt, decrypt, redact, redactObject, maskSecret, generateMasterKey, validateMasterKey } from "../../../server/utils/encryption";
 describe("Encryption Utilities", () => {
   const originalMasterKey = process.env.VL_MASTER_KEY;

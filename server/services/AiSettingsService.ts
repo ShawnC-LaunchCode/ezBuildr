@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
+
 import { aiSettings } from "@shared/schema"; // Updated import path based on project structure
+
 import { db } from "../db";
 export const DEFAULT_SYSTEM_PROMPT = `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
 Your task is to analyze the user's request and generate structured operations to modify the workflow.

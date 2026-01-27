@@ -5,9 +5,9 @@ import { Router } from "express";
 import { userPersonalizationSettings, workflowPersonalizationSettings } from "../../shared/schema";
 import { db } from "../db";
 import { personalizationService } from "../lib/ai/personalization";
+import { createLogger } from '../logger';
 import { hybridAuth } from "../middleware/auth";
 import { asyncHandler } from '../utils/asyncHandler';
-import { createLogger } from '../logger';
 
 const logger = createLogger({ module: 'ai-personalization-routes' });
 

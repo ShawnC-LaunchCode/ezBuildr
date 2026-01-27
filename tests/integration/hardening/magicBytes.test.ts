@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { setupIntegrationTest } from '../../helpers/integrationTestHelper';
 
 // Mock VirusScanner to bypass check
@@ -25,7 +26,7 @@ describe('Hardening: Magic Bytes', () => {
     });
 
     afterEach(async () => {
-        if (ctx && ctx.cleanup) await ctx.cleanup();
+        if (ctx?.cleanup) {await ctx.cleanup();}
     });
 
     it('should reject a text file spoofing as PDF', async () => {

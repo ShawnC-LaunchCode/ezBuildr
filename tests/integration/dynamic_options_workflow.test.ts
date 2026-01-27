@@ -1,8 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import { users, tenants } from '@shared/schema';
 import type { ChoiceAdvancedConfig } from '@shared/types/stepConfigs';
+
 import { db } from '../../server/db';
 import { sectionRepository } from '../../server/repositories';
 import { readTableBlockService } from '../../server/services/ReadTableBlockService';

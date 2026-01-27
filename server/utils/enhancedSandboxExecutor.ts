@@ -6,7 +6,7 @@
 import { spawn } from "child_process";
 import vm from "vm";
 
-import type { ScriptExecutionResult, ScriptContextAPI } from "@shared/types/scripting";
+import type { ScriptExecutionResult, ScriptContextAPI, HelperLibraryAPI } from "@shared/types/scripting";
 
 import { createLogger } from "../logger";
 import { createHelperLibrary } from "../services/scripting/HelperLibrary";
@@ -20,17 +20,39 @@ const MAX_OUTPUT_SIZE = parseInt(process.env.SANDBOX_MAX_OUTPUT_SIZE ?? "65536",
 const MIN_TIMEOUT_MS = 100;
 const MAX_TIMEOUT_MS = 3000;
 
+// Local interfaces for optional isolated-vm dependency
+interface IvmIsolate {
+  dispose(): void;
+  createContext(): Promise<IvmContext>;
+  compileScript(code: string): Promise<IvmScript>;
+}
+interface IvmContext {
+  global: IvmReference;
+  release(): void;
+}
+interface IvmReference {
+  set(name: string, value: unknown, options?: unknown): Promise<void>;
+  derefInto(): unknown;
+  copyInto(): unknown;
+  copy(): Promise<unknown>;
+  applySync(target: unknown, args: unknown[], options?: unknown): unknown;
+}
+interface IvmScript {
+  run(context: IvmContext, options?: unknown): Promise<unknown>;
+}
+
+
 interface ExecuteCodeWithHelpersParams {
   language: "javascript" | "python";
   code: string;
   input: Record<string, unknown>;
   context: ScriptContextAPI;
-  helpers?: Record<string, any>;
+  helpers?: Record<string, unknown> | HelperLibraryAPI;
   timeoutMs?: number;
   consoleEnabled?: boolean;
   // Performance optimizations
-  isolate?: any; // Re-use existing Isolate
-  scriptCache?: Map<string, any>; // Cache compiled scripts
+  isolate?: IvmIsolate; // Re-use existing Isolate
+  scriptCache?: Map<string, IvmScript>; // Cache compiled scripts
 }
 
 /**
@@ -43,11 +65,11 @@ async function runJsWithHelpers(
   code: string,
   input: Record<string, unknown>,
   context: ScriptContextAPI,
-  helpers: Record<string, any> | undefined,
+  helpers: Record<string, unknown> | HelperLibraryAPI | undefined,
   timeoutMs: number,
   consoleEnabled: boolean,
-  existingIsolate?: any,
-  scriptCache?: Map<string, any>
+  existingIsolate?: IvmIsolate,
+  scriptCache?: Map<string, IvmScript>
 ): Promise<ScriptExecutionResult> {
   const helperLib = createHelperLibrary({ consoleEnabled });
   // When consoleEnabled, always use helperLib.helpers to ensure console capture works
@@ -58,7 +80,7 @@ async function runJsWithHelpers(
     ivm = await import("isolated-vm");
   } catch (error) {
     logger.warn({ error }, "isolated-vm not found, falling back to node 'vm' module");
-    const result = await runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
+    const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);
     // Merge logs from helper library (which captures helpers.console.* calls)
     if (helperLib.getConsoleLogs) {
       const libLogs = helperLib.getConsoleLogs();
@@ -70,7 +92,7 @@ async function runJsWithHelpers(
   }
 
   // Create or reuse Isolate
-  const isolate = existingIsolate || new ivm.Isolate({ memoryLimit: 128 });
+  const isolate = (existingIsolate as IvmIsolate) || new ivm.Isolate({ memoryLimit: 128 });
   const disposeIsolate = !existingIsolate; // Only dispose if we created it
 
 
@@ -111,12 +133,12 @@ async function runJsWithHelpers(
     // We can't transfer functions directly. We create a structure map and a generic caller.
 
     // Helper to get structure
-    const getStructure = (obj: any): any => {
+    const getStructure = (obj: unknown): unknown => {
       if (typeof obj === 'function') { return '__fn__'; }
       if (typeof obj === 'object' && obj !== null) {
         const struct: any = {};
         for (const k of Object.keys(obj)) {
-          struct[k] = getStructure(obj[k]);
+          (struct)[k] = getStructure((obj as any)[k]);
         }
         return struct;
       }
@@ -127,8 +149,8 @@ async function runJsWithHelpers(
     await jail.set("_helpersStructure", new ivm.ExternalCopy(helpersStructure).copyInto());
 
     // Setup emit callback
-    let emittedValue: any = undefined;
-    await jail.set("_emitCallback", new ivm.Reference((val: any) => {
+    let emittedValue: unknown = undefined;
+    await jail.set("_emitCallback", new ivm.Reference((val: unknown) => {
       // Handle potential reference if val is object
       // But typically we want the value. ivm passes value for primitives, Reference for objects?
       // Actually with primitives it passes value.
@@ -140,14 +162,14 @@ async function runJsWithHelpers(
     }));
 
     // Setup console capture callbacks
-    const capturedConsoleLogs: any[][] = [];
-    await jail.set("_consoleLog", new ivm.Reference((...args: any[]) => {
+    const capturedConsoleLogs: unknown[][] = [];
+    await jail.set("_consoleLog", new ivm.Reference((...args: unknown[]) => {
       capturedConsoleLogs.push(args);
     }));
-    await jail.set("_consoleWarn", new ivm.Reference((...args: any[]) => {
+    await jail.set("_consoleWarn", new ivm.Reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[WARN]', ...args]);
     }));
-    await jail.set("_consoleError", new ivm.Reference((...args: any[]) => {
+    await jail.set("_consoleError", new ivm.Reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[ERROR]', ...args]);
     }));
 
@@ -167,7 +189,7 @@ async function runJsWithHelpers(
     // If we define:
     // jail.setSync("callHost", new ivm.Reference( (path, ...args) => ... ));
 
-    await jail.set("callHost", new ivm.Reference((path: string[], ...args: any[]) => {
+    await jail.set("callHost", new ivm.Reference((path: string[], ...args: unknown[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
       let target: any = actualHelpers;
@@ -252,10 +274,10 @@ async function runJsWithHelpers(
     // Check cache
     // Simple hash: code string itself (could use SHA-256 for large code)
     const cacheKey = code;
-    let script: any;
+    let script: IvmScript;
 
     if (scriptCache?.has(cacheKey)) {
-      script = scriptCache.get(cacheKey);
+      script = scriptCache.get(cacheKey)!;
     } else {
       script = await isolate.compileScript(bootstrapCode);
       if (scriptCache) {
@@ -278,8 +300,8 @@ async function runJsWithHelpers(
     // Prioritize emitted value if exists
     if (emittedValue !== undefined) {
       output = emittedValue;
-    } else if (typeof resultRef === 'object' && resultRef !== null && typeof resultRef.copy === 'function') {
-      output = await resultRef.copy();
+    } else if (typeof resultRef === 'object' && resultRef !== null && typeof (resultRef as any).copy === 'function') {
+      output = await (resultRef as any).copy();
     }
 
     // Explicitly dispose context (script is cached or disposed by isolate)
@@ -314,7 +336,7 @@ async function runPythonWithHelpers(
   input: Record<string, unknown>,
   context: ScriptContextAPI,
   timeoutMs: number,
-  consoleEnabled: boolean
+  _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
   return new Promise((resolve) => {
     try {
@@ -722,23 +744,23 @@ async function runJsWithVmFallback(
   code: string,
   input: Record<string, unknown>,
   context: ScriptContextAPI,
-  actualHelpers: Record<string, any> | undefined,
+  actualHelpers: Record<string, unknown> | HelperLibraryAPI | undefined,
   timeoutMs: number,
-  consoleEnabled: boolean
+  _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
-  const consoleLogs: any[][] = [];
+  const consoleLogs: unknown[][] = [];
 
   const sandbox = {
     input,
     context,
     helpers: actualHelpers,
     console: {
-      log: (...args: any[]) => consoleLogs.push(args),
-      warn: (...args: any[]) => consoleLogs.push(['[WARN]', ...args]),
-      error: (...args: any[]) => consoleLogs.push(['[ERROR]', ...args]),
-      info: (...args: any[]) => consoleLogs.push(['[INFO]', ...args]),
+      log: (...args: unknown[]) => consoleLogs.push(args),
+      warn: (...args: unknown[]) => consoleLogs.push(['[WARN]', ...args]),
+      error: (...args: unknown[]) => consoleLogs.push(['[ERROR]', ...args]),
+      info: (...args: unknown[]) => consoleLogs.push(['[INFO]', ...args]),
     },
-    emit: (val: any) => {
+    emit: (val: unknown) => {
       // Mimic emit behavior: captures the value as the result
       (sandbox as any).__emitResult__ = val;
     }

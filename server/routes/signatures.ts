@@ -5,8 +5,8 @@ import { logger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { signatureRequestService } from "../services";
 import { resumeRunFromNode } from "../services/runs";
-import { createError } from "../utils/errors";
 import { asyncHandler } from "../utils/asyncHandler";
+import { createError } from "../utils/errors";
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ router.get("/requests/:id", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) {throw new Error("Unauthorized");}
 
     const request = await signatureRequestService.getSignatureRequest(id, userId);
 
@@ -47,7 +47,7 @@ router.get("/requests/project/:projectId", hybridAuth, asyncHandler(async (req, 
   try {
     const { projectId } = req.params;
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) {throw new Error("Unauthorized");}
 
     const requests = await signatureRequestService.getPendingRequestsByProject(
       projectId,
@@ -68,7 +68,7 @@ router.get("/requests/:id/events", hybridAuth, asyncHandler(async (req, res, nex
   try {
     const { id } = req.params;
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) {throw new Error("Unauthorized");}
 
     const events = await signatureRequestService.getSignatureEvents(id, userId);
 

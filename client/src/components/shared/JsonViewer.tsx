@@ -227,7 +227,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
 
     return (
       <div className="ml-0">
-        <div className={containerClass} onClick={() => { if (!isEmpty) setExpanded(!expanded); }}>
+        <div className={containerClass} onClick={() => { if (!isEmpty) {setExpanded(!expanded);} }}>
           {/* Toggle */}
           {!isEmpty ? (
             <span className="cursor-pointer mr-1 mt-0.5 opacity-50 hover:opacity-100">

@@ -5,8 +5,9 @@
  */
 
 import { createLogger } from '../../logger';
-import { ModelRegistry } from './ModelRegistry';
+
 import { AIError } from './AIError';
+import { ModelRegistry } from './ModelRegistry';
 
 import type { AIErrorCode, TokenEstimate, CostEstimate, TruncationCheck } from './types';
 import type { AIGeneratedWorkflow } from '../../../shared/types/ai';
@@ -298,8 +299,8 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
   }
 
   // Validate logic rules reference existing steps/sections
-  for (const rule of workflow.logicRules) {
-    if (!stepAliases.has(rule.conditionStepAlias)) {
+  for (const rule of (workflow.logicRules || [])) {
+    if (rule.conditionStepAlias && !stepAliases.has(rule.conditionStepAlias)) {
       throw createAIError(
         `Logic rule references non-existent step alias: ${rule.conditionStepAlias}`,
         'VALIDATION_ERROR',

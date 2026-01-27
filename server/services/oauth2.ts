@@ -3,8 +3,10 @@
  * Handles OAuth2 Client Credentials flow and 3-legged OAuth2 flow with token caching
  */
 import crypto from 'crypto';
+
 import { logger } from '../logger';
 import { redactObject, decrypt } from '../utils/encryption';
+
 import { oauth2Cache } from './cache';
 /**
  * OAuth2 token response

@@ -1,6 +1,6 @@
 import { createLogger } from '../../../logger';
-import { ModelRegistry } from '../ModelRegistry';
 import { AIError } from '../AIError';
+import { ModelRegistry } from '../ModelRegistry';
 
 import type { TaskType } from '../types';
 import type { IAIProvider, AIProviderConfig } from './types';

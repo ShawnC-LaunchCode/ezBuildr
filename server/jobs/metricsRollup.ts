@@ -5,6 +5,7 @@
  * Runs periodically to compute metrics for 1m, 5m, 1h, and 1d buckets.
  */
 import { sql } from 'drizzle-orm';
+
 import {
   metricsEvents,
   metricsRollups,

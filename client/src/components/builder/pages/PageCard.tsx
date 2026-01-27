@@ -7,6 +7,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Settings, Trash2, ChevronDown, ChevronRight, EyeOff, FileText } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
+
 import { LogicIndicator, SectionLogicSheet } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +28,10 @@ import { cn } from "@/lib/utils";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
 import { useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
-import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
+
 import { StepCard } from "../cards/StepCard";
+import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
+
 import { BlockCard } from "./BlockCard";
 import { LogicAddMenu } from "./LogicAddMenu";
 import { QuestionAddMenu } from "./QuestionAddMenu";

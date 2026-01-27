@@ -6,18 +6,21 @@
  * 2. Old file deletion failure → request succeeds, warning logged, DB points to new file
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mock } from 'vitest';
-import request from 'supertest';
-import fs from 'fs/promises';
 import fsSync from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
+
+
+import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mock } from 'vitest';
+
+import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
-import * as schema from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
-import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { getTemplateFilePath, deleteTemplateFile } from '../../server/services/templates';
+import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
 // Mock template scanner to avoid needing valid DOCX files
 vi.mock('../../server/services/document/TemplateScanner', () => ({

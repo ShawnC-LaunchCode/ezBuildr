@@ -1,7 +1,8 @@
 
-import { z } from 'zod';
-import dotenv from 'dotenv';
 import path from 'path';
+
+import dotenv from 'dotenv';
+import { z } from 'zod';
 
 // ensure dotenv is loaded
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });

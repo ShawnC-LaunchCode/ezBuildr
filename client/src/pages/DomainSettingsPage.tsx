@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
+
 import AddDomainModal from '@/components/branding/AddDomainModal';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';

@@ -1,17 +1,19 @@
 import React from 'react';
+
 import type { ApiStep } from '@/lib/vault-api';
-import { LegacyStepBody } from './questions/LegacyStepBody';
-import { DisplayCardEditor } from './cards/DisplayCardEditor';
-import { TextCardEditor } from './cards/TextCardEditor';
+
+import { AddressCardEditor } from './cards/AddressCardEditor';
 import { BooleanCardEditor } from './cards/BooleanCardEditor';
 import { ChoiceCardEditor } from './cards/ChoiceCardEditor';
-import { NumberCardEditor } from './cards/NumberCardEditor';
-import { AddressCardEditor } from './cards/AddressCardEditor';
+import { DisplayCardEditor } from './cards/DisplayCardEditor';
 import { EmailCardEditor } from './cards/EmailCardEditor';
-import { PhoneCardEditor } from './cards/PhoneCardEditor';
-import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
-import { ScaleCardEditor } from './cards/ScaleCardEditor';
 import { MultiFieldCardEditor } from './cards/MultiFieldCardEditor';
+import { NumberCardEditor } from './cards/NumberCardEditor';
+import { PhoneCardEditor } from './cards/PhoneCardEditor';
+import { ScaleCardEditor } from './cards/ScaleCardEditor';
+import { TextCardEditor } from './cards/TextCardEditor';
+import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
+import { LegacyStepBody } from './questions/LegacyStepBody';
 
 export interface StepEditorCommonProps {
     stepId: string;

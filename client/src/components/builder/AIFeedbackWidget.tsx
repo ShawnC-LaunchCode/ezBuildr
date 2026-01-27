@@ -11,25 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchAPI } from '@/lib/vault-api';
 
-export interface QualityScore {
-  overall: number; // 0-100
-  breakdown: {
-    aliases: number;
-    types: number;
-    structure: number;
-    ux: number;
-    completeness: number;
-    validation: number;
-  };
-  issues: Array<{
-    category: string;
-    severity: 'error' | 'warning' | 'suggestion';
-    message: string;
-    stepAlias?: string;
-  }>;
-  passed: boolean;
-  suggestions: string[];
-}
+import type { QualityScore } from '@shared/types/ai';
+
+export { type QualityScore }; // Re-export for limited backwards compat if needed, but prefer direct import
+
+
 
 interface AIFeedbackWidgetProps {
   workflowId?: string;
@@ -117,14 +103,14 @@ export function AIFeedbackWidget({
   };
 
   const getQualityColor = (score: number) => {
-    if (score >= 80) {return 'text-green-600 dark:text-green-400';}
-    if (score >= 70) {return 'text-yellow-600 dark:text-yellow-400';}
+    if (score >= 80) { return 'text-green-600 dark:text-green-400'; }
+    if (score >= 70) { return 'text-yellow-600 dark:text-yellow-400'; }
     return 'text-red-600 dark:text-red-400';
   };
 
   const getQualityBadgeVariant = (score: number) => {
-    if (score >= 80) {return 'default';}
-    if (score >= 70) {return 'secondary';}
+    if (score >= 80) { return 'default'; }
+    if (score >= 70) { return 'secondary'; }
     return 'destructive';
   };
 

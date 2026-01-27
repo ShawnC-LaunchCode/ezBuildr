@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, RefreshCw, Download, BarChart2, Thermometer, Users } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "wouter";
+
 import { Button } from "@/components/ui/button";
 import {
     Card,

@@ -1,11 +1,13 @@
 /* eslint-disable max-lines */
 import * as crypto from "crypto";
+
 import { serialize } from "cookie";
 import { eq, and, gt, ne, desc } from "drizzle-orm";
 import { rateLimit } from 'express-rate-limit';
 
 import type { User } from "@shared/schema";
 import { refreshTokens, trustedDevices, tenants } from "@shared/schema";
+
 import { RATE_LIMIT_CONFIG } from "../config/auth";
 import { db } from "../db";
 import {
@@ -23,12 +25,13 @@ import { auditLogService } from "../services/AuditLogService";
 import { authService } from "../services/AuthService";
 import { metricsService } from "../services/MetricsService";
 import { mfaService } from "../services/MfaService";
+import { asyncHandler } from "../utils/asyncHandler";
 import { parseCookies } from "../utils/cookies"; // Import parseCookies
 import { generateDeviceFingerprint, parseDeviceName, getLocationFromIP } from "../utils/deviceFingerprint";
 import { hashToken } from "../utils/encryption"; // Import hashToken for session comparison
 import { sendErrorResponse } from "../utils/responses";
+
 import type { Express, Request, Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler";
 const logger = createLogger({ module: 'auth-routes' });
 // =================================================================
 // LOGIN HANDLER HELPERS
@@ -241,7 +244,7 @@ export function registerAuthRoutes(app: Express): void {
    * Refactored with helper functions for better readability and maintainability
    */
   app.post('/api/auth/login', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
-    // console.log("DEBUG: LOGIN HANDLER HIT");
+
     const startTime = Date.now();
     try {
       const { email, password } = req.body as Record<string, string>;
@@ -285,7 +288,7 @@ export function registerAuthRoutes(app: Express): void {
     } catch (error: unknown) {
       logger.error({ error: error as Error }, 'Login failed');
       // DEBUG: Print error to console for test inspection
-      console.error('Login Failed DEBUG:', error);
+
       // Audit log: Failed login (if we have user context)
       const errorWithUserId = error as { userId?: string; message: string };
       if (errorWithUserId.userId && typeof errorWithUserId.userId === 'string') {

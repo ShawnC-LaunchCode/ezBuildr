@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { QueryRunner } from '../../../../server/lib/queries/QueryRunner';
 // Define mocks using vi.hoisted to ensure they are available to the mock factory
 const { mockDb, mockChain, mockFn } = vi.hoisted(() => {

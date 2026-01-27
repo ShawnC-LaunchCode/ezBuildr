@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
+
 import BrandingPreview from '@/components/branding/BrandingPreview';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';

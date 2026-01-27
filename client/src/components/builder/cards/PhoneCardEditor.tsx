@@ -8,22 +8,28 @@ import React, { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import { StepEditorCommonProps } from "../StepEditorRouter";
+
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
-
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
 import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
-export function PhoneCardEditor({ stepId, sectionId, step }: StepEditorCommonProps) {
+interface PhoneCardState {
+  format: 'US' | 'international';
+  validateFormat: boolean;
+  showFormattingMask: boolean;
+}
+
+export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as PhoneConfig | undefined;
 
-  const [localConfig, setLocalConfig] = useState({
+  const [localConfig, setLocalConfig] = useState<PhoneCardState>({
     format: (config?.format || "US"),
     validateFormat: true, // Always validate in easy mode
     showFormattingMask: true, // Show formatting by default

@@ -29,17 +29,18 @@ import {
   AIVisualizeLogicRequest,
   AIVisualizeLogicResponse,
 } from '../../shared/types/ai';
-import { WorkflowWithAliases } from './AliasResolver';
-import { QualityScore } from './WorkflowQualityValidator';
-import { QualityImprovementConfig, ImprovementResult } from './ai/IterativeQualityImprover';
 import { createLogger } from '../logger';
+
 import { AIPromptBuilder } from './ai/AIPromptBuilder';
 import { AIProviderClient } from './ai/AIProviderClient';
+import { QualityImprovementConfig, ImprovementResult } from './ai/IterativeQualityImprover';
 import { WorkflowGenerationService } from './ai/WorkflowGenerationService';
 import { WorkflowLogicService } from './ai/WorkflowLogicService';
 import { workflowOptimizationService, WorkflowOptimizationService } from './ai/WorkflowOptimizationService';
 import { WorkflowRevisionService } from './ai/WorkflowRevisionService';
 import { WorkflowSuggestionService } from './ai/WorkflowSuggestionService';
+import { WorkflowWithAliases } from './AliasResolver';
+import { QualityScore } from './WorkflowQualityValidator';
 const logger = createLogger({ module: 'ai-service' });
 /**
  * AI Service for workflow generation and suggestions

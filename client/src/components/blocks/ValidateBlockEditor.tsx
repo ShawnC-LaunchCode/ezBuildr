@@ -1,5 +1,6 @@
 import {  Trash2, Database } from "lucide-react";
 import React, { useState } from "react";
+
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker"; // Ensure this path is correct
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import type {
     ValidateConfig,
     ValidateRule,
@@ -17,6 +19,7 @@ import type {
     ForEachRule,
     LegacyValidateRule
 } from "@shared/types/blocks";
+
 import { ValidationRulesEditor } from "../builder/ValidationRulesEditor";
 interface ValidateBlockEditorProps {
     workflowId: string;

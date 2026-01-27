@@ -2,6 +2,7 @@
  * TanStack Query hooks for Vault-Logic API
  */
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+
 import { DevPanelBus } from "./devpanelBus";
 import {
   fetchAPI,
@@ -30,6 +31,21 @@ import {
   type ApiTransformBlock,
   type ApiCollectionField
 } from "./vault-api";
+
+import type {
+  AIWorkflowRevisionRequest,
+  AIWorkflowRevisionResponse,
+  AIGeneratedWorkflow,
+  AIConnectLogicRequest,
+  AIConnectLogicResponse,
+  AIDebugLogicRequest,
+  AIDebugLogicResponse,
+  AIVisualizeLogicRequest,
+  AIVisualizeLogicResponse,
+  WorkflowDiff,
+  QualityScore,
+  QualityScoreSchema
+} from "../../../shared/types/ai";
 // Re-export types for convenience
 export type { ApiStep, ApiSection, ApiProject, ApiWorkflow, ApiBlock, ApiTransformBlock, ApiRun } from "./vault-api";
 // ============================================================================
@@ -228,25 +244,19 @@ export function useTransferWorkflow() {
   });
 }
 export function useReviseWorkflow() {
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: {
-      workflowId: string;
-      currentWorkflow: any;
-      userInstruction: string;
-      conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
-      mode?: 'easy' | 'advanced';
-    }) => {
+    mutationFn: async (data: AIWorkflowRevisionRequest) => {
       // 1. Enqueue Job
       const initRes = await fetchAPI('/api/ai/workflows/revise', {
         method: 'POST',
         body: JSON.stringify(data),
-      }) as any;
-      const { jobId } = initRes;
+      });
+      const { jobId } = initRes as { jobId: string };
       if (!jobId) { throw new Error("Failed to start AI revision job"); }
       // 2. Poll for Completion
-      const poll = async (): Promise<any> => {
-        const statusRes = await fetchAPI(`/api/ai/workflows/revise/${jobId}`) as any;
+      const poll = async (): Promise<AIWorkflowRevisionResponse> => {
+        const statusRes = await fetchAPI(`/api/ai/workflows/revise/${jobId}`);
         if (statusRes.status === 'completed') {
           return statusRes.result;
         }
@@ -259,15 +269,39 @@ export function useReviseWorkflow() {
       };
       return poll();
     },
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       // User must review and apply manually
+    },
+  });
+}
+export function useGenerateWorkflow() {
+  return useMutation({
+    mutationFn: async (data: {
+      projectId: string;
+      description: string;
+      category?: 'application' | 'survey' | 'intake' | 'onboarding' | 'request' | 'checklist' | 'general';
+    }) => {
+      return fetchAPI<{
+        success: boolean;
+        workflow: AIGeneratedWorkflow & { id: string };
+        metadata: {
+          duration: number;
+          sectionsGenerated: number;
+          logicRulesGenerated: number;
+          transformBlocksGenerated: number;
+        };
+        quality?: QualityScore;
+      }>('/api/ai/workflows/generate', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
   });
 }
 export function useConnectLogic() {
   return useMutation({
-    mutationFn: (data: any) =>
-      fetchAPI<{ updatedWorkflow: any; diff: any; explanation: string[]; suggestions?: string[] }>('/api/ai/workflows/generate-logic', {
+    mutationFn: (data: AIConnectLogicRequest) =>
+      fetchAPI<AIConnectLogicResponse>('/api/ai/workflows/generate-logic', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -275,8 +309,8 @@ export function useConnectLogic() {
 }
 export function useDebugLogic() {
   return useMutation({
-    mutationFn: (data: any) =>
-      fetchAPI('/api/ai/workflows/debug-logic', {
+    mutationFn: (data: AIDebugLogicRequest) =>
+      fetchAPI<AIDebugLogicResponse>('/api/ai/workflows/debug-logic', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -284,8 +318,8 @@ export function useDebugLogic() {
 }
 export function useVisualizeLogic() {
   return useMutation({
-    mutationFn: (data: any) =>
-      fetchAPI('/api/ai/workflows/visualize-logic', {
+    mutationFn: (data: AIVisualizeLogicRequest) =>
+      fetchAPI<AIVisualizeLogicResponse>('/api/ai/workflows/visualize-logic', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -318,7 +352,7 @@ export function useVersions(workflowId: string | undefined) {
 export function usePublishWorkflow() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ workflowId, graphJson, notes }: { workflowId: string; graphJson: any; notes?: string }) =>
+    mutationFn: ({ workflowId, graphJson, notes }: { workflowId: string; graphJson: unknown; notes?: string }) =>
       versionAPI.publish(workflowId, { graphJson, notes }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.versions(variables.workflowId) });
@@ -423,7 +457,7 @@ export function useSections(workflowId: string | undefined, options?: { enabled?
 export function useCreateSection() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ workflowId, ...data }: { workflowId: string; title: string; description?: string; order: number; config?: any }) =>
+    mutationFn: ({ workflowId, ...data }: { workflowId: string; title: string; description?: string; order: number; config?: unknown }) =>
       sectionAPI.create(workflowId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
@@ -434,7 +468,7 @@ export function useCreateSection() {
 export function useUpdateSection() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, workflowId, ...data }: Partial<ApiSection> & { id: string; workflowId: string }) =>
+    mutationFn: ({ id, workflowId: _workflowId, ...data }: Partial<ApiSection> & { id: string; workflowId: string }) =>
       sectionAPI.update(id, data),
     onMutate: async (variables) => {
       const { id, workflowId, ...data } = variables;
@@ -503,8 +537,8 @@ export function useReorderSections() {
 export function useDeleteSection() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
-      sectionAPI.delete(id),
+    mutationFn: (variables: { id: string; workflowId: string }) =>
+      sectionAPI.delete(variables.id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
       DevPanelBus.emitWorkflowUpdate();
@@ -565,7 +599,7 @@ export function useCreateStep() {
 export function useUpdateStep() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
+    mutationFn: ({ id, sectionId: _sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
       stepAPI.update(id, data),
     onMutate: async (variables) => {
       const { id, sectionId, ...data } = variables;
@@ -649,8 +683,8 @@ export function useReorderSteps() {
 export function useDeleteStep() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, sectionId }: { id: string; sectionId: string }) =>
-      stepAPI.delete(id),
+    mutationFn: (variables: { id: string; sectionId: string }) =>
+      stepAPI.delete(variables.id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
       DevPanelBus.emitWorkflowUpdate();
@@ -727,8 +761,8 @@ export function useReorderBlocks() {
 export function useDeleteBlock() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
-      blockAPI.delete(id),
+    mutationFn: (variables: { id: string; workflowId: string }) =>
+      blockAPI.delete(variables.id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.blocks(variables.workflowId) });
     },
@@ -789,8 +823,8 @@ export function useLogicRules(workflowId: string | undefined) {
 export function useDeleteTransformBlock() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, workflowId }: { id: string; workflowId: string }) =>
-      transformBlockAPI.delete(id),
+    mutationFn: (variables: { id: string; workflowId: string }) =>
+      transformBlockAPI.delete(variables.id),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transformBlocks(variables.workflowId) });
     },
@@ -847,7 +881,7 @@ export function useUpsertValue() {
   });
 }
 export function useSubmitSection() {
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ runId, sectionId, values }: { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }) =>
       runAPI.submitSection(runId, sectionId, values),
@@ -856,7 +890,7 @@ export function useSubmitSection() {
   });
 }
 export function useNext() {
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ runId, currentSectionId }: { runId: string; currentSectionId: string }) =>
       runAPI.next(runId, currentSectionId),

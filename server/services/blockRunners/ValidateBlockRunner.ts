@@ -3,6 +3,7 @@
  * Validates data against rules and returns error messages
  */
 import { BaseBlockRunner } from "./BaseBlockRunner";
+
 import type { BlockContext, BlockResult, Block, ValidateConfig } from "./types";
 export class ValidateBlockRunner extends BaseBlockRunner {
   getBlockType(): string {

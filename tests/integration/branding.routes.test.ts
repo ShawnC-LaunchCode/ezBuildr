@@ -1,8 +1,10 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import { tenants, users, tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
+
 import { registerBrandingRoutes } from '../../server/routes/branding.routes';
 /**
  * Stage 17: Branding API Routes Integration Tests

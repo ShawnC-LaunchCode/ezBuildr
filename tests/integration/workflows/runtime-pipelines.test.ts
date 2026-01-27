@@ -5,6 +5,7 @@
 import { sql, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import {
   tenants,
   users,
@@ -20,6 +21,7 @@ import {
   templates,
   runGeneratedDocuments,
 } from '@shared/schema';
+
 import { db } from '../../../server/db';
 import {
   workflowRepository,

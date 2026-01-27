@@ -1,14 +1,17 @@
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
+
 import { Router } from "express";
 import multer from "multer";
-import fs from "fs/promises";
-import path from "path";
-import os from "os";
+
+
 import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
 import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
+import { uploadLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from "../services/fileService";
 import { asyncHandler } from "../utils/asyncHandler";
-import { uploadLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
@@ -17,8 +20,8 @@ const upload = multer({
     storage: multer.diskStorage({
         destination: os.tmpdir(),
         filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+            const uniqueSuffix = `${Date.now()  }-${  Math.round(Math.random() * 1E9)}`;
+            cb(null, `${file.fieldname  }-${  uniqueSuffix  }${path.extname(file.originalname)}`);
         }
     }),
     limits: {

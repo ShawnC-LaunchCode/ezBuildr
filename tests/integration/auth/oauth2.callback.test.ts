@@ -9,7 +9,9 @@ import express from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 import { users, tenants, projects, externalConnections as connections, secrets } from '@shared/schema';
+
 import { db } from '../../../server/db';
 import { registerConnectionsV2Routes } from '../../../server/routes/connections-v2.routes';
 import { authService } from '../../../server/services/AuthService';
@@ -18,6 +20,7 @@ import {
   validateOAuth2State,
   cleanupOAuth2State,
 } from '../../../server/services/oauth2';
+
 import type { Express } from 'express';
 describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let app: Express;

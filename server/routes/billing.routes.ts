@@ -5,8 +5,8 @@ import { requireWorkspace } from "../lib/authz/enforce";
 import { StripeProvider } from "../lib/billing/providers/StripeProvider";
 import { SubscriptionService } from "../lib/billing/SubscriptionService";
 import { UsageAggregator } from "../lib/metering/usageAggregator";
-import { asyncHandler } from '../utils/asyncHandler';
 import { logger } from '../logger';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 const provider = new StripeProvider();

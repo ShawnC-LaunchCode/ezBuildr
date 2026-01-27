@@ -9,9 +9,10 @@ import PizZip from 'pizzip';
 import { logger } from "../../logger"; // Adjust path if needed (../../logger)
 
 const require = createRequire(import.meta.url);
+import { documentProcessingLimiter } from "../../services/processingLimiter";
+
 const pdfLib = require('pdf-parse');
 
-import { documentProcessingLimiter } from "../../services/processingLimiter";
 export interface AIAnalysisResult {
     variables: AnalyzedVariable[];
     suggestions: string[];
@@ -240,7 +241,7 @@ Requirements:
         }
         // Fallback for MD/txt
         const fs = await import('fs/promises');
-        return await fs.readFile(filePath, 'utf-8');
+        return fs.readFile(filePath, 'utf-8');
     }
 
     private async performAIExtraction(text: string): Promise<{ variables: AnalyzedVariable[], suggestions: string[] }> {

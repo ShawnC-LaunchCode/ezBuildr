@@ -43,7 +43,7 @@ const logger = createLogger({ module: 'enhanced-doc-engine' });
  */
 export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOptions, 'data'> {
   /** Raw step values (will be normalized) */
-  rawData: Record<string, any>;
+  rawData: Record<string, unknown>;
 
   /** Optional field mapping */
   mapping?: DocumentMapping;
@@ -101,7 +101,7 @@ export interface FinalBlockRenderOptions {
   documents: FinalBlockDocument[];
 
   /** Step values from workflow run */
-  stepValues: Record<string, any>;
+  stepValues: Record<string, unknown>;
 
   /** Output directory */
   outputDir?: string;
@@ -136,7 +136,7 @@ export interface FinalBlockRenderResult {
     phase?: string;
     recoverable?: boolean;
     suggestion?: string;
-    details?: any;
+    details?: unknown;
   }>;
 
   /** Total number of documents attempted */
@@ -203,10 +203,10 @@ export class EnhancedDocumentEngine {
           originalKeys: Object.keys(rawData).length,
           normalizedKeys: Object.keys(normalizedData).length,
         }, 'Variables normalized');
-      } catch (error: any) {
+      } catch (error: unknown) {
         throw createNormalizationError(
           baseOptions.outputName || 'unknown',
-          error,
+          error as any,
           rawData
         );
       }
@@ -232,11 +232,11 @@ export class EnhancedDocumentEngine {
               missing: mappingResult.missing,
             }, 'Mapping references missing variables');
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           throw createMappingError(
             baseOptions.templatePath,
             baseOptions.outputName || 'unknown',
-            error,
+            error as any,
             mapping
           );
         }
@@ -273,7 +273,7 @@ export class EnhancedDocumentEngine {
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         const duration = Date.now() - startTime;
 
         // Track failed generation
@@ -282,7 +282,7 @@ export class EnhancedDocumentEngine {
             baseOptions.templatePath,
             'failure',
             duration,
-            error.message,
+            (error as Error).message,
             baseOptions.outputName
           ).catch((err) => {
             logger.warn({ error: err }, 'Failed to track generation metric');
@@ -292,7 +292,7 @@ export class EnhancedDocumentEngine {
         throw createRenderError(
           baseOptions.templatePath,
           baseOptions.outputName || 'unknown',
-          error,
+          error as any,
           finalData
         );
       }
@@ -303,7 +303,7 @@ export class EnhancedDocumentEngine {
         normalizedData,
         mappingResult,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Wrap non-DocumentGenerationError errors
       if (!isDocumentGenerationError(error)) {
         throw wrapAsDocumentGenerationError(error, {
@@ -416,7 +416,7 @@ export class EnhancedDocumentEngine {
           docxPath: result.docxPath,
           pdfPath: result.pdfPath,
         }, 'Document generated successfully');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Enhanced error logging with full context
         const docError = isDocumentGenerationError(error)
           ? error
@@ -475,7 +475,7 @@ export class EnhancedDocumentEngine {
    */
   private evaluateConditions(
     conditions: LogicExpression,
-    stepValues: Record<string, any>
+    stepValues: Record<string, unknown>
   ): boolean {
     if (!conditions?.conditions || conditions.conditions.length === 0) {
       return true;

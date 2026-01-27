@@ -1,7 +1,8 @@
+import { logger } from '../../logger';
+
 import { DiskStorageProvider } from './DiskStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
 import { StorageProvider } from './types';
-import { logger } from '../../logger';
 
 const storageDriver = process.env.STORAGE_DRIVER || 'disk';
 

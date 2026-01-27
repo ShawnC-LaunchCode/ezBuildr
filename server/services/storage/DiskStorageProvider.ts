@@ -1,10 +1,13 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+
 import { nanoid } from 'nanoid';
-import { StorageProvider } from './types';
+
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
+
+import { StorageProvider } from './types';
 
 export class DiskStorageProvider implements StorageProvider {
     private baseDir: string;

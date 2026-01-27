@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { tenants, tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
+
 import { db } from '../../../server/db';
 import { BrandingService } from '../../../server/services/BrandingService';
 /**

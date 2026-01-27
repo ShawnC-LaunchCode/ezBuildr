@@ -24,11 +24,14 @@ import {
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import React, { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { UI_LABELS } from "@/lib/labels";
 import type {  } from "@/lib/vault-api";
 import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps, useCreateSection, useWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
+
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
+
 import { PageCard } from "./PageCard";
 interface PageCanvasProps {
   workflowId: string;

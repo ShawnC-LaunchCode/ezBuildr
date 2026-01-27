@@ -1,5 +1,6 @@
 import { Sparkles, X, MessageSquare, HelpCircle, Settings } from 'lucide-react';
 import React, { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +12,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+
 import { usePersonalizationStore } from '../../../lib/stores/personalizationStore';
 interface FloatingAIAssistProps {
     currentBlockText?: string;

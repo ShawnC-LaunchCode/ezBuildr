@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
+
 import { authService } from '@server/services/AuthService';
+
 import type { User } from '@shared/schema';
 const WS_URL = 'ws://localhost:5174/collab'; // Test server port
 // Check if collab server is available for testing

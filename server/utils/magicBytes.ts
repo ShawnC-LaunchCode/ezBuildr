@@ -14,7 +14,7 @@ const SIGNATURES = {
  * @returns boolean - true if valid, false if mismatch
  */
 export function validateMagicBytes(buffer: Buffer, filename: string): boolean {
-    if (!buffer || buffer.length < 4) return false;
+    if (!buffer || buffer.length < 4) {return false;}
 
     const ext = filename.toLowerCase().split('.').pop() || '';
 
@@ -50,7 +50,7 @@ export function validateMagicBytes(buffer: Buffer, filename: string): boolean {
 
 function compareBytes(buffer: Buffer, signature: number[]): boolean {
     for (let i = 0; i < signature.length; i++) {
-        if (buffer[i] !== signature[i]) return false;
+        if (buffer[i] !== signature[i]) {return false;}
     }
     return true;
 }
