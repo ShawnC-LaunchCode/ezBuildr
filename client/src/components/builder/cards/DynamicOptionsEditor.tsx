@@ -1,16 +1,18 @@
+import { ExternalLink, Edit, Unlink, RefreshCw , AlertCircle } from 'lucide-react';
 import React from 'react';
-import { ExternalLink, Edit, Unlink, RefreshCw } from 'lucide-react';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+
+
 import type { DynamicOptionsConfig } from '@/../../shared/types/stepConfigs';
 
 interface DynamicOptionsEditorProps {
     config: Extract<DynamicOptionsConfig, { type: 'list' }>;
-    listVariables: Array<{ alias: string; type: string }>;
+    listVariables: Array<{ alias?: string | null; type: string }>;
     sourceBlock: any;
     sourceTableId: string | null;
     columns: any[];

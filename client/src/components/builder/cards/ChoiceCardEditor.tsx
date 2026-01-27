@@ -24,26 +24,27 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useChoiceConfig } from "@/hooks/useChoiceConfig";
+import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
+import { StepEditorCommonProps } from "../StepEditorRouter";
 import { TransformSummary } from "../TransformSummary";
 
 import { AliasField } from "./common/AliasField";
+import { DefaultValueField } from "./common/DefaultValueField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
-import { DefaultValueField } from "./common/DefaultValueField";
-
-
+import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
+import { StaticOptionsEditor } from "./StaticOptionsEditor";
 
 import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, LegacyRadioConfig, DynamicOptionsConfig } from "@/../../shared/types/stepConfigs"
   ;
 
 
-import { StepEditorCommonProps } from "../StepEditorRouter";
-import { useChoiceConfig } from "@/hooks/useChoiceConfig";
-import { useListToolsValidation } from "@/hooks/useListToolsValidation";`r`nimport { StaticOptionsEditor } from "./StaticOptionsEditor";`r`nimport { DynamicOptionsEditor } from "./DynamicOptionsEditor";
+
 
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -164,7 +165,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const handleAddOption = () => {
-    if (!localConfig) return;
+    if (!localConfig) {return;}
     const newOptions = [
       ...localConfig.staticOptions,
       {
@@ -177,14 +178,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const handleUpdateOption = (index: number, field: keyof ChoiceOption, value: string) => {
-    if (!localConfig) return;
+    if (!localConfig) {return;}
     const newOptions = [...localConfig.staticOptions];
     newOptions[index] = { ...newOptions[index], [field]: value };
     handleUpdate({ staticOptions: newOptions });
   };
 
   const handleDeleteOption = (index: number) => {
-    if (!localConfig) return;
+    if (!localConfig) {return;}
     const newOptions = localConfig.staticOptions.filter((_: any, i: number) => i !== index);
     handleUpdate({ staticOptions: newOptions });
   };
@@ -290,8 +291,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
     if (unlinkMode === 'keep') {
       // Attempt to migrate transforms back
-      if (linkedBlock?.config) {
-        const blockConfig = linkedBlock.config;
+      if ((linkedBlock as any)?.config) {
+        const blockConfig = (linkedBlock as any).config;
         transform = {
           filters: blockConfig.filters,
           sort: blockConfig.sort,
@@ -349,15 +350,15 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     try {
       // Determine transform config for new block
       let transformConfig = undefined;
-      if (replaceMode === 'migrate' && linkedBlock?.config) {
+      if (replaceMode === 'migrate' && (linkedBlock as any)?.config) {
         // Create copy of existing transforms
         transformConfig = {
-          filters: linkedBlock.config.filters,
-          sort: linkedBlock.config.sort,
-          limit: linkedBlock.config.limit,
-          offset: linkedBlock.config.offset,
-          dedupe: linkedBlock.config.dedupe,
-          select: linkedBlock.config.select
+          filters: (linkedBlock as any).config.filters,
+          sort: (linkedBlock as any).config.sort,
+          limit: (linkedBlock as any).config.limit,
+          offset: (linkedBlock as any).config.offset,
+          dedupe: (linkedBlock as any).config.dedupe,
+          select: (linkedBlock as any).config.select
         };
       }
 
@@ -424,7 +425,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const linkedBlock = useMemo(() => {
     if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) { return null; }
-    return blocks.find(b => b.id === localConfig.dynamicOptions.linkedListToolsBlockId);
+    return (blocks as any[]).find((b: any) => b.id === localConfig.dynamicOptions.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
 
   const handleOpenLinkedBlock = () => {
@@ -439,14 +440,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
     // Convert to UniversalBlock format expected by BlockEditorDialog
     const universalBlock: UniversalBlock = {
-      id: linkedBlock.id,
-      type: linkedBlock.type,
-      phase: linkedBlock.phase || 'onRunStart',
-      order: linkedBlock.order || 0,
-      enabled: linkedBlock.enabled ?? true,
-      raw: linkedBlock,
+      id: (linkedBlock as any).id,
+      type: (linkedBlock as any).type,
+      phase: (linkedBlock as any).phase || 'onRunStart',
+      order: (linkedBlock as any).order || 0,
+      enabled: (linkedBlock as any).enabled ?? true,
+      raw: linkedBlock as any,
       source: 'regular',
-      title: linkedBlock.config?.outputListVar || linkedBlock.config?.outputKey || 'List Tools',
+      title: (linkedBlock as any).config?.outputListVar || (linkedBlock as any).config?.outputKey || 'List Tools',
       displayType: 'list_tools'
     };
 

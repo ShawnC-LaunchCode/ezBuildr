@@ -4,8 +4,10 @@
  */
 
 import { useMemo } from 'react';
-import { useBlocks, useSections } from '@/lib/vault-hooks';
+
 import { useTableColumns } from '@/hooks/useTableColumns';
+import { useBlocks, useSections } from '@/lib/vault-hooks';
+
 import type { ChoiceCardState } from './useChoiceConfig';
 
 interface ValidationWarnings {

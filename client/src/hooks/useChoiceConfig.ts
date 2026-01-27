@@ -4,7 +4,9 @@
  */
 
 import { useState, useEffect } from 'react';
+
 import type { ApiStep } from '@/lib/vault-api';
+
 import type {
     ChoiceAdvancedConfig,
     ChoiceOption,
