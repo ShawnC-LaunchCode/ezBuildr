@@ -44,7 +44,7 @@ import type { ChoiceAdvancedConfig, ChoiceOption, LegacyMultipleChoiceConfig, Le
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 import { useChoiceConfig } from "@/hooks/useChoiceConfig";
-import { useListToolsValidation } from "@/hooks/useListToolsValidation";
+import { useListToolsValidation } from "@/hooks/useListToolsValidation";`r`nimport { StaticOptionsEditor } from "./StaticOptionsEditor";
 
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -514,19 +514,12 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         </div>
 
         <TabsContent value="static" className="mt-0 space-y-3">
-          <div className="space-y-2">
-            {localConfig.staticOptions.map((option: any, index: number) => (
-              <div key={option.id} className="flex items-start gap-2 p-3 border rounded-md bg-background">
-                <div className="pt-2 cursor-grab"><GripVertical className="h-4 w-4 text-muted-foreground" /></div>
-                <div className="flex-1 space-y-2">
-                  <Input value={option.label} onChange={(e) => { void handleUpdateOption(index, 'label', e.target.value); }} placeholder="Display Value" className="text-sm" />
-                  <Input value={option.alias || option.id} onChange={(e) => { void handleUpdateOption(index, 'alias', e.target.value); }} placeholder="Saved Value" className="text-sm font-mono" />
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => { void handleDeleteOption(index); }}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            ))}
-          </div>
-          <Button variant="outline" size="sm" className="w-full" onClick={() => { void handleAddOption(); }}><Plus className="h-4 w-4 mr-2" />Add Option</Button>
+          <StaticOptionsEditor
+            options={localConfig.staticOptions}
+            onUpdate={handleUpdateOption}
+            onDelete={handleDeleteOption}
+            onAdd={handleAddOption}
+          />
         </TabsContent>
 
         <TabsContent value="dynamic" className="mt-0 space-y-4">
