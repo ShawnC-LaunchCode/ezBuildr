@@ -317,7 +317,7 @@ function exampleComplexErrors(app: Express) {
     asyncHandler(async (req: any, res) => {
       const userId = req.user.claims.sub;
       const { teamId } = req.params;
-      const { email } = validateInput(addMemberSchema, req.body);
+      const { email } = validateInput(addMemberSchema, req.body) as { email: string };
 
       // Check if team exists
       const team = await getTeam(teamId);
@@ -417,4 +417,4 @@ async function addTeamMember(teamId: string, userId: string): Promise<any> {
 async function getTeamProjects(teamId: string): Promise<any> {
   return [];
 }
-const addMemberSchema: any = {};
+const addMemberSchema = z.object({ email: z.string().email() });

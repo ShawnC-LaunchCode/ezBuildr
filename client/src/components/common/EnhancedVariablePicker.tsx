@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { type ApiWorkflowVariable } from "@/lib/vault-api";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
 
 interface EnhancedVariablePickerProps {
@@ -32,7 +33,7 @@ export function EnhancedVariablePicker({
 
   // Group variables by section/page
   const grouped = useMemo(() => {
-    const groups = new Map<string, typeof variables>();
+    const groups = new Map<string, ApiWorkflowVariable[]>();
 
     variables.forEach((variable) => {
       const sectionTitle = variable.sectionTitle || "Other";
@@ -52,7 +53,7 @@ export function EnhancedVariablePicker({
       description: `Variable path "${path}" copied to clipboard`,
       duration: 2000,
     });
-    if (onCopy) {onCopy(path);}
+    if (onCopy) { onCopy(path); }
   };
 
   const isListType = (type: string) => {

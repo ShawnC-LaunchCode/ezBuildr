@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { runAPI } from "../../lib/vault-api";
+
+import { runAPI, type ApiRun, type ApiStepValue } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
-export function useRuns(workflowId: string | undefined): UseQueryResult<unknown[]> {
+export function useRuns(workflowId: string | undefined): UseQueryResult<ApiRun[]> {
     return useQuery({
         queryKey: queryKeys.runs(workflowId ?? ""),
         queryFn: () => runAPI.list(workflowId ?? ""),
@@ -10,7 +12,7 @@ export function useRuns(workflowId: string | undefined): UseQueryResult<unknown[
     });
 }
 
-export function useRun(id: string | undefined): UseQueryResult<unknown> {
+export function useRun(id: string | undefined): UseQueryResult<ApiRun> {
     return useQuery({
         queryKey: queryKeys.run(id ?? ""),
         queryFn: () => runAPI.get(id ?? ""),
@@ -18,7 +20,7 @@ export function useRun(id: string | undefined): UseQueryResult<unknown> {
     });
 }
 
-export function useRunWithValues(id: string | undefined, options?: { enabled?: boolean }): UseQueryResult<unknown> {
+export function useRunWithValues(id: string | undefined, options?: { enabled?: boolean }): UseQueryResult<ApiRun & { values: ApiStepValue[] }> {
     return useQuery({
         queryKey: queryKeys.runWithValues(id ?? ""),
         queryFn: () => runAPI.getWithValues(id ?? ""),
@@ -48,7 +50,7 @@ export function useUpsertValue(): UseMutationResult<unknown, unknown, { runId: s
     });
 }
 
-export function useSubmitSection(): UseMutationResult<unknown, unknown, { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }> {
+export function useSubmitSection(): UseMutationResult<{ success: boolean; errors?: string[]; fieldErrors?: Record<string, string[]> }, unknown, { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }> {
     return useMutation({
         mutationFn: ({ runId, sectionId, values }: { runId: string; sectionId: string; values: Array<{ stepId: string; value: any }> }) =>
             runAPI.submitSection(runId, sectionId, values),
@@ -57,7 +59,7 @@ export function useSubmitSection(): UseMutationResult<unknown, unknown, { runId:
     });
 }
 
-export function useNext(): UseMutationResult<unknown, unknown, { runId: string; currentSectionId: string }> {
+export function useNext(): UseMutationResult<{ nextSectionId?: string }, unknown, { runId: string; currentSectionId: string }> {
     return useMutation({
         mutationFn: ({ runId, currentSectionId }: { runId: string; currentSectionId: string }) =>
             runAPI.next(runId, currentSectionId),

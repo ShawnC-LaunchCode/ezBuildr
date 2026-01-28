@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { sectionAPI, type ApiSection } from "../../lib/vault-api";
+
 import { DevPanelBus } from "../../lib/devpanelBus";
+import { sectionAPI, type ApiSection } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
 export function useSections(workflowId: string | undefined, options?: Omit<UseQueryOptions<ApiSection[]>, "queryKey" | "queryFn">): UseQueryResult<ApiSection[]> {

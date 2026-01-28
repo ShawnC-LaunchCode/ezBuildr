@@ -1,17 +1,12 @@
-/**
- * Number/Currency Block Card Editor
- * Unified editor for number and currency blocks
- */
-
 import React, { useState, useEffect } from "react";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
-import { StepEditorCommonProps } from "../StepEditorRouter";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField } from "./common/DefaultValueField";
@@ -19,9 +14,14 @@ import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
-
-
 import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
+
+interface NumberCardEditorProps {
+  stepId: string;
+  sectionId: string;
+  workflowId: string;
+  step: ApiStep;
+}
 
 interface NumberCardState {
   mode: "number" | "currency_whole" | "currency_decimal";
@@ -32,24 +32,129 @@ interface NumberCardState {
   formatOnInput: boolean;
 }
 
-export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+const NumberModeSection = ({
+  mode,
+  isAdvancedMode,
+  isCurrency,
+  onModeChange
+}: {
+  mode: string;
+  isAdvancedMode: boolean;
+  isCurrency: boolean;
+  onModeChange: (val: "number" | "currency_whole" | "currency_decimal") => void;
+}) => (
+  <div className="space-y-3">
+    <SectionHeader
+      title="Number Type"
+      description={isAdvancedMode ? "Choose number format" : isCurrency ? "Fixed as currency" : "Fixed as number"}
+    />
+
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Display Mode</Label>
+      <Select
+        value={mode}
+        onValueChange={(val) => onModeChange(val as "number" | "currency_whole" | "currency_decimal")}
+        disabled={!isAdvancedMode}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="number">Number</SelectItem>
+          <SelectItem value="currency_whole">Currency (no decimals)</SelectItem>
+          <SelectItem value="currency_decimal">Currency (with decimals)</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {!isAdvancedMode && (
+      <p className="text-xs text-muted-foreground">
+        Mode is fixed in {isCurrency ? "currency" : "easy"} mode
+      </p>
+    )}
+  </div>
+);
+
+const NumberValidationSection = ({
+  localConfig,
+  onUpdate,
+  minMaxError
+}: {
+  localConfig: NumberCardState;
+  onUpdate: (updates: Partial<NumberCardState>) => void;
+  minMaxError: string | null;
+}) => (
+  <div className="space-y-4">
+    <SectionHeader
+      title="Validation Rules"
+      description="Set numeric constraints"
+    />
+
+    {/* Min */}
+    <NumberField
+      label="Minimum Value"
+      value={localConfig.min}
+      onChange={(val) => onUpdate({ min: val })}
+      placeholder="No minimum"
+      description="Smallest allowed value"
+      error={minMaxError ?? undefined}
+      step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
+    />
+
+    {/* Max */}
+    <NumberField
+      label="Maximum Value"
+      value={localConfig.max}
+      onChange={(val) => onUpdate({ max: val })}
+      placeholder="No maximum"
+      description="Largest allowed value"
+      error={minMaxError ?? undefined}
+      step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
+    />
+
+    {/* Step - only for non-currency modes */}
+    {localConfig.mode === "number" && (
+      <NumberField
+        label="Step"
+        value={localConfig.step}
+        onChange={(val) => onUpdate({ step: val ?? 1 })}
+        placeholder="1"
+        description="Increment/decrement step size"
+        min={0.01}
+      />
+    )}
+  </div>
+);
+
+const NumberPreviewSection = ({ mode }: { mode: string }) => (
+  <div className="bg-muted border rounded-lg p-3">
+    <p className="text-xs font-medium mb-1">Format Preview</p>
+    {mode === "number" ? (
+      <p className="text-sm font-mono">12345</p>
+    ) : mode === "currency_whole" ? (
+      <p className="text-sm font-mono">$12,345</p>
+    ) : (
+      <p className="text-sm font-mono">$12,345.67</p>
+    )}
+  </div>
+);
+
+export function NumberCardEditor({ stepId, sectionId, workflowId, step }: NumberCardEditorProps) {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
-  // Determine mode and type
-  const isAdvancedMode = step.type === "number" && (step.config as NumberAdvancedConfig)?.mode !== undefined;
+  // Determine mode and type using generic access
+  const configAny = step.config;
+  const isAdvancedMode = step.type === "number" && configAny?.mode !== undefined;
   const isCurrency = step.type === "currency";
   const isEasyMode = !isAdvancedMode && !isCurrency;
-
-  // Get config
-  const config = step.config as NumberConfig | CurrencyConfig | NumberAdvancedConfig | undefined;
 
   // Determine initial mode
   const getInitialMode = (): "number" | "currency_whole" | "currency_decimal" => {
     if (isAdvancedMode) {
-      return (config as NumberAdvancedConfig).mode;
+      return (configAny as NumberAdvancedConfig).mode;
     } else if (isCurrency) {
-      const currencyConfig = config as CurrencyConfig;
+      const currencyConfig = configAny as CurrencyConfig;
       return currencyConfig?.allowDecimal === false ? "currency_whole" : "currency_decimal";
     } else {
       // Regular number type
@@ -59,23 +164,38 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const [localConfig, setLocalConfig] = useState<NumberCardState>({
     mode: getInitialMode(),
-    min: (config as NumberConfig | undefined)?.min,
-    max: (config as NumberConfig | undefined)?.max,
-    step: (config as NumberConfig | undefined)?.step || 1,
-    allowDecimal: (config as NumberConfig | CurrencyConfig | undefined)?.allowDecimal ?? false,
-    formatOnInput: (config as NumberAdvancedConfig | undefined)?.formatOnInput ?? false,
+    min: configAny?.min,
+    max: configAny?.max,
+    step: configAny?.step ?? 1,
+    allowDecimal: configAny?.allowDecimal ?? false,
+    formatOnInput: configAny?.formatOnInput ?? false,
   });
 
   useEffect(() => {
+    // Re-sync local config when step props change
+    // Avoid exhaustive deps on 'configAny' derived value
+    const currentConfig = step.config;
+
+    // Recalculate based on current step
+    const currentAdvanced = step.type === "number" && currentConfig?.mode !== undefined;
+    const currentCurrency = step.type === "currency";
+
+    let nextMode: "number" | "currency_whole" | "currency_decimal" = "number";
+    if (currentAdvanced) {
+      nextMode = currentConfig.mode;
+    } else if (currentCurrency) {
+      nextMode = currentConfig.allowDecimal === false ? "currency_whole" : "currency_decimal";
+    }
+
     setLocalConfig({
-      mode: getInitialMode(),
-      min: (config as NumberConfig | undefined)?.min,
-      max: (config as NumberConfig | undefined)?.max,
-      step: (config as NumberConfig | undefined)?.step || 1,
-      allowDecimal: (config as NumberConfig | CurrencyConfig | undefined)?.allowDecimal ?? false,
-      formatOnInput: (config as NumberAdvancedConfig | undefined)?.formatOnInput ?? false,
+      mode: nextMode,
+      min: currentConfig?.min,
+      max: currentConfig?.max,
+      step: currentConfig?.step ?? 1,
+      allowDecimal: currentConfig?.allowDecimal ?? false,
+      formatOnInput: currentConfig?.formatOnInput ?? false,
     });
-  }, [step.config, step.type, isAdvancedMode, isCurrency, config]);
+  }, [step.config, step.type]);
 
   const validateMinMax = (): string | null => {
     if (
@@ -93,14 +213,18 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     setLocalConfig(newConfig);
 
     // Validate min/max
-    const minMaxError = validateMinMax();
-    if (minMaxError && (updates.min !== undefined || updates.max !== undefined)) {
-      toast({
-        title: "Validation Error",
-        description: minMaxError,
-        variant: "destructive",
-      });
-      return;
+    const minMaxError = validateMinMax(); // Logic correct? Checks updated state? No
+    // validateMinMax uses `localConfig`. Need to use `newConfig`.
+    // Inline check:
+    if (newConfig.min !== undefined && newConfig.max !== undefined && newConfig.min > newConfig.max) {
+      if (updates.min !== undefined || updates.max !== undefined) {
+        toast({
+          title: "Validation Error",
+          description: "Min cannot be greater than max",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Build config based on mode and type
@@ -109,20 +233,12 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       const configToSave: NumberAdvancedConfig = {
         mode: newConfig.mode,
         formatOnInput: newConfig.formatOnInput,
+        validation: {}
       };
 
-      if (newConfig.min !== undefined) {
-        configToSave.validation = configToSave.validation || {};
-        configToSave.validation.min = newConfig.min;
-      }
-      if (newConfig.max !== undefined) {
-        configToSave.validation = configToSave.validation || {};
-        configToSave.validation.max = newConfig.max;
-      }
-      if (newConfig.step !== undefined) {
-        configToSave.validation = configToSave.validation || {};
-        configToSave.validation.step = newConfig.step;
-      }
+      if (newConfig.min !== undefined) {configToSave.validation!.min = newConfig.min;}
+      if (newConfig.max !== undefined) {configToSave.validation!.max = newConfig.max;}
+      if (newConfig.step !== undefined) {configToSave.validation!.step = newConfig.step;}
 
       // Add currency code if in currency mode
       if (newConfig.mode.startsWith("currency")) {
@@ -137,12 +253,8 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         allowDecimal: newConfig.mode === "currency_decimal",
       };
 
-      if (newConfig.min !== undefined) {
-        configToSave.min = newConfig.min;
-      }
-      if (newConfig.max !== undefined) {
-        configToSave.max = newConfig.max;
-      }
+      if (newConfig.min !== undefined) {configToSave.min = newConfig.min;}
+      if (newConfig.max !== undefined) {configToSave.max = newConfig.max;}
 
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     } else {
@@ -152,12 +264,8 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         allowDecimal: newConfig.allowDecimal,
       };
 
-      if (newConfig.min !== undefined) {
-        configToSave.min = newConfig.min;
-      }
-      if (newConfig.max !== undefined) {
-        configToSave.max = newConfig.max;
-      }
+      if (newConfig.min !== undefined) {configToSave.min = newConfig.min;}
+      if (newConfig.max !== undefined) {configToSave.max = newConfig.max;}
 
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     }
@@ -186,80 +294,21 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       <Separator />
 
       {/* Number Type Selection */}
-      <div className="space-y-3">
-        <SectionHeader
-          title="Number Type"
-          description={isAdvancedMode ? "Choose number format" : isCurrency ? "Fixed as currency" : "Fixed as number"}
-        />
-
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Display Mode</Label>
-          <Select
-            value={localConfig.mode}
-            onValueChange={(val) => handleUpdate({ mode: val as any })}
-            disabled={!isAdvancedMode}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="number">Number</SelectItem>
-              <SelectItem value="currency_whole">Currency (no decimals)</SelectItem>
-              <SelectItem value="currency_decimal">Currency (with decimals)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {!isAdvancedMode && (
-          <p className="text-xs text-muted-foreground">
-            Mode is fixed in {isCurrency ? "currency" : "easy"} mode
-          </p>
-        )}
-      </div>
+      <NumberModeSection
+        mode={localConfig.mode}
+        isAdvancedMode={isAdvancedMode}
+        isCurrency={isCurrency}
+        onModeChange={(m) => handleUpdate({ mode: m })}
+      />
 
       <Separator />
 
       {/* Validation Rules */}
-      <div className="space-y-4">
-        <SectionHeader
-          title="Validation Rules"
-          description="Set numeric constraints"
-        />
-
-        {/* Min */}
-        <NumberField
-          label="Minimum Value"
-          value={localConfig.min}
-          onChange={(val) => handleUpdate({ min: val })}
-          placeholder="No minimum"
-          description="Smallest allowed value"
-          error={validateMinMax() || undefined}
-          step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
-        />
-
-        {/* Max */}
-        <NumberField
-          label="Maximum Value"
-          value={localConfig.max}
-          onChange={(val) => handleUpdate({ max: val })}
-          placeholder="No maximum"
-          description="Largest allowed value"
-          error={validateMinMax() || undefined}
-          step={localConfig.mode === "currency_decimal" ? 0.01 : 1}
-        />
-
-        {/* Step - only for non-currency modes */}
-        {localConfig.mode === "number" && (
-          <NumberField
-            label="Step"
-            value={localConfig.step}
-            onChange={(val) => handleUpdate({ step: val || 1 })}
-            placeholder="1"
-            description="Increment/decrement step size"
-            min={0.01}
-          />
-        )}
-      </div>
+      <NumberValidationSection
+        localConfig={localConfig}
+        onUpdate={handleUpdate}
+        minMaxError={validateMinMax()}
+      />
 
       {/* Advanced Options */}
       {isAdvancedMode && (
@@ -283,16 +332,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       )}
 
       {/* Format Preview */}
-      <div className="bg-muted border rounded-lg p-3">
-        <p className="text-xs font-medium mb-1">Format Preview</p>
-        {localConfig.mode === "number" ? (
-          <p className="text-sm font-mono">12345</p>
-        ) : localConfig.mode === "currency_whole" ? (
-          <p className="text-sm font-mono">$12,345</p>
-        ) : (
-          <p className="text-sm font-mono">$12,345.67</p>
-        )}
-      </div>
+      <NumberPreviewSection mode={localConfig.mode} />
 
       {workflowId && (
         <>

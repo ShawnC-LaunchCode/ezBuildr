@@ -1,15 +1,17 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { dataSourceAPI } from "../../lib/vault-api";
+
+import { dataSourceAPI, type ApiDataSource } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
-export function useDataSources(): UseQueryResult<unknown[]> {
+export function useDataSources(): UseQueryResult<ApiDataSource[]> {
     return useQuery({
         queryKey: queryKeys.dataSources,
         queryFn: dataSourceAPI.list,
     });
 }
 
-export function useWorkflowDataSources(workflowId: string | undefined): UseQueryResult<unknown[]> {
+export function useWorkflowDataSources(workflowId: string | undefined): UseQueryResult<ApiDataSource[]> {
     return useQuery({
         queryKey: queryKeys.workflowDataSources(workflowId ?? ""),
         queryFn: () => dataSourceAPI.listForWorkflow(workflowId ?? ""),

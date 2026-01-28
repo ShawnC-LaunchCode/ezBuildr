@@ -165,12 +165,13 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
           description: "Workflow settings have been updated successfully",
         });
         // Update slug in UI if it changed (sanitization/uniqueness)
-        if (updated.slug) {setSlug(updated.slug);}
+        if (updated.slug) { setSlug(updated.slug); }
       },
-      onError: (error: Error) => {
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : "Failed to save workflow settings";
         toast({
           title: "Error Saving Settings",
-          description: error.message || "Failed to save workflow settings",
+          description: message,
           variant: "destructive"
         });
       }
@@ -311,7 +312,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
                   checked={isIntake}
                   onCheckedChange={(checked) => {
                     setIsIntake(checked);
-                    if (checked) {setUpstreamWorkflowId(null);} // Clear upstream if becoming intake
+                    if (checked) { setUpstreamWorkflowId(null); } // Clear upstream if becoming intake
                   }}
                 />
               </div>

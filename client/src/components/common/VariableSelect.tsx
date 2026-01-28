@@ -6,6 +6,7 @@
  */
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { type ApiWorkflowVariable } from "@/lib/vault-api";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
 
 interface VariableSelectProps {
@@ -50,7 +51,7 @@ export function VariableSelect({ workflowId, value, onChange, placeholder, disab
     }
     acc[sectionId].variables.push(variable);
     return acc;
-  }, {} as Record<string, { title: string; variables: typeof variables }>);
+  }, {} as Record<string, { title: string; variables: ApiWorkflowVariable[] }>);
 
   return (
     <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>

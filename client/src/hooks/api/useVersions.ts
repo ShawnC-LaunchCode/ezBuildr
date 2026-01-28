@@ -1,12 +1,11 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { versionAPI } from "../../lib/vault-api";
+
 import { DevPanelBus } from "../../lib/devpanelBus";
+import { versionAPI, type ApiWorkflowVersion } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
-export function useVersions(workflowId: string | undefined): UseQueryResult<unknown[]> { // api returns any[] usually? Need to check types
-    // versionAPI.list returns Promise<any> usually unless typed. 
-    // vault-api imports: type ApiProject, ApiWorkflow... does it have ApiVersion?
-    // I will leave unknown[] or any[] for now and check if I can improve.
+export function useVersions(workflowId: string | undefined): UseQueryResult<ApiWorkflowVersion[]> {
     return useQuery({
         queryKey: queryKeys.versions(workflowId ?? ""),
         queryFn: () => versionAPI.list(workflowId ?? ""),
@@ -14,7 +13,7 @@ export function useVersions(workflowId: string | undefined): UseQueryResult<unkn
     });
 }
 
-export function usePublishWorkflow(): UseMutationResult<unknown, unknown, { workflowId: string; graphJson: unknown; notes?: string }> {
+export function usePublishWorkflow(): UseMutationResult<ApiWorkflowVersion, unknown, { workflowId: string; graphJson: unknown; notes?: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ workflowId, graphJson, notes }: { workflowId: string; graphJson: unknown; notes?: string }) =>

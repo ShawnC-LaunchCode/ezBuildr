@@ -23,7 +23,13 @@ import type {
   AssertExpression,
   ComparisonOperator,
   ReadTableOperator,
+
   ListVariable,
+  ValidateRule,
+  CompareRule,
+  ConditionalRequiredRule,
+  ForEachRule,
+  LegacyValidateRule,
 } from "@shared/types/blocks";
 
 // Re-export commonly used types
@@ -49,6 +55,11 @@ export type {
   ComparisonOperator,
   ReadTableOperator,
   ListVariable,
+  ValidateRule,
+  CompareRule,
+  ConditionalRequiredRule,
+  ForEachRule,
+  LegacyValidateRule,
 };
 
 /**

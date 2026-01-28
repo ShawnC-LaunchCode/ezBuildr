@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { snapshotAPI } from "../../lib/vault-api";
+
+import { snapshotAPI, type ApiSnapshot } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
-export function useSnapshots(workflowId: string | undefined): UseQueryResult<unknown[]> {
+export function useSnapshots(workflowId: string | undefined): UseQueryResult<ApiSnapshot[]> {
     return useQuery({
         queryKey: queryKeys.snapshots(workflowId ?? ""),
         queryFn: () => snapshotAPI.list(workflowId ?? ""),
@@ -10,7 +12,7 @@ export function useSnapshots(workflowId: string | undefined): UseQueryResult<unk
     });
 }
 
-export function useSnapshot(workflowId: string | undefined, snapshotId: string | undefined): UseQueryResult<unknown> {
+export function useSnapshot(workflowId: string | undefined, snapshotId: string | undefined): UseQueryResult<ApiSnapshot> {
     return useQuery({
         queryKey: queryKeys.snapshot(workflowId ?? "", snapshotId ?? ""),
         queryFn: () => snapshotAPI.get(workflowId ?? "", snapshotId ?? ""),
@@ -18,7 +20,7 @@ export function useSnapshot(workflowId: string | undefined, snapshotId: string |
     });
 }
 
-export function useCreateSnapshot(): UseMutationResult<unknown, unknown, { workflowId: string; name: string }> {
+export function useCreateSnapshot(): UseMutationResult<ApiSnapshot, unknown, { workflowId: string; name: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ workflowId, name }: { workflowId: string; name: string }) =>
@@ -29,7 +31,7 @@ export function useCreateSnapshot(): UseMutationResult<unknown, unknown, { workf
     });
 }
 
-export function useRenameSnapshot(): UseMutationResult<unknown, unknown, { workflowId: string; snapshotId: string; name: string }> {
+export function useRenameSnapshot(): UseMutationResult<ApiSnapshot, unknown, { workflowId: string; snapshotId: string; name: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ workflowId, snapshotId, name }: { workflowId: string; snapshotId: string; name: string }) =>
@@ -52,7 +54,7 @@ export function useDeleteSnapshot(): UseMutationResult<void, unknown, { workflow
     });
 }
 
-export function useSaveSnapshotFromRun(): UseMutationResult<unknown, unknown, { workflowId: string; snapshotId: string; runId: string }> {
+export function useSaveSnapshotFromRun(): UseMutationResult<ApiSnapshot, unknown, { workflowId: string; snapshotId: string; runId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ workflowId, snapshotId, runId }: { workflowId: string; snapshotId: string; runId: string }) =>

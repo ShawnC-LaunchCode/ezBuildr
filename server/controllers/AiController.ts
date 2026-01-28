@@ -22,12 +22,48 @@ import type { Request, Response } from "express";
 
 const aiLogger = createLogger({ module: 'ai-controller' });
 
+interface QualityScore {
+    overall: number;
+    breakdown: Record<string, number>;
+    passed: boolean;
+    issues?: string[];
+    suggestions?: string[];
+}
+
+interface AIError {
+    code?: string;
+    name?: string;
+    message?: string;
+    stack?: string;
+    errors?: unknown[];
+    details?: unknown;
+    qualityScore?: QualityScore;
+    threshold?: unknown;
+    qualityBreakdown?: unknown;
+    qualityIssues?: unknown;
+    qualitySuggestions?: unknown;
+}
+
+interface AiValueSuggestionStep {
+    key: string;
+    type: string;
+    label?: string;
+    options?: string[];
+    description?: string;
+}
+
+interface AiVariable {
+    alias: string;
+    label: string;
+    type: string;
+}
+
 export class AiController {
 
     /**
      * Check if AI services are available
      */
-    static async getStatus(req: Request, res: Response) {
+    static async getStatus(req: Request, res: Response): Promise<void> {
         try {
             const hasApiKey = !!process.env.GEMINI_API_KEY;
 
@@ -51,9 +87,10 @@ export class AiController {
     /**
      * Quick sentiment analysis for text
      */
-    static async analyzeSentiment(req: Request, res: Response) {
+    static async analyzeSentiment(req: Request, res: Response): Promise<Response | void> {
         try {
-            const { text } = req.body;
+            const body = req.body as { text?: unknown };
+            const { text } = body;
 
             if (!text || typeof text !== 'string') {
                 return res.status(400).json({ message: "Text is required" });
@@ -84,7 +121,7 @@ export class AiController {
     /**
      * Generate a new workflow from a natural language description
      */
-    static async generateWorkflow(req: Request, res: Response) {
+    static async generateWorkflow(req: Request, res: Response): Promise<void> {
         const startTime = Date.now();
         const authReq = req as AuthRequest;
         const userId = authReq.userId;
@@ -117,7 +154,7 @@ export class AiController {
             }, 'AI workflow generation succeeded');
 
             // Extract quality score (attached by AIService)
-            const qualityScore = (generatedWorkflow as any).__qualityScore;
+            const qualityScore = (generatedWorkflow as unknown as { __qualityScore?: AIError['qualityScore'] }).__qualityScore;
 
             res.status(200).json({
                 success: true,
@@ -136,7 +173,7 @@ export class AiController {
                     suggestions: qualityScore.suggestions,
                 } : undefined,
             });
-        } catch (error: any) {
+        } catch (error) {
             const duration = Date.now() - startTime;
 
             aiLogger.error({
@@ -152,7 +189,7 @@ export class AiController {
     /**
      * Suggest improvements to an existing workflow
      */
-    static async suggestWorkflowImprovements(req: Request, res: Response) {
+    static async suggestWorkflowImprovements(req: Request, res: Response): Promise<Response | void> {
         const startTime = Date.now();
         const authReq = req as AuthRequest;
         const userId = authReq.userId!;
@@ -190,7 +227,7 @@ export class AiController {
                 {
                     sections: workflow.sections || [],
                     logicRules: workflow.logicRules || [],
-                    transformBlocks: (workflow as any).transformBlocks || [],
+                    transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks || [],
                 }
             );
 
@@ -217,7 +254,7 @@ export class AiController {
                     modificationsCount: suggestions.modifications.length,
                 },
             });
-        } catch (error: any) {
+        } catch (error) {
             const duration = Date.now() - startTime;
 
             aiLogger.error({
@@ -234,7 +271,7 @@ export class AiController {
     /**
      * Suggest variable bindings for a template
      */
-    static async suggestTemplateBindings(req: Request, res: Response) {
+    static async suggestTemplateBindings(req: Request, res: Response): Promise<Response | void> {
         const startTime = Date.now();
         const authReq = req as AuthRequest;
         const userId = authReq.userId!;
@@ -267,9 +304,10 @@ export class AiController {
             }
 
             // Get workflow variables
-            const variables = await (variableService as any).getWorkflowVariables(
+            const rawVariables = await (variableService as unknown as { getWorkflowVariables: (id: string, userId?: string) => Promise<unknown[]> }).getWorkflowVariables(
                 requestData.workflowId
             );
+            const variables = rawVariables as AiVariable[];
 
             // Get template placeholders (from request or fetch from template)
             const placeholders = requestData.placeholders || [];
@@ -316,7 +354,7 @@ export class AiController {
                     warningsCount: bindingSuggestions.warnings?.length || 0,
                 },
             });
-        } catch (error: any) {
+        } catch (error) {
             const duration = Date.now() - startTime;
 
             aiLogger.error({
@@ -333,7 +371,7 @@ export class AiController {
     /**
      * Iteratively revise a workflow using natural language
      */
-    static async reviseWorkflow(req: Request, res: Response) {
+    static async reviseWorkflow(req: Request, res: Response): Promise<Response | void> {
         const authReq = req as AuthRequest;
         const userId = authReq.userId!;
 
@@ -362,33 +400,22 @@ export class AiController {
                 status: 'pending'
             });
 
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as AIError;
             aiLogger.error({
-                error: error instanceof Error ? error.message : error,
-                stack: error instanceof Error ? error.stack : undefined
+                error: err.message || err,
+                stack: err.stack
             }, 'Failed to enqueue AI revision job');
 
-            if (error.name === 'ZodError') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid request data',
-                    error: 'validation_error',
-                    details: error.errors,
-                });
-            }
-
-            res.status(500).json({
-                success: false,
-                message: 'Failed to start revision job',
-                error: 'internal_error'
-            });
+            // handleAiError can handle ZodError too, refer to lines below
+            return AiController.handleAiError(res, error);
         }
     }
 
     /**
      * Check status of revision job
      */
-    static async getRevisionJobStatus(req: Request, res: Response) {
+    static async getRevisionJobStatus(req: Request, res: Response): Promise<Response | void> {
         try {
             const { jobId } = req.params;
             const job = await getAiRevisionJob(jobId);
@@ -437,17 +464,22 @@ export class AiController {
     /**
      * Generate random plausible values for workflow steps
      */
-    static async suggestValues(req: Request, res: Response) {
+    static async suggestValues(req: Request, res: Response): Promise<Response | void> {
         try {
-            const { workflowId, steps, mode = 'full' } = req.body;
+            const body = req.body as { workflowId: string; steps: unknown; mode?: string };
+            const { workflowId, mode = 'full' } = body;
 
-            if (!steps || !Array.isArray(steps) || steps.length === 0) {
+            const rawSteps = body.steps;
+            // Validate steps is an array and matching structure (basic check + cast)
+            if (!Array.isArray(rawSteps) || rawSteps.length === 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Steps array is required and must not be empty',
                     error: 'invalid_request',
                 });
             }
+
+            const steps = rawSteps as AiValueSuggestionStep[];
 
             // Validate AI configuration (GEMINI_API_KEY or AI_API_KEY)
             if (!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY) {
@@ -466,13 +498,13 @@ export class AiController {
 
             // Create AI service and generate values
             const aiService = createAIServiceFromEnv();
-            const values = await aiService.suggestValues(steps, mode);
+            const values = await aiService.suggestValues(steps, mode as 'full' | 'partial');
 
             res.json({
                 success: true,
                 data: values,
             });
-        } catch (error: any) {
+        } catch (error) {
             aiLogger.error({ error }, 'Error generating value suggestions');
             AiController.handleAiError(res, error);
         }
@@ -481,7 +513,7 @@ export class AiController {
     /**
      * Connect workflow nodes with logic rules
      */
-    static async generateLogic(req: Request, res: Response) {
+    static async generateLogic(req: Request, res: Response): Promise<void> {
         const startTime = Date.now();
         const authReq = req as AuthRequest;
         const userId = authReq.userId!;
@@ -517,7 +549,7 @@ export class AiController {
                 }
             });
 
-        } catch (error: any) {
+        } catch (error) {
             aiLogger.error({ error }, 'AI logic generation failed');
             AiController.handleAiError(res, error);
         }
@@ -526,13 +558,13 @@ export class AiController {
     /**
      * Analyze logic for issues
      */
-    static async debugLogic(req: Request, res: Response) {
+    static async debugLogic(req: Request, res: Response): Promise<void> {
         try {
             const requestData = AIDebugLogicRequestSchema.parse(req.body);
             const aiService = createAIServiceFromEnv();
             const result = await aiService.debugLogic(requestData);
             res.status(200).json({ success: true, ...result });
-        } catch (error: any) {
+        } catch (error) {
             aiLogger.error({ error }, 'AI debug logic failed');
             AiController.handleAiError(res, error);
         }
@@ -541,13 +573,13 @@ export class AiController {
     /**
      * Generate graph representation of logic
      */
-    static async visualizeLogic(req: Request, res: Response) {
+    static async visualizeLogic(req: Request, res: Response): Promise<void> {
         try {
             const requestData = AIVisualizeLogicRequestSchema.parse(req.body);
             const aiService = createAIServiceFromEnv();
             const result = await aiService.visualizeLogic(requestData);
             res.status(200).json({ success: true, ...result });
-        } catch (error: any) {
+        } catch (error) {
             aiLogger.error({ error }, 'AI visualize logic failed');
             AiController.handleAiError(res, error);
         }
@@ -556,62 +588,78 @@ export class AiController {
     /**
      * Centralized error handling for AI routes
      */
-    private static handleAiError(res: Response, error: any) {
-        if (error.code === 'RATE_LIMIT') {
-            return res.status(429).json({
+    private static handleAiError(res: Response, error: unknown): void {
+        if (error === null || typeof error !== 'object') {
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: 'internal_error',
+            });
+            return;
+        }
+
+        const err = error as AIError;
+
+        if (err.code === 'RATE_LIMIT') {
+            res.status(429).json({
                 success: false,
                 message: 'AI API rate limit exceeded. Please try again later.',
                 error: 'ai_rate_limit',
             });
+            return;
         }
 
-        if (error.code === 'TIMEOUT') {
-            return res.status(504).json({
+        if (err.code === 'TIMEOUT') {
+            res.status(504).json({
                 success: false,
                 message: 'AI request timed out. Please try again.',
                 error: 'ai_timeout',
             });
+            return;
         }
 
-        if (error.name === 'ZodError') {
-            return res.status(400).json({
+        if (err.name === 'ZodError') {
+            res.status(400).json({
                 success: false,
                 message: 'Invalid request data',
                 error: 'validation_error',
-                details: error.errors,
+                details: err.errors,
             });
+            return;
         }
 
-        if (error.code === 'VALIDATION_ERROR') {
-            return res.status(422).json({
+        if (err.code === 'VALIDATION_ERROR') {
+            res.status(422).json({
                 success: false,
                 message: 'AI generated invalid structure.',
                 error: 'ai_validation_error',
-                details: error.details,
+                details: err.details,
             });
+            return;
         }
 
         // Handle quality threshold errors - HTTP 422 Unprocessable Entity
-        if (error.code === 'QUALITY_THRESHOLD' || error.name === 'QualityThresholdError') {
-            return res.status(422).json({
+        if (err.code === 'QUALITY_THRESHOLD' || err.name === 'QualityThresholdError') {
+            res.status(422).json({
                 success: false,
-                message: error.message || 'Generated workflow quality is below minimum threshold.',
+                message: (err.message as string) ?? 'Generated workflow quality is below minimum threshold.',
                 error: 'quality_threshold_error',
                 quality: {
-                    score: error.qualityScore,
-                    threshold: error.threshold,
-                    breakdown: error.qualityBreakdown,
-                    issues: error.qualityIssues,
-                    suggestions: error.qualitySuggestions,
+                    score: err.qualityScore,
+                    threshold: err.threshold,
+                    breakdown: err.qualityBreakdown,
+                    issues: err.qualityIssues,
+                    suggestions: err.qualitySuggestions,
                 },
             });
+            return;
         }
 
         res.status(500).json({
             success: false,
             message: 'Internal server error',
             error: 'internal_error',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            details: process.env.NODE_ENV === 'development' ? err.message : undefined,
         });
     }
 }

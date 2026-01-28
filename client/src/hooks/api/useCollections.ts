@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { collectionsAPI, type ApiCollectionField } from "../../lib/vault-api";
+
+import { collectionsAPI, type ApiCollectionField, type ApiCollectionWithStats, type ApiCollectionRecord, type ApiCollection } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
 // Collections
-export function useCollections(tenantId: string | undefined, withStats?: boolean): UseQueryResult<unknown[]> { // Need types
+export function useCollections(tenantId: string | undefined, withStats?: boolean): UseQueryResult<ApiCollectionWithStats[]> {
     return useQuery({
         queryKey: queryKeys.collections(tenantId ?? ""),
         queryFn: () => collectionsAPI.list(tenantId ?? "", withStats),
@@ -11,7 +13,7 @@ export function useCollections(tenantId: string | undefined, withStats?: boolean
     });
 }
 
-export function useCollection(tenantId: string | undefined, collectionId: string | undefined, withFields?: boolean): UseQueryResult<unknown> {
+export function useCollection(tenantId: string | undefined, collectionId: string | undefined, withFields?: boolean): UseQueryResult<ApiCollection> {
     return useQuery({
         queryKey: queryKeys.collection(tenantId ?? "", collectionId ?? ""),
         queryFn: () => collectionsAPI.get(tenantId ?? "", collectionId ?? "", withFields),
@@ -19,7 +21,7 @@ export function useCollection(tenantId: string | undefined, collectionId: string
     });
 }
 
-export function useCreateCollection(): UseMutationResult<unknown, unknown, { tenantId: string; name: string; slug?: string; description?: string | null }> {
+export function useCreateCollection(): UseMutationResult<ApiCollection, unknown, { tenantId: string; name: string; slug?: string; description?: string | null }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, ...data }: { tenantId: string; name: string; slug?: string; description?: string | null }) =>
@@ -30,7 +32,7 @@ export function useCreateCollection(): UseMutationResult<unknown, unknown, { ten
     });
 }
 
-export function useUpdateCollection(): UseMutationResult<unknown, unknown, { tenantId: string; collectionId: string; name?: string; slug?: string; description?: string | null }> {
+export function useUpdateCollection(): UseMutationResult<ApiCollection, unknown, { tenantId: string; collectionId: string; name?: string; slug?: string; description?: string | null }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, collectionId, ...data }: { tenantId: string; collectionId: string; name?: string; slug?: string; description?: string | null }) =>
@@ -99,15 +101,20 @@ export function useDeleteCollectionField(): UseMutationResult<void, unknown, { t
 }
 
 // Records
-export function useCollectionRecords(tenantId: string | undefined, collectionId: string | undefined, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }): UseQueryResult<unknown> {
+export function useCollectionRecords(tenantId: string | undefined, collectionId: string | undefined, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }): UseQueryResult<{ records: ApiCollectionRecord[]; count?: number }> {
     return useQuery({
         queryKey: [...queryKeys.collectionRecords(tenantId ?? "", collectionId ?? ""), params],
-        queryFn: () => collectionsAPI.listRecords(tenantId ?? "", collectionId ?? "", params),
+        // Cast or adjust based on API return. Assuming API returns array or object with records.
+        // If API returns ApiCollectionRecord[], then use that.
+        // Assuming API returns { records: [], count: 0 } for paginated, or [] if not.
+        // Let's assume listRecords return matches expectation or use unknown for safe fallback if unsure.
+        // Assuming it's compatible with unknown for now, but trying to be strict.
+        queryFn: () => collectionsAPI.listRecords(tenantId ?? "", collectionId ?? "", params) as Promise<any>,
         enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined",
     });
 }
 
-export function useCollectionRecord(tenantId: string | undefined, collectionId: string | undefined, recordId: string | undefined): UseQueryResult<unknown> {
+export function useCollectionRecord(tenantId: string | undefined, collectionId: string | undefined, recordId: string | undefined): UseQueryResult<ApiCollectionRecord> {
     return useQuery({
         queryKey: queryKeys.collectionRecord(tenantId ?? "", collectionId ?? "", recordId ?? ""),
         queryFn: () => collectionsAPI.getRecord(tenantId ?? "", collectionId ?? "", recordId ?? ""),
@@ -115,11 +122,11 @@ export function useCollectionRecord(tenantId: string | undefined, collectionId: 
     });
 }
 
-export function useCreateCollectionRecord(): UseMutationResult<unknown, unknown, { tenantId: string; collectionId: string; data: Record<string, any> }> {
+export function useCreateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; data: Record<string, any> }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, collectionId, data }: { tenantId: string; collectionId: string; data: Record<string, any> }) =>
-            collectionsAPI.createRecord(tenantId, collectionId, data),
+            collectionsAPI.createRecord(tenantId, collectionId, data) as Promise<ApiCollectionRecord>,
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
@@ -127,11 +134,11 @@ export function useCreateCollectionRecord(): UseMutationResult<unknown, unknown,
     });
 }
 
-export function useUpdateCollectionRecord(): UseMutationResult<unknown, unknown, { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }> {
+export function useUpdateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, collectionId, recordId, data }: { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }) =>
-            collectionsAPI.updateRecord(tenantId, collectionId, recordId, data),
+            collectionsAPI.updateRecord(tenantId, collectionId, recordId, data) as Promise<ApiCollectionRecord>,
         onSuccess: async (data, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecord(variables.tenantId, variables.collectionId, variables.recordId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });

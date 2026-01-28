@@ -1228,7 +1228,7 @@ export interface ApiDataSource {
   tenantId: string;
   name: string;
   description?: string;
-  type: "native" | "postgres" | "google_sheets" | "airtable" | "external";
+  type: "native" | "native_table" | "postgres" | "google_sheets" | "airtable" | "external";
   config: any;
   scopeType: "account" | "project" | "workflow";
   scopeId?: string;

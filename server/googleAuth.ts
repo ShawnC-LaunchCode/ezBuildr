@@ -52,7 +52,7 @@ async function upsertUser(payload: TokenPayload) {
       profileImageUrl: payload.picture || null,
       defaultMode: 'easy' as const,
       tenantId: defaultTenant.id,
-      tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer'),
+      tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer') as 'owner' | 'viewer' | 'builder' | 'runner',
       authProvider: 'google' as const,
       emailVerified: true,
       lastPasswordChange: null

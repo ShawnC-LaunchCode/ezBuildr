@@ -1,4 +1,3 @@
-import path from 'path';
 
 import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import { Router, type Request, Response } from 'express';
@@ -11,7 +10,7 @@ import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
 import { createRun, updateRun, createRunLogs, getRunById, getRunLogs } from '../services/runs';
-import {   getOutputFilePath, outputFileExists } from '../services/templates';
+import { getOutputFilePath, outputFileExists } from '../services/templates';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
@@ -27,7 +26,6 @@ import {
   compareRunsQuerySchema, // Stage 8
   type CreateRunResponse,
   type RunLogEntry,
-  type RerunRequest, // Stage 8
 } from './validators/runs';
 
 import type { AuthRequest } from '../middleware/auth';
@@ -111,8 +109,8 @@ router.post(
         const updatedRun = await updateRun(run.id, {
           status: result.status === 'success' ? 'success' : 'error',
           outputRefs: result.outputRefs,
-          trace: result.trace || null, // Stage 8: Store execution trace
-          error: result.error || null, // Stage 8: Store error message
+          trace: result.trace ?? null, // Stage 8: Store execution trace
+          error: result.error ?? null, // Stage 8: Store error message
           durationMs,
         });
         // Create run logs
@@ -129,7 +127,7 @@ router.post(
           runId: updatedRun.id,
           status: updatedRun.status,
           outputRefs: updatedRun.outputRefs as Record<string, any>,
-          durationMs: updatedRun.durationMs || undefined,
+          durationMs: updatedRun.durationMs ?? undefined,
         };
         // Include logs if debug mode
         if (data.options?.debug) {
@@ -340,7 +338,7 @@ router.get(
       let filteredRuns = runs.filter((run: ExportRunWithRelations) => {
         // Verify tenant through workflow version
         const workflow = run.workflowVersion?.workflow;
-        if (!workflow?.project) {return false;}
+        if (!workflow?.project) { return false; }
         // Verify tenant access to this workflow's project
         return workflow.project.tenantId === tenantId;
       });
@@ -357,8 +355,8 @@ router.get(
       if (q) {
         const lowerQ = q.toLowerCase();
         filteredRuns = filteredRuns.filter((run: ExportRunWithRelations) => {
-          if (run.id.toLowerCase().includes(lowerQ)) {return true;}
-          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) {return true;}
+          if (run.id.toLowerCase().includes(lowerQ)) { return true; }
+          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) { return true; }
           if (run.inputJson && JSON.stringify(run.inputJson).toLowerCase().includes(lowerQ)) {
             return true;
           }
@@ -471,7 +469,7 @@ router.get(
           inputsChangedKeys,
           outputsChangedKeys,
           statusMatch: runA.status === runB.status,
-          durationDiff: (runA.durationMs || 0) - (runB.durationMs || 0),
+          durationDiff: (runA.durationMs ?? 0) - (runB.durationMs ?? 0),
         },
       });
     } catch (error) {
@@ -849,7 +847,7 @@ router.get(
       let filteredRuns = runs.filter((run: ExportRunWithRelations) => {
         // Verify tenant through workflow version
         const workflow = run.workflowVersion?.workflow;
-        if (!workflow?.project) {return false;}
+        if (!workflow?.project) { return false; }
         // Verify tenant access to this workflow's project
         return workflow.project.tenantId === tenantId;
       });
@@ -866,8 +864,8 @@ router.get(
       if (q) {
         const lowerQ = q.toLowerCase();
         filteredRuns = filteredRuns.filter((run: ExportRunWithRelations) => {
-          if (run.id.toLowerCase().includes(lowerQ)) {return true;}
-          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) {return true;}
+          if (run.id.toLowerCase().includes(lowerQ)) { return true; }
+          if (run.createdByUser?.email?.toLowerCase().includes(lowerQ)) { return true; }
           if (run.inputJson && JSON.stringify(run.inputJson).toLowerCase().includes(lowerQ)) {
             return true;
           }

@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+
 import { blockAPI, type ApiBlock } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
 export function useBlocks(workflowId: string | undefined, phase?: string): UseQueryResult<ApiBlock[]> {
@@ -70,7 +72,7 @@ export function useReorderBlocks(): UseMutationResult<unknown, unknown, { workfl
     });
 }
 
-export function useDeleteBlock(): UseMutationResult<void, unknown, { id: string; workflowId: string }> {
+export function useDeleteBlock(): UseMutationResult<{ success: boolean }, unknown, { id: string; workflowId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (variables: { id: string; workflowId: string }) =>

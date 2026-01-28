@@ -1,3 +1,4 @@
+import type { Block, InsertBlock } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
 
 import { createLogger } from "../logger";
@@ -12,6 +13,16 @@ import { readTableBlockService } from "../services/ReadTableBlockService";
 import { asyncHandler } from '../utils/asyncHandler';
 
 import type { Express, Request, Response } from "express";
+
+interface BlockRequest {
+  type: InsertBlock['type'];
+  phase: BlockPhase;
+  config: any;
+  name?: string;
+  sectionId?: string;
+  enabled?: boolean;
+}
+
 const logger = createLogger({ module: 'blocks-routes' });
 /**
  * Register block management routes
@@ -30,7 +41,7 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       const { workflowId } = req.params;
-      const blockData = req.body;
+      const blockData = req.body as BlockRequest;
       // Validate required fields
       if (!blockData.type || !blockData.phase || !blockData.config) {
         res.status(400).json({
@@ -129,7 +140,7 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       const { blockId } = req.params;
-      const updates = req.body;
+      const updates = req.body as BlockRequest;
       // Look up workflowId for auto-revert middleware
       const block = await blockRepository.findById(blockId);
       if (!block) {
@@ -212,7 +223,7 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       const { workflowId } = req.params;
-      const { blocks } = req.body;
+      const { blocks } = req.body as { blocks: { id: string; order: number }[] };
       if (!Array.isArray(blocks)) {
         res.status(400).json({
           success: false,

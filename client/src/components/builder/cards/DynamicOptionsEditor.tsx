@@ -1,4 +1,4 @@
-import { ExternalLink, Edit, Unlink, RefreshCw , AlertCircle } from 'lucide-react';
+import { ExternalLink, Edit, Unlink, RefreshCw, AlertCircle } from 'lucide-react';
 import React from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -6,26 +6,125 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import type { ApiTransformBlock } from '@/lib/vault-api';
 
 import type { DynamicOptionsConfig } from '@/../../shared/types/stepConfigs';
+
+interface Column {
+    id: string;
+    name: string;
+}
 
 interface DynamicOptionsEditorProps {
     config: Extract<DynamicOptionsConfig, { type: 'list' }>;
     listVariables: Array<{ alias?: string | null; type: string }>;
-    sourceBlock: any;
+    sourceBlock: ApiTransformBlock | null | undefined;
     sourceTableId: string | null;
-    columns: any[];
+    columns: Column[];
     loadingColumns: boolean;
     timingWarning: string | null;
     labelColumnWarning: string | null;
     valueColumnWarning: string | null;
     onUpdate: (updates: Partial<Extract<DynamicOptionsConfig, { type: 'list' }>>) => void;
     onCreateListTools: () => void;
-    onEditBlock: (block: any) => void;
+    onEditBlock: (block: ApiTransformBlock) => void;
     onUnlinkBlock: () => void;
     onReplaceBlock: () => void;
 }
+
+const ColumnSelection = ({
+    sourceTableId,
+    loadingColumns,
+    columns,
+    config,
+    onUpdate,
+    labelColumnWarning,
+    valueColumnWarning
+}: {
+    sourceTableId: string | null;
+    loadingColumns: boolean;
+    columns: Column[];
+    config: Extract<DynamicOptionsConfig, { type: 'list' }>;
+    onUpdate: (updates: Partial<Extract<DynamicOptionsConfig, { type: 'list' }>>) => void;
+    labelColumnWarning: string | null;
+    valueColumnWarning: string | null;
+}) => {
+    if (!sourceTableId) { return null; }
+
+    return (
+        <>
+            {/* Label Column */}
+            <div className="space-y-1.5">
+                <Label className="text-xs">Label Column (Display)</Label>
+                <Select
+                    value={config.labelPath}
+                    onValueChange={(val) => onUpdate({ labelPath: val })}
+                    disabled={loadingColumns}
+                >
+                    <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>
+                    <SelectContent>
+                        {loadingColumns ? (
+                            <div className="p-2 text-xs text-muted-foreground text-center">Loading columns...</div>
+                        ) : columns.length === 0 ? (
+                            <div className="p-2 text-xs text-muted-foreground text-center">No columns found</div>
+                        ) : (
+                            columns.map((col) => (
+                                <SelectItem key={col.id ?? col.name} value={col.id ?? col.name}>
+                                    {col.name ?? col.id}
+                                </SelectItem>
+                            ))
+                        )}
+                    </SelectContent>
+                </Select>
+                {labelColumnWarning && (
+                    <p className="text-[10px] text-destructive">{labelColumnWarning}</p>
+                )}
+            </div>
+
+            {/* Value Column */}
+            <div className="space-y-1.5">
+                <Label className="text-xs">Value Column (Saved)</Label>
+                <Select
+                    value={config.valuePath}
+                    onValueChange={(val) => onUpdate({ valuePath: val })}
+                    disabled={loadingColumns}
+                >
+                    <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>
+                    <SelectContent>
+                        {loadingColumns ? (
+                            <div className="p-2 text-xs text-muted-foreground text-center">Loading columns...</div>
+                        ) : columns.length === 0 ? (
+                            <div className="p-2 text-xs text-muted-foreground text-center">No columns found</div>
+                        ) : (
+                            columns.map((col) => (
+                                <SelectItem key={col.id ?? col.name} value={col.id ?? col.name}>
+                                    {col.name ?? col.id}
+                                </SelectItem>
+                            ))
+                        )}
+                    </SelectContent>
+                </Select>
+                {valueColumnWarning && (
+                    <p className="text-[10px] text-destructive">{valueColumnWarning}</p>
+                )}
+            </div>
+
+            {/* Label Template */}
+            <div className="space-y-1.5">
+                <Label className="text-xs">Label Template (Optional)</Label>
+                <Input
+                    placeholder="{FirstName} {LastName}"
+                    value={config.labelTemplate ?? ''}
+                    onChange={(e) => onUpdate({ labelTemplate: e.target.value })}
+                    className="text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                    Use column names in braces to combine fields.
+                </p>
+            </div>
+        </>
+    );
+};
 
 /**
  * Component for editing dynamic choice options from a table/list
@@ -66,7 +165,7 @@ export function DynamicOptionsEditor({
                             </div>
                         ) : (
                             listVariables.map(v => (
-                                <SelectItem key={v.alias} value={v.alias || ''} className="flex items-center">
+                                <SelectItem key={v.alias} value={v.alias ?? ''} className="flex items-center">
                                     <span className="font-mono">{v.alias}</span>
                                 </SelectItem>
                             ))
@@ -135,79 +234,15 @@ export function DynamicOptionsEditor({
             )}
 
             {/* Column Selection */}
-            {sourceTableId && (
-                <>
-                    {/* Label Column */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">Label Column (Display)</Label>
-                        <Select
-                            value={config.labelPath}
-                            onValueChange={(val) => onUpdate({ labelPath: val })}
-                            disabled={!sourceTableId || loadingColumns}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>
-                            <SelectContent>
-                                {loadingColumns ? (
-                                    <div className="p-2 text-xs text-muted-foreground text-center">Loading columns...</div>
-                                ) : columns.length === 0 ? (
-                                    <div className="p-2 text-xs text-muted-foreground text-center">No columns found</div>
-                                ) : (
-                                    columns.map((col: any) => (
-                                        <SelectItem key={col.id || col.name} value={col.id || col.name}>
-                                            {col.name || col.id}
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
-                        {labelColumnWarning && (
-                            <p className="text-[10px] text-destructive">{labelColumnWarning}</p>
-                        )}
-                    </div>
-
-                    {/* Value Column */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">Value Column (Saved)</Label>
-                        <Select
-                            value={config.valuePath}
-                            onValueChange={(val) => onUpdate({ valuePath: val })}
-                            disabled={!sourceTableId || loadingColumns}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select column..." /></SelectTrigger>
-                            <SelectContent>
-                                {loadingColumns ? (
-                                    <div className="p-2 text-xs text-muted-foreground text-center">Loading columns...</div>
-                                ) : columns.length === 0 ? (
-                                    <div className="p-2 text-xs text-muted-foreground text-center">No columns found</div>
-                                ) : (
-                                    columns.map((col: any) => (
-                                        <SelectItem key={col.id || col.name} value={col.id || col.name}>
-                                            {col.name || col.id}
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
-                        {valueColumnWarning && (
-                            <p className="text-[10px] text-destructive">{valueColumnWarning}</p>
-                        )}
-                    </div>
-
-                    {/* Label Template */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">Label Template (Optional)</Label>
-                        <Input
-                            placeholder="{FirstName} {LastName}"
-                            value={config.labelTemplate || ''}
-                            onChange={(e) => onUpdate({ labelTemplate: e.target.value })}
-                            className="text-xs"
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                            Use column names in braces to combine fields.
-                        </p>
-                    </div>
-                </>
-            )}
+            <ColumnSelection
+                sourceTableId={sourceTableId}
+                loadingColumns={loadingColumns}
+                columns={columns}
+                config={config}
+                onUpdate={onUpdate}
+                labelColumnWarning={labelColumnWarning}
+                valueColumnWarning={valueColumnWarning}
+            />
         </div>
     );
 }

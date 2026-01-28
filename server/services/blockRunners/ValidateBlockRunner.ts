@@ -4,60 +4,70 @@
  */
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
-import type { BlockContext, BlockResult, Block, ValidateConfig } from "./types";
+import type {
+  BlockContext,
+  BlockResult,
+  Block,
+  ValidateConfig,
+  CompareRule,
+  ConditionalRequiredRule,
+  ForEachRule,
+  LegacyValidateRule,
+} from "./types";
 export class ValidateBlockRunner extends BaseBlockRunner {
   getBlockType(): string {
     return "validate";
   }
-  async execute(config: ValidateConfig, context: BlockContext, block: Block): Promise<BlockResult> {
+  execute(config: ValidateConfig, context: BlockContext, _block: Block): Promise<BlockResult> {
     const errors: string[] = [];
     const fieldErrors: Record<string, string[]> = {};
-    const addFieldError = (field: string, msg: string) => {
-      if (!fieldErrors[field]) {fieldErrors[field] = [];}
+    const addFieldError = (field: string, msg: string): void => {
+      if (!(field in fieldErrors)) { fieldErrors[field] = []; }
       fieldErrors[field].push(msg);
     };
     for (const rule of config.rules) {
       // Determine rule type (fallback to legacy/simple if no type property)
-      const ruleType = (rule as any).type || "simple";
+      const ruleType = 'type' in rule ? rule.type : "simple";
+
       if (ruleType === "compare") {
-        this.handleCompareRule(rule as any, context, errors, addFieldError);
+        this.handleCompareRule(rule as CompareRule, context, errors, addFieldError);
       } else if (ruleType === "conditional_required") {
-        this.handleConditionalRequiredRule(rule as any, context, errors, addFieldError);
+        this.handleConditionalRequiredRule(rule as ConditionalRequiredRule, context, errors, addFieldError);
       } else if (ruleType === "foreach") {
-        this.handleForEachRule(rule as any, context, errors, addFieldError);
+        this.handleForEachRule(rule as ForEachRule, context, errors, addFieldError);
       } else {
         // Legacy / Simple Rule
-        this.handleSimpleRule(rule as any, context, errors, addFieldError);
+        this.handleSimpleRule(rule as LegacyValidateRule, context, errors, addFieldError);
       }
     }
-    return {
+    return Promise.resolve({
       success: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
       fieldErrors: Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined,
-    };
+    });
   }
   /**
    * Handle compare rule
    */
   private handleCompareRule(
-    rule: any,
+    rule: CompareRule,
     context: BlockContext,
     errors: string[],
     addFieldError: (field: string, msg: string) => void
   ): void {
-    const leftValue = this.getValueByPath(context.data, rule.left);
-    let rightValue;
+    const leftValue = this.getValueByPath(context.data, rule.left) as unknown;
+    let rightValue: unknown;
     if (rule.rightType === "constant") {
       rightValue = rule.right;
     } else {
-      rightValue = this.getValueByPath(context.data, rule.right);
+      rightValue = this.getValueByPath(context.data, rule.right as string) as unknown;
     }
     const passed = this.compareValues(leftValue, rule.op, rightValue);
     if (!passed) {
       errors.push(rule.message);
       // Attribute error to left operand field if possible
       if (rule.left) {
-        const stepId = context.aliasMap?.[rule.left] || rule.left;
+        const stepId = context.aliasMap?.[rule.left] ?? rule.left;
         addFieldError(stepId, rule.message);
       }
     }
@@ -66,7 +76,7 @@ export class ValidateBlockRunner extends BaseBlockRunner {
    * Handle conditional required rule
    */
   private handleConditionalRequiredRule(
-    rule: any,
+    rule: ConditionalRequiredRule,
     context: BlockContext,
     errors: string[],
     addFieldError: (field: string, msg: string) => void
@@ -74,8 +84,8 @@ export class ValidateBlockRunner extends BaseBlockRunner {
     const conditionMet = this.evaluateCondition(rule.when, context.data);
     if (conditionMet) {
       for (const field of rule.requiredFields) {
-        const stepId = context.aliasMap?.[field] || field;
-        const value = context.data[stepId];
+        const stepId = context.aliasMap?.[field] ?? field;
+        const value = context.data[stepId] as unknown;
         if (this.isEmpty(value)) {
           errors.push(rule.message);
           addFieldError(stepId, rule.message);
@@ -87,27 +97,28 @@ export class ValidateBlockRunner extends BaseBlockRunner {
    * Handle for-each rule
    */
   private handleForEachRule(
-    rule: any,
+    rule: ForEachRule,
     context: BlockContext,
     errors: string[],
     addFieldError: (field: string, msg: string) => void
   ): void {
-    const list = this.getValueByPath(context.data, rule.listKey);
+    const list = this.getValueByPath(context.data, rule.listKey) as unknown;
     if (Array.isArray(list)) {
-      list.forEach((item, index) => {
+      list.forEach((item: unknown) => {
         // Create a scoped data context for the item
         const scopedData = { ...context.data };
         scopedData[rule.itemAlias] = item;
         for (const subRule of rule.rules) {
           // Logic for simple assertions
-          if ((subRule).assert) {
+          if ('assert' in subRule) {
             const sRule = subRule;
-            const val = this.getValueByPath(scopedData, sRule.assert.key);
+            const val = this.getValueByPath(scopedData, sRule.assert.key) as unknown;
             const passed = this.evaluateAssertion({ ...sRule.assert, key: "temp" }, { temp: val });
             if (!passed) {
-              errors.push(rule.message || sRule.message);
-              const listStepId = context.aliasMap?.[rule.listKey] || rule.listKey;
-              addFieldError(listStepId, rule.message || sRule.message);
+              const msg = rule.message ?? sRule.message ?? "Validation failed";
+              errors.push(msg);
+              const listStepId = context.aliasMap?.[rule.listKey] ?? rule.listKey;
+              addFieldError(listStepId, msg);
             }
           }
         }
@@ -118,7 +129,7 @@ export class ValidateBlockRunner extends BaseBlockRunner {
    * Handle simple/legacy rule
    */
   private handleSimpleRule(
-    rule: any,
+    rule: LegacyValidateRule,
     context: BlockContext,
     errors: string[],
     addFieldError: (field: string, msg: string) => void
@@ -136,7 +147,7 @@ export class ValidateBlockRunner extends BaseBlockRunner {
       errors.push(rule.message);
       // Attribute to key
       if (rule.assert?.key) {
-        const stepId = context.aliasMap?.[rule.assert.key] || rule.assert.key;
+        const stepId = context.aliasMap?.[rule.assert.key] ?? rule.assert.key;
         addFieldError(stepId, rule.message);
       }
     }

@@ -1,6 +1,8 @@
 import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
-import { stepAPI, type ApiStep, type ApiSection } from "../../lib/vault-api";
+
 import { DevPanelBus } from "../../lib/devpanelBus";
+import { stepAPI, type ApiStep, type ApiSection } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
 export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">): UseQueryResult<ApiStep[]> {

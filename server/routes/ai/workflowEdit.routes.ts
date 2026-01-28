@@ -1,17 +1,31 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
+
+import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
 
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
-import { aiWorkflowEditRequestSchema } from "../../schemas/aiWorkflowEdit.schema";
+import { aiWorkflowEditRequestSchema, aiPreferencesSchema } from "../../schemas/aiWorkflowEdit.schema";
 import { aiSettingsService } from "../../services/AiSettingsService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
+import type { AuthRequest } from "../../middleware/auth";
 import type { AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
+
+
+
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
+
+// Define comprehensive workflow type used in context building
+interface WorkflowWithDetails extends Workflow {
+  sections: (Section & { steps: Step[] })[];
+  logicRules: LogicRule[];
+}
+
 /**
  * Register AI workflow editing routes
  */
@@ -23,11 +37,17 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
   app.post(
     "/api/workflows/:workflowId/ai/edit",
     hybridAuth,
-    async (req: any, res: Response) => {
+    async (req: Request, res: Response) => {
+
 
       try {
         const { workflowId } = req.params;
-        const userId = req.userId || (req.user)?.id;
+        const authReq = req as AuthRequest;
+        const userId = authReq.userId || (authReq.user)?.id;
+
+        if (!userId) {
+          return res.status(401).json({ success: false, error: "Unauthorized" });
+        }
 
         // 1. Validate request body (merge param ID into body for schema validation)
         const bodyToValidate = {
@@ -45,7 +65,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         const requestData = validationResult.data;
         // 2. Get current workflow
 
-        const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
+        const currentWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId) as WorkflowWithDetails;
         if (!currentWorkflow) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
@@ -183,26 +203,31 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
  */
 async function callGeminiForWorkflowEdit(
   userMessage: string,
-  currentWorkflow: any,
-  preferences?: any,
-  systemPromptTemplate?: string
+  currentWorkflow: WorkflowWithDetails,
+  preferences?: z.infer<typeof aiPreferencesSchema>,
+  systemPromptTemplate?: string,
 ): Promise<AiModelResponse> {
   const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY not configured");
   }
+
   let genAI;
   try {
     genAI = new GoogleGenerativeAI(geminiApiKey);
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error({ err }, "GoogleGenerativeAI Constructor Error");
     throw err;
   }
+
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
   // Build system prompt
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
+
   // Build workflow context
   const workflowContext = buildWorkflowContext(currentWorkflow);
+
   // Full prompt
   const fullPrompt = `${systemPrompt}
 ## Current Workflow State
@@ -234,12 +259,13 @@ Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
   const responseText = result.response.text();
   logger.debug({ responseLength: responseText.length }, "Received Gemini response");
   // Parse JSON response
-  let parsedResponse: any;
+  let parsedResponse: AiModelResponse;
   try {
     // Try to extract JSON if wrapped in markdown code blocks
     const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
     const jsonText = jsonMatch ? jsonMatch[1] : responseText;
-    parsedResponse = JSON.parse(jsonText);
+
+    parsedResponse = JSON.parse(jsonText) as AiModelResponse; // Explicit cast after parse
   } catch (error) {
     logger.error({ error, responseText }, "Failed to parse Gemini JSON response");
     throw new Error("Invalid JSON response from AI model");
@@ -248,12 +274,12 @@ Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
   if (!parsedResponse.summary || !parsedResponse.ops || typeof parsedResponse.confidence !== 'number') {
     throw new Error("Invalid AI response structure");
   }
-  return parsedResponse as AiModelResponse;
+  return parsedResponse;
 }
 /**
  * Build system prompt based on preferences
  */
-function buildSystemPrompt(preferences?: any, template?: string): string {
+function buildSystemPrompt(preferences?: z.infer<typeof aiPreferencesSchema>, template?: string): string {
   const readingLevel = preferences?.readingLevel || "standard";
   const tone = preferences?.tone || "neutral";
   const interviewerRole = preferences?.interviewerRole || "workflow designer";
@@ -283,7 +309,7 @@ Available operation types:
 /**
  * Build workflow context summary
  */
-function buildWorkflowContext(workflow: any): string {
+function buildWorkflowContext(workflow: WorkflowWithDetails): string {
   const sections = workflow.sections || [];
   const logicRules = workflow.logicRules || [];
   let context = `Workflow: ${workflow.title}
@@ -311,21 +337,21 @@ Steps: ${steps.length}
 /**
  * Convert workflow object to graphJson format for versioning
  */
-function convertWorkflowToGraphJson(workflow: any): any {
+function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<string, unknown> {
   // For now, return a simplified representation
   // In production, this would match the actual graphJson schema used by the builder
   return {
-    pages: (workflow.sections || []).map((section: any) => ({
+    pages: (workflow.sections || []).map((section: Section & { steps: Step[] }) => ({
       id: section.id,
       title: section.title,
       order: section.order,
-      blocks: (section.steps || []).map((step: any) => ({
+      blocks: (section.steps || []).map((step: Step) => ({
         id: step.id,
         type: step.type,
         title: step.title,
-        alias: step.alias,
+        alias: step.alias ?? undefined,
         required: step.required,
-        config: step.config,
+        config: step.options,
         visibleIf: step.visibleIf,
         defaultValue: step.defaultValue,
         order: step.order,

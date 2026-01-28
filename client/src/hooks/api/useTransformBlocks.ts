@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+
 import { transformBlockAPI, type ApiTransformBlock } from "../../lib/vault-api";
+
 import { queryKeys } from "./queryKeys";
 
 export function useTransformBlocks(workflowId: string | undefined): UseQueryResult<ApiTransformBlock[]> {
@@ -45,7 +47,7 @@ export function useUpdateTransformBlock(): UseMutationResult<ApiTransformBlock, 
     });
 }
 
-export function useDeleteTransformBlock(): UseMutationResult<void, unknown, { id: string; workflowId: string }> {
+export function useDeleteTransformBlock(): UseMutationResult<{ success: boolean }, unknown, { id: string; workflowId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (variables: { id: string; workflowId: string }) =>
@@ -56,7 +58,7 @@ export function useDeleteTransformBlock(): UseMutationResult<void, unknown, { id
     });
 }
 
-export function useTestTransformBlock(): UseMutationResult<unknown, unknown, { id: string; testData: Record<string, any> }> {
+export function useTestTransformBlock(): UseMutationResult<{ success: boolean; output: any; error?: string }, unknown, { id: string; testData: Record<string, any> }> {
     return useMutation({
         mutationFn: ({ id, testData }: { id: string; testData: Record<string, any> }) =>
             transformBlockAPI.test(id, testData),

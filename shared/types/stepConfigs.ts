@@ -301,7 +301,8 @@ export type DynamicOptionsConfig =
 export interface ChoiceAdvancedConfig {
   display: 'radio' | 'dropdown' | 'multiple';
   allowMultiple: boolean;  // Enable multi-select
-  options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or dynamic config
+  options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or DynamicConfig (Legacy)
+  dynamicOptions?: DynamicOptionsConfig; // Explicit dynamic options configuration
   min?: number;            // Minimum selections (for multiple)
   max?: number;            // Maximum selections (for multiple)
   allowOther?: boolean;    // Allow "Other" option with text input

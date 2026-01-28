@@ -228,9 +228,9 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     ? previewState?.workflowId
     : run?.workflowId;
   // Fetch Intake Data (Upstream)
-  const intakeData = useIntakeRuntime(workflowId);
+  const intakeData = useIntakeRuntime(workflowId || "");
   // Fetch Workflow Definition (for intake config)
-  const { data: workflow } = useWorkflow(workflowId);
+  const { data: workflow } = useWorkflow(workflowId || "");
   // Get sections - from preview environment or API
   const { data: fetchedSections } = useSections(workflowId, {
     enabled: mode !== 'preview', // Only fetch if NOT in preview mode
@@ -348,7 +348,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   }, [mode, allSteps, intakeData.values, intakeData.isLoading]);
   // Analytics: Track Run Start (Production)
   useEffect(() => {
-    if (mode === 'production' && run && run.id && run.workflowId && run.versionId) {
+    if (mode === 'production' && run?.id && run.workflowId && run.versionId) {
       analytics.runStart(run.id, run.workflowId, run.versionId);
     }
   }, [run, mode]);

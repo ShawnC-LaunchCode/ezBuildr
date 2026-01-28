@@ -1,14 +1,15 @@
 import { useQuery, useQueries, type UseQueryResult } from "@tanstack/react-query";
-import { templateAPI } from "../../lib/vault-api";
 
-export function useTemplates(): UseQueryResult<unknown[]> {
+import { templateAPI, type ApiTemplate, type ApiPlaceholderInfo } from "../../lib/vault-api";
+
+export function useTemplates(): UseQueryResult<ApiTemplate[]> {
     return useQuery({
         queryKey: ["templates"],
         queryFn: templateAPI.list,
     });
 }
 
-export function useTemplatePlaceholders(templateId: string | undefined): UseQueryResult<any> {
+export function useTemplatePlaceholders(templateId: string | undefined): UseQueryResult<{ templateId: string; placeholders: ApiPlaceholderInfo[] }> {
     return useQuery({
         queryKey: ["templates", templateId, "placeholders"],
         queryFn: () => templateAPI.getPlaceholders(templateId ?? ""),
@@ -36,7 +37,7 @@ export function useActiveTemplateVariables(projectId: string | undefined, sectio
     if (!isLoading && !isError) {
         queries.forEach((query) => {
             if (query.data?.placeholders) {
-                query.data.placeholders.forEach((p: any) => {
+                query.data.placeholders.forEach((p) => {
                     if (p.type === 'variable' || p.type === 'text') { // Assuming 'text' is default from service
                         requiredVariables.add(p.name);
                     }
