@@ -3,7 +3,7 @@
  * Lists projects and workflows, allows creation, shows hierarchy
  */
 import { Plus, Workflow as WorkflowIcon, Folder } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
@@ -194,7 +194,7 @@ export default function WorkflowDashboard() {
   };
   const openEditProjectDialog = (project: ApiProject) => {
     setEditingProject(project);
-    setNewProject({ title: project.title, description: project.description || "" });
+    setNewProject({ title: project.title, description: project.description ?? "" });
   };
   const isLoading = projectsLoading || workflowsLoading;
   const hasContent = (projects && projects.length > 0) || (unfiledWorkflows && unfiledWorkflows.length > 0);

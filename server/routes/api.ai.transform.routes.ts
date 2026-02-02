@@ -92,7 +92,7 @@ router.post("/revise", hybridAuth, aiRateLimit, asyncHandler(async (req, res) =>
 router.post("/debug", hybridAuth, asyncHandler(async (req, res) => {
     try {
         const { transforms } = req.body;
-        const issues = TransformDebugger.debug(transforms || []);
+        const issues = TransformDebugger.debug(transforms ?? []);
         res.json({ issues });
     } catch (error: any) {
         logger.error({ error }, "Transform Debug Error");
@@ -103,7 +103,7 @@ router.post("/debug", hybridAuth, asyncHandler(async (req, res) => {
 router.post("/auto-fix", hybridAuth, asyncHandler(async (req, res) => {
     try {
         const { transforms, issues } = req.body;
-        const fixes = await TransformDebugger.autoFix(transforms || [], issues || []);
+        const fixes = await TransformDebugger.autoFix(transforms ?? [], issues ?? []);
         res.json({ fixes });
     } catch (error: any) {
         logger.error({ error }, "Transform Auto-fix Error");
@@ -115,9 +115,9 @@ router.post("/schema-align", hybridAuth, asyncHandler(async (req, res) => {
     try {
         const { transforms, documents, workflowVariables } = req.body;
         const result = await alignSchema({
-            transforms: transforms || [],
-            documents: documents || [],
-            workflowVariables: workflowVariables || []
+            transforms: transforms ?? [],
+            documents: documents ?? [],
+            workflowVariables: workflowVariables ?? []
         });
         res.json(result);
     } catch (error: any) {

@@ -85,7 +85,7 @@ export const validationMessages = {
 /**
  * Helper function to create Zod error messages
  */
-export function zodMessage(message: string) {
+export function zodMessage(message: string): { message: string } {
   return { message };
 }
 

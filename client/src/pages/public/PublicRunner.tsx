@@ -1,6 +1,6 @@
 
 import { Loader2, AlertCircle } from "lucide-react";
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRoute } from "wouter";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

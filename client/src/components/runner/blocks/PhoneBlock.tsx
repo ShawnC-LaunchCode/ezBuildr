@@ -58,7 +58,7 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
     onChange(digits);
   };
 
-  const displayValue = formatPhoneDisplay(value || "");
+  const displayValue = formatPhoneDisplay(value ?? "");
 
   return (
     <Input

@@ -9,7 +9,7 @@ import {   Eye, ChevronDown, ArrowLeft, Database, Sparkles, GitGraph } from "luc
 // Tab components
 // VisualBuilderTab removed
 // Versioning Imports
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
@@ -161,8 +161,8 @@ export default function WorkflowBuilder() {
   return (
     <CollaborationProvider config={{
       workflowId: workflowId,
-      tenantId: user?.tenantId || "",
-      token: collabToken || "",
+      tenantId: user?.tenantId ?? "",
+      token: collabToken ?? "",
       enabled: isCollabReady,
       user: collabUser
     }}>

@@ -89,7 +89,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
             itemConfig.color
           // Sanitize color values and keys
           const sanitizedKey = key.replace(/[^a-zA-Z0-9-_]/g, '')
-          const sanitizedColor = color?.replace(/[^a-zA-Z0-9#(),.\s%-]/g, '') || ''
+          const sanitizedColor = color?.replace(/[^a-zA-Z0-9#(),.\s%-]/g, '') ?? ''
           return sanitizedColor ? `  --color-${sanitizedKey}: ${sanitizedColor};` : null
         })
         .filter(Boolean)

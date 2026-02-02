@@ -24,7 +24,7 @@ export class TemplateRepository {
       .insert(surveyTemplates)
       .values({
         name,
-        description: description || null,
+        description: description ?? null,
         content,
         creatorId,
         isSystem,

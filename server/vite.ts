@@ -11,12 +11,14 @@ import viteConfig from "../vite.config";
 
 import { log } from "./utils";
 // Get __dirname equivalent in ESM
+// eslint-disable-next-line @typescript-eslint/naming-convention -- Node.js ESM __filename convention
 const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/naming-convention -- Node.js ESM __dirname convention
 const __dirname = path.dirname(__filename);
 const viteLogger = createLogger();
 // Log module load
 log("📦 vite.ts module loaded successfully");
-export async function setupVite(app: Express, server: Server) {
+export async function setupVite(app: Express, server: Server): Promise<void> {
   log("📝 setupVite: Starting Vite setup...");
   // Resolve vite config (it's a function that needs to be called)
   log("📝 setupVite: Resolving Vite config...");
@@ -56,6 +58,7 @@ export async function setupVite(app: Express, server: Server) {
   });
   const result = await Promise.race([vitePromise, timeout]);
   // Type guard to check if result is ViteDevServer (not timeout error)
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- runtime type guard for Promise.race result
   if (!result || typeof result !== 'object' || !('middlewares' in result)) {
     throw new Error('Failed to create Vite server - timeout or invalid result');
   }
@@ -64,6 +67,7 @@ export async function setupVite(app: Express, server: Server) {
   log("📝 setupVite: Mounting Vite middlewares...");
   app.use(vite.middlewares);
   log("📝 setupVite: Vite middlewares mounted");
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     // Skip API routes - let them be handled by Express routes
@@ -84,7 +88,8 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header name
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

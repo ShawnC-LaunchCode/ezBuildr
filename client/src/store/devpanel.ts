@@ -49,7 +49,7 @@ export const useDevPanel = create<DevPanelState>()(
       pinnedVariables: {},
       togglePin: (workflowId, variableKey) =>
         set((state) => {
-          const current = state.pinnedVariables[workflowId] || [];
+          const current = state.pinnedVariables[workflowId] ?? [];
           const isPinned = current.includes(variableKey);
           return {
             pinnedVariables: {
@@ -62,7 +62,7 @@ export const useDevPanel = create<DevPanelState>()(
         }),
       isPinned: (workflowId, variableKey) => {
         const state = get();
-        return (state.pinnedVariables[workflowId] || []).includes(variableKey);
+        return (state.pinnedVariables[workflowId] ?? []).includes(variableKey);
       },
     }),
     {

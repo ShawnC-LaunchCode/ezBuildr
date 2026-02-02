@@ -255,11 +255,11 @@ async function resolveRequestConfig(
         // For 3-legged OAuth, use the access token directly
         auth = {
           type: 'bearer',
-          tokenRef: resolved.accessToken || '',
+          tokenRef: resolved.accessToken ?? '',
         };
       }
       return {
-        baseUrl: connection.baseUrl || '',
+        baseUrl: connection.baseUrl ?? '',
         auth,
         defaultHeaders: connection.defaultHeaders || {},
         timeoutMs: connection.timeoutMs,

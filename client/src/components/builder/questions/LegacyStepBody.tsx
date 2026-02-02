@@ -7,7 +7,7 @@ import {
     ChevronRight,
     X,
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { LogicBuilder, LogicStatusText } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
@@ -56,17 +56,17 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
     const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
 
     // Intake Derived Values
-    const isLinkedToIntake = !!step.defaultValue && typeof step.defaultValue === 'object' && step.defaultValue.source === 'intake';
+    const isLinkedToIntake = !!step.defaultValue && typeof step.defaultValue === 'object' && (step.defaultValue as { source?: string }).source === 'intake';
 
     // Local State
-    const [localRequired, setLocalRequired] = useState(step.required || false);
+    const [localRequired, setLocalRequired] = useState(step.required ?? false);
     const [localType, setLocalType] = useState<StepType>(step.type);
     const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
     const [activeTab, setActiveTab] = useState(isLinkedToIntake ? "intake" : "static");
 
     const [localOptions, setLocalOptions] = useState<OptionItemData[]>(() => {
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = step.options?.options || [];
+            const opts = step.options?.options ?? [];
             return opts.map((opt: any, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
@@ -96,10 +96,10 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
 
     // Sync state when step prop changes
     useEffect(() => {
-        setLocalRequired(step.required || false);
+        setLocalRequired(step.required ?? false);
         setLocalType(step.type);
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = step.options?.options || [];
+            const opts = step.options?.options ?? [];
             setLocalOptions(opts.map((opt: any, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
@@ -129,7 +129,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
 
     const handleAliasChange = (value: string) => {
         updateStepMutation.mutate(
-            { id: step.id, sectionId, alias: value.trim() || null },
+            { id: step.id, sectionId, alias: value.trim() ?? null },
             {
                 onError: (error: any) => {
                     toast({
@@ -264,7 +264,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                     <Input
                         id={`alias-${step.id}`}
                         name={`alias-${step.id}`}
-                        value={step.alias || ""}
+                        value={step.alias ?? ""}
                         onChange={(e) => { void handleAliasChange(e.target.value); }}
                         placeholder={mode === 'easy' ? "e.g. clientName or client.name" : "e.g., user_email, phone_number"}
                         className={cn(
@@ -316,7 +316,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                     <AutoExpandTextarea
                         id={`description-${step.id}`}
                         name={`description-${step.id}`}
-                        value={step.description || ""}
+                        value={step.description ?? ""}
                         onChange={(e) => { void handleDescriptionChange(e.target.value); }}
                         placeholder={step.type === "display" ? "Enter markdown content..." : "Add instructions for the user..."}
                         minRows={step.type === "display" ? 6 : 1}
@@ -403,7 +403,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                                         <div className="space-y-1">
                                             <Label htmlFor={`default-val-intake-${step.id}`} className="sr-only">Select Intake Variable</Label>
                                             <Select
-                                                value={isLinkedToIntake && step.defaultValue?.variable ? step.defaultValue.variable : "none"}
+                                                value={isLinkedToIntake && (step.defaultValue as { variable?: string })?.variable ? (step.defaultValue as { variable?: string }).variable : "none"}
                                                 onValueChange={handleIntakeLinkChange}
                                             >
                                                 <SelectTrigger id={`default-val-intake-${step.id}`} className="h-9 w-full bg-emerald-50/50 border-emerald-200 text-emerald-900 focus:ring-emerald-500">
@@ -506,7 +506,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                                     <span className="text-sm font-medium">Visibility</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <LogicStatusText visibleIf={step.visibleIf} />
+                                    <LogicStatusText visibleIf={step.visibleIf as ConditionExpression} />
                                     {isVisibilityOpen ? (
                                         <ChevronDown className="h-4 w-4" />
                                     ) : (
@@ -520,7 +520,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                                 workflowId={workflowId}
                                 elementId={step.id}
                                 elementType="step"
-                                value={(step.visibleIf as ConditionExpression) || null}
+                                value={(step.visibleIf as ConditionExpression) ?? null}
                                 onChange={(expression) => { void handleVisibilityChange(expression); }}
                                 isSaving={updateStepMutation.isPending}
                             />

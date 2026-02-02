@@ -6,7 +6,7 @@
 
 import type { TestResult } from "@/components/templates-test-runner/types";
 
-const API_BASE = import.meta.env.VITE_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_BASE_URL ?? '';
 
 /**
  * Template Test API

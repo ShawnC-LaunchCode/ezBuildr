@@ -16,14 +16,14 @@ registerMigration("1.1.0", {
         const newSchema = { ...schema };
         newSchema.version = "1.2.0";
 
-        if (!newSchema.steps) {return newSchema;}
+        if (!newSchema.steps) { return newSchema; }
 
-        newSchema.steps = newSchema.steps.map(step => {
+        newSchema.steps = newSchema.steps.map((step: any) => {
             const newStep = { ...step };
             // initialize validation container if it doesn't exist
             // The new structure expects step.config.validation = { rules: [] }
             const config = newStep.config || {};
-            const rules: ValidationRule[] = config.validation?.rules || [];
+            const rules: ValidationRule[] = config.validation?.rules ?? [];
 
             // Helper to add rule if not exists
             const addRule = (rule: ValidationRule) => {

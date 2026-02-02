@@ -29,8 +29,8 @@ export class WorkflowAudit {
                 return false;
             }
             let cycleFound = false;
-            if (node.next) {
-                if (hasCycle(node.next)) {cycleFound = true;}
+            if (node.next && hasCycle(node.next)) {
+                cycleFound = true;
             }
             if (node.branches) {
                 for (const branch of node.branches) {

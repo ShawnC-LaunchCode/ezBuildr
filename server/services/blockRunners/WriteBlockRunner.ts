@@ -44,12 +44,12 @@ export class WriteBlockRunner extends BaseBlockRunner {
       if (!result.success) {
         return {
           success: false,
-          errors: [result.error || "Write operation failed"]
+          errors: [result.error ?? "Write operation failed"]
         };
       }
 
       // Persist output to virtual step if configured
-      const updates: Record<string, any> = {};
+      const updates: Record<string, unknown> = {};
       if (config.outputKey && result.rowId) {
         updates[config.outputKey] = result.rowId;
       }
@@ -120,7 +120,7 @@ export class WriteBlockRunner extends BaseBlockRunner {
         .where(eq(workflows.id, workflowId))
         .limit(1);
 
-      return creatorResult?.tenantId || null;
+      return creatorResult?.tenantId ?? null;
     } catch (e) {
       logger.error({ error: e, workflowId }, "Failed to resolve tenant ID");
       return null;

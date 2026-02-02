@@ -1,5 +1,5 @@
 import { EyeOff, ChevronDown, ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { LogicBuilder, LogicStatusText } from "@/components/logic";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,7 @@ export function VisibilityField({ stepId, sectionId, workflowId, visibleIf, mode
                         workflowId={workflowId}
                         elementId={stepId}
                         elementType="step"
-                        value={visibleIf || null}
+                        value={visibleIf ?? null}
                         onChange={(expression) => { void handleVisibilityChange(expression); }}
                         isSaving={updateStepMutation.isPending}
                     />

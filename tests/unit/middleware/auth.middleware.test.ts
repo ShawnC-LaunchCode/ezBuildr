@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from "vitest";
 
+import { type User } from "@shared/schema";
+
 import { UnauthorizedError } from "../../../server/errors/AuthErrors";
 import {
   requireAuth,
@@ -9,7 +11,7 @@ import {
   type AuthRequest
 } from "../../../server/middleware/auth";
 import { userRepository } from "../../../server/repositories";
-import { authService } from "../../../server/services/AuthService";
+import { authService, type JWTPayload } from "../../../server/services/AuthService";
 import { parseCookies } from "../../../server/utils/cookies";
 
 import type { Request, Response, NextFunction } from "express";
@@ -55,11 +57,11 @@ describe("Auth Middleware", () => {
     tenantRole: 'owner',
   };
 
-  const mockPayload = {
+  const mockPayload: JWTPayload = {
     userId: mockUser.id,
     email: mockUser.email,
     tenantId: mockUser.tenantId,
-    role: mockUser.role,
+    role: mockUser.role as "creator" | "owner" | "admin" | "builder" | "runner" | "viewer" | null,
   };
 
   beforeAll(() => {
@@ -79,9 +81,9 @@ describe("Auth Middleware", () => {
     };
 
     mockRes = {
-      status: statusMock as any,
-      json: jsonMock as any,
-    };
+      status: statusMock,
+      json: jsonMock,
+    } as unknown as Response;
 
     mockNext = vi.fn();
   });
@@ -90,11 +92,11 @@ describe("Auth Middleware", () => {
     it("should authenticate with valid JWT token", async () => {
       const token = "valid-token";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(token);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any);
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload);
 
       mockReq.headers = { authorization: `Bearer ${token}` };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await requireAuth(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       expect(statusMock).not.toHaveBeenCalled();
@@ -161,7 +163,7 @@ describe("Auth Middleware", () => {
     it("should extract token without Bearer prefix", async () => {
       const token = "token-without-bearer";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(token);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any);
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload);
 
       mockReq.headers = {
         authorization: token, // No Bearer prefix
@@ -179,7 +181,7 @@ describe("Auth Middleware", () => {
     it("should authenticate with valid token", async () => {
       const token = "valid-token";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(token);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any);
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload);
 
       mockReq.headers = {
         authorization: `Bearer ${token}`,
@@ -228,7 +230,7 @@ describe("Auth Middleware", () => {
       const token = "valid-jwt";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(token);
       vi.mocked(authService.looksLikeJwt).mockReturnValue(true);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any);
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload);
 
       mockReq.headers = { authorization: `Bearer ${token}` };
       mockReq.method = 'POST';
@@ -280,10 +282,10 @@ describe("Auth Middleware", () => {
 
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(jwtToken);
       vi.mocked(authService.looksLikeJwt).mockReturnValue(true);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any); // Payload for mockUser
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload); // Payload for mockUser
       vi.mocked(parseCookies).mockReturnValue({ refresh_token: refreshToken });
       vi.mocked(authService.validateRefreshToken).mockResolvedValue(mockUser2.id); // Would resolve to user2 if used
-      vi.mocked(userRepository.findById).mockResolvedValue(mockUser2 as any);
+      vi.mocked(userRepository.findById).mockResolvedValue(mockUser2 as unknown as User);
 
       mockReq.headers = {
         authorization: `Bearer ${jwtToken}`,
@@ -304,7 +306,7 @@ describe("Auth Middleware", () => {
       const refreshToken = "valid-refresh";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(null); // No JWT
       vi.mocked(authService.validateRefreshToken).mockResolvedValue(mockUser.id);
-      vi.mocked(userRepository.findById).mockResolvedValue(mockUser as any);
+      vi.mocked(userRepository.findById).mockResolvedValue(mockUser as unknown as User);
 
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -327,7 +329,7 @@ describe("Auth Middleware", () => {
         vi.clearAllMocks(); // Clear mocks for next iteration
         vi.mocked(authService.extractTokenFromHeader).mockReturnValue(null);
         vi.mocked(authService.validateRefreshToken).mockResolvedValue(mockUser.id);
-        vi.mocked(userRepository.findById).mockResolvedValue(mockUser as any);
+        vi.mocked(userRepository.findById).mockResolvedValue(mockUser as unknown as User);
       }
 
       // Test unsafe methods
@@ -370,7 +372,7 @@ describe("Auth Middleware", () => {
       const token = "valid-jwt";
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(token);
       vi.mocked(authService.looksLikeJwt).mockReturnValue(true);
-      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload as any);
+      vi.mocked(authService.verifyToken).mockReturnValue(mockPayload);
 
       mockReq.headers = {
         authorization: `Bearer ${token}`,
@@ -388,7 +390,7 @@ describe("Auth Middleware", () => {
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(null); // No JWT
       vi.mocked(parseCookies).mockReturnValue({ refresh_token: refreshToken });
       vi.mocked(authService.validateRefreshToken).mockResolvedValue(mockUser.id);
-      vi.mocked(userRepository.findById).mockResolvedValue(mockUser as any);
+      vi.mocked(userRepository.findById).mockResolvedValue(mockUser as unknown as User);
 
       mockReq.headers = {
         cookie: `refresh_token=${refreshToken}`,

@@ -1,5 +1,5 @@
 import { ExternalLink, Edit, Unlink, RefreshCw, AlertCircle } from 'lucide-react';
-import React from 'react';
+
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ApiTransformBlock } from '@/lib/vault-api';
 
-import type { DynamicOptionsConfig } from '@/../../shared/types/stepConfigs';
+import type { DynamicOptionsConfig } from '../../../../../shared/types/stepConfigs';
 
 interface Column {
     id: string;

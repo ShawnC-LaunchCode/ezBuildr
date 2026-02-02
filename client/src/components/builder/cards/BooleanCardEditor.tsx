@@ -3,15 +3,17 @@
  * Editor for boolean blocks (yes_no, true_false, boolean)
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
 import { AliasField } from "./common/AliasField";
-import { DefaultValueField } from "./common/DefaultValueField";
+import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
@@ -43,25 +45,25 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
   const defaults = getDefaultLabels();
 
   const [localConfig, setLocalConfig] = useState({
-    trueLabel: config?.trueLabel || defaults.trueLabel,
-    falseLabel: config?.falseLabel || defaults.falseLabel,
+    trueLabel: config?.trueLabel ?? defaults.trueLabel,
+    falseLabel: config?.falseLabel ?? defaults.falseLabel,
     storeAsBoolean: isAdvancedMode
       ? ((config as BooleanAdvancedConfig)?.storeAsBoolean ?? true)
       : true,
-    trueAlias: (config as BooleanAdvancedConfig)?.trueAlias || "",
-    falseAlias: (config as BooleanAdvancedConfig)?.falseAlias || "",
+    trueAlias: (config as BooleanAdvancedConfig)?.trueAlias ?? "",
+    falseAlias: (config as BooleanAdvancedConfig)?.falseAlias ?? "",
   });
 
   useEffect(() => {
     const defaults = getDefaultLabels();
     setLocalConfig({
-      trueLabel: config?.trueLabel || defaults.trueLabel,
-      falseLabel: config?.falseLabel || defaults.falseLabel,
+      trueLabel: config?.trueLabel ?? defaults.trueLabel,
+      falseLabel: config?.falseLabel ?? defaults.falseLabel,
       storeAsBoolean: isAdvancedMode
         ? ((config as BooleanAdvancedConfig)?.storeAsBoolean ?? true)
         : true,
-      trueAlias: (config as BooleanAdvancedConfig)?.trueAlias || "",
-      falseAlias: (config as BooleanAdvancedConfig)?.falseAlias || "",
+      trueAlias: (config as BooleanAdvancedConfig)?.trueAlias ?? "",
+      falseAlias: (config as BooleanAdvancedConfig)?.falseAlias ?? "",
     });
   }, [step.config, step.type, isAdvancedMode, config]);
 
@@ -201,7 +203,7 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            defaultValue={step.defaultValue}
+            defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
@@ -209,7 +211,7 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            visibleIf={step.visibleIf}
+            visibleIf={step.visibleIf as ConditionExpression}
             mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>

@@ -4,7 +4,7 @@
  */
 
 import { ArrowLeft, Plus, Edit } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
@@ -155,7 +155,7 @@ export default function ProjectView() {
     if (projectWithWorkflows) {
       setEditProject({
         title: projectWithWorkflows.title,
-        description: projectWithWorkflows.description || "",
+        description: projectWithWorkflows.description ?? "",
       });
       setIsEditProjectOpen(true);
     }

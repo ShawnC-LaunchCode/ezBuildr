@@ -4,7 +4,7 @@
  */
 
 import { RotateCcw, AlignLeft } from "lucide-react";
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

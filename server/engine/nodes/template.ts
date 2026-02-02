@@ -130,7 +130,7 @@ export async function executeTemplateNode(
     }
     // Choose rendering engine (default to v2)
     const engine = config.engine || 'v2';
-    const toPdf = config.toPdf || false;
+    const toPdf = config.toPdf ?? false;
     let result: { fileRef: string; pdfRef?: string; size: number; format: string };
     if (template.type === 'pdf') {
       // Stage 22: PDF Form Filling

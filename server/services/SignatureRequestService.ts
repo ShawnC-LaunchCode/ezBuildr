@@ -28,10 +28,10 @@ export class SignatureRequestService {
     projectRepo?: typeof projectRepository,
     aclService?: typeof defaultAclService
   ) {
-    this.signatureRequestRepo = signatureRequestRepo || signatureRequestRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.projectRepo = projectRepo || projectRepository;
-    this.aclService = aclService || defaultAclService;
+    this.signatureRequestRepo = signatureRequestRepo ?? signatureRequestRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.projectRepo = projectRepo ?? projectRepository;
+    this.aclService = aclService ?? defaultAclService;
   }
 
   /**
@@ -212,6 +212,7 @@ export class SignatureRequestService {
   /**
    * Get signature events for a request
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getSignatureEvents(requestId: string, userId: string) {
     // Verify access to request
     await this.getSignatureRequest(requestId, userId);

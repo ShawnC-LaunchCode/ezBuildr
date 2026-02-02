@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Download, FileText, CheckCircle2, AlertCircle, Play } from "lucide-react";
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useRoute } from "wouter";
 
@@ -118,7 +118,7 @@ export default function RunCompletionView() {
                     </h2>
 
                     <div className="mt-4 text-lg text-gray-600 prose prose-sm max-w-none">
-                        <ReactMarkdown>{config.message || ""}</ReactMarkdown>
+                        <ReactMarkdown>{config.message ?? ""}</ReactMarkdown>
                     </div>
                 </div>
 

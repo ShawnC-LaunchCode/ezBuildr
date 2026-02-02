@@ -1,7 +1,7 @@
 import { Users, UserMinus } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { analyticsAPI, ApiDropoffStep } from '../../lib/vault-api';
+import { analyticsAPI, type ApiDropoffStep } from '../../lib/vault-api';
 
 interface Props {
     workflowId: string;
@@ -9,15 +9,11 @@ interface Props {
     className?: string;
 }
 
-export const DropoffList: React.FC<Props> = ({ workflowId, versionId, className }) => {
+export const DropoffList = ({ workflowId, versionId, className }: Props) => {
     const [funnel, setFunnel] = useState<ApiDropoffStep[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        void loadFunnel();
-    }, [workflowId, versionId]);
-
-    const loadFunnel = async () => {
+    const loadFunnel = useCallback(async () => {
         try {
             setLoading(true);
             const data = await analyticsAPI.getDropoff(workflowId, versionId);
@@ -27,23 +23,26 @@ export const DropoffList: React.FC<Props> = ({ workflowId, versionId, className 
         } finally {
             setLoading(false);
         }
-    };
+    }, [workflowId, versionId]);
+
+    useEffect(() => {
+        void loadFunnel();
+    }, [loadFunnel]);
 
     if (loading) { return <div className="p-4 text-center text-gray-400 animate-pulse">Loading funnel...</div>; }
-    if (!funnel || funnel.length === 0) { return <div className="p-4 text-center text-gray-500">No dropoff data available</div>; }
+    if (funnel.length === 0) { return <div className="p-4 text-center text-gray-500">No dropoff data available</div>; }
 
     const maxViews = Math.max(...funnel.map(s => s.views), 1);
 
     return (
-        <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-6 ${className || ''}`}>
+        <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-6 ${className ?? ''}`}>
             <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                 <Users className="text-blue-500" size={20} />
                 User Flow & Dropoff
             </h3>
 
             <div className="space-y-6">
-                {funnel.map((step, index) => {
-                    const isLast = index === funnel.length - 1;
+                {funnel.map((step) => {
                     const dropoffSeverity = step.dropoffRate > 20 ? 'high' : step.dropoffRate > 10 ? 'med' : 'low';
                     const barColor = dropoffSeverity === 'high' ? 'bg-red-500' : 'bg-blue-500';
 

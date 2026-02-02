@@ -5,7 +5,7 @@
  */
 
 import { Loader2, Save, Info, X } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +37,15 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
   const updateMutation = useUpdateDatavaultDatabase();
 
   const [name, setName] = useState(database.name);
-  const [description, setDescription] = useState(database.description || "");
+  const [description, setDescription] = useState(database.description ?? "");
   const [scopeType, setScopeType] = useState(database.scopeType);
-  const [scopeId, setScopeId] = useState(database.scopeId || "");
+  const [scopeId, setScopeId] = useState(database.scopeId ?? "");
 
   const hasChanges =
     name !== database.name ||
-    description !== (database.description || "") ||
+    description !== (database.description ?? "") ||
     scopeType !== database.scopeType ||
-    scopeId !== (database.scopeId || "");
+    scopeId !== (database.scopeId ?? "");
 
   const handleSave = async () => {
     try {
@@ -72,9 +72,9 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
 
   const handleReset = () => {
     setName(database.name);
-    setDescription(database.description || "");
+    setDescription(database.description ?? "");
     setScopeType(database.scopeType);
-    setScopeId(database.scopeId || "");
+    setScopeId(database.scopeId ?? "");
   };
 
   const scopeIcons = {

@@ -60,7 +60,7 @@ export function FilterBuilderUI({
   availableVariables = [],
   className
 }: FilterBuilderUIProps) {
-  const rules = filters?.rules || [];
+  const rules = filters?.rules ?? [];
 
   const handleAddRule = () => {
     const newRule: ListToolsFilterRule = {
@@ -229,12 +229,12 @@ function FilterRule({ rule, index, availableVariables, onUpdate, onRemove }: Fil
               <Input
                 className="h-8 text-xs"
                 placeholder="Enter value..."
-                value={rule.value || ''}
+                value={rule.value ?? ''}
                 onChange={(e) => onUpdate({ value: e.target.value })}
               />
             ) : (
               <Select
-                value={rule.value || ''}
+                value={rule.value ?? ''}
                 onValueChange={(value) => onUpdate({ value })}
               >
                 <SelectTrigger className="h-8 text-xs">

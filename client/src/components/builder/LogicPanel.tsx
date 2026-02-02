@@ -5,7 +5,7 @@
  */
 
 import { Info } from "lucide-react";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 import { LogicBuilder } from "@/components/logic";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,7 +32,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
   // Find the selected section from the cached list
   const section = useMemo(() => {
     if (selection?.type !== "section" || !sections) {return null;}
-    return sections.find((s) => s.id === selection.id) || null;
+    return sections.find((s) => s.id === selection.id) ?? null;
   }, [selection, sections]);
 
   // Fetch step data when selection is a step
@@ -123,7 +123,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
           workflowId={workflowId}
           elementId={section.id}
           elementType="section"
-          value={(section.visibleIf as ConditionExpression) || null}
+          value={(section.visibleIf as ConditionExpression) ?? null}
           onChange={handleSectionLogicChange}
           isSaving={updateSectionMutation.isPending}
         />
@@ -181,7 +181,7 @@ export function LogicPanel({ workflowId, selection }: LogicPanelProps) {
           workflowId={workflowId}
           elementId={step.id}
           elementType="step"
-          value={(step.visibleIf as ConditionExpression) || null}
+          value={(step.visibleIf as ConditionExpression) ?? null}
           onChange={handleStepLogicChange}
           isSaving={updateStepMutation.isPending}
         />

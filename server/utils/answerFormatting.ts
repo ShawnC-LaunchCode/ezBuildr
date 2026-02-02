@@ -20,7 +20,7 @@ export function extractTextValue(value: any): string {
 
   // If it's an object with a 'text' property, extract it
   if (typeof value === 'object' && !Array.isArray(value) && 'text' in value) {
-    return String(value.text || '');
+    return String(value.text ?? '');
   }
 
   // For arrays, join with semicolons

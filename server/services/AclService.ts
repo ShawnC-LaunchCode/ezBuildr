@@ -27,11 +27,11 @@ export class AclService {
     projectRepo?: typeof projectRepository,
     workflowRepo?: typeof workflowRepository
   ) {
-    this.teamMemberRepo = teamMemberRepo || teamMemberRepository;
-    this.projectAccessRepo = projectAccessRepo || projectAccessRepository;
-    this.workflowAccessRepo = workflowAccessRepo || workflowAccessRepository;
-    this.projectRepo = projectRepo || projectRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
+    this.teamMemberRepo = teamMemberRepo ?? teamMemberRepository;
+    this.projectAccessRepo = projectAccessRepo ?? projectAccessRepository;
+    this.workflowAccessRepo = workflowAccessRepo ?? workflowAccessRepository;
+    this.projectRepo = projectRepo ?? projectRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
   }
 
   /**

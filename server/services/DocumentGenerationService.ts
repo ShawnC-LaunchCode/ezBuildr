@@ -91,7 +91,7 @@ export class DocumentGenerationService {
       // 5. Generate documents for each Final Documents section
       for (const section of finalDocsSections) {
         const config = section.config as any;
-        const templateIds = config?.templates || [];
+        const templateIds = config?.templates ?? [];
 
         if (templateIds.length === 0) {
           log.info({ sectionId: section.id }, 'No templates selected for section, skipping');

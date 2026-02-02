@@ -126,7 +126,7 @@ export function useCreateCollectionRecord(): UseMutationResult<ApiCollectionReco
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, collectionId, data }: { tenantId: string; collectionId: string; data: Record<string, any> }) =>
-            collectionsAPI.createRecord(tenantId, collectionId, data) as Promise<ApiCollectionRecord>,
+            collectionsAPI.createRecord(tenantId, collectionId, data),
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.collection(variables.tenantId, variables.collectionId) });
@@ -138,7 +138,7 @@ export function useUpdateCollectionRecord(): UseMutationResult<ApiCollectionReco
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ tenantId, collectionId, recordId, data }: { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }) =>
-            collectionsAPI.updateRecord(tenantId, collectionId, recordId, data) as Promise<ApiCollectionRecord>,
+            collectionsAPI.updateRecord(tenantId, collectionId, recordId, data),
         onSuccess: async (data, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecord(variables.tenantId, variables.collectionId, variables.recordId) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });

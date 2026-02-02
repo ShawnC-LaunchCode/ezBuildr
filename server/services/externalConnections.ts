@@ -66,7 +66,7 @@ export async function listConnections(projectId: string): Promise<ConnectionWith
     .where(eq(externalConnections.projectId, projectId));
   return results.map((r: any) => {
     const refs = (r.connection.secretRefs as Record<string, string>) || {};
-    const mainSecretId = refs.main || null;
+    const mainSecretId = refs.main ?? null;
     return {
       id: r.connection.id,
       projectId: r.connection.projectId,
@@ -97,13 +97,13 @@ export async function getConnection(projectId: string, connectionId: string): Pr
   if (results.length === 0) { return null; }
   const r = results[0];
   const refs = (r.connection.secretRefs as Record<string, string>) || {};
-  const mainSecretId = refs.main || null;
+  const mainSecretId = refs.main ?? null;
   return {
     id: r.connection.id,
     projectId: r.connection.projectId,
     name: r.connection.name,
-    baseUrl: r.connection.baseUrl || '',
-    authType: r.connection.type || '',
+    baseUrl: r.connection.baseUrl ?? '',
+    authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
@@ -127,13 +127,13 @@ export async function getConnectionByName(projectId: string, name: string): Prom
   if (results.length === 0) { return null; }
   const r = results[0];
   const refs = (r.connection.secretRefs as Record<string, string>) || {};
-  const mainSecretId = refs.main || null;
+  const mainSecretId = refs.main ?? null;
   return {
     id: r.connection.id,
     projectId: r.connection.projectId,
     name: r.connection.name,
-    baseUrl: r.connection.baseUrl || '',
-    authType: r.connection.type || '',
+    baseUrl: r.connection.baseUrl ?? '',
+    authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},

@@ -3,7 +3,7 @@
  * Fully integrated with backend API for snapshot management
  */
 import { Camera, Trash2, Eye, Play, Edit2, AlertCircle, AlertTriangle } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";

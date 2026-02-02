@@ -54,6 +54,7 @@ export interface ReviewNodeOutput {
  * @param input - Node configuration and execution context
  * @returns Execution result with waiting status
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function executeReviewNode(
   input: ReviewNodeInput
 ): Promise<ReviewNodeOutput> {
@@ -62,7 +63,9 @@ export async function executeReviewNode(
   try {
     // Check condition if present
     if (config.condition) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const conditionResult = evaluateExpression(config.condition, context);
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!conditionResult) {
         return {
           status: 'skipped',

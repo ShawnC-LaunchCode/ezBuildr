@@ -4,7 +4,7 @@
  * Wrapper for UnifiedDevPanel to connect store and live data
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useWorkflowVariablesLive } from "@/hooks/useWorkflowVariablesLive";
@@ -32,8 +32,8 @@ export function DevPanel({ workflowId, className, previewEnvironment }: DevPanel
   const { data: variables = [], isLoading } = useWorkflowVariablesLive(workflowId);
 
   // Fetch trace from preview environment if available
-  const previewState = usePreviewEnvironment(previewEnvironment || null);
-  const trace = previewState?.trace || [];
+  const previewState = usePreviewEnvironment(previewEnvironment ?? null);
+  const trace = previewState?.trace ?? [];
 
   // Initialize panel state if not set
   useEffect(() => {

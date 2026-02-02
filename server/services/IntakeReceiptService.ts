@@ -57,7 +57,7 @@ export class IntakeReceiptService {
 
             // Build summary (non-sensitive fields only)
             const summary: Record<string, any> = {};
-            const excludeList = intakeConfig.excludeFromReceipt || [];
+            const excludeList = intakeConfig.excludeFromReceipt ?? [];
 
             for (const stepValue of stepValues) {
                 const step = stepMap.get(stepValue.stepId);

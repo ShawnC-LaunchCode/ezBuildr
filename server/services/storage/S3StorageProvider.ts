@@ -30,7 +30,7 @@ export class S3StorageProvider implements StorageProvider {
     endpoint?: string;
   }) {
     // Get configuration from options or environment variables
-    this.bucket = options?.bucket || process.env.AWS_S3_BUCKET || '';
+    this.bucket = (options?.bucket || process.env.AWS_S3_BUCKET) ?? '';
     this.region = options?.region || process.env.AWS_REGION || 'us-east-1';
     const accessKeyId = options?.accessKeyId || process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = options?.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY;
@@ -184,7 +184,7 @@ export class S3StorageProvider implements StorageProvider {
         Prefix: prefix,
       }));
 
-      const keys = (response.Contents || [])
+      const keys = (response.Contents ?? [])
         .map(obj => obj.Key)
         .filter((key): key is string => !!key);
 

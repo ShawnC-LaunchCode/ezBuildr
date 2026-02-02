@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 
 interface Column<T> {
   header: string;
@@ -57,7 +57,7 @@ export function DataTable<T>({
                     : column.align === "center"
                     ? "text-center"
                     : "text-left"
-                } ${column.className || ""}`}
+                } ${column.className ?? ""}`}
               >
                 {column.header}
               </th>
@@ -82,7 +82,7 @@ export function DataTable<T>({
                         : column.align === "center"
                         ? "text-center"
                         : "text-left"
-                    } ${column.className || ""}`}
+                    } ${column.className ?? ""}`}
                   >
                     {value as ReactNode}
                   </td>

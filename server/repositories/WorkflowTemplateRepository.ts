@@ -167,7 +167,7 @@ export class WorkflowTemplateRepository extends BaseRepository<
       .where(and(...baseConditions))
       .limit(1);
 
-    return !!result;
+    return result !== undefined;
   }
 }
 

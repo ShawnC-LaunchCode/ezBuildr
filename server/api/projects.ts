@@ -127,7 +127,7 @@ router.post(
         .values({
           name: data.name,
           title: data.name, // Legacy field
-          description: data.description || null,
+          description: data.description ?? null,
           tenantId,
           creatorId: userId,
           ownerId: userId,

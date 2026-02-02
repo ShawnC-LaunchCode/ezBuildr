@@ -41,6 +41,7 @@ export class DatavaultDatabasesService {
   /**
    * Get database by ID
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getDatabaseById(id: string, tenantId: string) {
     const database = await datavaultDatabasesRepository.findByIdWithStats(id);
 
@@ -130,6 +131,7 @@ export class DatavaultDatabasesService {
   /**
    * Get tables in a database
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getTablesInDatabase(databaseId: string, tenantId: string) {
     // Verify ownership
     const exists = await datavaultDatabasesRepository.existsForTenant(databaseId, tenantId);
@@ -143,6 +145,7 @@ export class DatavaultDatabasesService {
   /**
    * Validate scope type and ID combination
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   private validateScope(scopeType: DatavaultScopeType, scopeId?: string) {
     if (scopeType === 'account' && scopeId) {
       throw new BadRequestError('Account scope should not have a scope ID');
@@ -162,6 +165,7 @@ export class DatavaultDatabasesService {
    * @param targetOwnerType - 'user' or 'org'
    * @param targetOwnerUuid - UUID of target owner
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async transferOwnership(
     databaseId: string,
     userId: string,

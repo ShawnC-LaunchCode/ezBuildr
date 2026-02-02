@@ -21,6 +21,7 @@ export class MigrationPipeline {
      * Dry Run: Simulate a migration and return the plan.
      * This is a placeholder for actual schema logic diffing.
      */
+    // eslint-disable-next-line @typescript-eslint/require-await
     async dryRun(workflowId: string, targetVersion: number): Promise<MigrationPlan> {
         logger.info({ msg: "Starting migration dry run", workflowId, targetVersion });
         // In a real implementation, fetch current schema, compute diff against target logic
@@ -39,6 +40,7 @@ export class MigrationPipeline {
     /**
      * Apply: Execute the migration on the Draft version.
      */
+    // eslint-disable-next-line @typescript-eslint/require-await
     async apply(workflowId: string, plan: MigrationPlan): Promise<boolean> {
         logger.info({ msg: "Applying migration", plan });
         if (plan.risk === "high") {

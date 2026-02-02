@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 
 import AddDomainModal from '@/components/branding/AddDomainModal';

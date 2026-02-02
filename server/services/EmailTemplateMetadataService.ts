@@ -44,7 +44,7 @@ export class EmailTemplateMetadataService {
         .from(emailTemplateMetadata)
         .where(eq(emailTemplateMetadata.id, templateId));
 
-      if (!template) {
+      if (template === undefined) {
         logger.warn({ templateId }, 'Template not found');
         return null;
       }
@@ -66,7 +66,7 @@ export class EmailTemplateMetadataService {
         .from(emailTemplateMetadata)
         .where(eq(emailTemplateMetadata.templateKey, templateKey));
 
-      if (!template) {
+      if (template === undefined) {
         logger.warn({ templateKey }, 'Template not found');
         return null;
       }
@@ -92,22 +92,23 @@ export class EmailTemplateMetadataService {
     }
   ): Promise<EmailTemplateMetadata> {
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
       };
 
-      if (metadata.name !== undefined) {updateData.name = metadata.name;}
-      if (metadata.description !== undefined) {updateData.description = metadata.description;}
-      if (metadata.subjectPreview !== undefined) {updateData.subjectPreview = metadata.subjectPreview;}
-      if (metadata.brandingTokens !== undefined) {updateData.brandingTokens = metadata.brandingTokens;}
+      if (metadata.name !== undefined) { updateData.name = metadata.name; }
+      if (metadata.description !== undefined) { updateData.description = metadata.description; }
+      if (metadata.subjectPreview !== undefined) { updateData.subjectPreview = metadata.subjectPreview; }
+      if (metadata.brandingTokens !== undefined) { updateData.brandingTokens = metadata.brandingTokens; }
 
       const [updatedTemplate] = await db
         .update(emailTemplateMetadata)
-        .set(updateData)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- dynamic update data built from validated metadata fields
+        .set(updateData as typeof emailTemplateMetadata.$inferInsert)
         .where(eq(emailTemplateMetadata.id, templateId))
         .returning();
 
-      if (!updatedTemplate) {
+      if (updatedTemplate === undefined) {
         throw new Error('Template not found');
       }
 
@@ -136,17 +137,17 @@ export class EmailTemplateMetadataService {
         .values({
           templateKey: data.templateKey,
           name: data.name,
-          description: data.description || null,
-          subjectPreview: data.subjectPreview || null,
-          brandingTokens: (data.brandingTokens || null) as any,
+          description: data.description ?? null,
+          subjectPreview: data.subjectPreview ?? null,
+          brandingTokens: data.brandingTokens ?? null,
         })
         .returning();
 
       logger.info({ templateKey: data.templateKey }, 'Email template created');
       return newTemplate as unknown as EmailTemplateMetadata;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check for unique constraint violation
-      if (error?.code === '23505') {
+      if (error instanceof Error && 'code' in error && (error as { code: string }).code === '23505') {
         logger.warn({ templateKey: data.templateKey }, 'Template key already exists');
         throw new Error('Template key already exists');
       }

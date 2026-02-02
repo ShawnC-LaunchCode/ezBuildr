@@ -11,6 +11,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
  */
 export class SectionRepository extends BaseRepository<typeof sections, Section, InsertSection> {
   constructor(dbInstance?: typeof db) {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- runtime guard for schema import
     if (!sections) {console.error("CRITICAL: sections undefined in SectionRepo");}
     super(sections, dbInstance);
   }
@@ -41,7 +42,7 @@ export class SectionRepository extends BaseRepository<typeof sections, Section, 
       .from(sections)
       .where(eq(sections.id, sectionId));
 
-    if (section && section.workflowId === workflowId) {
+    if (section !== undefined && section.workflowId === workflowId) {
       return section;
     }
     return undefined;

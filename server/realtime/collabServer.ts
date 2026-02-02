@@ -127,7 +127,7 @@ async function handleConnection(ws: WebSocket, request: IncomingMessage): Promis
   logger.debug('New WebSocket connection attempt');
 
   // Extract room name from URL
-  const url = new URL(request.url || '', `http://${request.headers.host}`);
+  const url = new URL(request.url ?? '', `http://${request.headers.host}`);
   const roomName = url.searchParams.get('room');
 
   if (!roomName) {

@@ -67,12 +67,14 @@ export function registerDebugRoutes(app: Express): void {
    * GET /api/debug/me
    * Debug current user
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   app.get('/api/debug/me', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
 
     res.json({
       userId: authReq.userId,
       tenantId: authReq.tenantId,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- debug route accessing session
       session: (authReq as any).session?.user,
     });
   }));

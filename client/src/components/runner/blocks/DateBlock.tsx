@@ -38,7 +38,7 @@ export function DateBlockRenderer({ step, value, onChange, readOnly }: DateBlock
     <Input
       id={step.id}
       type="date"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       min={config?.minDate}
       max={config?.maxDate}

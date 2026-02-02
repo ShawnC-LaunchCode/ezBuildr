@@ -1,7 +1,7 @@
 
 import { createRequire } from 'module';
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import PizZip from 'pizzip';
@@ -16,6 +16,17 @@ const pdfLib = require('pdf-parse');
 export interface AIAnalysisResult {
     variables: AnalyzedVariable[];
     suggestions: string[];
+}
+
+export interface CleanupAction {
+    type: string;
+    description: string;
+    fix: string;
+}
+
+export interface ImprovementResult {
+    aliases?: Record<string, string>;
+    formatting?: Record<string, string>;
 }
 
 export interface AnalyzedVariable {
@@ -37,7 +48,7 @@ export interface MappingSuggestion {
 
 export class DocumentAIAssistService {
     private genAI: GoogleGenerativeAI | null = null;
-    private model: any;
+    private model: GenerativeModel | null = null;
 
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -99,7 +110,7 @@ export class DocumentAIAssistService {
     /**
      * Suggest mappings for a list of template variables against existing workflow variables
      */
-    async suggestMappings(templateVariables: Partial<AnalyzedVariable>[], workflowVariables: any[]): Promise<MappingSuggestion[]> {
+    async suggestMappings(templateVariables: Partial<AnalyzedVariable>[], workflowVariables: { id: string; name: string; label: string; type: string }[]): Promise<MappingSuggestion[]> {
         if (!this.model) { return []; }
 
         const prompt = `
@@ -119,7 +130,7 @@ export class DocumentAIAssistService {
         try {
             const result = await this.model.generateContent(prompt);
             const text = result.response.text();
-            return this.parseJSON(text) || [];
+            return (this.parseJSON(text) as MappingSuggestion[]) ?? [];
         } catch (err) {
             logger.error({ err }, "AI Mapping Suggestions failed");
             return [];
@@ -129,7 +140,7 @@ export class DocumentAIAssistService {
     /**
      * Suggest aliases, formatting, and conditions
      */
-    async suggestImprovements(templateVariables: string[], textSample?: string): Promise<any> {
+    async suggestImprovements(templateVariables: string[], textSample?: string): Promise<ImprovementResult> {
         if (!this.model) { return {}; }
 
         const prompt = `
@@ -145,7 +156,7 @@ Requirements:
 
         try {
             const result = await this.model.generateContent(prompt);
-            return this.parseJSON(result.response.text());
+            return (this.parseJSON(result.response.text()) as ImprovementResult) ?? {};
         } catch (err) {
             return {};
         }
@@ -156,10 +167,10 @@ Requirements:
      * For now, this returns a list of *actions* rather than rewriting the file directly via AI, 
      * as modifying binaries via LLM is risky.
      */
-    async suggestCleanupActions(filePath: string, filename: string): Promise<any[]> {
+    async suggestCleanupActions(filePath: string, filename: string): Promise<CleanupAction[]> {
         // Implement logic to detect split tags (using TemplateScanner logic usually)
         // and identifying "dead" fields.
-        const actions = [];
+        const actions: CleanupAction[] = [];
 
         // Example: Check for simple inconsistencies
         const text = await this.extractTextContent(filePath, filename);
@@ -245,6 +256,9 @@ Requirements:
     }
 
     private async performAIExtraction(text: string): Promise<{ variables: AnalyzedVariable[], suggestions: string[] }> {
+        if (!this.model) {
+            return { variables: [], suggestions: [] };
+        }
         const prompt = `
         Extract potential document variables from this text.Look for:
     1. Explicit placeholders({{ ...}})
@@ -258,14 +272,16 @@ Requirements:
 `;
 
         const result = await this.model.generateContent(prompt);
-        const json = this.parseJSON(result.response.text());
+        // Cast the unknown result to the expected shape or null-ish
+        const json = this.parseJSON(result.response.text()) as { variables: AnalyzedVariable[], suggestions: string[] } | null;
         return {
-            variables: json?.variables || [],
-            suggestions: json?.suggestions || []
+            variables: json?.variables ?? [],
+            suggestions: json?.suggestions ?? []
         };
     }
 
-    private parseJSON(text: string): any {
+    private parseJSON(text: string | undefined | null): unknown {
+        if (!text) { return null; }
         try {
             // Strip markdown code blocks if present
             const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -279,7 +295,7 @@ Requirements:
 export const documentAIAssistService = new DocumentAIAssistService();
 
 // Helper to validate signature without loading full file if possible
-async function checkFileSignature(filePath: string, filename: string) {
+async function checkFileSignature(filePath: string, filename: string): Promise<void> {
     // Import dynamically to avoid circular dep issues in some contexts, or strict dep
     const { validateMagicBytes } = await import('../../utils/magicBytes');
     const fs = await import('fs/promises');

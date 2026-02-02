@@ -32,7 +32,7 @@ export function useAllSteps(sections: ApiSection[]): Record<string, ApiStep[]> {
     // Combine results into a Record<sectionId, steps[]>
     const allSteps: Record<string, ApiStep[]> = {};
     sections.forEach((section, index) => {
-        allSteps[section.id] = queries[index].data || [];
+        allSteps[section.id] = queries[index].data ?? [];
     });
     return allSteps;
 }

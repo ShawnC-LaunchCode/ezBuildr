@@ -12,7 +12,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useChoiceConfig } from "@/hooks/useChoiceConfig";
+import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
 import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiWorkflowVariable, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
@@ -30,7 +30,7 @@ import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
 import { AliasField } from "./common/AliasField";
-import { DefaultValueField } from "./common/DefaultValueField";
+import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
@@ -77,7 +77,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   // Filter for List variables only
   const listVariables = useMemo(() => {
-    return (variables as ApiWorkflowVariable[]).filter(v => v.type === 'read_table' || v.type === 'list_tools');
+    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
   }, [variables]);
 
   // Use custom hook for validation
@@ -100,16 +100,16 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   // HANDLERS
   // ---------------------------------------------------------------------------
 
-  const saveConfig = (newConfig: any, mode: "static" | "dynamic") => {
+  const saveConfig = (newConfig: ChoiceCardState, mode: "static" | "dynamic") => {
     // Validation
     const errors: string[] = [];
     if (mode === "static") {
-      if (newConfig.staticOptions.length === 0) { errors.push("At least one option is required"); }
+      if ((newConfig.staticOptions || []).length === 0) { errors.push("At least one option is required"); }
       // Check for duplicate aliases
-      const aliases = newConfig.staticOptions.map((opt: any) => opt.alias || opt.id);
+      const aliases = (newConfig.staticOptions || []).map((opt) => opt.alias || opt.id);
       if (new Set(aliases).size !== aliases.length) { errors.push("Duplicate aliases found"); }
     } else {
-      if (!newConfig.dynamicOptions.listVariable) { errors.push("List variable is required"); }
+      if (!newConfig.dynamicOptions?.listVariable) { errors.push("List variable is required"); }
       // We allow saving with warning
     }
     setErrors(errors);
@@ -125,8 +125,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         allowMultiple: newConfig.allowMultiple,
         searchable: newConfig.searchable,
         options: mode === 'static'
-          ? { type: 'static', options: newConfig.staticOptions }
-          : { ...newConfig.dynamicOptions, type: 'list' }
+          ? { type: 'static', options: newConfig.staticOptions || [] }
+          : { ...(newConfig.dynamicOptions || { listVariable: '' }), type: 'list' }
       };
       // Auto-upgrade type if needed
       if (step.type !== 'choice') {
@@ -137,7 +137,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     } else {
       // Legacy Save
       const payload = {
-        options: newConfig.staticOptions.map((opt: any) => ({
+        options: (newConfig.staticOptions || []).map((opt) => ({
           id: opt.id,
           label: opt.label,
           alias: opt.alias
@@ -147,13 +147,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     }
   };
 
-  const handleUpdate = (updates: any) => {
+  const handleUpdate = (updates: Partial<ChoiceCardState>) => {
     const next = { ...localConfig, ...updates };
-    setLocalConfig(next);
-    saveConfig(next, sourceMode);
+    setLocalConfig(next as ChoiceCardState);
+    saveConfig(next as ChoiceCardState, sourceMode);
   };
 
   const handleSourceModeChange = (val: string) => {
+    if (!localConfig) { return; }
     const newMode = val as "static" | "dynamic";
     setSourceMode(newMode);
     saveConfig(localConfig, newMode);
@@ -181,7 +182,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const handleDeleteOption = (index: number) => {
     if (!localConfig) { return; }
-    const newOptions = localConfig.staticOptions.filter((_: any, i: number) => i !== index);
+    const newOptions = localConfig.staticOptions.filter((_, i: number) => i !== index);
     handleUpdate({ staticOptions: newOptions });
   };
 
@@ -243,7 +244,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         phase: result.block.phase || 'onRunStart',
         order: result.block.order || 0,
         enabled: result.block.enabled ?? true,
-        raw: result.block,
+        raw: result.block as unknown as Record<string, unknown>,
         source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
@@ -391,7 +392,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         phase: result.block.phase || 'onRunStart',
         order: result.block.order || 0,
         enabled: result.block.enabled ?? true,
-        raw: result.block,
+        raw: result.block as unknown as Record<string, unknown>,
         source: 'regular',
         title: result.outputVar,
         displayType: 'list_tools'
@@ -415,7 +416,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const linkedBlock = useMemo(() => {
     if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) { return null; }
-    return (blocks as any[]).find((b: any) => b.id === localConfig.dynamicOptions.linkedListToolsBlockId);
+    return (blocks || []).find((b) => b.id === localConfig.dynamicOptions?.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
 
   const handleOpenLinkedBlock = () => {
@@ -435,7 +436,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       phase: (linkedBlock).phase || 'onRunStart',
       order: (linkedBlock).order || 0,
       enabled: (linkedBlock).enabled ?? true,
-      raw: linkedBlock,
+      raw: linkedBlock as unknown as Record<string, unknown>,
       source: 'regular',
       title: (linkedBlock).config?.outputListVar || (linkedBlock).config?.outputKey || 'List Tools',
       displayType: 'list_tools'
@@ -464,7 +465,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       {/* Display Mode */}
       <div className="space-y-3">
         <SectionHeader title="Display Mode" description="How choices are displayed" />
-        <RadioGroup value={localConfig.display} onValueChange={(v) => handleDisplayChange(v as any)} disabled={false} className="flex gap-4">
+        <RadioGroup value={localConfig.display} onValueChange={(v) => handleDisplayChange(v as "radio" | "dropdown" | "multiple")} disabled={false} className="flex gap-4">
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="radio" id="d-radio" />
             <Label htmlFor="d-radio">Radio</Label>
@@ -483,7 +484,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           <div className="flex items-center space-x-2 pt-2">
             <Switch
               id="searchable-mode"
-              checked={localConfig.searchable || false}
+              checked={localConfig.searchable ?? false}
               onCheckedChange={(c) => handleUpdate({ searchable: c })}
             />
             <Label htmlFor="searchable-mode" className="text-xs font-normal text-muted-foreground">Allow Search</Label>
@@ -518,7 +519,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             listVariables={listVariables}
             sourceBlock={(sourceBlock as ApiTransformBlock | null)}
             sourceTableId={sourceTableId}
-            columns={(columns as any[])}
+            columns={columns}
             loadingColumns={loadingColumns}
             timingWarning={timingWarning}
             labelColumnWarning={labelColumnWarning}
@@ -548,7 +549,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       <BlockEditorDialog
         workflowId={workflowId}
         block={editingBlock}
-        mode={mode as any}
+        mode={mode}
         isOpen={isBlockEditorOpen}
         onClose={handleCloseBlockEditor}
       />
@@ -645,7 +646,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         stepId={stepId}
         sectionId={sectionId}
         workflowId={workflowId}
-        defaultValue={step.defaultValue}
+        defaultValue={step.defaultValue as DefaultValueType}
         type={step.type}
         mode={isAdvancedMode ? 'advanced' : 'easy'}
       />

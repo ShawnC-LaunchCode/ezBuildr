@@ -1,6 +1,6 @@
 export interface WorkflowSchema {
-    sections: any[];
-    steps: any[];
+    sections: unknown[];
+    steps: unknown[];
     // Add other top-level schema properties as needed
     version?: string; // Schema version, if we decide to track it inside the JSON too
 }
@@ -15,7 +15,7 @@ export interface MigrationDefinition {
     migrate: MigrationFunction;
 }
 export const MIGRATION_REGISTRY: Record<string, MigrationDefinition> = {};
-export function registerMigration(fromVersion: string, definition: MigrationDefinition) {
+export function registerMigration(fromVersion: string, definition: MigrationDefinition): void {
     MIGRATION_REGISTRY[fromVersion] = definition;
 }
 export function getMigration(fromVersion: string): MigrationDefinition | undefined {

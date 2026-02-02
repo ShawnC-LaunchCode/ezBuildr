@@ -81,7 +81,7 @@ async function requestAIRandomValues(
         .map(step => ({
           alias: step.alias || step.id,
           type: step.type,
-          label: step.title || '',
+          label: step.title ?? '',
           config: step.config,
         })),
     };
@@ -213,10 +213,10 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
           // Validate address structure
           if (value.street || value.city || value.state || value.zip) {
             return {
-              street: value.street || '',
-              city: value.city || '',
-              state: value.state || '',
-              zip: value.zip || '',
+              street: value.street ?? '',
+              city: value.city ?? '',
+              state: value.state ?? '',
+              zip: value.zip ?? '',
             };
           }
         }

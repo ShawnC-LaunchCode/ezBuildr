@@ -85,7 +85,7 @@ async function runJsWithHelpers(
     if (helperLib.getConsoleLogs) {
       const libLogs = helperLib.getConsoleLogs();
       if (libLogs && libLogs.length > 0) {
-        result.consoleLogs = [...(result.consoleLogs || []), ...libLogs];
+        result.consoleLogs = [...(result.consoleLogs ?? []), ...libLogs];
       }
     }
     return result;

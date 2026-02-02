@@ -2,13 +2,13 @@
 // In a real implementation, these would contain complex logic.
 
 export class ValidationAudit {
-    static audit(rules: any[]): { passed: boolean, issues: string[] } {
+    static audit(_rules: unknown[]): { passed: boolean, issues: string[] } {
         return { passed: true, issues: [] };
     }
 }
 
 export class DocAudit {
-    static audit(template: any): { passed: boolean, issues: string[] } {
+    static audit(_template: unknown): { passed: boolean, issues: string[] } {
         return { passed: true, issues: [] };
     }
 }
@@ -21,7 +21,7 @@ export class AnalyticsAudit {
 }
 
 export class SnapshotAudit {
-    static verify(snapshot: any): { valid: boolean } {
+    static verify(_snapshot: unknown): { valid: boolean } {
         return { valid: true };
     }
 }

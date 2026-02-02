@@ -118,7 +118,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .from(steps)
       .where(eq(steps.id, stepId));
 
-    if (step && step.sectionId === sectionId) {
+    if (step !== undefined && step.sectionId === sectionId) {
       return step;
     }
     return undefined;

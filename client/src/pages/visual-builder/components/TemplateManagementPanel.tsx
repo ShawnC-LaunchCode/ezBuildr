@@ -14,7 +14,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, Upload, Trash2, Star, StarOff, Settings } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '../../../components/ui/badge';

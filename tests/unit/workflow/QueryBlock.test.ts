@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import type { ListVariable } from '@shared/types/query';
+import type { QueryListVariable } from '@shared/types/query';
 
 import { repeaterService } from '../../../server/services/RepeaterService';
 
 describe('RepeaterService List Integration', () => {
-    const mockListVariable: ListVariable = {
+    const mockListVariable: QueryListVariable = {
         id: 'list-123',
         name: 'My List',
         tableId: 'table-123',

@@ -222,7 +222,7 @@ export function DataGrid({
             )}
             {rows.map((rowData) => {
               const isArchived = !!rowData.row.deletedAt;
-              const isSelected = selectedRowIds?.has(rowData.row.id) || false;
+              const isSelected = selectedRowIds?.has(rowData.row.id) ?? false;
 
               return (
                 <TableRow key={rowData.row.id} className={isArchived ? "opacity-60" : undefined}>

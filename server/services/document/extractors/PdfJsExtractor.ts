@@ -32,13 +32,15 @@ export class PdfJsExtractor implements IPdfExtractor {
   readonly name = 'pdf.js';
   readonly priority = 2; // Fallback extractor
 
-  async canHandle(buffer: Buffer): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async canHandle(_buffer: Buffer): Promise<boolean> {
     // TODO: Check if PDF.js can parse this buffer
     // For now, assume it can handle any PDF
     return true;
   }
 
-  async extract(buffer: Buffer): Promise<ExtractionResult> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async extract(_buffer: Buffer): Promise<ExtractionResult> {
     logger.info(
       { extractor: this.name },
       'PDF.js extractor is not yet implemented - install pdfjs-dist and implement this method'

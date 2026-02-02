@@ -43,7 +43,9 @@ export function registerUserPreferencesRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- req.body parsed by express
       const updates = req.body;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const updated = await userPreferencesService.update(userId, updates);
       res.json(updated);
     } catch (error) {

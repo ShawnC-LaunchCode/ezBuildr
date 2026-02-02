@@ -59,7 +59,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
                 id: step.id,
                 type: step.type,
                 config: step.config,
-                required: step.required || false
+                required: step.required ?? false
             });
         });
 

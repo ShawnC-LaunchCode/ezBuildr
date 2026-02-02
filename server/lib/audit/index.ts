@@ -12,9 +12,9 @@ export class SystemAudit {
     static async auditWorkflow(workflow: any) {
         logger.info({ msg: "Starting System Audit", workflowId: workflow.id });
 
-        const blockResults = BlockAudit.audit(workflow.blocks || []);
+        const blockResults = BlockAudit.audit(workflow.blocks ?? []);
         const graphResults = WorkflowAudit.audit({
-            nodes: workflow.nodes || [],
+            nodes: workflow.nodes ?? [],
             startNodeId: workflow.startNodeId
         });
 

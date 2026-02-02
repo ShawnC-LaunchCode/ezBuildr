@@ -24,7 +24,7 @@ export interface DisplayBlockProps {
 
 // Helper to interpolate variables like {{variableName}}
 function interpolateVariables(text: string, context?: Record<string, any>): string {
-  if (!text || !context) {return text;}
+  if (!text || !context) { return text; }
 
   return text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
     const key = variableName.trim();
@@ -44,7 +44,7 @@ function interpolateVariables(text: string, context?: Record<string, any>): stri
 
 export function DisplayBlockRenderer({ step, context }: DisplayBlockProps) {
   const config = step.config as DisplayConfig;
-  const rawMarkdown = config?.markdown || step.description || "";
+  const rawMarkdown = (config?.markdown || step.description) ?? "";
   const allowHtml = config?.allowHtml ?? false;
 
   // Interpolate variables

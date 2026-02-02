@@ -110,7 +110,7 @@ export class DocusignProvider implements IEsignProvider {
   /**
    * Refresh access token using JWT Grant
    */
-  private async refreshAccessToken(): Promise<void> {
+  private refreshAccessToken(): Promise<void> {
     // Note: In production, use the official DocuSign SDK
     // This is a simplified placeholder for the JWT flow
 
@@ -159,10 +159,10 @@ export class DocusignProvider implements IEsignProvider {
     }
 
     try {
-      const token = await this.getAccessToken();
+      const _token = await this.getAccessToken();
 
       // Build envelope definition
-      const envelopeDefinition = await this.buildEnvelopeDefinition(request);
+      const _envelopeDefinition: unknown = await this.buildEnvelopeDefinition(request);
 
       // TODO: Call DocuSign API
       // const docusign = require('docusign-esign');
@@ -192,7 +192,7 @@ export class DocusignProvider implements IEsignProvider {
       };
       */
     } catch (error) {
-      if (error instanceof EsignApiError) {throw error;}
+      if (error instanceof EsignApiError) { throw error; }
       throw new EsignApiError(
         `Failed to create DocuSign envelope: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -204,8 +204,8 @@ export class DocusignProvider implements IEsignProvider {
   /**
    * Build DocuSign envelope definition from request
    */
-  private async buildEnvelopeDefinition(request: CreateEnvelopeRequest): Promise<any> {
-    const { documents, signer, message, expiresInDays, variableData, returnUrl } = request;
+  private async buildEnvelopeDefinition(request: CreateEnvelopeRequest): Promise<unknown> {
+    const { documents, signer, message, expiresInDays, variableData, returnUrl: _returnUrl } = request;
 
     // Load and encode documents
     const encodedDocs = await Promise.all(
@@ -261,8 +261,8 @@ export class DocusignProvider implements IEsignProvider {
    */
   private buildTabs(
     documents: CreateEnvelopeRequest['documents'],
-    variableData: Record<string, any>
-  ): any {
+    variableData: Record<string, unknown>
+  ): unknown {
     const signHereTabs: any[] = [];
     const textTabs: any[] = [];
 
@@ -278,7 +278,7 @@ export class DocusignProvider implements IEsignProvider {
       // Add text tabs from mapping
       if (doc.mapping) {
         Object.entries(doc.mapping).forEach(([tabLabel, config]) => {
-          const value = variableData[config.source] || '';
+          const value = variableData[config.source] ?? '';
 
           textTabs.push({
             documentId: `${docIndex + 1}`,
@@ -304,7 +304,7 @@ export class DocusignProvider implements IEsignProvider {
 
   async getEnvelopeStatus(envelopeId: string): Promise<EnvelopeStatusResponse> {
     try {
-      const token = await this.getAccessToken();
+      const _token = await this.getAccessToken();
 
       // TODO: Call DocuSign API
       // const docusign = require('docusign-esign');
@@ -331,7 +331,7 @@ export class DocusignProvider implements IEsignProvider {
       };
       */
     } catch (error) {
-      if (error instanceof EsignApiError) {throw error;}
+      if (error instanceof EsignApiError) { throw error; }
       throw new EsignApiError(
         `Failed to get envelope status: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -363,7 +363,7 @@ export class DocusignProvider implements IEsignProvider {
 
   async voidEnvelope(envelopeId: string, reason?: string): Promise<void> {
     try {
-      const token = await this.getAccessToken();
+      const _token = await this.getAccessToken();
 
       // TODO: Call DocuSign API
       // const docusign = require('docusign-esign');
@@ -374,7 +374,7 @@ export class DocusignProvider implements IEsignProvider {
 
       throw new EsignApiError('DocuSign void not yet implemented.', 'docusign');
     } catch (error) {
-      if (error instanceof EsignApiError) {throw error;}
+      if (error instanceof EsignApiError) { throw error; }
       throw new EsignApiError(
         `Failed to void envelope: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',
@@ -385,7 +385,7 @@ export class DocusignProvider implements IEsignProvider {
 
   async downloadSignedDocuments(envelopeId: string): Promise<Buffer[]> {
     try {
-      const token = await this.getAccessToken();
+      const _token = await this.getAccessToken();
 
       // TODO: Call DocuSign API
       // const docusign = require('docusign-esign');
@@ -396,7 +396,7 @@ export class DocusignProvider implements IEsignProvider {
 
       // return [Buffer.from(docs)];
     } catch (error) {
-      if (error instanceof EsignApiError) {throw error;}
+      if (error instanceof EsignApiError) { throw error; }
       throw new EsignApiError(
         `Failed to download documents: ${error instanceof Error ? error.message : String(error)}`,
         'docusign',

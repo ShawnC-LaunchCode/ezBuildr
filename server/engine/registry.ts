@@ -16,7 +16,6 @@ import {
   type QueryNodeConfig,
   type WriteNodeConfig,
   type QueryNodeOutput,
-  type WriteNodeOutput,
   type QueryNodeInput,
   type WriteNodeInput,
 } from './nodes/data';
@@ -111,10 +110,10 @@ export interface ExecuteNodeInput {
   context: EvalContext;
   tenantId: string;
   projectId?: string; // For HTTP nodes (secret/connection resolution)
-  userInputs?: Record<string, any>; // For question nodes
+  userInputs?: Record<string, unknown>; // For question nodes
   runId?: string; // For review/esign nodes
   workflowId?: string; // For review/esign nodes
-  outputRefs?: Record<string, any>; // For esign nodes (document references)
+  outputRefs?: Record<string, unknown>; // For esign nodes (document references)
 }
 
 /**
@@ -123,6 +122,7 @@ export interface ExecuteNodeInput {
  * @param input - Node execution input
  * @returns Node execution output
  */
+// eslint-disable-next-line complexity
 export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> {
   const { node, context, tenantId, userInputs } = input;
   switch (node.type) {
@@ -131,6 +131,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
         nodeId: node.id,
         config: node.config as QuestionNodeConfig,
         context,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         userAnswer: userInputs?.[node.id],
       };
       return executeQuestionNode(questionInput);
@@ -253,7 +254,7 @@ export async function executeNode(input: ExecuteNodeInput): Promise<NodeOutput> 
     }
 
     default:
-      throw new Error(`Unknown node type: ${(node as any).type}`);
+      throw new Error(`Unknown node type: ${(node as { type: string }).type}`);
   }
 }
 

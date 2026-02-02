@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -9,11 +9,14 @@ import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { AliasField } from "./common/AliasField";
-import { DefaultValueField } from "./common/DefaultValueField";
+import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { TextField, NumberField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
@@ -334,7 +337,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            defaultValue={step.defaultValue}
+            defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
@@ -342,7 +345,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            visibleIf={step.visibleIf}
+            visibleIf={step.visibleIf as ConditionExpression}
             mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>

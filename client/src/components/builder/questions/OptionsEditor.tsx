@@ -25,7 +25,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, X, GripVertical, Database, List as ListIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,9 +101,9 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
   const [listConfig, setListConfig] = useState(() => {
     if (typeof options === 'object' && 'type' in options && options.type === 'list') {
       return {
-        listVariable: options.listVariable || '',
-        labelPath: options.labelPath || '',
-        valuePath: options.valuePath || '',
+        listVariable: options.listVariable ?? '',
+        labelPath: options.labelPath ?? '',
+        valuePath: options.valuePath ?? '',
       };
     }
     return { listVariable: '', labelPath: '', valuePath: '' };
@@ -113,10 +113,10 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
   const [tableConfig, setTableConfig] = useState(() => {
     if (typeof options === 'object' && 'type' in options && options.type === 'table_column') {
       return {
-        dataSourceId: options.dataSourceId || '',
-        tableId: options.tableId || '',
-        columnId: options.columnId || '',
-        labelColumnId: options.labelColumnId || '',
+        dataSourceId: options.dataSourceId ?? '',
+        tableId: options.tableId ?? '',
+        columnId: options.columnId ?? '',
+        labelColumnId: options.labelColumnId ?? '',
         sort: options.sort,
         limit: options.limit || 100,
       };
@@ -218,17 +218,17 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
     } else if (newType === 'list') {
       onChange({
         type: 'list',
-        listVariable: listConfig.listVariable || '',
-        labelPath: listConfig.labelPath || '',
-        valuePath: listConfig.valuePath || '',
+        listVariable: listConfig.listVariable ?? '',
+        labelPath: listConfig.labelPath ?? '',
+        valuePath: listConfig.valuePath ?? '',
       } as DynamicOptionsConfig);
     } else if (newType === 'table_column') {
       onChange({
         type: 'table_column',
-        dataSourceId: tableConfig.dataSourceId || '',
-        tableId: tableConfig.tableId || '',
-        columnId: tableConfig.columnId || '',
-        labelColumnId: tableConfig.labelColumnId || '',
+        dataSourceId: tableConfig.dataSourceId ?? '',
+        tableId: tableConfig.tableId ?? '',
+        columnId: tableConfig.columnId ?? '',
+        labelColumnId: tableConfig.labelColumnId ?? '',
         limit: tableConfig.limit || 100,
       } as DynamicOptionsConfig);
     }
@@ -572,7 +572,7 @@ function OptionItem({ id, data, index, onUpdate, onBlur, onRemove, elementId }: 
       {/* Saved Value (Alias) */}
       <Input
         id={`opt-alias-${elementId}-${index}`}
-        value={data.alias || ""}
+        value={data.alias ?? ""}
         onChange={(e) => onUpdate(index, 'alias', e.target.value)}
         onBlur={onBlur}
         className="flex-1 h-8 text-sm font-mono text-muted-foreground"

@@ -82,7 +82,7 @@ router.post("/approve", asyncHandler(async (req: Request, res: Response) => {
     });
 
     // Redirect user back to client
-    const redirectUrl = `${redirect_uri}?code=${code}&state=${state || ''}`;
+    const redirectUrl = `${redirect_uri}?code=${code}&state=${state ?? ''}`;
     res.json({ redirectUrl });
 }));
 

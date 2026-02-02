@@ -14,6 +14,27 @@ import type {
 
 const API_BASE = '/api/datavault';
 
+/** Shape of error responses from the API */
+interface ApiErrorResponse {
+  message?: string;
+}
+
+/**
+ * Build a URL with optional query string from URLSearchParams.
+ * Avoids nested template literals and invalid URLSearchParams template expressions.
+ */
+function buildUrl(base: string, queryParams: URLSearchParams): string {
+  const qs = queryParams.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/**
+ * Parse a failed response body into an ApiErrorResponse, falling back to statusText.
+ */
+async function parseErrorBody(response: Response): Promise<ApiErrorResponse> {
+  return response.json().catch(() => ({ message: response.statusText })) as Promise<ApiErrorResponse>;
+}
+
 // ============================================================================
 // Database Operations
 // ============================================================================
@@ -26,7 +47,7 @@ export async function getDatabases(params?: {
   if (params?.scopeType) {queryParams.set('scopeType', params.scopeType);}
   if (params?.scopeId) {queryParams.set('scopeId', params.scopeId);}
 
-  const url = `${API_BASE}/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const url = buildUrl(`${API_BASE}/databases`, queryParams);
   const response = await fetch(url, {
     credentials: 'include',
   });
@@ -35,7 +56,7 @@ export async function getDatabases(params?: {
     throw new Error(`Failed to fetch databases: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultDatabase[]>;
 }
 
 export async function getDatabaseById(id: string): Promise<DatavaultDatabase & { tableCount: number }> {
@@ -47,43 +68,41 @@ export async function getDatabaseById(id: string): Promise<DatavaultDatabase & {
     throw new Error(`Failed to fetch database: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultDatabase & { tableCount: number }>;
 }
 
 export async function createDatabase(input: CreateDatabaseInput): Promise<DatavaultDatabase> {
   const response = await fetch(`${API_BASE}/databases`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to create database');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to create database');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultDatabase>;
 }
 
 export async function updateDatabase(id: string, input: UpdateDatabaseInput): Promise<DatavaultDatabase> {
   const response = await fetch(`${API_BASE}/databases/${id}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to update database');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to update database');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultDatabase>;
 }
 
 export async function deleteDatabase(id: string): Promise<void> {
@@ -106,7 +125,7 @@ export async function getTablesInDatabase(databaseId: string): Promise<Datavault
     throw new Error(`Failed to fetch tables: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable[]>;
 }
 
 // ============================================================================
@@ -122,7 +141,7 @@ export async function getTables(): Promise<DatavaultTable[]> {
     throw new Error(`Failed to fetch tables: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable[]>;
 }
 
 export async function getTableById(id: string): Promise<DatavaultTable> {
@@ -134,43 +153,41 @@ export async function getTableById(id: string): Promise<DatavaultTable> {
     throw new Error(`Failed to fetch table: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable>;
 }
 
 export async function createTable(input: CreateTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to create table');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to create table');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable>;
 }
 
 export async function updateTable(id: string, input: UpdateTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables/${id}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to update table');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to update table');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable>;
 }
 
 export async function deleteTable(id: string): Promise<void> {
@@ -187,19 +204,18 @@ export async function deleteTable(id: string): Promise<void> {
 export async function moveTable(tableId: string, input: MoveTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/move`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to move table');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to move table');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultTable>;
 }
 
 // ============================================================================
@@ -215,7 +231,7 @@ export async function getTableSchema(tableId: string): Promise<TableSchema> {
     throw new Error(`Failed to fetch table schema: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<TableSchema>;
 }
 
 // ============================================================================
@@ -231,7 +247,7 @@ export async function getTableColumns(tableId: string): Promise<DatavaultColumn[
     throw new Error(`Failed to fetch columns: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultColumn[]>;
 }
 
 export async function createColumn(
@@ -247,19 +263,18 @@ export async function createColumn(
 ): Promise<DatavaultColumn> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/columns`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to create column');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to create column');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultColumn>;
 }
 
 export async function updateColumn(
@@ -274,19 +289,18 @@ export async function updateColumn(
 ): Promise<DatavaultColumn> {
   const response = await fetch(`${API_BASE}/columns/${columnId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to update column');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to update column');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultColumn>;
 }
 
 export async function deleteColumn(columnId: string): Promise<void> {
@@ -306,9 +320,8 @@ export async function reorderColumns(
 ): Promise<{ success: boolean }> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/columns/reorder`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ columnIds }),
   });
@@ -317,7 +330,7 @@ export async function reorderColumns(
     throw new Error(`Failed to reorder columns: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<{ success: boolean }>;
 }
 
 // ============================================================================
@@ -332,10 +345,10 @@ export async function getTableRows(
   }
 ): Promise<{ rows: DatavaultRow[]; total: number; hasMore: boolean }> {
   const queryParams = new URLSearchParams();
-  if (params?.limit) {queryParams.set('limit', params.limit.toString());}
-  if (params?.offset) {queryParams.set('offset', params.offset.toString());}
+  if (params?.limit !== undefined && params.limit !== null) {queryParams.set('limit', params.limit.toString());}
+  if (params?.offset !== undefined && params.offset !== null) {queryParams.set('offset', params.offset.toString());}
 
-  const url = `${API_BASE}/tables/${tableId}/rows${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const url = buildUrl(`${API_BASE}/tables/${tableId}/rows`, queryParams);
   const response = await fetch(url, {
     credentials: 'include',
   });
@@ -344,7 +357,7 @@ export async function getTableRows(
     throw new Error(`Failed to fetch rows: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<{ rows: DatavaultRow[]; total: number; hasMore: boolean }>;
 }
 
 export async function getRowById(tableId: string, rowId: string): Promise<DatavaultRow> {
@@ -356,49 +369,47 @@ export async function getRowById(tableId: string, rowId: string): Promise<Datava
     throw new Error(`Failed to fetch row: ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultRow>;
 }
 
 export async function createRow(
   tableId: string,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): Promise<DatavaultRow> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/rows`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ data }),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to create row');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to create row');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultRow>;
 }
 
 export async function updateRow(
   rowId: string,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): Promise<DatavaultRow> {
   const response = await fetch(`${API_BASE}/rows/${rowId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ data }),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to update row');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to update row');
   }
 
-  return response.json();
+  return response.json() as Promise<DatavaultRow>;
 }
 
 export async function deleteRow(rowId: string): Promise<void> {
@@ -422,20 +433,19 @@ export async function batchResolveReferences(
     rowIds: string[];
     displayColumnSlug?: string;
   }>
-): Promise<Record<string, { displayValue: string; row: any }>> {
+): Promise<Record<string, { displayValue: string; row: unknown }>> {
   const response = await fetch(`${API_BASE}/references/batch`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ requests }),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || 'Failed to batch resolve references');
+    const error = await parseErrorBody(response);
+    throw new Error(error.message ?? 'Failed to batch resolve references');
   }
 
-  return response.json();
+  return response.json() as Promise<Record<string, { displayValue: string; row: unknown }>>;
 }

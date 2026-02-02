@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ export default function OAuthApps() {
                 </Card>
             )}
             <div className="grid gap-6">
-                {(apps || []).length === 0 ? (
+                {(apps ?? []).length === 0 ? (
                     <Card className="bg-muted/50 border-dashed">
                         <CardContent className="flex flex-col items-center justify-center py-10 text-center">
                             <p className="text-muted-foreground">No applications registered yet.</p>
@@ -67,7 +67,7 @@ export default function OAuthApps() {
                         </CardContent>
                     </Card>
                 ) : (
-                    (apps || []).map((app: any) => (
+                    (apps ?? []).map((app: any) => (
                         <Card key={app.id}>
                             <CardHeader>
                                 <CardTitle>{app.name}</CardTitle>

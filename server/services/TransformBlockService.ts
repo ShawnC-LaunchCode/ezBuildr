@@ -230,7 +230,7 @@ export class TransformBlockService {
     }
 
     const input: Record<string, unknown> = {};
-    for (const key of block.inputKeys || []) {
+    for (const key of block.inputKeys ?? []) {
       const resolvedId = aliasToIdMap.get(key);
       const dataKey = (resolvedId && resolvedId in data) ? resolvedId : key;
       const resolvedKey = (resolvedId && resolvedId in data) ? key : key;

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Database, Table, Check, Search } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -79,8 +79,8 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
     const filteredDatabases = catalog?.databases.map(db => ({
         ...db,
         tables: db.tables.filter(t => t.name.toLowerCase().includes(filter.toLowerCase()))
-    })).filter(db => db.tables.length > 0) || [];
-    const filteredOrphans = catalog?.orphanTables.filter(t => t.name.toLowerCase().includes(filter.toLowerCase())) || [];
+    })).filter(db => db.tables.length > 0) ?? [];
+    const filteredOrphans = catalog?.orphanTables.filter(t => t.name.toLowerCase().includes(filter.toLowerCase())) ?? [];
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md h-[500px] flex flex-col">

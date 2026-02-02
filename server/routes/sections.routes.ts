@@ -1,3 +1,5 @@
+import type { InsertSection } from "@shared/schema";
+
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
@@ -6,7 +8,18 @@ import { sectionService } from "../services/SectionService";
 import { asyncHandler } from "../utils/asyncHandler";
 
 import type { Express, Request, Response, NextFunction } from "express";
+
 const logger = createLogger({ module: "sections-routes" });
+
+const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+const ACCESS_DENIED = "Access denied";
+
+function errorStatus(message: string): number {
+  if (message.includes("not found")) { return 404; }
+  if (message.includes(ACCESS_DENIED)) { return 403; }
+  return 500;
+}
+
 /**
  * Middleware helper: Look up workflowId from sectionId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -26,7 +39,7 @@ async function lookupWorkflowIdMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // Add workflowId to params so autoRevertToDraft can access it
+    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -34,32 +47,35 @@ async function lookupWorkflowIdMiddleware(
     next(error);
   }
 }
+
 /**
  * Register section-related routes
  * Handles section CRUD operations and reordering
  */
+// eslint-disable-next-line max-lines-per-function -- route registration function
 export function registerSectionRoutes(app: Express): void {
   /**
    * POST /api/workflows/:workflowId/sections
    * Create a new section
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
   app.post('/api/workflows/:workflowId/sections', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
-      const sectionData = req.body;
+      const sectionData = req.body as Omit<InsertSection, 'workflowId'>;
       const section = await sectionService.createSection(workflowId, userId, sectionData);
       res.status(201).json(section);
     } catch (error) {
       logger.error({ error }, "Error creating section");
       const message = error instanceof Error ? error.message : "Failed to create section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * GET /api/workflows/:workflowId/sections
    * Get all sections for a workflow
@@ -68,7 +84,7 @@ export function registerSectionRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
       const sections = await sectionService.getSections(workflowId, userId);
@@ -76,10 +92,10 @@ export function registerSectionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching sections");
       const message = error instanceof Error ? error.message : "Failed to fetch sections";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * GET /api/workflows/:workflowId/sections/:sectionId
    * Get a single section with steps
@@ -88,7 +104,7 @@ export function registerSectionRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
       const section = await sectionService.getSectionWithSteps(sectionId, workflowId, userId);
@@ -96,31 +112,31 @@ export function registerSectionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching section");
       const message = error instanceof Error ? error.message : "Failed to fetch section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * PUT /api/workflows/:workflowId/sections/reorder
    * Reorder sections
    * NOTE: This route MUST come before /:sectionId routes to avoid "reorder" being treated as an ID
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
   app.put('/api/workflows/:workflowId/sections/reorder', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
-      const { sections } = req.body;
+      const { sections } = req.body as { sections: unknown };
       if (!Array.isArray(sections)) {
         return res.status(400).json({ message: "Invalid sections array" });
       }
-      // Log the sections data for debugging
       logger.info({ sections, workflowId }, "Reordering sections");
-      // Validate that all section IDs are valid UUIDs
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      for (const section of sections) {
+      const typedSections = sections as Array<{ id: string; order: number }>;
+      for (const section of typedSections) {
         if (!section.id || !uuidRegex.test(section.id)) {
           logger.error({ invalidSection: section }, "Invalid section ID format");
           return res.status(400).json({
@@ -129,45 +145,47 @@ export function registerSectionRoutes(app: Express): void {
           });
         }
       }
-      await sectionService.reorderSections(workflowId, userId, sections);
+      await sectionService.reorderSections(workflowId, userId, typedSections);
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering sections");
       const message = error instanceof Error ? error.message : "Failed to reorder sections";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * PUT /api/workflows/:workflowId/sections/:sectionId
    * Update a section
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
   app.put('/api/workflows/:workflowId/sections/:sectionId', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
-      const updateData = req.body;
+      const updateData = req.body as Partial<InsertSection>;
       const section = await sectionService.updateSection(sectionId, workflowId, userId, updateData);
       res.json(section);
     } catch (error) {
       logger.error({ error }, "Error updating section");
       const message = error instanceof Error ? error.message : "Failed to update section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * DELETE /api/workflows/:workflowId/sections/:sectionId
    * Delete a section
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
   app.delete('/api/workflows/:workflowId/sections/:sectionId', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
       await sectionService.deleteSection(sectionId, workflowId, userId);
@@ -175,44 +193,47 @@ export function registerSectionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting section");
       const message = error instanceof Error ? error.message : "Failed to delete section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   // ===================================================================
   // SIMPLIFIED SECTION ENDPOINTS (without workflowId in path)
   // These endpoints look up the workflow from the section automatically
   // ===================================================================
+
   /**
    * PUT /api/sections/:sectionId
    * Update a section (workflow looked up automatically)
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookupWorkflowIdMiddleware
   app.put('/api/sections/:sectionId', hybridAuth, lookupWorkflowIdMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { sectionId } = req.params;
-      const updateData = req.body;
+      const updateData = req.body as Partial<InsertSection>;
       const updatedSection = await sectionService.updateSectionById(sectionId, userId, updateData);
       res.json(updatedSection);
     } catch (error) {
       logger.error({ error }, "Error updating section");
       const message = error instanceof Error ? error.message : "Failed to update section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
+
   /**
    * DELETE /api/sections/:sectionId
    * Delete a section (workflow looked up automatically)
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookupWorkflowIdMiddleware
   app.delete('/api/sections/:sectionId', hybridAuth, lookupWorkflowIdMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { sectionId } = req.params;
       await sectionService.deleteSectionById(sectionId, userId);
@@ -220,8 +241,7 @@ export function registerSectionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting section");
       const message = error instanceof Error ? error.message : "Failed to delete section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      res.status(errorStatus(message)).json({ message });
     }
   }));
 }

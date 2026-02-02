@@ -6,6 +6,7 @@
 import { useMemo } from 'react';
 
 import { useTableColumns } from '@/hooks/useTableColumns';
+import type { ApiBlock, ApiSection, ApiCollectionField } from '@/lib/vault-api';
 import { useBlocks, useSections } from '@/lib/vault-hooks';
 
 import type { ChoiceCardState } from './useChoiceConfig';
@@ -30,11 +31,11 @@ export function useListToolsValidation({
     workflowId,
     sectionId
 }: UseListToolsValidationParams): ValidationWarnings & {
-    sourceBlock: unknown | null;
+    sourceBlock: ApiBlock | null;
     sourceTableId: string | null;
-    columns: unknown[];
+    columns: any[]; // useTableColumns likely returns any specifically or a complex type we'll genericize later
     loadingColumns: boolean;
-    blocks: unknown[];
+    blocks: ApiBlock[];
 } {
     const { data: blocks = [] } = useBlocks(workflowId);
     const { data: sections = [] } = useSections(workflowId);
@@ -44,9 +45,9 @@ export function useListToolsValidation({
         if (!localConfig?.dynamicOptions.listVariable || !blocks || blocks.length === 0) {
             return null;
         }
-        return blocks.find((b: { config?: { outputKey?: string } }) =>
+        return blocks.find((b) =>
             b.config?.outputKey === localConfig.dynamicOptions.listVariable
-        );
+        ) || null;
     }, [localConfig?.dynamicOptions.listVariable, blocks]);
 
     // Get table ID from source block
@@ -54,8 +55,8 @@ export function useListToolsValidation({
         if (!sourceBlock) {
             return null;
         }
-        if ((sourceBlock as { type?: string }).type === 'read_table') {
-            return (sourceBlock as { config?: { tableId?: string } }).config?.tableId || null;
+        if (sourceBlock.type === 'read_table') {
+            return sourceBlock.config?.tableId ?? null;
         }
         return null;
     }, [sourceBlock]);
@@ -70,11 +71,11 @@ export function useListToolsValidation({
             return null;
         }
 
-        const blockPhase = (sourceBlock as { phase?: string }).phase;
-        const stepSection = sections.find((s: { id: string }) => s.id === sectionId);
-        const blockSectionId = (sourceBlock as { sectionId?: string }).sectionId;
+        const blockPhase = sourceBlock.phase;
+        const stepSection = sections.find((s) => s.id === sectionId);
+        const blockSectionId = sourceBlock.sectionId;
         const blockSection = blockSectionId
-            ? sections.find((s: { id: string }) => s.id === blockSectionId)
+            ? sections.find((s) => s.id === blockSectionId)
             : null;
 
         if (!stepSection) {
@@ -92,7 +93,7 @@ export function useListToolsValidation({
                 return null; // Assume safe if global
             }
 
-            if ((blockSection as { order: number }).order > (stepSection as { order: number }).order) {
+            if (blockSection.order > stepSection.order) {
                 return "Read block runs in a later section.";
             }
             return null;
@@ -103,7 +104,7 @@ export function useListToolsValidation({
                 return "Block runs on submit but has no section?";
             }
             // Must be strictly previous section
-            if ((blockSection as { order: number }).order < (stepSection as { order: number }).order) {
+            if (blockSection.order < stepSection.order) {
                 return null;
             }
             return "Read block runs after the page is displayed (on Next/Submit).";

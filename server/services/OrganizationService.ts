@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-import { eq, and, or, gt } from 'drizzle-orm';
+import { eq, and, or, gt, isNull } from 'drizzle-orm';
 
 import {
   organizations,
@@ -150,7 +150,7 @@ export class OrganizationService {
       })
       .where(eq(organizations.id, orgId))
       .returning();
-    if (!updated) {
+    if (updated === undefined) {
       throw new Error('Organization not found');
     }
     return updated;
@@ -426,7 +426,7 @@ export class OrganizationService {
     });
     if (existingInvite) {
       // Allow re-invite if expired
-      if (existingInvite.expiresAt && new Date() > existingInvite.expiresAt) {
+      if (existingInvite.expiresAt !== null && new Date() > existingInvite.expiresAt) {
         // Mark old invite as expired
         await db
           .update(organizationInvites)
@@ -496,6 +496,7 @@ export class OrganizationService {
    * Send invitation email with branding (using EmailQueueService)
    * Fetches tenant branding and queues email with retry logic
    */
+  // eslint-disable-next-line max-params -- grouping would obscure individual parameters that are all required
   private async sendInviteEmail(
     email: string,
     orgName: string,
@@ -511,13 +512,13 @@ export class OrganizationService {
       where: eq(users.id, invitedByUserId),
       columns: { fullName: true, email: true },
     });
-    const inviterName = inviter?.fullName || inviter?.email || 'A team member';
+    const inviterName = inviter?.fullName ?? inviter?.email ?? 'A team member';
     // Build branded email
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+    const baseUrl = process.env.BASE_URL ?? 'http://localhost:5000';
     const acceptUrl = `${baseUrl}/invites/${token}/accept`;
-    const senderName = branding?.emailSenderName || 'ezBuildr';
-    const primaryColor = branding?.primaryColor || '#3B82F6';
-    const logoUrl = branding?.logoUrl || '';
+    const senderName = branding?.emailSenderName ?? 'ezBuildr';
+    const primaryColor = branding?.primaryColor ?? '#3B82F6';
+    const logoUrl = branding?.logoUrl ?? '';
     const subject = `You've been invited to join ${orgName}`;
     const html = `
       <!DOCTYPE html>
@@ -598,7 +599,7 @@ export class OrganizationService {
           eq(organizationInvites.invitedEmail, user.email),
           eq(organizationInvites.status, 'pending'),
           or(
-            eq(organizationInvites.expiresAt, null as any),
+            isNull(organizationInvites.expiresAt),
             gt(organizationInvites.expiresAt, new Date())
           )
         )
@@ -624,7 +625,7 @@ export class OrganizationService {
       throw new Error('Invite has been revoked');
     }
     // Check expiry
-    if (invite.expiresAt && new Date() > invite.expiresAt) {
+    if (invite.expiresAt !== null && new Date() > invite.expiresAt) {
       // Mark as expired
       await db
         .update(organizationInvites)
@@ -857,7 +858,7 @@ export class OrganizationService {
               eq(organizationInvites.invitedUserId, userId),
               eq(organizationInvites.status, 'pending'),
               or(
-                eq(organizationInvites.expiresAt, null as any),
+                isNull(organizationInvites.expiresAt),
                 gt(organizationInvites.expiresAt, new Date())
               )
             )

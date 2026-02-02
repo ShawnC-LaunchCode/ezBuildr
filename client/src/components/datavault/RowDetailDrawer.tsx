@@ -2,7 +2,7 @@
  * Row Detail Drawer Component
  * Displays detailed information about a row with tabs for notes and history
  */
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
   Sheet,

@@ -117,5 +117,5 @@ export function useBranding(): BrandingContextValue {
  */
 export function useBrandingOptional(): BrandingContextValue | null {
   const context = useContext(BrandingContext);
-  return context || null;
+  return context ?? null;
 }

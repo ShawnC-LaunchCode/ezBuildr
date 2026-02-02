@@ -50,7 +50,7 @@ class TemplateService {
       sourceWorkflowId,
       graphJson: sourceVersion.graphJson, // Snapshot!
       metadata: metadata || {},
-      isPublic: isPublic || false,
+      isPublic: isPublic ?? false,
     }).returning();
     return blueprint;
   }

@@ -22,7 +22,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
             }
             const settings = await aiSettingsService.getGlobalSettings();
             res.json({
-                settings: settings || null,
+                settings: settings ?? null,
                 defaultPrompt: !settings ? await aiSettingsService.getEffectivePrompt({}) : undefined
             });
         } catch (error) {

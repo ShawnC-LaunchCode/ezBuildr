@@ -12,11 +12,21 @@ import { oauth2Cache } from './cache';
  * OAuth2 token response
  */
 export interface OAuth2TokenResponse {
-  access_token: string;
-  token_type: string; // Usually 'Bearer'
-  expires_in: number; // Seconds
-  scope?: string;
+  'access_token': string;
+  'token_type': string; // Usually 'Bearer'
+  'expires_in': number; // Seconds
+  'scope'?: string;
 }
+
+interface RawOAuth2Response {
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  scope?: string;
+  refresh_token?: string;
+  [key: string]: unknown;
+}
+
 /**
  * OAuth2 client credentials config
  */
@@ -37,7 +47,7 @@ function generateCacheKey(config: OAuth2ClientCredentialsConfig): string {
     config.projectId || 'global',
     config.tokenUrl,
     config.clientId,
-    config.scope || '',
+    config.scope ?? '',
   ];
   return parts.join(':');
 }
@@ -110,7 +120,7 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
       }, 'OAuth2 token request failed');
       throw new Error(`OAuth2 token request failed: ${response.status} ${response.statusText}`);
     }
-    const data = await response.json();
+    const data = await response.json() as RawOAuth2Response;
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');
@@ -323,7 +333,7 @@ export async function exchangeOAuth2Code(
       }, 'OAuth2 code exchange failed');
       throw new Error(`OAuth2 code exchange failed: ${response.status} ${response.statusText}`);
     }
-    const data = await response.json();
+    const data = await response.json() as RawOAuth2Response;
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');
@@ -384,7 +394,7 @@ export async function refreshOAuth2Token(
       }, 'OAuth2 token refresh failed');
       throw new Error(`OAuth2 token refresh failed: ${response.status} ${response.statusText}`);
     }
-    const data = await response.json();
+    const data = await response.json() as RawOAuth2Response;
     // Validate response
     if (!data.access_token || !data.token_type) {
       logger.error({ data: redactObject(data) }, 'Invalid OAuth2 token response');

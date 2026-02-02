@@ -127,7 +127,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
 
       const target = e.currentTarget;
       const variantStyles = getVariantStyles();
-      target.style.backgroundColor = variantStyles.backgroundColor || '';
+      target.style.backgroundColor = variantStyles.backgroundColor ?? '';
     };
 
     return (

@@ -14,7 +14,7 @@ let prometheusExporter: PrometheusExporter | null = null;
  * Initialize OpenTelemetry instrumentation
  * MUST be called before any other imports to ensure proper instrumentation
  */
-export function initTelemetry() {
+export function initTelemetry(): void {
   try {
     // Only initialize in production or if explicitly enabled
     const enableTelemetry = process.env.ENABLE_TELEMETRY === 'true' || process.env.NODE_ENV === 'production';
@@ -26,7 +26,7 @@ export function initTelemetry() {
 
     // Configure Prometheus exporter
     prometheusExporter = new PrometheusExporter({
-      port: parseInt(process.env.METRICS_PORT || '9464', 10),
+      port: parseInt(process.env.METRICS_PORT ?? '9464', 10),
       endpoint: '/metrics',
       preventServerStart: true,
     });
@@ -37,6 +37,7 @@ export function initTelemetry() {
       instrumentations: [
         getNodeAutoInstrumentations({
           // Disable specific instrumentations if needed
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- third-party package config key
           '@opentelemetry/instrumentation-fs': {
             enabled: false, // Can be noisy
           },
@@ -56,7 +57,7 @@ export function initTelemetry() {
 /**
  * Shutdown telemetry gracefully
  */
-export async function shutdownTelemetry() {
+export async function shutdownTelemetry(): Promise<void> {
   if (sdk) {
     try {
       await sdk.shutdown();
@@ -70,6 +71,7 @@ export async function shutdownTelemetry() {
 /**
  * Get the meter for creating metrics
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getMeter() {
   return metrics.getMeter('ezbuildr', '1.0.0');
 }
@@ -77,6 +79,7 @@ export function getMeter() {
 /**
  * Get the tracer for creating spans
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getTracer() {
   return trace.getTracer('ezbuildr', '1.0.0');
 }
@@ -84,6 +87,7 @@ export function getTracer() {
 /**
  * Get the Prometheus exporter for accessing metrics endpoint
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getPrometheusExporter() {
   return prometheusExporter;
 }

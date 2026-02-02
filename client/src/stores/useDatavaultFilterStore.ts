@@ -61,7 +61,7 @@ export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
 
   addFilter: (tableId, filter) =>
     set((state) => {
-      const existing = state.filtersByTable[tableId] || [];
+      const existing = state.filtersByTable[tableId] ?? [];
       return {
         filtersByTable: {
           ...state.filtersByTable,
@@ -72,7 +72,7 @@ export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
 
   updateFilter: (tableId, filterId, updates) =>
     set((state) => {
-      const existing = state.filtersByTable[tableId] || [];
+      const existing = state.filtersByTable[tableId] ?? [];
       return {
         filtersByTable: {
           ...state.filtersByTable,
@@ -85,7 +85,7 @@ export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
 
   removeFilter: (tableId, filterId) =>
     set((state) => {
-      const existing = state.filtersByTable[tableId] || [];
+      const existing = state.filtersByTable[tableId] ?? [];
       return {
         filtersByTable: {
           ...state.filtersByTable,

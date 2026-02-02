@@ -14,11 +14,12 @@ import { requestTimeout } from "./middleware/timeout.js";
 import { initTelemetry } from "./observability/telemetry";
 
 initTelemetry();
+// eslint-disable-next-line import/order -- cors must be imported after telemetry init
 import cors from "cors";
 
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
-import { log } from "./utils";
+import { log as _log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
 const app = express();
 // Note: Session and auth setup is handled by setupAuth() in registerRoutes()
@@ -117,7 +118,7 @@ app.use(cors(corsOptions));
 // =====================================================================
 // 4️⃣ PAYLOAD SIZE LIMITS (DoS Protection)
 // =====================================================================
-const maxRequestSize = process.env.MAX_REQUEST_SIZE || '10mb';
+const maxRequestSize = process.env.MAX_REQUEST_SIZE ?? '10mb';
 app.use(express.json({ limit: maxRequestSize }));
 app.use(express.urlencoded({ extended: false, limit: maxRequestSize }));
 // =====================================================================
@@ -133,6 +134,7 @@ app.use(requestTimeout);
 // =====================================================================
 // Note: This is a baseline. Specific routes may apply stricter limits.
 app.use('/api', globalLimiter);
+// eslint-disable-next-line sonarjs/cognitive-complexity -- server bootstrap is inherently complex
 void (async () => {
     try {
         // =====================================================================
@@ -141,7 +143,9 @@ void (async () => {
         try {
             const swaggerUi = (await import("swagger-ui-express")).default;
             const YAML = (await import("yamljs")).default;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- yamljs returns untyped value
             const swaggerDocument = YAML.load("./openapi.yaml");
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- swagger document from yamljs
             app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
         } catch (error) {
             // Log but don't crash if docs fail
@@ -208,7 +212,7 @@ void (async () => {
         // Other ports are firewalled. Default to 5000 if not specified.
         // this serves both the API and the client.
         // It is the only port that is not firewalled.
-        const port = parseInt(process.env.PORT || '5000', 10);
+        const port = parseInt(process.env.PORT ?? '5000', 10);
         server.listen({
             port,
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
@@ -216,7 +220,7 @@ void (async () => {
             logger.warn(`serving on port ${port}`);
         });
         // RESOURCE LEAK FIX: Graceful shutdown handlers
-        const shutdown = async (signal: string) => {
+        const shutdown = async (signal: string): Promise<void> => {
             logger.info({ signal }, 'Shutdown signal received, cleaning up...');
             // Shutdown OpenTelemetry
             const { shutdownTelemetry } = await import('./observability/telemetry.js');
@@ -238,7 +242,9 @@ void (async () => {
                 process.exit(1);
             }, 10000);
         };
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- shutdown returns promise, but process.on expects void
         process.on('SIGTERM', () => shutdown('SIGTERM'));
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- shutdown returns promise, but process.on expects void
         process.on('SIGINT', () => shutdown('SIGINT'));
     } catch (error) {
         logger.fatal({ error }, "FATAL: Failed to start server");

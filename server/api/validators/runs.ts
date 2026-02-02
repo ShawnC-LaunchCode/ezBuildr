@@ -78,7 +78,7 @@ export type CompareRunsQuery = z.infer<typeof compareRunsQuerySchema>; // Stage 
 export interface CreateRunResponse {
   runId: string;
   status: 'pending' | 'success' | 'error' | 'waiting_review' | 'waiting_signature';
-  outputRefs?: Record<string, any>;
+  outputRefs?: Record<string, unknown>;
   logs?: Array<{
     level: 'info' | 'warn' | 'error';
     message: string;
@@ -93,6 +93,6 @@ export interface RunLogEntry {
   nodeId: string | null;
   level: 'info' | 'warn' | 'error';
   message: string;
-  context: Record<string, any> | null;
+  context: Record<string, unknown> | null;
   createdAt: string;
 }

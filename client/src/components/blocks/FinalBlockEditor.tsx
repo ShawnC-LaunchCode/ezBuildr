@@ -33,10 +33,10 @@ interface FinalBlockEditorProps {
 export function FinalBlockEditor({
     config,
     onUpdate,
-    workflowId,
-    nodeId,
+    workflowId: _workflowId,
+    nodeId: _nodeId,
 }: FinalBlockEditorProps) {
-    const customLinks = config.customLinks || [];
+    const customLinks = config.customLinks ?? [];
 
     const addLink = () => {
         onUpdate({
@@ -66,7 +66,7 @@ export function FinalBlockEditor({
                     <Label htmlFor="title">Title</Label>
                     <Input
                         id="title"
-                        value={config.title || 'All Done!'}
+                        value={config.title ?? 'All Done!'}
                         onChange={(e) => onUpdate({ title: e.target.value })}
                         placeholder="e.g., Submission Received"
                     />
@@ -77,7 +77,7 @@ export function FinalBlockEditor({
                     <Label htmlFor="message">Message (Markdown supported)</Label>
                     <Textarea
                         id="message"
-                        value={config.message || ''}
+                        value={config.message ?? ''}
                         onChange={(e) => onUpdate({ message: e.target.value })}
                         placeholder="Thank you for your submission..."
                         rows={4}
@@ -103,7 +103,7 @@ export function FinalBlockEditor({
                     <Label htmlFor="redirectUrl">Auto-Redirect URL (Optional)</Label>
                     <Input
                         id="redirectUrl"
-                        value={config.redirectUrl || ''}
+                        value={config.redirectUrl ?? ''}
                         onChange={(e) => onUpdate({ redirectUrl: e.target.value })}
                         placeholder="https://..."
                     />
@@ -151,12 +151,12 @@ export function FinalBlockEditor({
                         <Input
                             id="brandingColor"
                             type="color"
-                            value={config.brandingColor || '#000000'}
+                            value={config.brandingColor ?? '#000000'}
                             onChange={(e) => onUpdate({ brandingColor: e.target.value })}
                             className="w-12 h-9 p-1"
                         />
                         <Input
-                            value={config.brandingColor || ''}
+                            value={config.brandingColor ?? ''}
                             onChange={(e) => onUpdate({ brandingColor: e.target.value })}
                             placeholder="#000000"
                             className="flex-grow font-mono"

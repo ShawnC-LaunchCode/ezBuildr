@@ -7,6 +7,7 @@ import { z } from 'zod';
 // ensure dotenv is loaded
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+/* eslint-disable @typescript-eslint/naming-convention -- Environment variable keys use UPPER_SNAKE_CASE by convention */
 const envSchema = z.object({
     // Core functionality requirements
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -27,13 +28,14 @@ const envSchema = z.object({
     VITEST_INTEGRATION: z.string().optional(),
     TEST_TYPE: z.string().optional(),
 });
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Parses and validates environment variables.
  * In 'test' mode, we might allow looser validation or mocks if needed,
  * but generally we want strict validation to catch config errors early.
  */
-function parseEnv() {
+function parseEnv(): z.infer<typeof envSchema> {
     const parsed = envSchema.safeParse(process.env);
 
     if (!parsed.success) {
@@ -50,7 +52,9 @@ function parseEnv() {
             // For type safety, we throw if parsing fails entirely, 
             // but maybe we want to allow partial processing? 
             // Creating a typed config is safer if we throw.
-            throw new Error(`Invalid environment configuration: ${parsed.error.issues.map(i => `${i.path}: ${i.message}`).join(', ')}`);
+            // eslint-disable-next-line sonarjs/no-nested-template-literals -- template required by prefer-template
+            const details = parsed.error.issues.map(i => `${String(i.path)}: ${i.message}`).join(', ');
+            throw new Error(`Invalid environment configuration: ${details}`);
         }
     }
 

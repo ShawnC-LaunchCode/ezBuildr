@@ -129,6 +129,7 @@ export function hasPermission(role: UserRole | null | undefined, permission: Per
   const permissions = RolePermissions[role];
 
   // Guard against invalid role types
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- guard against invalid role types
   if (!permissions) {
     return false;
   }

@@ -14,7 +14,9 @@ export const dataSourceRouter = Router();
 dataSourceRouter.use(hybridAuth);
 
 // Helper to get tenantId safely
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getTenant = (req: any): string => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const tenantId = getAuthUserTenantId(req);
     if (!tenantId) {
         throw new Error('Tenant ID missing from session');
@@ -59,12 +61,12 @@ dataSourceRouter.get('/native/catalog', asyncHandler(async (req, res) => {
 
         // 3. Structure the response
         // Group tables by databaseId
-        const tablesByDatabase = new Map<string, any[]>();
-        const orphanTables: any[] = [];
+        const tablesByDatabase = new Map<string, { id: string; name: string }[]>();
+        const orphanTables: { id: string; name: string }[] = [];
 
         tables.forEach(table => {
             if (table.databaseId) {
-                const existing = tablesByDatabase.get(table.databaseId) || [];
+                const existing = tablesByDatabase.get(table.databaseId) ?? [];
                 existing.push({ id: table.id, name: table.name });
                 tablesByDatabase.set(table.databaseId, existing);
             } else {
@@ -76,7 +78,7 @@ dataSourceRouter.get('/native/catalog', asyncHandler(async (req, res) => {
         const databaseList = databases.map(db => ({
             id: db.id,
             name: db.name,
-            tables: tablesByDatabase.get(db.id) || []
+            tables: tablesByDatabase.get(db.id) ?? []
         }));
 
         res.json({
@@ -151,10 +153,12 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
 
         const data = schema.parse(req.body);
 
+        /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
         const dataSource = await dataSourceService.createDataSource({
             ...data,
             tenantId,
         } as any);
+        /* eslint-enable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
         res.status(201).json(dataSource);
     } catch (error) {

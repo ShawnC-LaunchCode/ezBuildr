@@ -1,5 +1,4 @@
 import { Plus, Trash2, Clock } from "lucide-react";
-import React, {  } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,21 +24,22 @@ interface ExternalSendBlockEditorProps {
 export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, onPhaseChange }: ExternalSendBlockEditorProps) {
     const { data: dataSources } = useWorkflowDataSources(workflowId);
     const { data: variables = [] } = useWorkflowVariables(workflowId);
-    const destinations = dataSources?.filter(ds => ds.type === 'external' || (ds.type as any) === 'api'); // Adjust logic as needed
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- legacy type check
+    const destinations = dataSources?.filter(ds => ds.type === 'external' || (ds.type as string) === 'api');
     const updateConfig = (updates: Partial<ExternalSendConfig>) => {
         onChange({ ...config, ...updates });
     };
     const addMapping = () => {
-        const mappings = config.payloadMappings || [];
+        const mappings = config.payloadMappings ?? [];
         updateConfig({ payloadMappings: [...mappings, { key: "", value: "" }] });
     };
     const updateMapping = (index: number, key: keyof PayloadMapping, value: string) => {
-        const mappings = [...(config.payloadMappings || [])];
+        const mappings = [...(config.payloadMappings ?? [])];
         mappings[index] = { ...mappings[index], [key]: value };
         updateConfig({ payloadMappings: mappings });
     };
     const removeMapping = (index: number) => {
-        const mappings = [...(config.payloadMappings || [])];
+        const mappings = [...(config.payloadMappings ?? [])];
         mappings.splice(index, 1);
         updateConfig({ payloadMappings: mappings });
     };
@@ -55,7 +55,7 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                         <SelectValue placeholder="Select destination" />
                     </SelectTrigger>
                     <SelectContent>
-                        {destinations?.length ? destinations.map(ds => (
+                        {(destinations?.length ?? 0) > 0 ? destinations?.map(ds => (
                             <SelectItem key={ds.id} value={ds.id}>{ds.name}</SelectItem>
                         )) : <SelectItem value="none" disabled>No external destinations Linked</SelectItem>}
                     </SelectContent>
@@ -121,9 +121,9 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                                         {variables.length > 0 && <hr className="my-1" />}
                                         {/* Workflow Variables */}
                                         {variables.map(v => (
-                                            <SelectItem key={v.key} value={v.alias || v.key}>
+                                            <SelectItem key={v.key} value={v.alias ?? v.key}>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-mono text-xs">{v.alias || v.key}</span>
+                                                    <span className="font-mono text-xs">{v.alias ?? v.key}</span>
                                                     {v.label && <span className="text-muted-foreground text-xs font-normal">({v.label})</span>}
                                                 </div>
                                             </SelectItem>
@@ -136,18 +136,18 @@ export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, o
                             </Button>
                         </div>
                     ))}
-                    {(!config.payloadMappings || config.payloadMappings.length === 0) && (
+                    {(config.payloadMappings === null || config.payloadMappings === undefined || config.payloadMappings.length === 0) && (
                         <p className="text-sm text-muted-foreground italic">Empty payload (sending {"{}"}).</p>
                     )}
                 </div>
             </div>
-            {(!config.destinationId) && (
+            {(config.destinationId === '' || config.destinationId === undefined) && (
                 <div className="p-2 border border-yellow-200 bg-yellow-50 text-yellow-800 text-xs rounded">
                     Please select a destination.
                 </div>
             )}
             {/* Execution Timing */}
-            {phase && onPhaseChange && (
+            {phase !== undefined && onPhaseChange !== undefined && (
                 <Card>
                     <CardHeader className="pb-4">
                         <div className="flex items-center gap-2">

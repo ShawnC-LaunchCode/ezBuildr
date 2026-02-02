@@ -203,7 +203,7 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
                     ? "datetime-local"
                     : "text"
         }
-        value={editValue || ""}
+        value={editValue ?? ""}
         onChange={(e) => { void setEditValue(e.target.value); }}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}

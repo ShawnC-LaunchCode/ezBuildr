@@ -83,7 +83,7 @@ router.post(
         config: parsed.config as SignatureBlockConfig,
         variableData: parsed.variableData,
         userId: (req as any).userId, // From auth middleware
-        preview: parsed.preview || false,
+        preview: parsed.preview ?? false,
         baseUrl,
       });
 

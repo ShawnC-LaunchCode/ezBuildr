@@ -4,7 +4,7 @@
  * Complete layout wrapper for branded intake portals
  */
 
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 import IntakeFooter from './IntakeFooter';
 import IntakeHeader from './IntakeHeader';

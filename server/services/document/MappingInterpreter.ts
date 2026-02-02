@@ -548,8 +548,8 @@ export function compareMappings(
       if (source1 !== source2) {
         changed.push({
           field: key,
-          oldSource: source1 || '',
-          newSource: source2 || '',
+          oldSource: source1 ?? '',
+          newSource: source2 ?? '',
         });
       } else {
         unchanged.push(key);

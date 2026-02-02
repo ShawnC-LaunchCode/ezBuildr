@@ -167,7 +167,7 @@ export class GeminiService {
 
       // Get all answers for this question
       const answers = responses
-        .flatMap(r => r.answers || [])
+        .flatMap(r => r.answers ?? [])
         .filter(a => a.questionId === question.id);
 
       if (answers.length === 0) {

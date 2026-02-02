@@ -2,7 +2,7 @@
  * Toolbar - Add nodes, publish, run preview, version control
  */
 import { Plus, Play, Save, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import React, {  } from 'react';
+import {  } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
   const { addNode, isDirty, isSaving, saveError, nodes, edges } = useBuilderStore();
   const publishWorkflow = usePublishWorkflow(workflowId);
   const { data: versionsData } = useWorkflowVersions(workflowId);
-  const versions = versionsData?.data || [];
+  const versions = versionsData?.data ?? [];
   // Removed local selectedVersion state to use prop
   const handleAddNode = (type: 'question' | 'compute' | 'branch' | 'template' | 'final') => {
     // Add node at center of canvas

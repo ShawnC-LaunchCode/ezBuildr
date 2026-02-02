@@ -4,7 +4,7 @@
  */
 
 import { Check, X } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -42,6 +42,7 @@ export function ActivateToggle({
       // API call to update workflow status
       const response = await fetch(`/api/workflows/${workflowId}/status`, {
         method: "PUT",
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
         credentials: "include",

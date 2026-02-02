@@ -44,7 +44,7 @@ export class MfaService {
         }
 
         // Generate QR code
-        const qrCodeDataUrl = await QRCode.toDataURL(secret.otpauth_url || '');
+        const qrCodeDataUrl = await QRCode.toDataURL(secret.otpauth_url ?? '');
 
         // Generate backup codes
         const backupCodes = this.generateBackupCodes();
@@ -169,7 +169,7 @@ export class MfaService {
             where: eq(users.id, userId)
         });
 
-        return user?.mfaEnabled || false;
+        return user?.mfaEnabled ?? false;
     }
 
     // =================================================================

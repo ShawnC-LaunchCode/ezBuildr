@@ -1,5 +1,5 @@
 import { Loader2, Zap, Bug, GitGraph, CheckCircle, AlertTriangle, AlertOctagon } from "lucide-react";
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

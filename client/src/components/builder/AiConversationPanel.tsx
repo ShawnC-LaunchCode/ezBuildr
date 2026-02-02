@@ -164,9 +164,9 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 .map(m => ({ role: m.role, content: m.content }));
             const fullWorkflow = {
                 title: currentWorkflow.title || 'Untitled Workflow',
-                description: currentWorkflow.description || '',
-                sections: currentWorkflow.sections || [],
-                logicRules: currentWorkflow.logicRules || [],
+                description: currentWorkflow.description ?? '',
+                sections: currentWorkflow.sections ?? [],
+                logicRules: currentWorkflow.logicRules ?? [],
                 transformBlocks: transformBlocks,
                 notes: ''
             };

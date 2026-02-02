@@ -25,7 +25,7 @@ export interface ApiTokenAuthRequest extends Request {
 function extractApiToken(req: Request): string | null {
   const apiKeyHeader = req.headers['x-vaultlogic-api-key'];
 
-  if (!apiKeyHeader) {
+  if (apiKeyHeader === undefined || apiKeyHeader === '') {
     return null;
   }
 
@@ -207,7 +207,7 @@ export function getApiTokenInfo(req: Request): {
 
   return {
     isApiUser: true,
-    scopes: authReq.tokenScopes || [],
+    scopes: authReq.tokenScopes ?? [],
     databaseId: authReq.tokenDatabaseId,
     tenantId: authReq.tokenTenantId,
   };

@@ -225,7 +225,7 @@ export class IterativeQualityImprover {
     // Group issues by category
     const issuesByCategory = new Map<string, typeof score.issues>();
     for (const issue of score.issues) {
-      const list = issuesByCategory.get(issue.category) || [];
+      const list = issuesByCategory.get(issue.category) ?? [];
       list.push(issue);
       issuesByCategory.set(issue.category, list);
     }
@@ -342,9 +342,8 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         title: parsed.title || fallback.title,
         description: parsed.description || fallback.description,
         sections: parsed.sections,
-        logicRules: parsed.logicRules || fallback.logicRules || [],
-        transformBlocks: parsed.transformBlocks || fallback.transformBlocks || [],
-        notes: parsed.notes || fallback.notes,
+        logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
+        transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
     } catch (error: any) {
       logger.error({ error: error.message }, 'Failed to parse improved workflow, using fallback');

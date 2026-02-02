@@ -9,11 +9,12 @@ import type { RunMetricsService } from "./RunMetricsService";
 import type { RunStateService } from "./RunStateService";
 import type { LogicService } from "../LogicService";
 
-const logger = createLogger({ module: 'run-completion-service' });
+const _logger = createLogger({ module: 'run-completion-service' });
 /**
  * Service for handling workflow run completion logic
  */
 export class RunCompletionService {
+    // eslint-disable-next-line max-params -- dependency injection requires all 6 services
     constructor(
         private runRepo: typeof workflowRunRepository,
         private valueRepo: typeof stepValueRepository,
@@ -36,14 +37,14 @@ export class RunCompletionService {
             const dataMap = allValues.reduce((acc, v) => {
                 acc[v.stepId] = v.value;
                 return acc;
-            }, {} as Record<string, any>);
+            }, {} as Record<string, unknown>);
             // Execute onRunComplete blocks (transform + validate)
             const blockResult = await blockRunner.runPhase({
                 workflowId: run.workflowId,
                 runId: run.id,
                 phase: "onRunComplete",
                 data: dataMap,
-                versionId: run.workflowVersionId || 'draft',
+                versionId: run.workflowVersionId ?? 'draft',
             });
             // If blocks produced validation errors, reject completion
             if (!blockResult.success && blockResult.errors) {
@@ -51,7 +52,7 @@ export class RunCompletionService {
                 await this.metricsService.captureRunFailed(
                     run.workflowId,
                     run.id,
-                    run.workflowVersionId || undefined,
+                    run.workflowVersionId ?? undefined,
                     Date.now() - startTime,
                     'validation_error',
                     { errors: blockResult.errors }
@@ -61,12 +62,12 @@ export class RunCompletionService {
             // Validate using LogicService
             const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
             if (!validation.valid) {
-                const stepTitles = validation.missingStepTitles?.join(', ') || validation.missingSteps.join(', ');
+                const stepTitles = validation.missingStepTitles?.join(', ') ?? validation.missingSteps.join(', ');
                 const errorMsg = `Missing required steps: ${stepTitles}`;
                 await this.metricsService.captureRunFailed(
                     run.workflowId,
                     run.id,
-                    run.workflowVersionId || undefined,
+                    run.workflowVersionId ?? undefined,
                     Date.now() - startTime,
                     'missing_required_steps',
                     { errorType: 'missing_required_steps', details: errorMsg }
@@ -83,7 +84,7 @@ export class RunCompletionService {
             await this.metricsService.captureRunSucceeded(
                 run.workflowId,
                 run.id,
-                run.workflowVersionId || undefined,
+                run.workflowVersionId ?? undefined,
                 Date.now() - startTime,
                 allValues.length
             );
@@ -94,7 +95,7 @@ export class RunCompletionService {
                 await this.metricsService.captureRunFailed(
                     run.workflowId,
                     run.id,
-                    run.workflowVersionId || undefined,
+                    run.workflowVersionId ?? undefined,
                     Date.now() - startTime,
                     'unknown_error'
                 );
@@ -118,14 +119,14 @@ export class RunCompletionService {
         const dataMap = allValues.reduce((acc, v) => {
             acc[v.stepId] = v.value;
             return acc;
-        }, {} as Record<string, any>);
+        }, {} as Record<string, unknown>);
         // Execute onRunComplete blocks (transform + validate)
         const blockResult = await blockRunner.runPhase({
             workflowId: run.workflowId,
             runId: run.id,
             phase: "onRunComplete",
             data: dataMap,
-            versionId: run.workflowVersionId || 'draft',
+            versionId: run.workflowVersionId ?? 'draft',
         });
         // If blocks produced validation errors, reject completion
         if (!blockResult.success && blockResult.errors) {
@@ -134,7 +135,7 @@ export class RunCompletionService {
         // Validate using LogicService
         const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
         if (!validation.valid) {
-            const stepTitles = validation.missingStepTitles?.join(', ') || validation.missingSteps.join(', ');
+            const stepTitles = validation.missingStepTitles?.join(', ') ?? validation.missingSteps.join(', ');
             throw new Error(`Missing required steps: ${stepTitles}`);
         }
         // Mark run as complete

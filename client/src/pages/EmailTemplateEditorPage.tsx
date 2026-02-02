@@ -16,7 +16,7 @@ import {
   User,
   AtSign,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 
 import { useBranding } from '@/components/branding';
@@ -93,8 +93,8 @@ export default function EmailTemplateEditorPage() {
       setTemplate(fetchedTemplate);
       setFormData({
         name: fetchedTemplate.name,
-        description: fetchedTemplate.description || '',
-        subjectPreview: fetchedTemplate.subjectPreview || '',
+        description: fetchedTemplate.description ?? '',
+        subjectPreview: fetchedTemplate.subjectPreview ?? '',
         brandingTokens: fetchedTemplate.brandingTokens || {},
       });
     } catch (error) {
@@ -151,8 +151,8 @@ export default function EmailTemplateEditorPage() {
     if (template) {
       setFormData({
         name: template.name,
-        description: template.description || '',
-        subjectPreview: template.subjectPreview || '',
+        description: template.description ?? '',
+        subjectPreview: template.subjectPreview ?? '',
         brandingTokens: template.brandingTokens || {},
       });
       setHasUnsavedChanges(false);
@@ -302,7 +302,7 @@ export default function EmailTemplateEditorPage() {
                       <Label htmlFor="description">Description</Label>
                       <Textarea
                         id="description"
-                        value={formData.description || ''}
+                        value={formData.description ?? ''}
                         onChange={(e) => { void handleChange('description', e.target.value); }}
                         placeholder="Brief description of when this template is used"
                         rows={3}
@@ -312,7 +312,7 @@ export default function EmailTemplateEditorPage() {
                       <Label htmlFor="subjectPreview">Subject Preview</Label>
                       <Input
                         id="subjectPreview"
-                        value={formData.subjectPreview || ''}
+                        value={formData.subjectPreview ?? ''}
                         onChange={(e) => { void handleChange('subjectPreview', e.target.value); }}
                         placeholder="You've been invited to complete a workflow"
                       />

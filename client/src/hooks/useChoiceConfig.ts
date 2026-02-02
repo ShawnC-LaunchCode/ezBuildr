@@ -73,17 +73,17 @@ function parseChoiceConfig(step: ApiStep): {
             // Dynamic Config
             const dynConfig = rawOptions;
             if (dynConfig.type === 'static') {
-                staticOptions = dynConfig.options || [];
+                staticOptions = dynConfig.options ?? [];
             } else if (dynConfig.type === 'list') {
                 mode = "dynamic";
                 // Migrate old format to new format
                 dynamicOptions = {
                     type: 'list',
-                    listVariable: dynConfig.listVariable || '',
-                    labelPath: (dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelPath ||
-                        (dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelColumnId || '',
-                    valuePath: (dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valuePath ||
-                        (dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valueColumnId || '',
+                    listVariable: dynConfig.listVariable ?? '',
+                    labelPath: ((dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelPath ||
+                        (dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelColumnId) ?? '',
+                    valuePath: ((dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valuePath ||
+                        (dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valueColumnId) ?? '',
                     labelTemplate: dynConfig.labelTemplate,
                     groupByPath: dynConfig.groupByPath,
                     enableSearch: dynConfig.enableSearch,
@@ -99,8 +99,8 @@ function parseChoiceConfig(step: ApiStep): {
         return {
             config: {
                 display: config?.display || "radio",
-                allowMultiple: config?.allowMultiple || false,
-                searchable: config?.searchable || false,
+                allowMultiple: config?.allowMultiple ?? false,
+                searchable: config?.searchable ?? false,
                 staticOptions,
                 dynamicOptions
             },
@@ -110,7 +110,7 @@ function parseChoiceConfig(step: ApiStep): {
     } else {
         // Easy mode legacy conversion
         const config = step.config as (LegacyMultipleChoiceConfig | LegacyRadioConfig) | undefined;
-        const legacyOptions = config?.options || [];
+        const legacyOptions = config?.options ?? [];
         const options: ChoiceOption[] = Array.isArray(legacyOptions)
             ? legacyOptions.map((opt: string | { id?: string; label?: string; alias?: string }, idx: number) => ({
                 id: typeof opt === 'object' && opt.id ? opt.id : `opt${idx + 1}`,

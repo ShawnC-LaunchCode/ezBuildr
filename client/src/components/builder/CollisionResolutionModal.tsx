@@ -5,7 +5,7 @@
  * Default behavior: Snip aliases are preserved, existing workflow aliases are renamed
  */
 import { AlertTriangle, Info } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

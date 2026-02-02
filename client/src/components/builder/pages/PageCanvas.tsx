@@ -23,11 +23,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { UI_LABELS } from "@/lib/labels";
-import type {  } from "@/lib/vault-api";
+import type { } from "@/lib/vault-api";
 import { useSections, useBlocks, useReorderSections, useAllSteps, useUpdateStep, useReorderSteps, useCreateSection, useWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
@@ -74,7 +74,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         phase: regularBlock.phase,
         order: regularBlock.order,
         enabled: regularBlock.enabled,
-        raw: regularBlock,
+        raw: regularBlock as unknown as Record<string, unknown>,
         source: 'regular',
         title: undefined,
         displayType: regularBlock.type,
@@ -87,7 +87,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         phase: transformBlock.phase,
         order: transformBlock.order,
         enabled: transformBlock.enabled,
-        raw: transformBlock,
+        raw: transformBlock as unknown as Record<string, unknown>,
         source: 'transform',
         title: transformBlock.name,
         displayType: 'js',
@@ -129,7 +129,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
     const { active, over } = event;
     setActiveId(null);
     setActiveDragData(null);
-    if (!over || active.id === over.id) {return;}
+    if (!over || active.id === over.id) { return; }
     // Handle section reordering
     if (activeDragData?.type === 'section') {
       const oldIndex = pages.findIndex((p) => p.id === active.id);
@@ -161,19 +161,19 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
         targetStepId = over.id as string;
         targetSectionId = Object.keys(allSteps).find(
           sId => allSteps[sId].some(step => step.id === targetStepId)
-        ) || null;
+        ) ?? null;
       }
-      if (!targetSectionId) {return;}
+      if (!targetSectionId) { return; }
       const sourceSteps = [...allSteps[sourceSectionId]];
       const oldIndex = sourceSteps.findIndex(s => s.id === active.id);
-      if (oldIndex === -1) {return;}
+      if (oldIndex === -1) { return; }
       // Same section - just reorder
       if (sourceSectionId === targetSectionId) {
         const targetSteps = [...allSteps[targetSectionId]];
         const newIndex = targetStepId
           ? targetSteps.findIndex(s => s.id === targetStepId)
           : targetSteps.length;
-        if (newIndex === -1) {return;}
+        if (newIndex === -1) { return; }
         const reordered = arrayMove(targetSteps, oldIndex, newIndex);
         const updates = reordered.map((step, index) => ({
           id: step.id,
@@ -261,7 +261,7 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
                   workflowId={workflowId}
                   page={page}
                   blocks={allBlocks}
-                  allSteps={allSteps[page.id] || []}
+                  allSteps={allSteps[page.id] ?? []}
                   index={index}
                   total={pages.length}
                   onEditBlock={handleEditBlock}

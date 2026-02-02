@@ -1,4 +1,4 @@
-import { GoogleLogin as GoogleOAuthLogin, googleLogout } from '@react-oauth/google';
+import { GoogleLogin as GoogleOAuthLogin, googleLogout, type CredentialResponse } from '@react-oauth/google';
 import { LogOut } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -9,16 +9,22 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 interface GoogleLoginProps {
   onSuccess?: () => void;
   onError?: (error: string) => void;
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- DOM attribute
   'data-testid'?: string;
+}
+
+interface ApiErrorData {
+  message?: string;
+  error?: string;
 }
 
 export function GoogleLogin({ onSuccess, onError, 'data-testid': testId }: GoogleLoginProps) {
   const { toast } = useToast();
   const { user, isAuthenticated, logout } = useAuth();
 
-  const handleLoginSuccess = async (credentialResponse: any) => {
+  const handleLoginSuccess = async (credentialResponse: CredentialResponse) => {
     try {
-      if (!credentialResponse.credential) {
+      if (credentialResponse.credential === null || credentialResponse.credential === undefined) {
         throw new Error('No credential received from Google');
       }
 
@@ -48,8 +54,8 @@ export function GoogleLogin({ onSuccess, onError, 'data-testid': testId }: Googl
         const jsonMatch = error.message.match(/\d+:\s*(.+)/);
         if (jsonMatch?.[1]) {
           try {
-            const errorData = JSON.parse(jsonMatch[1]);
-            errorMessage = errorData.message || errorMessage;
+            const errorData = JSON.parse(jsonMatch[1]) as ApiErrorData;
+            errorMessage = errorData.message ?? errorMessage;
           } catch {
             // If JSON parsing fails, use the original error message
             errorMessage = error.message;
@@ -129,7 +135,7 @@ export function GoogleLogin({ onSuccess, onError, 'data-testid': testId }: Googl
       onSuccess={(response) => { void handleLoginSuccess(response); }}
       onError={handleLoginError}
       useOneTap={false}
-      data-testid={testId || "button-google-login"}
+      data-testid={testId ?? "button-google-login"}
     />
   );
 }

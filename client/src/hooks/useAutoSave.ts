@@ -88,7 +88,7 @@ export function useAutoSave<T>({
 
       // Set new timeout for debounced save
       timeoutRef.current = setTimeout(() => {
-        performSave();
+        void performSave();
       }, delay);
     }
 
@@ -107,7 +107,8 @@ export function useAutoSave<T>({
         onSave(lastDataRef.current).catch(console.error);
       }
     };
-  }, []); // Empty deps intentionally - only on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on unmount
+  }, []);
 
   return {
     saveStatus,

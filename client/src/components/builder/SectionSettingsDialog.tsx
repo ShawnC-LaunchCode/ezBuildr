@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -30,17 +30,17 @@ export function SectionSettingsDialog({
     const { toast } = useToast();
 
     const [activeTab, setActiveTab] = useState("general");
-    const [title, setTitle] = useState(section?.title || "");
-    const [description, setDescription] = useState(section?.description || "");
+    const [title, setTitle] = useState(section?.title ?? "");
+    const [description, setDescription] = useState(section?.description ?? "");
     // Validation rules are stored in section.config.validationRules
-    const [validationRules, setValidationRules] = useState<ValidateRule[]>(section?.config?.validationRules || []);
+    const [validationRules, setValidationRules] = useState<ValidateRule[]>(section?.config?.validationRules ?? []);
 
     // Sync state when section changes (e.g. opening different section)
     useEffect(() => {
         if (isOpen && section) {
-            setTitle(section?.title || "");
-            setDescription(section?.description || "");
-            setValidationRules(section?.config?.validationRules || []);
+            setTitle(section?.title ?? "");
+            setDescription(section?.description ?? "");
+            setValidationRules(section?.config?.validationRules ?? []);
         }
     }, [isOpen, section]);
 

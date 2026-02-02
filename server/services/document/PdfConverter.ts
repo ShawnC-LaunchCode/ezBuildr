@@ -97,9 +97,9 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
             });
 
             await browser.close();
-        } catch (error: any) {
+        } catch (error: unknown) {
             logger.error({ error }, 'Puppeteer PDF conversion failed');
-            throw createError.internal(`PDF conversion failed: ${error.message}`);
+            throw createError.internal(`PDF conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 }

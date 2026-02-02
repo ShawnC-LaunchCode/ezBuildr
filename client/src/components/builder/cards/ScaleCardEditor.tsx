@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -8,10 +8,13 @@ import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { AliasField } from "./common/AliasField";
 import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 import type { ScaleAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
@@ -197,10 +200,10 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
     }
 
     if (config.display === "stars") {
-      if (!config.stars || config.stars < 1) {
+      if (config.stars === null || config.stars === undefined || config.stars < 1) {
         errs.push("Number of stars must be at least 1");
       }
-      if (config.stars && config.stars > 12) {
+      if (config.stars !== null && config.stars !== undefined && config.stars > 12) {
         errs.push("Number of stars should not exceed 12");
       }
     }
@@ -236,7 +239,7 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
     if (newConfig.maxLabel && newConfig.maxLabel.trim() !== "") {
       configToSave.maxLabel = newConfig.maxLabel;
     }
-    if (newConfig.display === "stars" && newConfig.stars) {
+    if (newConfig.display === "stars" && newConfig.stars !== null && newConfig.stars !== undefined) {
       configToSave.stars = newConfig.stars;
     }
 
@@ -252,7 +255,7 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
       updates.min = 1;
       updates.step = 1;
       // Keep max as is or set to stars count
-      if (!localConfig.max || localConfig.max > 12) {
+      if (localConfig.max === 0 || localConfig.max === null || localConfig.max === undefined || localConfig.max > 12) {
         updates.max = updates.stars;
       }
     }
@@ -324,7 +327,7 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

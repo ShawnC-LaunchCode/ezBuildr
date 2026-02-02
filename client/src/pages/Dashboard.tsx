@@ -1,20 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  FileText, PlayCircle, TrendingUp, Percent, History,
-  Home, PieChart, Settings, Zap, Plus,
-  BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2, Database
+  FileText, PlayCircle, TrendingUp, History,
+  Home, Settings, Zap, Plus,
+  BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import AIHeroCard from "@/components/AIHeroCard";
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import Header from "@/components/layout/Header";
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import Sidebar from "@/components/layout/Sidebar";
 import { QuickActionButton } from "@/components/shared/QuickActionButton";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import StatsCard from "@/components/ui/stats-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -38,15 +42,18 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
 
   // Analytics tracking helper
-  const track = (name: string, props?: Record<string, any>) => {
+  const track = (name: string, props?: Record<string, unknown>) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
       fetch("/api/analytics/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ event: name, data: props || {} })
-      }).catch(() => { }); // Silent fail for analytics
-    } catch { }
+        body: JSON.stringify({ event: name, data: props ?? {} })
+      }).catch(() => { /* silent fail for analytics */ });
+    } catch {
+      // silent fail for analytics
+    }
   };
 
   // Redirect to home if not authenticated
@@ -60,7 +67,6 @@ export default function Dashboard() {
       setTimeout(() => {
         window.location.href = "/";
       }, 500);
-      return;
     }
   }, [isAuthenticated, isLoading, toast]);
 
@@ -75,9 +81,9 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const handleDataUpdate = () => {
-    refetchStats();
-    refetchWorkflows();
+  const _handleDataUpdate = () => {
+    void refetchStats();
+    void refetchWorkflows();
   };
 
   if (isLoading || !isAuthenticated) {

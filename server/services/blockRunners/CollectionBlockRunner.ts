@@ -197,7 +197,7 @@ export class CollectionBlockRunner extends BaseBlockRunner {
       const result = (await this.recordSvc.findByFilters(
         tenantId,
         config.collectionId,
-        (config.filters || []) as any[],
+        (config.filters ?? []) as any[],
         { page: 1, limit: config.limit || 1 }
       )) as any;
 
@@ -217,7 +217,7 @@ export class CollectionBlockRunner extends BaseBlockRunner {
 
       const updates: Record<string, any> = {};
       updates[config.outputKey] =
-        config.limit === 1 ? result.records[0] || null : result.records;
+        config.limit === 1 ? result.records[0] ?? null : result.records;
 
       return {
         success: true,

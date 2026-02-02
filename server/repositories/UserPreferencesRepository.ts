@@ -28,14 +28,15 @@ export class UserPreferencesRepository extends BaseRepository<typeof userPrefere
   /**
    * Upsert user preferences (create or update based on userId)
    */
-  async upsert(userId: string, settings: Record<string, any>, tx?: DbTransaction): Promise<UserPreferences> {
+  async upsert(userId: string, settings: Record<string, unknown>, tx?: DbTransaction): Promise<UserPreferences> {
     const database = this.getDb(tx);
 
     const existing = await this.findByUserId(userId, tx);
 
     if (existing) {
       // Merge existing settings with new settings
-      const existingSettings = (existing.settings as Record<string, any>) || {};
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- settings may be null from DB
+      const existingSettings = (existing.settings as Record<string, unknown>) ?? {};
       const merged = { ...existingSettings, ...settings };
 
       const [updated] = await database

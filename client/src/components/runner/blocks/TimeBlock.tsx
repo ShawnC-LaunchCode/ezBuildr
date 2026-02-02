@@ -34,7 +34,7 @@ export function TimeBlockRenderer({ step, value, onChange, readOnly }: TimeBlock
     <Input
       id={step.id}
       type="time"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       step={stepSeconds}
       disabled={readOnly}

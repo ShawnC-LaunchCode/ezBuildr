@@ -80,10 +80,10 @@ export function validateAndNormalizeConfig(
 
   // Apply normalization if requested
   if (normalize) {
-    return normalizeConfig(stepType, result.data);
+    return normalizeConfig(stepType, result.data as StepConfig);
   }
 
-  return result.data;
+  return result.data as StepConfig;
 }
 
 /**
@@ -345,7 +345,7 @@ function sanitizeMultiFieldValue(value: unknown, config?: StepConfig): MultiFiel
 
   const result: MultiFieldValue = {};
   const mfConfig = config as MultiFieldConfig | undefined;
-  const fields = mfConfig?.fields || [];
+  const fields = mfConfig?.fields ?? [];
 
   for (const field of fields) {
     const key = field.key;
@@ -536,7 +536,7 @@ function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig
       errors.push(`Invalid email address: ${email}`);
     }
 
-    if (!config) {continue;}
+    if (!config) { continue; }
 
     // Type guard for advanced config
     if ('restrictDomains' in config && config.restrictDomains && config.restrictDomains.length > 0) {
@@ -706,7 +706,7 @@ function validateMultiField(value: unknown, config: StepConfig | undefined, erro
   const mfConfig = config as MultiFieldConfig | undefined;
   const valObj = value as Record<string, unknown>;
 
-  for (const field of mfConfig?.fields || []) {
+  for (const field of mfConfig?.fields ?? []) {
     if (field.required && (!valObj[field.key] || valObj[field.key] === '')) {
       errors.push(`${field.label} is required`);
     }

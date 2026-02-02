@@ -53,6 +53,20 @@ const sliConfigCreateSchema = z.object({
   errorBudgetPct: z.number().min(0).max(100).default(1),
   window: z.enum(['1d', '7d', '30d']).default('7d'),
 });
+
+interface RunsPerDayRow {
+  day: Date;
+  runs: string;
+  success: string;
+  failed: string;
+}
+
+interface DocStatsRow {
+  pdf_success: string;
+  pdf_failed: string;
+  docx_success: string;
+  docx_failed: string;
+}
 // ===================================================================
 // LEGACY ROUTES (Metrics Events)
 // ===================================================================
@@ -99,9 +113,9 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
         AND ${metricsEvents.ts} >= ${windowStart}
     `;
     const docStatsResult = await db.execute(docStatsQuery);
-    const docStats = docStatsResult.rows[0] as any;
-    const pdfTotal = (parseInt(docStats.pdf_success) || 0) + (parseInt(docStats.pdf_failed) || 0);
-    const docxTotal = (parseInt(docStats.docx_success) || 0) + (parseInt(docStats.docx_failed) || 0);
+    const docStats = (docStatsResult.rows[0] as unknown) as DocStatsRow;
+    const pdfTotal = safeParseInt(docStats.pdf_success) + safeParseInt(docStats.pdf_failed);
+    const docxTotal = safeParseInt(docStats.docx_success) + safeParseInt(docStats.docx_failed);
     res.json({
       sli: {
         successPct: sliResult.successPct,
@@ -110,22 +124,25 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
         totalRuns: sliResult.totalRuns,
         violatesTarget: sliResult.violatesTarget,
       },
-      runsPerDay: runsPerDay.rows.map((row: any) => ({
-        date: row.day,
-        runs: parseInt(row.runs) || 0,
-        success: parseInt(row.success) || 0,
-        failed: parseInt(row.failed) || 0,
-      })),
+      runsPerDay: runsPerDay.rows.map((row: unknown) => {
+        const r = row as RunsPerDayRow;
+        return {
+          date: r.day,
+          runs: safeParseInt(r.runs),
+          success: safeParseInt(r.success),
+          failed: safeParseInt(r.failed),
+        };
+      }),
       documents: {
         pdf: {
-          success: parseInt(docStats.pdf_success) || 0,
-          failed: parseInt(docStats.pdf_failed) || 0,
-          successRate: pdfTotal > 0 ? ((parseInt(docStats.pdf_success) || 0) / pdfTotal) * 100 : 0,
+          success: safeParseInt(docStats.pdf_success),
+          failed: safeParseInt(docStats.pdf_failed),
+          successRate: pdfTotal > 0 ? (safeParseInt(docStats.pdf_success) / pdfTotal) * 100 : 0,
         },
         docx: {
-          success: parseInt(docStats.docx_success) || 0,
-          failed: parseInt(docStats.docx_failed) || 0,
-          successRate: docxTotal > 0 ? ((parseInt(docStats.docx_success) || 0) / docxTotal) * 100 : 0,
+          success: safeParseInt(docStats.docx_success),
+          failed: safeParseInt(docStats.docx_failed),
+          successRate: docxTotal > 0 ? (safeParseInt(docStats.docx_success) / docxTotal) * 100 : 0,
         },
       },
       window: {
@@ -162,7 +179,7 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
       .from(metricsRollups)
       .where(and(...conditions))
       .orderBy(metricsRollups.bucketStart);
-    const timeseries = rollups.map((rollup: any) => ({
+    const timeseries = rollups.map((rollup) => ({
       timestamp: rollup.bucketStart,
       runsCount: rollup.runsCount,
       runsSuccess: rollup.runsSuccess,
@@ -310,7 +327,7 @@ router.get('/:workflowId/dropoff', hybridAuth, asyncHandler(async (req, res) => 
   try {
     const { workflowId } = req.params;
     const { versionId } = req.query;
-    if (!versionId || typeof versionId !== 'string') {
+    if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
     }
     const funnel = await dropoffService.getDropoffFunnel(workflowId, versionId);
@@ -327,7 +344,7 @@ router.get('/:workflowId/heatmap', hybridAuth, asyncHandler(async (req, res) => 
   try {
     const { workflowId } = req.params;
     const { versionId } = req.query;
-    if (!versionId || typeof versionId !== 'string') {
+    if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
     }
     const data = await heatmapService.getBlockHeatmap(workflowId, versionId);
@@ -344,7 +361,7 @@ router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) =
   try {
     const { workflowId } = req.params;
     const { versionId } = req.query;
-    if (!versionId || typeof versionId !== 'string') {
+    if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
     }
     const graph = await branchingService.getBranchingGraph(workflowId, versionId);
@@ -361,102 +378,22 @@ router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) =
 router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
-    // Optional version filter
     const { versionId } = req.query;
-    const conditions = [
-      eq(workflowRunMetrics.workflowId, workflowId)
-    ];
-    if (versionId && typeof versionId === 'string') {
-      conditions.push(eq(workflowRunMetrics.versionId, versionId));
-    }
-    // Default window: 30 days? Or all time?
-    // Let's do all time for now, or match query.window
-    const window = req.query.window as string || '30d';
+
+    // Default window: 30 days
+    const window = (req.query.window as string) || '30d';
     const windowMs = parseWindow(window as any) || parseWindow('30d');
     const windowStart = new Date(Date.now() - windowMs);
-    conditions.push(gte(workflowRunMetrics.createdAt, windowStart));
-    const stats = await db
-      .select({
-        totalRuns: sql<number>`count(*)`,
-        completedRuns: sql<number>`count(*) filter (where ${workflowRunMetrics.completed} = true)`,
-        failedRuns: sql<number>`count(*) filter (where ${workflowRunMetrics.completed} = false)`, // Naive, incomplete could be in progress
-        avgTimeMs: sql<number>`avg(${workflowRunMetrics.totalTimeMs}) filter (where ${workflowRunMetrics.completed} = true)`,
-        totalErrors: sql<number>`sum(${workflowRunMetrics.validationErrors} + ${workflowRunMetrics.scriptErrors})`,
-        runsWithErrors: sql<number>`count(*) filter (where ${workflowRunMetrics.validationErrors} > 0 OR ${workflowRunMetrics.scriptErrors} > 0)`
-      })
-      .from(workflowRunMetrics)
-      .where(and(...conditions));
-    const result = stats[0];
-    const total = Number(result.totalRuns) || 0;
-    const completed = Number(result.completedRuns) || 0;
-    // In progress? We don't have explicit status in run_metrics, just completed boolean. 
-    // If not completed, it could be abandoned OR in progress. 
-    // We can't distinguish easily without joining runs table or updating metrics on creation (metrics created on completion?).
-    // Ah, 'aggregateRun' is called on generic status.
-    // Wait, 'aggregateRun' inserts INTO metrics. It is called ONLY on completion?
-    // RunService calls it on completion.
-    // So metrics table ONLY contains completed (or at least aggregated) runs.
-    // What about abandoned?
-    // If abandoned, aggregateRun is never called, so it won't show in metrics?
-    // If so, "Total Runs" will be underreported.
-    // RunService emits run_started.
-    // AnalyticsService records run.start.
-    // workflowRunMetrics is for *completed* runs statistics primarily?
-    // "Completion rate" requires knowing started runs.
-    // Improved logic:
-    // We need to count STARTED runs from events or runs table.
-    // workflowRunMetrics might strictly be for performance of completed/aggregated runs.
-    // Actually, AggregationService.aggregateRun creates the metric row.
-    // If I only call it on completeRun, then it only exists for completed runs.
-    // To support "Drop off" and "Completion Rate", I need to know total started.
-    // I should query `workflowRunEvents` for unique `run.start` events to get total started? 
-    // Or query `workflowRuns` table?
-    // Let's query workflowRuns table for total count in window.
-    // And workflowRunMetrics for completion stats.
-    // Alternatively, I can rely on legacy `metrics_events` for "run_started" count? 
-    // But we want to use new system.
-    // Let's query `workflowRuns` table for total started.
-    // But `workflowRuns` doesn't enforce `createdAt` index maybe? It has `createdAt`.
-    // Let's try to get total started from workflowRuns for now.
-  } catch (error) {
-    logger.error({ error, ...req.params }, "Failed to get health metrics");
-    res.status(500).json({ error: "Internal Error" });
-    // fallback
-    return;
-  }
-  // Re-impl with correct logic
-  // Since we can't edit previous lines in this tool easily without re-writing, 
-  // I will just implement a robust version here.
-  try {
-    const { workflowId } = req.params;
-    const { versionId } = req.query;
-    const window = req.query.window as string || '30d';
-    const windowMs = parseWindow(window as any) || parseWindow('30d');
-    const windowStart = new Date(Date.now() - windowMs);
-    // 1. Get Total Runs (Started) from workflow_run_events (count unique run_ids with run.start)
-    // or just from workflowRuns table. workflowRuns is easier.
-    // But workflowRuns might be cleaned up? Hopefully not recently.
-    // Let's use analytics events "run.start" for total started, to keep it self-contained in analytics system?
-    // Actually analytics events table is huge. `workflowRuns` is better optimized index-wise?
-    // schema.ts says `workflowRuns` has `createdAt`.
-    /* 
-    const totalStartedResult = await db.execute(sql`
-       SELECT count(*) as count 
-       FROM workflow_run_events 
-       WHERE workflow_id = ${workflowId} 
-       AND type = 'run.start'
-       AND timestamp >= ${windowStart}
-    `);
-    */
-    // Use existing endpoint structure 
-    // Reuse logic?
+
     const metricsConditions = [
       eq(workflowRunMetrics.workflowId, workflowId),
       gte(workflowRunMetrics.createdAt, windowStart)
     ];
+
     if (versionId && typeof versionId === 'string') {
       metricsConditions.push(eq(workflowRunMetrics.versionId, versionId));
     }
+
     const metricsStats = await db
       .select({
         completed: sql<number>`count(*)`,
@@ -465,15 +402,8 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
       })
       .from(workflowRunMetrics)
       .where(and(...metricsConditions));
-    // Get total runs (started)
-    // We need a way to count abandoned runs.
-    // Abandoned = Started - Completed.
-    // usage: existing 'overview' endpoint uses legacy metrics events.
-    // Let's stick to workflowRunMetrics for now, acknowledging it might miss abandoned if not aggregated.
-    // FIX: We should aggregate abandoned runs too.
-    // But we don't know when a run is explicitly abandoned unless we have a timeout or explicit "cancel".
-    // For now, let's use the legacy `metricsEvents` method for "Total Runs" count if needed, OR just count `workflowRuns` rows.
-    // Let's count `workflowRuns` created in window.
+
+    // Get total runs (started) via workflowRuns table for accuracy
     const runsConfig = await db.execute(sql`
         SELECT count(*) as total
         FROM workflow_runs
@@ -481,12 +411,8 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
         AND created_at >= ${windowStart}
         ${versionId ? sql`AND workflow_version_id = ${versionId}` : sql``}
       `);
-    const totalRuns = Number(runsConfig.rows[0].total) || 0;
-    const completedRuns = Number(metricsStats[0].completed) || 0;
-    const avgTime = Number(metricsStats[0].avgTime) || 0;
-    const errorRuns = Number(metricsStats[0].errorCount) || 0; // This is sum of errors, not runs with errors.
-    // Actually we want runs with errors.
-    // Let's fetch that from metrics too
+
+    // Get runs with errors
     const runsWithErrorsResult = await db.execute(sql`
         SELECT count(*) as count
         FROM ${workflowRunMetrics}
@@ -495,7 +421,12 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
         AND (validation_errors > 0 OR script_errors > 0)
         ${versionId ? sql`AND version_id = ${versionId}` : sql``}
       `);
-    const runsWithErrors = Number(runsWithErrorsResult.rows[0].count) || 0;
+
+    const totalRuns = safeParseInt(runsConfig.rows[0].total as string);
+    const completedRuns = safeParseInt(metricsStats[0].completed as unknown as string);
+    const avgTime = safeFloat(metricsStats[0].avgTime as unknown as string);
+    const runsWithErrors = safeParseInt(runsWithErrorsResult.rows[0].count as string);
+
     res.json({
       success: true,
       data: {
@@ -511,6 +442,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Internal Error" });
   }
 }));
+
 // ===================================================================
 // HELPERS
 // ===================================================================
@@ -524,6 +456,20 @@ function parseWindow(window: '1d' | '7d' | '30d'): number {
       return 30 * 24 * 60 * 60 * 1000;
   }
 }
+
+
+function safeParseInt(val: string | number | undefined | null): number {
+  if (val === undefined || val === null) {return 0;}
+  const parsed = typeof val === 'number' ? val : parseInt(val, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function safeFloat(val: string | number | undefined | null): number {
+  if (val === undefined || val === null) {return 0;}
+  const parsed = typeof val === 'number' ? val : parseFloat(val);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 /**
  * Register workflow analytics routes
  */

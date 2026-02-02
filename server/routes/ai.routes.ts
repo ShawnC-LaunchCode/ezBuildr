@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method -- all AiController methods are static, no `this` binding issues */
 import { AiController } from "../controllers/AiController";
 import { createLogger } from "../logger";
 import { validateWorkflowSize, aiWorkflowRateLimit } from "../middleware/ai.middleware";
@@ -145,3 +146,4 @@ export function registerAiRoutes(app: Express): void {
 
   aiLogger.info('AI workflow generation routes registered');
 }
+/* eslint-enable @typescript-eslint/unbound-method */

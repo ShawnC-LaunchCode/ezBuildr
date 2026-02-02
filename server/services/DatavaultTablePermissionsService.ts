@@ -31,8 +31,8 @@ export class DatavaultTablePermissionsService {
     permissionsRepo?: typeof datavaultTablePermissionsRepository,
     tablesRepo?: typeof datavaultTablesRepository
   ) {
-    this.permissionsRepo = permissionsRepo || datavaultTablePermissionsRepository;
-    this.tablesRepo = tablesRepo || datavaultTablesRepository;
+    this.permissionsRepo = permissionsRepo ?? datavaultTablePermissionsRepository;
+    this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
   }
 
   /**

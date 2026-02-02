@@ -6,7 +6,6 @@ import {
   type SignatureRequest,
   type InsertSignatureRequest,
   type SignatureEvent,
-  type InsertSignatureEvent
 } from "@shared/schema";
 
 import { db } from "../db";
@@ -60,7 +59,7 @@ export class SignatureRequestRepository extends BaseRepository<
       .from(signatureRequests)
       .where(eq(signatureRequests.token, token))
       .limit(1);
-    return request || null;
+    return request ?? null;
   }
 
   /**
@@ -82,7 +81,7 @@ export class SignatureRequestRepository extends BaseRepository<
         )
       )
       .limit(1);
-    return request || null;
+    return request ?? null;
   }
 
   /**
@@ -145,7 +144,7 @@ export class SignatureRequestRepository extends BaseRepository<
   async createEvent(
     signatureRequestId: string,
     type: 'sent' | 'viewed' | 'signed' | 'declined',
-    payload?: any,
+    payload?: unknown,
     tx?: DbTransaction
   ): Promise<SignatureEvent> {
     const database = this.getDb(tx);

@@ -269,7 +269,7 @@ export function isDarkModeEnabled(): boolean {
  */
 export function getPrimaryColor(): string | null {
   const tokens = getCurrentThemeTokens();
-  return tokens['--brand-primary'] || null;
+  return tokens['--brand-primary'] ?? null;
 }
 
 /**
@@ -277,7 +277,7 @@ export function getPrimaryColor(): string | null {
  */
 export function getAccentColor(): string | null {
   const tokens = getCurrentThemeTokens();
-  return tokens['--brand-accent'] || null;
+  return tokens['--brand-accent'] ?? null;
 }
 
 /**

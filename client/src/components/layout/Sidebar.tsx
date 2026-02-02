@@ -59,7 +59,7 @@ export default function Sidebar({ className }: SidebarProps) {
     return location.startsWith(href);
   };
   return (
-    <aside className={`hidden md:flex w-64 bg-card border-r border-border flex-col ${className || ''}`} data-testid="sidebar">
+    <aside className={`hidden md:flex w-64 bg-card border-r border-border flex-col ${className ?? ''}`} data-testid="sidebar">
       {/* Logo and Brand */}
       <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
         <div className="flex items-center space-x-3">
@@ -132,13 +132,13 @@ export default function Sidebar({ className }: SidebarProps) {
               <div className="flex items-center space-x-2">
                 <p className="text-sm font-medium text-foreground truncate" data-testid="text-user-name">
                   {user?.firstName || user?.lastName
-                    ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
                     : user?.email || "User"
                   }
                 </p>
               </div>
               <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
-                {user?.email || ""}
+                {user?.email ?? ""}
               </p>
             </div>
           </div>

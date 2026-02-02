@@ -1,16 +1,41 @@
 import fs from 'fs/promises';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 import Docxtemplater from 'docxtemplater';
+// eslint-disable-next-line @typescript-eslint/naming-convention
 import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
 import { docxHelpers } from '../docxHelpers';
 
+const TEMPLATE_SYNTAX_ERROR_PREFIX = 'Template syntax error: ';
+const ERROR_SEPARATOR = ' | ';
+
+interface DocxtemplaterError {
+    name?: string;
+    message?: string;
+    properties?: {
+        id?: string;
+        explanation?: string;
+        errors?: DocxtemplaterError[];
+    };
+}
+
+interface RenderError extends Error {
+    code?: string;
+    status?: number;
+    properties?: {
+        errors?: DocxtemplaterError[];
+    };
+}
+
+type HelperFunction = (...args: unknown[]) => unknown;
+
 export interface TemplateParserOptions {
     templatePath: string;
     templateBuffer?: Buffer;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
 }
 
 export class TemplateParser {
@@ -18,20 +43,21 @@ export class TemplateParser {
      * Custom expression parser for docxtemplater
      * Enables angular-like syntax with helper functions
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     private createExpressionParser(tag: string) {
-        const getNestedValue = (obj: any, path: string): any => {
+        const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
             if (!path) { return obj; }
             const keys = path.split('.');
-            let current = obj;
+            let current: unknown = obj;
             for (const key of keys) {
-                if (current == null) { return undefined; }
-                current = current[key];
+                if (current === null || current === undefined) { return undefined; }
+                current = (current as Record<string, unknown>)[key];
             }
             return current;
         };
 
         return {
-            get: (scope: any, context: any) => {
+            get: (scope: Record<string, unknown>, _context: Record<string, unknown>): unknown => {
                 // Parse tag which may include filters/helpers
                 // Example: "upper name" -> call upper(scope.name)
 
@@ -39,12 +65,12 @@ export class TemplateParser {
                     return scope;
                 }
 
-                const parts = tag.trim().split(/\s+/);
+                const parts = tag.trim().split(/s+/);
 
                 // If first part is a helper function, call it
                 if (parts.length > 1 && parts[0] in docxHelpers) {
-                    const helperName = parts[0];
-                    const helper = (docxHelpers as any)[helperName];
+                    const helperName = parts[0] as keyof typeof docxHelpers;
+                    const helper = docxHelpers[helperName] as HelperFunction | undefined;
 
                     if (typeof helper === 'function') {
                         // Get the value from scope
@@ -75,7 +101,8 @@ export class TemplateParser {
     async render({ templatePath, templateBuffer, data }: TemplateParserOptions): Promise<Buffer> {
         try {
             // Read template file (or use provided buffer)
-            const content = templateBuffer || (await fs.readFile(templatePath, 'binary'));
+            // eslint-disable-next-line security/detect-non-literal-fs-filename
+            const content = templateBuffer ?? (await fs.readFile(templatePath, 'binary'));
             const zip = new PizZip(content);
 
             // Merge data with helpers for template use (top-level access)
@@ -89,7 +116,8 @@ export class TemplateParser {
                 paragraphLoop: true,
                 linebreaks: true,
                 delimiters: { start: '{{', end: '}}' },
-                nullGetter: () => '',
+                nullGetter: (): string => '',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
                 parser: ((tag: string) => this.createExpressionParser(tag)) as any,
             });
 
@@ -98,8 +126,8 @@ export class TemplateParser {
 
             try {
                 doc.render();
-            } catch (error: any) {
-                this.handleRenderError(error);
+            } catch (error: unknown) {
+                this.handleRenderError(error as RenderError);
             }
 
             // Generate output buffer
@@ -108,40 +136,42 @@ export class TemplateParser {
                 compression: 'DEFLATE',
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const renderErr = error as RenderError;
             // Log the raw error for debugging
-            logger.error({ error, props: error.properties }, 'Template rendering raw error');
+            logger.error({ error: renderErr, props: renderErr.properties }, 'Template rendering raw error');
 
-            if (error.code && error.status) { throw error; } // Re-throw known errors
+            if (renderErr.code !== undefined && renderErr.status !== undefined) { throw renderErr; } // Re-throw known errors
 
             // If it's a MultiError from docxtemplater that wasn't caught by handleRenderError
-            if (error.properties?.errors) {
-                const errorDetails = error.properties.errors
-                    .map((err: any) => `${err.name}: ${err.message}`)
-                    .join(' | ');
-                throw createError.internal(`Template syntax error: ${errorDetails}`);
+            if (renderErr.properties?.errors !== undefined) {
+                const errorDetails = renderErr.properties.errors
+                    .map((err: DocxtemplaterError) => `${err.name ?? 'Error'}: ${err.message ?? 'Unknown'}`)
+                    .join(ERROR_SEPARATOR);
+                throw createError.internal(`${TEMPLATE_SYNTAX_ERROR_PREFIX}${errorDetails}`);
             }
 
-            throw createError.internal(`Template rendering failed: ${error.message}`);
+            throw createError.internal(`Template rendering failed: ${renderErr.message ?? 'Unknown error'}`);
         }
     }
 
-    private handleRenderError(error: any) {
-        logger.error({ error, errors: error.properties?.errors }, 'Docxtemplater render error');
+    private handleRenderError(error: RenderError): void {
+        const errors = error.properties?.errors;
+        logger.error({ error, errors }, 'Docxtemplater render error');
 
-        if (error.properties?.errors) {
-            const errorDetails = error.properties.errors
-                .map((err: any) => {
-                    const parts = [err.name];
-                    if (err.message) { parts.push(err.message); }
-                    if (err.properties?.id) { parts.push(`at ${err.properties.id}`); }
-                    if (err.properties?.explanation) { parts.push(`(${err.properties.explanation})`); }
-                    return parts.join(': ');
+        if (errors !== undefined) {
+            const errorDetails = errors
+                .map((err: DocxtemplaterError) => {
+                    const detailParts: string[] = [err.name ?? 'Error'];
+                    if (err.message !== undefined) { detailParts.push(err.message); }
+                    if (err.properties?.id !== undefined) { detailParts.push(`at ${err.properties.id}`); }
+                    if (err.properties?.explanation !== undefined) { detailParts.push(`(${err.properties.explanation})`); }
+                    return detailParts.join(': ');
                 })
-                .join(' | ');
+                .join(ERROR_SEPARATOR);
 
-            throw createError.internal(`Template syntax error: ${errorDetails}`, {
-                errors: error.properties.errors,
+            throw createError.internal(`${TEMPLATE_SYNTAX_ERROR_PREFIX}${errorDetails}`, {
+                errors,
             });
         }
         throw error;

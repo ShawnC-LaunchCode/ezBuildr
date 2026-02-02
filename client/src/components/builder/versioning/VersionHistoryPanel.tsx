@@ -1,7 +1,7 @@
 
 import { format } from "date-fns";
 import { Loader2, GitCommit, RotateCcw, FileDiff, Sparkles } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

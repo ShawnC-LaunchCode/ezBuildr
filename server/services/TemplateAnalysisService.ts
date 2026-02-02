@@ -186,7 +186,7 @@ function extractAllPlaceholders(text: string): PlaceholderInfo[] {
 
       if (['if', 'unless'].includes(controlType)) {
         // Conditional
-        const varName = parts[1] || '';
+        const varName = parts[1] ?? '';
         placeholders.push({
           name: varName,
           type: 'conditional',
@@ -194,7 +194,7 @@ function extractAllPlaceholders(text: string): PlaceholderInfo[] {
         } as PlaceholderInfo);
       } else if (['each', 'for'].includes(controlType)) {
         // Loop with explicit keyword
-        const varName = parts[1] || '';
+        const varName = parts[1] ?? '';
         loopStack.push({ name: varName, depth: currentDepth });
         placeholders.push({
           name: varName,

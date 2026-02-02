@@ -1,5 +1,5 @@
 import { Loader2, Sparkles, Send, Check, X } from "lucide-react";
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,21 +10,32 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
 
+import type { WorkflowDiff, AIGeneratedWorkflow, WorkflowChange } from "@shared/types/ai";
+
 import { AIFeedbackWidget, QualityScore } from "./AIFeedbackWidget";
+
 interface Message {
     role: 'user' | 'assistant';
     content: string;
-    diff?: any; // Structured diff if available
+    diff?: WorkflowDiff; // Structured diff if available
     timestamp: number;
     status?: 'pending' | 'applied' | 'discarded';
     qualityScore?: QualityScore;
 }
+
+interface OperationMeta {
+    aiProvider?: string;
+    aiModel?: string;
+    requestDescription?: string;
+}
+
 interface AIAssistPanelProps {
     workflowId: string;
-    currentWorkflow: any;
+    currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>;
     isOpen: boolean;
     onClose: () => void;
 }
+
 export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: AIAssistPanelProps) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
@@ -34,10 +45,10 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             timestamp: Date.now()
         }
     ]);
-    const [proposedWorkflow, setProposedWorkflow] = useState<any>(null);
+    const [proposedWorkflow, setProposedWorkflow] = useState<AIGeneratedWorkflow | Record<string, unknown> | null>(null);
     const [showFeedbackWidget, setShowFeedbackWidget] = useState(false);
     const [lastQualityScore, setLastQualityScore] = useState<QualityScore | undefined>(undefined);
-    const [lastOperationMeta, setLastOperationMeta] = useState<any>(null);
+    const [lastOperationMeta, setLastOperationMeta] = useState<OperationMeta | null>(null);
     const [inspirationIndex, setInspirationIndex] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -57,11 +68,13 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
         "Great workflows don't just save time, they create possibilities.",
         "Think of this as building the future, one question at a time."
     ];
+
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
     // Rotate inspirational phrases while AI is thinking
     useEffect(() => {
         if (reviseMutation.isPending) {
@@ -71,24 +84,29 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             return () => clearInterval(interval);
         }
     }, [reviseMutation.isPending, inspirationalPhrases.length]);
+
     const handleSend = async () => {
         if (!input.trim()) { return; }
+
         const userMsg: Message = { role: 'user', content: input, timestamp: Date.now() };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setProposedWorkflow(null); // Clear previous proposal if any
+
         try {
             // Convert messages to history format
             const history = messages
                 .filter(m => !m.diff)
                 .map(m => ({ role: m.role, content: m.content }));
+
             const result = await reviseMutation.mutateAsync({
                 workflowId,
-                currentWorkflow,
+                currentWorkflow: currentWorkflow as AIGeneratedWorkflow,
                 userInstruction: userMsg.content,
                 conversationHistory: history,
                 mode: mode
             });
+
             // Capture quality score if available
             const qualityScore = result.quality;
             if (qualityScore) {
@@ -99,9 +117,11 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                     requestDescription: userMsg.content,
                 });
             }
+
             // NOTE: Backend now auto-applies changes (Option B implementation)
             // Backend returns metadata.applied: true when changes are persisted
             const backendApplied = result.metadata?.applied === true;
+
             if (backendApplied) {
                 // Backend already applied changes - show as applied
                 const assistantMsg: Message = {
@@ -136,10 +156,11 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 setMessages(prev => [...prev, assistantMsg]);
                 setProposedWorkflow(result.updatedWorkflow);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `Sorry, I encountered an error: ${error.message}`,
+                content: `Sorry, I encountered an error: ${errorMessage}`,
                 timestamp: Date.now()
             }]);
         }
@@ -237,7 +258,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                                             <Badge variant="outline" className="text-[10px]">{msg.diff.changes.length} changes</Badge>
                                         </div>
                                         <ul className="space-y-1 mb-3">
-                                            {msg.diff.changes.map((change: any, i: number) => (
+                                            {msg.diff.changes.map((change: WorkflowChange, i: number) => (
                                                 <li key={i} className="text-xs flex gap-2">
                                                     <Badge variant={change.type === 'add' ? 'default' : change.type === 'remove' ? 'destructive' : 'secondary'} className="h-5 px-1 text-[10px] capitalize shrink-0">
                                                         {change.type}

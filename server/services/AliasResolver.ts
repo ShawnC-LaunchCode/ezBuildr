@@ -123,7 +123,7 @@ export class AliasResolver {
     const resolver = new AliasResolver();
     const allSteps: StepWithAlias[] = [];
 
-    for (const section of workflow.sections || []) {
+    for (const section of workflow.sections ?? []) {
       // Add section to resolver
       if (section.id) {
         resolver.aliasToId.set(section.id, section.id);

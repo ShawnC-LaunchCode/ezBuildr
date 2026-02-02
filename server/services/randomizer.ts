@@ -4,8 +4,8 @@ export class RandomizerService {
     /**
      * Generate random data for a list of questions
      */
-    static generateData(questions: QuestionNodeConfig[]): Record<string, any> {
-        const data: Record<string, any> = {};
+    static generateData(questions: QuestionNodeConfig[]): Record<string, unknown> {
+        const data: Record<string, unknown> = {};
 
         for (const config of questions) {
             if (!config.key) {continue;}
@@ -18,7 +18,7 @@ export class RandomizerService {
     /**
      * Generate a single random value based on config
      */
-    private static generateValue(config: QuestionNodeConfig): any {
+    private static generateValue(config: QuestionNodeConfig): unknown {
         switch (config.questionType) {
             case 'text':
                 return this.randomString();
@@ -36,6 +36,7 @@ export class RandomizerService {
                 if (config.options && config.options.length > 0) {
                     // Return 1 or 2 options
                     const opts = [...config.options].sort(() => 0.5 - Math.random());
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- QuestionNodeConfig.options values are untyped
                     return opts.slice(0, 1 + Math.floor(Math.random() * 2)).map(o => o.value);
                 }
                 return ['option_1'];

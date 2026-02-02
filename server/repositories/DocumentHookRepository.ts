@@ -113,7 +113,7 @@ export class DocumentHookRepository extends BaseRepository<
       .where(eq(documentHooks.id, hookId))
       .limit(1);
 
-    return hooks[0] || null;
+    return hooks[0] ?? null;
   }
 }
 

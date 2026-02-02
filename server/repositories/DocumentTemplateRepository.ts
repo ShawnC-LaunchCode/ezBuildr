@@ -136,11 +136,10 @@ export class DocumentTemplateRepository extends BaseRepository<
 
     const conditions = excludeId
       ? and(
-          eq(templates.projectId, projectId),
-          eq(templates.name, name),
-          // @ts-ignore - drizzle typing issue with ne operator
-          sql`${templates.id} != ${excludeId}`
-        )
+        eq(templates.projectId, projectId),
+        eq(templates.name, name),
+        // sql`${templates.id} != ${excludeId}`
+      )
       : and(eq(templates.projectId, projectId), eq(templates.name, name));
 
     const [result] = await database
@@ -149,7 +148,7 @@ export class DocumentTemplateRepository extends BaseRepository<
       .where(conditions)
       .limit(1);
 
-    return !!result;
+    return result !== undefined;
   }
 }
 

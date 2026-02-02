@@ -33,13 +33,13 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
   React.useEffect(() => {
     if (branding) {
       setFormData({
-        logoUrl: branding.logoUrl || '',
+        logoUrl: branding.logoUrl ?? '',
         primaryColor: branding.primaryColor || '#000000',
         accentColor: branding.accentColor || '#0066cc',
-        darkModeEnabled: branding.darkModeEnabled || false,
-        intakeHeaderText: branding.intakeHeaderText || '',
-        emailSenderName: branding.emailSenderName || '',
-        emailSenderAddress: branding.emailSenderAddress || '',
+        darkModeEnabled: branding.darkModeEnabled ?? false,
+        intakeHeaderText: branding.intakeHeaderText ?? '',
+        emailSenderName: branding.emailSenderName ?? '',
+        emailSenderAddress: branding.emailSenderAddress ?? '',
       });
     }
   }, [branding]);
@@ -76,7 +76,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Logo URL</label>
           <input
             type="url"
-            value={formData.logoUrl || ''}
+            value={formData.logoUrl ?? ''}
             onChange={(e) => { void setFormData({ ...formData, logoUrl: e.target.value }); }}
             placeholder="https://example.com/logo.png"
             className="w-full px-3 py-2 border rounded"
@@ -109,7 +109,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
         <div className="flex items-center">
           <input
             type="checkbox"
-            checked={formData.darkModeEnabled || false}
+            checked={formData.darkModeEnabled ?? false}
             onChange={(e) => { void setFormData({ ...formData, darkModeEnabled: e.target.checked }); }}
             className="mr-2"
           />
@@ -121,7 +121,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Intake Portal Header Text</label>
           <input
             type="text"
-            value={formData.intakeHeaderText || ''}
+            value={formData.intakeHeaderText ?? ''}
             onChange={(e) => { void setFormData({ ...formData, intakeHeaderText: e.target.value }); }}
             placeholder="Welcome to our workflow"
             className="w-full px-3 py-2 border rounded"
@@ -134,7 +134,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Email Sender Name</label>
           <input
             type="text"
-            value={formData.emailSenderName || ''}
+            value={formData.emailSenderName ?? ''}
             onChange={(e) => { void setFormData({ ...formData, emailSenderName: e.target.value }); }}
             placeholder="VaultLogic Team"
             className="w-full px-3 py-2 border rounded"
@@ -147,7 +147,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Email Sender Address</label>
           <input
             type="email"
-            value={formData.emailSenderAddress || ''}
+            value={formData.emailSenderAddress ?? ''}
             onChange={(e) => { void setFormData({ ...formData, emailSenderAddress: e.target.value }); }}
             placeholder="noreply@yourdomain.com"
             className="w-full px-3 py-2 border rounded"

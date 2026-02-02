@@ -10,8 +10,6 @@
 
 import { db } from '../db';
 import { logger } from '../logger';
-
-// Import repositories
 import {
   userRepository,
   projectRepository,
@@ -23,8 +21,6 @@ import {
   logicRuleRepository,
   blockRepository,
   transformBlockRepository,
-
-
   systemStatsRepository,
   teamRepository,
   projectAccessRepository,
@@ -33,8 +29,6 @@ import {
   datavaultTablesRepository,
   datavaultRowsRepository,
 } from '../repositories';
-
-// Import services
 import { ProjectService } from '../services/ProjectService';
 import { RunService } from '../services/RunService';
 import { WorkflowService } from '../services/WorkflowService';
@@ -188,7 +182,7 @@ function registerServices(): void {
   // In the future, we can refactor to resolve all dependencies from container
   container.register(
     tokens.SERVICE_WORKFLOW,
-    (c) => {
+    (_c) => {
       // Example of dependency resolution (currently using defaults)
       // In a full migration, we would resolve all dependencies:
       // const workflowRepo = c.resolve(tokens.REPOSITORY_WORKFLOW);
@@ -202,7 +196,7 @@ function registerServices(): void {
   // RunService (singleton)
   container.register(
     tokens.SERVICE_RUN,
-    (c) => {
+    (_c) => {
       return new RunService();
     },
     'singleton'
@@ -211,7 +205,7 @@ function registerServices(): void {
   // ProjectService (singleton)
   container.register(
     tokens.SERVICE_PROJECT,
-    (c) => {
+    (_c) => {
       return new ProjectService();
     },
     'singleton'

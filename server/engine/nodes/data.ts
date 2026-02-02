@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
+import type { DatavaultRow } from '@shared/schema';
+
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
 import { evaluateExpression } from '../expr';
 
@@ -8,6 +10,35 @@ import type { EvalContext } from '../expr';
 // ==========================================
 // QUERY NODE
 // ==========================================
+
+/** Reusable status literals */
+const STATUS_EXECUTED = 'executed';
+const STATUS_SKIPPED = 'skipped';
+const STATUS_ERROR = 'error';
+
+/** Reusable error message string */
+const UNKNOWN_ERROR_MSG = 'Unknown error';
+
+/** Row ID required error messages */
+const ROW_ID_REQUIRED_DELETE = 'Row ID required for delete';
+const ROW_ID_REQUIRED_UPDATE = 'Row ID required for update';
+
+/** Type for a flat row produced by query operations */
+type FlatRow = {
+    id: string;
+    createdAt: Date | null;
+    updatedAt: Date | null;
+    [key: string]: unknown;
+};
+
+/** Type for preview write entries */
+interface PreviewWrite {
+    deleted?: boolean;
+    data?: Record<string, unknown>;
+}
+
+/** Type for preview writes map: tableId -> rowId -> PreviewWrite */
+type PreviewWritesMap = Record<string, Record<string, PreviewWrite>>;
 
 export interface QueryNodeConfig {
     tableId: string;
@@ -32,20 +63,19 @@ export interface QueryNodeInput {
 export interface QueryNodeOutput {
     status: 'executed' | 'skipped' | 'error';
     varName?: string;
-    varValue?: any;
+    varValue?: unknown;
     skipReason?: string;
     error?: string;
-    sideEffects?: Record<string, any>;
+    sideEffects?: Record<string, unknown>;
 }
 
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- Data query with filtering, caching, and preview overlay is inherently complex
 export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNodeOutput> {
-    const { nodeId, config, context, tenantId } = input;
+    const { config, context } = input;
 
     try {
-        if (config.condition) {
-            if (!evaluateExpression(config.condition, context)) {
-                return { status: 'skipped', skipReason: 'condition false' };
-            }
+        if (config.condition !== undefined && config.condition !== null && config.condition !== '' && !evaluateExpression(config.condition, context)) {
+            return { status: STATUS_SKIPPED, skipReason: 'condition false' };
         }
 
         // Optimization: Resolve filter values ONCE before iterating rows
@@ -67,12 +97,12 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
             mode: context.executionMode
         });
 
-        if (context.cache?.queries.has(cacheKey)) {
-            const cachedResult = context.cache.queries.get(cacheKey);
+        if (context.cache?.queries.has(cacheKey) === true) {
+            const cachedResult: unknown = context.cache.queries.get(cacheKey);
             // Store outcome in vars (side effect of execution)
             context.vars[config.outputKey] = cachedResult;
             return {
-                status: 'executed',
+                status: STATUS_EXECUTED,
                 varName: config.outputKey,
                 varValue: cachedResult,
                 skipReason: 'cached' // Informational
@@ -91,7 +121,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
         });
 
         // 2. Format as simple objects (combining row metadata + values)
-        let flatRows = rows.map(r => ({
+        let flatRows: FlatRow[] = rows.map(r => ({
             id: r.row.id,
             createdAt: r.row.createdAt,
             updatedAt: r.row.updatedAt,
@@ -99,22 +129,22 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
         }));
 
         // 3. Overlay Preview Writes
-        if (context.executionMode === 'preview' && context.writes) {
-            const tableWrites = context.writes[config.tableId] || {};
+        if (context.executionMode === 'preview' && context.writes !== undefined && context.writes !== null) {
+            const writes = context.writes as PreviewWritesMap;
+            const tableWrites: Record<string, PreviewWrite> = writes[config.tableId] ?? {};
 
             // Apply updates/creates/deletes
             // tableWrites is Record<rowId, { deleted?: boolean, data?: object }>
 
             // First, map existing rows by ID for easy access
-            const rowMap = new Map(flatRows.map(r => [r.id, r]));
+            const rowMap = new Map<string, FlatRow>(flatRows.map(r => [r.id, r]));
 
-            for (const [rowId, writeVal] of Object.entries(tableWrites)) {
-                const write = writeVal as any;
-                if (write.deleted) {
+            for (const [rowId, write] of Object.entries(tableWrites)) {
+                if (write.deleted === true) {
                     rowMap.delete(rowId);
                 } else {
                     // Update or Create
-                    const existing = rowMap.get(rowId) || { id: rowId, createdAt: new Date() };
+                    const existing: FlatRow = rowMap.get(rowId) ?? { id: rowId, createdAt: new Date(), updatedAt: null };
                     rowMap.set(rowId, { ...existing, ...write.data, updatedAt: new Date() });
                 }
             }
@@ -148,7 +178,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
             flatRows = flatRows.slice(0, config.limit);
         }
 
-        const result = config.singleRow ? (flatRows[0] || null) : flatRows;
+        const result = config.singleRow ? (flatRows[0] ?? null) : flatRows;
 
         // Store outcome
         context.vars[config.outputKey] = result;

@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Lock, Zap, Settings, Trash2 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UI_LABELS } from "@/lib/labels";
+import { Mode } from "@/lib/mode";
 import { cn } from "@/lib/utils";
+import { ApiSection, ApiStep, ApiBlock } from "@/lib/vault-api";
 import { useSections, useSteps, useCreateSection, useCreateStep, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
@@ -40,26 +42,28 @@ import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
+
+
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
   const { data: transformBlocks } = useTransformBlocks(workflowId);
-  const mode = workflow?.modeOverride || 'easy';
+  const mode: Mode = (workflow?.modeOverride as Mode) || 'easy';
   const { data: blocks } = useBlocks(workflowId);
   const createSectionMutation = useCreateSection();
   const createStepMutation = useCreateStep();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
-  const [editingSection, setEditingSection] = useState<any>(null);
+  const [editingSection, setEditingSection] = useState<ApiSection | null>(null);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
   const [isSectionSettingsOpen, setIsSectionSettingsOpen] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
   const [showSnipDialog, setShowSnipDialog] = useState(false);
   // Group blocks by section
-  const blocksBySection = (blocks || []).reduce((acc: Record<string, any[]>, block: any) => {
+  const blocksBySection = (blocks ?? []).reduce((acc: Record<string, ApiBlock[]>, block: ApiBlock) => {
     if (block.sectionId) {
       if (!acc[block.sectionId]) { acc[block.sectionId] = []; }
-      acc[block.sectionId].push({ ...block, source: 'regular' });
+      acc[block.sectionId].push(block);
     }
     return acc;
   }, {});
@@ -186,7 +190,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
               isExpanded={expandedSections.has(section.id)}
               onToggle={() => toggleSection(section.id)}
               mode={mode}
-              blocks={blocksBySection[section.id] || []}
+              blocks={blocksBySection[section.id] ?? []}
               onEditBlock={(rawBlock) => {
                 // Transform raw block to UniversalBlock format
                 const universalBlock: UniversalBlock = {
@@ -195,9 +199,9 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
                   phase: rawBlock.phase,
                   order: rawBlock.order,
                   enabled: rawBlock.enabled,
-                  raw: rawBlock,
+                  raw: rawBlock as unknown as Record<string, unknown>,
                   source: 'regular',
-                  title: rawBlock.name || undefined,
+                  title: undefined,
                   displayType: rawBlock.type,
                 };
                 setEditingBlock(universalBlock);
@@ -215,7 +219,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       <BlockEditorDialog
         workflowId={workflowId}
         block={editingBlock}
-        mode={mode as any}
+        mode={mode}
         isOpen={isBlockEditorOpen}
         onClose={() => {
           setIsBlockEditorOpen(false);
@@ -231,7 +235,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
           setIsSectionSettingsOpen(false);
           setEditingSection(null);
         }}
-        mode={mode as any}
+        mode={mode}
       />
       <AiAssistantDialog
         workflowId={workflowId}
@@ -256,13 +260,13 @@ function SectionItem({
   onEditBlock,
   onEditSection,
 }: {
-  section: any;
+  section: ApiSection;
   workflowId: string;
   isExpanded: boolean;
   onToggle: () => void;
-  mode: string;
-  blocks: any[];
-  onEditBlock: (block: any) => void;
+  mode: Mode;
+  blocks: ApiBlock[];
+  onEditBlock: (block: ApiBlock) => void;
   onEditSection: () => void;
 }) {
   const { data: steps } = useSteps(section.id);
@@ -271,11 +275,11 @@ function SectionItem({
   const { selection, selectSection } = useWorkflowBuilder();
   const isSelected = selection?.type === "section" && selection.id === section.id;
   // Check if this is a Final Documents section
-  const isFinalSection = (section.config)?.finalBlock === true;
+  const isFinalSection = (section.config as Record<string, unknown> | undefined)?.finalBlock === true;
   // Don't show page-level required pill based on questions - only show if page is conditional
   const isPageConditional = !!section.visibleIf;
-  const handleCreateStep = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+
+  const createStep = async () => {
     // Prevent adding questions to Final Documents sections
     if (isFinalSection) {
       return;
@@ -293,6 +297,11 @@ function SectionItem({
       config: {},
     });
     if (!isExpanded) { onToggle(); }
+  };
+
+  const handleCreateStep = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await createStep();
   };
   const handleCreateLogicBlock = async (type: "write" | "read_table" | "list_tools" | "external_send") => {
     const order = blocks?.length || 0;
@@ -396,7 +405,7 @@ function SectionItem({
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => { void handleCreateStep(new MouseEvent('click') as any); }}
+              onClick={() => { void createStep(); }}
               title="Add Question"
             >
               <Plus className="h-3 w-3" />
@@ -452,7 +461,7 @@ function SectionItem({
       {isExpanded && (
         <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
           {/* Top Blocks (Prefill/Enter) */}
-          {topBlocks.map((block: any) => (
+          {topBlocks.map((block) => (
             <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
           ))}
           {/* Steps */}
@@ -470,7 +479,7 @@ function SectionItem({
                 <StepItem key={step.id} step={step} sectionId={section.id} />
               ))}
           {/* Bottom Blocks (Submit/Next) */}
-          {bottomBlocks.map((block: any) => (
+          {bottomBlocks.map((block) => (
             <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
           ))}
         </div>
@@ -478,7 +487,7 @@ function SectionItem({
     </div>
   );
 }
-function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
+function StepItem({ step, sectionId }: { step: ApiStep; sectionId: string }) {
   const { selection, selectStep } = useWorkflowBuilder();
   const deleteStepMutation = useDeleteStep();
   const isSelected = selection?.type === "step" && selection.id === step.id;
@@ -520,7 +529,7 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
           </div>
         )}
       </div>
-      {step.visibleIf && (
+      {step.visibleIf !== null && step.visibleIf !== undefined && (
         <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium shrink-0 mt-0.5">
           Cond
         </Badge>
@@ -540,13 +549,14 @@ function StepItem({ step, sectionId }: { step: any; sectionId: string }) {
     </div>
   );
 }
-function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: any, mode: string, onEdit: () => void, workflowId: string }) {
+function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: ApiBlock, mode: Mode, onEdit: () => void, workflowId: string }) {
   // Unlock editing for supported blocks in Easy Mode
   const isEditableInEasyMode = ['read_table', 'write', 'send_table', 'external_send', 'list_tools', 'query'].includes(block.type);
   const isLocked = mode === 'easy' && !isEditableInEasyMode;
   const deleteBlockMutation = useDeleteBlock();
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // eslint-disable-next-line no-alert
     if (confirm("Are you sure you want to delete this block?")) {
       deleteBlockMutation.mutate({ id: block.id, workflowId });
     }

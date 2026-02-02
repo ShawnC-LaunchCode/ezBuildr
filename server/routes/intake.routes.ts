@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import fs from "fs/promises";
 import path from "path";
 
 import multer from "multer";
@@ -16,7 +15,7 @@ import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "intake-routes" });
 // Configure multer for file uploads
 const upload = multer({
-  dest: process.env.UPLOAD_DIR || "./uploads/intake",
+  dest: process.env.UPLOAD_DIR ?? "./uploads/intake",
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
@@ -53,6 +52,7 @@ const submitRunSchema = z.object({
  * Register intake portal routes
  * Public routes for workflow execution via slug
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerIntakeRoutes(app: Express): void {
   /**
    * GET /intake/workflows/:slug/published
@@ -89,6 +89,7 @@ export function registerIntakeRoutes(app: Express): void {
    * Generate a new CAPTCHA challenge
    * Stage 12.5: Simple math CAPTCHA
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   app.get('/intake/captcha/challenge', asyncHandler(async (req: Request, res: Response) => {
     try {
       const challenge = CaptchaService.generateSimpleChallenge();
@@ -208,7 +209,7 @@ export function registerIntakeRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const { type } = req.query;
-      if (!type || (type !== 'docx' && type !== 'pdf')) {
+      if (type === undefined || (type !== 'docx' && type !== 'pdf')) {
         res.status(400).json({
           success: false,
           error: "Invalid or missing type parameter (must be 'docx' or 'pdf')",
@@ -241,6 +242,7 @@ export function registerIntakeRoutes(app: Express): void {
    * Upload file for intake form
    * Multipart form data
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   app.post('/intake/upload', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
     try {
       if (!req.file) {

@@ -3,10 +3,12 @@
  * Editor for website/URL blocks
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -14,6 +16,7 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 
 import type { WebsiteConfig } from "@/../../shared/types/stepConfigs";
@@ -29,13 +32,13 @@ export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepE
   const config = step.config as WebsiteConfig | undefined;
 
   const [localConfig, setLocalConfig] = useState<WebsiteCardState>({
-    requireProtocol: config?.requireProtocol || false,
+    requireProtocol: config?.requireProtocol ?? false,
     validate: true, // Always validate in easy mode
   });
 
   useEffect(() => {
     setLocalConfig({
-      requireProtocol: config?.requireProtocol || false,
+      requireProtocol: config?.requireProtocol ?? false,
       validate: true,
     });
   }, [step.config, config]);
@@ -124,7 +127,7 @@ export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepE
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

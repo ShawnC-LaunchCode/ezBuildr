@@ -6,7 +6,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "wouter";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
@@ -165,7 +165,7 @@ export default function TableViewPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>(undefined);
 
   // Filters from Zustand store - use direct access to avoid creating new array references
-  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId || ""] ?? EMPTY_FILTERS);
+  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId ?? ""] ?? EMPTY_FILTERS);
   const apiFilters = filters.map((f) => ({
     columnId: f.columnId,
     operator: f.operator,
@@ -515,7 +515,7 @@ export default function TableViewPage() {
                           </div>
                         ) : (
                           <>
-                            <FilterPanel tableId={tableId} columns={columns || []} />
+                            <FilterPanel tableId={tableId} columns={columns ?? []} />
                             <BulkActionsToolbar
                               selectedCount={selectedRowIds.size}
                               onClearSelection={() => setSelectedRowIds(new Set())}
@@ -525,7 +525,7 @@ export default function TableViewPage() {
                             />
                             <InfiniteDataGrid
                               tableId={tableId}
-                              columns={columns || []}
+                              columns={columns ?? []}
                               showArchived={showArchived}
                               sortBy={sortBy}
                               sortOrder={sortOrder}
@@ -548,7 +548,7 @@ export default function TableViewPage() {
 
                   <TabsContent value="columns" className="mt-6">
                     <ColumnManagerWithDnd
-                      columns={columns || []}
+                      columns={columns ?? []}
                       tableId={tableId}
                       onAddColumn={handleAddColumn}
                       onUpdateColumn={handleUpdateColumn}
@@ -588,7 +588,7 @@ export default function TableViewPage() {
       <RowEditorModal
         open={rowEditorOpen}
         onOpenChange={setRowEditorOpen}
-        columns={columns || []}
+        columns={columns ?? []}
         onSubmit={handleAddRow}
         isLoading={isRowMutating}
         mode="add"
@@ -598,7 +598,7 @@ export default function TableViewPage() {
       <RowEditorModal
         open={!!editingRow}
         onOpenChange={() => setEditingRow(null)}
-        columns={columns || []}
+        columns={columns ?? []}
         initialValues={editingRow?.values || {}}
         onSubmit={handleUpdateRow}
         isLoading={isRowMutating}
@@ -655,9 +655,9 @@ export default function TableViewPage() {
       <MoveTableModal
         open={moveTableOpen}
         onOpenChange={setMoveTableOpen}
-        tableName={table?.name || ""}
-        currentDatabaseId={table?.databaseId || null}
-        databases={databases || []}
+        tableName={table?.name ?? ""}
+        currentDatabaseId={table?.databaseId ?? null}
+        databases={databases ?? []}
         onMove={handleMoveTable}
         isLoading={moveTableMutation.isPending}
       />

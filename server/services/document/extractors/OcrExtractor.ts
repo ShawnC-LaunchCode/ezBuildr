@@ -43,13 +43,15 @@ export class OcrExtractor implements IPdfExtractor {
   readonly name = 'ocr';
   readonly priority = 3; // Last resort
 
-  async canHandle(buffer: Buffer): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async canHandle(_buffer: Buffer): Promise<boolean> {
     // OCR can technically handle any PDF, but it's slow
     // Only use as last resort when other extractors fail
     return true;
   }
 
-  async extract(buffer: Buffer): Promise<ExtractionResult> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async extract(_buffer: Buffer): Promise<ExtractionResult> {
     logger.info(
       { extractor: this.name },
       'OCR extractor is not yet implemented - install tesseract.js and implement this method'
@@ -101,7 +103,8 @@ export class OcrExtractor implements IPdfExtractor {
   /**
    * Convert PDF to images (one per page)
    */
-  private async pdfToImages(buffer: Buffer): Promise<Buffer[]> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  private async pdfToImages(_buffer: Buffer): Promise<Buffer[]> {
     // TODO: Implement using pdf-poppler or similar
     return [];
   }

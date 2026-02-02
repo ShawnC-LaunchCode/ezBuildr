@@ -8,7 +8,6 @@ import {
   type DatavaultRow,
   type InsertDatavaultRow,
   type DatavaultValue,
-  type InsertDatavaultValue,
 } from "@shared/schema";
 
 import { db } from "../db";
@@ -32,6 +31,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    * Find rows by table ID with pagination, filtering, sorting, and archive support
    * Supports sorting by row fields (createdAt, updatedAt) or column values (by slug)
    */
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- accesses DB via this.getDb indirectly
   async findByTableId(
     tableId: string,
     options?: {
@@ -64,11 +64,11 @@ export class DatavaultRowsRepository extends BaseRepository<
           )
         )
         .limit(1);
-      if (column) {
+      if (column !== undefined) {
         // Sort by column value using a subquery join
         // Use left join so rows without values for this column still appear
-        const limit = options?.limit || 100;
-        const offset = options?.offset || 0;
+        const limit = options?.limit ?? 100;
+        const offset = options?.offset ?? 0;
         const rows = await database
           .select({
             id: datavaultRows.id,
@@ -96,22 +96,22 @@ export class DatavaultRowsRepository extends BaseRepository<
       // If column not found, fall through to default sorting
     }
     // Sorting by row fields (createdAt, updatedAt) or default
-    let query = database
+    const baseQuery = database
       .select()
       .from(datavaultRows)
       .where(and(...whereConditions));
+    let sortedQuery;
     if (options?.sortBy === 'createdAt') {
-      query = query.orderBy(sortDir(datavaultRows.createdAt)) as any;
+      sortedQuery = baseQuery.orderBy(sortDir(datavaultRows.createdAt));
     } else if (options?.sortBy === 'updatedAt') {
-      query = query.orderBy(sortDir(datavaultRows.updatedAt)) as any;
+      sortedQuery = baseQuery.orderBy(sortDir(datavaultRows.updatedAt));
     } else {
-      query = query.orderBy(asc(datavaultRows.createdAt)) as any; // Default ascending order
+      sortedQuery = baseQuery.orderBy(asc(datavaultRows.createdAt)); // Default ascending order
     }
     // Offset-based pagination
-    const limit = options?.limit || 100;
-    const offset = options?.offset || 0;
-    query = query.limit(limit).offset(offset) as any;
-    return query;
+    const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
+    return sortedQuery.limit(limit).offset(offset);
   }
   /**
    * Count rows for a table
@@ -122,7 +122,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultRows)
       .where(eq(datavaultRows.tableId, tableId));
-    return result?.count || 0;
+    return result?.count ?? 0;
   }
   /**
    * Get row with all its values
@@ -156,7 +156,7 @@ export class DatavaultRowsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<Array<{
     row: DatavaultRow;
-    values: Record<string, any>; // columnId -> value
+    values: Record<string, unknown>; // columnId -> value
   }>> {
     const database = this.getDb(tx);
     // Get rows (with sorting and archive filtering)
@@ -169,17 +169,17 @@ export class DatavaultRowsRepository extends BaseRepository<
       .from(datavaultValues)
       .where(inArray(datavaultValues.rowId, rowIds));
     // Group values by row
-    const valuesByRow = allValues.reduce((acc: Record<string, Record<string, any>>, value: any) => {
-      if (!acc[value.rowId]) {
+    const valuesByRow = allValues.reduce<Record<string, Record<string, unknown>>>((acc, value: DatavaultValue) => {
+      if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
       acc[value.rowId][value.columnId] = value.value;
       return acc;
-    }, {} as Record<string, Record<string, any>>);
+    }, {});
     // Combine rows with their values
     return rows.map((row) => ({
       row,
-      values: valuesByRow[row.id] || {},
+      values: valuesByRow[row.id] ?? {},
     }));
   }
   /**
@@ -187,7 +187,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    */
   async createRowWithValues(
     rowData: InsertDatavaultRow,
-    values: Array<{ columnId: string; value: any }>,
+    values: Array<{ columnId: string; value: unknown }>,
     tx?: DbTransaction
   ): Promise<{ row: DatavaultRow; values: DatavaultValue[] }> {
     const database = this.getDb(tx);
@@ -219,7 +219,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    */
   async updateRowValues(
     rowId: string,
-    values: Array<{ columnId: string; value: any }>,
+    values: Array<{ columnId: string; value: unknown }>,
     updatedBy?: string,
     tx?: DbTransaction
   ): Promise<void> {
@@ -258,11 +258,14 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
     const results = await database.execute(
       sql`SELECT * FROM datavault_is_row_referenced(${rowId}::UUID)`
-    ) as unknown as {
+    ) as unknown as Array<{
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
       referencing_table_id: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
       referencing_column_id: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
       reference_count: string;
-    }[];
+    }>;
     return results.map(r => ({
       referencingTableId: r.referencing_table_id,
       referencingColumnId: r.referencing_column_id,
@@ -350,10 +353,12 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
     // Use PostgreSQL function to get next value from sequence
     // This is atomic and prevents race conditions
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Drizzle execute returns untyped result
     const res = await database.execute(
       sql`SELECT datavault_get_next_auto_number(${tableId}::UUID, ${columnId}::UUID, ${startValue}::INTEGER) as next_value`
     );
-    const result = Array.isArray(res) ? res[0] : (res)?.rows?.[0] || res;
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
+    const result = Array.isArray(res) ? (res[0] as { next_value?: number } | undefined) : ((res as unknown as { rows?: Array<{ next_value?: number }> })?.rows?.[0] ?? (res as unknown as { next_value?: number }));
     return result?.next_value ?? startValue;
   }
   /**
@@ -378,32 +383,40 @@ export class DatavaultRowsRepository extends BaseRepository<
     tenantId: string,
     tableId: string,
     columnId: string,
-    prefix: string | null = null,
-    padding: number = 4,
-    resetPolicy: 'never' | 'yearly' = 'never',
-    format: string | null = null,
-    tx?: DbTransaction
+    options?: {
+      prefix?: string | null;
+      padding?: number;
+      resetPolicy?: 'never' | 'yearly';
+      format?: string | null;
+      tx?: DbTransaction;
+    }
   ): Promise<string> {
-    const database = this.getDb(tx);
+    const prefix = options?.prefix ?? null;
+    const padding = options?.padding ?? 4;
+    const resetPolicy = options?.resetPolicy ?? 'never';
+    const format = options?.format ?? null;
+    const database = this.getDb(options?.tx);
     // Call the database function with all parameters
     // SQL Signature: (tenant, table, column, context_key, min_digits, prefix, format)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Drizzle execute returns untyped result
     const res = await database.execute(
       sql`SELECT datavault_get_next_autonumber(
         ${tenantId}::UUID,
         ${tableId}::UUID,
         ${columnId}::UUID,
         'default'::TEXT,
-        ${padding || 4}::INTEGER,
-        ${prefix || ''}::TEXT,
-        ${resetPolicy === 'yearly' ? 'YYYY' : (format || null)}::TEXT
+        ${padding}::INTEGER,
+        ${prefix ?? ''}::TEXT,
+        ${resetPolicy === 'yearly' ? 'YYYY' : (format ?? null)}::TEXT
       ) as next_value`
     );
-    const result = Array.isArray(res) ? res[0] : (res)?.rows?.[0] || res;
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
+    const result = Array.isArray(res) ? (res[0] as { next_value?: string } | undefined) : ((res as unknown as { rows?: Array<{ next_value?: string }> })?.rows?.[0] ?? (res as unknown as { next_value?: string }));
     const nextValue = result?.next_value;
-    if (!nextValue) {
+    if (nextValue === undefined || nextValue === null) {
       throw new Error('Failed to generate autonumber value');
     }
-    return nextValue as string;
+    return nextValue;
   }
   /**
    * Cleanup PostgreSQL sequence when auto-number column is deleted
@@ -462,9 +475,9 @@ export class DatavaultRowsRepository extends BaseRepository<
   async batchFindByIds(
     requests: Array<{ tableId: string; rowIds: string[] }>,
     tx?: DbTransaction
-  ): Promise<Map<string, { row: DatavaultRow; values: Record<string, any> }>> {
+  ): Promise<Map<string, { row: DatavaultRow; values: Record<string, unknown> }>> {
     const database = this.getDb(tx);
-    const resultMap = new Map<string, { row: DatavaultRow; values: Record<string, any> }>();
+    const resultMap = new Map<string, { row: DatavaultRow; values: Record<string, unknown> }>();
     if (requests.length === 0) {return resultMap;}
     // Flatten all rowIds across all requests
     const allRowIds = requests.flatMap(req => req.rowIds);
@@ -481,18 +494,18 @@ export class DatavaultRowsRepository extends BaseRepository<
       .from(datavaultValues)
       .where(inArray(datavaultValues.rowId, allRowIds));
     // Group values by rowId
-    const valuesByRow = values.reduce((acc: Record<string, Record<string, any>>, value: any) => {
-      if (!acc[value.rowId]) {
+    const valuesByRow = values.reduce<Record<string, Record<string, unknown>>>((acc, value: DatavaultValue) => {
+      if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
       acc[value.rowId][value.columnId] = value.value;
       return acc;
-    }, {} as Record<string, Record<string, any>>);
+    }, {});
     // Build result map
     rows.forEach((row: DatavaultRow) => {
       resultMap.set(row.id, {
         row,
-        values: valuesByRow[row.id] || {}
+        values: valuesByRow[row.id] ?? {}
       });
     });
     return resultMap;
@@ -554,7 +567,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultRows)
       .where(and(...whereConditions));
-    return result?.count || 0;
+    return result?.count ?? 0;
   }
   /**
    * Find a single row ID by a specific column value
@@ -565,13 +578,19 @@ export class DatavaultRowsRepository extends BaseRepository<
   async findRowByColumnValue(
     tableId: string,
     columnId: string,
-    value: any,
-    tenantId: string,
-    tx?: DbTransaction,
-    forUpdate: boolean = false
+    value: unknown,
+    options?: {
+      tenantId: string;
+      tx?: DbTransaction;
+      forUpdate?: boolean;
+    }
   ): Promise<string | null> {
+    const tenantId = options?.tenantId;
+    const tx = options?.tx;
+    const forUpdate = options?.forUpdate ?? false;
     const database = this.getDb(tx);
-    let query = database
+    void tenantId; // Tenant check implicit via tableId ownership verification (tables are tenant scoped)
+    const baseQuery = database
       .select({ id: datavaultRows.id })
       .from(datavaultRows)
       .innerJoin(
@@ -584,18 +603,14 @@ export class DatavaultRowsRepository extends BaseRepository<
       .where(
         and(
           eq(datavaultRows.tableId, tableId),
-          eq(datavaultRows.tableId, tableId),
-          // Tenant check implicit via tableId ownership verification (tables are tenant scoped)
-          eq(datavaultValues.value, value)
-        ) as any
+          eq(datavaultValues.value, value as string)
+        )
       )
       .limit(1);
     // Apply row-level locking if requested (prevents race conditions in upsert)
-    if (forUpdate) {
-      query = query.for('update') as any;
-    }
+    const query = forUpdate ? baseQuery.for('update') : baseQuery;
     const [result] = await query;
-    return result?.id || null;
+    return result?.id ?? null;
   }
 }
 // Singleton instance

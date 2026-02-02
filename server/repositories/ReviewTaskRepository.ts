@@ -91,7 +91,7 @@ export class ReviewTaskRepository extends BaseRepository<
         )
       )
       .limit(1);
-    return task || null;
+    return task ?? null;
   }
 
   /**

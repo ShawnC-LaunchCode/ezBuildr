@@ -1,5 +1,5 @@
 import {  Trash2, Database } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker"; // Ensure this path is correct
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ interface ValidateBlockEditorProps {
 export function ValidateBlockEditor({ workflowId, config, onChange, mode = "easy" }: ValidateBlockEditorProps) {
     const [activeTab, setActiveTab] = useState<"visual" | "json">("visual");
     // Ensure rules array exists
-    const rules = config.rules || [];
+    const rules = config.rules ?? [];
     const addRule = (type: string) => {
         let newRule: ValidateRule;
         if (type === 'compare') {
@@ -76,7 +76,7 @@ export function ValidateBlockEditor({ workflowId, config, onChange, mode = "easy
     return (
         <div className="space-y-4">
             <ValidationRulesEditor
-                rules={config.rules || []}
+                rules={config.rules ?? []}
                 onChange={(newRules: ValidateRule[]) => onChange({ ...config, rules: newRules })}
                 workflowId={workflowId}
                 mode={mode}

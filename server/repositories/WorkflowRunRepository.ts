@@ -67,7 +67,7 @@ export class WorkflowRunRepository extends BaseRepository<
       .from(workflowRuns)
       .where(eq(workflowRuns.runToken, token))
       .limit(1);
-    return run || null;
+    return run ?? null;
   }
 
   /**
@@ -80,7 +80,7 @@ export class WorkflowRunRepository extends BaseRepository<
       .from(workflowRuns)
       .where(eq(workflowRuns.shareToken, token))
       .limit(1);
-    return run || null;
+    return run ?? null;
   }
 
   /**
@@ -110,12 +110,13 @@ export class WorkflowRunRepository extends BaseRepository<
       .from(workflowRuns)
       .where(eq(workflowRuns.portalAccessKey, key))
       .limit(1);
-    return run || null;
+    return run ?? null;
   }
   /**
    * Get workflow run statistics (admin only)
    * Optimized to use a single query instead of fetching all runs
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getRunStats(tx?: DbTransaction) {
     const database = this.getDb(tx);
     const [stats] = await database
@@ -127,9 +128,9 @@ export class WorkflowRunRepository extends BaseRepository<
       .from(workflowRuns);
 
     return {
-      total: Number(stats?.total || 0),
-      completed: Number(stats?.completed || 0),
-      inProgress: Number(stats?.inProgress || 0),
+      total: Number(stats?.total ?? 0),
+      completed: Number(stats?.completed ?? 0),
+      inProgress: Number(stats?.inProgress ?? 0),
     };
   }
 }

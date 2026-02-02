@@ -23,9 +23,13 @@ const updateTeamSchema = z.object({
   name: z.string().min(1).max(255),
 });
 
+const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+const ACCESS_DENIED = "Access denied";
+
 /**
  * Register team-related routes
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerTeamRoutes(app: Express): void {
   /**
    * POST /api/teams
@@ -35,7 +39,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const data = createTeamSchema.parse(req.body);
@@ -68,7 +72,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const userId = req.userId;
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const teams = await teamService.getUserTeams(userId);
@@ -91,7 +95,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const userId = req.userId;
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const { id } = req.params;
@@ -105,7 +109,7 @@ export function registerTeamRoutes(app: Express): void {
         error instanceof Error ? error.message : "Failed to fetch team";
       const status = message.includes("not found")
         ? 404
-        : message.includes("Access denied")
+        : message.includes(ACCESS_DENIED)
           ? 403
           : 500;
 
@@ -121,7 +125,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const userId = req.userId;
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const { id } = req.params;
@@ -143,7 +147,7 @@ export function registerTeamRoutes(app: Express): void {
 
       const message =
         error instanceof Error ? error.message : "Failed to update team";
-      const status = message.includes("Access denied") ? 403 : 500;
+      const status = message.includes(ACCESS_DENIED) ? 403 : 500;
 
       res.status(status).json({ success: false, error: message });
     }
@@ -157,7 +161,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const userId = req.userId;
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const { id } = req.params;
@@ -169,7 +173,7 @@ export function registerTeamRoutes(app: Express): void {
 
       const message =
         error instanceof Error ? error.message : "Failed to delete team";
-      const status = message.includes("Access denied") ? 403 : 500;
+      const status = message.includes(ACCESS_DENIED) ? 403 : 500;
 
       res.status(status).json({ success: false, error: message });
     }
@@ -183,7 +187,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const requestorId = req.userId;
       if (!requestorId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const { id } = req.params;
@@ -205,7 +209,7 @@ export function registerTeamRoutes(app: Express): void {
 
       const message =
         error instanceof Error ? error.message : "Failed to add team member";
-      const status = message.includes("Access denied")
+      const status = message.includes(ACCESS_DENIED)
         ? 403
         : message.includes("not found")
           ? 404
@@ -223,7 +227,7 @@ export function registerTeamRoutes(app: Express): void {
     try {
       const requestorId = req.userId;
       if (!requestorId) {
-        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        return res.status(401).json({ success: false, error: UNAUTHORIZED_MSG });
       }
 
       const { id, userId } = req.params;
@@ -235,7 +239,7 @@ export function registerTeamRoutes(app: Express): void {
 
       const message =
         error instanceof Error ? error.message : "Failed to remove team member";
-      const status = message.includes("Access denied")
+      const status = message.includes(ACCESS_DENIED)
         ? 403
         : message.includes("Cannot remove")
           ? 400

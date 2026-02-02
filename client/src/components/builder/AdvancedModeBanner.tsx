@@ -1,5 +1,5 @@
 import {  Sparkles, X } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 export function AdvancedModeBanner() {

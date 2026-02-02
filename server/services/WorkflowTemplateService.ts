@@ -1,4 +1,4 @@
-import type { WorkflowTemplate, InsertWorkflowTemplate } from "@shared/schema";
+import type { WorkflowTemplate } from "@shared/schema";
 
 import { workflowTemplateRepository } from "../repositories/WorkflowTemplateRepository";
 import { createError } from "../utils/errors";
@@ -132,7 +132,7 @@ export class WorkflowTemplateService {
       tx
     );
 
-    return mapping || null;
+    return mapping ?? null;
   }
 
   /**

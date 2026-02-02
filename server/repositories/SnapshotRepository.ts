@@ -11,7 +11,7 @@ export type InsertWorkflowSnapshot = typeof workflowSnapshots.$inferInsert;
 
 export type SnapshotValueMap = {
   [stepKey: string]: {
-    value: any;
+    value: unknown;
     stepId: string;
     stepUpdatedAt: string;
   };
@@ -55,7 +55,7 @@ export class SnapshotRepository extends BaseRepository<
       .from(workflowSnapshots)
       .where(and(eq(workflowSnapshots.workflowId, workflowId), eq(workflowSnapshots.name, name)))
       .limit(1);
-    return snapshot || null;
+    return snapshot ?? null;
   }
 
   /**
@@ -63,7 +63,7 @@ export class SnapshotRepository extends BaseRepository<
    */
   async updateValues(
     snapshotId: string,
-    values: Record<string, any>,
+    values: Record<string, unknown>,
     versionHash?: string,
     tx?: DbTransaction
   ): Promise<WorkflowSnapshot | null> {
@@ -71,6 +71,7 @@ export class SnapshotRepository extends BaseRepository<
     if (!snapshotId || typeof snapshotId !== 'string') {
       throw new Error('Invalid snapshotId: must be a non-empty string');
     }
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- runtime validation
     if (!values || typeof values !== 'object') {
       throw new Error('Invalid values: must be an object');
     }
@@ -91,7 +92,7 @@ export class SnapshotRepository extends BaseRepository<
       .set(updateData)
       .where(eq(workflowSnapshots.id, snapshotId))
       .returning();
-    return updated || null;
+    return updated ?? null;
   }
 
   /**
@@ -119,7 +120,7 @@ export class SnapshotRepository extends BaseRepository<
       })
       .where(eq(workflowSnapshots.id, snapshotId))
       .returning();
-    return updated || null;
+    return updated ?? null;
   }
 }
 

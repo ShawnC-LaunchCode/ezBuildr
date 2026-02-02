@@ -15,18 +15,20 @@ dotenv.config();
  * Runs before all tests
  */
 // Define db and helpers at file scope but initialize them dynamically
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let db: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let initializeDatabase: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let closeDatabase: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let dbInitPromise: any;
-// Correctly configure environment variables BEFORE importing DB (executed when setup files run)
-process.env.NODE_ENV = "test";
-process.env.GEMINI_API_KEY = "dummy-key-for-tests";
-process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-secret-key-for-testing-only-very-long-to-be-safe";
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "test-google-client-id";
 process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-google-client-id";
 // Must be 32+ chars for strict Zod validation
 process.env.JWT_SECRET = "test-jwt-secret-key-must-be-at-least-32-chars-long";
+// Required for server startup (encryption utils) - 32 bytes base64 encoded
+process.env.VL_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
 }
@@ -189,90 +191,7 @@ beforeAll(async () => {
         console.log(`✅ Database initialized. Current schema: ${schemaRes.rows[0].current_schema}`);
         console.log(`✅ Current search_path: ${searchPathRes.rows[0].search_path}`);
         // Run database migrations for test DB
-        // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
-        try {
-          if ((global as any).__SKIP_MIGRATIONS__) {
-            console.log("⏩ Schema reused, skipping migrations.");
-          } else {
-            console.log("🔄 Running test migrations (manual file mode due to broken journal)...");
-            const fs = await import('fs');
-            const path = await import('path');
-            const migrationsDir = path.join(process.cwd(), 'migrations');
-            if (fs.existsSync(migrationsDir)) {
-              console.error(`Debug: migrationsDir found: ${migrationsDir}`);
-              const files = fs.readdirSync(migrationsDir)
-                .filter(f => f.endsWith('.sql'))
-                .sort(); // Alphanumeric sort
-              console.error(`Debug: Found ${files.length} migration files`);
-              console.error(`Debug: Files: ${files.join(', ')}`);
-              for (const file of files) {
-                console.log(`   Applying ${file}...`);
-                let sqlContent = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
-                // CRITICAL: Ensure migrations run in the correct schema
-                const schema = (global as any).__TEST_SCHEMA__;
-                if (schema) {
-                  // Replace all hardcoded "public". schema references with test schema
-                  // This is essential because migrations contain CREATE TYPE "public"."type_name" statements
-                  sqlContent = sqlContent.replace(/"public"\./g, `"${schema}".`);
-                  // Prepend SET search_path to ensure all tables are created in test schema
-                  sqlContent = `SET search_path TO "${schema}", public;\n\n${sqlContent}`;
-                }
-                try {
-                  // OPTIMIZATION: Try to execute the whole file first
-                  await db.execute(sqlContent);
-                } catch (e: any) {
-                  // If whole file execution fails with a benign error, fall back to statement-by-statement
-                  // Check for:
-                  // - 'already exists' string
-                  // - 'duplicate object' string
-                  // - code 42710 (duplicate_object) - for types/tables
-                  // - code 42P07 (duplicate_table)
-                  if (
-                    e.message.includes('already exists') ||
-                    e.message.includes('duplicate object') ||
-                    e.code === '42710' ||
-                    e.code === '42P07'
-                  ) {
-                    console.log(`⚠️ Partial failure in ${file} (Error: ${e.message} / Code: ${e.code}), retrying statement-by-statement...`);
-                    const statements = sqlContent.split('--> statement-breakpoint');
-                    for (const statement of statements) {
-                      if (!statement.trim()) {continue;}
-                      try {
-                        // CRITICAL: Ensure each statement has the search_path set
-                        // When statements are executed individually, we need to set search_path for each one
-                        const schema = (global as any).__TEST_SCHEMA__;
-                        let stmtWithPath = statement;
-                        if (schema && !statement.includes('SET search_path')) {
-                          stmtWithPath = `SET search_path TO "${schema}", public;\n${statement}`;
-                        }
-                        await db.execute(stmtWithPath);
-                      } catch (subError: any) {
-                        if (
-                          subError.message.includes('already exists') ||
-                          subError.message.includes('duplicate object') ||
-                          subError.code === '42710' ||
-                          subError.code === '42P07'
-                        ) {
-                          // benign, ignore
-                        } else {
-                          console.error(`❌ FAILED MIGRATION ${file} STATEMENT:`, subError.message);
-                          console.error(`SQL: ${statement.substring(0, 200)}...`); // Log start of SQL
-                          throw subError;
-                        }
-                      }
-                    }
-                  } else {
-                    console.error(`❌ FAILED MIGRATION ${file}:`, e.message);
-                    throw e;
-                  }
-                }
-              }
-              console.log(`✅ Applied ${files.length} migration files.`);
-            }
-          }
-        } catch (error: any) {
-          console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
-        }
+        await applyManualMigrations(db);
         // FAILSAFE: Hardcode fixes for known schema regressions
         // We use fully qualified names to ensure we target the isolated schema
         const currentTestSchema = (global as any).__TEST_SCHEMA__ || 'public';
@@ -484,6 +403,94 @@ async function ensureDbFunctions() {
         $$;
       `);
 }
+// Helper to apply manual migrations
+async function applyManualMigrations(db: any) {
+  // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
+  try {
+    if ((global as any).__SKIP_MIGRATIONS__) {
+      console.log("⏩ Schema reused, skipping migrations.");
+    } else {
+      console.log("🔄 Running test migrations (manual file mode due to broken journal)...");
+      const fs = await import('fs');
+      const path = await import('path');
+      const migrationsDir = path.join(process.cwd(), 'migrations');
+      if (fs.existsSync(migrationsDir)) {
+        console.error(`Debug: migrationsDir found: ${migrationsDir}`);
+        const files = fs.readdirSync(migrationsDir)
+          .filter(f => f.endsWith('.sql'))
+          .sort(); // Alphanumeric sort
+        console.error(`Debug: Found ${files.length} migration files`);
+        console.error(`Debug: Files: ${files.join(', ')}`);
+        for (const file of files) {
+          console.log(`   Applying ${file}...`);
+          let sqlContent = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+          // CRITICAL: Ensure migrations run in the correct schema
+          const schema = (global as any).__TEST_SCHEMA__;
+          if (schema) {
+            // Replace all hardcoded "public". schema references with test schema
+            // This is essential because migrations contain CREATE TYPE "public"."type_name" statements
+            sqlContent = sqlContent.replace(/"public"\./g, `"${schema}".`);
+            // Prepend SET search_path to ensure all tables are created in test schema
+            sqlContent = `SET search_path TO "${schema}", public;\n\n${sqlContent}`;
+          }
+          try {
+            // OPTIMIZATION: Try to execute the whole file first
+            await db.execute(sqlContent);
+          } catch (e: any) {
+            // If whole file execution fails with a benign error, fall back to statement-by-statement
+            // Check for:
+            // - 'already exists' string
+            // - 'duplicate object' string
+            // - code 42710 (duplicate_object) - for types/tables
+            // - code 42P07 (duplicate_table)
+            if (
+              e.message.includes('already exists') ||
+              e.message.includes('duplicate object') ||
+              e.code === '42710' ||
+              e.code === '42P07'
+            ) {
+              console.log(`⚠️ Partial failure in ${file} (Error: ${e.message} / Code: ${e.code}), retrying statement-by-statement...`);
+              const statements = sqlContent.split('--> statement-breakpoint');
+              for (const statement of statements) {
+                if (!statement.trim()) { continue; }
+                try {
+                  // CRITICAL: Ensure each statement has the search_path set
+                  // When statements are executed individually, we need to set search_path for each one
+                  const schema = (global as any).__TEST_SCHEMA__;
+                  let stmtWithPath = statement;
+                  if (schema && !statement.includes('SET search_path')) {
+                    stmtWithPath = `SET search_path TO "${schema}", public;\n${statement}`;
+                  }
+                  await db.execute(stmtWithPath);
+                } catch (subError: any) {
+                  if (
+                    subError.message.includes('already exists') ||
+                    subError.message.includes('duplicate object') ||
+                    subError.code === '42710' ||
+                    subError.code === '42P07'
+                  ) {
+                    // benign, ignore
+                  } else {
+                    console.error(`❌ FAILED MIGRATION ${file} STATEMENT:`, subError.message);
+                    console.error(`SQL: ${statement.substring(0, 200)}...`); // Log start of SQL
+                    throw subError;
+                  }
+                }
+              }
+            } else {
+              console.error(`❌ FAILED MIGRATION ${file}:`, e.message);
+              throw e;
+            }
+          }
+        }
+        console.log(`✅ Applied ${files.length} migration files.`);
+      }
+    }
+  } catch (error: any) {
+    console.warn("⚠️ Migrations failed (non-fatal if DB exists):", error);
+  }
+}
+
 // Mock express-session only for unit tests (integration tests need real sessions)
 const isIntegrationTest = process.env.TEST_TYPE === "integration" || process.env.VITEST_INTEGRATION === "true";
 vi.mock('express-session', async () => {
@@ -543,7 +550,7 @@ vi.mock("openai", () => {
     },
   }));
   return {
-    OpenAI: OpenAIClass,
+    'OpenAI': OpenAIClass,
     default: OpenAIClass,
   };
 });
@@ -557,7 +564,8 @@ vi.mock("@anthropic-ai/sdk", () => {
     },
   }));
   return {
-    Anthropic: AnthropicClass,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    'Anthropic': AnthropicClass,
     default: AnthropicClass,
   };
 });

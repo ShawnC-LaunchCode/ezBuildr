@@ -16,6 +16,7 @@ export interface UserRequest extends Request {
   tenantId?: string;
   userRole?: 'owner' | 'builder' | 'runner' | 'viewer' | null;
   jwtPayload?: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents
   user: User | any;
 }
 /**
@@ -56,6 +57,7 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
       return;
     }
     // Attach user to request (type-safe)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Object.assign(req as any, { user } as Partial<UserRequest>);
     logger.debug({ userId: user.id, email: user.email }, 'User attached to request');
     next();
@@ -87,7 +89,8 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
     const user = await userRepository.findById(req.userId);
     if (user) {
       // Attach user to request (type-safe)
-      Object.assign(req as any, { user } as Partial<UserRequest>);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Object.assign(req as any, { user } as Partial<UserRequest>);
       logger.debug({ userId: user.id }, 'User attached to request (optional)');
     }
     next();
@@ -102,6 +105,7 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
  * Returns undefined if user is not attached
  */
 export function getUser(req: Request): User | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return hasUser(req) ? req.user : undefined;
 }
 /**

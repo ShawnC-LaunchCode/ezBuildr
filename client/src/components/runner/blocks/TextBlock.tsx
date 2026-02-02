@@ -32,7 +32,7 @@ export interface TextBlockProps {
 }
 
 export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescribedBy }: TextBlockProps) {
-  const currentValue = value || "";
+  const currentValue = value ?? "";
 
   // Determine if this is short or long text
   let variant: "short" | "long" = "short";

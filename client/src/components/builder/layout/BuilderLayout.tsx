@@ -3,7 +3,7 @@
  * Provides consistent structure for all builder tab views
  */
 
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 
 interface BuilderLayoutProps {
   children: ReactNode;

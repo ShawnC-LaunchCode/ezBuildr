@@ -8,7 +8,7 @@ import { TemplateParser } from './TemplateParser';
 export interface DocumentGenerationOptions {
     templatePath: string;
     templateBuffer?: Buffer;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     outputName: string;
     outputDir?: string;
     toPdf?: boolean;

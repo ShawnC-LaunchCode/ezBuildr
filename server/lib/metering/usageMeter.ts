@@ -10,7 +10,7 @@ export interface UsageEvent {
     metric: 'workflow_run' | 'document_generated' | 'signature_requested' | 'storage_bytes' | 'ai_tokens' | 'script_execution';
     quantity: number;
     workflowId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export class UsageMeter {
@@ -49,6 +49,6 @@ export class UsageMeter {
                    AND ${usageRecords.recordedAt} >= ${from}
                    AND ${usageRecords.recordedAt} <= ${to}`);
 
-        return Number(result[0]?.total || 0);
+        return Number(result[0]?.total ?? 0);
     }
 }

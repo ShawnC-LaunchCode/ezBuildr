@@ -7,15 +7,16 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Code2, Database, CheckCircle, GitBranch, Trash2, ChevronDown, ChevronRight, ArrowRight, ArrowLeft } from "lucide-react";
-import React, { useState } from "react";
+import React from "react";
 
-import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
+import { JSBlockEditor, type JSBlock } from "@/components/blocks/JSBlockEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { PageItem } from "@/lib/dnd";
 import { cn } from "@/lib/utils";
+import { type ApiBlock } from '@/lib/vault-api';
 import { useDeleteBlock, useDeleteTransformBlock, useUpdateTransformBlock } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
@@ -30,7 +31,7 @@ interface BlockCardProps {
   onEdit?: () => void;
 }
 
-const BLOCK_TYPE_ICONS: Record<string, any> = {
+const BLOCK_TYPE_ICONS: Record<string, typeof Code2> = {
   prefill: Database,
   validate: CheckCircle,
   branch: GitBranch,
@@ -53,20 +54,21 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
 };
 
 // Helper to generate block summaries
-function getBlockSummary(block: any): string | null {
+function getBlockSummary(block: ApiBlock): string | null {
   try {
-    if (block.type === 'write' || block.type === 'send_table') {
-      const config = block.config || {};
+    const type = block.type as string; // Allow legacy types like send_table
+    const config = block.config || {};
+
+    if (type === 'write' || type === 'send_table') {
       const mode = config.mode === 'create' ? 'Insert' : config.mode === 'update' ? 'Update' : 'Upsert';
-      const mappingCount = config.columnMappings?.length || 0;
+      const mappingCount = Array.isArray(config.columnMappings) ? config.columnMappings.length : 0;
       if (!mappingCount) { return null; }
       return `${mode} ${mappingCount} field${mappingCount === 1 ? '' : 's'}`;
     }
 
-    if (block.type === 'read_table') {
-      const config = block.config || {};
-      const columnCount = config.columns?.length;
-      const totalCount = config.totalColumnCount || 0;
+    if (type === 'read_table') {
+      const columnCount = Array.isArray(config.columns) ? config.columns.length : undefined;
+      const totalCount = typeof config.totalColumnCount === 'number' ? config.totalColumnCount : 0;
 
       if (columnCount === undefined || columnCount === null) {
         // All fields selected
@@ -77,15 +79,13 @@ function getBlockSummary(block: any): string | null {
       }
     }
 
-    if (block.type === 'external_send') {
-      const config = block.config || {};
-      const mappingCount = config.payloadMappings?.length || 0;
+    if (type === 'external_send') {
+      const mappingCount = Array.isArray(config.payloadMappings) ? config.payloadMappings.length : 0;
       if (!mappingCount) { return null; }
       return `${mappingCount} field${mappingCount === 1 ? '' : 's'}`;
     }
 
-    if (block.type === 'list_tools') {
-      const config = block.config || {};
+    if (type === 'list_tools') {
       const parts: string[] = [];
 
       if (config.sourceListVar && config.outputListVar) {
@@ -97,7 +97,7 @@ function getBlockSummary(block: any): string | null {
         parts.push(`filters:${filterCount}`);
       }
 
-      const sortCount = config.sort?.length || 0;
+      const sortCount = (config.sort as unknown[])?.length || 0;
       if (sortCount > 0) {
         parts.push(`sort:${sortCount}`);
       }
@@ -106,7 +106,7 @@ function getBlockSummary(block: any): string | null {
         parts.push(`limit:${config.limit}`);
       }
 
-      if (config.select && config.select.length > 0) {
+      if (Array.isArray(config.select) && config.select.length > 0) {
         parts.push(`select:${config.select.length}`);
       }
 
@@ -143,16 +143,18 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
   // Helper to check if read/write blocks are configured
   const isReadWriteConfigured = () => {
     const { type, config } = item.data;
-    if (type === 'read_table') {
+    const typeStr = type as string;
+    if (typeStr === 'read_table') {
       return !!(config?.tableId && config?.outputKey);
     }
-    if ((type as string) === 'write' || (type as string) === 'send_table') {
+    if (typeStr === 'write' || typeStr === 'send_table') {
       return !!(config?.tableId && config?.mode);
     }
     return true; // Other blocks considered configured by default for this styling purpose
   };
 
-  const isReadTableOrWrite = ['read_table', 'write', 'send_table'].includes((item.data as any).type);
+  const typeStr = item.data.type as string;
+  const isReadTableOrWrite = ['read_table', 'write', 'send_table'].includes(typeStr);
   const isNotConfigured = !isReadWriteConfigured();
 
   const handleClick = () => {
@@ -185,7 +187,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
     }
   };
 
-  const handleJSBlockChange = (updated: any) => {
+  const handleJSBlockChange = (updated: JSBlock) => {
     if (item.data.type === "js") {
       updateTransformBlockMutation.mutate({
         id: item.id,
@@ -226,7 +228,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
             <div className="flex flex-col items-center gap-1">
               <div className="mt-0.5">
                 {(() => {
-                  const Icon = BLOCK_TYPE_ICONS[item.data.type] || Code2;
+                  const Icon = BLOCK_TYPE_ICONS[item.data.type as string] || Code2;
                   return <Icon className="h-4 w-4 text-muted-foreground" />;
                 })()}
               </div>
@@ -254,7 +256,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
               <div className="font-medium text-sm">
                 {item.data.type === "js" && item.data.config?.name
                   ? item.data.config.name
-                  : (BLOCK_TYPE_LABELS[item.data.type] || item.data.type)}
+                  : (BLOCK_TYPE_LABELS[item.data.type as string] || item.data.type)}
               </div>
               {/* Block summary */}
               {getBlockSummary(item.data) && (
@@ -295,7 +297,7 @@ export function BlockCard({ item, workflowId, sectionId, isExpanded = false, onT
           {isExpanded && item.data.type === "js" && (
             <div className="mt-3 pt-3 border-t">
               <JSBlockEditor
-                block={item.data}
+                block={item.data as unknown as JSBlock}
                 onChange={handleJSBlockChange}
                 workflowId={workflowId}
               />

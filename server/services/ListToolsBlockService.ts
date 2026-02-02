@@ -29,11 +29,11 @@ export class ListToolsBlockService {
     stepRepo?: typeof stepRepository,
     sectionRepo?: typeof sectionRepository
   ) {
-    this.blockRepo = blockRepo || blockRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.workflowSvc = workflowSvc || workflowService;
-    this.stepRepo = stepRepo || stepRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
+    this.blockRepo = blockRepo ?? blockRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
   }
 
   /**
@@ -82,7 +82,7 @@ export class ListToolsBlockService {
       workflowId,
       type: 'list_tools',
       phase: data.phase,
-      sectionId: data.sectionId || null,
+      sectionId: data.sectionId ?? null,
       config: data.config,
       order: 0,
       virtualStepId: virtualStep.id,
@@ -132,7 +132,7 @@ export class ListToolsBlockService {
     ) {
       await this.stepRepo.update(block.virtualStepId, {
         alias: data.config.outputListVar,
-        title: `List Tools: ${data.name || 'Updated List Tools'}`
+        title: `List Tools: ${data.name ?? 'Updated List Tools'}`
       });
     } else if (data.name && block.virtualStepId) {
       // Update title if only name changed

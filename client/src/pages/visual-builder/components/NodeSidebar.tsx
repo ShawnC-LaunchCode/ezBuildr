@@ -2,7 +2,7 @@
  * NodeSidebar - Inspector panel for node configuration
  */
 import { Trash2, Plus, X } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'wouter';
 
 import { FinalBlockEditor } from '@/components/blocks/FinalBlockEditor';
@@ -90,12 +90,12 @@ export function NodeSidebar() {
                   workflowId={workflowId}
                   nodeId={selectedNode.id}
                   onInsert={(text) => {
-                    const currentValue = localConfig.condition || '';
+                    const currentValue = localConfig.condition ?? '';
                     handleUpdate({ condition: currentValue + text });
                   }}
                 />
                 <ExpressionEditor
-                  value={localConfig.condition || ''}
+                  value={localConfig.condition ?? ''}
                   onChange={(value) => handleUpdate({ condition: value })}
                   nodeId={selectedNode.id}
                   workflowId={workflowId}
@@ -158,7 +158,7 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
           <Label htmlFor="key">Variable Key</Label>
           <Input
             id="key"
-            value={config.key || ''}
+            value={config.key ?? ''}
             onChange={(e) => onUpdate({ key: e.target.value })}
             placeholder="e.g., user_age"
             className="font-mono"
@@ -186,7 +186,7 @@ function QuestionConfig({ config, onUpdate }: { config: any; onUpdate: (updates:
         <div className="flex items-center space-x-2">
           <Checkbox
             id="required"
-            checked={config.required || false}
+            checked={config.required ?? false}
             onCheckedChange={(checked) => onUpdate({ required: checked })}
           />
           <Label htmlFor="required" className="cursor-pointer">
@@ -224,12 +224,12 @@ function ComputeConfig({
             workflowId={workflowId}
             nodeId={nodeId}
             onInsert={(text) => {
-              const currentValue = config.expression || '';
+              const currentValue = config.expression ?? '';
               onUpdate({ expression: currentValue + text });
             }}
           />
           <ExpressionEditor
-            value={config.expression || ''}
+            value={config.expression ?? ''}
             onChange={(value) => onUpdate({ expression: value })}
             nodeId={nodeId}
             workflowId={workflowId}
@@ -241,7 +241,7 @@ function ComputeConfig({
           <Label htmlFor="outputKey">Output Variable</Label>
           <Input
             id="outputKey"
-            value={config.outputKey || ''}
+            value={config.outputKey ?? ''}
             onChange={(e) => onUpdate({ outputKey: e.target.value })}
             placeholder="e.g., calculated_value"
             className="font-mono"
@@ -263,7 +263,7 @@ function BranchConfig({
   workflowId: string;
   nodeId: string;
 }) {
-  const branches = config.branches || [];
+  const branches = config.branches ?? [];
   const addBranch = () => {
     const newBranches = [...branches, { condition: '', label: `Branch ${branches.length + 1}` }];
     onUpdate({ branches: newBranches });
@@ -298,14 +298,14 @@ function BranchConfig({
                   </Button>
                 </div>
                 <Input
-                  value={branch.label || ''}
+                  value={branch.label ?? ''}
                   onChange={(e) => updateBranch(index, { label: e.target.value })}
                   placeholder="Branch label"
                   className="text-sm"
                 />
                 <Label className="text-xs">Condition</Label>
                 <ExpressionEditor
-                  value={branch.condition || ''}
+                  value={branch.condition ?? ''}
                   onChange={(value) => updateBranch(index, { condition: value })}
                   nodeId={nodeId}
                   workflowId={workflowId}
@@ -371,7 +371,7 @@ function TemplateConfig({
           <Label htmlFor="templateId">Template ID</Label>
           <Input
             id="templateId"
-            value={config.templateId || ''}
+            value={config.templateId ?? ''}
             onChange={(e) => onUpdate({ templateId: e.target.value })}
             placeholder="Enter template ID"
           />

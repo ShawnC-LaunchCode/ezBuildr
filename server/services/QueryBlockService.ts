@@ -28,11 +28,11 @@ export class QueryBlockService {
         stepRepo?: typeof stepRepository,
         sectionRepo?: typeof sectionRepository
     ) {
-        this.blockRepo = blockRepo || blockRepository;
-        this.workflowRepo = workflowRepo || workflowRepository;
-        this.workflowSvc = workflowSvc || workflowService;
-        this.stepRepo = stepRepo || stepRepository;
-        this.sectionRepo = sectionRepo || sectionRepository;
+        this.blockRepo = blockRepo ?? blockRepository;
+        this.workflowRepo = workflowRepo ?? workflowRepository;
+        this.workflowSvc = workflowSvc ?? workflowService;
+        this.stepRepo = stepRepo ?? stepRepository;
+        this.sectionRepo = sectionRepo ?? sectionRepository;
     }
 
     /**
@@ -81,7 +81,7 @@ export class QueryBlockService {
             workflowId,
             type: 'query',
             phase: data.phase,
-            sectionId: data.sectionId || null,
+            sectionId: data.sectionId ?? null,
             config: data.config,
             order: 0, // Should be calculated or app logic handles reordering
             virtualStepId: virtualStep.id,
@@ -130,7 +130,7 @@ export class QueryBlockService {
         ) {
             await this.stepRepo.update(block.virtualStepId, {
                 alias: data.config.outputVariableName,
-                title: `Query: ${data.name || 'Updated Query'}`
+                title: `Query: ${data.name ?? 'Updated Query'}`
             });
         } else if (data.name && block.virtualStepId) {
             // Update title if only name changed

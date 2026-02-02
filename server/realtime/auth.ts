@@ -29,7 +29,7 @@ function extractToken(request: IncomingMessage): string | null {
     return authHeader;
   }
   // Try query parameter (fallback for clients that can't set headers)
-  const url = new URL(request.url || '', `http://${request.headers.host}`);
+  const url = new URL(request.url ?? '', `http://${request.headers.host}`);
   const token = url.searchParams.get('token');
   if (token) {
     return token;

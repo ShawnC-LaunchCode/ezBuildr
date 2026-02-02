@@ -15,7 +15,7 @@ export const defaultValidationMessages: Record<ValidationRuleType, string> = {
     custom: "Invalid value"
 };
 
-export function formatMessage(message: string, params: Record<string, any>): string {
+export function formatMessage(message: string, params: Record<string, unknown>): string {
     let formatted = message;
     for (const [key, value] of Object.entries(params)) {
         formatted = formatted.replace(new RegExp(`{${key}}`, "g"), String(value));

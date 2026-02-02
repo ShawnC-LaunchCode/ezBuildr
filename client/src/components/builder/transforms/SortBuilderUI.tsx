@@ -16,7 +16,7 @@ interface SortBuilderUIProps {
   className?: string;
 }
 export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps) {
-  const sortKeys = sort || [];
+  const sortKeys = sort ?? [];
   const handleAddSort = () => {
     const newSort: ListToolsSortKey = {
       fieldPath: '',

@@ -3,10 +3,12 @@
  * Editor for phone number blocks
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -14,6 +16,7 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 
 import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
@@ -30,14 +33,14 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
   const config = step.config as PhoneConfig | undefined;
 
   const [localConfig, setLocalConfig] = useState<PhoneCardState>({
-    format: (config?.format || "US"),
+    format: (config?.format ?? "US"),
     validateFormat: true, // Always validate in easy mode
     showFormattingMask: true, // Show formatting by default
   });
 
   useEffect(() => {
     setLocalConfig({
-      format: (config?.format || "US"),
+      format: (config?.format ?? "US"),
       validateFormat: true,
       showFormattingMask: true,
     });
@@ -54,7 +57,7 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
   };
 
-  const handleLabelChange = (title: string) => {
+  const _handleLabelChange = (title: string) => {
     updateStepMutation.mutate({ id: stepId, sectionId, title });
   };
 
@@ -113,7 +116,7 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

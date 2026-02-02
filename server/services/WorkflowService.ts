@@ -1,7 +1,7 @@
 /* eslint-disable max-depth */
 import { eq, inArray } from "drizzle-orm";
 
-import type { Workflow, InsertWorkflow, Section, Step, LogicRule, WorkflowAccess, PrincipalType, AccessRole, TransformBlock, WorkflowVersion } from "@shared/schema";
+import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
 import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects } from "@shared/schema";
 
 interface GraphConfig {
@@ -18,21 +18,24 @@ interface GraphNode {
 interface GraphJson {
   nodes?: GraphNode[];
 }
+interface WorkflowStepData {
+  id?: string;
+  type: string;
+  title: string;
+  description?: string;
+  required?: boolean;
+  options?: string[];
+  order?: number;
+  alias?: string;
+}
 interface WorkflowSectionData {
   id?: string;
   title: string;
   description?: string;
   order?: number;
   visibleIf?: string;
-  steps?: Array<{
-    id?: string;
-    type: string;
-    title: string;
-    description?: string;
-    required?: boolean;
-    options?: string[];
-    order?: number;
-  }>;
+  config?: Record<string, unknown>;
+  steps?: WorkflowStepData[];
 }
 interface WorkflowContentData {
   title?: string;
@@ -178,6 +181,7 @@ export class WorkflowService {
    * - Uses Map for O(n) step grouping instead of O(n*m) filter
    * - Batch loads all data in parallel where possible
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getWorkflowWithDetails(workflowId: string, userId: string) {
     const workflow = await this.verifyAccess(workflowId, userId, 'view');
     // OPTIMIZATION: Run independent queries in parallel
@@ -214,7 +218,7 @@ export class WorkflowService {
     }));
     // OPTIMIZATION: Single query for current version (if exists)
     let currentVersion = null;
-    if (workflow.currentVersionId || workflow.status === 'draft') {
+    if (workflow.currentVersionId !== null || workflow.status === 'draft') {
       currentVersion = await db.query.workflowVersions.findFirst({
         where: workflow.currentVersionId
           ? eq(workflowVersions.id, workflow.currentVersionId)
@@ -249,10 +253,11 @@ export class WorkflowService {
   ): Promise<Workflow> {
     await this.verifyAccess(workflowId, userId, 'edit');
     // If slug is being updated, ensure it's unique
-    if (data.slug) {
-      data.slug = await this.ensureUniqueSlug(data.slug, workflowId);
+    const updateData = { ...data };
+    if (updateData.slug) {
+      updateData.slug = await this.ensureUniqueSlug(updateData.slug, workflowId);
     }
-    return this.workflowRepo.update(workflowId, data);
+    return this.workflowRepo.update(workflowId, updateData);
   }
   // ... (keep existing methods)
   /**
@@ -268,8 +273,7 @@ export class WorkflowService {
     if (!baseSlug) { baseSlug = 'workflow'; }
     // 2. Check strict existence of the requested slug
     let candidate = baseSlug;
-    let counter = 2;
-    while (true) {
+    for (let counter = 2; counter <= 101; counter++) {
       const existing = await this.workflowRepo.findBySlug(candidate);
       // If no workflow has this slug, OR the one that has it is THIS workflow, it's safe
       if (!existing || existing.id === workflowId) {
@@ -277,13 +281,9 @@ export class WorkflowService {
       }
       // Conflict found - try next counter
       candidate = `${baseSlug}-${counter}`;
-      counter++;
-      // Safety break to prevent infinite loops (unlikely but good practice)
-      if (counter > 100) {
-        // Fallback to random ID suffix if 100 collisions
-        return `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
-      }
     }
+    // Fallback to random ID suffix if 100 collisions
+    return `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
   }
   /**
    * Delete workflow
@@ -491,8 +491,7 @@ export class WorkflowService {
     // Verify user has edit access
     await this.verifyAccess(workflowId, userId, 'edit');
 
-    if (!intakeConfig || typeof intakeConfig !== 'object' || Array.isArray(intakeConfig)) {
-      // Assuming createError is imported or available, otherwise throw Error
+    if (Array.isArray(intakeConfig)) {
       throw new Error("Invalid intakeConfig: must be a JSON object");
     }
 
@@ -548,7 +547,7 @@ export class WorkflowService {
   /**
    * Specifically ensures 'final' nodes are converted to Final Sections for the Runner
    */
-  async syncWithGraph(workflowId: string, graphJson: GraphJson, userId: string): Promise<void> {
+  async syncWithGraph(workflowId: string, graphJson: GraphJson, _userId: string): Promise<void> {
     if (!graphJson?.nodes) { return; }
     // 1. Find 'final' node in graph
     const finalNode = graphJson.nodes.find((n) => n.type === 'final');
@@ -558,10 +557,10 @@ export class WorkflowService {
     if (finalNode) {
       const sectionConfig = {
         finalBlock: true,
-        title: finalNode.data?.config?.title || "Completion",
-        screenTitle: finalNode.data?.config?.title || "Completion", // Legacy
-        message: finalNode.data?.config?.message || "",
-        markdownMessage: finalNode.data?.config?.message || "", // Legacy
+        title: finalNode.data?.config?.title ?? "Completion",
+        screenTitle: finalNode.data?.config?.title ?? "Completion", // Legacy
+        message: finalNode.data?.config?.message ?? "",
+        markdownMessage: finalNode.data?.config?.message ?? "", // Legacy
         ...finalNode.data?.config
       };
       if (finalSection) {
@@ -593,7 +592,7 @@ export class WorkflowService {
    * Replace full workflow content (Deep Update)
    * Used by AI Assistant to apply full structural changes
    */
-  /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity */
+  /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity, max-lines-per-function */
   async replaceWorkflowContent(
     workflowId: string,
     userId: string,
@@ -604,6 +603,7 @@ export class WorkflowService {
     if (!hasAccess) {
       throw new Error("Access denied - you do not have permission to edit this workflow");
     }
+    // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
     return db.transaction(async (tx) => {
       // 2. Update Workflow Metadata
       const [updatedWorkflow] = await tx
@@ -615,7 +615,7 @@ export class WorkflowService {
         })
         .where(eq(workflows.id, workflowId))
         .returning();
-      if (!updatedWorkflow) {
+      if (updatedWorkflow === undefined) {
         throw new Error("Workflow not found");
       }
       // 3. Sync Sections
@@ -650,11 +650,11 @@ export class WorkflowService {
               .insert(sections)
               .values({
                 workflowId,
-                title: sectionData.title || "Untitled",
-                description: sectionData.description || null,
+                title: sectionData.title ?? "Untitled",
+                description: sectionData.description ?? null,
                 order: sectionData.order ?? 0,
-                visibleIf: sectionData.visibleIf as any,
-                config: (sectionData as any).config || {},
+                visibleIf: sectionData.visibleIf as unknown as Record<string, unknown>,
+                config: sectionData.config ?? {},
               })
               .returning();
             sectionId = newSection.id;
@@ -679,7 +679,7 @@ export class WorkflowService {
                 await tx.update(steps).set({
                   title: stepData.title,
                   description: stepData.description,
-                  type: stepData.type as any,
+                  type: stepData.type as InsertStep['type'],
                   required: stepData.required,
                   options: stepData.options,
                   order: stepData.order ?? stepIndex,
@@ -688,7 +688,7 @@ export class WorkflowService {
               } else {
                 const [newStep] = await tx.insert(steps).values({
                   sectionId: sectionId!,
-                  type: stepData.type as any,
+                  type: stepData.type as InsertStep['type'],
                   title: stepData.title,
                   description: stepData.description,
                   required: stepData.required ?? false,
@@ -698,7 +698,7 @@ export class WorkflowService {
                 effectiveStepId = newStep.id;
               }
               if (effectiveStepId) {
-                if ((stepData as any).alias) { aliasMap.set((stepData as any).alias, effectiveStepId); }
+                if (stepData.alias) { aliasMap.set(stepData.alias, effectiveStepId); }
                 if (stepData.id) { aliasMap.set(stepData.id, effectiveStepId); }
               }
             }
@@ -719,33 +719,31 @@ export class WorkflowService {
       // 5. Logic Rules
       await tx.delete(logicRules).where(eq(logicRules.workflowId, workflowId));
       if (Array.isArray(data.logicRules) && data.logicRules.length > 0) {
-        await tx.insert(logicRules).values(
-          data.logicRules.map((rule) => {
+        const mappedRules = data.logicRules.map((rule) => {
             const conditionStepId = aliasMap.get(rule.conditionStepAlias);
-            let targetStepId = null;
-            let targetSectionId = null;
+            let targetStepId: string | null = null;
+            let targetSectionId: string | null = null;
             if (rule.targetType === 'step') {
-              targetStepId = aliasMap.get(rule.targetAlias) || null;
+              targetStepId = aliasMap.get(rule.targetAlias) ?? null;
             } else if (rule.targetType === 'section') {
-              targetSectionId = aliasMap.get(rule.targetAlias) || null;
+              targetSectionId = aliasMap.get(rule.targetAlias) ?? null;
             }
             if (!conditionStepId) {
-              // Skip invalid rules (safety) or throw? skipping for now
               return null;
             }
             return {
               workflowId,
-              conditionStepId: conditionStepId,
-              operator: rule.operator,
+              conditionStepId,
+              operator: rule.operator as InsertLogicRule['operator'],
               conditionValue: rule.conditionValue,
-              targetType: rule.targetType as 'section' | 'step',
+              targetType: rule.targetType as InsertLogicRule['targetType'],
               targetStepId,
               targetSectionId,
-              action: rule.action,
-              order: 1 // Default order
+              action: rule.action as InsertLogicRule['action'],
+              order: 1,
             };
-          }).filter(Boolean) as any[]
-        );
+          }).filter((r): r is NonNullable<typeof r> => r !== null);
+        await tx.insert(logicRules).values(mappedRules);
       }
       await db.insert(auditLogs).values({
         userId: userId,

@@ -1,4 +1,4 @@
-import type { Collection, InsertCollection } from "@shared/schema";
+import type { Collection, CollectionField, InsertCollection } from "@shared/schema";
 
 import {
   collectionRepository,
@@ -21,9 +21,9 @@ export class CollectionService {
     fieldRepo?: typeof collectionFieldRepository,
     recordRepo?: typeof recordRepository
   ) {
-    this.collectionRepo = collectionRepo || collectionRepository;
-    this.fieldRepo = fieldRepo || collectionFieldRepository;
-    this.recordRepo = recordRepo || recordRepository;
+    this.collectionRepo = collectionRepo ?? collectionRepository;
+    this.fieldRepo = fieldRepo ?? collectionFieldRepository;
+    this.recordRepo = recordRepo ?? recordRepository;
   }
 
   /**
@@ -98,7 +98,7 @@ export class CollectionService {
   /**
    * Get collection with fields
    */
-  async getCollectionWithFields(collectionId: string, tenantId: string, tx?: DbTransaction) {
+  async getCollectionWithFields(collectionId: string, tenantId: string, tx?: DbTransaction): Promise<Collection & { fields: CollectionField[] }> {
     const collection = await this.verifyTenantOwnership(collectionId, tenantId, tx);
     const fields = await this.fieldRepo.findByCollectionId(collectionId, tx);
 
@@ -118,7 +118,7 @@ export class CollectionService {
   /**
    * List collections with field counts
    */
-  async listCollectionsWithStats(tenantId: string, tx?: DbTransaction) {
+  async listCollectionsWithStats(tenantId: string, tx?: DbTransaction): Promise<Array<Collection & { fieldCount: number; recordCount: number }>> {
     const collections = await this.collectionRepo.findByTenantId(tenantId, tx);
 
     return Promise.all(
@@ -146,18 +146,20 @@ export class CollectionService {
   ): Promise<Collection> {
     await this.verifyTenantOwnership(collectionId, tenantId, tx);
 
+    const updateData = { ...data };
+
     // If name changed, regenerate slug
-    if (data.name && !data.slug) {
-      const baseSlug = this.generateSlug(data.name);
-      data.slug = await this.ensureUniqueSlug(tenantId, baseSlug, collectionId, tx);
+    if (updateData.name && !updateData.slug) {
+      const baseSlug = this.generateSlug(updateData.name);
+      updateData.slug = await this.ensureUniqueSlug(tenantId, baseSlug, collectionId, tx);
     }
 
     // If slug provided, ensure it's unique
-    if (data.slug) {
-      data.slug = await this.ensureUniqueSlug(tenantId, data.slug, collectionId, tx);
+    if (updateData.slug) {
+      updateData.slug = await this.ensureUniqueSlug(tenantId, updateData.slug, collectionId, tx);
     }
 
-    return this.collectionRepo.update(collectionId, data, tx);
+    return this.collectionRepo.update(collectionId, updateData, tx);
   }
 
   /**

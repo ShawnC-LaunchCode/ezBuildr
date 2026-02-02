@@ -80,6 +80,7 @@ export class RunAuthResolver {
     /**
      * Verify access for creating a run
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async verifyCreateAccess(idOrSlug: string, userId: string | undefined) {
         if (userId) {
             // Authenticated: verify ownership/access

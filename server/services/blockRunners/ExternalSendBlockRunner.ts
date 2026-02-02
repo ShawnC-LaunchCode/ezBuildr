@@ -15,7 +15,7 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
     return "external_send";
   }
 
-  async execute(config: ExternalSendBlockConfig, context: BlockContext, block: Block): Promise<BlockResult> {
+  async execute(config: ExternalSendBlockConfig, context: BlockContext, _block: Block): Promise<BlockResult> {
     try {
       if (config.runCondition) {
         const shouldRun = this.evaluateCondition(config.runCondition, context.data);
@@ -33,12 +33,13 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
         config,
         context,
         tenantId,
-        context.mode || 'live'
+        context.mode ?? 'live'
       );
 
       return {
         success: result.success,
         errors: result.error ? [result.error] : undefined,
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-assignment
         data: result.responseBody ? { [config.destinationId]: result.responseBody } : undefined
       };
     } catch (error) {

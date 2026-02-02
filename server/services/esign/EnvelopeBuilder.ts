@@ -89,7 +89,7 @@ export class EnvelopeBuilder {
     const signer = this.buildSignerInfo(config, variableData);
 
     // 3. Apply variable substitution to text fields
-    const message = this.substituteVariables(config.message || '', variableData);
+    const message = this.substituteVariables(config.message ?? '', variableData);
 
     // 4. Create envelope request
     const envelopeRequest: CreateEnvelopeRequest = {
@@ -187,8 +187,8 @@ export class EnvelopeBuilder {
   ): SignerInfo {
     return {
       role: config.signerRole,
-      name: this.substituteVariables(config.signerName || '', variableData),
-      email: this.substituteVariables(config.signerEmail || '', variableData),
+      name: this.substituteVariables(config.signerName ?? '', variableData),
+      email: this.substituteVariables(config.signerEmail ?? '', variableData),
       routingOrder: config.routingOrder || 1,
       signerId: undefined, // Will be set by signature request service
     };
@@ -209,7 +209,7 @@ export class EnvelopeBuilder {
     // Replace {{variableName}} with values
     Object.entries(variableData).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
-      result = result.replace(regex, String(value || ''));
+      result = result.replace(regex, String(value ?? ''));
     });
 
     return result;

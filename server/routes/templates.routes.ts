@@ -1,5 +1,10 @@
+/* eslint-disable max-lines -- route file with many endpoints */
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
+
 import { eq, and, desc, lt } from 'drizzle-orm';
-import { Router, type Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { type FileFilterCallback } from 'multer';
 import multer from 'multer';
 
@@ -19,6 +24,7 @@ import { hybridAuth } from '../middleware/auth';
 import { uploadLimiter } from '../middleware/rateLimiter';
 import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
+import { pdfService } from '../services/document/PdfService';
 import { templateScanner } from '../services/document/TemplateScanner';
 import { documentProcessingLimiter } from '../services/processingLimiter';
 import { virusScanner } from '../services/security/VirusScanner';
@@ -28,28 +34,28 @@ import {
   deleteTemplateFile,
   extractPlaceholders,
 } from '../services/templates';
+import { asyncHandler } from '../utils/asyncHandler';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
-
-
 import type { AuthRequest } from '../middleware/auth';
-
+import type { PdfMetadata } from '../services/document/PdfService';
 
 const router = Router();
 
-
-import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
+const PERMISSION_VIEW = 'template:view';
+const PERMISSION_EDIT = 'template:edit';
+const PERMISSION_CREATE = 'template:create';
+const PERMISSION_DELETE = 'template:delete';
+const ACCESS_DENIED_MSG = 'Access denied to this template';
 
 // Configure multer for file uploads (Disk storage for security)
 const upload = multer({
   storage: multer.diskStorage({
     destination: os.tmpdir(),
-    filename: (req, file, cb) => {
-      const uniqueSuffix = `${Date.now()  }-${  Math.round(Math.random() * 1E9)}`;
-      cb(null, `${file.fieldname  }-${  uniqueSuffix  }${path.extname(file.originalname)}`);
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
   }),
   limits: {
@@ -60,7 +66,6 @@ const upload = multer({
     file: Express.Multer.File,
     cb: FileFilterCallback
   ) => {
-    // Only accept .docx and .pdf files
     if (
       file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       file.originalname.endsWith('.docx') ||
@@ -75,21 +80,22 @@ const upload = multer({
 });
 
 // Helper to cleanup temp files
-const cleanupFile = async (filePath?: string) => {
-  if (filePath) {
+const cleanupFile = async (filePath?: string): Promise<void> => {
+  if (filePath !== undefined) {
     try {
       await fs.unlink(filePath);
-    } catch (e: any) {
-      if (e.code !== 'ENOENT') {
+    } catch (e: unknown) {
+      const err = e as NodeJS.ErrnoException;
+      if (err.code !== 'ENOENT') {
         logger.warn({ error: e, filePath }, 'Failed to cleanup temp upload file');
       }
     }
   }
 };
 
-import { pdfService } from '../services/document/PdfService';
-
-
+function isErrorWithCode(err: unknown): err is Error & { code: string } {
+  return err instanceof Error && 'code' in err;
+}
 
 /**
  * GET /templates/:id/download
@@ -99,72 +105,50 @@ router.get(
   '/templates/:id/download',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       logger.debug({ templateId: req.params.id }, 'Downloading template');
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         logger.error({ templateId: params.id }, 'Template not found');
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        logger.error({ tenantId, templateId: template.id }, 'Access denied to template');
-        throw createError.forbidden('Access denied to this template');
+        logger.error({ tenantId, templateId: template.id }, ACCESS_DENIED_MSG);
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get file path
       const { getTemplateFilePath } = await import('../services/templates');
       const filePath = getTemplateFilePath(template.fileRef);
-
-      // Import fs locally to avoid toplevel conflict if not imported
-      const fs = await import('fs');
-
-      if (!fs.existsSync(filePath)) {
+      const fsSync = await import('fs');
+      if (!fsSync.existsSync(filePath)) {
         logger.error({ filePath }, 'Template file missing at path');
         throw createError.notFound('Template file', template.fileRef);
       }
-
       logger.debug({ filePath }, 'Serving template file');
-
-      // Set headers
       res.setHeader('Content-Disposition', `attachment; filename="${template.name}.${template.type === 'pdf' ? 'pdf' : 'docx'}"`);
-
       if (template.type === 'pdf') {
         res.setHeader('Content-Type', 'application/pdf');
       } else {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       }
-
-      // Stream file
-      const stream = fs.createReadStream(filePath);
+      const stream = fsSync.createReadStream(filePath);
       stream.pipe(res);
-
     } catch (error) {
       logger.error({ error }, 'Template download error');
-      // If headers sent, we can't send error json
       if (res.headersSent) {
         return;
       }
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -175,55 +159,42 @@ router.get(
   '/projects/:projectId/templates',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params and query
       const params = projectIdParamsSchema.parse(req.params);
       const query = listTemplatesQuerySchema.parse(req.query);
       const { cursor, limit } = query;
-
-      // Verify project belongs to tenant
       const project = await db.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
       });
-
       if (!project) {
         throw createError.notFound('Project', params.projectId);
       }
-
-      // Build where clause
       const whereConditions = [eq(schema.templates.projectId, params.projectId)];
-
-      if (cursor) {
+      if (cursor !== undefined) {
         const decoded = decodeCursor(cursor);
-        if (decoded) {
+        if (decoded !== null) {
           whereConditions.push(lt(schema.templates.createdAt, new Date(decoded.timestamp)));
         }
       }
-
-      // Fetch templates
       const templates = await db.query.templates.findMany({
         where: and(...whereConditions),
         orderBy: [desc(schema.templates.createdAt)],
         limit: limit + 1,
       });
-
-      // Create paginated response
       const response = createPaginatedResponse(templates, limit);
-
       res.json(response);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -236,60 +207,43 @@ router.post(
   upload.single('file'),
   hybridAuth,
   requireTenant,
-  requirePermission('template:create'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_CREATE),
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- inherently complex file upload with security checks
+  asyncHandler(async (req: Request, res: Response) => {
     let fileRef: string | undefined;
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = projectIdParamsSchema.parse(req.params);
-
-      // Verify project belongs to tenant
       const project = await db.query.projects.findFirst({
         where: and(
           eq(schema.projects.id, params.projectId),
           eq(schema.projects.tenantId, tenantId)
         ),
       });
-
       if (!project) {
-        // Cleanup if project invalid
         await cleanupFile(req.file?.path);
         throw createError.notFound('Project', params.projectId);
       }
-
-      // Validate file upload
       if (!req.file) {
         throw createError.validation('File upload required');
       }
-
-      // Validate body
       let data;
       try {
         data = createTemplateSchema.parse(req.body);
       } catch (validationError) {
         await cleanupFile(req.file.path);
-        logger.error({ error: validationError, body: req.body }, "Template validation failed");
+        logger.error({ error: validationError, body: req.body as unknown }, "Template validation failed");
         throw createError.validation("Invalid template data");
       }
-
       const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
-
-      // Read file buffer from disk
       let fileBuffer = await fs.readFile(req.file.path);
-
-      // SECURITY: Validate Magic Bytes (Fail fast check)
       const { validateMagicBytes } = await import('../utils/magicBytes');
       const isValidMagic = validateMagicBytes(fileBuffer, req.file.originalname);
-
       if (!isValidMagic) {
         await cleanupFile(req.file.path);
         throw createError.validation('File type mismatch (Magic Bytes validation failed)');
       }
-
-      // SECURITY: Virus scan BEFORE any processing
       const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
       if (!scanResult.safe) {
         await cleanupFile(req.file.path);
@@ -297,69 +251,47 @@ router.post(
           { filename: req.file.originalname, threat: scanResult.threatName },
           'Malware detected in uploaded template'
         );
-        throw createError.validation(`File rejected: potential malware detected (${scanResult.threatName})`);
+        throw createError.validation(`File rejected: potential malware detected (${String(scanResult.threatName)})`);
       }
-
-      // QUOTA: Check storage quota
       await storageQuotaService.checkQuota(tenantId, fileBuffer.length);
       logger.debug(
         { filename: req.file.originalname, scanner: scanResult.scannerName, durationMs: scanResult.scanDurationMs },
         'Virus scan passed'
       );
-
-      // SCAN & FIX TEMPLATE (DOCX Only)
       let warnings: string[] = [];
-      let pdfMetadata: any = {};
-
+      let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
       if (!isPdf) {
         try {
-          const scanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
-
-          if (!scanResult.isValid) {
+          const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
+          if (!docxScanResult.isValid) {
             throw createError.validation(
-              `Invalid template: ${scanResult.errors?.join(', ')}`
+              `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
             );
           }
-
-          if (scanResult.fixed) {
-            fileBuffer = scanResult.buffer;
-            warnings = scanResult.repairs;
+          if (docxScanResult.fixed) {
+            fileBuffer = docxScanResult.buffer;
+            warnings = docxScanResult.repairs;
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           await cleanupFile(req.file.path);
-          // If it's already a validation error, rethrow
-          if (error.code === 'VALIDATION_ERROR') { throw error; }
-          // Otherwise wrap it
-          throw createError.validation(`Template validation failed: ${error.message}`);
+          if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
+          throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
       } else {
-        // Handle PDF
         try {
           fileBuffer = await documentProcessingLimiter.run(async () => {
-            // 1. Unlock PDF (remove restrictions)
             const unlocked = await pdfService.unlockPdf(fileBuffer);
-            // 2. Extract fields
             pdfMetadata = await pdfService.extractFields(unlocked);
             return unlocked;
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           await cleanupFile(req.file.path);
           logger.error({ error }, 'PDF processing failed');
-          throw createError.validation(`PDF processing failed: ${error.message}`);
+          throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
       }
-
-      // Save file
-      fileRef = await saveTemplateFile(
-        fileBuffer,
-        req.file.originalname,
-        req.file.mimetype
-      );
-
-      // Cleanup temp file after save
+      fileRef = await saveTemplateFile(fileBuffer, req.file.originalname, req.file.mimetype);
       await cleanupFile(req.file.path);
-
-      // Create template record
       const [template] = await db
         .insert(schema.templates)
         .values({
@@ -374,22 +306,21 @@ router.post(
           },
         })
         .returning();
-
       res.status(201).json({
         ...template,
         warnings: warnings.length > 0 ? warnings : undefined
       });
     } catch (error) {
-      if (fileRef) {
-        await deleteTemplateFile(fileRef).catch(e =>
+      if (fileRef !== undefined) {
+        await deleteTemplateFile(fileRef).catch((e: unknown) =>
           logger.warn({ error: e, fileRef }, "Failed to cleanup orphan file during rollback")
         );
       }
-      logger.error({ error, body: req.body, params: req.params, file: req.file }, "Error creating template");
+      logger.error({ error, body: req.body as unknown, params: req.params as unknown, file: req.file }, "Error creating template");
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -400,38 +331,28 @@ router.get(
   '/templates/:id',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
       res.json(template);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -442,53 +363,38 @@ router.patch(
   '/templates/:id',
   hybridAuth,
   requireTenant,
-  requirePermission('template:edit'),
+  requirePermission(PERMISSION_EDIT),
   uploadLimiter,
   upload.single('file'),
-  async (req: Request, res: Response) => {
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- inherently complex file replacement with security checks
+  asyncHandler(async (req: Request, res: Response) => {
     let newFileRef: string | undefined;
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Validate body
       const data = updateTemplateSchema.parse(req.body);
-
-      // Handle file replacement if provided
       let warnings: string[] = [];
-      let oldFileRef: string | undefined; // Track old file for cleanup AFTER successful DB update
-
+      let oldFileRef: string | undefined;
+      let updateType: string | undefined;
+      let updateMetadata: Record<string, unknown> | undefined;
       if (req.file) {
         let fileBuffer = await fs.readFile(req.file.path);
-
-        // SECURITY: Validate Magic Bytes
         const { validateMagicBytes } = await import('../utils/magicBytes');
         if (!validateMagicBytes(fileBuffer, req.file.originalname)) {
           await cleanupFile(req.file.path);
           throw createError.validation('File type mismatch (Magic Bytes validation failed)');
         }
-
-        // SECURITY: Virus scan BEFORE any processing
         const virusScanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
         if (!virusScanResult.safe) {
           await cleanupFile(req.file.path);
@@ -496,116 +402,91 @@ router.patch(
             { filename: req.file.originalname, threat: virusScanResult.threatName },
             'Malware detected in uploaded template (PATCH)'
           );
-          throw createError.validation(`File rejected: potential malware detected (${virusScanResult.threatName})`);
+          throw createError.validation(`File rejected: potential malware detected (${String(virusScanResult.threatName)})`);
         }
-
-        // QUOTA: Check
         await storageQuotaService.checkQuota(tenantId, fileBuffer.length);
-
         logger.debug(
           { filename: req.file.originalname, scanner: virusScanResult.scannerName },
           'Virus scan passed (PATCH)'
         );
-
-        // Handle PDF or scan DOCX
         const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
-        let pdfMetadata: any = {};
-
+        let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
         if (!isPdf) {
           try {
             const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
-
+            // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (!docxScanResult.isValid) {
               logger.error({ errors: docxScanResult.errors }, 'Template validation failed in API (PATCH)');
               throw createError.validation(
-                `Invalid template: ${docxScanResult.errors?.join(', ')}`
+                `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
               );
             }
-
+            // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (docxScanResult.fixed) {
               fileBuffer = docxScanResult.buffer;
               warnings = docxScanResult.repairs;
             }
-          } catch (error: any) {
+          } catch (error: unknown) {
             await cleanupFile(req.file.path);
-            if (error.code === 'VALIDATION_ERROR') { throw error; }
-            throw createError.validation(`Template validation failed: ${error.message}`);
+            // eslint-disable-next-line max-depth -- nested re-throw inside try/if
+            if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
+            throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
         } else {
-          // Handle PDF
           try {
             fileBuffer = await documentProcessingLimiter.run(async () => {
               const unlocked = await pdfService.unlockPdf(fileBuffer);
               pdfMetadata = await pdfService.extractFields(unlocked);
               return unlocked;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             await cleanupFile(req.file.path);
             logger.error({ error }, 'PDF processing failed (PATCH)');
-            throw createError.validation(`PDF processing failed: ${error.message}`);
+            throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
         }
-
-        // Save new file FIRST (before DB update)
-        newFileRef = await saveTemplateFile(
-          fileBuffer,
-          req.file.originalname,
-          req.file.mimetype
-        );
-
-        // Cleanup temp file
+        newFileRef = await saveTemplateFile(fileBuffer, req.file.originalname, req.file.mimetype);
         await cleanupFile(req.file.path);
-
-        // Update data object with new type/metadata if file changed
-        (data as any).type = isPdf ? 'pdf' : 'docx';
-        (data as any).metadata = {
+        updateType = isPdf ? 'pdf' : 'docx';
+        updateMetadata = {
           ...(isPdf ? pdfMetadata : {}),
           size: fileBuffer.length
         };
-
-        // CRITICAL: Track old file for cleanup AFTER successful DB update (atomicity fix)
         oldFileRef = template.fileRef;
       }
-
-      // Update template in database
       const [updated] = await db
         .update(schema.templates)
         .set({
           ...(data.name !== undefined && { name: data.name }),
-          ...(newFileRef && { fileRef: newFileRef }),
-          ...((data as any).type && { type: (data as any).type }),
-          ...((data as any).metadata && { metadata: (data as any).metadata }),
+          ...(newFileRef !== undefined && { fileRef: newFileRef }),
+          ...(updateType !== undefined && { type: updateType as "docx" | "pdf" }),
+          ...(updateMetadata !== undefined && { metadata: updateMetadata }),
           updatedAt: new Date(),
         })
         .where(eq(schema.templates.id, params.id))
         .returning();
-
-      // CRITICAL: Only delete old file AFTER successful DB commit
-      // This ensures atomicity - if DB fails, old file is preserved
-      if (oldFileRef && newFileRef) {
+      if (oldFileRef !== undefined && newFileRef !== undefined) {
         try {
           await deleteTemplateFile(oldFileRef);
           logger.debug({ oldFileRef, newFileRef }, 'Old template file cleaned up after successful update');
         } catch (cleanupError) {
-          // Log but don't fail - orphaned files can be cleaned up by maintenance job
           logger.warn({ oldFileRef, error: cleanupError }, 'Failed to delete old template file (orphaned)');
         }
       }
-
       res.json({
         ...updated,
         warnings: warnings.length > 0 ? warnings : undefined
       });
     } catch (error) {
-      if (newFileRef) {
-        await deleteTemplateFile(newFileRef).catch(e =>
+      if (newFileRef !== undefined) {
+        await deleteTemplateFile(newFileRef).catch((e: unknown) =>
           logger.warn({ error: e, newFileRef }, "Failed to cleanup orphan new file during rollback")
         );
       }
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -616,44 +497,30 @@ router.delete(
   '/templates/:id',
   hybridAuth,
   requireTenant,
-  requirePermission('template:delete'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_DELETE),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Delete file
       await deleteTemplateFile(template.fileRef);
-
-      // Delete template record
       await db.delete(schema.templates).where(eq(schema.templates.id, params.id));
-
       res.status(204).send();
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -664,46 +531,33 @@ router.get(
   '/templates/:id/placeholders',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Extract placeholders
       const placeholders = await extractPlaceholders(template.fileRef);
-
       const response: ExtractPlaceholdersResponse = {
         templateId: template.id,
         placeholders,
       };
-
       res.json(response);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -714,55 +568,45 @@ router.post(
   '/templates/:id/preview',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get preview options from request body
-      const { mapping, sampleData, outputFormat = 'pdf', validateMapping = true } = req.body;
-
-      if (!sampleData || typeof sampleData !== 'object') {
+      const body = req.body as Record<string, unknown>;
+      const mapping = body.mapping as Record<string, unknown> | undefined;
+      const sampleData = body.sampleData;
+      const outputFormat = (body.outputFormat as string | undefined) ?? 'pdf';
+      const validateMapping = (body.validateMapping as boolean | undefined) ?? true;
+      if (sampleData === undefined || sampleData === null || typeof sampleData !== 'object') {
         throw createError.validation('sampleData is required and must be an object');
       }
-
-      // Generate preview
       const { templatePreviewService } = await import('../services/TemplatePreviewService');
       const previewResult = await templatePreviewService.generatePreview({
         templateId: params.id,
-        mapping,
-        sampleData,
-        outputFormat,
+        mapping: mapping as Parameters<typeof templatePreviewService.generatePreview>[0]['mapping'],
+        sampleData: sampleData as Record<string, unknown>,
+        outputFormat: outputFormat as 'pdf' | 'docx' | undefined,
         validateMapping,
-        expiresIn: 300, // 5 minutes
+        expiresIn: 300,
       });
-
       res.json({
         previewUrl: previewResult.previewUrl,
         format: previewResult.format,
         size: previewResult.size,
         expiresAt: previewResult.expiresAt,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- validationReport typed as any in PreviewResult
         validationReport: previewResult.validationReport,
         mappingMetadata: previewResult.mappingMetadata,
       });
@@ -770,7 +614,7 @@ router.post(
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -781,57 +625,43 @@ router.post(
   '/templates/:id/test-mapping',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get mapping and test data from request body
-      const { mapping, testData } = req.body;
-
-      if (!mapping || typeof mapping !== 'object') {
+      const body = req.body as Record<string, unknown>;
+      const mapping = body.mapping;
+      const testData = body.testData;
+      if (mapping === undefined || mapping === null || typeof mapping !== 'object') {
         throw createError.validation('mapping is required and must be an object');
       }
-
-      if (!testData || typeof testData !== 'object') {
+      if (testData === undefined || testData === null || typeof testData !== 'object') {
         throw createError.validation('testData is required and must be an object');
       }
-
-      // Validate mapping
       const { mappingValidator } = await import('../services/document/MappingValidator');
       const report = await mappingValidator.validateWithTestData(
         params.id,
-        mapping,
-        testData
+        mapping as Parameters<typeof mappingValidator.validateWithTestData>[1],
+        testData as Record<string, unknown>,
       );
-
       res.json(report);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -842,42 +672,30 @@ router.get(
   '/templates/:id/versions',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get version history
       const { templateVersionService } = await import('../services/TemplateVersionService');
       const history = await templateVersionService.getVersionHistory(params.id);
-
       res.json({ versions: history });
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -888,47 +706,34 @@ router.get(
   '/templates/:id/versions/:versionNumber',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
       const versionNumber = parseInt(req.params.versionNumber, 10);
-
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get specific version
       const { templateVersionService } = await import('../services/TemplateVersionService');
       const version = await templateVersionService.getVersion(params.id, versionNumber);
-
       res.json(version);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -939,37 +744,26 @@ router.post(
   '/templates/:id/versions',
   hybridAuth,
   requireTenant,
-  requirePermission('template:edit'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_EDIT),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const userId = authReq.userId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get notes from request body
-      const { notes, force } = req.body;
-
-      // Create version
+      const body = req.body as Record<string, unknown>;
+      const notes = body.notes as string | undefined;
+      const force = body.force as boolean | undefined;
       const { templateVersionService } = await import('../services/TemplateVersionService');
       const version = await templateVersionService.createVersion({
         templateId: params.id,
@@ -977,13 +771,12 @@ router.post(
         notes,
         force,
       });
-
       res.status(201).json(version);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -994,51 +787,37 @@ router.post(
   '/templates/:id/versions/:versionNumber/restore',
   hybridAuth,
   requireTenant,
-  requirePermission('template:edit'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_EDIT),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
       const userId = authReq.userId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
       const versionNumber = parseInt(req.params.versionNumber, 10);
-
       if (isNaN(versionNumber)) {
         throw createError.validation('Invalid version number');
       }
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get notes from request body
-      const { notes } = req.body;
-
-      // Restore version
+      const body = req.body as Record<string, unknown>;
+      const notes = body.notes as string | undefined;
       const { templateVersionService } = await import('../services/TemplateVersionService');
       await templateVersionService.restoreVersion(params.id, versionNumber, userId, notes);
-
-      res.json({ success: true, message: `Restored to version ${versionNumber}` });
+      res.json({ success: true, message: `Restored to version ${String(versionNumber)}` });
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -1049,48 +828,35 @@ router.get(
   '/templates/:id/versions/compare',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
       const from = parseInt(req.query.from as string, 10);
       const to = parseInt(req.query.to as string, 10);
-
       if (isNaN(from) || isNaN(to)) {
         throw createError.validation('Invalid version numbers');
       }
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Compare versions
       const { templateVersionService } = await import('../services/TemplateVersionService');
       const comparison = await templateVersionService.compareVersions(params.id, from, to);
-
       res.json(comparison);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 /**
@@ -1101,42 +867,30 @@ router.get(
   '/templates/:id/analytics',
   hybridAuth,
   requireTenant,
-  requirePermission('template:view'),
-  async (req: Request, res: Response) => {
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
-
-      // Validate params
       const params = templateParamsSchema.parse(req.params);
-
-      // Fetch template with project
       const template = await db.query.templates.findFirst({
         where: eq(schema.templates.id, params.id),
-        with: {
-          project: true,
-        },
+        with: { project: true },
       });
-
       if (!template) {
         throw createError.notFound('Template', params.id);
       }
-
-      // Verify tenant access
       if (template.project.tenantId !== tenantId) {
-        throw createError.forbidden('Access denied to this template');
+        throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-
-      // Get analytics
       const { templateAnalytics } = await import('../services/TemplateAnalyticsService');
       const insights = await templateAnalytics.getTemplateInsights(params.id);
-
       res.json(insights);
     } catch (error) {
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }
-  }
+  })
 );
 
 export default router;

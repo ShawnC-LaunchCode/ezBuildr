@@ -14,16 +14,19 @@ export async function runMigrations(
 ): Promise<{ schema: WorkflowSchema; appliedMigrations: string[] }> {
     let current = currentVersion;
     const applied: string[] = [];
-    let migratedSchema = JSON.parse(JSON.stringify(schema)); // Deep copy
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- deep copy via JSON round-trip
+    let migratedSchema: WorkflowSchema = JSON.parse(JSON.stringify(schema));
 
     logger.info({ currentVersion, targetVersion }, "Starting workflow migration");
 
+    // eslint-disable-next-line no-constant-condition -- migration chain loop terminates on break
     while (true) {
         if (targetVersion && current === targetVersion) {
             break;
         }
 
         const migration = MIGRATION_REGISTRY[current];
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!migration) {
             if (targetVersion && current !== targetVersion) {
                 throw new Error(`No migration path found from ${current} to ${targetVersion}`);
@@ -34,6 +37,7 @@ export async function runMigrations(
         logger.info({ from: current, to: migration.toVersion }, "Applying migration");
 
         try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- migration chain passes schema through
             migratedSchema = await migration.migrate(migratedSchema);
             applied.push(`${current}->${migration.toVersion}`);
             current = migration.toVersion;
@@ -43,5 +47,6 @@ export async function runMigrations(
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- migrated schema preserves WorkflowSchema shape
     return { schema: migratedSchema, appliedMigrations: applied };
 }

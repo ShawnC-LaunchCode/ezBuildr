@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
 /**
  * Tests for IntakeQuestionVisibilityService (Stage 20 PR 3)
  *

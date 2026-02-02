@@ -4,7 +4,7 @@ export interface StorageMetadata {
     size: number;
     etag?: string;
     lastModified?: Date;
-    custom?: Record<string, any>; // Custom metadata like expiresAt
+    custom?: Record<string, unknown>; // Custom metadata like expiresAt
 }
 
 export interface StorageProvider {
@@ -29,7 +29,7 @@ export interface StorageProvider {
      * @param mimeType MIME type
      * @param metadata Optional metadata
      */
-    uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, any>): Promise<string>;
+    uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, unknown>): Promise<string>;
 
     /**
      * Delete a file

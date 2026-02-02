@@ -1,13 +1,12 @@
 import { eq } from 'drizzle-orm';
 
 import { tenants, tenantDomains } from '@shared/schema';
+import type { TenantBranding } from '@shared/types/branding';
 
 import { db } from '../db';
-
-type TenantDomain = typeof tenantDomains.$inferSelect;
 import { createLogger } from '../logger';
 
-import type { TenantBranding } from '@shared/types/branding';
+type TenantDomain = typeof tenantDomains.$inferSelect;
 
 const logger = createLogger({ module: 'BrandingService' });
 
@@ -28,14 +27,14 @@ export class BrandingService {
         .from(tenants)
         .where(eq(tenants.id, tenantId));
 
-      if (!tenant) {
+      if (tenant === undefined) {
         logger.warn({ tenantId }, 'Tenant not found');
         return null;
       }
 
       // Parse and return branding (default to null if not set)
       const branding = tenant.branding as TenantBranding | null;
-      return branding || null;
+      return branding ?? null;
     } catch (error) {
       logger.error({ error, tenantId }, 'Failed to get tenant branding');
       throw error;
@@ -69,7 +68,7 @@ export class BrandingService {
         .where(eq(tenants.id, tenantId))
         .returning({ branding: tenants.branding });
 
-      if (!updatedTenant) {
+      if (updatedTenant === undefined) {
         throw new Error('Tenant not found');
       }
 
@@ -97,7 +96,7 @@ export class BrandingService {
         .from(tenantDomains)
         .where(eq(tenantDomains.domain, domain));
 
-      if (!domainRecord) {
+      if (domainRecord === undefined) {
         logger.debug({ domain }, 'Domain not found');
         return null;
       }
@@ -148,9 +147,9 @@ export class BrandingService {
 
       logger.info({ tenantId, domain }, 'Domain added to tenant');
       return newDomain;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check for unique constraint violation
-      if (error?.code === '23505') {
+      if (error instanceof Error && 'code' in error && (error as { code: string }).code === '23505') {
         logger.warn({ tenantId, domain }, 'Domain already exists');
         throw new Error('Domain already exists');
       }
@@ -171,7 +170,7 @@ export class BrandingService {
         .from(tenantDomains)
         .where(eq(tenantDomains.id, domainId));
 
-      if (!domain) {
+      if (domain === undefined) {
         logger.warn({ domainId }, 'Domain not found');
         return false;
       }
@@ -204,7 +203,7 @@ export class BrandingService {
         .from(tenantDomains)
         .where(eq(tenantDomains.domain, domain.toLowerCase()));
 
-      return !existing;
+      return existing === undefined;
     } catch (error) {
       logger.error({ error, domain }, 'Failed to check domain availability');
       throw error;

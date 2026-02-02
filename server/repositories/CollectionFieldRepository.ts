@@ -63,7 +63,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
     if (excludeId) {
       whereCondition = and(
         whereCondition,
-        // @ts-ignore - Drizzle type inference limitation
+        // @ts-expect-error - Drizzle type inference limitation
         eq(collectionFields.id, excludeId) === false
       );
     }
@@ -74,7 +74,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
       .where(whereCondition)
       .limit(1);
 
-    return !!result;
+    return result !== undefined;
   }
 
   /**

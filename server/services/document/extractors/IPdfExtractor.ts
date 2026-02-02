@@ -29,6 +29,7 @@ export interface ExtractionResult {
   error?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- I-prefix is industry standard for extractor interfaces
 export interface IPdfExtractor {
   /**
    * Name of the extractor (for logging)

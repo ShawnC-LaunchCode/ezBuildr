@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Error Handler Middleware - Usage Examples
  *
@@ -5,11 +6,80 @@
  * DO NOT import this file - it's for documentation purposes only.
  */
 
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 
 // import { isAuthenticated } from "../googleAuth";
-const isAuthenticated = (req: any, res: any, next: any) => next();
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => next();
 import { logger } from "../logger";
+
+// ============================================================================
+// Mock functions & definitions (moved to top for scope)
+// ============================================================================
+
+interface MockUser {
+  id: string;
+  email: string;
+}
+
+interface MockSurvey {
+  id: string;
+  creatorId: string;
+  status: 'draft' | 'published';
+}
+
+interface MockTeam {
+  id: string;
+  name: string;
+}
+
+interface MockMembership {
+  role: 'admin' | 'member';
+}
+
+const db = {
+  findSurvey: async (id: string): Promise<MockSurvey | null> => null,
+  deleteSurvey: async (id: string): Promise<void> => { },
+};
+
+async function getSurvey(id: string): Promise<MockSurvey | null> {
+  return null;
+}
+async function createSurvey(data: unknown): Promise<MockSurvey | null> {
+  return null;
+}
+async function updateSurvey(id: string, data: unknown): Promise<MockSurvey | null> {
+  return null;
+}
+async function getTeam(id: string): Promise<MockTeam | null> {
+  return null;
+}
+async function getTeamMembership(teamId: string, userId: string): Promise<MockMembership | null> {
+  return null;
+}
+async function getUserByEmail(email: string): Promise<MockUser> {
+  return { id: 'user-1', email };
+}
+async function addTeamMember(teamId: string, userId: string): Promise<MockMembership | null> {
+  return null;
+}
+async function getTeamProjects(teamId: string): Promise<any[]> {
+  return [];
+}
+const addMemberSchema = { parse: (x: unknown) => ({ email: 'test@example.com' }) };
+const z: any = { object: () => ({ parse: () => ({}) }), string: () => ({ min: () => ({}), optional: () => ({}), email: () => ({}) }) };
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    claims: {
+      sub: string;
+      email: string;
+      [key: string]: any;
+    };
+  };
+  teamMembership?: MockMembership | null;
+}
+
+
 
 import {
   errorHandler,
@@ -57,10 +127,11 @@ function setupErrorHandlerExample(app: Express) {
  */
 function exampleAsyncHandler(app: Express) {
   // BEFORE (old pattern):
-  app.get("/api/surveys/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/surveys/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const survey = await getSurvey(req.params.id);
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
+      const survey = await getSurvey(authReq.params.id!);
 
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
@@ -81,9 +152,10 @@ function exampleAsyncHandler(app: Express) {
   app.get(
     "/api/surveys/:id",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
-      const survey = await getSurvey(req.params.id);
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
+      const survey = await getSurvey(authReq.params.id!);
 
       // Throw custom errors - they'll be caught automatically
       if (!survey) {
@@ -110,13 +182,14 @@ function exampleHelperFunctions(app: Express) {
   app.get(
     "/api/surveys/:id",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
 
       // assertAuthenticated throws UnauthorizedError if falsy
       assertAuthenticated(userId, "Unauthorized - no user ID");
 
-      const survey = await getSurvey(req.params.id);
+      const survey = await getSurvey(req.params.id!);
 
       // assertFound throws NotFoundError if null/undefined
       assertFound(survey, "Survey not found");
@@ -140,8 +213,8 @@ function exampleHelperFunctions(app: Express) {
  * Services can throw custom errors which will be automatically handled
  */
 class SurveyServiceExample {
-  async getSurvey(id: string, userId: string) {
-    const survey = await db.findSurvey(id);
+  async getSurvey(id: string, userId?: string) {
+    const survey = await getSurvey(id);
 
     // Throw custom errors from services
     if (!survey) {
@@ -174,11 +247,12 @@ function exampleServiceErrors(app: Express) {
   app.delete(
     "/api/surveys/:id",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
       // If service throws NotFoundError, ForbiddenError, or BadRequestError,
       // it's automatically caught and proper status code is returned
-      const result = await surveyService.deleteSurvey(req.params.id, userId);
+      const result = await surveyService.deleteSurvey(req.params.id!, userId!);
       res.json(result);
     })
   );
@@ -201,8 +275,9 @@ function exampleValidation(app: Express) {
   app.post(
     "/api/surveys",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
 
       // If validation fails, ZodError is thrown and automatically caught
       // Error handler returns 400 with validation details
@@ -217,11 +292,12 @@ function exampleValidation(app: Express) {
   app.post(
     "/api/surveys",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
-      const data = validateInput(createSurveySchema, req.body);
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user!.claims.sub;
+      const data = validateInput(createSurveySchema, authReq.body) as Record<string, unknown>;
 
-      const survey = await createSurvey({ ...(data as any), creatorId: userId });
+      const survey = await createSurvey({ ...data, creatorId: userId });
       res.json(survey);
     })
   );
@@ -236,10 +312,11 @@ function exampleValidation(app: Express) {
  */
 function exampleMigration(app: Express) {
   // STEP 1: Keep existing try/catch, but throw custom errors instead of manual status codes
-  app.put("/api/surveys/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/surveys/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
-      const survey = await getSurvey(req.params.id);
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
+      const survey = await getSurvey(req.params.id!);
 
       // Replace manual status responses with thrown errors
       if (!survey) {
@@ -269,9 +346,10 @@ function exampleMigration(app: Express) {
   app.put(
     "/api/surveys/:id",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
-      const survey = await getSurvey(req.params.id);
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
+      const survey = await getSurvey(req.params.id!);
 
       if (!survey) {
         throw new NotFoundError("Survey not found");
@@ -290,9 +368,10 @@ function exampleMigration(app: Express) {
   app.put(
     "/api/surveys/:id",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
-      const survey = await getSurvey(req.params.id);
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const userId = authReq.user?.claims.sub;
+      const survey = await getSurvey(req.params.id!);
 
       assertFound(survey, "Survey not found");
       assertAuthorized(survey.creatorId === userId, "Access denied");
@@ -314,17 +393,19 @@ function exampleComplexErrors(app: Express) {
   app.post(
     "/api/teams/:teamId/members",
     isAuthenticated,
-    asyncHandler(async (req: any, res) => {
-      const userId = req.user.claims.sub;
+    asyncHandler(async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const userId = authReq.user!.claims.sub;
       const { teamId } = req.params;
-      const { email } = validateInput(addMemberSchema, req.body) as { email: string };
+      const { email } = addMemberSchema.parse(req.body) as { email: string };
 
       // Check if team exists
-      const team = await getTeam(teamId);
+      const team = await getTeam(teamId!);
       assertFound(team, "Team not found");
 
       // Check if user is team admin
-      const membership = await getTeamMembership(teamId, userId);
+      const membership = await getTeamMembership(teamId!, userId);
       assertAuthorized(
         membership?.role === "admin",
         "Access denied - team admin access required"
@@ -335,12 +416,12 @@ function exampleComplexErrors(app: Express) {
       assertFound(userToAdd, "User not found");
 
       // Check if user is already a member
-      const existingMember = await getTeamMembership(teamId, userToAdd.id);
+      const existingMember = await getTeamMembership(teamId!, userToAdd.id);
       if (existingMember) {
         throw new BadRequestError("User is already a team member");
       }
 
-      const member = await addTeamMember(teamId, userToAdd.id);
+      const member = await addTeamMember(teamId!, userToAdd.id);
       res.json({ success: true, data: member });
     })
   );
@@ -353,21 +434,22 @@ function exampleComplexErrors(app: Express) {
 /**
  * Custom middleware can also throw errors that will be caught
  */
-function requireTeamMember(req: any, res: any, next: any) {
+function requireTeamMember(req: Request, res: Response, next: NextFunction) {
   // Wrap async middleware with asyncHandler too
-  return asyncHandler(async (req: any, res, next) => {
-    const userId = req.user?.claims?.sub;
+  return asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.claims?.sub;
     assertAuthenticated(userId);
 
     const { teamId } = req.params;
-    const membership = await getTeamMembership(teamId, userId);
+    const membership = await getTeamMembership(teamId!, userId!);
 
     assertAuthorized(
       membership !== null,
       "Access denied - you are not a member of this team"
     );
 
-    req.teamMembership = membership;
+    (req as AuthenticatedRequest).teamMembership = membership;
     next();
   })(req, res, next);
 }
@@ -378,43 +460,13 @@ function exampleMiddlewareErrors(app: Express) {
     "/api/teams/:teamId/projects",
     isAuthenticated,
     requireTeamMember,
-    asyncHandler(async (req: any, res) => {
+    asyncHandler(async (req: Request, res: Response) => {
       const { teamId } = req.params;
-      const projects = await getTeamProjects(teamId);
+      const projects = await getTeamProjects(teamId!);
       res.json(projects);
     })
   );
 }
 
-// ============================================================================
-// Mock functions (for example purposes only)
-// ============================================================================
 
-const db: any = {};
-const z: any = {};
 
-async function getSurvey(id: string): Promise<any> {
-  return null;
-}
-async function createSurvey(data: any): Promise<any> {
-  return null;
-}
-async function updateSurvey(id: string, data: any): Promise<any> {
-  return null;
-}
-async function getTeam(id: string): Promise<any> {
-  return null;
-}
-async function getTeamMembership(teamId: string, userId: string): Promise<any> {
-  return null;
-}
-async function getUserByEmail(email: string): Promise<any> {
-  return null;
-}
-async function addTeamMember(teamId: string, userId: string): Promise<any> {
-  return null;
-}
-async function getTeamProjects(teamId: string): Promise<any> {
-  return [];
-}
-const addMemberSchema = z.object({ email: z.string().email() });

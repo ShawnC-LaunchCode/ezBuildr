@@ -50,12 +50,12 @@ import {
  * Detects whether a condition expression uses the new UI format or the existing backend format
  */
 export function isNewFormat(expression: any): expression is NewConditionGroup {
-  if (!expression || typeof expression !== "object") {return false;}
+  if (!expression || typeof expression !== "object") { return false; }
   return expression.type === "group" || expression.type === "condition" || expression.type === "script";
 }
 
 export function isExistingFormat(expression: any): expression is ExistingConditionExpression {
-  if (!expression || typeof expression !== "object") {return false;}
+  if (!expression || typeof expression !== "object") { return false; }
   return "and" in expression || "or" in expression || "not" in expression || "op" in expression;
 }
 
@@ -183,12 +183,12 @@ function convertCondition(condition: NewCondition): ExistingConditionExpression 
         {
           op: "gte",
           left: { type: "variable", path: condition.variable },
-          right: { type: "value", value: condition.value },
+          right: { type: "value", value: condition.value as any },
         },
         {
           op: "lte",
           left: { type: "variable", path: condition.variable },
-          right: { type: "value", value: condition.value2 },
+          right: { type: "value", value: condition.value2 as any },
         },
       ],
     };
@@ -291,7 +291,7 @@ export function evaluateVisibility(
  */
 function parseLegacyStringCondition(expr: string): ExistingConditionExpression | null {
   expr = expr.trim();
-  if (!expr) {return null;}
+  if (!expr) { return null; }
 
   // Handle AND logic
   if (expr.includes('&&')) {
@@ -327,7 +327,7 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
   for (const { token, op } of ops) {
     if (expr.includes(token)) {
       const parts = expr.split(token);
-      if (parts.length !== 2) {continue;} // Only handle binary ops
+      if (parts.length !== 2) { continue; } // Only handle binary ops
 
       const leftPath = parts[0].trim();
       const rightValStr = parts[1].trim();
@@ -342,16 +342,16 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
         // If original was `""`, then it's a value.
         // But here `rightValStr` is the raw text.
         // If it's empty, and not quoted, it's missing.
-        if (rightValStr === "") {return null;}
+        if (rightValStr === "") { return null; }
       }
 
       let rightVal: any = rightValStr;
 
       // Parse value
-      if (rightValStr === "true") {rightVal = true;}
-      else if (rightValStr === "false") {rightVal = false;}
-      else if (rightValStr === "null") {rightVal = null;}
-      else if (!isNaN(Number(rightValStr))) {rightVal = Number(rightValStr);}
+      if (rightValStr === "true") { rightVal = true; }
+      else if (rightValStr === "false") { rightVal = false; }
+      else if (rightValStr === "null") { rightVal = null; }
+      else if (!isNaN(Number(rightValStr))) { rightVal = Number(rightValStr); }
       else if ((rightValStr.startsWith('"') && rightValStr.endsWith('"')) || (rightValStr.startsWith("'") && rightValStr.endsWith("'"))) {
         rightVal = rightValStr.slice(1, -1);
       }

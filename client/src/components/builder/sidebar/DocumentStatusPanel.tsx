@@ -1,5 +1,5 @@
 import { AlertTriangle, FileText, ChevronDown, ChevronUp, ArrowRight, Lightbulb } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,8 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
     // 1. Fetch sections
     const { data: sections } = useSections(workflowId);
     // 2. Fetch all steps (to find context)
-    const allSteps = useAllSteps(sections || []);
-    const finalDocsSection = sections?.find((s) => (s.config)?.finalBlock === true || s.title.toLowerCase().includes("document"));
+    const allSteps = useAllSteps(sections ?? []);
+    const finalDocsSection = sections?.find((s) => (s.config as Record<string, unknown> | undefined)?.finalBlock === true || s.title.toLowerCase().includes("document"));
     // 3. Get active templates from that section's config
     const sectionConfig = finalDocsSection?.config || {};
     // 4. Fetch required variables from those templates
@@ -44,7 +44,7 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
             </div>
         );
     }
-    const collectedAliases = new Set(workflowVars?.map(v => v.alias || v.key) || []);
+    const collectedAliases = new Set(workflowVars?.map(v => v.alias || v.key) ?? []);
     // Calculate coverage
     const missing = requiredVariables.filter(v => !collectedAliases.has(v));
     const total = requiredVariables.length;
@@ -64,8 +64,8 @@ export function DocumentStatusPanel({ workflowId, projectId }: DocumentStatusPan
         let maxMatches = 0;
         sections.forEach(section => {
             // Skip final docs or system sections
-            if ((section.config)?.finalBlock) { return; }
-            const steps = allSteps[section.id] || [];
+            if ((section.config as Record<string, unknown> | undefined)?.finalBlock) { return; }
+            const steps = allSteps[section.id] ?? [];
             let matches = 0;
             steps.forEach(step => {
                 if (step.alias && step.alias.startsWith(`${prefix}.`)) {

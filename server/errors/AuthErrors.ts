@@ -79,7 +79,7 @@ export class AccountLockedError extends AuthenticationError {
       ? `Account is locked until ${lockedUntil.toISOString()}`
       : 'Account is locked due to too many failed login attempts';
 
-    super(message || defaultMessage, AuthErrorCode.ACCOUNT_LOCKED, 423);
+    super(message ?? defaultMessage, AuthErrorCode.ACCOUNT_LOCKED, 423);
     this.lockedUntil = lockedUntil;
 
     if (lockedUntil) {
@@ -134,7 +134,7 @@ export class AuthProviderMismatchError extends AuthenticationError {
   public readonly provider: string;
 
   constructor(provider: string, message?: string) {
-    const errorMsg = message || `This account uses ${provider} authentication. Please sign in with ${provider}.`;
+    const errorMsg = message ?? `This account uses ${provider} authentication. Please sign in with ${provider}.`;
     super(errorMsg, AuthErrorCode.PROVIDER_MISMATCH, 400); // 400 Bad Request
     this.provider = provider;
   }

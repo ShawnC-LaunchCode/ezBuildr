@@ -116,10 +116,10 @@ router.post(
         // Create run logs
         const logEntries = result.logs.map(log => ({
           runId: run.id,
-          nodeId: log.nodeId || null,
+          nodeId: log.nodeId ?? null,
           level: log.level,
           message: log.message,
-          context: log.context || null,
+          context: log.context ?? null,
         }));
         await createRunLogs(logEntries);
         // Prepare response
@@ -369,14 +369,14 @@ router.get(
         const workflow = run.workflowVersion?.workflow;
         return [
           run.id,
-          workflow?.projectId || '',
-          workflow?.id || '',
-          workflow?.name || '',
+          workflow?.projectId ?? '',
+          workflow?.id ?? '',
+          workflow?.name ?? '',
           run.workflowVersionId,
           run.status,
-          run.durationMs || '',
-          run.createdByUser?.email || '',
-          run.createdAt?.toISOString() || '',
+          run.durationMs ?? '',
+          run.createdByUser?.email ?? '',
+          run.createdAt?.toISOString() ?? '',
         ].join(',');
       }).join('\n');
       const csv = csvHeader + csvRows;
@@ -741,17 +741,17 @@ router.post(
         const updatedRun = await updateRun(newRun.id, {
           status: result.status === 'success' ? 'success' : 'error',
           outputRefs: result.outputRefs,
-          trace: result.trace || null,
-          error: result.error || null,
+          trace: result.trace ?? null,
+          error: result.error ?? null,
           durationMs,
         });
         // Create run logs
         const logEntries = result.logs.map(log => ({
           runId: newRun.id,
-          nodeId: log.nodeId || null,
+          nodeId: log.nodeId ?? null,
           level: log.level,
           message: log.message,
-          context: log.context || null,
+          context: log.context ?? null,
         }));
         await createRunLogs(logEntries);
         // Prepare response
@@ -878,14 +878,14 @@ router.get(
         const workflow = run.workflowVersion?.workflow;
         return [
           run.id,
-          workflow?.projectId || '',
-          workflow?.id || '',
-          workflow?.name || '',
+          workflow?.projectId ?? '',
+          workflow?.id ?? '',
+          workflow?.name ?? '',
           run.workflowVersionId,
           run.status,
-          run.durationMs || '',
-          run.createdByUser?.email || '',
-          run.createdAt?.toISOString() || '',
+          run.durationMs ?? '',
+          run.createdByUser?.email ?? '',
+          run.createdAt?.toISOString() ?? '',
         ].join(',');
       }).join('\n');
       const csv = csvHeader + csvRows;

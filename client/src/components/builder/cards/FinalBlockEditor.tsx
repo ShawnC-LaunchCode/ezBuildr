@@ -19,7 +19,7 @@
  */
 
 import { Plus, Trash2, FileText, AlertCircle } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -50,8 +50,8 @@ export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorPr
   // Parse config
   const config = step.config as FinalBlockConfig | undefined;
   const [localConfig, setLocalConfig] = useState<FinalBlockConfig>({
-    markdownHeader: config?.markdownHeader || "# Thank you!\n\nYour documents are ready for download.",
-    documents: config?.documents || [],
+    markdownHeader: config?.markdownHeader ?? "# Thank you!\n\nYour documents are ready for download.",
+    documents: config?.documents ?? [],
   });
 
   const [showDocumentPicker, setShowDocumentPicker] = useState(false);
@@ -59,8 +59,8 @@ export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorPr
   useEffect(() => {
     const config = step.config as FinalBlockConfig | undefined;
     setLocalConfig({
-      markdownHeader: config?.markdownHeader || "# Thank you!\n\nYour documents are ready for download.",
-      documents: config?.documents || [],
+      markdownHeader: config?.markdownHeader ?? "# Thank you!\n\nYour documents are ready for download.",
+      documents: config?.documents ?? [],
     });
   }, [step.config]);
 

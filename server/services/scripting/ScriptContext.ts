@@ -29,10 +29,12 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
         }
       : undefined,
     env: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       NODE_ENV: process.env.NODE_ENV,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       BASE_URL: process.env.BASE_URL,
     },
-    metadata: executionContext.metadata || {},
+    metadata: executionContext.metadata ?? {},
   };
 }
 
@@ -41,11 +43,11 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
  */
 export function createTestContext(overrides?: Partial<ScriptExecutionContext>): ScriptExecutionContext {
   return {
-    workflowId: overrides?.workflowId || "test-workflow-id",
-    runId: overrides?.runId || "test-run-id",
-    phase: overrides?.phase || "test",
+    workflowId: overrides?.workflowId ?? "test-workflow-id",
+    runId: overrides?.runId ?? "test-run-id",
+    phase: overrides?.phase ?? "test",
     sectionId: overrides?.sectionId,
     userId: overrides?.userId,
-    metadata: overrides?.metadata || {},
+    metadata: overrides?.metadata ?? {},
   };
 }

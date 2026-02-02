@@ -76,6 +76,7 @@ export function registerEmailTemplateRoutes(app: Express): void {
   app.patch(
     '/api/email-templates/:id/metadata',
     hybridAuth,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
     requirePermission('tenant:update' as any),
     asyncHandler(async (req: Request, res: Response) => {
       try {
@@ -103,8 +104,8 @@ export function registerEmailTemplateRoutes(app: Express): void {
           message: 'Template metadata updated successfully',
           template: updatedTemplate,
         });
-      } catch (error: any) {
-        if (error.message === 'Template not found') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'Template not found') {
           res.status(404).json({
             message: 'Template not found',
             error: 'template_not_found',
@@ -115,7 +116,7 @@ export function registerEmailTemplateRoutes(app: Express): void {
         logger.error({ error }, 'Failed to update email template metadata');
         res.status(500).json({
           message: 'Failed to update template metadata',
-          error: 'internal_error',
+          error: error instanceof Error ? error.message : 'internal_error',
         });
       }
     })

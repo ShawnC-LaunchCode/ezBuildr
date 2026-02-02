@@ -5,15 +5,15 @@ import { createHash } from 'crypto';
  * Used for integrity verification and change detection
  */
 export function computeChecksum(content: {
-  graphJson: any;
-  bindings?: any;
+  graphJson: unknown;
+  bindings?: unknown;
   templateIds?: string[];
 }): string {
   // Create deterministic string representation
   const normalized = JSON.stringify({
     graph: content.graphJson,
-    bindings: content.bindings || {},
-    templates: (content.templateIds || []).sort(), // Sort for consistency
+    bindings: content.bindings ?? {},
+    templates: (content.templateIds ?? []).sort(), // Sort for consistency
   });
 
   // Compute SHA256 hash
@@ -26,7 +26,7 @@ export function computeChecksum(content: {
  * Verify checksum matches content
  */
 export function verifyChecksum(
-  content: { graphJson: any; bindings?: any; templateIds?: string[] },
+  content: { graphJson: unknown; bindings?: unknown; templateIds?: string[] },
   expectedChecksum: string
 ): boolean {
   const computed = computeChecksum(content);

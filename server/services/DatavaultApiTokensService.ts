@@ -1,4 +1,4 @@
-import type { DatavaultApiToken, InsertDatavaultApiToken } from "@shared/schema";
+import type { DatavaultApiToken } from "@shared/schema";
 
 import {
   datavaultApiTokensRepository,
@@ -19,8 +19,8 @@ export class DatavaultApiTokensService {
     tokensRepo?: typeof datavaultApiTokensRepository,
     databasesRepo?: typeof datavaultDatabasesRepository
   ) {
-    this.tokensRepo = tokensRepo || datavaultApiTokensRepository;
-    this.databasesRepo = databasesRepo || datavaultDatabasesRepository;
+    this.tokensRepo = tokensRepo ?? datavaultApiTokensRepository;
+    this.databasesRepo = databasesRepo ?? datavaultDatabasesRepository;
   }
 
   /**
@@ -48,6 +48,7 @@ export class DatavaultApiTokensService {
   private validateScopes(scopes: string[]): void {
     const validScopes = ['read', 'write'];
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!scopes || scopes.length === 0) {
       throw new Error("At least one scope is required");
     }
@@ -85,6 +86,7 @@ export class DatavaultApiTokensService {
    * Create a new API token
    * Returns the plain token ONCE (never stored or returned again)
    */
+  // eslint-disable-next-line max-params
   async createToken(
     databaseId: string,
     tenantId: string,
@@ -133,7 +135,7 @@ export class DatavaultApiTokensService {
         label: label.trim(),
         tokenHash,
         scopes,
-        expiresAt: expiresAt || null,
+        expiresAt: expiresAt ?? null,
       },
       tx
     );

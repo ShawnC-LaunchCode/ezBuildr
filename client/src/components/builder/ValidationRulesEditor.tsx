@@ -1,5 +1,5 @@
 import {  Trash2, Code, AlertCircle, List , Database } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
 import { Badge } from "@/components/ui/badge";

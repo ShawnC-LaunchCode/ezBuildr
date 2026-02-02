@@ -44,7 +44,7 @@ export function validateBlockValue(step: Step, value: any, required: boolean): s
         const config = step.config as MultiFieldConfig;
         const multiValue = value as MultiFieldValue;
 
-        for (const field of config?.fields || []) {
+        for (const field of config?.fields ?? []) {
           if (field.required && !multiValue[field.key]) {
             return `${field.label} is required`;
           }

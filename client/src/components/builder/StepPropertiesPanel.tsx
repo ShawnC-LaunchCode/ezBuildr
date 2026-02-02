@@ -3,25 +3,8 @@
  * Displays and allows editing of step properties when a step is selected
  */
 
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Plus, X, GripVertical, HelpCircle, ExternalLink } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { HelpCircle, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +18,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { useStep, useUpdateStep } from "@/lib/vault-hooks";
 
+import { OptionsEditor } from "./step-properties/OptionsEditor";
+
 interface StepPropertiesPanelProps {
   stepId: string;
   sectionId?: string;
@@ -46,10 +31,10 @@ type TextType = "short" | "long";
 export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPropertiesPanelProps) {
   const { data: step } = useStep(stepId);
   const updateStepMutation = useUpdateStep();
-  const { toast } = useToast();
+
 
   // Get sectionId from prop or from the step data
-  const sectionId = propSectionId || step?.sectionId || "";
+  const sectionId = (propSectionId ?? step?.sectionId) ?? "";
 
   // Local state only for options (needed for intermediate editing state)
   const [localOptions, setLocalOptions] = useState<string[]>([]);
@@ -60,13 +45,15 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   useEffect(() => {
     if (step) {
       // Initialize options for radio/multiple_choice
-      if ((step.type === "radio" || step.type === "multiple_choice") && step.options?.options) {
-        setLocalOptions(step.options.options);
+      const stepOptions = step.options as { options?: string[] } | undefined;
+      if ((step.type === "radio" || step.type === "multiple_choice") && stepOptions?.options) {
+        setLocalOptions(stepOptions.options);
       }
 
       // Initialize date/time type
-      if (step.type === "date_time" && step.options?.dateTimeType) {
-        setDateTimeType(step.options.dateTimeType);
+      const dtOptions = step.options as { dateTimeType?: DateTimeType } | undefined;
+      if (step.type === "date_time" && dtOptions?.dateTimeType) {
+        setDateTimeType(dtOptions.dateTimeType);
       }
 
       // Initialize text type from step type
@@ -78,13 +65,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     }
   }, [step]);
 
-  // Initialize sensors for drag-and-drop (must be called before early return)
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+
 
   if (!step) {
     return (
@@ -108,7 +89,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
   const handleDefaultValueChange = (value: string) => {
     // Parse the value based on step type
-    let parsedValue: any = value;
+    let parsedValue: string | number | boolean | string[] | null = value;
 
     // For empty string, set to null to clear the default
     if (value === "") {
@@ -119,7 +100,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     } else if (step.type === "multiple_choice") {
       // For multiple choice, try to parse as JSON array
       try {
-        parsedValue = JSON.parse(value);
+        parsedValue = JSON.parse(value) as string[];
       } catch {
         // If not valid JSON, keep as string
         parsedValue = value;
@@ -133,7 +114,11 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     });
   };
 
-  const handleOptionsChange = (options: string[]) => {
+  const handleOptionsDraftChange = (options: string[]) => {
+    setLocalOptions(options);
+  };
+
+  const handleOptionsCommitChange = (options: string[]) => {
     setLocalOptions(options);
     updateStepMutation.mutate({
       id: stepId,
@@ -142,30 +127,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     });
   };
 
-  const handleAddOption = () => {
-    const newOptions = [...localOptions, `Option ${localOptions.length + 1}`];
-    handleOptionsChange(newOptions);
-  };
 
-  const handleRemoveOption = (index: number) => {
-    const newOptions = localOptions.filter((_, i) => i !== index);
-    handleOptionsChange(newOptions);
-  };
-
-  const handleOptionTextChange = (index: number, text: string) => {
-    const newOptions = [...localOptions];
-    newOptions[index] = text;
-    setLocalOptions(newOptions);
-  };
-
-  const handleOptionTextBlur = () => {
-    handleOptionsChange(localOptions);
-  };
-
-  const handleReorderOptions = (oldIndex: number, newIndex: number) => {
-    const newOptions = arrayMove(localOptions, oldIndex, newIndex);
-    handleOptionsChange(newOptions);
-  };
 
   const handleDateTimeTypeChange = (type: DateTimeType) => {
     setDateTimeType(type);
@@ -187,18 +149,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     });
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = localOptions.findIndex((_, i) => i.toString() === active.id);
-      const newIndex = localOptions.findIndex((_, i) => i.toString() === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        handleReorderOptions(oldIndex, newIndex);
-      }
-    }
-  };
 
   return (
     <div className="p-4 space-y-6">
@@ -224,7 +175,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
-          value={step.description || ""}
+          value={step.description ?? ""}
           onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Add a description for this question..."
           rows={3}
@@ -236,7 +187,7 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
         <Label htmlFor="required">Required</Label>
         <Switch
           id="required"
-          checked={step.required || false}
+          checked={step.required ?? false}
           onCheckedChange={handleRequiredChange}
         />
       </div>
@@ -398,111 +349,15 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
       {(step.type === "radio" || step.type === "multiple_choice") && (
         <>
           <Separator />
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Options</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddOption}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Option
-              </Button>
-            </div>
-
-            {localOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No options yet. Click "Add Option" to create one.</p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={localOptions.map((_, i) => i.toString())}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {localOptions.map((option, index) => (
-                      <OptionItem
-                        key={index}
-                        id={index.toString()}
-                        option={option}
-                        index={index}
-                        onChange={(text) => handleOptionTextChange(index, text)}
-                        onBlur={handleOptionTextBlur}
-                        onRemove={() => handleRemoveOption(index)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
+          <OptionsEditor
+            options={localOptions}
+            onDraftChange={handleOptionsDraftChange}
+            onCommitChange={handleOptionsCommitChange}
+          />
         </>
       )}
     </div>
   );
 }
 
-interface OptionItemProps {
-  id: string;
-  option: string;
-  index: number;
-  onChange: (text: string) => void;
-  onBlur: () => void;
-  onRemove: () => void;
-}
 
-function OptionItem({ id, option, index, onChange, onBlur, onRemove }: OptionItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-2 p-2 rounded-md border bg-background ${isDragging ? "opacity-50" : ""
-        }`}
-    >
-      <button
-        className="cursor-grab active:cursor-grabbing p-1"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </button>
-
-      <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
-
-      <Input
-        value={option}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        className="flex-1"
-        placeholder={`Option ${index + 1}`}
-      />
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8"
-        onClick={onRemove}
-      >
-        <X className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-}

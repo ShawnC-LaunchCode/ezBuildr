@@ -86,10 +86,10 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         const existingWorkflow = await workflowService.getWorkflowWithDetails(requestData.workflowId, userId);
 
         // Map existing IDs for updates vs creates
-        const existingSectionIds = new Set((existingWorkflow.sections || []).map((s: any) => s.id));
+        const existingSectionIds = new Set((existingWorkflow.sections ?? []).map((s: any) => s.id));
         const existingStepIds = new Set(
-            (existingWorkflow.sections || [])
-                .flatMap((s: any) => (s.steps || []).map((step: any) => step.id))
+            (existingWorkflow.sections ?? [])
+                .flatMap((s: any) => (s.steps ?? []).map((step: any) => step.id))
         );
 
         // Process Workflow Properties
@@ -109,17 +109,17 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         const sectionMap = new Map<string, string>();
 
         // Build alias map
-        for (const section of (existingWorkflow.sections || [])) {
-            for (const step of (section.steps || [])) {
+        for (const section of (existingWorkflow.sections ?? [])) {
+            for (const step of (section.steps ?? [])) {
                 if (step.alias) { existingStepsByAlias.set(step.alias, step.id); }
             }
         }
 
         // Process Sections & Steps
-        for (const aiSection of (aiWorkflow.sections || [])) {
+        for (const aiSection of (aiWorkflow.sections ?? [])) {
             const sectionData: Partial<InsertSection> & { title: string; order: number } = {
                 title: aiSection.title,
-                description: aiSection.description || null,
+                description: aiSection.description ?? null,
                 order: aiSection.order,
             };
 
@@ -137,18 +137,18 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             }
             processedSectionIds.add(sectionId);
 
-            for (const aiStep of (aiSection.steps || [])) {
+            for (const aiStep of (aiSection.steps ?? [])) {
                 // Cast step type to string as DB expects
                 const stepData: Partial<InsertStep> & { type: Step['type']; title: string; order: number } = {
                     type: (aiStep.type || 'short_text') as Step['type'],
                     title: aiStep.title,
-                    description: aiStep.description || null,
-                    alias: aiStep.alias || null,
+                    description: aiStep.description ?? null,
+                    alias: aiStep.alias ?? null,
                     required: aiStep.required ?? false,
                     // config: aiStep.config ?? null,
                     order: aiStep.order ?? 0,
-                    visibleIf: aiStep.visibleIf || null,
-                    defaultValue: aiStep.defaultValue || null,
+                    visibleIf: aiStep.visibleIf ?? null,
+                    defaultValue: aiStep.defaultValue ?? null,
                 };
 
                 let existingStepId: string | undefined;
@@ -200,7 +200,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                 const targetSectionId: string | null = null;
 
                 if (rule.targetType === 'step' && rule.targetAlias) {
-                    targetStepId = stepAliasToId.get(rule.targetAlias) || null;
+                    targetStepId = stepAliasToId.get(rule.targetAlias) ?? null;
                     if (!targetStepId) {continue;} // Skip invalid target
                 } else if (rule.targetType === 'section' && rule.targetAlias) {
                     // We need section aliases? The AI schema defines targetAlias.
@@ -212,7 +212,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                     // For now, let's assume targetAlias might be an ID or Title if not found in map.
 
                     // Try to find section by Title match from revised sections
-                    const targetSection = (aiWorkflow.sections || []).find((s: any) => s.title === rule.targetAlias || s.id === rule.targetAlias);
+                    const targetSection = (aiWorkflow.sections ?? []).find((s: any) => s.title === rule.targetAlias || s.id === rule.targetAlias);
                     // We need the ACTUAL DB ID.
                     // We need a map of Section Title/ID (AI side) -> Real DB ID.
                     // We didn't build this map.
@@ -252,7 +252,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                 let blockSectionId: string | null = null;
                 // If sectionId is provided and we mapped it (from new or existing section)
                 if (block.sectionId && sectionMap.has(block.sectionId)) {
-                    blockSectionId = sectionMap.get(block.sectionId) || null;
+                    blockSectionId = sectionMap.get(block.sectionId) ?? null;
                 }
 
                 blocksToInsert.push({
@@ -277,13 +277,13 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         }
 
         // Cleanup Orphans
-        for (const existingSection of (existingWorkflow.sections || [])) {
+        for (const existingSection of (existingWorkflow.sections ?? [])) {
             if (!processedSectionIds.has(existingSection.id)) {
                 await sectionService.deleteSectionById(existingSection.id, userId);
             }
         }
-        for (const existingSection of (existingWorkflow.sections || [])) {
-            for (const existingStep of (existingSection.steps || [])) {
+        for (const existingSection of (existingWorkflow.sections ?? [])) {
+            for (const existingStep of (existingSection.steps ?? [])) {
                 if (!processedStepIds.has(existingStep.id)) {
                     await stepService.deleteStepById(existingStep.id, userId);
                 }
@@ -349,7 +349,7 @@ class MemoryQueue<T> {
     }
 
     async getJob(id: string): Promise<Job<T> | null> {
-        return this.jobs.get(id) || null;
+        return this.jobs.get(id) ?? null;
     }
 
     private async processJob(job: Job<T>) {

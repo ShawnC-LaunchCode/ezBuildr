@@ -3,8 +3,6 @@
  * Editor for step description / help text
  */
 
-import React from "react";
-
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
@@ -37,7 +35,7 @@ export function DescriptionField({
             <AutoExpandTextarea
                 id={`description-${stepId}`}
                 name={`description-${stepId}`}
-                value={description || ""}
+                value={description ?? ""}
                 onChange={(e) => handleDescriptionChange(e.target.value)}
                 placeholder={isDisplayStep ? "Enter markdown content..." : "Add instructions for the user..."}
                 minRows={isDisplayStep ? 6 : 1}

@@ -5,7 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Download, RefreshCw, FileText } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { RunFilters } from '@/components/runs/RunFilters';
 import { RunsTable } from '@/components/runs/RunsTable';

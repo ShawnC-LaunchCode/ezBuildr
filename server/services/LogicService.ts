@@ -520,7 +520,7 @@ export class LogicService {
     }
 
     // Default to the step's base required flag
-    return step.required || false;
+    return step.required ?? false;
   }
 }
 

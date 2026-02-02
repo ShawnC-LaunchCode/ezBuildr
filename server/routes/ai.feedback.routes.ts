@@ -52,18 +52,18 @@ export function registerAiFeedbackRoutes(app: Express): void {
           .insert(aiWorkflowFeedback)
           .values({
             userId,
-            workflowId: feedbackData.workflowId || null,
+            workflowId: feedbackData.workflowId ?? null,
             operationType: feedbackData.operationType,
             rating: feedbackData.rating,
-            comment: feedbackData.comment || null,
-            aiProvider: feedbackData.aiProvider || null,
-            aiModel: feedbackData.aiModel || null,
-            qualityScore: feedbackData.qualityScore || null,
-            qualityPassed: feedbackData.qualityPassed || null,
-            issuesCount: feedbackData.issuesCount || null,
-            requestDescription: feedbackData.requestDescription || null,
-            generatedSections: feedbackData.generatedSections || null,
-            generatedSteps: feedbackData.generatedSteps || null,
+            comment: feedbackData.comment ?? null,
+            aiProvider: feedbackData.aiProvider ?? null,
+            aiModel: feedbackData.aiModel ?? null,
+            qualityScore: feedbackData.qualityScore ?? null,
+            qualityPassed: feedbackData.qualityPassed ?? null,
+            issuesCount: feedbackData.issuesCount ?? null,
+            requestDescription: feedbackData.requestDescription ?? null,
+            generatedSections: feedbackData.generatedSections ?? null,
+            generatedSteps: feedbackData.generatedSteps ?? null,
           })
           .returning();
 

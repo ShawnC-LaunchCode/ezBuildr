@@ -12,6 +12,7 @@ export class SubscriptionService {
      * Get the current active subscription for an organization.
      * If no subscription exists, returns a virtual 'FREE' plan.
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async getSubscription(organizationId: string) {
         const sub = await db.query.subscriptions.findFirst({
             where: and(
@@ -38,6 +39,7 @@ export class SubscriptionService {
     /**
      * Resolve the effective feature limits for an organization
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async getPlanLimits(organizationId: string) {
         const sub = await SubscriptionService.getSubscription(organizationId);
         return sub.plan.limits as Record<string, number>;
@@ -45,6 +47,7 @@ export class SubscriptionService {
     /**
      * Resolve effective features
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async getPlanFeatures(organizationId: string) {
         const sub = await SubscriptionService.getSubscription(organizationId);
         return sub.plan.features as Record<string, boolean>;
@@ -52,6 +55,7 @@ export class SubscriptionService {
     /**
      * Initialize billing for a new organization (Create Customer + Free Sub)
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async initializeOrganizationBilling(organizationId: string, email: string, name: string) {
         const customer = await billingProvider.createCustomer({ email, name, organizationId });
         await db.insert(customerBillingInfo).values({
@@ -79,7 +83,8 @@ export class SubscriptionService {
     /**
      * Upgrade Plan
      */
-    static async upgradePlan(organizationId: string, planType: string) {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    static async upgradePlan(_organizationId: string, _planType: string) {
         // Validation logic...
         // Call provider...
         // Update DB...

@@ -25,10 +25,12 @@ export class WorkflowQueriesRepository extends BaseRepository<typeof workflowQue
      */
     async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowQuery[]> {
         const database = this.getDb(tx);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Drizzle query result cast
         return await database
             .select()
             .from(workflowQueries)
             .where(eq(workflowQueries.workflowId, workflowId))
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle type inference limitation
             .orderBy(desc(workflowQueries.updatedAt)) as any;
     }
 }

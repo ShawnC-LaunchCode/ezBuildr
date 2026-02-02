@@ -5,7 +5,7 @@ import { authService } from './services/AuthService';
 
 const log = createLogger({ module: 'cron' });
 
-export function initCronJobs() {
+export function initCronJobs(): void {
     log.info('Initializing cron jobs...');
 
     // Run cleanup every day at midnight (00:00)

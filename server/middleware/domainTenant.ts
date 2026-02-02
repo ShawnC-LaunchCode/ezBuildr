@@ -21,10 +21,11 @@ const logger = createLogger({ module: 'domainTenant-middleware' });
 
 // Extend Express Request type to include tenantOverrideId
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Express augmentation pattern
   namespace Express {
     interface Request {
       tenantOverrideId?: string;
-      tenantBranding?: any; // TenantBranding from @shared/types/branding
+      tenantBranding?: unknown; // TenantBranding from @shared/types/branding
     }
   }
 }
@@ -67,7 +68,9 @@ export async function domainTenantLookup(
 
     if (result) {
       // Inject tenant ID and branding into request
+      // eslint-disable-next-line no-param-reassign -- Express augmentation pattern
       req.tenantOverrideId = result.tenantId;
+      // eslint-disable-next-line no-param-reassign -- Express augmentation pattern
       req.tenantBranding = result.branding;
 
       logger.info(

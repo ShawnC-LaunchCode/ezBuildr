@@ -41,8 +41,8 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
     edgesRemoved: [],
   };
 
-  const oldNodes = new Map((oldGraph?.nodes || []).map((n: any) => [n.id, n]));
-  const newNodes = new Map((newGraph?.nodes || []).map((n: any) => [n.id, n]));
+  const oldNodes = new Map((oldGraph?.nodes ?? []).map((n: any) => [n.id, n]));
+  const newNodes = new Map((newGraph?.nodes ?? []).map((n: any) => [n.id, n]));
 
   // Find added and changed nodes
   for (const [id, newNode] of newNodes) {
@@ -65,8 +65,8 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   }
 
   // Compare edges
-  const oldEdges = new Set((oldGraph?.edges || []).map((e: any) => `${e.source}->${e.target}`));
-  const newEdges = new Set((newGraph?.edges || []).map((e: any) => `${e.source}->${e.target}`));
+  const oldEdges = new Set((oldGraph?.edges ?? []).map((e: any) => `${e.source}->${e.target}`));
+  const newEdges = new Set((newGraph?.edges ?? []).map((e: any) => `${e.source}->${e.target}`));
 
   for (const edge of newEdges) {
     if (!oldEdges.has(edge)) {
@@ -183,13 +183,13 @@ export function computeVersionDiff(
     graphDiff: compareGraphs(oldVersion.graphJson, newVersion.graphJson),
     bindingsDiff: compareObjects(oldVersion.bindings || {}, newVersion.bindings || {}, 'bindings'),
     templatesDiff: compareObjects(
-      { templates: oldVersion.templateIds || [] },
-      { templates: newVersion.templateIds || [] },
+      { templates: oldVersion.templateIds ?? [] },
+      { templates: newVersion.templateIds ?? [] },
       'templates'
     ),
     checksums: {
-      old: oldVersion.checksum || null,
-      new: newVersion.checksum || null,
+      old: oldVersion.checksum ?? null,
+      new: newVersion.checksum ?? null,
     },
     summary: [],
   };

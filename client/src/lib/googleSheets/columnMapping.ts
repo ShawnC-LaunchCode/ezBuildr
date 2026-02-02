@@ -96,7 +96,7 @@ export class ColumnUUIDManager {
      */
     static getLetterCodeByUUID(columns: SheetColumn[], uuid: string): string | null {
         const column = columns.find(col => col.uuid === uuid);
-        return column?.letterCode || null;
+        return column?.letterCode ?? null;
     }
 
     /**
@@ -104,6 +104,6 @@ export class ColumnUUIDManager {
      */
     static getUUIDByDisplayName(columns: SheetColumn[], displayName: string): string | null {
         const column = columns.find(col => col.displayName === displayName);
-        return column?.uuid || null;
+        return column?.uuid ?? null;
     }
 }

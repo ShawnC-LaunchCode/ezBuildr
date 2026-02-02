@@ -31,10 +31,10 @@ export async function emit(event: MetricsEventInput): Promise<void> {
       type: event.type,
       tenantId: event.tenantId,
       projectId: event.projectId,
-      workflowId: event.workflowId || null,
-      runId: event.runId || null,
+      workflowId: event.workflowId ?? null,
+      runId: event.runId ?? null,
       ts: event.ts || new Date(),
-      durationMs: event.durationMs || null,
+      durationMs: event.durationMs ?? null,
       payload: sanitizedPayload,
     };
     await db.insert(metricsEvents).values(insertData);

@@ -5,7 +5,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, useEffect, useCallback } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function fetchAPI<T>(
   endpoint: string,
@@ -113,7 +113,7 @@ export function useExpressionValidation(
     validate,
     validationResult,
     isValidating,
-    errors: validationResult?.errors || [],
+    errors: validationResult?.errors ?? [],
     isValid: validationResult?.ok ?? true,
   };
 }

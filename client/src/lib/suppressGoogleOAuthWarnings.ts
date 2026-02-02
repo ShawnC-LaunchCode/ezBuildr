@@ -9,7 +9,7 @@ export function suppressGoogleOAuthWarnings() {
   const originalError = console.error;
 
   console.warn = function(...args) {
-    const message = args[0]?.toString() || '';
+    const message = args[0]?.toString() ?? '';
     // Filter out Google OAuth COOP warnings
     if (message.includes('Cross-Origin-Opener-Policy') &&
         message.includes('window.postMessage')) {
@@ -19,7 +19,7 @@ export function suppressGoogleOAuthWarnings() {
   };
 
   console.error = function(...args) {
-    const message = args[0]?.toString() || '';
+    const message = args[0]?.toString() ?? '';
     // Filter out Google OAuth COOP errors
     if (message.includes('Cross-Origin-Opener-Policy') &&
         message.includes('window.postMessage')) {

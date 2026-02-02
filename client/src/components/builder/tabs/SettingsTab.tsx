@@ -7,7 +7,7 @@
  */
 
 import { Save, Link as LinkIcon, Palette, Settings as SettingsIcon, Eye, Copy, Check, FileText, ArrowRight, Database } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 
 import { Badge } from "@/components/ui/badge";
@@ -84,14 +84,14 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
     w.id !== workflowId &&
     w.intakeConfig?.isIntake === true &&
     w.status !== 'archived'
-  ) || [];
+  ) ?? [];
 
   // Sync state with loaded workflow data
   useEffect(() => {
     if (workflow) {
-      setName(workflow.title || "");
-      setDescription(workflow.description || "");
-      setSlug(workflow.slug || "");
+      setName(workflow.title ?? "");
+      setDescription(workflow.description ?? "");
+      setSlug(workflow.slug ?? "");
 
       // Branding
       // Note: backend support for branding config might vary, check type definition
@@ -114,8 +114,8 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
 
       // Intake Config
       if (workflow.intakeConfig) {
-        setIsIntake(workflow.intakeConfig.isIntake || false);
-        setUpstreamWorkflowId(workflow.intakeConfig.upstreamWorkflowId || null);
+        setIsIntake(workflow.intakeConfig.isIntake ?? false);
+        setUpstreamWorkflowId(workflow.intakeConfig.upstreamWorkflowId ?? null);
       }
     }
   }, [workflow]);
@@ -134,8 +134,8 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   }, [workflow, isPublic, slug]);
 
   // PR3: Real projects data
-  const projects = projectsData?.map(p => ({ id: p.id, name: p.title })) || [];
-  const currentProjectId = workflow?.projectId || null;
+  const projects = projectsData?.map(p => ({ id: p.id, name: p.title })) ?? [];
+  const currentProjectId = workflow?.projectId ?? null;
   const currentProjectName = projectsData?.find(p => p.id === currentProjectId)?.title;
 
   const updateWorkflowMutation = useUpdateWorkflow();

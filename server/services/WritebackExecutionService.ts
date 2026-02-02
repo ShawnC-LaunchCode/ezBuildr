@@ -21,13 +21,14 @@ export class WritebackExecutionService {
   private datavaultRowsService: DatavaultRowsService;
 
   constructor(datavaultRowsService?: DatavaultRowsService) {
-    this.datavaultRowsService = datavaultRowsService || new DatavaultRowsService();
+    this.datavaultRowsService = datavaultRowsService ?? new DatavaultRowsService();
   }
 
   /**
    * Execute all writeback mappings for a completed workflow run
    * Called from RunService.completeRun()
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async executeWritebacksForRun(
     runId: string,
     workflowId: string,
@@ -90,32 +91,26 @@ export class WritebackExecutionService {
           );
 
           // Build row values: { columnId: value }
-          const rowValues: Record<string, any> = {};
+          const rowValues: Record<string, unknown> = {};
           const columnMappings = mapping.columnMappings as Record<string, string>;
 
+          /* eslint-disable max-depth */
           for (const [stepAlias, columnId] of Object.entries(columnMappings)) {
-            // Find step by alias
             const step = stepsByAlias.get(stepAlias);
             if (!step) {
-              log.warn(
-                { stepAlias },
-                "Step not found for alias, skipping column in writeback"
-              );
+              log.warn({ stepAlias }, "Step not found for alias, skipping column in writeback");
               continue;
             }
 
-            // Get step value
             const value = valuesByStepId.get(step.id);
             if (value === undefined) {
-              log.debug(
-                { stepAlias, stepId: step.id },
-                "No value found for step, skipping column"
-              );
+              log.debug({ stepAlias, stepId: step.id }, "No value found for step, skipping column");
               continue;
             }
 
             rowValues[columnId] = value;
           }
+          /* eslint-enable max-depth */
 
           // Only create row if we have at least one value
           if (Object.keys(rowValues).length === 0) {

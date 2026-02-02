@@ -1,8 +1,9 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClientProvider } from "@tanstack/react-query";
-import React, { Suspense, lazy } from "react";
+import { Suspense, lazy } from "react";
 import { Switch, Route, useLocation } from "wouter";
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import FeedbackWidget from "@/components/FeedbackWidget";
 import { FullScreenLoader } from "@/components/ui/loader";
 import { Toaster } from "@/components/ui/toaster";
@@ -22,7 +23,6 @@ const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
 const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
 const Marketplace = lazy(() => import("@/pages/Marketplace"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const WorkflowDashboard = lazy(() => import("@/pages/WorkflowDashboard"));
 const WorkflowBuilder = lazy(() => import("@/pages/WorkflowBuilder"));
 const VisualWorkflowBuilder = lazy(() => import("@/pages/VisualWorkflowBuilder"));
 const NewWorkflow = lazy(() => import("@/pages/NewWorkflow"));
@@ -115,7 +115,7 @@ function Router() {
             <Route path="/workflows/:workflowId/optimize" component={OptimizationWizard} />
             {/* Template Test Runner - PR1 */}
             <Route path="/workflows/:workflowId/builder/templates/test/:templateId">
-              {(params) => <TemplateTestRunner />}
+              {(_params) => <TemplateTestRunner />}
             </Route>
             {/* Project routes */}
             <Route path="/projects/:id" component={ProjectView} />
@@ -163,34 +163,32 @@ function Router() {
     </Suspense>
   );
 }
+function AppContent({ isBuilder }: { isBuilder: boolean }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+        {/* Feedback widget - visible on all authenticated pages except builder */}
+        {!isBuilder && <FeedbackWidget />}
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
 function App() {
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   const [location] = useLocation();
   const isBuilder = location.includes('/builder') || location.includes('/visual-builder');
-  if (!googleClientId) {
+
+  if (googleClientId === null || googleClientId === undefined || googleClientId === '') {
     console.warn('VITE_GOOGLE_CLIENT_ID environment variable is not set - running in development mode');
-    // Allow app to run without Google OAuth in development mode
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-          {/* Feedback widget - visible on all authenticated pages except builder */}
-          {!isBuilder && <FeedbackWidget />}
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
+    return <AppContent isBuilder={isBuilder} />;
   }
+
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-          {/* Feedback widget - visible on all authenticated pages except builder */}
-          {!isBuilder && <FeedbackWidget />}
-        </TooltipProvider>
-      </QueryClientProvider>
+      <AppContent isBuilder={isBuilder} />
     </GoogleOAuthProvider>
   );
 }

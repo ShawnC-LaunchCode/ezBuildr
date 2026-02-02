@@ -6,7 +6,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -76,7 +76,7 @@ export function InfiniteEditableDataGrid({
       value: any;
     }) => {
       // Get current row values
-      const allRows = data?.pages.flatMap((page) => page.rows) || [];
+      const allRows = data?.pages.flatMap((page) => page.rows) ?? [];
       const row = allRows.find((r) => r.row.id === rowId);
       if (!row) {throw new Error("Row not found");}
 
@@ -197,7 +197,7 @@ export function InfiniteEditableDataGrid({
   }
 
   // Flatten all pages into a single array
-  const allRows = data?.pages.flatMap((page) => page.rows) || [];
+  const allRows = data?.pages.flatMap((page) => page.rows) ?? [];
 
   return (
     <div>

@@ -1,7 +1,7 @@
 import { Activity, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { analyticsAPI, ApiAnalyticsHealth } from '../../lib/vault-api';
+import { analyticsAPI, type ApiAnalyticsHealth } from '../../lib/vault-api';
 
 interface Props {
     workflowId: string;
@@ -9,15 +9,11 @@ interface Props {
     className?: string;
 }
 
-export const WorkflowHealthPanel: React.FC<Props> = ({ workflowId, versionId, className }) => {
+export const WorkflowHealthPanel = ({ workflowId, versionId, className }: Props) => {
     const [stats, setStats] = useState<ApiAnalyticsHealth | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        void loadStats();
-    }, [workflowId, versionId]);
-
-    const loadStats = async () => {
+    const loadStats = useCallback(async () => {
         try {
             setLoading(true);
             const data = await analyticsAPI.getHealth(workflowId, versionId);
@@ -27,13 +23,17 @@ export const WorkflowHealthPanel: React.FC<Props> = ({ workflowId, versionId, cl
         } finally {
             setLoading(false);
         }
-    };
+    }, [workflowId, versionId]);
+
+    useEffect(() => {
+        void loadStats();
+    }, [loadStats]);
 
     if (loading) { return <div className="p-4 text-center text-gray-500 animate-pulse">Loading insights...</div>; }
     if (!stats) { return <div className="p-4 text-center text-gray-500">No insights available</div>; }
 
     return (
-        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 ${className || ''}`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 ${className ?? ''}`}>
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
                 <div className="p-2 bg-blue-50 rounded-full mb-2">
                     <Activity size={20} className="text-blue-600" />

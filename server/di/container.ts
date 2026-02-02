@@ -28,7 +28,7 @@ export type ServiceFactory<T> = (container: Container) => T;
 /**
  * Service registration entry
  */
-interface ServiceRegistration<T = any> {
+interface ServiceRegistration<T = unknown> {
   factory: ServiceFactory<T>;
   lifetime: ServiceLifetime;
   instance?: T;
@@ -126,9 +126,11 @@ export class Container {
 
     // Singleton: return cached instance or create new one
     if (registration.lifetime === 'singleton') {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!registration.instance) {
         this.resolutionStack.push(token);
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           registration.instance = registration.factory(this);
           logger.debug(
             { token: token.toString() },
@@ -144,6 +146,7 @@ export class Container {
     // Transient: create new instance every time
     this.resolutionStack.push(token);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const instance = registration.factory(this);
       logger.debug(
         { token: token.toString() },

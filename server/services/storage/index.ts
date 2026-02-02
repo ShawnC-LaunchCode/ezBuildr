@@ -4,7 +4,7 @@ import { DiskStorageProvider } from './DiskStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
 import { StorageProvider } from './types';
 
-const storageDriver = process.env.STORAGE_DRIVER || 'disk';
+const storageDriver = process.env.STORAGE_DRIVER ?? 'disk';
 
 let provider: StorageProvider;
 

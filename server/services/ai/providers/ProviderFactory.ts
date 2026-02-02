@@ -32,7 +32,7 @@ export class ProviderFactory {
         return new GeminiProvider(config);
 
       default:
-        throw new Error(`Unsupported AI provider: ${provider}`);
+        throw new Error(`Unsupported AI provider: ${String(provider)}`);
     }
   }
 

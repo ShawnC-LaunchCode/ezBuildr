@@ -4,7 +4,7 @@
  */
 
 import { Plus, Loader2, ArrowLeft, Database } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { CreateFieldModal } from "@/components/collections/CreateFieldModal";
@@ -333,7 +333,7 @@ export default function CollectionDetailPage() {
           </div>
 
           <FieldsList
-            fields={fields || []}
+            fields={fields ?? []}
             onEdit={handleEditField}
             onDelete={(id) => {
               const field = fields?.find(f => f.id === id);
@@ -352,8 +352,8 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <RecordsList
-              records={(recordsData as any)?.records || []}
-              fields={fields || []}
+              records={(recordsData as any)?.records ?? []}
+              fields={fields ?? []}
               isLoading={loadingRecords}
               page={recordsPage}
               pageSize={recordsPageSize}
@@ -405,7 +405,7 @@ export default function CollectionDetailPage() {
       <RecordEditorModal
         open={recordModalOpen}
         onOpenChange={handleRecordModalClose}
-        fields={fields || []}
+        fields={fields ?? []}
         record={editingRecord}
         onSubmit={editingRecord ? handleUpdateRecord : handleCreateRecord}
         isLoading={createRecordMutation.isPending || updateRecordMutation.isPending}

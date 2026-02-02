@@ -1,4 +1,3 @@
-import type {  } from "@shared/schema";
 import { userPreferencesRepository } from "../repositories";
 /**
  * Service layer for user preferences business logic
@@ -9,7 +8,7 @@ export class UserPreferencesService {
    * Get user preferences by user ID
    * Returns default preferences if none exist
    */
-  async getByUserId(userId: string): Promise<Record<string, any>> {
+  async getByUserId(userId: string): Promise<Record<string, unknown>> {
     const prefs = await userPreferencesRepository.findByUserId(userId);
     if (!prefs) {
       // Return default preferences if none exist
@@ -19,27 +18,27 @@ export class UserPreferencesService {
         aiHints: true,
       };
     }
-    return prefs.settings as Record<string, any>;
+    return prefs.settings as Record<string, unknown>;
   }
   /**
    * Update user preferences
    * Merges new settings with existing ones
    */
-  async update(userId: string, updates: Record<string, any>): Promise<Record<string, any>> {
+  async update(userId: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
     const updated = await userPreferencesRepository.upsert(userId, updates);
-    return updated.settings as Record<string, any>;
+    return updated.settings as Record<string, unknown>;
   }
   /**
    * Reset user preferences to defaults
    */
-  async reset(userId: string): Promise<Record<string, any>> {
+  async reset(userId: string): Promise<Record<string, unknown>> {
     const defaults = {
       celebrationEffects: true,
       darkMode: "system",
       aiHints: true,
     };
     const updated = await userPreferencesRepository.upsert(userId, defaults);
-    return updated.settings as Record<string, any>;
+    return updated.settings as Record<string, unknown>;
   }
   /**
    * Delete user preferences

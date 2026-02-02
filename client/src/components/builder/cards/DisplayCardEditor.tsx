@@ -12,10 +12,12 @@
  * Note: Display blocks should NOT have "required" toggle (nothing to require)
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -31,15 +33,15 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
   // Parse config (works for both easy and advanced mode)
   const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
   const [localConfig, setLocalConfig] = useState({
-    markdown: config?.markdown || "",
-    allowHtml: config?.allowHtml || false,
+    markdown: config?.markdown ?? "",
+    allowHtml: config?.allowHtml ?? false,
   });
 
   useEffect(() => {
     const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
     setLocalConfig({
-      markdown: config?.markdown || "",
-      allowHtml: config?.allowHtml || false,
+      markdown: config?.markdown ?? "",
+      allowHtml: config?.allowHtml ?? false,
     });
   }, [step.config]);
 
@@ -134,7 +136,7 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

@@ -4,7 +4,7 @@
  */
 
 import { Copy, ChevronRight } from "lucide-react";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

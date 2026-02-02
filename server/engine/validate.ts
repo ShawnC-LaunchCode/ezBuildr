@@ -167,7 +167,7 @@ export function validateNodeConditions(graphJson: GraphJson): ValidationResult {
   const availableVars = collectAvailableVars(graphJson);
 
   for (const node of graphJson.nodes) {
-    const varsAtNode = availableVars.get(node.id) || [];
+    const varsAtNode = availableVars.get(node.id) ?? [];
 
     // Validate node-level condition
     const config = node.config as any;
@@ -272,7 +272,7 @@ function detectCycles(graphJson: GraphJson): ValidationError[] {
     visited.add(nodeId);
     recStack.add(nodeId);
 
-    const neighbors = adjacency.get(nodeId) || [];
+    const neighbors = adjacency.get(nodeId) ?? [];
     for (const neighbor of neighbors) {
       if (!visited.has(neighbor)) {
         if (dfs(neighbor)) {
@@ -311,7 +311,7 @@ function findUnreachableNodes(graphJson: GraphJson): string[] {
 
   function dfs(nodeId: string) {
     reachable.add(nodeId);
-    const neighbors = adjacency.get(nodeId) || [];
+    const neighbors = adjacency.get(nodeId) ?? [];
     for (const neighbor of neighbors) {
       if (!reachable.has(neighbor)) {
         dfs(neighbor);
@@ -345,7 +345,7 @@ function buildAdjacencyList(graphJson: GraphJson): Map<string, string[]> {
   // Add edges
   if (graphJson.edges) {
     for (const edge of graphJson.edges) {
-      const neighbors = adjacency.get(edge.source) || [];
+      const neighbors = adjacency.get(edge.source) ?? [];
       neighbors.push(edge.target);
       adjacency.set(edge.source, neighbors);
     }
@@ -366,7 +366,7 @@ export function topologicalSort(graphJson: GraphJson): string[] {
     if (visited.has(nodeId)) {return;}
     visited.add(nodeId);
 
-    const neighbors = adjacency.get(nodeId) || [];
+    const neighbors = adjacency.get(nodeId) ?? [];
     for (const neighbor of neighbors) {
       dfs(neighbor);
     }

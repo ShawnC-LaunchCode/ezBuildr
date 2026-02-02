@@ -227,7 +227,7 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
       return (
         <SelectCell
           value={editValue}
-          options={column.options || []}
+          options={column.options ?? []}
           onCommit={onCommit}
         />
       );
@@ -236,7 +236,7 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
       return (
         <MultiselectCell
           value={editValue}
-          options={column.options || []}
+          options={column.options ?? []}
           onCommit={onCommit}
         />
       );
@@ -266,7 +266,7 @@ function EditableTextCell({
     <Input
       ref={inputRef}
       type={type === "email" ? "email" : type === "url" ? "url" : "text"}
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={() => onCommit(value)}
       onKeyDown={onKeyDown}
@@ -295,7 +295,7 @@ function NumberCell({
     <Input
       ref={inputRef}
       type="number"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
       onBlur={() => onCommit(value)}
       onKeyDown={onKeyDown}
@@ -397,7 +397,7 @@ function SelectCell({
   onCommit: (v: any) => void;
 }) {
   return (
-    <Select value={value || ""} onValueChange={onCommit}>
+    <Select value={value ?? ""} onValueChange={onCommit}>
       <SelectTrigger className="h-8 text-sm focus:ring-2 focus:ring-primary">
         <SelectValue placeholder="Select..." />
       </SelectTrigger>

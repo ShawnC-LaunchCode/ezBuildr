@@ -4,7 +4,7 @@
  * DataVault v4 Micro-Phase 6: Table-Level Permissions
  */
 import { Loader2, Plus, Trash2, ShieldAlert, User, Eye, Edit, Shield } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {

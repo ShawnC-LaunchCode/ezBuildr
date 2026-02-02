@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Edit2, Trash2, MoreVertical, GripVertical, FileText } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -425,7 +425,7 @@ export function EditableDataGrid({
                     readOnly={column.isPrimaryKey && column.type === 'auto_number'}
                     placeholder={
                       column.isPrimaryKey && column.type === 'auto_number'
-                        ? String(emptyRowValues[column.id] || '')
+                        ? String(emptyRowValues[column.id] ?? '')
                         : column.required
                         ? 'Required'
                         : 'Optional'

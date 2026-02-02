@@ -59,11 +59,11 @@ export class TemplateService {
         // 3. Construct manifest
         const manifest: TemplateManifest = {
             title: workflow.title || "Untitled Workflow",
-            description: workflow.description || "",
+            description: workflow.description ?? "",
             category: "general",
             tags: [],
             version: "1.0.0",
-            author: workflow.creatorId || '',
+            author: workflow.creatorId ?? '',
             minCompatibleVersion: "1.0.0",
             requiredBlocks: [], // Would analyze graph to find types
             requiredFeatures: [],

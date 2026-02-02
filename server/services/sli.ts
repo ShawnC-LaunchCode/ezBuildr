@@ -112,7 +112,7 @@ export async function saveSLIWindow(params: {
   const insertData: InsertSliWindow = {
     tenantId: params.tenantId,
     projectId: params.projectId,
-    workflowId: params.workflowId || null,
+    workflowId: params.workflowId ?? null,
     windowStart: params.sli.windowStart,
     windowEnd: params.sli.windowEnd,
     successPct: Math.round(params.sli.successPct),
@@ -160,7 +160,7 @@ export async function getOrCreateConfig(params: {
   const defaultConfig: InsertSliConfig = {
     tenantId: project.tenantId!,
     projectId: params.projectId,
-    workflowId: params.workflowId || null,
+    workflowId: params.workflowId ?? null,
     targetSuccessPct: 99,
     targetP95Ms: 5000,
     errorBudgetPct: 1,

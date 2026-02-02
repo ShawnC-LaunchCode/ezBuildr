@@ -31,7 +31,7 @@ export function EmailBlockRenderer({ step, value, onChange, readOnly }: EmailBlo
     <Input
       id={step.id}
       type="email"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={readOnly}

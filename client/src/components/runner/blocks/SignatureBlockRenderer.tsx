@@ -15,7 +15,7 @@
  */
 
 import { PenTool, FileText, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,7 @@ export function SignatureBlockRenderer({
     let result = text;
     Object.entries(stepValues).forEach(([key, value]) => {
       const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, String(value || ''));
+      result = result.replace(regex, String(value ?? ''));
     });
 
     return result;
@@ -82,11 +82,11 @@ export function SignatureBlockRenderer({
   // Prepare display values
   const displayConfig = useMemo(() => ({
     signerRole: config?.signerRole || 'Signer',
-    signerName: replaceVariables(config?.signerName || ''),
-    signerEmail: replaceVariables(config?.signerEmail || ''),
-    message: replaceVariables(config?.message || ''),
-    markdownHeader: replaceVariables(config?.markdownHeader || ''),
-    documents: config?.documents || [],
+    signerName: replaceVariables(config?.signerName ?? ''),
+    signerEmail: replaceVariables(config?.signerEmail ?? ''),
+    message: replaceVariables(config?.message ?? ''),
+    markdownHeader: replaceVariables(config?.markdownHeader ?? ''),
+    documents: config?.documents ?? [],
     provider: config?.provider || 'docusign',
     allowDecline: config?.allowDecline ?? false,
   }), [config, stepValues]);

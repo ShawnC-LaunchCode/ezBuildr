@@ -1,8 +1,10 @@
-import type { Section, InsertSection } from "@shared/schema";
+import type { Section, InsertSection, Step } from "@shared/schema";
 
 import { sectionRepository, workflowRepository, stepRepository } from "../repositories";
 
 import { workflowService } from "./WorkflowService";
+
+const SECTION_NOT_FOUND = "Section not found";
 
 /**
  * Service layer for section-related business logic
@@ -19,10 +21,10 @@ export class SectionService {
     stepRepo?: typeof stepRepository,
     workflowSvc?: typeof workflowService
   ) {
-    this.sectionRepo = sectionRepo || sectionRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.stepRepo = stepRepo || stepRepository;
-    this.workflowSvc = workflowSvc || workflowService;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
   }
 
   /**
@@ -61,7 +63,7 @@ export class SectionService {
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     return this.sectionRepo.update(sectionId, data);
@@ -75,7 +77,7 @@ export class SectionService {
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     await this.sectionRepo.delete(sectionId);
@@ -116,12 +118,12 @@ export class SectionService {
   /**
    * Get section with steps
    */
-  async getSectionWithSteps(sectionId: string, workflowId: string, userId: string) {
+  async getSectionWithSteps(sectionId: string, workflowId: string, userId: string): Promise<Section & { steps: Step[] }> {
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     const steps = await this.stepRepo.findBySectionId(sectionId);
@@ -142,7 +144,7 @@ export class SectionService {
   ): Promise<Section> {
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId);
@@ -155,7 +157,7 @@ export class SectionService {
   async deleteSectionById(sectionId: string, userId: string): Promise<void> {
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId);

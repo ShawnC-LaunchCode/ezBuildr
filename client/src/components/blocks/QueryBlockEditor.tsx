@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import React, {   } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,19 +37,19 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
         queryFn: () => config.dataSourceId ? dataSourceAPI.getTables(config.dataSourceId) : Promise.resolve([]),
         enabled: !!config.dataSourceId
     });
-    const handleChange = (key: keyof QueryConfig, value: any) => {
+    const handleChange = <K extends keyof QueryConfig>(key: K, value: QueryConfig[K]) => {
         onChange({ ...config, [key]: value });
     };
     const addFilter = () => {
-        const filters = config.filters || [];
+        const filters = config.filters ?? [];
         handleChange("filters", [...filters, { column: "", operator: "equals", value: "" }]);
     };
     const removeFilter = (index: number) => {
-        const filters = config.filters || [];
+        const filters = config.filters ?? [];
         handleChange("filters", filters.filter((_, i) => i !== index));
     };
     const updateFilter = (index: number, field: keyof QueryFilter, value: string) => {
-        const filters = config.filters || [];
+        const filters = config.filters ?? [];
         const newFilters = [...filters];
         newFilters[index] = { ...newFilters[index], [field]: value };
         handleChange("filters", newFilters);
@@ -96,7 +95,7 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                 <div className="flex items-center gap-2">
                     <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono">List&lt;Row&gt;</div>
                     <Input
-                        value={config.outputVariableName || ""}
+                        value={config.outputVariableName ?? ""}
                         onChange={(e) => handleChange("outputVariableName", e.target.value)}
                         placeholder="e.g. usersList"
                         className="font-mono"
@@ -154,12 +153,18 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                 <div className="flex gap-2">
                     <Input
                         placeholder="Column Name"
-                        value={config.sort?.column || ""}
-                        onChange={(e) => handleChange("sort", { ...config.sort, column: e.target.value })}
+                        value={config.sort?.column ?? ""}
+                        onChange={(e) => handleChange("sort", {
+                            column: e.target.value,
+                            direction: config.sort?.direction ?? "asc"
+                        } as QuerySort)}
                     />
                     <Select
-                        value={config.sort?.direction || "asc"}
-                        onValueChange={(v: "asc" | "desc") => handleChange("sort", { ...config.sort, direction: v })}
+                        value={config.sort?.direction ?? "asc"}
+                        onValueChange={(v) => handleChange("sort", {
+                            column: config.sort?.column ?? "",
+                            direction: v as "asc" | "desc"
+                        } as QuerySort)}
                     >
                         <SelectTrigger className="w-[100px]">
                             <SelectValue />

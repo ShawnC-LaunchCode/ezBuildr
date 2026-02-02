@@ -38,7 +38,7 @@ export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: Websit
     <Input
       id={step.id}
       type="url"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={handleBlur}
       placeholder={placeholder}

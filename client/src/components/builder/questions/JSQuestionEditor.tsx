@@ -5,7 +5,7 @@
  */
 
 import { ChevronDown, ChevronUp } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { HelperLibraryDocs } from "@/components/builder/HelperLibraryDocs";
 import { EnhancedVariablePicker } from "@/components/common/EnhancedVariablePicker";
@@ -236,7 +236,7 @@ export function JSQuestionEditor({ config, onChange, className, elementId, workf
           </Label>
           <Textarea
             id={`frame-js-help-${elementId}`}
-            value={localConfig.helpText || ""}
+            value={localConfig.helpText ?? ""}
             onChange={(e) => handleChange({ helpText: e.target.value })}
             onBlur={handleBlur}
             placeholder="Optional text to show in the runner..."

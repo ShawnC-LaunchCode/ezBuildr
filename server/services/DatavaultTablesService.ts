@@ -26,10 +26,10 @@ export class DatavaultTablesService {
     rowsRepo?: typeof datavaultRowsRepository,
     permissionsRepo?: typeof datavaultTablePermissionsRepository
   ) {
-    this.tablesRepo = tablesRepo || datavaultTablesRepository;
-    this.columnsRepo = columnsRepo || datavaultColumnsRepository;
-    this.rowsRepo = rowsRepo || datavaultRowsRepository;
-    this.permissionsRepo = permissionsRepo || datavaultTablePermissionsRepository;
+    this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
+    this.columnsRepo = columnsRepo ?? datavaultColumnsRepository;
+    this.rowsRepo = rowsRepo ?? datavaultRowsRepository;
+    this.permissionsRepo = permissionsRepo ?? datavaultTablePermissionsRepository;
   }
 
   /**
@@ -164,7 +164,7 @@ export class DatavaultTablesService {
    */
   async createTable(data: InsertDatavaultTable, tx?: DbTransaction): Promise<DatavaultTable> {
     // Generate slug if not provided
-    const baseSlug = data.slug || this.generateSlug(data.name);
+    const baseSlug = data.slug ?? this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tenantId, baseSlug, undefined, tx);
 
     // Create the table
@@ -206,6 +206,7 @@ export class DatavaultTablesService {
   /**
    * Get table with columns
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- return type inferred from composed query
   async getTableWithColumns(tableId: string, tenantId: string, tx?: DbTransaction) {
     const table = await this.verifyTenantOwnership(tableId, tenantId, tx);
     const columns = await this.columnsRepo.findByTableId(tableId, tx);
@@ -220,6 +221,7 @@ export class DatavaultTablesService {
    * Get table schema (for workflow builder integration)
    * Returns minimal table metadata + ordered columns
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- return type inferred from repository
   async getTableSchema(tableId: string, tenantId: string, tx?: DbTransaction) {
     await this.verifyTenantOwnership(tableId, tenantId, tx);
     const schema = await this.tablesRepo.getSchema(tableId, tx);
@@ -241,6 +243,7 @@ export class DatavaultTablesService {
   /**
    * List tables with stats (column count, row count)
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- return type inferred from composed query
   async listTablesWithStats(tenantId: string, userId: string, tx?: DbTransaction) {
     const tables = await this.tablesRepo.findByTenantAndUser(tenantId, userId, tx);
 
@@ -269,18 +272,20 @@ export class DatavaultTablesService {
   ): Promise<DatavaultTable> {
     await this.verifyTenantOwnership(tableId, tenantId, tx);
 
+    const updateData = { ...data };
+
     // If name changed, regenerate slug
-    if (data.name && !data.slug) {
-      const baseSlug = this.generateSlug(data.name);
-      data.slug = await this.ensureUniqueSlug(tenantId, baseSlug, tableId, tx);
+    if (updateData.name && !updateData.slug) {
+      const baseSlug = this.generateSlug(updateData.name);
+      updateData.slug = await this.ensureUniqueSlug(tenantId, baseSlug, tableId, tx);
     }
 
     // If slug provided, ensure it's unique
-    if (data.slug) {
-      data.slug = await this.ensureUniqueSlug(tenantId, data.slug, tableId, tx);
+    if (updateData.slug) {
+      updateData.slug = await this.ensureUniqueSlug(tenantId, updateData.slug, tableId, tx);
     }
 
-    return this.tablesRepo.update(tableId, data, tx);
+    return this.tablesRepo.update(tableId, updateData, tx);
   }
 
   /**

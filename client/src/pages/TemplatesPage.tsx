@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Plus, Sparkles, FileText, Calendar, MoreVertical, Pencil, FileEdit, Trash2, Share2, Users } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 
 import EditTemplateModal from "@/components/templates/EditTemplateModal";
@@ -74,8 +74,8 @@ export default function TemplatesPage() {
     );
   }
   // Get templates based on view filter
-  const allTemplates: Template[] = list.data || [];
-  const sharedTemplateIds = new Set((listSharedWithMe.data || []).map((s: any) => s.templateId));
+  const allTemplates: Template[] = list.data ?? [];
+  const sharedTemplateIds = new Set((listSharedWithMe.data ?? []).map((s: any) => s.templateId));
   // Fetch full template data for shared templates
   const sharedTemplates = allTemplates.filter(t => sharedTemplateIds.has(t.id));
   const templates: Template[] =
@@ -110,7 +110,7 @@ export default function TemplatesPage() {
       return matchesSearch && matchesTags;
     });
     if (sort === "az") {
-      arr = arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      arr = arr.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
     } else if (sort === "recent") {
       arr = arr.sort(
         (a, b) =>
@@ -443,7 +443,7 @@ function TemplateCard({
 }: TemplateCardProps) {
   // Fetch shares for this template to show SHARED badge
   const { listShares } = useTemplateSharing(template.id);
-  const hasShares = (listShares.data || []).length > 0;
+  const hasShares = (listShares.data ?? []).length > 0;
   // Extract metadata from template content if available
   const pageCount = template.content?.pages?.length || 0;
   const questionCount =

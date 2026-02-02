@@ -90,8 +90,8 @@ export function RecordEditorModal({
       .filter((field) => field.isRequired)
       .filter((field) => {
         const value = formData[field.slug];
-        if (value === null || value === undefined || value === "") {return true;}
-        if (Array.isArray(value) && value.length === 0) {return true;}
+        if (value === null || value === undefined || value === "") { return true; }
+        if (Array.isArray(value) && value.length === 0) { return true; }
         return false;
       })
       .map((field) => field.name);
@@ -129,7 +129,7 @@ export function RecordEditorModal({
       case "text":
         return (
           <Input
-            value={value || ""}
+            value={value ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
             placeholder={`Enter ${field.name.toLowerCase()}`}
           />
@@ -138,7 +138,7 @@ export function RecordEditorModal({
         return (
           <Input
             type="number"
-            value={value || ""}
+            value={value ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
             placeholder="0"
           />
@@ -159,7 +159,7 @@ export function RecordEditorModal({
         return (
           <Input
             type="date"
-            value={value || ""}
+            value={value ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
           />
         );
@@ -167,15 +167,15 @@ export function RecordEditorModal({
         return (
           <Input
             type="datetime-local"
-            value={value || ""}
+            value={value ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
           />
         );
       case "select":
-        const selectOptions = Array.isArray(field.options) ? field.options : [];
+        const selectOptions = Array.isArray(field.options) ? field.options as string[] : [];
         return (
           <Select
-            value={value || ""}
+            value={value ?? ""}
             onValueChange={(val) => updateField(field.slug, val)}
           >
             <SelectTrigger>
@@ -191,7 +191,7 @@ export function RecordEditorModal({
           </Select>
         );
       case "multi_select":
-        const multiOptions = Array.isArray(field.options) ? field.options : [];
+        const multiOptions = Array.isArray(field.options) ? field.options as string[] : [];
         const selectedValues = Array.isArray(value) ? value : [];
         return (
           <div className="space-y-2">
@@ -240,7 +240,7 @@ export function RecordEditorModal({
         const jsonValue = typeof value === "object" ? JSON.stringify(value, null, 2) : value;
         return (
           <Textarea
-            value={jsonValue || ""}
+            value={jsonValue ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
             placeholder='{"key": "value"}'
             className="font-mono text-sm"
@@ -250,7 +250,7 @@ export function RecordEditorModal({
       default:
         return (
           <Textarea
-            value={value || ""}
+            value={value ?? ""}
             onChange={(e) => { void updateField(field.slug, e.target.value); }}
             placeholder={`Enter ${field.name.toLowerCase()}`}
             rows={3}

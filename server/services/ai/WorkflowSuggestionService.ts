@@ -118,7 +118,7 @@ export class WorkflowSuggestionService {
             const result: AITemplateBindingsResponse = {
                 ...validated,
                 suggestions: validSuggestions,
-                warnings: [...(validated.warnings || []), ...warnings],
+                warnings: [...(validated.warnings ?? []), ...warnings],
             };
 
             const duration = Date.now() - startTime;

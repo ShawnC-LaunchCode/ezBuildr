@@ -14,6 +14,7 @@ import { nanoid } from 'nanoid';
 
 // Extend Express Request type
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       id?: string;
@@ -30,17 +31,20 @@ export const requestIdMiddleware = (
   const existingId = req.headers['x-request-id'] as string;
 
   // Generate or use existing ID
-  const requestId = existingId || nanoid(16);
+  const requestId = existingId ?? nanoid(16);
 
   // Attach to request object
+  // eslint-disable-next-line no-param-reassign
   req.id = requestId;
 
   // Set response header
   res.setHeader('X-Request-ID', requestId);
 
   // If logger exists on request, add request ID to context
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (req.log) {
-    req.log = req.log.child({ requestId });
+    // eslint-disable-next-line no-param-reassign, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    req.log = (req.log as any).child({ requestId });
   }
 
   next();

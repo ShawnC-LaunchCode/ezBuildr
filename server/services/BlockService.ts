@@ -21,9 +21,9 @@ export class BlockService {
     workflowRepo?: typeof workflowRepository,
     sectionRepo?: typeof sectionRepository
   ) {
-    this.blockRepo = blockRepo || blockRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
+    this.blockRepo = blockRepo ?? blockRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
   }
 
   /**

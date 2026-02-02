@@ -9,27 +9,28 @@ export interface AuditEvent {
     action: string;
     resourceType: string;
     resourceId?: string;
-    before?: any;
-    after?: any;
+    before?: unknown;
+    after?: unknown;
     ipAddress?: string;
     userAgent?: string;
 }
 
 export class AuditLogger {
-    static async log(event: AuditEvent) {
+    static async log(event: AuditEvent): Promise<void> {
         try {
             await db.insert(auditLogs).values({
-                workspaceId: event.workspaceId || null,
+                workspaceId: event.workspaceId ?? null,
                 userId: event.userId,
                 action: event.action,
                 entityType: event.resourceType,
-                entityId: event.resourceId || 'global',
+                entityId: event.resourceId ?? 'global',
                 resourceType: event.resourceType,
                 resourceId: event.resourceId,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- audit event before/after are typed as unknown but DB column accepts jsonb
                 changes: {
                     before: event.before,
                     after: event.after
-                },
+                } as Record<string, unknown>,
                 ipAddress: event.ipAddress,
                 userAgent: event.userAgent
             });

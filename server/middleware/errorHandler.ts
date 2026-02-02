@@ -166,7 +166,7 @@ function classifyError(error: Error): number {
 interface ErrorResponse {
   message: string;
   error?: string;
-  details?: any;
+  details?: unknown;
   stack?: string;
 }
 
@@ -224,7 +224,7 @@ export function errorHandler(
   err: Error | AppError | ZodError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -247,7 +247,7 @@ export function errorHandler(
 
   // Log error with request context
   const logContext = {
-    requestId: (req as any).id, // Express request ID (from express-request-id middleware if present)
+    requestId: req.id, // Express request ID (from express-request-id middleware if present)
     method: req.method,
     url: req.url,
     statusCode,
@@ -283,7 +283,7 @@ type AsyncRouteHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => Promise<any>;
+) => Promise<unknown>;
 
 /**
  * Wraps async route handlers to automatically catch errors and pass to error handler
@@ -330,7 +330,7 @@ export function assertFound<T>(
   value: T | null | undefined,
   message = "Resource not found"
 ): asserts value is T {
-  if (!value) {
+  if (value === null || value === undefined) {
     throw new NotFoundError(message);
   }
 }
@@ -359,10 +359,10 @@ export function assertAuthorized(
  * assertAuthenticated(req.user?.claims?.sub, "Unauthorized - no user ID");
  */
 export function assertAuthenticated(
-  value: any,
+  value: unknown,
   message = "Unauthorized"
 ): void {
-  if (!value) {
+  if (value === null || value === undefined || value === '' || value === false) {
     throw new UnauthorizedError(message);
   }
 }
@@ -375,8 +375,8 @@ export function assertAuthenticated(
  * const validatedData = validateInput(createSurveySchema, req.body);
  */
 export function validateInput<T>(
-  schema: { parse: (data: any) => T },
-  data: any
+  schema: { parse: (data: unknown) => T },
+  data: unknown
 ): T {
   try {
     return schema.parse(data);
@@ -396,10 +396,11 @@ export function validateInput<T>(
  * Augment Express Request type to include common properties
  */
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Express module augmentation requires namespace
   namespace Express {
     interface Request {
       id?: string; // Request ID from logger middleware
-      log?: any; // Request-scoped logger
+      log?: unknown; // Request-scoped logger
     }
   }
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Search, Download, Star } from "lucide-react";
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLocation } from "wouter";
 
 import Sidebar from "@/components/layout/Sidebar";

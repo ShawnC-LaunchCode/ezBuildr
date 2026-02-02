@@ -181,7 +181,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
         }
 
         const data = await response.json();
-        return data.sheets || [];
+        return data.sheets ?? [];
     }
 
     async getTableMetadata(sheetId: string): Promise<TableMetadata> {
@@ -223,7 +223,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
         }
 
         const data = await response.json();
-        return data.rows || [];
+        return data.rows ?? [];
     }
 
     async writeRows(
@@ -326,7 +326,7 @@ export class NativeTableConnector implements DataSourceConnector {
         }
 
         const data = await response.json();
-        return data.rows || [];
+        return data.rows ?? [];
     }
 
     async writeRows(

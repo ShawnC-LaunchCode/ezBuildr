@@ -23,7 +23,7 @@ export interface ComputeNodeInput {
 export interface ComputeNodeOutput {
   status: 'executed' | 'skipped';
   varName?: string;                // Variable name that was set
-  varValue?: any;                  // Computed value
+  varValue?: unknown;              // Computed value
   skipReason?: string;
 }
 
@@ -33,6 +33,7 @@ export interface ComputeNodeOutput {
  * @param input - Node configuration and execution context
  * @returns Execution result
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function executeComputeNode(
   input: ComputeNodeInput
 ): Promise<ComputeNodeOutput> {
@@ -41,7 +42,9 @@ export async function executeComputeNode(
   try {
     // Check condition if present
     if (config.condition) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const conditionResult = evaluateExpression(config.condition, context);
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!conditionResult) {
         return {
           status: 'skipped',
@@ -51,9 +54,11 @@ export async function executeComputeNode(
     }
 
     // Evaluate the expression
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = evaluateExpression(config.expression, context);
 
     // Store in context
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     context.vars[config.outputKey] = result;
 
     return {

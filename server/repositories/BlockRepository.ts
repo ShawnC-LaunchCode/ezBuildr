@@ -81,9 +81,10 @@ export class BlockRepository extends BaseRepository<typeof blocks, Block, Insert
     updates: Array<{ id: string; order: number }>,
     tx?: DbTransaction
   ): Promise<void> {
-    const database = this.getDb(tx);
+    const _database = this.getDb(tx);
 
     // Execute all updates in a transaction
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const executeUpdates = async (txn: DbTransaction) => {
       for (const { id, order } of updates) {
         await txn

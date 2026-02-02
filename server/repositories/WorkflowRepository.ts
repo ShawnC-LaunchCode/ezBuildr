@@ -202,7 +202,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .from(workflows)
       .where(eq(workflows.slug, slug))
       .limit(1);
-    return workflow || null;
+    return workflow ?? null;
   }
   /**
    * Find workflow by public link slug
@@ -214,7 +214,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .from(workflows)
       .where(eq(workflows.publicLink, publicLink))
       .limit(1);
-    return workflow || null;
+    return workflow ?? null;
   }
   /**
    * Find workflow by ID or slug (helper for UUID/slug resolution)

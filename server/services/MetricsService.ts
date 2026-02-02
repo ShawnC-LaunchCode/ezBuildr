@@ -83,7 +83,7 @@ class MetricsService {
    * @param status - 'success' | 'failure' | 'mfa_required' | 'account_locked' | 'email_not_verified'
    * @param provider - Authentication provider (e.g., 'local', 'google', 'oauth')
    */
-  recordLoginAttempt(status: string, provider: string = 'local') {
+  recordLoginAttempt(status: string, provider: string = 'local'): void {
     try {
       this.loginAttemptCounter.add(1, {
         status,
@@ -99,7 +99,7 @@ class MetricsService {
    * @param event - 'enabled' | 'disabled' | 'verified' | 'backup_code_used' | 'backup_codes_regenerated'
    * @param userId - Optional user ID for debugging
    */
-  recordMfaEvent(event: string, userId?: string) {
+  recordMfaEvent(event: string, userId?: string): void {
     try {
       const attributes: Record<string, string> = { event };
       if (userId) {
@@ -117,7 +117,7 @@ class MetricsService {
    * @param operation - 'created' | 'refreshed' | 'revoked' | 'expired'
    * @param userId - Optional user ID for debugging
    */
-  recordSessionOperation(operation: string, userId?: string) {
+  recordSessionOperation(operation: string, userId?: string): void {
     try {
       const attributes: Record<string, string> = { operation };
       if (userId) {
@@ -136,7 +136,7 @@ class MetricsService {
    * @param endpoint - Endpoint name (e.g., 'login', 'refresh', 'logout', 'mfa_verify')
    * @param status - HTTP status code or 'success'/'error'
    */
-  recordAuthLatency(startTime: number, endpoint: string, status: number | string = 'success') {
+  recordAuthLatency(startTime: number, endpoint: string, status: number | string = 'success'): void {
     try {
       const duration = Date.now() - startTime;
 
@@ -154,7 +154,7 @@ class MetricsService {
    * @param status - 'success' | 'failure'
    * @param provider - Authentication provider
    */
-  recordRegistration(status: string, provider: string = 'local') {
+  recordRegistration(status: string, provider: string = 'local'): void {
     try {
       this.loginAttemptCounter.add(1, {
         status: `registration_${status}`,
@@ -169,7 +169,7 @@ class MetricsService {
    * Record password reset event
    * @param event - 'requested' | 'completed' | 'failed'
    */
-  recordPasswordReset(event: string) {
+  recordPasswordReset(event: string): void {
     try {
       this.sessionOperationCounter.add(1, {
         operation: `password_reset_${event}`,
@@ -183,7 +183,7 @@ class MetricsService {
    * Record email verification event
    * @param event - 'sent' | 'verified' | 'failed'
    */
-  recordEmailVerification(event: string) {
+  recordEmailVerification(event: string): void {
     try {
       this.sessionOperationCounter.add(1, {
         operation: `email_verification_${event}`,
@@ -197,7 +197,7 @@ class MetricsService {
    * Record trusted device event
    * @param event - 'added' | 'revoked' | 'used'
    */
-  recordTrustedDevice(event: string) {
+  recordTrustedDevice(event: string): void {
     try {
       this.mfaEventCounter.add(1, {
         event: `trusted_device_${event}`,

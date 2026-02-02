@@ -7,7 +7,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check, Loader2, Database } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 // import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
 // Importing individually to avoid lint 'Module not found' if aliases differ, but they seem to use @/lib/vault-hooks
@@ -27,12 +27,16 @@ import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
 import type { ApiStep } from "@/lib/vault-api";
 import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun, useWorkflow } from "@/lib/vault-hooks";
+import type { Step } from "@/types";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { LogicRule } from "@shared/schema";
+import type { ValidateRule } from "@shared/types/blocks";
+import type { ConditionExpression } from "@shared/types/conditions";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidationSchema } from "@shared/validation/ValidationSchema";
+
 interface WorkflowRunnerProps {
   // Production mode: provide runId
   runId?: string;
@@ -43,6 +47,19 @@ interface WorkflowRunnerProps {
   // Callback when preview is completed
   onPreviewComplete?: () => void;
 }
+
+interface DefaultValueConfig {
+  source?: string;
+  variable?: string;
+  value?: unknown;
+}
+
+interface SectionConfig {
+  finalBlock?: boolean;
+  validationRules?: ValidateRule[];
+}
+
+type StepValue = unknown; // Safer than any
 // Helper to check if a string is a valid UUID
 function isUUID(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,7 +68,7 @@ function isUUID(str: string): boolean {
 // Helper to start a run from a public link slug
 async function startRunFromSlug(
   slug: string,
-  initialValues?: Record<string, any>
+  initialValues?: Record<string, unknown>
 ): Promise<{ runId: string; runToken: string; workflowId: string }> {
   const response = await fetch(`/api/workflows/public/${slug}/start`, {
     method: 'POST',
@@ -70,7 +87,7 @@ async function startRunFromSlug(
 // Helper to start a run from a workflow UUID
 async function startRunFromWorkflowId(
   workflowId: string,
-  initialValues?: Record<string, any>
+  initialValues?: Record<string, unknown>
 ): Promise<{ runId: string; runToken: string; workflowId: string }> {
   const response = await fetch(`/api/workflows/${workflowId}/runs`, {
     method: 'POST',
@@ -93,7 +110,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   const [initError, setInitError] = useState<string | null>(null);
   const { toast } = useToast();
   // New Preview Environment Hook
-  const previewState = usePreviewEnvironment(previewEnvironment || null);
+  const previewState = usePreviewEnvironment(previewEnvironment ?? null);
   // Determine mode
   const mode = previewEnvironment ? 'preview' : 'production';
   // On mount, check if runId is a UUID or a slug (production mode only)
@@ -116,7 +133,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       try {
         // Parse URL parameters to get initial values
         const urlParams = new URLSearchParams(window.location.search);
-        const initialValues: Record<string, any> = {};
+        const initialValues: Record<string, StepValue> = {};
         // Convert URL params to initialValues object
         for (const [key, value] of urlParams.entries()) {
           // Skip non-step parameters (like 'ref', 'source', etc.)
@@ -220,7 +237,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   }, [runId, toast, previewEnvironment]);
   // Fetch run data - PRODUCTION MODE ONLY
   // In preview mode, we use previewEnvironment data instead
-  const { data: run } = useRunWithValues(actualRunId || '', {
+  const { data: run } = useRunWithValues(actualRunId ?? '', {
     enabled: mode === 'production' && !!actualRunId && !isInitializing,
   });
   // Get workflow ID from run (production) or preview environment (preview)
@@ -228,9 +245,9 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     ? previewState?.workflowId
     : run?.workflowId;
   // Fetch Intake Data (Upstream)
-  const intakeData = useIntakeRuntime(workflowId || "");
+  const intakeData = useIntakeRuntime(workflowId ?? "");
   // Fetch Workflow Definition (for intake config)
-  const { data: workflow } = useWorkflow(workflowId || "");
+  const { data: workflow } = useWorkflow(workflowId ?? "");
   // Get sections - from preview environment or API
   const { data: fetchedSections } = useSections(workflowId, {
     enabled: mode !== 'preview', // Only fetch if NOT in preview mode
@@ -254,7 +271,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     enabled: !!workflowId,
   });
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [showReview, setShowReview] = useState(false);
@@ -300,14 +317,14 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     // Create alias resolver for section visibility
     const aliasResolver = (variableName: string): string | undefined => {
       if (!allSteps) { return undefined; }
-      const step = allSteps.find((s: any) => s.alias === variableName);
+      const step = allSteps.find((s: ApiStep) => s.alias === variableName);
       return step?.id;
     };
     return sections.filter(section => {
       if (!section.visibleIf) { return true; }
       try {
         // Use effectiveValues (preview or production values)
-        return evaluateConditionExpression(section.visibleIf, effectiveValues, aliasResolver);
+        return evaluateConditionExpression(section.visibleIf as ConditionExpression, effectiveValues, aliasResolver);
       } catch (error) {
         console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
         return true;
@@ -317,7 +334,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   // Initialize form values from run.values (production mode only)
   useEffect(() => {
     if (mode === 'production' && run?.values) {
-      const initial: Record<string, any> = {};
+      const initial: Record<string, StepValue> = {};
       run.values.forEach((v) => {
         initial[v.stepId] = v.value;
       });
@@ -330,11 +347,12 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       setFormValues((prev) => {
         const next = { ...prev };
         let changed = false;
-        allSteps.forEach((step: any) => {
+        allSteps.forEach((step: ApiStep) => {
           // Only set if not already set
           if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
-            if (step.defaultValue?.source === 'intake' && step.defaultValue.variable) {
-              const val = intakeData.values[step.defaultValue.variable];
+            const defVal = step.defaultValue as DefaultValueConfig | undefined;
+            if (defVal?.source === 'intake' && defVal.variable) {
+              const val = intakeData.values[defVal.variable];
               if (val !== undefined) {
                 next[step.id] = val;
                 changed = true;
@@ -375,7 +393,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSection?.id, mode, actualRunId, workflowId, run?.versionId, previewEnvironment]);
+  }, [currentSection?.id, mode, actualRunId, workflowId, run?.versionId]);
   // Show initializing state
   if (isInitializing) {
     return (
@@ -410,7 +428,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   const progress = ((currentSectionIndex + 1) / visibleSections.length) * 100;
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
   // Check if current section is a Final Documents section
-  const isFinalDocumentsSection = (currentSection?.config)?.finalBlock === true;
+  const isFinalDocumentsSection = (currentSection?.config as SectionConfig | undefined)?.finalBlock === true;
   // Get run token from localStorage for Final Documents section
   const runToken = actualRunId ? localStorage.getItem(`run_token_${actualRunId}`) : null;
   const handleNext = async () => {
@@ -426,21 +444,21 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       return;
     }
     const currentSectionSteps = allSteps.filter(
-      (step: any) => step.sectionId === currentSection.id &&
+      (step: ApiStep) => step.sectionId === currentSection.id &&
         !step.isVirtual &&
         step.type !== 'final_documents'
     );
-    let visibleSectionSteps: any[] = [];
+    let visibleSectionSteps: ApiStep[] = [];
     try {
       const stepSchemas: Record<string, ValidationSchema> = {};
-      visibleSectionSteps = currentSectionSteps.filter((step: any) => {
+      visibleSectionSteps = currentSectionSteps.filter((step: ApiStep) => {
         if (!step.visibleIf) { return true; }
         try {
           const aliasResolver = (variableName: string): string | undefined => {
-            const s = allSteps.find((as: any) => as.alias === variableName);
+            const s = allSteps.find((as: ApiStep) => as.alias === variableName);
             return s?.id;
           };
-          const isVisible = evaluateConditionExpression(step.visibleIf, effectiveValues, aliasResolver);
+          const isVisible = evaluateConditionExpression(step.visibleIf as ConditionExpression, effectiveValues, aliasResolver);
           // Log skipped steps in preview mode
           if (!isVisible && mode === 'preview' && previewEnvironment) {
             previewEnvironment.addTraceEntry({
@@ -456,7 +474,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
           return true; // Fail safe to visible (validate it)
         }
       });
-      visibleSectionSteps.forEach((step: any) => {
+      visibleSectionSteps.forEach((step: ApiStep) => {
         stepSchemas[step.id] = getValidationSchema({
           id: step.id,
           type: step.type,
@@ -469,7 +487,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         schemas: stepSchemas,
         values: effectiveValues,
         allValues: effectiveValues,
-        pageRules: (currentSection.config)?.validationRules || []
+        pageRules: (currentSection.config as SectionConfig | undefined)?.validationRules ?? []
       });
       if (!validationResult.valid) {
         setFieldErrors(validationResult.blockErrors);
@@ -528,7 +546,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         const nextSection = visibleSections[nextIndex];
         // CRITICAL FIX: If navigating to a Final Documents section, save all preview values to database first
         // This ensures document generation has access to the actual form values
-        if (actualRunId && nextSection && (nextSection.config)?.finalBlock === true) {
+        if (actualRunId && nextSection && (nextSection.config as SectionConfig | undefined)?.finalBlock === true) {
           try {
             // Get all values from preview environment
             const allValues = previewEnvironment.getValues();
@@ -730,7 +748,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
           <>
             <ReviewSection
               sections={visibleSections}
-              allSteps={allSteps || []}
+              allSteps={allSteps ?? []}
               values={effectiveValues}
               visibleSectionIds={visibleSections.map(s => s.id)}
               onEditSection={(index) => {
@@ -766,7 +784,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
               sectionId={currentSection.id}
               steps={allSteps?.filter((s: ApiStep) => s.sectionId === currentSection.id)}
               values={effectiveValues}
-              logicRules={logicRules || []}
+              logicRules={logicRules ?? []}
               errors={fieldErrors}
               intakeData={intakeData}
               onChange={(stepId, value) => {
@@ -838,7 +856,7 @@ function SectionSteps({
 }: {
   sectionId: string;
   steps?: ApiStep[];
-  values: Record<string, any>;
+  values: Record<string, unknown>;
   logicRules: LogicRule[];
   onChange: (stepId: string, value: any) => void;
   errors?: Record<string, string[]>;
@@ -856,10 +874,10 @@ function SectionSteps({
       updatedAt: step.updatedAt ? new Date(step.updatedAt) : null,
       alias: step.alias,
       description: step.description,
-      visibleIf: step.visibleIf || null,
+      visibleIf: step.visibleIf ?? null,
       defaultValue: step.defaultValue ?? null,
-      isVirtual: step.isVirtual || false,
-      repeaterConfig: step.repeaterConfig || null,
+      isVirtual: step.isVirtual ?? false,
+      repeaterConfig: step.repeaterConfig ?? null,
     }));
   }, [sourceSteps]);
   // Use visibility hook to evaluate which steps should be shown
@@ -888,13 +906,16 @@ function SectionSteps({
           error={errors?.[step.id]?.[0]} // Pass first error message
           context={values}
           intakeSource={
-            step.defaultValue?.source === 'intake'
-              ? {
-                title: intakeData?.sourceWorkflowTitle || 'Intake',
-                variable: step.defaultValue.variable,
-                value: intakeData?.values?.[step.defaultValue.variable]
-              }
-              : undefined
+            (() => {
+              const defVal = step.defaultValue as DefaultValueConfig | undefined;
+              return defVal?.source === 'intake' && defVal.variable
+                ? {
+                  title: intakeData?.sourceWorkflowTitle || 'Intake',
+                  variable: defVal.variable,
+                  value: intakeData?.values?.[defVal.variable]
+                }
+                : undefined;
+            })()
           }
         />
       ))}
@@ -907,7 +928,13 @@ function SectionSteps({
  * Now uses the new comprehensive BlockRenderer system that supports
  * all block types with proper validation and nested data handling.
  */
-function StepField({ step, value, onChange, error, context, intakeSource }: { step: any; value: any; onChange: (value: any) => void; error?: string; context: Record<string, any>; intakeSource?: any }) {
+type RuntimeStep = Omit<ApiStep, 'createdAt' | 'updatedAt'> & {
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  [key: string]: any; // Allow for other runtime props
+};
+
+function StepField({ step, value, onChange, error, context, intakeSource }: { step: RuntimeStep; value: any; onChange: (value: any) => void; error?: string; context: Record<string, any>; intakeSource?: any }) {
   // Check if current value matches intake value to decide if we show the badge
   const isUsingIntakeValue = intakeSource && value === intakeSource.value;
   return (
@@ -921,7 +948,7 @@ function StepField({ step, value, onChange, error, context, intakeSource }: { st
         </div>
       )}
       <BlockRenderer
-        step={step}
+        step={step as unknown as Step}
         value={value}
         onChange={(v) => { void onChange(v); }}
         required={step.required}

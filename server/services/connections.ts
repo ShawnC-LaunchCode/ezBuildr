@@ -3,7 +3,7 @@
  * Manages unified integration connections with OAuth2 3-legged flow support
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, InferSelectModel } from 'drizzle-orm';
 
 import { externalConnections as connections, projects } from '@shared/schema';
 import {
@@ -37,7 +37,7 @@ const VALID_CONNECTION_TYPES = ['api_key', 'bearer', 'oauth2_client_credentials'
  * TYPE SAFETY FIX: Validate connection type
  */
 function validateConnectionType(type: string): void {
-  if (!VALID_CONNECTION_TYPES.includes(type as any)) {
+  if (!(VALID_CONNECTION_TYPES as readonly string[]).includes(type)) {
     throw new Error(
       `Invalid connection type: "${type}". Must be one of: ${VALID_CONNECTION_TYPES.join(', ')}`
     );
@@ -81,7 +81,9 @@ export async function listConnections(projectId: string): Promise<Connection[]> 
     .where(eq(connections.projectId, projectId))
     .orderBy(connections.name);
 
-  return results.map((row: any) => {
+  type DbConnection = InferSelectModel<typeof connections>;
+
+  return results.map((row: DbConnection) => {
     // TYPE SAFETY FIX: Validate connection type on read
     if (!VALID_CONNECTION_TYPES.includes(row.type)) {
       logger.warn({ connectionId: row.id, type: row.type }, 'Invalid connection type found in database');
@@ -94,7 +96,7 @@ export async function listConnections(projectId: string): Promise<Connection[]> 
       name: row.name,
       type: row.type,
       baseUrl: row.baseUrl ?? undefined,
-      authConfig: (row.authConfig as Record<string, any>) || {},
+      authConfig: (row.authConfig as Record<string, unknown>) || {},
       secretRefs: (row.secretRefs as Record<string, string>) || {},
       oauthState: row.oauthState as OAuth2State | undefined,
       defaultHeaders: sanitizeHeaders(row.defaultHeaders),
@@ -145,7 +147,7 @@ export async function getConnection(
     name: row.name,
     type: row.type,
     baseUrl: row.baseUrl ?? undefined,
-    authConfig: (row.authConfig as Record<string, any>) || {},
+    authConfig: (row.authConfig as Record<string, unknown>) || {},
     secretRefs: (row.secretRefs as Record<string, string>) || {},
     oauthState: row.oauthState as OAuth2State | undefined,
     defaultHeaders: sanitizeHeaders(row.defaultHeaders),
@@ -195,7 +197,7 @@ export async function getConnectionByName(
     name: row.name,
     type: row.type,
     baseUrl: row.baseUrl ?? undefined,
-    authConfig: (row.authConfig as Record<string, any>) || {},
+    authConfig: (row.authConfig as Record<string, unknown>) || {},
     secretRefs: (row.secretRefs as Record<string, string>) || {},
     oauthState: row.oauthState as OAuth2State | undefined,
     defaultHeaders: sanitizeHeaders(row.defaultHeaders),
@@ -257,7 +259,7 @@ export async function createConnection(
       retries: input.retries ?? 2,
       backoffMs: input.backoffMs ?? 250,
       enabled: true,
-    } as any)
+    })
     .returning();
 
   return getConnection(input.projectId, result[0].id) as Promise<Connection>;
@@ -351,7 +353,7 @@ export async function resolveConnection(
   const secrets: Record<string, string> = {};
   for (const [refName, secretKey] of Object.entries(connection.secretRefs)) {
     const secretValue = await getSecretValue(projectId, secretKey);
-    secrets[refName] = secretValue || '';
+    secrets[refName] = secretValue ?? '';
   }
 
   // Decrypt OAuth2 access token if available
@@ -472,8 +474,8 @@ export async function initiateOAuth2Flow(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
-  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,
@@ -507,8 +509,8 @@ export async function handleOAuth2Callback(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
-  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,
@@ -537,7 +539,7 @@ export async function handleOAuth2Callback(
   await db
     .update(connections)
     .set({
-      oauthState: oauthState as any,
+      oauthState,
       updatedAt: new Date(),
     })
     .where(eq(connections.id, connectionId));
@@ -567,8 +569,8 @@ export async function refreshConnectionToken(
   }
 
   // Resolve secrets for client ID and secret
-  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) || '';
-  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) || '';
+  const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
+  const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
     authUrl: connection.authConfig.authUrl,
@@ -597,7 +599,7 @@ export async function refreshConnectionToken(
   await db
     .update(connections)
     .set({
-      oauthState: oauthState as any,
+      oauthState,
       updatedAt: new Date(),
     })
     .where(eq(connections.id, connectionId));
@@ -629,10 +631,10 @@ export async function getConnectionStatus(
 
   // Add OAuth2 token status if applicable
   if (connection.oauthState) {
-    status.oauthTokenExpiry = connection.oauthState.expiresAt
+    status.oauthTokenExpiry = connection.oauthState.expiresAt != null
       ? new Date(connection.oauthState.expiresAt)
       : undefined;
-    status.oauthTokenValid = connection.oauthState.expiresAt
+    status.oauthTokenValid = connection.oauthState.expiresAt != null
       ? Date.now() < connection.oauthState.expiresAt
       : false;
   }

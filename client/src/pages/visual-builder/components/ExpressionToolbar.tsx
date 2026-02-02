@@ -2,7 +2,7 @@
  * ExpressionToolbar - Quick-insert toolbar for variables, helpers, and snippets
  */
 import { Variable, FunctionSquare, FileText } from 'lucide-react';
-import React, {  } from 'react';
+import {  } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

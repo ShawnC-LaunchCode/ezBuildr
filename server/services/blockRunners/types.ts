@@ -21,7 +21,7 @@ import type {
   ListToolsConfig,
   WhenCondition,
   AssertExpression,
-  ComparisonOperator,
+  BlockComparisonOperator,
   ReadTableOperator,
 
   ListVariable,
@@ -52,7 +52,7 @@ export type {
   ListToolsConfig,
   WhenCondition,
   AssertExpression,
-  ComparisonOperator,
+  BlockComparisonOperator as ComparisonOperator,
   ReadTableOperator,
   ListVariable,
   ValidateRule,

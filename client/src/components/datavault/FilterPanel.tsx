@@ -4,7 +4,7 @@
  */
 
 import { Filter, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -261,7 +261,7 @@ export function FilterPanel({ tableId, columns }: FilterPanelProps) {
                       <Label className="text-xs text-muted-foreground">Value</Label>
                       <Input
                         type={column.type === "number" ? "number" : column.type === "date" ? "date" : column.type === "datetime" ? "datetime-local" : "text"}
-                        value={filter.value?.toString() || ""}
+                        value={filter.value?.toString() ?? ""}
                         onChange={(e) => handleValueChange(filter.id, e.target.value)}
                         placeholder={`Enter ${column.name.toLowerCase()}...`}
                         className="h-8 text-sm"

@@ -222,11 +222,7 @@ export class DatavaultRowsService {
             tenantId,
             tableId,
             column.id,
-            prefix,
-            padding,
-            resetPolicy,
-            format,
-            tx
+            { prefix, padding, resetPolicy, format, tx }
           );
           values[column.id] = nextValue;
         }
@@ -629,7 +625,7 @@ export class DatavaultRowsService {
     // Get total count
     const total = await this.rowsRepo.countByTableIdWithFilter(
       tableId,
-      options.showArchived || false,
+      options.showArchived ?? false,
       tx
     );
 

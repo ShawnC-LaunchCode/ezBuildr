@@ -7,6 +7,7 @@
 import type {
   AIWorkflowGenerationRequest,
   AIWorkflowSuggestionRequest,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AITemplateBindingsRequest,
   AIWorkflowRevisionRequest,
   AIConnectLogicRequest,
@@ -19,9 +20,9 @@ export class AIPromptBuilder {
    * Build the prompt for workflow generation
    */
   buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): string {
-    const constraints = request.constraints || {};
-    const maxSections = constraints.maxSections || 10;
-    const maxStepsPerSection = constraints.maxStepsPerSection || 10;
+    const constraints = request.constraints ?? {};
+    const maxSections = constraints.maxSections ?? 10;
+    const maxStepsPerSection = constraints.maxStepsPerSection ?? 10;
 
     return `You are an expert workflow designer for ezBuildr, a professional document automation and workflow platform.
 Your task is to design a HIGH-QUALITY, PRODUCTION-READY workflow based on the user's description.
@@ -147,7 +148,7 @@ Output ONLY valid JSON, NO markdown code blocks, NO additional text.`;
    */
   buildWorkflowSuggestionPrompt(
     request: AIWorkflowSuggestionRequest,
-    existingWorkflow: any,
+    existingWorkflow: unknown,
   ): string {
     return `You are a workflow improvement assistant for ezBuildr.
 You are reviewing an existing workflow and suggesting improvements based on user request.

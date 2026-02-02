@@ -1,14 +1,13 @@
-import type { InsertDatavaultDatabase, DatavaultDatabase } from "@shared/schema";
+import type { InsertDatavaultDatabase, DatavaultDatabase, DatavaultTable } from "@shared/schema";
 
 import { datavaultDatabasesRepository } from "../repositories/DatavaultDatabasesRepository";
-import type {  } from "../repositories/BaseRepository";
 /**
  * Service for managing DataSources (Databases) and their connections to Workflows.
  */
 export class DataSourceService {
     private repo: typeof datavaultDatabasesRepository;
     constructor(repo?: typeof datavaultDatabasesRepository) {
-        this.repo = repo || datavaultDatabasesRepository;
+        this.repo = repo ?? datavaultDatabasesRepository;
     }
     /**
      * List data sources for a tenant
@@ -30,20 +29,20 @@ export class DataSourceService {
      * Create a new data source
      * Handles mapping of 'native_table' virtual type to 'native' DB type
      */
-    async createDataSource(data: InsertDatavaultDatabase | { type: string;[key: string]: any }): Promise<DatavaultDatabase> {
+    async createDataSource(data: InsertDatavaultDatabase | { type: string;[key: string]: unknown }): Promise<DatavaultDatabase> {
         if (data.type === 'native_table') {
-            // Map native_table to native, preserving the config (which contains tableId)
-            // We can also add a flag to config to explicitly mark it if needed
-            const config = data.config || {};
+            const config = (data.config !== null && data.config !== undefined && typeof data.config === 'object')
+                ? data.config as Record<string, unknown>
+                : {};
             const dbData = {
                 ...data,
-                type: 'native' as const, // Cast to satisfy DB enum
+                type: 'native' as const,
                 config: {
                     ...config,
                     isNativeTable: true
                 }
             };
-            return this.repo.create(dbData as InsertDatavaultDatabase);
+            return this.repo.create(dbData as unknown as InsertDatavaultDatabase);
         }
         return this.repo.create(data as InsertDatavaultDatabase);
     }
@@ -101,7 +100,7 @@ export class DataSourceService {
     /**
      * Get tables within a data source
      */
-    async listTables(dataSourceId: string, tenantId: string) {
+    async listTables(dataSourceId: string, tenantId: string): Promise<DatavaultTable[]> {
         const exists = await this.repo.existsForTenant(dataSourceId, tenantId);
         if (!exists) {
             throw new Error(`DataSource ${dataSourceId} not found or access denied`);

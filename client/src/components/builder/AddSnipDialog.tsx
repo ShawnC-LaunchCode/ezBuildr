@@ -5,7 +5,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Package } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import { importSnip, validateSnipImport } from "@/lib/snips/importService";
 import { getAllSnips } from "@/lib/snips/registry";
 
-import type {  } from "@/lib/snips/types";
 import { CollisionResolutionModal } from "./CollisionResolutionModal";
 interface AddSnipDialogProps {
     workflowId: string;

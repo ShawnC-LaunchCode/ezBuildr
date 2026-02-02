@@ -24,6 +24,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 import type { Express, Request, Response } from 'express';
 
+const UNAUTHORIZED_MSG = 'Unauthorized - no user ID';
+
 /**
  * Validation schemas
  */
@@ -57,7 +59,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId } = req.params;
@@ -90,7 +92,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId, secretId } = req.params;
@@ -117,7 +119,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId } = req.params;
@@ -167,7 +169,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId, secretId } = req.params;
@@ -218,7 +220,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId, secretId } = req.params;
@@ -247,7 +249,7 @@ export function registerSecretsRoutes(app: Express): void {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
-        return res.status(401).json({ message: 'Unauthorized - no user ID' });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { projectId, secretId } = req.params;

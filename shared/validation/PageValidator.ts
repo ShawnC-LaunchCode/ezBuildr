@@ -3,7 +3,7 @@ import { evaluateConditionExpression } from "../conditionEvaluator";
 import { ValidationSchema, PageValidationResult } from "./ValidationSchema";
 import { validateValue } from "./Validator";
 
-import type { ValidateRule, ConditionalRequiredRule, CompareRule, ForEachRule, WhenCondition, ComparisonOperator } from "../types/blocks";
+import type { ValidateRule, ConditionalRequiredRule, CompareRule, ForEachRule, WhenCondition, BlockComparisonOperator } from "../types/blocks";
 import type { ConditionExpression } from "../types/conditions"; // Import ConditionExpression types
 /**
  * Type guards for ValidateRule types
@@ -73,7 +73,7 @@ export async function validatePage({
                     for (const fieldId of cr.requiredFields) {
                         const val = contextValues[fieldId];
                         if (val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
-                            if (!blockErrors[fieldId]) {blockErrors[fieldId] = [];}
+                            if (!blockErrors[fieldId]) { blockErrors[fieldId] = []; }
                             blockErrors[fieldId].push(cr.message || "This field is required");
                             valid = false;
                         }
@@ -88,7 +88,7 @@ export async function validatePage({
             } else if (hasListKeyProperty(rule)) {
                 target = rule.listKey;
             }
-            if (!blockErrors[target]) {blockErrors[target] = [];}
+            if (!blockErrors[target]) { blockErrors[target] = []; }
             blockErrors[target].push(error);
             valid = false;
         }
@@ -120,7 +120,7 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
         case 'foreach': {
             const r = rule;
             const list = getVal(r.listKey, values);
-            if (!Array.isArray(list)) {return null;}
+            if (!Array.isArray(list)) { return null; }
             for (let i = 0; i < list.length; i++) {
                 const item = list[i];
                 const itemContext = { ...values, [r.itemAlias]: item };
@@ -129,7 +129,7 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
                     if (isLegacySubRule(subRule) && subRule.assert) {
                         const val = resolvePath(subRule.assert.key, itemContext);
                         if (!checkOp(val, subRule.assert.op, subRule.assert.value)) {
-                            return `${subRule.message || "Invalid item"  } (Item ${i + 1})`;
+                            return `${subRule.message || "Invalid item"} (Item ${i + 1})`;
                         }
                     }
                 }
@@ -141,14 +141,14 @@ async function validatePageRule(rule: ValidateRule, values: Record<string, any>)
     }
 }
 function whenToCondition(when: WhenCondition): ConditionExpression {
-    if (!when) {return null;}
+    if (!when) { return null; }
     return {
         type: "group",
-        id: `gen_${  Math.random().toString(36).substring(2)}`,
+        id: `gen_${Math.random().toString(36).substring(2)}`,
         operator: "AND",
         conditions: [{
             type: "condition",
-            id: `gen_${  Math.random().toString(36).substring(2)}`,
+            id: `gen_${Math.random().toString(36).substring(2)}`,
             variable: when.key,
             operator: when.op,
             value: when.value,
@@ -159,7 +159,7 @@ function whenToCondition(when: WhenCondition): ConditionExpression {
 // Helpers
 function getVal(key: string, values: Record<string, any>) {
     // support dot syntax?
-    if (key.includes('.')) {return resolvePath(key, values);}
+    if (key.includes('.')) { return resolvePath(key, values); }
     return values[key];
 }
 function resolvePath(path: string, obj: any) {

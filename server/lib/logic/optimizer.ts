@@ -43,7 +43,7 @@ export class LogicOptimizer {
     /**
      * Detect circular logic in workflow
      */
-    static detectCycles(workflow: any): string[] {
+    static detectCycles(_workflow: unknown): string[] {
         // Graph traversal to find cycles in visibleIf/skipIf dependencies
         return [];
     }

@@ -4,7 +4,7 @@
 
 import { logger } from "../logger";
 
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@ezbuildr.com';
+const _FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
 /**
  * Send a generic email using SendGrid or fallback to logger
@@ -27,7 +27,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
   // In production, this should point to the actual frontend URL
   // For now, we assume it's running on the same host or configured via env
-  const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
   const resetLink = `${baseUrl}/auth/reset-password?token=${token}`;
 
   const subject = 'Reset Your Password - ezBuildr';
@@ -50,7 +50,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
   const verifyLink = `${baseUrl}/auth/verify-email?token=${token}`;
 
   const subject = 'Verify Your Email - ezBuildr';
@@ -111,13 +111,14 @@ export interface IntakeReceiptData {
   workflowId: string;
   workflowName: string;
   runId: string;
-  summary?: Record<string, any>;
+  summary?: Record<string, unknown>;
   downloadLinks?: {
     pdf?: string;
     docx?: string;
   };
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export async function sendIntakeReceipt(
   data: IntakeReceiptData
 ): Promise<{ success: boolean; error?: string }> {
@@ -135,7 +136,7 @@ export async function sendIntakeReceipt(
     }
 
     let downloadHtml = "";
-    if (downloadLinks?.pdf || downloadLinks?.docx) {
+    if (downloadLinks?.pdf ?? downloadLinks?.docx) {
       downloadHtml = "<h3>Your Documents</h3>";
       if (downloadLinks.pdf) { downloadHtml += `<p><a href="${downloadLinks.pdf}">Download PDF</a></p>`; }
       if (downloadLinks.docx) { downloadHtml += `<p><a href="${downloadLinks.docx}">Download DOCX</a></p>`; }

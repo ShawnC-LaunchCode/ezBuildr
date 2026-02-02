@@ -40,7 +40,7 @@ export function ListInspector({ list, variableName }: ListInspectorProps) {
   const { toast } = useToast();
 
   const handleCopyReference = (ref: string) => {
-    navigator.clipboard.writeText(ref);
+    void navigator.clipboard.writeText(ref);
     toast({
       title: "Copied",
       description: `Reference copied: ${ref}`,
@@ -121,7 +121,7 @@ export function ListInspector({ list, variableName }: ListInspectorProps) {
           <div className="flex items-center gap-2 text-xs p-2 bg-purple-50 rounded-md">
             <ArrowUpDown className="w-3 h-3 text-purple-600" />
             <span className="text-purple-900">
-              Sorted by: {list.columns.find(c => c.id === list.metadata.sortedBy?.columnId)?.name || 'Unknown'} ({list.metadata.sortedBy.direction})
+              Sorted by: {list.columns.find(c => c.id === list.metadata.sortedBy?.columnId)?.name ?? 'Unknown'} ({list.metadata.sortedBy.direction})
             </span>
           </div>
         )}

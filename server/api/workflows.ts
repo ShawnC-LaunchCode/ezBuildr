@@ -573,7 +573,7 @@ router.post(
       }
       // Get available variables for this node
       const availableVars = collectAvailableVars(graphJson);
-      const varsAtNode = availableVars.get(nodeId) || [];
+      const varsAtNode = availableVars.get(nodeId) ?? [];
       // Validate expression
       const result = validateExpression(expression, varsAtNode);
       if (result.ok) {
@@ -636,7 +636,7 @@ router.get(
       }
       // Get available variables for this node
       const availableVars = collectAvailableVars(graphJson);
-      const varsAtNode = availableVars.get(nodeId) || [];
+      const varsAtNode = availableVars.get(nodeId) ?? [];
       res.json({ vars: varsAtNode });
     } catch (error) {
       const formatted = formatErrorResponse(error);

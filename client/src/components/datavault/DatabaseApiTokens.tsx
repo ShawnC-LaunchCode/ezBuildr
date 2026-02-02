@@ -5,7 +5,7 @@
  */
 
 import { Loader2, Plus, Trash2, Key, Copy, Check, AlertTriangle, Calendar } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -152,7 +152,7 @@ export function DatabaseApiTokens({ databaseId }: DatabaseApiTokensProps) {
     }
   };
 
-  const tokens = data?.tokens || [];
+  const tokens = data?.tokens ?? [];
 
   return (
     <>

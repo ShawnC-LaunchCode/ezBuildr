@@ -20,6 +20,7 @@ export class ExternalDestinationService {
         logger.info({ tenantId: data.tenantId, type: data.type }, "Creating external destination");
 
         // Validate config based on type (basic check)
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- config may be null/undefined
         if (!data.config) {
             throw new Error("Configuration is required");
         }

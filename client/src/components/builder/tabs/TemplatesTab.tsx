@@ -4,7 +4,7 @@
  */
 import axios from "axios";
 import { Upload, FileText, Trash2, TestTube, AlertCircle, CheckCircle, ExternalLink, Edit } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -58,9 +58,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const { data: variables } = useWorkflowVariables(workflowId);
   // Fetch projects to find fallback
   const { data: projects } = useProjects();
-  const workflowVariables = (variables || []).map((v: ApiWorkflowVariable) => ({
+  const workflowVariables = (variables ?? []).map((v: ApiWorkflowVariable) => ({
     id: v.key,
-    alias: v.alias || null,
+    alias: v.alias ?? null,
     text: v.label
   }));
   // console.log("TemplatesTab: Computed workflowVariables", workflowVariables);
@@ -71,7 +71,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       if (!workflowProjectId) { return; }
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data = response.data;
-      const mappedTemplates = (data.items || []).map((t: any) => ({
+      const mappedTemplates = (data.items ?? []).map((t: any) => ({
         id: t.id,
         name: t.name,
         key: t.id,
@@ -205,7 +205,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => {
-          const { missing, matched, total } = getVariableStatus(template.variables || []);
+          const { missing, matched, total } = getVariableStatus(template.variables ?? []);
           const hasMissing = missing.length > 0;
           return (
             <Card key={template.id} className="flex flex-col hover:shadow-md transition-shadow">

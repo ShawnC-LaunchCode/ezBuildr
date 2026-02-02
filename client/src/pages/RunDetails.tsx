@@ -5,7 +5,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Download, PlayCircle, FileText, Share2, Copy } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 
 import { TracePanel } from '@/components/runs/TracePanel';

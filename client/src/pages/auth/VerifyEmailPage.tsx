@@ -1,5 +1,5 @@
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 
 import logo from "@/assets/images/logo.png";

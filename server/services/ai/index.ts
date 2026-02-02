@@ -12,7 +12,19 @@ export { WorkflowGenerationService } from './WorkflowGenerationService';
 export { WorkflowSuggestionService } from './WorkflowSuggestionService';
 export { WorkflowRevisionService } from './WorkflowRevisionService';
 
-export * from './AIServiceUtils';
+export {
+    estimateTokenCount,
+    getMaxContextTokens,
+    validateTokenLimits,
+    estimateCost,
+    isResponseTruncated,
+    getTroubleshootingHints,
+    stripMarkdownCodeBlocks,
+    validateWorkflowStructure,
+    VALID_STEP_TYPES,
+    TYPE_ALIASES,
+    normalizeWorkflowTypes,
+} from './AIServiceUtils';
 // Avoid exporting duplicated members
 export type {
     AIErrorCode,

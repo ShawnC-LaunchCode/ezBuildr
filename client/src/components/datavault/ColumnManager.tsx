@@ -4,7 +4,7 @@
  */
 
 import { Loader2, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
   AlertDialog,

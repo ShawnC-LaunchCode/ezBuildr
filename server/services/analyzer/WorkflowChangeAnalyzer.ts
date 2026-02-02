@@ -146,7 +146,7 @@ export class WorkflowChangeAnalyzer {
             // Check config for references
             // 1. JS Question inputs
             if (block.type === 'js_question' && block.config) {
-                const inputs = (block.config.inputKeys as string[]) || [];
+                const inputs = (block.config.inputKeys as string[]) ?? [];
                 if (inputs.includes(targetId) || (targetAlias && inputs.includes(targetAlias))) {
                     usages.push(`JS Block '${block.title || id}'`);
                 }

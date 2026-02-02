@@ -4,7 +4,7 @@ import {
     History, Play, FileText, Download, AlertCircle, CheckCircle2,
     Clock, RotateCcw, GitCommit
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

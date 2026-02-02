@@ -29,6 +29,8 @@ import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
 import { useTransformBlocks, useUpdateSection, useDeleteSection, useReorderBlocks, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { StepCard } from "../cards/StepCard";
 import { FinalDocumentsSectionEditor } from "../final/FinalDocumentsSectionEditor";
 
@@ -62,7 +64,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
   const prevSelectionRef = useRef<typeof selection>(null);
   const prevItemsLengthRef = useRef<number>(0);
   // Check if this is a Final Documents section
-  const isFinalDocumentsSection = (page.config)?.finalBlock === true;
+  const isFinalDocumentsSection = (page.config as Record<string, unknown> | undefined)?.finalBlock === true;
   // For Final Documents sections, filter out all steps (they shouldn't exist, but if they do, hide them)
   // The only step should be the system step of type 'final_documents' which is hidden anyway
   const filteredSteps = isFinalDocumentsSection
@@ -259,14 +261,14 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                   </Badge>
                 )}
                 <LogicIndicator
-                  visibleIf={page.visibleIf}
+                  visibleIf={page.visibleIf as ConditionExpression | undefined}
                   variant="badge"
                   size="sm"
                   elementType="page"
                 />
               </div>
               <AutoExpandTextarea
-                value={page.description || ""}
+                value={page.description ?? ""}
                 onChange={(e) => { void handleDescriptionChange(e.target.value); }}
                 className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
                 placeholder="Page description (optional)"
@@ -290,7 +292,7 @@ export function PageCard({ workflowId, page, blocks, allSteps: steps, index, tot
                   <DropdownMenuItem onClick={() => { void setIsLogicSheetOpen(true); }}>
                     <EyeOff className="h-4 w-4 mr-2" />
                     Visibility Logic
-                    {page.visibleIf && (
+                    {!!page.visibleIf && (
                       <span className="ml-auto text-xs text-amber-600">Active</span>
                     )}
                   </DropdownMenuItem>

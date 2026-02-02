@@ -15,10 +15,9 @@ import {
 } from "../repositories";
 
 import { logicService, type NavigationResult } from "./LogicService";
-import {  RunAuthResolver } from "./runs/RunAuthResolver";
-import {  RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
-import {  RunPersistenceWriter } from "./runs/RunPersistenceWriter";
-// Specialized run services
+import { RunAuthResolver } from "./runs/RunAuthResolver";
+import { RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
+import { RunPersistenceWriter } from "./runs/RunPersistenceWriter";
 import { RunCompletionService } from "./workflow-runs/RunCompletionService";
 import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
@@ -27,6 +26,9 @@ import { RunStateService } from "./workflow-runs/RunStateService";
 import { workflowService } from "./WorkflowService";
 
 import type { CreateRunOptions } from "./workflow-runs/types";
+
+const ERR_RUN_NOT_FOUND = "Run not found";
+const ERR_RUN_ALREADY_COMPLETED = "Run is already completed";
 /**
  * Service layer for workflow run-related business logic
  * Facade pattern: delegates to specialized services for cleaner architecture
@@ -51,6 +53,7 @@ export class RunService {
   private metricsService: RunMetricsService;
   private shareService: RunShareService;
   private completionService: RunCompletionService;
+  // eslint-disable-next-line max-params, complexity, sonarjs/cognitive-complexity
   constructor(
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,
@@ -71,60 +74,58 @@ export class RunService {
     shareService?: RunShareService,
     completionService?: RunCompletionService,
   ) {
-    this.runRepo = runRepo || workflowRunRepository;
-    this.valueRepo = valueRepo || stepValueRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
-    this.stepRepo = stepRepo || stepRepository;
-    this.logicRuleRepo = logicRuleRepo || logicRuleRepository;
-    this.projectRepo = projectRepo || projectRepository;
-    this.docsRepo = docsRepo || runGeneratedDocumentsRepository;
-    this.workflowSvc = workflowSvc || workflowService;
-    this.logicSvc = logicSvc || logicService;
-    // Initialize sub-services with injected dependencies to ensure tests using mocks work correctly
-    this.authResolver = authResolver || new RunAuthResolver(
+    this.runRepo = runRepo ?? workflowRunRepository;
+    this.valueRepo = valueRepo ?? stepValueRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
+    this.projectRepo = projectRepo ?? projectRepository;
+    this.docsRepo = docsRepo ?? runGeneratedDocumentsRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
+    this.logicSvc = logicSvc ?? logicService;
+    this.authResolver = authResolver ?? new RunAuthResolver(
       this.runRepo,
       this.workflowRepo,
       this.projectRepo,
       this.workflowSvc
     );
-    this.persistenceWriter = persistenceWriter || new RunPersistenceWriter(
+    this.persistenceWriter = persistenceWriter ?? new RunPersistenceWriter(
       this.runRepo,
       this.valueRepo,
       this.stepRepo,
       this.sectionRepo
     );
-    this.executionCoordinator = executionCoordinator || new RunExecutionCoordinator(
+    this.executionCoordinator = executionCoordinator ?? new RunExecutionCoordinator(
       this.persistenceWriter,
       this.logicSvc,
       this.stepRepo,
       this.sectionRepo,
       this.workflowRepo
     );
-    // Initialize specialized services
-    this.lifecycleService = lifecycleService || new RunLifecycleService(
+    this.lifecycleService = lifecycleService ?? new RunLifecycleService(
       this.valueRepo,
       this.stepRepo,
       this.sectionRepo,
       this.persistenceWriter,
       this.logicSvc
     );
-    this.stateService = stateService || new RunStateService(
+    this.stateService = stateService ?? new RunStateService(
       this.runRepo,
       this.docsRepo
     );
-    this.metricsService = metricsService || new RunMetricsService(
+    this.metricsService = metricsService ?? new RunMetricsService(
       this.workflowRepo,
       this.projectRepo
     );
-    this.shareService = shareService || new RunShareService(
+    this.shareService = shareService ?? new RunShareService(
       this.runRepo,
       this.workflowRepo,
       this.docsRepo,
       this.stepRepo,
       this.authResolver
     );
-    this.completionService = completionService || new RunCompletionService(
+    this.completionService = completionService ?? new RunCompletionService(
       this.runRepo,
       this.valueRepo,
       this.logicSvc,
@@ -149,7 +150,7 @@ export class RunService {
     const workflow = await this.authResolver.verifyCreateAccess(idOrSlug, userId);
     const workflowId = workflow.id;
     // Resolve the version to use for this run
-    const targetVersionId = workflow.pinnedVersionId || workflow.currentVersionId;
+    const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
     if (!targetVersionId) {
       logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
     }
@@ -172,19 +173,19 @@ export class RunService {
     const run = await this.persistenceWriter.createRun({
       ...data,
       workflowId,
-      workflowVersionId: targetVersionId || undefined,
+      workflowVersionId: targetVersionId ?? undefined,
       runToken,
-      createdBy: userId || null,
+      createdBy: userId ?? null,
       completed: false,
       clientEmail: options?.clientEmail,
-      accessMode: options?.accessMode || 'anonymous'
+      accessMode: options?.accessMode ?? 'anonymous'
     });
     // Populate initial values using lifecycle service
     await this.lifecycleService.populateInitialValues(run.id, workflowId, {
       initialValues: mergedInitialValues
     });
     // Determine start section with auto-advance logic
-    if (options?.snapshotId || options?.randomize) {
+    if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
       const startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
       await this.stateService.updateProgress(run.id, startSectionId);
     }
@@ -192,12 +193,12 @@ export class RunService {
     await this.metricsService.captureRunStarted(
       workflowId,
       run.id,
-      userId || undefined,
-      targetVersionId || undefined,
+      userId ?? undefined,
+      targetVersionId ?? undefined,
       { accessMode: options?.accessMode }
     );
     // Execute onRunStart blocks
-    await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId || undefined);
+    await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
     return run;
   }
   /**
@@ -214,7 +215,7 @@ export class RunService {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     // Access check logic: 
     if (!run || access === 'none') {
-      throw new Error("Run not found");
+      throw new Error(ERR_RUN_NOT_FOUND);
     }
     return run;
   }
@@ -232,18 +233,7 @@ export class RunService {
    */
   async getRunWithValuesNoAuth(runId: string): Promise<WorkflowRun & { values: StepValue[] }> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error("Run not found"); }
-    const values = await this.persistenceWriter.getRunValues(runId);
-    // values is Record<string, any>. Need to map to array of StepValue format if needed by caller?
-    // Wait, caller expects { ...run, values: StepValue[] } usually?
-    // RunService returned `values` from `valueRepo.findByRunId`.
-    // My `persistenceWriter.getRunValues` returns Record<stepId, value>.
-    // Legacy `getRunWithValues` returned `StepValue[]`.
-    // I need to fetch StepValue[].
-    // Since persistenceWriter is new, maybe I should expose `findByRunId` on it too?
-    // Or just use runRepo or valueRepo here if just reading?
-    // PersistenceWriter should ideally handle all "StepValue" access.
-    // Let's use valueRepo for now for backward compatibility of return type.
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     const rawValues = await this.valueRepo.findByRunId(runId);
     return { ...run, values: rawValues };
   }
@@ -252,7 +242,7 @@ export class RunService {
    */
   async getRunByPortalAccessKey(key: string): Promise<WorkflowRun> {
     const run = await this.runRepo.findByPortalAccessKey(key);
-    if (!run) { throw new Error("Run not found"); }
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     return run;
   }
   /**
@@ -264,9 +254,9 @@ export class RunService {
     data: InsertStepValue
   ): Promise<void> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
-    if (!run || access === 'none') { throw new Error("Run not found"); }
+    if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     // Check if run is completed? 
-    if (run.completed) { throw new Error("Run is already completed"); }
+    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
     await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
   /**
@@ -279,7 +269,7 @@ export class RunService {
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
     if (!run) {
-      throw new Error("Run not found");
+      throw new Error(ERR_RUN_NOT_FOUND);
     }
     // Verify step belongs to the workflow
     const step = await this.stepRepo.findById(data.stepId);
@@ -304,7 +294,7 @@ export class RunService {
     values: Array<{ stepId: string; value: unknown }>
   ): Promise<void> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
-    if (!run || access === 'none') { throw new Error("Run not found"); }
+    if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
   }
   /**
@@ -315,7 +305,7 @@ export class RunService {
     values: Array<{ stepId: string; value: unknown }>
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error("Run not found"); }
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
   }
   /**
@@ -339,12 +329,9 @@ export class RunService {
   ): Promise<{ success: boolean; errors?: string[] }> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
-      const createAccess = await this.authResolver.resolveRun(runId, undefined);
-      // If anon access is allowed and user is undefined? 
-      // But here userId is string.
-      throw new Error("Run not found");
+      throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error("Run is already completed"); }
+    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       sectionId,
@@ -361,8 +348,8 @@ export class RunService {
     values: Array<{ stepId: string; value: unknown }>
   ): Promise<{ success: boolean; errors?: string[] }> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error("Run not found"); }
-    if (run.completed) { throw new Error("Run is already completed"); }
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
       sectionId,
@@ -380,9 +367,9 @@ export class RunService {
   async next(runId: string, userId: string): Promise<NavigationResult> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') {
-      throw new Error("Run not found");
+      throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error("Run is already completed"); }
+    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       run.currentSectionId
@@ -394,8 +381,8 @@ export class RunService {
    */
   async nextNoAuth(runId: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
-    if (!run) { throw new Error("Run not found"); }
-    if (run.completed) { throw new Error("Run is already completed"); }
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, mode: 'live' },
       run.currentSectionId
@@ -490,7 +477,7 @@ export class RunService {
   async generateDocuments(runId: string): Promise<void> {
     const run = await this.runRepo.findById(runId);
     if (!run) {
-      throw new Error("Run not found");
+      throw new Error(ERR_RUN_NOT_FOUND);
     }
     // Check if documents already exist
     const existingDocuments = await this.docsRepo.findByRunId(runId);

@@ -121,11 +121,11 @@ export function redact(value: string | null | undefined): string {
  * Redact secrets from an object (for logging)
  * Returns a new object with sensitive fields redacted
  */
-export function redactObject<T extends Record<string, any>>(
+export function redactObject<T extends Record<string, unknown>>(
   obj: T,
   sensitiveKeys: string[] = ['password', 'token', 'secret', 'key', 'apiKey', 'apiSecret', 'clientSecret', 'authorization']
 ): T {
-  const redacted: any = {};
+  const redacted: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     const keyLower = key.toLowerCase();
@@ -134,7 +134,7 @@ export function redactObject<T extends Record<string, any>>(
     if (isSensitive && typeof value === 'string') {
       redacted[key] = redact(value);
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      redacted[key] = redactObject(value, sensitiveKeys);
+      redacted[key] = redactObject(value as Record<string, unknown>, sensitiveKeys);
     } else {
       redacted[key] = value;
     }

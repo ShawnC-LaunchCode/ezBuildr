@@ -46,10 +46,10 @@ async function upsertUser(payload: TokenPayload) {
     }
     const userData = {
       id: payload.sub,
-      email: payload.email || "",
-      firstName: payload.given_name || null,
-      lastName: payload.family_name || null,
-      profileImageUrl: payload.picture || null,
+      email: payload.email ?? "",
+      firstName: payload.given_name ?? null,
+      lastName: payload.family_name ?? null,
+      profileImageUrl: payload.picture ?? null,
       defaultMode: 'easy' as const,
       tenantId: defaultTenant.id,
       tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer') as 'owner' | 'viewer' | 'builder' | 'runner',

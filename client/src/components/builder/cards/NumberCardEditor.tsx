@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,11 +8,14 @@ import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { AliasField } from "./common/AliasField";
-import { DefaultValueField } from "./common/DefaultValueField";
+import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { NumberField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
 
@@ -184,7 +187,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
     if (currentAdvanced) {
       nextMode = currentConfig.mode;
     } else if (currentCurrency) {
-      nextMode = currentConfig.allowDecimal === false ? "currency_whole" : "currency_decimal";
+      nextMode = currentConfig?.allowDecimal === false ? "currency_whole" : "currency_decimal";
     }
 
     setLocalConfig({
@@ -236,9 +239,9 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
         validation: {}
       };
 
-      if (newConfig.min !== undefined) {configToSave.validation!.min = newConfig.min;}
-      if (newConfig.max !== undefined) {configToSave.validation!.max = newConfig.max;}
-      if (newConfig.step !== undefined) {configToSave.validation!.step = newConfig.step;}
+      if (newConfig.min !== undefined) { configToSave.validation!.min = newConfig.min; }
+      if (newConfig.max !== undefined) { configToSave.validation!.max = newConfig.max; }
+      if (newConfig.step !== undefined) { configToSave.validation!.step = newConfig.step; }
 
       // Add currency code if in currency mode
       if (newConfig.mode.startsWith("currency")) {
@@ -253,8 +256,8 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
         allowDecimal: newConfig.mode === "currency_decimal",
       };
 
-      if (newConfig.min !== undefined) {configToSave.min = newConfig.min;}
-      if (newConfig.max !== undefined) {configToSave.max = newConfig.max;}
+      if (newConfig.min !== undefined) { configToSave.min = newConfig.min; }
+      if (newConfig.max !== undefined) { configToSave.max = newConfig.max; }
 
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     } else {
@@ -264,8 +267,8 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
         allowDecimal: newConfig.allowDecimal,
       };
 
-      if (newConfig.min !== undefined) {configToSave.min = newConfig.min;}
-      if (newConfig.max !== undefined) {configToSave.max = newConfig.max;}
+      if (newConfig.min !== undefined) { configToSave.min = newConfig.min; }
+      if (newConfig.max !== undefined) { configToSave.max = newConfig.max; }
 
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     }
@@ -340,7 +343,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            defaultValue={step.defaultValue}
+            defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
           />
@@ -348,7 +351,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            visibleIf={step.visibleIf}
+            visibleIf={step.visibleIf as ConditionExpression}
             mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>

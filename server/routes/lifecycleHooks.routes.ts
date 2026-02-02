@@ -127,11 +127,12 @@ router.post(
  * GET /api/lifecycle-hooks/:hookId
  * Get a single lifecycle hook by ID
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 router.get("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) => {
   const authReq = req as AuthRequest;
   try {
-    const { hookId } = req.params;
-    const userId = authReq.userId!;
+    const { hookId: _hookId } = req.params;
+    const _userId = authReq.userId!;
 
     // Note: We could add a specific get method to the service, but for now
     // we'll just list all and filter (or add getById to service later)

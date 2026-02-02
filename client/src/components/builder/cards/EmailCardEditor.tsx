@@ -3,10 +3,12 @@
  * Editor for email blocks
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -14,6 +16,7 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 
 import type { EmailConfig } from "@/../../shared/types/stepConfigs";
@@ -24,13 +27,13 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
   const config = step.config as EmailConfig | undefined;
 
   const [localConfig, setLocalConfig] = useState({
-    allowMultiple: config?.allowMultiple || false,
+    allowMultiple: config?.allowMultiple ?? false,
     validate: true, // Always validate in easy mode
   });
 
   useEffect(() => {
     setLocalConfig({
-      allowMultiple: config?.allowMultiple || false,
+      allowMultiple: config?.allowMultiple ?? false,
       validate: true,
     });
   }, [step.config, config]);
@@ -46,7 +49,7 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
   };
 
-  const handleLabelChange = (title: string) => {
+  const _handleLabelChange = (title: string) => {
     updateStepMutation.mutate({ id: stepId, sectionId, title });
   };
 
@@ -111,7 +114,7 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
             stepId={stepId}
             sectionId={sectionId}
             workflowId={workflowId}
-            visibleIf={step.visibleIf}
+            visibleIf={step.visibleIf as ConditionExpression}
             mode="advanced"
           />
         )

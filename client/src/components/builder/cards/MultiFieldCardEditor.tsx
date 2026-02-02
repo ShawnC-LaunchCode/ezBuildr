@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,10 +9,13 @@ import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { AliasField } from "./common/AliasField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+
 
 import type { MultiFieldConfig } from "@/../../shared/types/stepConfigs";
 
@@ -260,7 +263,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: Mu
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

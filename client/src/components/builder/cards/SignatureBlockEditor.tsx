@@ -1,5 +1,5 @@
 import { Plus, Trash2, FileText, AlertCircle } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";

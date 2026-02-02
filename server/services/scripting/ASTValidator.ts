@@ -54,6 +54,26 @@ export interface ForbiddenPattern {
 }
 
 // ===================================================================
+// AST NODE RECORD TYPE FOR TRAVERSAL
+// ===================================================================
+
+interface ASTNodeRecord {
+  type: string;
+  loc?: acorn.SourceLocation | null;
+  name?: string;
+  operator?: string;
+  computed?: boolean;
+  callee?: ASTNodeRecord;
+  property?: ASTNodeRecord;
+  value?: unknown;
+  [key: string]: unknown;
+}
+
+function isASTNode(value: unknown): value is ASTNodeRecord {
+  return typeof value === "object" && value !== null && "type" in value && typeof (value as ASTNodeRecord).type === "string";
+}
+
+// ===================================================================
 // AST VALIDATOR CLASS
 // ===================================================================
 
@@ -160,7 +180,7 @@ export class ASTValidator {
       if (criticalViolations.length > 0) {
         return {
           valid: false,
-          error: criticalViolations[0]?.message || "Unknown error",
+          error: criticalViolations[0]?.message ?? "Unknown error",
           violations,
           complexity,
           warnings,
@@ -288,7 +308,7 @@ export class ASTValidator {
     if (criticalViolations.length > 0) {
       return {
         valid: false,
-        error: criticalViolations[0]?.message || "Unknown error",
+        error: criticalViolations[0]?.message ?? "Unknown error",
         violations,
         warnings,
       };
@@ -313,9 +333,8 @@ export class ASTValidator {
       loopCount: 0,
     };
 
-    const traverse = (node: any, depth: number) => {
-      if (!node || typeof node !== "object") { return; }
-
+    /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity */
+    const traverse = (node: ASTNodeRecord, depth: number): void => {
       metrics.nodeCount++;
       metrics.maxDepth = Math.max(metrics.maxDepth, depth);
 
@@ -354,22 +373,14 @@ export class ASTValidator {
           break;
       }
 
-      // Traverse child nodes
-      for (const key in node) {
-        if (key === "loc" || key === "range" || key === "start" || key === "end") {
-          continue;
-        }
-
-        const child = node[key];
-        if (Array.isArray(child)) {
-          child.forEach(c => traverse(c, depth + 1));
-        } else if (child && typeof child === "object") {
-          traverse(child, depth + 1);
-        }
+      for (const child of this.getChildNodes(node)) {
+        traverse(child, depth + 1);
       }
     };
 
-    traverse(ast, 0);
+    if (isASTNode(ast as unknown)) {
+      traverse(ast as unknown as ASTNodeRecord, 0);
+    }
     return metrics;
   }
 
@@ -379,121 +390,122 @@ export class ASTValidator {
   detectForbiddenPatterns(ast: acorn.Node): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
 
-    const traverse = (node: any) => {
-      if (!node || typeof node !== "object") { return; }
-
+    /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity */
+    const traverse = (node: ASTNodeRecord): void => {
       try {
-        // Check for forbidden identifiers (globals)
-        if (node.type === "Identifier") {
-          if (this.forbiddenGlobals.has(node.name)) {
-            violations.push({
-              type: "forbidden_global",
-              node: node.name,
-              line: node.loc?.start?.line,
-              column: node.loc?.start?.column,
-              message: `Forbidden global identifier: ${node.name}`,
-              severity: "critical",
-            });
-          }
-        }
+        this.checkForbiddenIdentifier(node, violations);
+        this.checkForbiddenCall(node, violations);
+        this.checkForbiddenMemberAccess(node, violations);
+        this.checkDynamicCodeExecution(node, violations);
+        this.checkSuspiciousPatterns(node, violations);
 
-        // Check for forbidden function calls
-        if (node.type === "CallExpression") {
-          const calleeName = this.getCalleeName(node.callee);
-          if (calleeName && this.forbiddenFunctions.has(calleeName)) {
-            violations.push({
-              type: "forbidden_function",
-              node: calleeName,
-              line: node.loc?.start?.line,
-              column: node.loc?.start?.column,
-              message: `Forbidden function call: ${calleeName}()`,
-              severity: "critical",
-            });
-          }
-        }
-
-        // Check for forbidden property access
-        if (node.type === "MemberExpression") {
-          const propertyName = this.getPropertyName(node);
-          if (propertyName && this.forbiddenProperties.has(propertyName)) {
-            violations.push({
-              type: "forbidden_property",
-              node: propertyName,
-              line: node.loc?.start?.line,
-              column: node.loc?.start?.column,
-              message: `Forbidden property access: ${propertyName}`,
-              severity: "critical",
-            });
-          }
-
-          // Check for __proto__ manipulation
-          if (propertyName === "__proto__") {
-            violations.push({
-              type: "forbidden_property",
-              node: "__proto__",
-              line: node.loc?.start?.line,
-              column: node.loc?.start?.column,
-              message: "Prototype manipulation via __proto__ is forbidden",
-              severity: "critical",
-            });
-          }
-        }
-
-        // Check for dynamic code execution patterns
-        if (node.type === "NewExpression" && this.getCalleeName(node.callee) === "Function") {
-          violations.push({
-            type: "forbidden_function",
-            node: "Function",
-            line: node.loc?.start?.line,
-            column: node.loc?.start?.column,
-            message: "Dynamic code execution via Function constructor is forbidden",
-            severity: "critical",
-          });
-        }
-
-        // Check for suspicious patterns (with statements, debugger)
-        if (node.type === "WithStatement") {
-          violations.push({
-            type: "suspicious_pattern",
-            node: "with",
-            line: node.loc?.start?.line,
-            column: node.loc?.start?.column,
-            message: "'with' statement is forbidden (unsafe scope manipulation)",
-            severity: "high",
-          });
-        }
-
-        if (node.type === "DebuggerStatement") {
-          violations.push({
-            type: "suspicious_pattern",
-            node: "debugger",
-            line: node.loc?.start?.line,
-            column: node.loc?.start?.column,
-            message: "'debugger' statement should be removed from production code",
-            severity: "medium",
-          });
-        }
-
-        // Traverse child nodes
-        for (const key in node) {
-          if (key === "loc" || key === "range" || key === "start" || key === "end") {
-            continue;
-          }
-
-          const child = node[key];
-          if (Array.isArray(child)) {
-            child.forEach(traverse);
-          } else if (child && typeof child === "object") {
-            traverse(child);
-          }
+        for (const child of this.getChildNodes(node)) {
+          traverse(child);
         }
       } catch (error) {
         logger.warn({ error, nodeType: node.type }, "Error traversing AST node");
       }
     };
 
-    traverse(ast);
+    if (isASTNode(ast as unknown)) {
+      traverse(ast as unknown as ASTNodeRecord);
+    }
     return violations;
+  }
+
+  private checkForbiddenIdentifier(node: ASTNodeRecord, violations: SecurityViolation[]): void {
+    if (node.type !== "Identifier" || typeof node.name !== "string") { return; }
+    if (!this.forbiddenGlobals.has(node.name)) { return; }
+
+    violations.push({
+      type: "forbidden_global",
+      node: node.name,
+      line: node.loc?.start?.line,
+      column: node.loc?.start?.column,
+      message: `Forbidden global identifier: ${node.name}`,
+      severity: "critical",
+    });
+  }
+
+  private checkForbiddenCall(node: ASTNodeRecord, violations: SecurityViolation[]): void {
+    if (node.type !== "CallExpression") { return; }
+    const calleeName = this.getCalleeName(node.callee);
+    if (calleeName === null || !this.forbiddenFunctions.has(calleeName)) { return; }
+
+    violations.push({
+      type: "forbidden_function",
+      node: calleeName,
+      line: node.loc?.start?.line,
+      column: node.loc?.start?.column,
+      message: `Forbidden function call: ${calleeName}()`,
+      severity: "critical",
+    });
+  }
+
+  private checkForbiddenMemberAccess(node: ASTNodeRecord, violations: SecurityViolation[]): void {
+    if (node.type !== "MemberExpression") { return; }
+    const propertyName = this.getPropertyName(node);
+    if (propertyName === null) { return; }
+
+    if (this.forbiddenProperties.has(propertyName)) {
+      violations.push({
+        type: "forbidden_property",
+        node: propertyName,
+        line: node.loc?.start?.line,
+        column: node.loc?.start?.column,
+        message: `Forbidden property access: ${propertyName}`,
+        severity: "critical",
+      });
+    }
+
+    if (propertyName === "__proto__") {
+      violations.push({
+        type: "forbidden_property",
+        node: "__proto__",
+        line: node.loc?.start?.line,
+        column: node.loc?.start?.column,
+        message: "Prototype manipulation via __proto__ is forbidden",
+        severity: "critical",
+      });
+    }
+  }
+
+  private checkDynamicCodeExecution(node: ASTNodeRecord, violations: SecurityViolation[]): void {
+    if (node.type !== "NewExpression") { return; }
+    if (this.getCalleeName(node.callee) !== "Function") { return; }
+
+    violations.push({
+      type: "forbidden_function",
+      node: "Function",
+      line: node.loc?.start?.line,
+      column: node.loc?.start?.column,
+      message: "Dynamic code execution via Function constructor is forbidden",
+      severity: "critical",
+    });
+  }
+
+  private checkSuspiciousPatterns(node: ASTNodeRecord, violations: SecurityViolation[]): void {
+    if (node.type === "WithStatement") {
+      violations.push({
+        type: "suspicious_pattern",
+        node: "with",
+        line: node.loc?.start?.line,
+        column: node.loc?.start?.column,
+        message: "'with' statement is forbidden (unsafe scope manipulation)",
+        severity: "high",
+      });
+    }
+
+    if (node.type === "DebuggerStatement") {
+      violations.push({
+        type: "suspicious_pattern",
+        node: "debugger",
+        line: node.loc?.start?.line,
+        column: node.loc?.start?.column,
+        message: "'debugger' statement should be removed from production code",
+        severity: "medium",
+      });
+    }
   }
 
   /**
@@ -502,8 +514,8 @@ export class ASTValidator {
   private hasEmitCall(ast: acorn.Node): boolean {
     let hasEmit = false;
 
-    const traverse = (node: any) => {
-      if (!node || typeof node !== "object" || hasEmit) { return; }
+    const traverse = (node: ASTNodeRecord): void => {
+      if (hasEmit) { return; }
 
       if (node.type === "CallExpression") {
         const calleeName = this.getCalleeName(node.callee);
@@ -513,31 +525,44 @@ export class ASTValidator {
         }
       }
 
-      for (const key in node) {
-        if (key === "loc" || key === "range" || key === "start" || key === "end") {
-          continue;
-        }
-
-        const child = node[key];
-        if (Array.isArray(child)) {
-          child.forEach(traverse);
-        } else if (child && typeof child === "object") {
-          traverse(child);
-        }
+      for (const child of this.getChildNodes(node)) {
+        traverse(child);
       }
     };
 
-    traverse(ast);
+    if (isASTNode(ast as unknown)) {
+      traverse(ast as unknown as ASTNodeRecord);
+    }
     return hasEmit;
+  }
+
+  private getChildNodes(node: ASTNodeRecord): ASTNodeRecord[] {
+    const children: ASTNodeRecord[] = [];
+    for (const key in node) {
+      if (key === "loc" || key === "range" || key === "start" || key === "end") {
+        continue;
+      }
+      const child: unknown = node[key];
+      if (Array.isArray(child)) {
+        for (const c of child) {
+          if (isASTNode(c)) {
+            children.push(c);
+          }
+        }
+      } else if (isASTNode(child)) {
+        children.push(child);
+      }
+    }
+    return children;
   }
 
   /**
    * Get function/method name from callee node
    */
-  private getCalleeName(callee: any): string | null {
-    if (!callee) { return null; }
+  private getCalleeName(callee: ASTNodeRecord | undefined): string | null {
+    if (callee === undefined) { return null; }
 
-    if (callee.type === "Identifier") {
+    if (callee.type === "Identifier" && typeof callee.name === "string") {
       return callee.name;
     }
 
@@ -551,15 +576,18 @@ export class ASTValidator {
   /**
    * Get property name from member expression
    */
-  private getPropertyName(node: any): string | null {
+  private getPropertyName(node: ASTNodeRecord): string | null {
     if (node.type !== "MemberExpression") { return null; }
 
-    if (node.property.type === "Identifier" && !node.computed) {
-      return node.property.name;
+    const property = node.property;
+    if (!isASTNode(property)) { return null; }
+
+    if (property.type === "Identifier" && typeof property.name === "string" && node.computed !== true) {
+      return property.name;
     }
 
-    if (node.computed && node.property.type === "Literal") {
-      return String(node.property.value);
+    if (node.computed === true && property.type === "Literal") {
+      return String(property.value);
     }
 
     return null;

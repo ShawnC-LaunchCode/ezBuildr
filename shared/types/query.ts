@@ -46,7 +46,7 @@ export type WorkflowQuery = z.infer<typeof workflowQuerySchema>;
 // Runtime List Variable Interface
 // =====================================================================
 
-export interface ListVariable<T = Record<string, any>> {
+export interface QueryListVariable<T = Record<string, any>> {
     id: string; // Query ID
     name: string; // Query Name (variable name)
     tableId: string;

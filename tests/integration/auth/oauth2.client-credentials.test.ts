@@ -4,7 +4,7 @@
  * Tests OAuth2 client credentials grant type for server-to-server authentication
  * Used for API integrations and external service connections
  */
-import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterAll, beforeEach, vi, type Mock } from 'vitest';
 
 import {
   getOAuth2Token,
@@ -39,7 +39,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         expires_in: 3600,
         scope: 'read write',
       };
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -62,8 +62,8 @@ describe('OAuth2 Client Credentials Flow', () => {
         })
       );
       // Verify request body
-      const callArgs = (global.fetch as any).mock.calls[0];
-      const bodyParams = new URLSearchParams(callArgs[1].body);
+      const callArgs = (global.fetch as Mock).mock.calls[0] as [string, RequestInit];
+      const bodyParams = new URLSearchParams(callArgs[1].body as string);
       expect(bodyParams.get('grant_type')).toBe('client_credentials');
       expect(bodyParams.get('client_id')).toBe(mockConfig.clientId);
       expect(bodyParams.get('client_secret')).toBe(mockConfig.clientSecret);
@@ -77,17 +77,17 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 3600,
       };
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockTokenResponse,
       });
       await getOAuth2Token(configNoScope);
-      const callArgs = (global.fetch as any).mock.calls[0];
-      const bodyParams = new URLSearchParams(callArgs[1].body);
+      const callArgs = (global.fetch as Mock).mock.calls[0] as [string, RequestInit];
+      const bodyParams = new URLSearchParams(callArgs[1].body as string);
       expect(bodyParams.has('scope')).toBe(false);
     });
     it('should throw error when token request fails', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -98,7 +98,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       );
     });
     it('should throw error when access_token is missing from response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           token_type: 'Bearer',
@@ -111,7 +111,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       );
     });
     it('should throw error when token_type is missing from response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'test-token',
@@ -124,7 +124,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       );
     });
     it('should default expires_in to 3600 when not provided', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'test-token',
@@ -136,7 +136,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       expect(token.expires_in).toBe(3600);
     });
     it('should handle network errors gracefully', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as Mock).mockRejectedValueOnce(
         new Error('Network error: ECONNREFUSED')
       );
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow(
@@ -151,7 +151,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 3600,
       };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -166,7 +166,7 @@ describe('OAuth2 Client Credentials Flow', () => {
     it('should use different cache keys for different configs', async () => {
       const config1 = { ...mockConfig, projectId: 'project-1' };
       const config2 = { ...mockConfig, projectId: 'project-2' };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -185,7 +185,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 1, // 1 second
       };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -204,7 +204,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 3600,
       };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -218,7 +218,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 3600,
       };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -234,7 +234,7 @@ describe('OAuth2 Client Credentials Flow', () => {
     it('should clear all cached tokens', async () => {
       const config1 = { ...mockConfig, projectId: 'clear-1' };
       const config2 = { ...mockConfig, projectId: 'clear-2' };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -259,7 +259,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         token_type: 'Bearer',
         expires_in: 60, // 60 seconds
       };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => mockTokenResponse,
       });
@@ -273,7 +273,7 @@ describe('OAuth2 Client Credentials Flow', () => {
   });
   describe('Credential Testing', () => {
     it('should return true for valid credentials', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'valid-token',
@@ -285,14 +285,14 @@ describe('OAuth2 Client Credentials Flow', () => {
       expect(isValid).toBe(true);
     });
     it('should return false for invalid credentials', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as Mock).mockRejectedValueOnce(
         new Error('Invalid credentials')
       );
       const isValid = await testOAuth2Credentials(mockConfig);
       expect(isValid).toBe(false);
     });
     it('should return false when token URL is unreachable', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as Mock).mockRejectedValueOnce(
         new Error('ECONNREFUSED')
       );
       const isValid = await testOAuth2Credentials(mockConfig);
@@ -303,7 +303,7 @@ describe('OAuth2 Client Credentials Flow', () => {
     it('should generate unique cache keys for different tenants', async () => {
       const config1 = { ...mockConfig, tenantId: 'tenant-1' };
       const config2 = { ...mockConfig, tenantId: 'tenant-2' };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -319,7 +319,7 @@ describe('OAuth2 Client Credentials Flow', () => {
     it('should generate unique cache keys for different projects', async () => {
       const config1 = { ...mockConfig, projectId: 'project-1' };
       const config2 = { ...mockConfig, projectId: 'project-2' };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -334,7 +334,7 @@ describe('OAuth2 Client Credentials Flow', () => {
     it('should generate unique cache keys for different scopes', async () => {
       const config1 = { ...mockConfig, scope: 'read' };
       const config2 = { ...mockConfig, scope: 'write' };
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -347,7 +347,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
     it('should use same cache key for identical configs', async () => {
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
           access_token: 'token',
@@ -363,7 +363,7 @@ describe('OAuth2 Client Credentials Flow', () => {
   });
   describe('Error Handling', () => {
     it('should handle 400 Bad Request', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 400,
         statusText: 'Bad Request',
@@ -372,7 +372,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow();
     });
     it('should handle 401 Unauthorized', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -381,7 +381,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow();
     });
     it('should handle 403 Forbidden', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 403,
         statusText: 'Forbidden',
@@ -390,7 +390,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow();
     });
     it('should handle 500 Internal Server Error', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -399,7 +399,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow();
     });
     it('should handle malformed JSON response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => {
           throw new Error('Unexpected token in JSON');
@@ -408,7 +408,7 @@ describe('OAuth2 Client Credentials Flow', () => {
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow();
     });
     it('should handle timeout errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      (global.fetch as Mock).mockRejectedValueOnce(
         new Error('Request timeout')
       );
       await expect(getOAuth2Token(mockConfig)).rejects.toThrow(
@@ -418,7 +418,7 @@ describe('OAuth2 Client Credentials Flow', () => {
   });
   describe('Scope Handling', () => {
     it('should include scope in token request when provided', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'scoped-token',
@@ -428,8 +428,8 @@ describe('OAuth2 Client Credentials Flow', () => {
         }),
       });
       await getOAuth2Token(mockConfig);
-      const callArgs = (global.fetch as any).mock.calls[0];
-      const bodyParams = new URLSearchParams(callArgs[1].body);
+      const callArgs = (global.fetch as Mock).mock.calls[0] as [string, RequestInit];
+      const bodyParams = new URLSearchParams(callArgs[1].body as string);
       expect(bodyParams.get('scope')).toBe('read write');
     });
     it('should handle space-separated scopes', async () => {
@@ -437,7 +437,7 @@ describe('OAuth2 Client Credentials Flow', () => {
         ...mockConfig,
         scope: 'read write delete',
       };
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           access_token: 'multi-scope-token',
@@ -446,8 +446,8 @@ describe('OAuth2 Client Credentials Flow', () => {
         }),
       });
       await getOAuth2Token(configWithScopes);
-      const callArgs = (global.fetch as any).mock.calls[0];
-      const bodyParams = new URLSearchParams(callArgs[1].body);
+      const callArgs = (global.fetch as Mock).mock.calls[0] as [string, RequestInit];
+      const bodyParams = new URLSearchParams(callArgs[1].body as string);
       expect(bodyParams.get('scope')).toBe('read write delete');
     });
   });

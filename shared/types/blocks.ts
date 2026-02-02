@@ -30,7 +30,7 @@ export type PrefillConfig = {
 /**
  * Comparison operators for validation and branching
  */
-export type ComparisonOperator =
+export type BlockComparisonOperator =
   | "equals"
   | "not_equals"
   | "contains"
@@ -55,7 +55,7 @@ export type AssertionOperator =
  */
 export type WhenCondition = {
   key: string;                        // Data key to check
-  op: ComparisonOperator;             // Comparison operator
+  op: BlockComparisonOperator;             // Comparison operator
   value?: any;                        // Expected value (not needed for is_empty/is_not_empty)
 };
 
@@ -84,7 +84,7 @@ export type LegacyValidateRule = {
 export type CompareRule = {
   type: 'compare';
   left: string;                       // Variable reference
-  op: ComparisonOperator;             // 'equals', 'greater_than', etc.
+  op: BlockComparisonOperator;             // 'equals', 'greater_than', etc.
   right: any;                         // Variable reference or constant value
   rightType: 'variable' | 'constant'; // How to interpret 'right'
   message: string;

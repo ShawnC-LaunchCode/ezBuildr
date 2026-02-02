@@ -7,6 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 const router = Router();
 
 // Allow either standard user session/JWT OR a valid run token (for preview/public runners)
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.use(creatorOrRunTokenAuth);
 
 // Protect these routes to logged-in users to prevent abuse of our API key
@@ -22,8 +23,11 @@ router.use(creatorOrRunTokenAuth);
 router.get("/autocomplete", asyncHandler(async (req, res) => {
     try {
         const input = req.query.input as string;
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const radius = req.query.radius ? parseFloat(req.query.radius as string) : undefined;
 
         if (!input) {

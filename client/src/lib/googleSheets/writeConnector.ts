@@ -144,7 +144,7 @@ export class GoogleSheetsWriteConnector {
         }
 
         const data = await response.json();
-        return data.rows || [];
+        return data.rows ?? [];
     }
 
     /**

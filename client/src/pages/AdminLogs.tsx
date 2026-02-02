@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Download, Search, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
@@ -113,7 +113,7 @@ export default function AdminLogs() {
     return null;
   }
 
-  const logs = data?.rows || [];
+  const logs = data?.rows ?? [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit);
   const hasNextPage = page < totalPages - 1;
@@ -298,7 +298,7 @@ export default function AdminLogs() {
                         <td className="px-4 py-3 whitespace-nowrap text-xs">
                           {log.ipAddress || <span className="text-gray-400">—</span>}
                         </td>
-                        <td className="px-4 py-3 max-w-xs truncate text-xs" title={log.userAgent || ''}>
+                        <td className="px-4 py-3 max-w-xs truncate text-xs" title={log.userAgent ?? ''}>
                           {log.userAgent || <span className="text-gray-400">—</span>}
                         </td>
                         <td className="px-4 py-3">

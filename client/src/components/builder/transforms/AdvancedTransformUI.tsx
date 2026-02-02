@@ -27,7 +27,7 @@ export function AdvancedTransformUI({ select, dedupe, onChange, className }: Adv
           <Input
             className="h-8 text-xs font-mono bg-background"
             placeholder="e.g., name, email, address.city"
-            value={select?.join(', ') || ''}
+            value={select?.join(', ') ?? ''}
             onChange={(e) => {
               const value = e.target.value.trim();
               onChange({
@@ -47,7 +47,7 @@ export function AdvancedTransformUI({ select, dedupe, onChange, className }: Adv
           <Input
             className="h-8 text-xs font-mono bg-background"
             placeholder="e.g., email"
-            value={dedupe?.fieldPath || ''}
+            value={dedupe?.fieldPath ?? ''}
             onChange={(e) => {
               const value = e.target.value.trim();
               onChange({

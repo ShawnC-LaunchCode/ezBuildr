@@ -18,8 +18,8 @@ export class CollectionFieldService {
     fieldRepo?: typeof collectionFieldRepository,
     collectionRepo?: typeof collectionRepository
   ) {
-    this.fieldRepo = fieldRepo || collectionFieldRepository;
-    this.collectionRepo = collectionRepo || collectionRepository;
+    this.fieldRepo = fieldRepo ?? collectionFieldRepository;
+    this.collectionRepo = collectionRepo ?? collectionRepository;
   }
 
   /**
@@ -83,12 +83,12 @@ export class CollectionFieldService {
   /**
    * Validate field options based on type
    */
-  private validateFieldOptions(type: string, options: any): void {
-    if ((type === 'select' || type === 'multi_select') && !options) {
+  private validateFieldOptions(type: string, options: unknown): void {
+    if ((type === 'select' || type === 'multi_select') && (options === null || options === undefined)) {
       throw new Error(`Field type '${type}' requires options array`);
     }
 
-    if ((type === 'select' || type === 'multi_select') && options) {
+    if ((type === 'select' || type === 'multi_select') && options !== null && options !== undefined) {
       if (!Array.isArray(options)) {
         throw new Error("Options must be an array");
       }
@@ -101,7 +101,8 @@ export class CollectionFieldService {
   /**
    * Validate default value based on field type
    */
-  private validateDefaultValue(type: string, defaultValue: any): void {
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- validation switch covers all field types
+  private validateDefaultValue(type: string, defaultValue: unknown): void {
     if (defaultValue === null || defaultValue === undefined) {
       return; // null/undefined is valid for any type
     }
@@ -212,14 +213,15 @@ export class CollectionFieldService {
     // }
 
     // If slug provided, ensure it's unique
-    if (data.slug) {
-      data.slug = await this.ensureUniqueSlug(collectionId, data.slug, fieldId, tx);
+    const updateData = { ...data };
+    if (updateData.slug) {
+      updateData.slug = await this.ensureUniqueSlug(collectionId, updateData.slug, fieldId, tx);
     }
 
     // Validate options if field type changed or options updated
-    if (data.type || data.options !== undefined) {
+    if (updateData.type !== undefined || data.options !== undefined) {
       const field = await this.fieldRepo.findById(fieldId, tx);
-      const newType = data.type || field!.type;
+      const newType = updateData.type ?? field!.type;
       this.validateFieldOptions(newType, data.options);
     }
 
@@ -228,7 +230,7 @@ export class CollectionFieldService {
       this.validateDefaultValue(data.type, data.defaultValue);
     }
 
-    return this.fieldRepo.update(fieldId, data, tx);
+    return this.fieldRepo.update(fieldId, updateData, tx);
   }
 
   /**

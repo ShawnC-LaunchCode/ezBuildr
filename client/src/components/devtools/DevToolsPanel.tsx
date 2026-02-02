@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 import { ExecutionTimeline } from "@/components/devpanel/ExecutionTimeline";
 import { RuntimeVariableList } from "@/components/devpanel/RuntimeVariableList";
@@ -30,7 +30,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
                 const section = env.getSections().find(s => s.id === step.sectionId);
                 return {
                     key: step.id,
-                    alias: step.alias || null,
+                    alias: step.alias ?? null,
                     label: step.title,
                     type: step.type,
                     sectionId: step.sectionId,
@@ -159,7 +159,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
 
                     <TabsContent value="execution" className="flex-1 mt-0 overflow-hidden">
                         <ExecutionTimeline
-                            trace={state.trace || []}
+                            trace={state.trace ?? []}
                         />
                     </TabsContent>
 

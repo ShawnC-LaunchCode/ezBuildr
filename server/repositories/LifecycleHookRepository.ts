@@ -113,7 +113,7 @@ export class LifecycleHookRepository extends BaseRepository<
       .where(eq(lifecycleHooks.id, hookId))
       .limit(1);
 
-    return hooks[0] || null;
+    return hooks[0] ?? null;
   }
 }
 

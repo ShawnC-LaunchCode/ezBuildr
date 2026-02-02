@@ -234,7 +234,7 @@ export class SignatureBlockService {
       block => block.config.routingOrder === nextRoutingOrder && !block.completed
     );
 
-    return nextBlock?.stepId || null;
+    return nextBlock?.stepId ?? null;
   }
 
   // --------------------------------------------------------------------------

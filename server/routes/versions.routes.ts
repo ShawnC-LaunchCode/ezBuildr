@@ -95,6 +95,7 @@ export function registerVersionRoutes(app: Express): void {
 
       const data = publishSchema.parse(req.body);
 
+      /* eslint-disable @typescript-eslint/no-unsafe-argument -- graphJson from Zod parse is typed */
       const version = await versionService.publishVersion(
         id,
         userId,
@@ -102,6 +103,7 @@ export function registerVersionRoutes(app: Express): void {
         data.notes,
         data.force
       );
+      /* eslint-enable @typescript-eslint/no-unsafe-argument */
 
       res.json({
         success: true,

@@ -440,7 +440,7 @@ export class WorkflowPatchService {
         const table = await this.datavaultTablesService.createTable({
           tenantId,
           ownerUserId: userId,
-          databaseId: op.databaseId || null,
+          databaseId: op.databaseId ?? null,
           name: op.name,
           slug: this.generateSlug(op.name),
           description: null,
@@ -453,11 +453,11 @@ export class WorkflowPatchService {
             tableId: table.id,
             name: col.name,
             type: col.type,
-            required: col.config?.required || false,
-            description: col.config?.description || null,
+            required: col.config?.required ?? false,
+            description: col.config?.description ?? null,
             // Add type-specific config
             options: col.type === 'select' || col.type === 'multiselect'
-              ? col.config?.options || null
+              ? col.config?.options ?? null
               : null,
           }, tenantId);
         }
@@ -486,10 +486,10 @@ export class WorkflowPatchService {
             tableId,
             name: col.name,
             type: col.type,
-            required: col.config?.required || false,
-            description: col.config?.description || null,
+            required: col.config?.required ?? false,
+            description: col.config?.description ?? null,
             options: col.type === 'select' || col.type === 'multiselect'
-              ? col.config?.options || null
+              ? col.config?.options ?? null
               : null,
           }, context.tenantId);
         }

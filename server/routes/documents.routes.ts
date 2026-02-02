@@ -55,6 +55,7 @@ export function registerDocumentRoutes(app: Express): void {
         projectId: string | null;
       }> = [];
       // If projectId is specified, verify user has access to that project
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- checking for truthy string
       if (projectId && typeof projectId === 'string') {
         const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
         if (!hasAccess) {
@@ -83,7 +84,7 @@ export function registerDocumentRoutes(app: Express): void {
       const formattedDocs = filteredDocs.map((doc) => ({
         id: doc.id,
         name: doc.name,
-        type: doc.type || 'docx',
+        type: doc.type ?? 'docx',
         uploadedAt: doc.uploadedAt,
         fileRef: doc.fileRef,
       }));
@@ -119,7 +120,7 @@ export function registerDocumentRoutes(app: Express): void {
           )
         )
         .limit(1);
-      if (!document) {
+      if (document === undefined) {
         res.status(404).json({ message: 'Document not found' });
         return;
       }

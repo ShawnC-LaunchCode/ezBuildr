@@ -10,7 +10,7 @@ import {
     Tag,
     Grid
 } from 'lucide-react';
-import React, {  useState } from 'react';
+import {  useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,7 @@ export function TemplateBrowserDialog({
                     activeTab === 'system' ? t.tags?.includes('system') :
                         true;
         return matchesSearch && matchesTab;
-    }) || [];
+    }) ?? [];
     const handleSelect = () => {
         if (selectedTemplate) {
             onSelect(selectedTemplate);

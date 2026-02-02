@@ -35,7 +35,7 @@ export function TransformSummary({ config, className }: TransformSummaryProps) {
   }
 
   return (
-    <div className={`space-y-1.5 ${className || ''}`}>
+    <div className={`space-y-1.5 ${className ?? ''}`}>
       <p className="text-[10px] font-medium text-muted-foreground">Applied Transforms:</p>
       <div className="flex flex-wrap gap-1">
         {/* Filters */}

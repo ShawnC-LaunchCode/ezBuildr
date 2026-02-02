@@ -59,6 +59,8 @@ interface AiVariable {
 }
 
 export class AiController {
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 
     /**
      * Check if AI services are available
@@ -225,9 +227,9 @@ export class AiController {
             const suggestions = await aiService.suggestWorkflowImprovements(
                 requestData,
                 {
-                    sections: workflow.sections || [],
-                    logicRules: workflow.logicRules || [],
-                    transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks || [],
+                    sections: workflow.sections ?? [],
+                    logicRules: workflow.logicRules ?? [],
+                    transformBlocks: (workflow as unknown as { transformBlocks?: unknown[] }).transformBlocks ?? [],
                 }
             );
 
@@ -304,13 +306,13 @@ export class AiController {
             }
 
             // Get workflow variables
-            const rawVariables = await (variableService as unknown as { getWorkflowVariables: (id: string, userId?: string) => Promise<unknown[]> }).getWorkflowVariables(
-                requestData.workflowId
+            const variables = await variableService.listVariables(
+                requestData.workflowId,
+                userId
             );
-            const variables = rawVariables as AiVariable[];
 
             // Get template placeholders (from request or fetch from template)
-            const placeholders = requestData.placeholders || [];
+            const placeholders = requestData.placeholders ?? [];
             if ((placeholders.length === 0) && templateId) {
                 // TODO: Fetch placeholders from template
                 // For now, require placeholders to be provided
@@ -327,7 +329,7 @@ export class AiController {
             // Generate binding suggestions with workflow for alias validation
             const bindingSuggestions = await aiService.suggestTemplateBindings(
                 requestData,
-                variables,
+                variables as AiVariable[],
                 placeholders,
                 workflow // Pass workflow for alias validation
             );
@@ -448,7 +450,7 @@ export class AiController {
                 status: state,
                 result: state === 'completed' ? result : undefined,
                 error: state === 'failed' ? error : undefined,
-                progress: job.progress()
+                progress: job.progress() as number | object
             });
 
         } catch (error) {

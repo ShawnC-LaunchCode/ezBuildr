@@ -26,6 +26,8 @@ import type {
   steps,
   workflowRuns,
   stepValues,
+  logicRules,
+  transformBlocks,
 } from '@shared/schema';
 
 // Derive types if not exported (common with Drizzle schema generic exports)
@@ -38,6 +40,8 @@ type Section = typeof sections.$inferSelect;
 type Step = typeof steps.$inferSelect;
 type WorkflowRun = typeof workflowRuns.$inferSelect;
 type StepValue = typeof stepValues.$inferSelect;
+type LogicRule = typeof logicRules.$inferSelect;
+type TransformBlock = typeof transformBlocks.$inferSelect;
 
 // ===================================================================
 // Type Definitions
@@ -168,7 +172,7 @@ export function createTestProject(overrides?: DeepPartial<Project>): Omit<Projec
  * @param overrides Partial workflow properties to override defaults
  * @returns Workflow object ready for database insertion
  */
-export function createTestWorkflow(overrides?: DeepPartial<Workflow>): any {
+export function createTestWorkflow(overrides?: DeepPartial<Workflow>): Omit<Workflow, 'id' | 'createdAt' | 'updatedAt'> {
   const uniqueId = nanoid(8);
 
   return {
@@ -177,8 +181,8 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): any {
     title: overrides?.title || `Test Workflow ${uniqueId}`,
     name: overrides?.name || null,
     description: overrides?.description || 'A test workflow for automated testing',
-    creatorId: (overrides?.creatorId ?? null) as any,
-    ownerId: (overrides?.ownerId ?? overrides?.creatorId ?? uuidv4()) as any, // Fix: default to uuidv4
+    creatorId: overrides?.creatorId || null,
+    ownerId: overrides?.ownerId || overrides?.creatorId || uuidv4(), // Fix: default to uuidv4
     ownerUuid: overrides?.ownerUuid || uuidv4(), // Fix: default to uuidv4
     status: overrides?.status || 'draft',
     pinnedVersionId: overrides?.pinnedVersionId || null,
@@ -190,6 +194,7 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): any {
     currentVersionId: overrides?.currentVersionId || null,
     intakeConfig: overrides?.intakeConfig || {},
     sourceBlueprintId: overrides?.sourceBlueprintId || null,
+    ownerType: overrides?.ownerType || 'user',
   };
 }
 
@@ -249,25 +254,26 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
 export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omit<WorkflowRun, 'id' | 'createdAt' | 'updatedAt'> {
   const uniqueId = nanoid(8);
 
-  return {
-    ...overrides,
-    workflowId: overrides?.workflowId || uuidv4(), // Fix: wf-${uniqueId} -> uuidv4
-    runToken: overrides?.runToken || uniqueId,
-    createdBy: overrides?.createdBy || `creator:${uniqueId}`,
-    workflowVersionId: overrides?.workflowVersionId || null,
-    progress: overrides?.progress || 0,
-    completed: overrides?.completed ?? false,
-    completedAt: overrides?.completedAt || null,
-    currentSectionId: overrides?.currentSectionId || null,
-    metadata: overrides?.metadata || {},
-    clientEmail: overrides?.clientEmail || null,
-    portalAccessKey: overrides?.portalAccessKey || null,
-    accessMode: overrides?.accessMode || 'anonymous',
-    shareToken: overrides?.shareToken || nanoid(),
-    shareTokenExpiresAt: overrides?.shareTokenExpiresAt || null,
-    ownerType: overrides?.ownerType || null,
-    ownerUuid: overrides?.ownerUuid || null,
+  const defaults = {
+    workflowId: uuidv4(),
+    runToken: uniqueId,
+    createdBy: `creator:${uniqueId}`,
+    workflowVersionId: null,
+    progress: 0,
+    completed: false,
+    completedAt: null,
+    currentSectionId: null,
+    metadata: {},
+    clientEmail: null,
+    portalAccessKey: null,
+    accessMode: 'anonymous' as const,
+    shareToken: nanoid(),
+    shareTokenExpiresAt: null,
+    ownerType: null,
+    ownerUuid: null,
   };
+
+  return { ...defaults, ...overrides };
 }
 
 /**
@@ -292,25 +298,18 @@ export function createTestStepValue(overrides?: DeepPartial<StepValue>): Omit<St
  * Creates a test logic rule
  * @param overrides Partial logic rule properties
  */
-export function createTestLogicRule(overrides?: {
-  workflowId?: string;
-  condition?: any;
-  action?: any;
-  order?: number;
-}) {
+export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<LogicRule, 'id' | 'createdAt' | 'updatedAt'> {
   return {
-    workflowId: overrides?.workflowId || null,
-    condition: overrides?.condition || {
-      type: 'simple',
-      field: 'step_email',
-      operator: 'equals',
-      value: 'test@example.com',
-    },
-    action: overrides?.action || {
-      type: 'show',
-      targetId: 'step_phone',
-    },
-    order: overrides?.order ?? 0,
+    workflowId: overrides?.workflowId || uuidv4(),
+    conditionStepId: overrides?.conditionStepId || uuidv4(),
+    operator: overrides?.operator || 'equals',
+    conditionValue: overrides?.conditionValue || 'test_value',
+    targetType: overrides?.targetType || 'step',
+    targetStepId: overrides?.targetStepId || uuidv4(),
+    targetSectionId: overrides?.targetSectionId || null,
+    action: overrides?.action || 'show',
+    logicalOperator: overrides?.logicalOperator || 'AND',
+    order: overrides?.order ?? 1,
   };
 }
 
@@ -318,21 +317,20 @@ export function createTestLogicRule(overrides?: {
  * Creates a test transform block
  * @param overrides Partial transform block properties
  */
-export function createTestTransformBlock(overrides?: {
-  workflowId?: string;
-  code?: string;
-  language?: 'javascript' | 'python';
-  inputKeys?: string[];
-  outputKey?: string;
-}) {
+export function createTestTransformBlock(overrides?: DeepPartial<TransformBlock>): Omit<TransformBlock, 'id' | 'createdAt' | 'updatedAt'> {
   return {
-    workflowId: overrides?.workflowId || null,
-    name: `Transform ${nanoid(6)}`,
+    workflowId: overrides?.workflowId || uuidv4(),
+    sectionId: overrides?.sectionId || null,
+    name: overrides?.name || `Transform ${nanoid(6)}`,
     code: overrides?.code || 'emit({ result: input.value * 2 });',
     language: overrides?.language || 'javascript',
-    inputKeys: overrides?.inputKeys || ['value'],
+    inputKeys: (overrides?.inputKeys as string[]) || ['value'],
     outputKey: overrides?.outputKey || 'doubled',
-    virtualStepId: null,
+    virtualStepId: overrides?.virtualStepId || null,
+    phase: overrides?.phase || 'onSectionSubmit',
+    enabled: overrides?.enabled ?? true,
+    order: overrides?.order ?? 0,
+    timeoutMs: overrides?.timeoutMs || 1000,
   };
 }
 

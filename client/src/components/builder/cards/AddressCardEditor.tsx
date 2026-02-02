@@ -10,10 +10,13 @@
  * }
  */
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+
 
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
+
+import type { ConditionExpression } from "@shared/types/conditions";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -31,17 +34,17 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
   // Parse config
   const config = step.config as AddressConfig | undefined;
   const [localConfig, setLocalConfig] = useState<AddressConfig>({
-    country: (config?.country || "US"),
-    fields: (config?.fields || ["street", "city", "state", "zip"]) as any, // Cast tuple
+    country: config?.country ?? "US",
+    fields: config?.fields ?? ["street", "city", "state", "zip"],
     requireAll: config?.requireAll !== undefined ? config.requireAll : true,
   });
 
   useEffect(() => {
-    const config = step.config as AddressConfig | undefined;
+    const cfg = step.config as AddressConfig | undefined;
     setLocalConfig({
-      country: (config?.country || "US"),
-      fields: (config?.fields || ["street", "city", "state", "zip"]),
-      requireAll: config?.requireAll !== undefined ? config.requireAll : true,
+      country: cfg?.country ?? "US",
+      fields: cfg?.fields ?? ["street", "city", "state", "zip"],
+      requireAll: cfg?.requireAll !== undefined ? cfg.requireAll : true,
     });
   }, [step.config]);
 
@@ -58,7 +61,7 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
   };
 
-  const handleLabelChange = (title: string) => {
+  const _handleLabelChange = (title: string) => {
     updateStepMutation.mutate({ id: stepId, sectionId, title });
   };
 
@@ -145,7 +148,7 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
           stepId={stepId}
           sectionId={sectionId}
           workflowId={workflowId}
-          visibleIf={step.visibleIf}
+          visibleIf={step.visibleIf as ConditionExpression}
           mode="advanced"
         />
       )}

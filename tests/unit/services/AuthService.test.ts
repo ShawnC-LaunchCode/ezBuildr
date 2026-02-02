@@ -48,19 +48,28 @@ vi.mock("../../../server/utils/deviceFingerprint", () => ({
  */
 describe("AuthService", () => {
   let authService: AuthService;
-  let mockDb: any;
+  let mockDb: {
+    query: {
+      users: { findFirst: ReturnType<typeof vi.fn> };
+      refreshTokens: { findFirst: ReturnType<typeof vi.fn> };
+      passwordResetTokens: { findFirst: ReturnType<typeof vi.fn> };
+      emailVerificationTokens: { findFirst: ReturnType<typeof vi.fn> };
+    };
+    insert: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    select: ReturnType<typeof vi.fn>;
+  };
   const originalEnv = process.env;
 
   beforeEach(async () => {
     const dbModule = await import("../../../server/db");
-    mockDb = dbModule.db;
+    mockDb = dbModule.db as unknown as typeof mockDb;
 
     // Create service with mocked database
-    authService = new AuthService(mockDb);
+    authService = new AuthService(mockDb as unknown as typeof db);
 
-    process.env = { ...originalEnv };
-    process.env.JWT_SECRET = "test-secret-key-for-testing-only-32chars";
-    process.env.JWT_EXPIRY = "15m";
+    process.env = { ...originalEnv, JWT_SECRET: "test-secret-key-for-testing-only-32chars", JWT_EXPIRY: "15m" };
     vi.clearAllMocks();
   });
 
@@ -162,7 +171,7 @@ describe("AuthService", () => {
       });
 
       it("should reject emails longer than 254 characters (RFC 5321)", () => {
-        const longEmail = `${"a".repeat(250)  }@test.com`;
+        const longEmail = `${"a".repeat(250)}@test.com`;
         expect(authService.validateEmail(longEmail)).toBe(false);
       });
 
@@ -200,7 +209,7 @@ describe("AuthService", () => {
       });
 
       it("should reject emails with local part longer than 64 characters", () => {
-        const longLocal = `${"a".repeat(65)  }@example.com`;
+        const longLocal = `${"a".repeat(65)}@example.com`;
         expect(authService.validateEmail(longLocal)).toBe(false);
       });
     });
@@ -230,7 +239,7 @@ describe("AuthService", () => {
       });
 
       it("should reject passwords longer than 128 characters", () => {
-        const longPassword = `A1a${  "a".repeat(126)}`;
+        const longPassword = `A1a${"a".repeat(126)}`;
         const result = authService.validatePasswordStrength(longPassword);
         expect(result.valid).toBe(false);
         expect(result.message).toBe("Password must be at most 128 characters long");
@@ -283,7 +292,7 @@ describe("AuthService", () => {
       });
 
       it("should accept password with exactly 128 characters if strong", () => {
-        const password = `Correct-Horse-Battery-Staple-${  "x".repeat(93)}`;
+        const password = `Correct-Horse-Battery-Staple-${"x".repeat(93)}`;
         const result = authService.validatePasswordStrength(password);
         expect(result.valid).toBe(true);
       });
@@ -507,7 +516,7 @@ describe("AuthService", () => {
         } as unknown as User;
 
         const token = authService.createToken(user);
-        const tamperedToken = `${token.slice(0, -5)  }XXXXX`;
+        const tamperedToken = `${token.slice(0, -5)}XXXXX`;
 
         try {
           authService.verifyToken(tamperedToken);

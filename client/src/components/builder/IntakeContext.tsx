@@ -24,29 +24,29 @@ export function IntakeProvider({
 }) {
     // 1. Get current workflow to check config
     const { data: workflow, isLoading: workflowLoading } = useWorkflow(workflowId);
-    const intakeConfig = workflow?.intakeConfig || {};
+    const intakeConfig = (workflow?.intakeConfig as Record<string, unknown> | undefined) ?? {};
     const isIntake = intakeConfig.isIntake === true;
-    const upstreamWorkflowId = intakeConfig.upstreamWorkflowId || null;
+    const upstreamWorkflowId = (intakeConfig.upstreamWorkflowId as string | undefined) ?? null;
 
     // 2. Fetch upstream workflow details (if linked)
     const { data: upstreamWorkflow, isLoading: upstreamWfLoading } = useQuery({
-        queryKey: ['workflow', upstreamWorkflowId],
-        queryFn: () => workflowAPI.get(upstreamWorkflowId),
-        enabled: !!upstreamWorkflowId,
+        queryKey: ['workflow', upstreamWorkflowId ?? ''],
+        queryFn: () => workflowAPI.get(upstreamWorkflowId as string),
+        enabled: Boolean(upstreamWorkflowId),
         staleTime: 1000 * 60 * 5, // 5 mins
     });
 
     // 3. Fetch upstream variables (if linked)
     const { data: upstreamVariables, isLoading: varsLoading } = useQuery({
-        queryKey: ['workflow', upstreamWorkflowId, 'variables'],
-        queryFn: () => variableAPI.list(upstreamWorkflowId),
-        enabled: !!upstreamWorkflowId,
+        queryKey: ['workflow', upstreamWorkflowId ?? '', 'variables'],
+        queryFn: () => variableAPI.list(upstreamWorkflowId as string),
+        enabled: Boolean(upstreamWorkflowId),
     });
 
     const value = useMemo(() => ({
         upstreamWorkflowId,
-        upstreamWorkflow: upstreamWorkflow || null,
-        upstreamVariables: upstreamVariables || [],
+        upstreamWorkflow: upstreamWorkflow ?? null,
+        upstreamVariables: upstreamVariables ?? [],
         isLoading: workflowLoading || upstreamWfLoading || varsLoading,
         isIntake
     }), [upstreamWorkflowId, upstreamWorkflow, upstreamVariables, workflowLoading, upstreamWfLoading, varsLoading, isIntake]);

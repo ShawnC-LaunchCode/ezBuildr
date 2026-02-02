@@ -5,7 +5,7 @@
  * DataVault Phase 2: PR 6
  */
 import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Plus, Loader2, FolderInput } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
@@ -304,7 +304,7 @@ export default function DatabaseDetailPage() {
         </div>
         {/* Horizontal Table Tabs (Airtable-style) */}
         <DatabaseTableTabs
-          tables={tables || []}
+          tables={tables ?? []}
           activeTableId={activeTableId}
           onTabClick={(tableId) => setActiveTableId(tableId)}
           onCreateTable={() => setCreateTableOpen(true)}
@@ -407,7 +407,7 @@ export default function DatabaseDetailPage() {
                   ) : (
                     <InfiniteEditableDataGrid
                       tableId={activeTableId}
-                      columns={columns || []}
+                      columns={columns ?? []}
                       onEditRow={openEditRow}
                       onDeleteRow={setDeleteRowConfirm}
                       onReorderColumns={handleReorderColumns}
@@ -431,7 +431,7 @@ export default function DatabaseDetailPage() {
       <RowEditorModal
         open={rowEditorOpen}
         onOpenChange={setRowEditorOpen}
-        columns={columns || []}
+        columns={columns ?? []}
         onSubmit={handleAddRow}
         isLoading={isRowMutating}
         mode="add"
@@ -439,7 +439,7 @@ export default function DatabaseDetailPage() {
       <RowEditorModal
         open={!!editingRow}
         onOpenChange={() => setEditingRow(null)}
-        columns={columns || []}
+        columns={columns ?? []}
         initialValues={editingRow?.values || {}}
         onSubmit={handleUpdateRow}
         isLoading={isRowMutating}
@@ -469,9 +469,9 @@ export default function DatabaseDetailPage() {
       <MoveTableModal
         open={moveTableOpen}
         onOpenChange={setMoveTableOpen}
-        tableName={activeTable?.name || ""}
+        tableName={activeTable?.name ?? ""}
         currentDatabaseId={databaseId}
-        databases={allDatabases || []}
+        databases={allDatabases ?? []}
         onMove={handleMoveTable}
         isLoading={moveTableMutation.isPending}
       />

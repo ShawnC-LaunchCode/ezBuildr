@@ -3,7 +3,7 @@
  * PR5: Data sources list with "Coming Soon" labels
  */
 import { Database, Settings, Link2, Unlink2, Plus, FileSpreadsheet, Server, Globe } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { AddGoogleSheetsDialog } from "@/components/dataSource/AddGoogleSheetsDialog";
 import { AddNativeTableDialog } from "@/components/dataSource/AddNativeTableDialog";

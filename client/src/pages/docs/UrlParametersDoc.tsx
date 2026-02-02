@@ -3,7 +3,7 @@
  * Explains how to use default values and URL parameter overrides
  */
 import { ArrowLeft, Copy, Check } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";

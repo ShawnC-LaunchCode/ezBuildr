@@ -71,7 +71,7 @@ export class DatavaultApiTokensRepository extends BaseRepository<
         )
       );
 
-    return token || null;
+    return token ?? null;
   }
 
   async createToken(
@@ -136,7 +136,7 @@ export class DatavaultApiTokensRepository extends BaseRepository<
       .where(eq(datavaultApiTokens.tokenHash, tokenHash))
       .limit(1);
 
-    return !!result;
+    return result !== undefined;
   }
 }
 

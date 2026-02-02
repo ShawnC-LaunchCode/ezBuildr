@@ -12,13 +12,12 @@ interface FeedbackWidgetProps {
 }
 
 export default function FeedbackWidget({ className, style }: FeedbackWidgetProps) {
-  const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { fire } = useConfetti();
 
-  if (typeof window !== 'undefined' && (window.self !== window.top || new URLSearchParams(window.location.search).get('hideFeedback') === 'true')) {
-    return null;
-  }
+  // Determine if widget should be hidden (must be before hooks)
+  const shouldHide = typeof window !== 'undefined' &&
+    (window.self !== window.top || new URLSearchParams(window.location.search).get('hideFeedback') === 'true');
 
   useEffect(() => {
     if (submitted) {
@@ -27,6 +26,10 @@ export default function FeedbackWidget({ className, style }: FeedbackWidgetProps
       return () => clearTimeout(t);
     }
   }, [submitted, fire]);
+
+  if (shouldHide) {
+    return null;
+  }
 
   // Listen for postMessage from iframe if survey sends completion event
 

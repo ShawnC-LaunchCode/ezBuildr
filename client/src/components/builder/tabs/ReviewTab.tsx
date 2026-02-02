@@ -9,7 +9,7 @@ import {
     Share2,
     Users
 } from "lucide-react";
-import React, {  } from "react";
+import {  } from "react";
 import { useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ interface ReviewTabProps {
 export function ReviewTab({ workflowId }: ReviewTabProps) {
     const { data: sections } = useSections(workflowId);
     // We need all steps to check for aliases/content
-    const allStepsMap = useAllSteps(sections || []);
+    const allStepsMap = useAllSteps(sections ?? []);
     const { toast } = useToast();
     // We don't have a direct 'publish' mutation that doesn't ask for generic JSON, 
     // but existing usePublishWorkflow takes graphJson. We'll reuse it or just simulate for now.
@@ -43,7 +43,7 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
     // Analyze structure
     if (sections) {
         sections.forEach(section => {
-            const steps = allStepsMap[section.id] || [];
+            const steps = allStepsMap[section.id] ?? [];
             totalQuestions += steps.length;
             steps.forEach(step => {
                 if (!step.title) {

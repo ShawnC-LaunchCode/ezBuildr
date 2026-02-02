@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/naming-convention
 import Anthropic from '@anthropic-ai/sdk';
 
 import { createLogger } from '../../../logger';
@@ -27,7 +28,7 @@ export class AnthropicProvider extends BaseAIProvider {
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt);
 
-        const safeMaxTokens = maxTokens || 4000;
+        const safeMaxTokens = maxTokens ?? 4000;
         this.validateTokenLimits(prompt, safeMaxTokens);
 
         logger.debug({ model, taskType }, 'Calling Anthropic');
@@ -35,10 +36,11 @@ export class AnthropicProvider extends BaseAIProvider {
         try {
             const response = await this.client.messages.create({
                 model,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
                 max_tokens: safeMaxTokens,
                 temperature,
                 messages: [{ role: 'user', content: prompt }],
-                system: systemMessage || 'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
+                system: systemMessage ?? 'You are a workflow design expert. You output only valid JSON with no additional text or markdown formatting. Never wrap your JSON in markdown code blocks.',
             });
 
             const content = response.content[0];

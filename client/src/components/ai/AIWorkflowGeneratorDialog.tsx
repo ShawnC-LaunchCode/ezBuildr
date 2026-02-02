@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";
@@ -57,9 +57,9 @@ export function AIWorkflowGeneratorDialog({
         category,
       });
 
-      if (result.success && result.workflow) {
+      if (result.success && result.workflow !== null && result.workflow !== undefined) {
         // Show quality feedback if available
-        if (result.quality) {
+        if (result.quality !== null && result.quality !== undefined) {
           const qualityMsg = result.quality.passed
             ? `Quality score: ${result.quality.overall}/100`
             : `Generated with quality score: ${result.quality.overall}/100. Consider reviewing the suggestions.`;
@@ -81,17 +81,18 @@ export function AIWorkflowGeneratorDialog({
         setCategory("general");
 
         // Invalidate queries to refresh workflow list
-        queryClient.invalidateQueries({ queryKey: ["workflows"] });
+        void queryClient.invalidateQueries({ queryKey: ["workflows"] });
 
         // Navigate to the new workflow or call onSuccess
         if (onSuccess) {
           onSuccess(result.workflow.id);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate workflow. Please try again.";
       toast({
         title: "Generation Failed",
-        description: error?.message || "Failed to generate workflow. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -143,7 +144,7 @@ export function AIWorkflowGeneratorDialog({
             Cancel
           </Button>
           <Button
-            onClick={handleGenerate}
+            onClick={() => void handleGenerate()}
             disabled={generateMutation.isPending || !description.trim()}
             className="bg-indigo-600 hover:bg-indigo-700"
           >

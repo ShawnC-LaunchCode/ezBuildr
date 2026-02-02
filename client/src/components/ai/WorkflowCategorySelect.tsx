@@ -1,8 +1,10 @@
+
 import { Briefcase, ClipboardCheck, FileText, HelpCircle, ListChecks, MessageSquare, UserPlus } from "lucide-react";
-import React from "react";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import type { ComponentType } from "react";
 
 export type WorkflowCategory =
   | 'application'
@@ -23,7 +25,7 @@ const CATEGORIES: Array<{
   value: WorkflowCategory;
   label: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
 }> = [
   {
     value: 'general',

@@ -237,7 +237,7 @@ export async function getJobByRunId(
   // Search for job with this run ID
   const jobs = await queue.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed']);
 
-  return jobs.find((job: Job<DocumentGenerationJobData>) => job.data.runId === runId) || null;
+  return jobs.find((job: Job<DocumentGenerationJobData>) => job.data.runId === runId) ?? null;
 }
 
 /**

@@ -115,6 +115,7 @@ export class DatavaultDatabasesRepository {
       .orderBy(desc(datavaultDatabases.updatedAt));
 
     // Results already have all database columns + ownerName at top level
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any
     return results as any;
   }
 
@@ -148,19 +149,20 @@ export class DatavaultDatabasesRepository {
    * Find database by ID
    */
   async findById(id: string, tx?: DbTransaction): Promise<DatavaultDatabase | null> {
-    const database = tx || db;
+    const database = tx ?? db;
     const results = await database
       .select()
       .from(datavaultDatabases)
       .where(eq(datavaultDatabases.id, id))
       .limit(1);
 
-    return results[0] || null;
+    return results[0] ?? null;
   }
 
   /**
    * Find database by ID with table count
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async findByIdWithStats(id: string) {
     const database = await this.findById(id);
     if (!database) {return null;}
@@ -172,7 +174,7 @@ export class DatavaultDatabasesRepository {
 
     return {
       ...database,
-      tableCount: Number(tableCount[0]?.count || 0),
+      tableCount: Number(tableCount[0]?.count ?? 0),
     };
   }
 
@@ -201,7 +203,7 @@ export class DatavaultDatabasesRepository {
       .where(eq(datavaultDatabases.id, id))
       .returning();
 
-    return results[0] || null;
+    return results[0] ?? null;
   }
 
   /**
@@ -237,6 +239,7 @@ export class DatavaultDatabasesRepository {
   /**
    * Get tables in a database
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getTablesInDatabase(databaseId: string) {
     return db
       .select()
@@ -254,7 +257,7 @@ export class DatavaultDatabasesRepository {
       .from(datavaultTables)
       .where(eq(datavaultTables.databaseId, databaseId));
 
-    return Number(result[0]?.count || 0);
+    return Number(result[0]?.count ?? 0);
   }
   /**
    * Find data sources linked to a workflow

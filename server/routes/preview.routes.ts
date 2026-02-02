@@ -21,10 +21,12 @@ previewRouter.use(hybridAuth);
  * POST /api/preview/random-data
  * Generate random valid data for a list of steps
  */
+// eslint-disable-next-line @typescript-eslint/require-await -- asyncHandler wraps sync Zod parse + service call
 previewRouter.post('/random-data', asyncHandler(async (req: Request, res: Response) => {
     try {
         const { steps } = generateDataSchema.parse(req.body);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- steps from Zod parse matches expected type
         const data = RandomizerService.generateData(steps);
 
         res.json(data);

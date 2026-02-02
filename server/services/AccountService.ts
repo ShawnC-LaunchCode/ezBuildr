@@ -7,7 +7,7 @@ import { userRepository } from '../repositories';
 export class AccountService {
   private userRepo: typeof userRepository;
   constructor(userRepo?: typeof userRepository) {
-    this.userRepo = userRepo || userRepository;
+    this.userRepo = userRepo ?? userRepository;
   }
   /**
    * Get user account preferences

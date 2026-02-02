@@ -3,8 +3,8 @@ import _ from "lodash";
 
 import { WorkflowSchema } from "../migrations/registry";
 export interface PropertyChange {
-    oldValue: any;
-    newValue: any;
+    oldValue: unknown;
+    newValue: unknown;
 }
 export interface BlockDiff {
     id: string;
@@ -31,6 +31,21 @@ export interface WorkflowDiff {
         stepsModified: number;
     };
 }
+interface DiffableSection {
+    id: string;
+    title: string;
+    order?: number;
+    visibleIf?: unknown;
+}
+
+interface DiffableStep {
+    id: string;
+    type: string;
+    title?: string;
+    required?: boolean;
+    sectionId?: string;
+    config?: unknown;
+}
 /**
  * Compare two workflow schemas and generate a structured diff.
  */
@@ -47,8 +62,8 @@ export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSche
         }
     };
     // 1. Diff Sections
-    const oldSections = oldSchema.sections || [];
-    const newSections = newSchema.sections || [];
+    const oldSections = (oldSchema.sections ?? []) as DiffableSection[];
+    const newSections = (newSchema.sections ?? []) as DiffableSection[];
     const oldSectionMap = new Map(oldSections.map(s => [s.id, s]));
     const newSectionMap = new Map(newSections.map(s => [s.id, s]));
     // Removed Sections
@@ -103,8 +118,9 @@ export function diffWorkflows(oldSchema: WorkflowSchema, newSchema: WorkflowSche
     // Assume generic 'steps' array at top level or flattened
     // The provided schema might have steps nested or flat. 
     // Assuming 'steps' is a flat array in the schema based on our previous migration work.
-    const oldSteps = oldSchema.steps || [];
-    const newSteps = newSchema.steps || [];
+    // Assuming 'steps' is a flat array in the schema based on our previous migration work.
+    const oldSteps = (oldSchema.steps ?? []) as DiffableStep[];
+    const newSteps = (newSchema.steps ?? []) as DiffableStep[];
     const oldStepMap = new Map(oldSteps.map(s => [s.id, s]));
     const newStepMap = new Map(newSteps.map(s => [s.id, s]));
     // Removed Steps

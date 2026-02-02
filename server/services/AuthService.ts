@@ -87,7 +87,7 @@ export class AuthService {
             const payload: JWTPayload = {
                 userId: user.id,
                 email: user.email,
-                tenantId: user.tenantId || null,
+                tenantId: user.tenantId ?? null,
                 role: user.role as any, // System role (admin/creator)
                 tenantRole: user.tenantRole as any, // Tenant role (owner/builder/etc)
             };
@@ -228,7 +228,7 @@ export class AuthService {
         }
 
         // Use zxcvbn for strength scoring (0-4 scale)
-        const result = zxcvbn(password, userInputs || []);
+        const result = zxcvbn(password, userInputs ?? []);
 
         // Require score of 3 or higher (strong password)
         // 0: too guessable (risky password)
@@ -345,7 +345,7 @@ export class AuthService {
         const { parseDeviceName, getLocationFromIP } = await import('../utils/deviceFingerprint');
 
         const deviceName = metadata.userAgent ? parseDeviceName(metadata.userAgent) : null;
-        const ipAddress = metadata.ip || null;
+        const ipAddress = metadata.ip ?? null;
         const location = ipAddress ? getLocationFromIP(ipAddress) : null;
 
         await this.db.insert(refreshTokens).values({

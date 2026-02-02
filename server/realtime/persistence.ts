@@ -123,7 +123,7 @@ export async function getOrCreateCollabDoc(
       .values({
         workflowId,
         tenantId,
-        versionId: versionId || null,
+        versionId: versionId ?? null,
       })
       .returning();
 
@@ -285,8 +285,8 @@ export async function exportDocumentAsJson(docId: string): Promise<any> {
     const yComments = doc.getMap('yComments');
 
     // Convert to plain JSON
-    const nodes = (yGraph.get('nodes') as any)?.toJSON() || [];
-    const edges = (yGraph.get('edges') as any)?.toJSON() || [];
+    const nodes = (yGraph.get('nodes') as any)?.toJSON() ?? [];
+    const edges = (yGraph.get('edges') as any)?.toJSON() ?? [];
     const meta = (yMeta as any).toJSON();
     const comments: Record<string, any> = {};
 

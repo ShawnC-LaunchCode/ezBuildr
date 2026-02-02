@@ -91,10 +91,10 @@ export class WorkflowOptimizationService {
 
     private analyzePageStructure(workflow: WorkflowJSON): OptimizationIssue[] {
         const issues: OptimizationIssue[] = [];
-        const pages = workflow.pages || [];
+        const pages = workflow.pages ?? [];
 
         pages.forEach((page, index) => {
-            const blocks = page.blocks || [];
+            const blocks = page.blocks ?? [];
 
             // A. Long Pages
             if (blocks.length > 10) {
@@ -320,7 +320,7 @@ export class WorkflowOptimizationService {
     // =========================================================================
 
     private calculateMetrics(workflow: WorkflowJSON): WorkflowMetrics {
-        const pages = workflow.pages || [];
+        const pages = workflow.pages ?? [];
         const blocks = this.getAllBlocks(workflow);
 
         // Simple Cyclomatic Complexity (count branches)
@@ -328,7 +328,7 @@ export class WorkflowOptimizationService {
         blocks.forEach(b => {
             if (b.visibleIf) {complexity++;}
             if (b.type === 'branch') {
-                const branches = b.config?.branches || []; // Cast safely
+                const branches = b.config?.branches ?? []; // Cast safely
                 complexity += branches.length;
             }
         });
@@ -364,7 +364,7 @@ export class WorkflowOptimizationService {
 
     private getAllBlocks(workflow: WorkflowJSON): WorkflowBlock[] {
         let blocks: WorkflowBlock[] = [];
-        const pages = workflow.pages || [];
+        const pages = workflow.pages ?? [];
         pages.forEach((p) => {
             if (p.blocks) {blocks = blocks.concat(p.blocks);}
         });

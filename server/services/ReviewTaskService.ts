@@ -21,10 +21,10 @@ export class ReviewTaskService {
     projectRepo?: typeof projectRepository,
     aclService?: typeof defaultAclService
   ) {
-    this.reviewTaskRepo = reviewTaskRepo || reviewTaskRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.projectRepo = projectRepo || projectRepository;
-    this.aclService = aclService || defaultAclService;
+    this.reviewTaskRepo = reviewTaskRepo ?? reviewTaskRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.projectRepo = projectRepo ?? projectRepository;
+    this.aclService = aclService ?? defaultAclService;
   }
 
   /**

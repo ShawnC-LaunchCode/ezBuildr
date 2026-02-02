@@ -28,7 +28,7 @@ export function getYesNoInsight(data: YesNoAggregation): string {
  * Generate insight text for Multiple Choice and Radio questions
  */
 export function getChoiceInsight(data: ChoiceAggregation[]): string {
-  if (!data || data.length === 0) {return 'No responses yet';}
+  if (data.length === 0) {return 'No responses yet';}
 
   // Find the most popular option
   const topChoice = data.reduce((max, current) =>
@@ -39,7 +39,7 @@ export function getChoiceInsight(data: ChoiceAggregation[]): string {
   const sortedChoices = [...data].sort((a, b) => b.count - a.count);
   const secondChoice = sortedChoices[1];
 
-  if (!secondChoice || topChoice.count > secondChoice.count * 1.5) {
+  if (secondChoice === undefined || topChoice.count > secondChoice.count * 1.5) {
     // Clear winner
     return `Most common: ${topChoice.option} (${Math.round(topChoice.percent)}%)`;
   } else {
@@ -52,7 +52,7 @@ export function getChoiceInsight(data: ChoiceAggregation[]): string {
  * Generate insight text for Text questions
  */
 export function getTextInsight(data: TextAggregation): string {
-  if (!data.topKeywords || data.topKeywords.length === 0) {
+  if (data.topKeywords === null || data.topKeywords === undefined || data.topKeywords.length === 0) {
     return 'No keywords found';
   }
 

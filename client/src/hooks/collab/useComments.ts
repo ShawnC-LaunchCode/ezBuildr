@@ -63,7 +63,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
       const yComments = doc.getMap('yComments');
 
       doc.transact(() => {
-        const nodeComments = (yComments.get(nodeId) as Comment[] | undefined) || [];
+        const nodeComments = (yComments.get(nodeId) as Comment[] | undefined) ?? [];
 
         const newComment: Comment = {
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -87,7 +87,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
       const yComments = doc.getMap('yComments');
 
       doc.transact(() => {
-        const nodeComments = (yComments.get(nodeId) as Comment[] | undefined) || [];
+        const nodeComments = (yComments.get(nodeId) as Comment[] | undefined) ?? [];
         const filtered = nodeComments.filter((c: Comment) => c.id !== commentId);
         yComments.set(nodeId, filtered);
       });

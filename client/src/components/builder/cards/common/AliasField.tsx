@@ -4,7 +4,7 @@
  */
 
 import { AlertCircle } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ interface AliasFieldProps {
 }
 
 export function AliasField({ value, onChange, placeholder = "variable_name" }: AliasFieldProps) {
-  const [localValue, setLocalValue] = useState(value || "");
+  const [localValue, setLocalValue] = useState(value ?? "");
   const [error, setError] = useState<string | null>(null);
   const lastSubmittedValue = useRef(value);
 
@@ -30,7 +30,7 @@ export function AliasField({ value, onChange, placeholder = "variable_name" }: A
       const isRollback = localValue === lastSubmittedValue.current && value !== lastSubmittedValue.current;
 
       if (!isRollback) {
-        setLocalValue(value || "");
+        setLocalValue(value ?? "");
       }
     }
     // Always update the ref if the prop changes to something new that matches our current state (successful sync)

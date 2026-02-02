@@ -1,21 +1,16 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
-import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";
-import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
-import { ListToolsBlockEditor } from "@/components/blocks/ListToolsBlockEditor";
-import { QueryBlockEditor } from "@/components/blocks/QueryBlockEditor";
-import { ReadTableBlockEditor } from "@/components/blocks/ReadTableBlockEditor";
-import { SendDataToTableBlockEditor } from "@/components/blocks/SendDataToTableBlockEditor";
-import { ValidateBlockEditor } from "@/components/blocks/ValidateBlockEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 import { useCreateBlock, useUpdateBlock, useCreateTransformBlock, useUpdateTransformBlock } from "@/lib/vault-hooks";
+
+import type { BlockPhase, WriteBlockConfig, ReadTableConfig, ExternalSendBlockConfig, ValidateConfig, QueryBlockConfig } from "@shared/types/blocks";
+
+import { RegularBlockForm } from "./forms/RegularBlockForm";
+import { TransformBlockForm } from "./forms/TransformBlockForm";
 
 // UniversalBlock type definition (matching what was in BlocksPanel)
 export type UniversalBlock = {
@@ -24,11 +19,26 @@ export type UniversalBlock = {
     phase: string;
     order: number;
     enabled: boolean;
-    raw: any;
+    raw: Record<string, unknown> | null;
     source: 'regular' | 'transform';
     title?: string;
     displayType?: string;
 };
+
+
+export interface BlockFormData {
+    phase: string;
+    enabled: boolean;
+    order: number | string;
+    type: string;
+    config: Record<string, unknown>;
+    name: string;
+    language: string;
+    code: string;
+    inputKeys: string[];
+    outputKey: string;
+    timeoutMs: number;
+}
 
 export function BlockEditorDialog({
     workflowId,
@@ -53,7 +63,7 @@ export function BlockEditorDialog({
     // If block is null, we are creating. Default to 'regular'.
     const [creationMode, setCreationMode] = useState<'regular' | 'transform'>(block?.source || 'regular');
 
-    const [formData, setFormData] = useState<any>({
+    const [formData, setFormData] = useState<BlockFormData>({
         // Common
         phase: block?.phase || "onRunStart",
         enabled: block?.enabled ?? true,
@@ -61,15 +71,15 @@ export function BlockEditorDialog({
 
         // Regular Block
         type: block?.source === 'regular' ? block.type : 'write', // Default to write for new blocks
-        config: block?.raw?.config || {},
+        config: (block?.raw?.config as Record<string, unknown>) || ({} as Record<string, unknown>),
 
         // Transform Block
-        name: block?.raw?.name || "",
-        language: block?.raw?.language || "javascript",
-        code: block?.raw?.code || "",
-        inputKeys: block?.raw?.inputKeys || [],
-        outputKey: block?.raw?.outputKey || "",
-        timeoutMs: block?.raw?.timeoutMs || 1000,
+        name: (block?.raw?.name as string) ?? "",
+        language: (block?.raw?.language as string) || "javascript",
+        code: (block?.raw?.code as string) ?? "",
+        inputKeys: (block?.raw?.inputKeys as string[]) ?? [],
+        outputKey: (block?.raw?.outputKey as string) ?? "",
+        timeoutMs: (block?.raw?.timeoutMs as number) || 1000,
     });
 
     useEffect(() => {
@@ -102,13 +112,13 @@ export function BlockEditorDialog({
                 enabled: block?.enabled ?? true,
                 order: block?.order ?? 0,
                 type: blockType, // Use derived type
-                config: block?.raw?.config || {},
-                name: block?.raw?.name || "",
-                language: block?.raw?.language || "javascript",
-                code: block?.raw?.code || "",
-                inputKeys: block?.raw?.inputKeys || [],
-                outputKey: block?.raw?.outputKey || "",
-                timeoutMs: block?.raw?.timeoutMs || 1000,
+                config: (block?.raw?.config as Record<string, unknown>) || ({} as Record<string, unknown>),
+                name: (block?.raw?.name as string) ?? "",
+                language: (block?.raw?.language as string) || "javascript",
+                code: (block?.raw?.code as string) ?? "",
+                inputKeys: (block?.raw?.inputKeys as string[]) ?? [],
+                outputKey: (block?.raw?.outputKey as string) ?? "",
+                timeoutMs: (block?.raw?.timeoutMs as number) || 1000,
             });
         }
     }, [isOpen, block]);
@@ -123,13 +133,26 @@ export function BlockEditorDialog({
                     enabled: formData.enabled === undefined ? true : formData.enabled,
                     order: Number(formData.order) || 0,
                     // Preserve existing sectionId if updating, otherwise null (or handled by caller for create)
-                    sectionId: block?.raw?.sectionId ?? null
+                    sectionId: (block?.raw?.sectionId as string | null) ?? null
                 };
 
                 if (block && block.source === 'regular') {
-                    await updateBlockMutation.mutateAsync({ id: block.id, workflowId, ...data });
+                    await updateBlockMutation.mutateAsync({
+                        id: block.id,
+                        workflowId,
+                        ...data,
+                        type: data.type as any,
+                        phase: data.phase as any,
+                        sectionId: (block?.raw?.sectionId as string | null) ?? null
+                    });
                 } else {
-                    await createBlockMutation.mutateAsync({ workflowId, ...data });
+                    await createBlockMutation.mutateAsync({
+                        workflowId,
+                        ...data,
+                        type: data.type as any,
+                        phase: data.phase as any,
+                        sectionId: (block?.raw?.sectionId as string | null) ?? null
+                    });
                 }
             } else {
                 // Transform
@@ -144,13 +167,24 @@ export function BlockEditorDialog({
                     enabled: formData.enabled === undefined ? true : formData.enabled,
                     order: Number(formData.order) || 0,
                     // Preserve existing sectionId for transforms too
-                    sectionId: block?.raw?.sectionId ?? null
+                    sectionId: (block?.raw?.sectionId as string | null) ?? null
                 };
 
                 if (block && block.source === 'transform') {
-                    await updateTransformMutation.mutateAsync({ id: block.id, workflowId, ...data });
+                    await updateTransformMutation.mutateAsync({
+                        id: block.id,
+                        workflowId,
+                        ...data,
+                        language: data.language as any,
+                        phase: data.phase as any
+                    });
                 } else {
-                    await createTransformMutation.mutateAsync({ workflowId, ...data });
+                    await createTransformMutation.mutateAsync({
+                        workflowId,
+                        ...data,
+                        language: data.language as any,
+                        phase: data.phase as any
+                    });
                 }
             }
 
@@ -215,237 +249,20 @@ export function BlockEditorDialog({
                     )}
 
                     {/* Configuration Form */}
-                    {(formData.type === 'write' || formData.type === 'send_table') ? (
-                        /* Full Width Custom Layout for Send Data to Table */
-                        <SendDataToTableBlockEditor
+                    {creationMode === 'regular' ? (
+                        <RegularBlockForm
+                            formData={formData}
+                            setFormData={setFormData}
+                            mode={mode}
+                            block={block}
                             workflowId={workflowId}
-                            config={formData.config}
-                            onChange={(c) => { void setFormData({ ...formData, config: c }); }}
-                            phase={formData.phase}
-                            onPhaseChange={(p) => setFormData({ ...formData, phase: p })}
-                            order={Number(formData.order) || 0}
-                            onOrderChange={(o) => setFormData({ ...formData, order: o })}
-                            enabled={formData.enabled ?? true}
-                            onEnabledChange={(e) => setFormData({ ...formData, enabled: e })}
-                        />
-                    ) : formData.type === 'read_table' ? (
-                        /* Full Width Custom Layout for Read from Table */
-                        <ReadTableBlockEditor
-                            workflowId={workflowId}
-                            config={formData.config}
-                            onChange={(c) => { void setFormData({ ...formData, config: c }); }}
-                            phase={formData.phase}
-                            onPhaseChange={(p) => setFormData({ ...formData, phase: p })}
-                            order={Number(formData.order) || 0}
-                            onOrderChange={(o) => setFormData({ ...formData, order: o })}
-                            enabled={formData.enabled ?? true}
-                            onEnabledChange={(e) => setFormData({ ...formData, enabled: e })}
                         />
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Left Column: Settings */}
-                            <div className="space-y-4">
-                                {creationMode === 'regular' ? (
-                                    <>
-                                        {/* Hide Block Type dropdown for data blocks (write, send_table, read_table, external_send) */}
-                                        {!['write', 'send_table', 'read_table', 'external_send'].includes(formData.type) && (
-                                            <div className="space-y-3">
-                                                <Label>Block Type</Label>
-                                                <Select
-                                                    value={formData.type}
-                                                    onValueChange={(v) => {
-                                                        const isRead = v === 'read_table';
-                                                        const isWrite = v === 'write' || v === 'send_table';
-                                                        setFormData({
-                                                            ...formData,
-                                                            type: v,
-                                                            config: {},
-                                                            phase: isRead ? 'onSectionEnter' : isWrite ? 'onSectionSubmit' : 'onRunStart'
-                                                        });
-                                                    }} // Reset config and set default phase on type change
-                                                    disabled={!!block} // If editing, likely shouldn't change type unless we want to allow it (risky for config)
-                                                >
-                                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {/*
-                                                    Cleaning up menu per prompt:
-                                                    - Remove Prefill, Branch, Validate from *NEW* blocks (kept for edit if existing)
-                                                */}
-
-                                                        {/* Show legacy types only if editing a block of that type */}
-                                                        {(formData.type === 'prefill' || block?.type === 'prefill') && <SelectItem value="prefill">Prefill (Deprecated)</SelectItem>}
-                                                        {(formData.type === 'validate' || block?.type === 'validate') && <SelectItem value="validate">Validate (Deprecated)</SelectItem>}
-                                                        {(formData.type === 'branch' || block?.type === 'branch') && <SelectItem value="branch">Branch (Deprecated)</SelectItem>}
-
-                                                        {/* Supported Types */}
-                                                        {availableBlockTypes.includes('query') && <SelectItem value="query">Read Data (Legacy)</SelectItem>}
-                                                        {availableBlockTypes.includes('list_tools') && <SelectItem value="list_tools">List Tools</SelectItem>}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <Label>Language</Label>
-                                        <Select
-                                            value={formData.language}
-                                            onValueChange={(v) => setFormData({ ...formData, language: v })}
-                                        >
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="javascript">JavaScript</SelectItem>
-                                                <SelectItem value="python">Python</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <div className="pt-2">
-                                            <Label>Block Name</Label>
-                                            <Input
-                                                value={formData.name}
-                                                onChange={(e) => { void setFormData({ ...formData, name: e.target.value }); }}
-                                                placeholder="e.g. Calculate Risk Score"
-                                                className="mt-1"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Only show execution phase selector for non-data blocks */}
-                                {!['write', 'send_table', 'read_table', 'external_send'].includes(formData.type) && (
-                                    <div className="space-y-3">
-                                        <Label>Execution Phase</Label>
-                                        <Select value={formData.phase} onValueChange={(v) => setFormData({ ...formData, phase: v })}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="onRunStart">On Run Start</SelectItem>
-                                                <SelectItem value="onSectionEnter">On Section Enter</SelectItem>
-                                                <SelectItem value="onSectionSubmit">On Section Submit</SelectItem>
-                                                <SelectItem value="onNext">On Next</SelectItem>
-                                                <SelectItem value="onRunComplete">On Run Complete</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">When should this block run?</p>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Order</Label>
-                                        <Input
-                                            type="number"
-                                            value={formData.order}
-                                            onChange={(e) => { void setFormData({ ...formData, order: e.target.value }); }}
-                                        />
-                                    </div>
-                                    <div className="space-y-2 pt-8">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.enabled}
-                                                onChange={(e) => { void setFormData({ ...formData, enabled: e.target.checked }); }}
-                                                className="rounded border-gray-300"
-                                            />
-                                            <span className="text-sm font-medium">Enabled</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Right Column: Editor */}
-                            <div className="border-l pl-6">
-                                <Label className="mb-2 block">Configuration</Label>
-
-                                {creationMode === 'regular' ? (
-                                    <>
-                                        {/* Editor selection logic */}
-                                        {(() => {
-                                            const editorName = formData.type === 'query' ? 'QueryBlockEditor' :
-                                                formData.type === 'read_table' ? 'ReadTableBlockEditor' :
-                                                    formData.type === 'list_tools' ? 'ListToolsBlockEditor' :
-                                                        (formData.type === 'write' || formData.type === 'send_table') ? 'SendDataToTableBlockEditor' :
-                                                            formData.type === 'external_send' ? 'ExternalSendBlockEditor' :
-                                                                formData.type === 'validate' ? 'ValidateBlockEditor' :
-                                                                    'GenericJSONEditor';
-
-                                            return null;
-                                        })()}
-
-                                        {/* Render specific editors based on type - STRICT ROUTING */}
-                                        {(formData.type === 'write' || formData.type === 'send_table') ? (
-                                            /* SEND DATA TO TABLE - THIS BRANCH SHOULD BE UNREACHABLE NOW due to parent conditional, but keeping as fallback */
-                                            <SendDataToTableBlockEditor
-                                                workflowId={workflowId}
-                                                config={formData.config}
-                                                onChange={(c) => { void setFormData({ ...formData, config: c }); }}
-                                                phase={formData.phase}
-                                                onPhaseChange={(p) => setFormData({ ...formData, phase: p })}
-                                                order={Number(formData.order) || 0}
-                                                onOrderChange={(o) => setFormData({ ...formData, order: o })}
-                                                enabled={formData.enabled ?? true}
-                                                onEnabledChange={(e) => setFormData({ ...formData, enabled: e })}
-                                            />
-                                        ) : formData.type === 'external_send' ? (
-                                            /* SEND DATA TO API */
-                                            <ExternalSendBlockEditor
-                                                workflowId={workflowId}
-                                                config={formData.config}
-                                                onChange={(c) => { void setFormData({ ...formData, config: c }); }}
-                                                phase={formData.phase}
-                                                onPhaseChange={(p) => setFormData({ ...formData, phase: p })}
-                                            />
-                                        ) : formData.type === 'list_tools' ? (
-                                            <ListToolsBlockEditor workflowId={workflowId} config={formData.config} onChange={(c) => { void setFormData({ ...formData, config: c }); }} mode={mode} />
-                                        ) : formData.type === 'query' ? (
-                                            <QueryBlockEditor workflowId={workflowId} config={formData.config} onChange={(c) => { void setFormData({ ...formData, config: c }); }} />
-                                        ) : formData.type === 'validate' ? (
-                                            <ValidateBlockEditor workflowId={workflowId} config={formData.config} onChange={(c) => { void setFormData({ ...formData, config: c }); }} mode={mode} />
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <Textarea
-                                                    value={JSON.stringify(formData.config, null, 2)}
-                                                    onChange={(e) => {
-                                                        try {
-                                                            setFormData({ ...formData, config: JSON.parse(e.target.value) })
-                                                        } catch (error) {
-                                                            // Ignore parse errors during typing - user may be mid-edit
-                                                            // The textarea will keep showing the invalid JSON until fixed
-                                                        }
-                                                    }}
-                                                    className="font-mono text-xs h-[300px]"
-                                                    placeholder="{}"
-                                                />
-                                                <p className="text-xs text-muted-foreground">JSON Configuration for {formData.type}</p>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="h-full">
-                                        <JSBlockEditor
-                                            workflowId={workflowId}
-                                            block={{
-                                                config: {
-                                                    name: formData.name,
-                                                    code: formData.code,
-                                                    inputKeys: formData.inputKeys,
-                                                    outputKey: formData.outputKey,
-                                                    timeoutMs: formData.timeoutMs,
-                                                }
-                                            }}
-                                            onChange={(updated) => {
-                                                setFormData({
-                                                    ...formData,
-                                                    name: updated.config.name,
-                                                    code: updated.config.code,
-                                                    inputKeys: updated.config.inputKeys,
-                                                    outputKey: updated.config.outputKey,
-                                                    timeoutMs: updated.config.timeoutMs
-                                                })
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <TransformBlockForm
+                            formData={formData}
+                            setFormData={setFormData}
+                            workflowId={workflowId}
+                        />
                     )}
                 </div>
 

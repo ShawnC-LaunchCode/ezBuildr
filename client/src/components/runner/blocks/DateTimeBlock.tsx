@@ -35,7 +35,7 @@ export function DateTimeBlockRenderer({ step, value, onChange, readOnly }: DateT
     <Input
       id={step.id}
       type="datetime-local"
-      value={value || ""}
+      value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       min={config?.minDate}
       max={config?.maxDate}

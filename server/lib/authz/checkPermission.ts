@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { workspaceMembers, resourcePermissions } from "@shared/schema";
 
 import { db } from "../../db";
+/* eslint-disable @typescript-eslint/naming-convention */
 export const ACTION = {
     VIEW_WORKFLOW: 'workflow.view',
     EDIT_WORKFLOW: 'workflow.edit',
@@ -12,6 +13,7 @@ export const ACTION = {
     MANAGE_BILLING: 'workspace.billing',
     VIEW_ANALYTICS: 'analytics.view',
 };
+/* eslint-enable @typescript-eslint/naming-convention */
 const ROLE_CAPABILITIES = {
     viewer: [ACTION.VIEW_WORKFLOW, ACTION.VIEW_ANALYTICS],
     contributor: [ACTION.VIEW_WORKFLOW, ACTION.EDIT_WORKFLOW], // Cannot publish
@@ -61,7 +63,7 @@ export async function checkPermission(
     return false;
 }
 function checkRoleHasCapability(role: string, action: string): boolean {
-    const capabilities = ROLE_CAPABILITIES[role as keyof typeof ROLE_CAPABILITIES] || [];
+    const capabilities = ROLE_CAPABILITIES[role as keyof typeof ROLE_CAPABILITIES] ?? [];
     if (capabilities.includes('*')) {return true;}
     return capabilities.includes(action);
 }

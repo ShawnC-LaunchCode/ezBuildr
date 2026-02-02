@@ -8,7 +8,7 @@ interface GenerationRequest {
 }
 // Lazy initialization helper
 const getModel = () => {
-  const apiKey = process.env.GEMINI_API_KEY || "";
+  const apiKey = process.env.GEMINI_API_KEY ?? "";
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
@@ -37,7 +37,7 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
     Your goal is to generate data transformation blocks based on the user's natural language request.
     Context:
     Workflow Structure: ${JSON.stringify(request.workflowContext, null, 2)}
-    Current Transforms: ${JSON.stringify(request.currentTransforms || [], null, 2)}
+    Current Transforms: ${JSON.stringify(request.currentTransforms ?? [], null, 2)}
     User Request: "${request.description}"
     Available Transform Types:
     - map: Simple value mapping

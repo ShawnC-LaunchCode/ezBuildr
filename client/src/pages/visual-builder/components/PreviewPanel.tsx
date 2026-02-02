@@ -4,7 +4,7 @@
 
 import { motion } from 'framer-motion';
 import { Play, X, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,7 +73,7 @@ export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
                 <Label htmlFor="test-input-1">Sample Input 1</Label>
                 <Input
                   id="test-input-1"
-                  value={inputs.input1 || ''}
+                  value={inputs.input1 ?? ''}
                   onChange={(e) => { void handleInputChange('input1', e.target.value); }}
                   placeholder="Enter test value"
                 />
@@ -83,7 +83,7 @@ export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
                 <Label htmlFor="test-input-2">Sample Input 2</Label>
                 <Input
                   id="test-input-2"
-                  value={inputs.input2 || ''}
+                  value={inputs.input2 ?? ''}
                   onChange={(e) => { void handleInputChange('input2', e.target.value); }}
                   placeholder="Enter test value"
                 />

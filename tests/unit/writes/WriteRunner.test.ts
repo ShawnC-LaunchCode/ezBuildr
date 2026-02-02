@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
@@ -64,21 +65,21 @@ describe("WriteRunner", () => {
         runner = new WriteRunner();
         vi.clearAllMocks();
         // Default mocks
-        (datavaultColumnsRepository.findByTableId as any).mockResolvedValue([
+        vi.mocked(datavaultColumnsRepository.findByTableId).mockResolvedValue([
             { id: "col-first", type: "text", required: false, name: "First Name" },
             { id: "col-last", type: "text", required: false, name: "Last Name" },
             { id: "col-age", type: "number", required: false, name: "Age" },
             { id: "col-email", type: "email", required: false, name: "Email" }, // Added for Update test
             { id: "col-status", type: "text", required: false, name: "Status" }
-        ]);
-        (datavaultTablesRepository.findById as any).mockResolvedValue({
+        ] as any);
+        vi.mocked(datavaultTablesRepository.findById).mockResolvedValue({
             id: "table-users",
             tenantId: mockTenantId
-        });
-        (datavaultRowsRepository.findById as any).mockResolvedValue({
+        } as any);
+        vi.mocked(datavaultRowsRepository.findById).mockResolvedValue({
             id: "row-existing-1",
             tableId: "table-users",
-        });
+        } as any);
     });
     describe("Mode: Create", () => {
         beforeEach(() => {
@@ -115,10 +116,10 @@ describe("WriteRunner", () => {
                     { columnId: "col-age", value: "{{ age }}" }
                 ]
             };
-            (datavaultRowsRepository.createRowWithValues as any).mockResolvedValue({
+            vi.mocked(datavaultRowsRepository.createRowWithValues).mockResolvedValue({
                 row: { id: "row-new" },
                 values: []
-            });
+            } as any);
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-new");
@@ -165,8 +166,8 @@ describe("WriteRunner", () => {
                     { columnId: "col-status", value: "Active" }
                 ]
             };
-            (datavaultRowsRepository.findRowByColumnValue as any).mockResolvedValue("row-existing-1");
-            (datavaultRowsRepository.updateRowValues as any).mockResolvedValue(true);
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue("row-existing-1" as any);
+            vi.mocked(datavaultRowsRepository.updateRowValues).mockResolvedValue(true as any);
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-existing-1");
@@ -199,7 +200,7 @@ describe("WriteRunner", () => {
                 id: "table-users",
                 tenantId: mockTenantId
             });
-            (datavaultRowsRepository.findRowByColumnValue as any).mockResolvedValue(null);
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue(null);
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(false);
             expect(result.error).toContain("Row not found");

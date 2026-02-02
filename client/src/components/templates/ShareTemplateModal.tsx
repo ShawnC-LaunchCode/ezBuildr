@@ -1,5 +1,5 @@
 import { Loader2, Mail, User, X, Eye, Pencil, CheckCircle, Clock } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,7 +134,7 @@ export default function ShareTemplateModal({
     }
   };
 
-  const shares = listShares.data || [];
+  const shares = listShares.data ?? [];
   const isLoading = listShares.isLoading;
 
   return (

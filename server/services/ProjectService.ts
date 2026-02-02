@@ -19,9 +19,9 @@ export class ProjectService {
     workflowRepo?: typeof workflowRepository,
     projectAccessRepo?: typeof projectAccessRepository
   ) {
-    this.projectRepo = projectRepo || projectRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.projectAccessRepo = projectAccessRepo || projectAccessRepository;
+    this.projectRepo = projectRepo ?? projectRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.projectAccessRepo = projectAccessRepo ?? projectAccessRepository;
   }
   /**
    * Verify user owns or has access to the project (ownership-based access)
@@ -37,7 +37,7 @@ export class ProjectService {
       return project;
     }
     // Fallback: Check legacy ownership
-    const projectCreator = project.createdBy || project.creatorId;
+    const projectCreator = project.createdBy ?? project.creatorId;
     if (projectCreator === userId) {
       return project;
     }
@@ -48,8 +48,8 @@ export class ProjectService {
    */
   async createProject(data: InsertProject, creatorId: string): Promise<Project> {
     // Validate ownership before creating
-    const ownerType = data.ownerType || 'user';
-    const ownerUuid = data.ownerUuid || creatorId;
+    const ownerType = data.ownerType ?? 'user';
+    const ownerUuid = data.ownerUuid ?? creatorId;
     const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
     const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
     if (!canCreate) {
@@ -68,6 +68,7 @@ export class ProjectService {
   /**
    * Get project by ID with contained workflows
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getProjectWithWorkflows(projectId: string, userId: string) {
     const project = await this.verifyOwnership(projectId, userId);
     const workflows = await this.workflowRepo.findByProjectId(projectId);

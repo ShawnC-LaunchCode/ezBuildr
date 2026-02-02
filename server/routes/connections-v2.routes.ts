@@ -62,7 +62,8 @@ const updateConnectionSchema = z.object({
 /**
  * Register connections routes
  */
-export function registerConnectionsV2Routes(app: Express) {
+// eslint-disable-next-line max-lines-per-function -- route registration function
+export function registerConnectionsV2Routes(app: Express): void {
   /**
    * GET /api/projects/:projectId/connections
    * List all connections for a project
@@ -273,12 +274,12 @@ export function registerConnectionsV2Routes(app: Express) {
     try {
       const { connectionId, projectId } = req.query;
 
-      if (!connectionId || typeof connectionId !== 'string') {
+      if (connectionId === undefined || typeof connectionId !== 'string') {
         res.status(400).json({ error: 'connectionId query parameter is required' });
         return;
       }
 
-      if (!projectId || typeof projectId !== 'string') {
+      if (projectId === undefined || typeof projectId !== 'string') {
         res.status(400).json({ error: 'projectId query parameter is required' });
         return;
       }
@@ -286,7 +287,7 @@ export function registerConnectionsV2Routes(app: Express) {
       // Get base URL from environment or request
       const protocol = req.secure ? 'https' : 'http';
       const host = req.get('host');
-      const baseUrl = process.env.BASE_URL || `${protocol}://${host}`;
+      const baseUrl = process.env.BASE_URL ?? `${protocol}://${host ?? 'localhost'}`;
 
       const result = await initiateOAuth2Flow(projectId, connectionId, baseUrl);
 
@@ -316,13 +317,13 @@ export function registerConnectionsV2Routes(app: Express) {
       const { code, state, error: oauthError } = req.query;
 
       // Check for OAuth error
-      if (oauthError) {
+      if (oauthError !== undefined) {
         logger.error({ error: oauthError }, 'OAuth2 callback error:');
         res.status(400).send(`
           <html>
             <body>
               <h1>Authorization Failed</h1>
-              <p>Error: ${oauthError}</p>
+              <p>Error: ${String(oauthError)}</p>
               <p><a href="/">Return to Dashboard</a></p>
             </body>
           </html>
@@ -331,7 +332,7 @@ export function registerConnectionsV2Routes(app: Express) {
       }
 
       // Validate parameters
-      if (!code || typeof code !== 'string' || !state || typeof state !== 'string') {
+      if (code === undefined || typeof code !== 'string' || state === undefined || typeof state !== 'string') {
         res.status(400).json({ error: 'Invalid callback parameters' });
         return;
       }

@@ -132,7 +132,7 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
  */
 export async function renderTemplate(
   fileRef: string,
-  context: Record<string, any>,
+  context: Record<string, unknown>,
   options?: {
     toPdf?: boolean;
     outputName?: string;
@@ -151,7 +151,7 @@ export async function renderTemplate(
       data: context,
       outputDir: OUTPUTS_DIR,
       outputName: options?.outputName,
-      toPdf: options?.toPdf || false,
+      toPdf: options?.toPdf ?? false,
     });
 
     const docxFileRef = path.basename(result.docxPath);

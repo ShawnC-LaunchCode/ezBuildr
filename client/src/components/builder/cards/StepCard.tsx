@@ -23,7 +23,7 @@ import {
     X,
     Database,
 } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
@@ -42,8 +42,14 @@ import {
     useWorkflowMode
 } from "@/lib/vault-hooks";
 
+import type { ConditionExpression } from "@shared/types/conditions";
+
 import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
+
+import { StepGuidance } from "./common/StepGuidance";
+import { getQuestionTypeIcon } from "./common/StepIcons";
+import { StepTitleRow } from "./common/StepTitleRow";
 
 interface StepCardProps {
     step: ApiStep;
@@ -55,30 +61,16 @@ interface StepCardProps {
     onEnterNext?: () => void;
 }
 
-// Get icon for each question type
-function getQuestionTypeIcon(type: StepType) {
-    switch (type) {
-        case "short_text":
-            return <Type className="h-4 w-4 text-muted-foreground" />;
-        case "long_text":
-            return <AlignLeft className="h-4 w-4 text-muted-foreground" />;
-        case "radio":
-            return <Circle className="h-4 w-4 text-muted-foreground" />;
-        case "multiple_choice":
-            return <CheckSquare className="h-4 w-4 text-muted-foreground" />;
-        case "yes_no":
-            return <ToggleLeft className="h-4 w-4 text-muted-foreground" />;
-        case "date_time":
-            return <Calendar className="h-4 w-4 text-muted-foreground" />;
-        case "file_upload":
-            return <Upload className="h-4 w-4 text-muted-foreground" />;
-        case "js_question":
-            return <Zap className="h-4 w-4 text-yellow-500" />;
-        default:
-            return <FileText className="h-4 w-4 text-muted-foreground" />;
-    }
+interface StepDefaultValue {
+    source?: string;
+    variable?: string;
+    value?: unknown;
 }
 
+// Get icon for each question type
+
+
+// eslint-disable-next-line max-lines-per-function
 export function StepCard({
     step,
     sectionId,
@@ -97,8 +89,9 @@ export function StepCard({
     const { upstreamWorkflow, upstreamVariables } = useIntake();
 
     // Intake Derived Values
-    const isLinkedToIntake = !!step.defaultValue && typeof step.defaultValue === 'object' && step.defaultValue.source === 'intake';
-    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === step.defaultValue.variable) : null;
+    const defVal = step.defaultValue as StepDefaultValue | undefined;
+    const isLinkedToIntake = defVal?.source === 'intake';
+    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === defVal?.variable) : null;
 
     // Collaboration Hooks
     const { updateActiveBlock, user: currentUser } = useCollaboration();
@@ -122,16 +115,10 @@ export function StepCard({
         }
     };
 
-    const titleInputRef = useRef<HTMLInputElement>(null);
+
     const [isGuidanceDismissed, setIsGuidanceDismissed] = useState(false);
 
-    // Auto-focus on mount if requested
-    useEffect(() => {
-        if (autoFocus && titleInputRef.current) {
-            titleInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            titleInputRef.current.focus();
-        }
-    }, [autoFocus]);
+
 
     // Make sortable
     const {
@@ -154,6 +141,7 @@ export function StepCard({
     };
 
     const handleDelete = async () => {
+        // eslint-disable-next-line no-alert
         if (!confirm(`Delete question "${step.title}"?`)) { return; }
 
         try {
@@ -206,10 +194,10 @@ export function StepCard({
                             <div className="mt-2 relative">
                                 {getQuestionTypeIcon(step.type)}
                                 {/* Show logic indicator when collapsed */}
-                                {!isExpanded && step.visibleIf && (
+                                {!isExpanded && !!step.visibleIf && (
                                     <div className="absolute -top-1 -right-1">
                                         <LogicIndicator
-                                            visibleIf={step.visibleIf}
+                                            visibleIf={step.visibleIf as ConditionExpression}
                                             variant="icon"
                                             size="sm"
                                             elementType="question"
@@ -232,7 +220,7 @@ export function StepCard({
                         </div>
 
                         {/* Visual Pills (collapsed view) */}
-                        {!isExpanded && step.visibleIf && (
+                        {!isExpanded && step.visibleIf !== null && step.visibleIf !== undefined && (
                             <div className="mt-2">
                                 <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
                                     Conditional
@@ -243,14 +231,14 @@ export function StepCard({
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-2">
                             {/* Header Row - Badges (required/conditional) above question */}
-                            {(step.required || step.visibleIf) && (
+                            {(step.required || (step.visibleIf !== null && step.visibleIf !== undefined)) && (
                                 <div className="flex items-center gap-1.5">
                                     {step.required && (
                                         <Badge variant="destructive" className="text-[9px] h-4 px-1.5 font-medium">
                                             Required
                                         </Badge>
                                     )}
-                                    {step.visibleIf && (
+                                    {step.visibleIf !== null && step.visibleIf !== undefined && (
                                         <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
                                             Conditional
                                         </Badge>
@@ -259,68 +247,23 @@ export function StepCard({
                             )}
 
                             {/* Title and Delete Row */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1">
-                                    <div className="relative flex-1">
-                                        <Input
-                                            id={`question-title-${step.id}`}
-                                            name={`question-title-${step.id}`}
-                                            ref={titleInputRef}
-                                            value={step.title}
-                                            onChange={(e) => { void handleTitleChange(e.target.value); }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.currentTarget.blur();
-                                                    onEnterNext?.();
-                                                }
-                                            }}
-                                            placeholder="Question text"
-                                            aria-label="Question text"
-                                            className={cn(
-                                                "font-medium text-sm transition-all duration-300",
-                                                step.title
-                                                    ? "border-transparent hover:border-input focus:border-input"
-                                                    : mode === 'easy' && !isGuidanceDismissed
-                                                        ? "border-amber-300 bg-amber-50/30 focus-visible:ring-amber-400 placeholder:text-amber-500/50"
-                                                        : "border-transparent hover:border-input focus:border-input"
-                                            )}
-                                            autoFocus={autoFocus && isExpanded}
-                                        />
-                                        {mode === 'easy' && !step.title && !isGuidanceDismissed && (
-                                            <div className="absolute top-full left-0 mt-1 z-10 flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-md shadow-sm animate-in slide-in-from-top-2">
-                                                <span className="text-[10px] text-amber-700 font-medium">Example: "What is your full name?"</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 text-amber-600 hover:text-amber-800 hover:bg-amber-100"
-                                                    onClick={(e) => { e.stopPropagation(); setIsGuidanceDismissed(true); }}
-                                                >
-                                                    <span className="sr-only">Dismiss</span>
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Delete Button */}
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                                    onClick={() => { void handleDelete(); }}
-                                    tabIndex={0}
-                                    aria-label={`Delete question ${step.title}`}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
+                            <StepTitleRow
+                                step={step}
+                                mode={mode}
+                                isGuidanceDismissed={isGuidanceDismissed}
+                                onDismissGuidance={() => setIsGuidanceDismissed(true)}
+                                onTitleChange={(val) => { void handleTitleChange(val); }}
+                                onDelete={() => { void handleDelete(); }}
+                                onEnterNext={onEnterNext}
+                                autoFocus={autoFocus}
+                                isExpanded={isExpanded}
+                            />
 
                             {/* Intake Badge (Collapsed View) */}
                             {!isExpanded && isLinkedToIntake && (
                                 <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full w-fit border border-emerald-100">
                                     <Database className="w-3 h-3" />
-                                    <span>Linked to <strong>{upstreamWorkflow?.title}</strong> ({linkedVariable?.label || linkedVariable?.alias})</span>
+                                    <span>Linked to <strong>{upstreamWorkflow?.title}</strong> ({linkedVariable?.label ?? linkedVariable?.alias})</span>
                                 </div>
                             )}
 

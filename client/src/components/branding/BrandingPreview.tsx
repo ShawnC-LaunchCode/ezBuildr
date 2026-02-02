@@ -4,36 +4,43 @@
  * Shows a live preview of how the branding will look in the intake portal
  */
 import { Eye, Smartphone, Monitor } from 'lucide-react';
-import React, { useMemo , useState } from 'react';
+import { useMemo, useState, CSSProperties } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { brandingToThemeTokens } from '@/lib/tenantTheme';
 import type { TenantBranding } from '@/lib/vault-api';
+
 export interface BrandingPreviewProps {
   branding: Partial<TenantBranding>;
 }
+
 export default function BrandingPreview({ branding }: BrandingPreviewProps) {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+
   // Generate theme tokens from branding
   const themeTokens = useMemo(() => {
     return brandingToThemeTokens(branding);
   }, [branding]);
+
   // Apply tokens to inline styles
   const themeStyles = useMemo(() => {
-    const styles: React.CSSProperties = {};
+    const styles: CSSProperties & Record<string, string> = {};
     Object.entries(themeTokens).forEach(([key, value]) => {
       if (value) {
         // Convert CSS variable name to camelCase for React
-        const reactKey = key.replace(/--brand-/, '').replace(/-(.)/g, (_, c) => c.toUpperCase());
-        (styles as any)[key] = value;
+        /* eslint-disable-next-line @typescript-eslint/naming-convention */
+        const _unused = key; // Keep key for reference if needed, but we use strict assignment
+        styles[key] = value;
       }
     });
     return styles;
   }, [themeTokens]);
+
   const primaryColor = branding.primaryColor || '#3B82F6';
   const accentColor = branding.accentColor || '#10B981';
-  const isDarkMode = branding.darkModeEnabled || false;
+
+  const isDarkMode = branding.darkModeEnabled ?? false;
   const logoUrl = branding.logoUrl;
   const headerText = branding.intakeHeaderText || 'Welcome to Our Portal';
   const bgColor = isDarkMode ? '#0F172A' : '#FFFFFF';

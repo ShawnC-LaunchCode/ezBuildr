@@ -5,7 +5,7 @@
 
 import { formatDistanceToNow, format } from "date-fns";
 import { Trash2, Loader2 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
   AlertDialog,

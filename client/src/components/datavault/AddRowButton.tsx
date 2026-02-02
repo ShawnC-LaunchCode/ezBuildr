@@ -95,7 +95,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type={column.type === 'email' ? 'email' : column.type === 'url' ? 'url' : 'text'}
-            value={value || ''}
+            value={value ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -105,7 +105,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="number"
-            value={value || ''}
+            value={value ?? ''}
             onChange={(e) => setValues(prev => ({
               ...prev,
               [column.id]: e.target.value ? parseFloat(e.target.value) : null
@@ -131,7 +131,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="date"
-            value={value || ''}
+            value={value ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -141,7 +141,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="datetime-local"
-            value={value || ''}
+            value={value ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -151,7 +151,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="text"
-            value={value || ''}
+            value={value ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />

@@ -9,7 +9,7 @@
  */
 
 import { Eye, EyeOff, AlertCircle, Info } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

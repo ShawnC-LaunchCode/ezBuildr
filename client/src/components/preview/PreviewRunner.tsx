@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { IntakeProvider } from "@/components/builder/IntakeContext";
 import { DevToolsPanel } from "@/components/devtools/DevToolsPanel";
@@ -8,17 +8,23 @@ import { useToast } from "@/hooks/use-toast";
 import { hotReloadManager } from "@/lib/previewRunner/HotReloadManager";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { generateAIRandomValues, generateAIRandomValuesForSteps } from "@/lib/randomizer/aiRandomFill";
-import { ApiStep } from "@/lib/vault-api";
+import { ApiSection, ApiStep } from "@/lib/vault-api";
 import { WorkflowRunner } from "@/pages/WorkflowRunner";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+import { ConditionExpression } from "@shared/types";
 
 import { DevToolbar } from "./DevToolbar";
+
 
 
 interface PreviewRunnerProps {
     workflowId: string;
     onExit: () => void;
+}
+
+interface PreviewSection extends ApiSection {
+    steps?: ApiStep[];
 }
 
 export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
@@ -49,7 +55,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     });
 
     const allSteps = useMemo(() => {
-        return workflow?.sections?.flatMap((section: any) => section.steps || []) || [];
+        return workflow?.sections?.flatMap((section: PreviewSection) => section.steps ?? []) ?? [];
     }, [workflow]);
 
     // Fetch snapshot values
@@ -98,9 +104,9 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
 
             let initialValues = {};
             if (snapshotId && snapshotValues) {
-                const stepIdValues: Record<string, any> = {};
+                const stepIdValues: Record<string, unknown> = {};
                 // Map alias/id to stepId
-                for (const [key, value] of Object.entries(snapshotValues)) {
+                for (const [key, value] of Object.entries(snapshotValues as Record<string, unknown>)) {
                     const step = allSteps.find((s: ApiStep) => s.alias === key || s.id === key);
                     if (step) { stepIdValues[step.id] = value; }
                 }
@@ -122,7 +128,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
         }
         return () => hotReloadManager.detach();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workflow?.id, JSON.stringify(workflow?.sections?.map((s: any) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
+    }, [workflow?.id, JSON.stringify(workflow?.sections?.map((s: PreviewSection) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
 
     const handleRandomFill = async () => {
         if (!env || !allSteps) { return; }
@@ -141,10 +147,10 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                     return step?.id;
                 };
 
-                const visibleSections = workflow.sections.filter((section: any) => {
+                const visibleSections = workflow.sections.filter((section: PreviewSection) => {
                     if (!section.visibleIf) { return true; }
                     try {
-                        return evaluateConditionExpression(section.visibleIf, values, aliasResolver);
+                        return evaluateConditionExpression(section.visibleIf as ConditionExpression, values, aliasResolver);
                     } catch (e) {
                         console.error('Error evaluating section visibility condition:', section.id, e);
                         return true; // Fail-safe: show section if evaluation fails
@@ -216,7 +222,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                     <IntakeProvider workflowId={workflow.id}>
                         <WorkflowRunner
                             key={`preview-${env.getState().id}`}
-                            runId={previewRunId || undefined}
+                            runId={previewRunId ?? undefined}
                             previewEnvironment={env}
                         />
                     </IntakeProvider>

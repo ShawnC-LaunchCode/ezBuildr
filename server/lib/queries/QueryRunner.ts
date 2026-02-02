@@ -2,10 +2,11 @@ import { and, eq, exists, sql, desc, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { datavaultRows, datavaultValues } from '@shared/schema';
-import type { WorkflowQuery, QueryFilter, QuerySort, ListVariable } from '@shared/types/query';
+import type { WorkflowQuery, QueryFilter, QuerySort, QueryListVariable } from '@shared/types/query';
 
 import { db } from '../../db';
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';
+
 export class QueryRunner {
     private db: typeof db;
     constructor(dbInstance?: typeof db) {
@@ -21,9 +22,9 @@ export class QueryRunner {
         query: WorkflowQuery,
         contextVariables: Record<string, any>,
         tenantId: string
-    ): Promise<ListVariable> {
+    ): Promise<QueryListVariable> {
         // 1. Basic Validation
-        if (!query.tableId) {throw new Error('Query missing tableId');}
+        if (!query.tableId) { throw new Error('Query missing tableId'); }
         // 2. Resolve Filter Values
         const resolvedFilters = this.resolveFilters(query.filters, contextVariables);
         // 3. Build Query
@@ -144,7 +145,7 @@ export class QueryRunner {
             const batchMap = await datavaultRowsRepository.batchFindByIds(request);
             rows = rowIds.map((id: string) => {
                 const entry = batchMap.get(id);
-                if (!entry) {return null;}
+                if (!entry) { return null; }
                 // Merge row metadata + values
                 return {
                     _id: entry.row.id,
@@ -156,7 +157,7 @@ export class QueryRunner {
             // Extract all unique column IDs encountered
             const colSet = new Set<string>();
             rows.forEach((r: Record<string, any>) => Object.keys(r).forEach(k => {
-                if (!k.startsWith('_')) {colSet.add(k);}
+                if (!k.startsWith('_')) { colSet.add(k); }
             }));
             columnIds = Array.from(colSet);
         }

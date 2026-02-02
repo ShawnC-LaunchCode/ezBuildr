@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Loader2, Edit2, Trash2, GripVertical } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import {
   AlertDialog,
@@ -288,7 +288,7 @@ export function ColumnManagerWithDnd({
     setEditDialog({ id: column.id, name: column.name, required: column.required });
     setEditColumnName(column.name);
     setEditColumnRequired(column.required);
-    setEditColumnDescription(column.description || "");
+    setEditColumnDescription(column.description ?? "");
   };
   return (
     <>

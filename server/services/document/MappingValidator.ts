@@ -294,7 +294,7 @@ export class MappingValidator {
     mapping: DocumentMapping
   ): CoverageStats {
     const templateFields =
-      template.metadata?.fields?.map((f: any) => f.name) || [];
+      template.metadata?.fields?.map((f: any) => f.name) ?? [];
     const mappedFields = Object.keys(mapping || {});
     const unmappedFields = templateFields.filter(
       (field: string) => !mappedFields.includes(field)
@@ -389,7 +389,7 @@ export class MappingValidator {
       radio: ['string', 'number'],
       unknown: ['string', 'number', 'boolean', 'date', 'array', 'object'],
     };
-    const compatibleTypes = compatibilityMap[expectedType] || [];
+    const compatibleTypes = compatibilityMap[expectedType] ?? [];
     return compatibleTypes.includes(receivedType);
   }
   /**

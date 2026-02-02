@@ -124,6 +124,7 @@ router.patch(
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- query param validation
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
       throw createError.validation('workflowVersionId query parameter is required');
     }
@@ -154,6 +155,7 @@ router.post(
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- query param validation
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
       throw createError.validation('workflowVersionId query parameter is required');
     }
@@ -180,6 +182,7 @@ router.delete(
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- query param validation
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
       throw createError.validation('workflowVersionId query parameter is required');
     }

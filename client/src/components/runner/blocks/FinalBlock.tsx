@@ -12,7 +12,7 @@
  * @date December 2025
  */
 import { FileDown, FileText } from "lucide-react";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";

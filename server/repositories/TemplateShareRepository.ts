@@ -142,7 +142,7 @@ export class TemplateShareRepository {
       )
       .limit(1);
 
-    return share?.access || null;
+    return share?.access ?? null;
   }
 
   /**

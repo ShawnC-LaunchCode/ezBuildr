@@ -13,7 +13,7 @@ import {
   FileText,
   Tag,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 
 import Header from '@/components/layout/Header';

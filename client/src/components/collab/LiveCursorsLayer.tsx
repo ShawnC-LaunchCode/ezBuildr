@@ -1,5 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { CollabUser } from '@/hooks/collab/useCollabClient';
 

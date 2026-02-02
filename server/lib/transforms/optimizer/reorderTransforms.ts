@@ -9,6 +9,7 @@ export function reorderTransforms(transforms: TransformBlock[]): TransformBlock[
 
     return transforms.sort((a, b) => {
         const phases = ['onRunStart', 'onSectionEnter', 'onSectionSubmit', 'onNext', 'onRunComplete'];
-        return phases.indexOf(a.phase) - phases.indexOf(b.phase) || a.order - b.order;
+        const phaseDiff = phases.indexOf(a.phase) - phases.indexOf(b.phase);
+        return phaseDiff !== 0 ? phaseDiff : a.order - b.order;
     });
 }

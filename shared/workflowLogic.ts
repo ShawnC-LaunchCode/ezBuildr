@@ -45,7 +45,7 @@ export interface WorkflowEvaluationResult {
  */
 export function evaluateRules(
   rules: LogicRule[],
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
     visibleSections: new Set(),
@@ -112,7 +112,7 @@ export function evaluateRules(
 /**
  * Evaluates a single condition
  */
-function evaluateCondition(rule: LogicRule, data: Record<string, any>): boolean {
+function evaluateCondition(rule: LogicRule, data: Record<string, unknown>): boolean {
   const actualValue = data[rule.conditionStepId];
   const expectedValue = rule.conditionValue;
 
@@ -160,7 +160,7 @@ function evaluateCondition(rule: LogicRule, data: Record<string, any>): boolean 
 /**
  * Checks if two values are equal
  */
-function isEqual(actual: any, expected: any): boolean {
+function isEqual(actual: unknown, expected: unknown): boolean {
   // Handle arrays
   if (Array.isArray(actual) && Array.isArray(expected)) {
     return JSON.stringify(actual.sort()) === JSON.stringify(expected.sort());
@@ -183,7 +183,7 @@ function isEqual(actual: any, expected: any): boolean {
 /**
  * Checks if actual contains expected value
  */
-function containsValue(actual: any, expected: any): boolean {
+function containsValue(actual: unknown, expected: unknown): boolean {
   if (Array.isArray(actual)) {
     return actual.some(item => isEqual(item, expected));
   }
@@ -198,9 +198,9 @@ function containsValue(actual: any, expected: any): boolean {
 /**
  * Compares two numeric values
  */
-function compareNumeric(actual: any, expected: any): number {
-  const numActual = parseFloat(actual);
-  const numExpected = parseFloat(expected);
+function compareNumeric(actual: unknown, expected: unknown): number {
+  const numActual = parseFloat(String(actual));
+  const numExpected = parseFloat(String(expected));
 
   if (isNaN(numActual) || isNaN(numExpected)) {
     return 0;
@@ -212,17 +212,18 @@ function compareNumeric(actual: any, expected: any): number {
 /**
  * Checks if value is between min and max
  */
-function isBetween(actual: any, range: any): boolean {
-  const numActual = parseFloat(actual);
+function isBetween(actual: unknown, range: unknown): boolean {
+  const numActual = parseFloat(String(actual));
 
   if (isNaN(numActual)) {
     return false;
   }
 
   // Expect range to be { min: number, max: number }
-  if (typeof range === 'object' && range.min !== undefined && range.max !== undefined) {
-    const min = parseFloat(range.min);
-    const max = parseFloat(range.max);
+  if (typeof range === 'object' && range !== null && 'min' in range && 'max' in range) {
+    const rangeObj = range as { min: unknown; max: unknown };
+    const min = parseFloat(String(rangeObj.min));
+    const max = parseFloat(String(rangeObj.max));
 
     if (isNaN(min) || isNaN(max)) {
       return false;
@@ -237,7 +238,7 @@ function isBetween(actual: any, range: any): boolean {
 /**
  * Checks if value is empty
  */
-function isEmpty(value: any): boolean {
+function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) {
     return true;
   }
@@ -336,7 +337,7 @@ export function resolveNextSection(
  */
 export function validateRequiredSteps(
   requiredStepIds: Set<string>,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): { valid: boolean; missingSteps: string[] } {
   const missingSteps: string[] = [];
 
@@ -364,7 +365,7 @@ export function validateRequiredSteps(
 export function getEffectiveRequiredSteps(
   initialRequiredSteps: Set<string>,
   rules: LogicRule[],
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): Set<string> {
   const result = new Set(initialRequiredSteps);
 

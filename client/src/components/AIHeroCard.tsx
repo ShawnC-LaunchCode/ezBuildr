@@ -8,7 +8,7 @@ type Props = {
   onBlankClick?: () => void;
 };
 
-export default function AIHeroCard({ className = "", onAIClick, onBlankClick }: Props) {
+export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBlankClick }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -31,7 +31,7 @@ export default function AIHeroCard({ className = "", onAIClick, onBlankClick }: 
         </div>
 
         <p className="text-white/80 text-sm sm:text-base max-w-2xl">
-          Describe your process, and we'll build the workflow. From data collection to complex routing and integrations,
+          Describe your process, and we&apos;ll build the workflow. From data collection to complex routing and integrations,
           create powerful automation in seconds.
         </p>
 

@@ -71,7 +71,7 @@ export class UserCredentialsRepository extends BaseRepository<typeof userCredent
         .where(eq(userCredentials.userId, userId))
         .returning();
 
-      if (!credentials) {
+      if (credentials === undefined) {
         throw new Error('User credentials not found');
       }
 

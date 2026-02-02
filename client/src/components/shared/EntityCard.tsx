@@ -4,7 +4,7 @@
  */
 
 import { MoreVertical , LucideIcon } from "lucide-react";
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";

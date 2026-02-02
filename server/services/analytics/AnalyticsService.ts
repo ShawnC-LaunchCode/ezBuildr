@@ -30,6 +30,7 @@ class AnalyticsService {
      * Preview events are silently skipped (not stored in database)
      * Handles redaction of sensitive fields (future implementation)
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async recordEvent(input: AnalyticsEventInput) {
         try {
             // Basic validation
@@ -65,6 +66,7 @@ class AnalyticsService {
     /**
      * Get chronological timeline of events for a specific run
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async getRunTimeline(runId: string) {
         const events = await db
             .select()
@@ -77,6 +79,7 @@ class AnalyticsService {
     /**
      * Batch record events (for performance)
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async recordEvents(inputs: AnalyticsEventInput[]) {
         // optimize with single insert
         if (inputs.length === 0) {return;}

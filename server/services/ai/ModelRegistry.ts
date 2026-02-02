@@ -24,6 +24,7 @@ export interface ModelConfig {
  * Task-specific max output tokens
  * These are conservative defaults to leave room for prompts
  */
+/* eslint-disable @typescript-eslint/naming-convention -- task type keys use snake_case matching shared type definitions */
 export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   workflow_generation: 8000,
   workflow_revision: 8192,
@@ -34,6 +35,7 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   logic_debug: 4000,
   logic_visualization: 4000,
 };
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Comprehensive model configurations
@@ -104,7 +106,7 @@ export class ModelRegistry {
   /**
    * Initialize the registry (called once)
    */
-  private static initialize() {
+  private static initialize(): void {
     if (this.initialized) {return;}
 
     for (const config of MODEL_CONFIGS) {
@@ -159,7 +161,7 @@ export class ModelRegistry {
           pricing: { input: 0.10, output: 0.40 },
         };
       default:
-        throw new Error(`Unknown provider: ${provider}`);
+        throw new Error(`Unknown provider: ${String(provider)}`);
     }
   }
 

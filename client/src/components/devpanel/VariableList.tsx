@@ -4,7 +4,7 @@
  */
 
 import { Copy, Plus, Pin, Search } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";

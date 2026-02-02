@@ -67,7 +67,7 @@ export function CreateFieldModal({
       setAutoGenerateSlug(false);
 
       if (field.options && Array.isArray(field.options)) {
-        setOptions(field.options);
+        setOptions(field.options as string[]);
       }
 
       if (field.defaultValue !== null && field.defaultValue !== undefined) {
@@ -102,7 +102,7 @@ export function CreateFieldModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {return;}
+    if (!name.trim()) { return; }
 
     // Validate select/multi-select has options
     if ((type === 'select' || type === 'multi_select') && options.length === 0) {
@@ -301,9 +301,9 @@ export function CreateFieldModal({
                   id="defaultValue"
                   placeholder={
                     type === 'boolean' ? 'true or false' :
-                    type === 'multi_select' ? 'option1, option2' :
-                    type === 'json' ? '{"key": "value"}' :
-                    'Default value...'
+                      type === 'multi_select' ? 'option1, option2' :
+                        type === 'json' ? '{"key": "value"}' :
+                          'Default value...'
                   }
                   value={defaultValue}
                   onChange={(e) => setDefaultValue(e.target.value)}

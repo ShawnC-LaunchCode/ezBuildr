@@ -14,6 +14,7 @@ export interface AIProviderConfig {
 /**
  * Interface that all AI providers must implement
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- I-prefix is industry standard for provider interfaces
 export interface IAIProvider {
     /**
      * The provider identifier (openai, anthropic, gemini)

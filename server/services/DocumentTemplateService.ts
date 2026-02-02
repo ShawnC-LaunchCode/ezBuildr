@@ -1,4 +1,4 @@
-import type { Template, InsertTemplate } from "@shared/schema";
+import type { Template } from "@shared/schema";
 
 import { documentTemplateRepository } from "../repositories/DocumentTemplateRepository";
 import { createError } from "../utils/errors";
@@ -63,10 +63,10 @@ export class DocumentTemplateService {
         {
           projectId,
           name,
-          description: description || null,
+          description: description ?? null,
           fileRef,
           type,
-          helpersVersion: helpersVersion || 1,
+          helpersVersion: helpersVersion ?? 1,
         },
         tx
       );
@@ -155,6 +155,7 @@ export class DocumentTemplateService {
   /**
    * Store or update template file
    */
+  // eslint-disable-next-line max-params
   async storeTemplateFile(
     id: string,
     projectId: string,

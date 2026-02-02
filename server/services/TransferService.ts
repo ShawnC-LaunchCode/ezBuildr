@@ -1,4 +1,3 @@
-import { users, organizationMemberships } from '../../shared/schema';
 import { db } from '../db';
 import { canAccessAsset, isOrgMember } from '../utils/ownershipAccess';
 /**
@@ -54,11 +53,9 @@ export class TransferService {
       if (!isMember) {
         throw new Error('Access denied: You are not a member of the target organization');
       }
-    } else if (targetOwnerType === 'user') {
+    } else if (targetOwnerType === 'user' && targetOwnerUuid !== currentUserId) {
       // Can only transfer to self
-      if (targetOwnerUuid !== currentUserId) {
-        throw new Error('Access denied: Can only transfer to yourself');
-      }
+      throw new Error('Access denied: Can only transfer to yourself');
     }
     // Step 3 - Validate user has access to current asset (last, as it might be most expensive)
     const hasAccess = await canAccessAsset(currentUserId, currentOwnerType, currentOwnerUuid);

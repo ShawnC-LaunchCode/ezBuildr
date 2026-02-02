@@ -489,18 +489,8 @@ export interface LegacyDateTimeConfig {
 // SPECIAL CONFIGS
 // ============================================================================
 
-/**
- * JS Question Config
- * (Already exists in steps.ts, included here for completeness)
- */
-export interface JsQuestionConfig {
-  display: "visible" | "hidden";
-  code: string;
-  inputKeys: string[];
-  outputKey: string;
-  timeoutMs?: number;
-  helpText?: string;
-}
+// JsQuestionConfig is imported from ./steps
+import { JsQuestionConfig } from "./steps";
 
 /**
  * Computed Step Config

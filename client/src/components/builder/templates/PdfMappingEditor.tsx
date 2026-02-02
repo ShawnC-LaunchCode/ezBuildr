@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Loader2, Save, ZoomIn, ZoomOut, AlertCircle, Check, ChevronsUpDown, Variable, TableProperties, Type, FileCode } from 'lucide-react';
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -55,7 +55,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
     const [open, setOpen] = useState(false);
     // Sort variables: Aliased first (alpha), then Unaliased (alpha by text)
     const sortedVariables = useMemo(() => {
-        const aliased = workflowVariables.filter(v => !!v.alias).sort((a, b) => (a.alias || '').localeCompare(b.alias || ''));
+        const aliased = workflowVariables.filter(v => !!v.alias).sort((a, b) => (a.alias ?? '').localeCompare(b.alias ?? ''));
         const unaliased = workflowVariables.filter(v => !v.alias).sort((a, b) => a.text.localeCompare(b.text));
         return [...aliased, ...unaliased];
     }, [workflowVariables]);
@@ -402,7 +402,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
                                                     id="excel-input"
                                                     className="font-mono text-xs"
                                                     placeholder="e.g. Price * 0.2"
-                                                    value={mapping[selectedField] || ''}
+                                                    value={mapping[selectedField] ?? ''}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         setMapping(prev => ({ ...prev, [selectedField]: val }));
@@ -447,7 +447,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
                                                                                 value={variable.alias || variable.text}
                                                                                 onSelect={() => {
                                                                                     // Insert variable WITHOUT brackets
-                                                                                    const currentVal = mapping[selectedField] || '';
+                                                                                    const currentVal = mapping[selectedField] ?? '';
                                                                                     const beforeTrigger = currentVal.slice(0, cursorPosition!); // Approximate, refined below
                                                                                     // Re-find match
                                                                                     const match = beforeTrigger.match(/(@|\{\{)([\w]*)$/);

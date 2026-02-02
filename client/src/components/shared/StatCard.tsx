@@ -1,5 +1,5 @@
 import { LucideIcon } from "lucide-react";
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 

@@ -4,7 +4,7 @@
  */
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
@@ -100,7 +100,7 @@ export function InfiniteDataGrid({
     );
   }
   // Flatten all pages into a single array
-  const allRows = data?.pages.flatMap((page) => page.rows) || [];
+  const allRows = data?.pages.flatMap((page) => page.rows) ?? [];
   return (
     <div>
       <DataGrid

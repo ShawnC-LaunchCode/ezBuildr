@@ -180,7 +180,7 @@ export class WriteRunner {
         tx: DbTransaction,
         forUpdate: boolean = false
     ): Promise<string | null> {
-        return datavaultRowsRepository.findRowByColumnValue(tableId, columnId, value, tenantId, tx, forUpdate);
+        return datavaultRowsRepository.findRowByColumnValue(tableId, columnId, value, { tenantId, tx, forUpdate });
     }
     /**
      * Execute Upsert Operation

@@ -189,7 +189,7 @@ export function registerTemplateSharingRoutes(app: Express): void {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const sharedTemplates = await sharingService.listSharedWithUser(userId, user.email || "");
+      const sharedTemplates = await sharingService.listSharedWithUser(userId, user.email ?? "");
       res.json(sharedTemplates);
     } catch (error: any) {
       logger.error({ error }, "Error listing shared templates");

@@ -19,7 +19,7 @@ export function generateOptionsFromList(
   // Normalize input to ListVariable
   let inputList: ListVariable;
   if (isListVariable(listData)) {
-    inputList = listData as ListVariable;
+    inputList = listData;
   } else if (Array.isArray(listData)) {
     inputList = arrayToListVariable(listData);
   } else {
@@ -80,7 +80,7 @@ export function generateOptionsFromList(
   if (includeBlankOption) {
     opts.unshift({
       id: 'blank',
-      label: blankLabel || '',
+      label: blankLabel ?? '',
       alias: ''
     });
   }

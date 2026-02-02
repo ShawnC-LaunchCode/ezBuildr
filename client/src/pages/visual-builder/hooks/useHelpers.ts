@@ -4,7 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function fetchAPI<T>(
   endpoint: string,

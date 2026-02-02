@@ -23,7 +23,7 @@ registerMigration("1.0.0", {
             return newSchema;
         }
 
-        newSchema.steps = newSchema.steps.map(step => {
+        newSchema.steps = newSchema.steps.map((step: any) => {
             const newStep = { ...step };
             const config = newStep.config || {};
 
@@ -33,7 +33,7 @@ registerMigration("1.0.0", {
                     newStep.config = {
                         ...config,
                         widget: "radio",
-                        options: step.options || [],
+                        options: step.options ?? [],
                         multiple: false
                     };
                     break;
@@ -43,7 +43,7 @@ registerMigration("1.0.0", {
                     newStep.config = {
                         ...config,
                         widget: "checkbox",
-                        options: step.options || [],
+                        options: step.options ?? [],
                         multiple: true
                     };
                     break;
@@ -87,7 +87,7 @@ registerMigration("1.0.0", {
             }
 
             // Cleanup legacy properties if they were moved to config
-            if (step.options) {delete newStep.options;}
+            if (step.options) { delete newStep.options; }
 
             return newStep;
         });

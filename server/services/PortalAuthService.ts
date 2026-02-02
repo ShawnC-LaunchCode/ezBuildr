@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 
 import { eq, and, gt } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
 
 import { portalTokens } from "@shared/schema";
 
@@ -31,7 +30,7 @@ export class PortalAuthService {
             });
             // 3. Send Email (Stub for now)
             // In production, use `emailService.sendMagicLink(email, plainToken)`
-            const magicLinkUrl = `${process.env.VITE_BASE_URL || 'http://localhost:5000'}/portal/auth/verify?token=${plainToken}`;
+            const magicLinkUrl = `${process.env.VITE_BASE_URL ?? 'http://localhost:5000'}/portal/auth/verify?token=${plainToken}`;
             logger.info({
                 event: "PORTAL_MAGIC_LINK_SENT",
                 email,

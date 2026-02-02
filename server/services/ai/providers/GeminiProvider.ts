@@ -22,13 +22,13 @@ export class GeminiProvider extends BaseAIProvider {
     async generateResponse(
         prompt: string,
         taskType: TaskType,
-        systemMessage?: string
+        _systemMessage?: string
     ): Promise<string> {
         const { model, temperature = 0.7, maxTokens } = this.config;
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt);
 
-        const safeMaxTokens = maxTokens || 4000;
+        const safeMaxTokens = maxTokens ?? 4000;
         this.validateTokenLimits(prompt, safeMaxTokens);
 
         logger.debug({ model, taskType }, 'Calling Gemini');

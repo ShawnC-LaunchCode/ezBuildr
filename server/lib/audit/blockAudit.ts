@@ -2,7 +2,7 @@ interface Block {
   id: string;
   type: string;
   children?: Block[];
-  props?: Record<string, any>;
+  props?: Record<string, unknown>;
 }
 interface AuditResult {
   passed: boolean;
@@ -14,14 +14,11 @@ export class BlockAudit {
   static audit(blocks: Block[]): AuditResult {
     const issues: string[] = [];
     let totalBlocks = 0;
-    const traverse = (nodes: Block[], depth: number) => {
+    const traverse = (nodes: Block[], depth: number): void => {
       for (const node of nodes) {
         totalBlocks++;
-        if (depth > MAX_NESTING_DEPTH) {
-          // We only report once per deep branch to avoid spam
-          if (issues.length < 50) {
-            issues.push(`Block ${node.id} exceeds max nesting depth of ${MAX_NESTING_DEPTH}`);
-          }
+        if (depth > MAX_NESTING_DEPTH && issues.length < 50) {
+          issues.push(`Block ${node.id} exceeds max nesting depth of ${MAX_NESTING_DEPTH}`);
         }
         if (node.children && node.children.length > 0) {
           traverse(node.children, depth + 1);

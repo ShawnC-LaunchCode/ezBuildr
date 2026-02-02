@@ -1,17 +1,39 @@
+/* eslint-disable max-lines -- API client module necessarily defines all endpoint wrappers in one file */
 /**
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
-import type { } from "@/components/templates-test-runner/types";
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+
+interface ApiErrorResponse {
+  message?: string;
+  errors?: string[];
+}
+
+interface RefreshTokenResponse {
+  token?: string;
+}
+
 // Global Access Token (Memory Only)
+export interface ApiUser {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string;
+  isAdmin?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API user objects may contain arbitrary additional fields
+  [key: string]: any;
+}
+
 let globalAccessToken: string | null = null;
-export function setAccessToken(token: string | null) {
+export function setAccessToken(token: string | null): void {
   globalAccessToken = token;
 }
-export function getAccessToken() {
+export function getAccessToken(): string | null {
   return globalAccessToken;
 }
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- core fetch wrapper handles auth refresh, token injection, and error handling in a single flow
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -19,7 +41,7 @@ export async function fetchAPI<T>(
   const url = `${API_BASE}${endpoint}`;
   // Check if we have a run token in localStorage for this run
   // Extract runId from endpoint (e.g., /api/runs/:runId/values)
-  const runIdMatch = endpoint.match(/\/api\/runs\/([^\/]+)/);
+  const runIdMatch = endpoint.match(/\/api\/runs\/([^/]+)/);
   let runToken: string | null = null;
   if (runIdMatch) {
     const runId = runIdMatch[1];
@@ -29,10 +51,12 @@ export async function fetchAPI<T>(
   // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
   // Preview/run endpoints use bearer tokens for anonymous access
   const isRunEndpoint = endpoint.startsWith('/api/runs/');
+  /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers use PascalCase/hyphenated names */
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
+  /* eslint-enable @typescript-eslint/naming-convention */
   // Only add bearer token for run endpoints
   if (runToken && isRunEndpoint) {
     headers["Authorization"] = `Bearer ${runToken}`;
@@ -50,16 +74,20 @@ export async function fetchAPI<T>(
   if (response.status === 401 && !isRunEndpoint && !endpoint.includes('/api/auth/login')) {
     // Try to refresh token
     try {
+      // eslint-disable-next-line no-console -- debug logging for auth flow
       console.log('[VaultAPI] 401 detected, attempting token refresh...');
       const refreshRes = await fetch(`${API_BASE}/api/auth/refresh-token`, { method: 'POST', credentials: 'include' });
+      // eslint-disable-next-line no-console -- debug logging for auth flow
       console.log(`[VaultAPI] Refresh status: ${refreshRes.status}`);
       if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        if (refreshData.token) {
+        const refreshData = await refreshRes.json() as RefreshTokenResponse;
+        if (refreshData.token !== undefined && refreshData.token !== null) {
+          // eslint-disable-next-line no-console -- debug logging for auth flow
           console.log('[VaultAPI] New token received, updating headers.');
           setAccessToken(refreshData.token);
           headers["Authorization"] = `Bearer ${refreshData.token}`;
         } else {
+          // eslint-disable-next-line no-console -- debug logging for auth flow
           console.warn('[VaultAPI] Refresh successful but NO TOKEN payload:', refreshData);
         }
         // Retry original request
@@ -74,8 +102,8 @@ export async function fetchAPI<T>(
     }
   }
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const error = await response.json().catch(() => ({ message: response.statusText })) as ApiErrorResponse;
+    throw new Error(error.message ?? `HTTP ${response.status}`);
   }
   // Check for auto-revert header and dispatch event
   if (response.headers.get('X-Workflow-Auto-Reverted') === 'true') {
@@ -86,26 +114,28 @@ export async function fetchAPI<T>(
   if (response.status === 204) {
     return undefined as T;
   }
-  return response.json();
+  return response.json() as Promise<T>;
 }
 /**
  * Creates an API client that includes a Bearer token for authentication
  * Used for preview mode where runs are accessed via runToken instead of session
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- complex generic return
 export function apiWithToken(runToken: string) {
   return {
     get: <T>(endpoint: string) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "GET",
+        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${runToken}`,
+          "Authorization": `Bearer ${runToken}`,
         },
+        /* eslint-enable @typescript-eslint/naming-convention */
       }).then(async (res) => {
         if (!res.ok) {
-          const error = await res.json().catch(() => ({ message: res.statusText }));
-          // Handle both error.message and error.errors array formats
-          const errorMsg = error.message || (error.errors?.[0]) || `HTTP ${res.status}`;
+          const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorResponse;
+          const errorMsg = error.message ?? error.errors?.[0] ?? `HTTP ${res.status}`;
           throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
@@ -113,16 +143,17 @@ export function apiWithToken(runToken: string) {
     post: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
+        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${runToken}`,
+          "Authorization": `Bearer ${runToken}`,
         },
-        body: body ? JSON.stringify(body) : undefined,
+        /* eslint-enable @typescript-eslint/naming-convention */
+        body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
-          const error = await res.json().catch(() => ({ message: res.statusText }));
-          // Handle both error.message and error.errors array formats
-          const errorMsg = error.message || (error.errors?.[0]) || `HTTP ${res.status}`;
+          const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorResponse;
+          const errorMsg = error.message ?? error.errors?.[0] ?? `HTTP ${res.status}`;
           throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
@@ -130,16 +161,17 @@ export function apiWithToken(runToken: string) {
     put: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "PUT",
+        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${runToken}`,
+          "Authorization": `Bearer ${runToken}`,
         },
-        body: body ? JSON.stringify(body) : undefined,
+        /* eslint-enable @typescript-eslint/naming-convention */
+        body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
-          const error = await res.json().catch(() => ({ message: res.statusText }));
-          // Handle both error.message and error.errors array formats
-          const errorMsg = error.message || (error.errors?.[0]) || `HTTP ${res.status}`;
+          const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorResponse;
+          const errorMsg = error.message ?? error.errors?.[0] ?? `HTTP ${res.status}`;
           throw new Error(errorMsg);
         }
         return res.json() as Promise<T>;
@@ -172,7 +204,7 @@ export const projectAPI = {
     if (Array.isArray(response)) {
       return response;
     }
-    return response.items || [];
+    return response.items ?? [];
   },
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
   create: (data: { title: string; description?: string }) =>
@@ -221,12 +253,15 @@ export interface ApiWorkflow {
   createdAt: string;
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intake config is an opaque JSON object from the server
   intakeConfig?: any;
+  /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */
   accessSettings?: {
     allow_portal: boolean;
     allow_resume: boolean;
     allow_redownload: boolean;
   };
+  /* eslint-enable @typescript-eslint/naming-convention */
 }
 export const workflowAPI = {
   list: () => fetchAPI<ApiWorkflow[]>("/api/workflows"),
@@ -266,7 +301,9 @@ export interface ApiWorkflowVersion {
   id: string;
   workflowId: string;
   versionNumber: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- graph JSON is an opaque serialized workflow graph
   graphJson: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- definition is an opaque serialized workflow definition
   definition: any;
   notes: string | null;
   createdBy: string;
@@ -275,10 +312,13 @@ export interface ApiWorkflowVersion {
   isDraft: boolean;
   publishedAt: string | null;
   pinned: boolean; // Computed field
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration metadata has varying structure
   migrationInfo?: any; // Metadata including AI generation info
 }
 export interface ApiVersionDiff {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
   sections: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diff entries have varying structure
   steps: any[];
   summary: {
     sectionsAdded: number;
@@ -293,8 +333,9 @@ export const versionAPI = {
     const response = await fetchAPI<{ success: boolean; data: ApiWorkflowVersion[] }>(
       `/api/workflows/${workflowId}/versions`
     );
-    return response.data || [];
+    return response.data ?? [];
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- graphJson is an opaque serialized workflow graph
   publish: (workflowId: string, data: { graphJson: any; notes?: string; force?: boolean }) =>
     fetchAPI<{ success: boolean; data: ApiWorkflowVersion }>(`/api/workflows/${workflowId}/publish`, {
       method: 'POST',
@@ -313,6 +354,7 @@ export const versionAPI = {
       body: JSON.stringify({ toVersionId: versionId }),
     }),
   export: (workflowId: string) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export format is an opaque JSON structure
     fetchAPI<any>(`/api/workflows/${workflowId}/export`),
 };
 // ============================================================================
@@ -322,6 +364,7 @@ export interface ApiSnapshot {
   id: string;
   workflowId: string;
   name: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values are heterogeneous step values
   values: Record<string, any>;  // Simple key-value pairs (alias -> value)
   versionHash?: string;  // Hash of workflow structure at snapshot creation
   createdAt: string;
@@ -352,6 +395,7 @@ export const snapshotAPI = {
       body: JSON.stringify({ runId }),
     }),
   getValues: (workflowId: string, snapshotId: string) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values are heterogeneous step values
     fetchAPI<Record<string, any>>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/values`),
   validate: (workflowId: string, snapshotId: string) =>
     fetchAPI<{ isValid: boolean; outdatedSteps: string[] }>(`/api/workflows/${workflowId}/snapshots/${snapshotId}/validate`),
@@ -377,11 +421,11 @@ export const variableAPI = {
 // ============================================================================
 export const authAPI = {
   getToken: () => fetchAPI<{ token: string; expiresIn: string }>("/api/auth/token"),
-  login: (data: { email?: string; password?: string; token?: string }) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/login", {
+  login: (data: { email?: string; password?: string; token?: string }) => fetchAPI<{ message: string; token: string; user: ApiUser }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(data)
   }),
-  register: (data: { email: string; password?: string; firstName?: string; lastName?: string; orgName?: string }) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/register", {
+  register: (data: { email: string; password?: string; firstName?: string; lastName?: string; orgName?: string }) => fetchAPI<{ message: string; token: string; user: ApiUser }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(data)
   }),
@@ -400,7 +444,7 @@ export const authAPI = {
     method: "POST",
     body: JSON.stringify({ token })
   }),
-  verifyMfaLogin: (userId: string, token: string, backupCode?: string) => fetchAPI<{ message: string; token: string; user: any }>("/api/auth/mfa/verify-login", {
+  verifyMfaLogin: (userId: string, token: string, backupCode?: string) => fetchAPI<{ message: string; token: string; user: ApiUser }>("/api/auth/mfa/verify-login", {
     method: "POST",
     body: JSON.stringify({ userId, token, backupCode })
   }),
@@ -429,9 +473,9 @@ export interface ApiSection {
   title: string;
   description: string | null;
   order: number;
-  visibleIf?: any | null; // Condition expression for visibility
-  skipIf?: any | null; // Condition expression for skip logic
-  config?: any;
+  visibleIf?: unknown; // Condition expression for visibility
+  skipIf?: unknown; // Condition expression for skip logic
+  config?: unknown;
   createdAt: string;
 }
 export const sectionAPI = {
@@ -468,7 +512,7 @@ export interface ApiLogicRule {
   workflowId: string;
   conditionStepAlias: string;
   operator: string;
-  conditionValue: any;
+  conditionValue: unknown;
   targetType: 'section' | 'step';
   targetAlias: string;
   action: 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
@@ -522,14 +566,17 @@ export interface ApiStep {
   title: string;
   description: string | null;
   required: boolean;
-  options: any; // JSON - for choice types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step options contain heterogeneous choice values
+  options: Record<string, any> | null; // JSON - for choice types
   alias: string | null; // Optional variable name for logic/blocks
-  visibleIf?: any | null; // Condition expression for visibility
+  visibleIf?: unknown; // Condition expression for visibility
   order: number;
   isVirtual?: boolean;
-  defaultValue?: any;
-  repeaterConfig?: any;
-  config: any; // Step-specific configuration (JSON)
+  defaultValue?: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- repeater config is an opaque JSON structure
+  repeaterConfig?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step config varies by step type
+  config: Record<string, any> | null; // Step-specific configuration (JSON)
   createdAt: string;
   updatedAt?: string;
 }
@@ -569,7 +616,8 @@ export interface ApiBlock {
   sectionId: string | null;
   type: BlockType;
   phase: BlockPhase;
-  config: any; // JSON - type-specific config
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- block config varies by block type
+  config: Record<string, any> | null; // JSON - type-specific config
   enabled: boolean;
   order: number;
   createdAt: string;
@@ -605,7 +653,7 @@ export const blockAPI = {
     }),
   createListToolsFromChoice: (workflowId: string, stepId: string, data: {
     sourceListVar: string;
-    transformConfig?: any;
+    transformConfig?: unknown;
     sectionId: string;
   }) =>
     fetchAPI<{ success: boolean; data: { block: ApiBlock; outputVar: string; message: string } }>(
@@ -657,8 +705,8 @@ export const transformBlockAPI = {
     fetchAPI<{ success: boolean }>(`/api/transform-blocks/${id}`, {
       method: "DELETE",
     }),
-  test: (id: string, testData: Record<string, any>) =>
-    fetchAPI<{ success: boolean; output: any; error?: string }>(`/api/transform-blocks/${id}/test`, {
+  test: (id: string, testData: Record<string, unknown>) =>
+    fetchAPI<{ success: boolean; output: unknown; error?: string }>(`/api/transform-blocks/${id}/test`, {
       method: "POST",
       body: JSON.stringify({ testData }),
     }),
@@ -673,7 +721,7 @@ export interface ApiRun {
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;
-  metadata: any;
+  metadata: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -681,7 +729,7 @@ export interface ApiStepValue {
   id: string;
   runId: string;
   stepId: string;
-  value: any;
+  value: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -691,14 +739,15 @@ export const runAPI = {
     workflowId: string,
     data: {
       participantId?: string;
-      metadata?: any;
+      metadata?: unknown;
       snapshotId?: string;  // Load from snapshot
       randomize?: boolean;  // Generate random data
-      initialValues?: Record<string, any>;
+      initialValues?: Record<string, unknown>;
     },
     queryParams?: Record<string, string>
   ) => {
-    const params = queryParams ? `?${new URLSearchParams(queryParams)}` : "";
+    const qs = queryParams ? new URLSearchParams(queryParams).toString() : "";
+    const params = qs ? `?${qs}` : "";
     return fetchAPI<{ success: boolean; data: { runId: string; runToken: string; currentSectionId?: string } }>(`/api/workflows/${workflowId}/runs${params}`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -711,7 +760,7 @@ export const runAPI = {
   getWithValues: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRun & { values: ApiStepValue[] } }>(`/api/runs/${id}/values`).then(res => res.data),
   getDocuments: (id: string) =>
-    fetchAPI<{ success: boolean; documents: any[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
+    fetchAPI<{ success: boolean; documents: unknown[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
   upsertValue: (runId: string, stepId: string, value: unknown) =>
     fetchAPI<{ message: string }>(`/api/runs/${runId}/values`, {
       method: "POST",
@@ -741,6 +790,7 @@ export interface TraceEntry {
   condition?: string;
   conditionResult?: boolean;
   status: 'executed' | 'skipped';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- trace output deltas have varying structure
   outputsDelta?: Record<string, any>;
   error?: string;
   timestamp: string;
@@ -748,7 +798,9 @@ export interface TraceEntry {
 export interface DocumentRun {
   id: string;
   workflowVersionId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- input JSON has varying structure per workflow
   inputJson?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- output refs have varying structure per workflow
   outputRefs?: Record<string, any>;
   trace?: TraceEntry[];
   status: 'pending' | 'success' | 'error';
@@ -779,6 +831,7 @@ export interface RunLogEntry {
   nodeId: string | null;
   level: 'info' | 'warn' | 'error';
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- log context has varying structure
   context?: Record<string, any> | null;
   createdAt: string;
 }
@@ -797,6 +850,7 @@ export interface PaginatedResponse<T> {
   nextCursor?: string;
 }
 export interface CompareRunsResponse {
+  /* eslint-disable @typescript-eslint/no-explicit-any -- run comparison contains heterogeneous workflow data */
   runA: {
     id: string;
     status: string;
@@ -817,6 +871,7 @@ export interface CompareRunsResponse {
     error?: string | null;
     createdAt: string;
   };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   summaryDiff: {
     inputsChangedKeys: string[];
     outputsChangedKeys: string[];
@@ -832,7 +887,7 @@ export const documentRunsAPI = {
   list: (params: ListRunsParams = {}) => {
     const queryParams = new URLSearchParams();
     if (params.cursor) { queryParams.set('cursor', params.cursor); }
-    if (params.limit) { queryParams.set('limit', params.limit.toString()); }
+    if (params.limit !== undefined) { queryParams.set('limit', params.limit.toString()); }
     if (params.workflowId) { queryParams.set('workflowId', params.workflowId); }
     if (params.projectId) { queryParams.set('projectId', params.projectId); }
     if (params.status) { queryParams.set('status', params.status); }
@@ -853,7 +908,7 @@ export const documentRunsAPI = {
   getLogs: (id: string, params: { cursor?: string; limit?: number } = {}) => {
     const queryParams = new URLSearchParams();
     if (params.cursor) { queryParams.set('cursor', params.cursor); }
-    if (params.limit) { queryParams.set('limit', params.limit.toString()); }
+    if (params.limit !== undefined) { queryParams.set('limit', params.limit.toString()); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<PaginatedResponse<RunLogEntry>>(`/runs/${id}/logs${query}`);
   },
@@ -868,7 +923,7 @@ export const documentRunsAPI = {
    * Re-run a workflow with same or override inputs
    */
   rerun: (id: string, data: {
-    overrideInputJson?: Record<string, any>;
+    overrideInputJson?: Record<string, unknown>;
     versionId?: string;
     options?: { debug?: boolean };
   } = {}) =>
@@ -1108,8 +1163,8 @@ export interface ApiCollectionField {
   slug: string;
   type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'file' | 'select' | 'multi_select' | 'json';
   isRequired: boolean;
-  options: any[] | null;
-  defaultValue: any | null;
+  options: unknown[] | null;
+  defaultValue: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -1117,7 +1172,7 @@ export interface ApiCollectionRecord {
   id: string;
   tenantId: string;
   collectionId: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -1183,32 +1238,32 @@ export const collectionsAPI = {
   // Records
   listRecords: (tenantId: string, collectionId: string, params?: { limit?: number; offset?: number; orderBy?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc'; includeCount?: boolean }) => {
     const queryParams = new URLSearchParams();
-    if (params?.limit) { queryParams.set('limit', params.limit.toString()); }
-    if (params?.offset) { queryParams.set('offset', params.offset.toString()); }
+    if (params?.limit !== undefined && params.limit !== null) { queryParams.set('limit', params.limit.toString()); }
+    if (params?.offset !== undefined && params.offset !== null) { queryParams.set('offset', params.offset.toString()); }
     if (params?.orderBy) { queryParams.set('orderBy', params.orderBy); }
     if (params?.order) { queryParams.set('order', params.order); }
     if (params?.includeCount) { queryParams.set('includeCount', 'true'); }
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     return fetchAPI<ApiCollectionRecord[] | ListRecordsResponse>(`/api/tenants/${tenantId}/collections/${collectionId}/records${query}`);
   },
-  createRecord: (tenantId: string, collectionId: string, data: Record<string, any>) =>
+  createRecord: (tenantId: string, collectionId: string, data: Record<string, unknown>) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records`, {
       method: 'POST',
       body: JSON.stringify({ data }),
     }),
-  createRecordsBulk: (tenantId: string, collectionId: string, records: Array<Record<string, any>>) =>
+  createRecordsBulk: (tenantId: string, collectionId: string, records: Array<Record<string, unknown>>) =>
     fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/bulk`, {
       method: 'POST',
       body: JSON.stringify({ records }),
     }),
-  queryRecords: (tenantId: string, collectionId: string, filters: Record<string, any>) =>
+  queryRecords: (tenantId: string, collectionId: string, filters: Record<string, unknown>) =>
     fetchAPI<ApiCollectionRecord[]>(`/api/tenants/${tenantId}/collections/${collectionId}/records/query`, {
       method: 'POST',
       body: JSON.stringify({ filters }),
     }),
   getRecord: (tenantId: string, collectionId: string, recordId: string) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`),
-  updateRecord: (tenantId: string, collectionId: string, recordId: string, data: Record<string, any>) =>
+  updateRecord: (tenantId: string, collectionId: string, recordId: string, data: Record<string, unknown>) =>
     fetchAPI<ApiCollectionRecord>(`/api/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`, {
       method: 'PATCH',
       body: JSON.stringify({ data }),
@@ -1229,7 +1284,7 @@ export interface ApiDataSource {
   name: string;
   description?: string;
   type: "native" | "native_table" | "postgres" | "google_sheets" | "airtable" | "external";
-  config: any;
+  config: unknown;
   scopeType: "account" | "project" | "workflow";
   scopeId?: string;
   createdAt: string;
@@ -1280,7 +1335,7 @@ export interface AIStepData {
 }
 export const aiAPI = {
   suggestValues: (steps: AIStepData[], mode: 'full' | 'partial' = 'full') =>
-    fetchAPI<{ success: boolean; data: Record<string, any> }>(`/api/ai/suggest-values`, {
+    fetchAPI<{ success: boolean; data: Record<string, unknown> }>(`/api/ai/suggest-values`, {
       method: "POST",
       body: JSON.stringify({ steps, mode }),
     }).then(res => res.data),
@@ -1293,7 +1348,7 @@ export interface ApiTemplate {
   creatorId: string;
   name: string;
   description: string | null;
-  content: any; // JSON
+  content: unknown; // JSON
   tags: string[];
   isPublic: boolean;
   createdAt: string;
@@ -1336,14 +1391,15 @@ export interface ApiBlueprint {
   description: string | null;
   creatorId: string;
   isPublic: boolean;
-  metadata?: any;
+  metadata?: unknown;
   createdAt: string;
   updatedAt: string;
   tags?: string[]; // Derived from metadata potentially
 }
 export const blueprintAPI = {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- activeOnly reserved for future filter support
   list: (activeOnly?: boolean) => fetchAPI<{ data: ApiBlueprint[] }>('/api/blueprints').then(res => res.data),
-  create: (data: { name: string; description?: string; sourceWorkflowId: string; isPublic?: boolean; metadata?: any }) =>
+  create: (data: { name: string; description?: string; sourceWorkflowId: string; isPublic?: boolean; metadata?: unknown }) =>
     fetchAPI<{ data: ApiBlueprint }>('/api/blueprints', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -1362,16 +1418,12 @@ export const workflowExportAPI = {
   downloadExport: async (workflowId: string, format: 'json' | 'csv') => {
     // We use window.open or a hidden link for file downloads to handle the stream/headers correctly
     // But if we want to use fetch to verify auth first:
-    const token = await localStorage.getItem('auth_token'); // Or however auth is handled
+    const token = localStorage.getItem('auth_token');
     const url = `/api/workflows/${workflowId}/export?format=${format}`;
-    // For simple implementation, constructing URL with valid session cookie or token is easiest.
-    // Assuming hybridAuth uses cookies or headers.
-    // If using fetchAPI (which wraps fetch with headers):
     const response = await fetch(url, {
       headers: {
-        // ... auth headers if needed, though fetchAPI usually handles this.
-        // If we use fetchAPI, we get JSON/text back.
-        Authorization: `Bearer ${token}`
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+        Authorization: `Bearer ${String(token)}`
       }
     });
     if (!response.ok) { throw new Error('Export failed'); }
@@ -1435,7 +1487,7 @@ export interface ApiTimelineEvent {
   type: string;
   timestamp: string;
   blockId?: string;
-  payload?: any;
+  payload?: unknown;
 }
 export const analyticsAPI = {
   getHealth: (workflowId: string, versionId?: string, window: '1d' | '7d' | '30d' = '30d') => {

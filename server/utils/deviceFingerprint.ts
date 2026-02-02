@@ -9,9 +9,9 @@ import type { Request } from 'express';
  */
 export function generateDeviceFingerprint(req: Request): string {
   const components = [
-    req.headers['user-agent'] || '',
+    req.headers['user-agent'] ?? '',
     // Use X-Forwarded-For if behind proxy, otherwise use req.ip
-    req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.ip || '',
+    (req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ?? req.ip) ?? '',
   ];
 
   return crypto
@@ -24,13 +24,13 @@ export function generateDeviceFingerprint(req: Request): string {
  * Parse User-Agent into friendly device name
  */
 export function parseDeviceName(userAgent: string | undefined): string {
-  if (!userAgent) {return 'Unknown Device';}
+  if (!userAgent) { return 'Unknown Device'; }
 
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
 
-  const browser = result.browser.name || 'Unknown Browser';
-  const os = result.os.name || 'Unknown OS';
+  const browser = result.browser.name ?? 'Unknown Browser';
+  const os = result.os.name ?? 'Unknown OS';
 
   // Examples: "Chrome on macOS", "Firefox on Windows", "Safari on iOS"
   return `${browser} on ${os}`;
@@ -62,15 +62,15 @@ export function parseDeviceInfo(userAgent: string | undefined): {
   const result = parser.getResult();
 
   let deviceType: 'mobile' | 'tablet' | 'desktop' = 'desktop';
-  if (result.device.type === 'mobile') {deviceType = 'mobile';}
-  else if (result.device.type === 'tablet') {deviceType = 'tablet';}
+  if (result.device.type === 'mobile') { deviceType = 'mobile'; }
+  else if (result.device.type === 'tablet') { deviceType = 'tablet'; }
 
   return {
-    browser: result.browser.name || 'Unknown',
-    browserVersion: result.browser.version || '',
-    os: result.os.name || 'Unknown',
-    osVersion: result.os.version || '',
-    device: result.device.model || result.device.vendor || 'Unknown',
+    browser: result.browser.name ?? 'Unknown',
+    browserVersion: result.browser.version ?? '',
+    os: result.os.name ?? 'Unknown',
+    osVersion: result.os.version ?? '',
+    device: result.device.model ?? result.device.vendor ?? 'Unknown',
     deviceType
   };
 }
@@ -80,7 +80,7 @@ export function parseDeviceInfo(userAgent: string | undefined): {
  * In production, use MaxMind GeoIP2 or similar
  */
 export function getLocationFromIP(ip: string | undefined): string {
-  if (!ip) {return 'Unknown Location';}
+  if (!ip) { return 'Unknown Location'; }
 
   // Placeholder: In production, integrate with GeoIP service
   // For now, return a default

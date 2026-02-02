@@ -91,6 +91,7 @@ export class WorkflowDiffService {
     private getDiffItemType(block: WorkflowBlock): DiffItemType {
         // Heuristic: If it has an alias, it's likely a variable.
         // Logic blocks: branch, validate.
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
         if (block.variableName || block.alias || ['short_text', 'long_text', 'number', 'email'].includes(block.type as string)) {return 'variable';}
         if (['branch', 'validate', 'jump'].includes(block.type as string)) {return 'logic';}
         return 'block';
@@ -100,6 +101,7 @@ export class WorkflowDiffService {
         return block.title ? `'${block.title}'` : `${block.type} block`;
     }
 
+    // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
     private calculateSeverity(diff: WorkflowDiff, oldBlocks: Map<string, WorkflowBlock>, newBlocks: Map<string, WorkflowBlock>): Severity {
         // Reuse logic from ChangeAnalyzer essentially.
         let severity: Severity = "safe";
@@ -127,8 +129,8 @@ export class WorkflowDiffService {
                     return "hard_breaking"; // Immediate return
                 }
                 // R3: Required added -> Soft
-                if (oldB && newB && !oldB.required && newB.required) {
-                    if (severity !== 'hard_breaking') {severity = "soft_breaking";}
+                if (oldB && newB && !oldB.required && newB.required && severity !== 'hard_breaking') {
+                    severity = "soft_breaking";
                 }
             }
         }
@@ -137,8 +139,8 @@ export class WorkflowDiffService {
         for (const added of diff.added) {
             if (added.type === 'variable') {
                 const newB = newBlocks.get(added.id);
-                if (newB?.required) {
-                    if (severity !== "hard_breaking") {severity = "soft_breaking";}
+                if (newB?.required && severity !== "hard_breaking") {
+                    severity = "soft_breaking";
                 }
             }
         }

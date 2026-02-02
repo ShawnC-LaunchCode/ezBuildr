@@ -9,9 +9,10 @@
  * - Respects validation rules (min/max, required fields, formats)
  * - Deterministic and reproducible
  * - Safe fallbacks for all edge cases
+ * - Uses generic helpers for random selection
  *
- * @version 1.0.0
- * @date December 2025
+ * @version 1.1.0
+ * @date Jan 2026
  */
 
 import type { ApiStep } from '@/lib/vault-api';
@@ -29,7 +30,7 @@ import type {
   TimeConfig,
   DateTimeConfig,
   BooleanAdvancedConfig,
-} from '@/../../shared/types/stepConfigs';
+} from '../../../../shared/types/stepConfigs';
 
 // ============================================================================
 // RANDOM DATA GENERATORS
@@ -38,6 +39,16 @@ import type {
 /**
  * Generate random short text (5-20 chars)
  */
+function getRandomItems<T>(items: T[], min: number, max: number): T[] {
+  const count = Math.floor(Math.random() * (max - min + 1)) + min;
+  const selected: T[] = [];
+  // simple cloning to avoid modifying original array if needed, though here we just pick random
+  for (let i = 0; i < count; i++) {
+    selected.push(items[Math.floor(Math.random() * items.length)]);
+  }
+  return selected;
+}
+
 function randomShortText(): string {
   const words = [
     'apple', 'banana', 'cherry', 'dragon', 'elephant',
@@ -46,14 +57,7 @@ function randomShortText(): string {
     'piano', 'quartz', 'rainbow', 'sunset', 'thunder',
   ];
 
-  const count = Math.floor(Math.random() * 3) + 1; // 1-3 words
-  const selected = [];
-
-  for (let i = 0; i < count; i++) {
-    selected.push(words[Math.floor(Math.random() * words.length)]);
-  }
-
-  return selected.join(' ');
+  return getRandomItems(words, 1, 3).join(' ');
 }
 
 /**
@@ -68,14 +72,7 @@ function randomLongText(): string {
     'Data validation is crucial for maintaining system integrity.',
   ];
 
-  const count = Math.floor(Math.random() * 3) + 1; // 1-3 sentences
-  const selected = [];
-
-  for (let i = 0; i < count; i++) {
-    selected.push(sentences[Math.floor(Math.random() * sentences.length)]);
-  }
-
-  return selected.join(' ');
+  return getRandomItems(sentences, 1, 3).join(' ');
 }
 
 /**
@@ -269,7 +266,7 @@ function randomLastName(): string {
  * Generate random value for a text block
  */
 function generateTextValue(step: ApiStep): string {
-  const config = step.config;
+  const config = step.config as { variant?: 'short' | 'long' | 'text' } | undefined;
 
   // Check variant for advanced mode
   if (config?.variant === 'long') {
@@ -288,7 +285,7 @@ function generateTextValue(step: ApiStep): string {
  * Generate random value for a boolean block
  */
 function generateBooleanValue(step: ApiStep): boolean | string {
-  const config = step.config;
+  const config = step.config as BooleanAdvancedConfig | undefined;
   const value = randomBoolean();
 
   // Advanced mode: check if storing as alias
@@ -303,11 +300,11 @@ function generateBooleanValue(step: ApiStep): boolean | string {
  * Generate random value for a choice block
  */
 function generateChoiceValue(step: ApiStep): string | string[] {
-  const config = step.config;
+  const config = step.config as ChoiceAdvancedConfig | undefined;
 
   // Handle advanced mode
   if (config?.options && Array.isArray(config.options)) {
-    const options = config.options;
+    const options = config.options as Array<{ id: string; alias?: string }>;
 
     if (config.allowMultiple) {
       // Multiple selection: pick 1-3 random options
@@ -316,19 +313,11 @@ function generateChoiceValue(step: ApiStep): string | string[] {
         options.length
       );
 
-      const selected: string[] = [];
-      const availableIndices = options.map((_: any, i: number) => i);
+      // Unique random selection
+      const shuffled = [...options].sort(() => 0.5 - Math.random());
+      const selectedOpts = shuffled.slice(0, count);
 
-      for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(Math.random() * availableIndices.length);
-        const optionIndex = availableIndices.splice(randomIndex, 1)[0];
-        const option = options[optionIndex];
-
-        // Use alias if available, otherwise id
-        selected.push(option.alias || option.id);
-      }
-
-      return selected;
+      return selectedOpts.map(opt => opt.alias || opt.id);
     } else {
       // Single selection
       const option = options[Math.floor(Math.random() * options.length)];
@@ -338,7 +327,8 @@ function generateChoiceValue(step: ApiStep): string | string[] {
 
   // Legacy mode (simple string arrays)
   if (Array.isArray(config?.options)) {
-    const options = config.options;
+    // Legacy support: options can be string[] despite type definition
+    const options = config.options as unknown as string[];
 
     if (step.type === 'multiple_choice') {
       // Multiple selection
@@ -347,16 +337,9 @@ function generateChoiceValue(step: ApiStep): string | string[] {
         options.length
       );
 
-      const selected: string[] = [];
-      const availableIndices = options.map((_: any, i: number) => i);
-
-      for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(Math.random() * availableIndices.length);
-        const optionIndex = availableIndices.splice(randomIndex, 1)[0];
-        selected.push(options[optionIndex]);
-      }
-
-      return selected;
+      // Unique random selection
+      const shuffled = [...options].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count);
     } else {
       // Single selection
       return options[Math.floor(Math.random() * options.length)];
@@ -371,7 +354,7 @@ function generateChoiceValue(step: ApiStep): string | string[] {
  * Generate random value for a scale block
  */
 function generateScaleValue(step: ApiStep): number {
-  const config = step.config;
+  const config = step.config as ScaleConfig | undefined;
 
   const min = config?.min ?? 1;
   const max = config?.max ?? 10;
@@ -384,7 +367,7 @@ function generateScaleValue(step: ApiStep): number {
  * Generate random value for a number block
  */
 function generateNumberValue(step: ApiStep): number {
-  const config = step.config;
+  const config = step.config as NumberConfig | undefined;
 
   const min = config?.min ?? 0;
   const max = config?.max ?? 9999;
@@ -397,7 +380,7 @@ function generateNumberValue(step: ApiStep): number {
  * Generate random value for a currency block
  */
 function generateCurrencyValue(step: ApiStep): number {
-  const config = step.config;
+  const config = step.config as CurrencyConfig | undefined;
 
   const min = config?.min ?? 0;
   const max = config?.max ?? 10000;
@@ -409,8 +392,8 @@ function generateCurrencyValue(step: ApiStep): number {
 /**
  * Generate random value for an address block
  */
-function generateAddressValue(step: ApiStep): object {
-  const config = step.config;
+function generateAddressValue(step: ApiStep): Record<string, string> {
+  const config = step.config as AddressConfig | undefined;
 
   return {
     street: randomStreet(),
@@ -423,8 +406,8 @@ function generateAddressValue(step: ApiStep): object {
 /**
  * Generate random value for a multi-field block
  */
-function generateMultiFieldValue(step: ApiStep): object {
-  const config = step.config;
+function generateMultiFieldValue(step: ApiStep): Record<string, string | number> {
+  const config = step.config as MultiFieldConfig | undefined;
 
   // Handle predefined layouts
   if (config?.layout === 'first_last') {
@@ -455,7 +438,7 @@ function generateMultiFieldValue(step: ApiStep): object {
 
   // Custom fields
   if (config?.fields && Array.isArray(config.fields)) {
-    const result: Record<string, any> = {};
+    const result: Record<string, string | number> = {};
 
     for (const field of config.fields) {
       switch (field.type) {
@@ -492,13 +475,15 @@ function generateMultiFieldValue(step: ApiStep): object {
 // MAIN GENERATOR FUNCTION
 // ============================================================================
 
+type BlockValue = string | number | boolean | string[] | object | undefined;
+
 /**
  * Generate random value for a single block/step
  *
  * @param step - The step definition
  * @returns Random value appropriate for the step type
  */
-export function generateRandomValueForBlock(step: ApiStep): any {
+export function generateRandomValueForBlock(step: ApiStep): BlockValue {
   try {
     // Skip display blocks and JS blocks (no user input)
     if (step.type === 'display' || step.type === 'js_question' || step.type === 'computed') {
@@ -569,11 +554,11 @@ export function generateRandomValueForBlock(step: ApiStep): any {
     }
 
     // Fallback for unknown types
-    console.warn(`[RandomFill] Unknown block type: ${step.type}, using default short text`);
+    // console.warn(`[RandomFill] Unknown block type: ${step.type}`);
     return randomShortText();
 
   } catch (error) {
-    console.error('[RandomFill] Error generating random value for block:', step.id, error);
+    // console.error('[RandomFill] Error generating random value for block:', step.id, error);
     return randomShortText(); // Safe fallback
   }
 }
@@ -584,8 +569,8 @@ export function generateRandomValueForBlock(step: ApiStep): any {
  * @param steps - Array of all steps in the workflow
  * @returns Map of stepId -> random value
  */
-export function generateRandomValuesForWorkflow(steps: ApiStep[]): Record<string, any> {
-  const values: Record<string, any> = {};
+export function generateRandomValuesForWorkflow(steps: ApiStep[]): Record<string, BlockValue> {
+  const values: Record<string, BlockValue> = {};
 
   for (const step of steps) {
     const value = generateRandomValueForBlock(step);
@@ -605,6 +590,6 @@ export function generateRandomValuesForWorkflow(steps: ApiStep[]): Record<string
  * @param steps - Array of steps to fill
  * @returns Map of stepId -> random value
  */
-export function generateRandomValuesForSteps(steps: ApiStep[]): Record<string, any> {
+export function generateRandomValuesForSteps(steps: ApiStep[]): Record<string, BlockValue> {
   return generateRandomValuesForWorkflow(steps);
 }

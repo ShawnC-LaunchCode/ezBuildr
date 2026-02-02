@@ -128,7 +128,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           draftVersion = await versionService.createDraftVersion(
             workflowId,
             userId,
-            graphJson,
+            graphJson as any,
             `AI Edit: ${requestData.userMessage.substring(0, 30)}${requestData.userMessage.length > 30 ? '...' : ''}`,
             {
               source: 'ai-edit',
@@ -176,12 +176,12 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           success: true,
           data: {
             workflowId: updatedWorkflow.id,
-            versionId: draftVersion?.id || null,
+            versionId: draftVersion?.id ?? null,
             versionNumber: draftVersion?.versionNumber,
             noChanges,
             summary: aiResponse.summary,
-            warnings: aiResponse.warnings || [],
-            questions: aiResponse.questions || []
+            warnings: aiResponse.warnings ?? [],
+            questions: aiResponse.questions ?? []
           }
         });
       } catch (error) {
@@ -310,14 +310,14 @@ Available operation types:
  * Build workflow context summary
  */
 function buildWorkflowContext(workflow: WorkflowWithDetails): string {
-  const sections = workflow.sections || [];
-  const logicRules = workflow.logicRules || [];
+  const sections = workflow.sections ?? [];
+  const logicRules = workflow.logicRules ?? [];
   let context = `Workflow: ${workflow.title}
 Status: ${workflow.status}
 Sections: ${sections.length}
 `;
   for (const section of sections) {
-    const steps = section.steps || [];
+    const steps = section.steps ?? [];
     context += `\n### Section ${section.order}: ${section.title}
 Steps: ${steps.length}
 `;
@@ -341,11 +341,11 @@ function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<strin
   // For now, return a simplified representation
   // In production, this would match the actual graphJson schema used by the builder
   return {
-    pages: (workflow.sections || []).map((section: Section & { steps: Step[] }) => ({
+    pages: (workflow.sections ?? []).map((section: Section & { steps: Step[] }) => ({
       id: section.id,
       title: section.title,
       order: section.order,
-      blocks: (section.steps || []).map((step: Step) => ({
+      blocks: (section.steps ?? []).map((step: Step) => ({
         id: step.id,
         type: step.type,
         title: step.title,

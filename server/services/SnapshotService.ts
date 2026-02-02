@@ -44,7 +44,7 @@ export class SnapshotService {
       .select()
       .from(workflowSnapshots)
       .where(eq(workflowSnapshots.id, id));
-    return snapshot || null;
+    return snapshot ?? null;
   }
 
   /**
@@ -57,7 +57,7 @@ export class SnapshotService {
       .where(eq(workflowSnapshots.id, id))
       .returning();
 
-    if (!snapshot) { throw new Error(`Snapshot not found: ${id}`); }
+    if (snapshot === undefined) { throw new Error(`Snapshot not found: ${id}`); }
     return snapshot;
   }
 
@@ -80,7 +80,7 @@ export class SnapshotService {
       .from(workflowRuns)
       .where(eq(workflowRuns.id, runId));
 
-    if (!run) { throw new Error(`Run not found: ${runId}`); }
+    if (run === undefined) { throw new Error(`Run not found: ${runId}`); }
 
     // 2. Fetch step values with step info
     const values = await db
@@ -94,7 +94,7 @@ export class SnapshotService {
       .where(eq(stepValues.runId, runId));
 
     // 3. Construct input map (prefer alias, fallback to ID if needed)
-    const inputMap: Record<string, any> = {};
+    const inputMap: Record<string, unknown> = {};
     for (const v of values) {
       // Use alias if available, otherwise just ignore or use ID?
       // Requirement: "reference variable names"
@@ -114,32 +114,33 @@ export class SnapshotService {
       .where(eq(workflowSnapshots.id, snapshotId))
       .returning();
 
-    if (!snapshot) { throw new Error(`Snapshot not found: ${snapshotId}`); }
+    if (snapshot === undefined) { throw new Error(`Snapshot not found: ${snapshotId}`); }
     return snapshot;
   }
 
   /**
    * Get snapshot values as map
    */
-  static async getSnapshotValues(snapshotId: string): Promise<Record<string, any>> {
+  static async getSnapshotValues(snapshotId: string): Promise<Record<string, unknown>> {
     const snapshot = await this.getSnapshotById(snapshotId);
-    if (!snapshot) { throw new Error(`Snapshot not found: ${snapshotId}`); }
-    return (snapshot.values as Record<string, any>) || {};
+    if (snapshot === null) { throw new Error(`Snapshot not found: ${snapshotId}`); }
+    return (snapshot.values as Record<string, unknown>) ?? {};
   }
 
   /**
    * Validate snapshot against current workflow version
    * Returns compatibility report
    */
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- validation logic inherently checks many conditions
   static async validateSnapshot(snapshotId: string): Promise<{
     valid: boolean;
     severity: "safe" | "soft_breaking" | "hard_breaking";
     reasons: string[]
   }> {
     const snapshot = await this.getSnapshotById(snapshotId);
-    if (!snapshot) { throw new Error(`Snapshot not found: ${snapshotId}`); }
+    if (snapshot === null) { throw new Error(`Snapshot not found: ${snapshotId}`); }
 
-    const values = (snapshot.values as Record<string, any>) || {};
+    const values = (snapshot.values as Record<string, unknown>) ?? {};
 
     // Find current steps for the workflow
     const workflowSteps = await db
@@ -172,10 +173,10 @@ export class SnapshotService {
     // 1. Check for Missing Required Fields (Soft Breaking)
     for (const step of workflowSteps) {
       if (step.required) {
-        const hasValue = (step.alias && values[step.alias] !== undefined) || values[step.id] !== undefined;
+        const hasValue = (step.alias !== null && values[step.alias] !== undefined) || values[step.id] !== undefined;
         if (!hasValue) {
           severity = severity === "safe" ? "soft_breaking" : severity;
-          reasons.push(`Missing required field: ${step.alias || step.id}`);
+          reasons.push(`Missing required field: ${step.alias ?? step.id}`);
         }
       }
     }

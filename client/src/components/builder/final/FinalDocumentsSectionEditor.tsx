@@ -32,15 +32,25 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   const updateSectionMutation = useUpdateSection();
   const { mode } = useWorkflowBuilder();
   const isEasyMode = mode === 'easy';
+  // Define config type locally if not available globally yet
+  interface FinalDocumentsConfig {
+    finalBlock?: boolean;
+    templates?: string[];
+    screenTitle?: string;
+    markdownMessage?: string;
+    advanced?: Record<string, unknown>;
+  }
+
   // Get config from section or use defaults
-  const config = section.config || {
+  const config = (section.config || {
     finalBlock: true,
     templates: [],
     screenTitle: "Your Completed Documents",
     markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
     advanced: {}
-  };
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>(config.templates || []);
+  }) as FinalDocumentsConfig;
+
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>(config.templates ?? []);
   const [screenTitle, setScreenTitle] = useState(config.screenTitle || "Your Completed Documents");
   const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage || "# Thank You!\n\nYour documents are ready for download below.");
   // Fetch workflow to get projectId
@@ -55,14 +65,14 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   const { data: templatesData } = useQuery({
     queryKey: ["project-templates", workflow?.projectId],
     queryFn: async () => {
-      if (!workflow?.projectId) {return { items: [] };}
+      if (!workflow?.projectId) { return { items: [] }; }
       const response = await axios.get(`/api/projects/${workflow.projectId}/templates`);
       return response.data;
     },
     enabled: !!workflow?.projectId,
   });
   // API returns paginated response: { items: [...], nextCursor, hasMore }
-  const templates = templatesData?.items || [];
+  const templates = templatesData?.items ?? [];
   // Update section config when values change
   const handleUpdate = (field: string, value: any) => {
     const newConfig = {

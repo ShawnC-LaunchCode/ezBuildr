@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 
 import { auditLogs, type AuditLog } from "@shared/schema";
 
@@ -32,7 +32,7 @@ export enum SecurityEventType {
  * Interface for security event metadata
  */
 interface SecurityEventMetadata {
-  [key: string]: any;
+  [key: string]: unknown;
   reason?: string;
   deviceFingerprint?: string;
   sessionId?: string;
@@ -82,8 +82,8 @@ export class AuditLogService {
       // Since the schema requires workspaceId, we'll use a system workspace concept
       // or make it nullable in a future migration. For now, we'll handle gracefully.
       const auditEntry = {
-        tenantId: tenantId || null,
-        workspaceId: workspaceId || null,
+        tenantId: tenantId ?? null,
+        workspaceId: workspaceId ?? null,
         userId,
         action: eventType,
         entityType: "security",  // Required field
@@ -91,8 +91,8 @@ export class AuditLogService {
         resourceType: "security",
         resourceId: userId,
         changes: metadata ? { metadata } : null,
-        ipAddress: ipAddress || null,
-        userAgent: userAgent || null,
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
         timestamp: new Date(),
       };
 
@@ -144,7 +144,7 @@ export class AuditLogService {
 
     const metadata: SecurityEventMetadata = success
       ? { timestamp: new Date().toISOString() }
-      : { failureReason: failureReason || "Invalid credentials" };
+      : { failureReason: failureReason ?? "Invalid credentials" };
 
     return this.logSecurityEvent({
       userId,
@@ -239,7 +239,7 @@ export class AuditLogService {
       ipAddress,
       userAgent,
       metadata: {
-        mfaMethod: mfaMethod || "totp",
+        mfaMethod: mfaMethod ?? "totp",
         timestamp: new Date().toISOString(),
       },
     });
@@ -305,10 +305,7 @@ export class AuditLogService {
     userId: string,
     added: boolean,
     deviceFingerprint: string,
-    deviceName?: string,
-    ipAddress?: string | null,
-    userAgent?: string | null,
-    location?: string
+    options?: { deviceName?: string; ipAddress?: string | null; userAgent?: string | null; location?: string }
   ): Promise<AuditLog> {
     const eventType = added
       ? SecurityEventType.TRUSTED_DEVICE_ADDED
@@ -317,12 +314,12 @@ export class AuditLogService {
     return this.logSecurityEvent({
       userId,
       eventType,
-      ipAddress,
-      userAgent,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
       metadata: {
         deviceFingerprint,
-        deviceName,
-        location,
+        deviceName: options?.deviceName,
+        location: options?.location,
       },
     });
   }
@@ -388,7 +385,7 @@ export class AuditLogService {
             and(
               eq(auditLogs.userId, userId),
               eq(auditLogs.resourceType, "security"),
-              sql`${auditLogs.action} IN (${sql.join(eventTypes.map((t) => sql`${t}`), sql`, `)})`
+              inArray(auditLogs.action, eventTypes)
             )
           )
           .orderBy(desc(auditLogs.timestamp))
@@ -450,13 +447,13 @@ export class AuditLogService {
             and(
               eq(auditLogs.userId, userId),
               eq(auditLogs.resourceType, "security"),
-              sql`${auditLogs.action} IN (${sql.join(eventTypes.map((t) => sql`${t}`), sql`, `)})`
+              inArray(auditLogs.action, eventTypes)
             )
           );
       }
 
       const [result] = await query;
-      return Number(result?.count || 0);
+      return Number(result?.count ?? 0);
     } catch (error) {
       logger.error(
         {

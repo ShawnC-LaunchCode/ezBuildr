@@ -4,7 +4,7 @@
  */
 
 import { Filter, ArrowUpDown, Scissors, Columns, Hash, Target, ChevronDown, ChevronRight } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { FilterBuilderUI, SortBuilderUI, RangeControlsUI, AdvancedTransformUI } from "@/components/builder/transforms";
 import { Badge } from "@/components/ui/badge";
@@ -38,12 +38,12 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
   }, [config]);
 
   // Get list variables from workflow
-  const listVariables = (steps || []).filter(step =>
+  const listVariables = (steps ?? []).filter(step =>
     step.type === 'computed' && step.alias && step.alias.length > 0
   );
 
   // Get all workflow variables for value source
-  const allVariables = (steps || [])
+  const allVariables = (steps ?? [])
     .filter((step): step is typeof step & { alias: string } => !!step.alias && step.alias.length > 0)
     .map(step => step.alias);
 
@@ -153,7 +153,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
             <div className="space-y-2">
               <Label className="text-xs">Source List Variable</Label>
               <Select
-                value={localConfig.sourceListVar || ""}
+                value={localConfig.sourceListVar ?? ""}
                 onValueChange={(value) => handleChange({ sourceListVar: value })}
               >
                 <SelectTrigger className="bg-background">
@@ -166,7 +166,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
                     </div>
                   )}
                   {listVariables.map((variable) => (
-                    <SelectItem key={variable.id} value={variable.alias || ""}>
+                    <SelectItem key={variable.id} value={variable.alias ?? ""}>
                       {variable.alias} ({variable.title})
                     </SelectItem>
                   ))}
@@ -179,7 +179,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
               <Input
                 className="font-mono text-sm bg-background"
                 placeholder="e.g., filtered_users"
-                value={localConfig.outputListVar || ""}
+                value={localConfig.outputListVar ?? ""}
                 onChange={(e) => handleChange({ outputListVar: e.target.value })}
               />
               <p className="text-[11px] text-muted-foreground">
@@ -303,7 +303,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
                 <Input
                   className="h-8 text-xs font-mono bg-background"
                   placeholder="e.g., user_count"
-                  value={localConfig.outputs?.countVar || ''}
+                  value={localConfig.outputs?.countVar ?? ''}
                   onChange={(e) => handleChange({
                     outputs: {
                       ...localConfig.outputs,
@@ -321,7 +321,7 @@ export function ListToolsBlockEditor({ workflowId, config, onChange, mode }: Lis
                 <Input
                   className="h-8 text-xs font-mono bg-background"
                   placeholder="e.g., top_user"
-                  value={localConfig.outputs?.firstVar || ''}
+                  value={localConfig.outputs?.firstVar ?? ''}
                   onChange={(e) => handleChange({
                     outputs: {
                       ...localConfig.outputs,

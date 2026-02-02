@@ -19,7 +19,7 @@ import {
   Globe,
   ExternalLink,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 
 import BrandingPreview from '@/components/branding/BrandingPreview';
@@ -266,7 +266,7 @@ export default function BrandingSettingsPage() {
                         id="logoUrl"
                         type="url"
                         placeholder="https://example.com/logo.png"
-                        value={formData.logoUrl || ''}
+                        value={formData.logoUrl ?? ''}
                         onChange={(e) => { void handleChange('logoUrl', e.target.value); }}
                       />
                       <p className="text-xs text-muted-foreground">
@@ -307,7 +307,7 @@ export default function BrandingSettingsPage() {
                           id="primaryColor"
                           type="text"
                           placeholder="#3B82F6"
-                          value={formData.primaryColor || ''}
+                          value={formData.primaryColor ?? ''}
                           onChange={(e) => { void handleColorChange('primaryColor', e.target.value); }}
                           className="flex-1"
                         />
@@ -329,7 +329,7 @@ export default function BrandingSettingsPage() {
                           id="accentColor"
                           type="text"
                           placeholder="#10B981"
-                          value={formData.accentColor || ''}
+                          value={formData.accentColor ?? ''}
                           onChange={(e) => { void handleColorChange('accentColor', e.target.value); }}
                           className="flex-1"
                         />
@@ -370,7 +370,7 @@ export default function BrandingSettingsPage() {
                         </p>
                       </div>
                       <Switch
-                        checked={formData.darkModeEnabled || false}
+                        checked={formData.darkModeEnabled ?? false}
                         onCheckedChange={(checked) => handleChange('darkModeEnabled', checked)}
                       />
                     </div>
@@ -393,7 +393,7 @@ export default function BrandingSettingsPage() {
                       <Textarea
                         id="intakeHeaderText"
                         placeholder="Welcome to our intake portal"
-                        value={formData.intakeHeaderText || ''}
+                        value={formData.intakeHeaderText ?? ''}
                         onChange={(e) => { void handleChange('intakeHeaderText', e.target.value); }}
                         rows={3}
                         maxLength={500}
@@ -422,7 +422,7 @@ export default function BrandingSettingsPage() {
                         id="emailSenderName"
                         type="text"
                         placeholder="Acme Corporation"
-                        value={formData.emailSenderName || ''}
+                        value={formData.emailSenderName ?? ''}
                         onChange={(e) => { void handleChange('emailSenderName', e.target.value); }}
                       />
                     </div>
@@ -432,7 +432,7 @@ export default function BrandingSettingsPage() {
                         id="emailSenderAddress"
                         type="email"
                         placeholder="noreply@acme.com"
-                        value={formData.emailSenderAddress || ''}
+                        value={formData.emailSenderAddress ?? ''}
                         onChange={(e) => { void handleChange('emailSenderAddress', e.target.value); }}
                       />
                     </div>

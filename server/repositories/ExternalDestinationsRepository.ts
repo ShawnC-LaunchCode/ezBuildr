@@ -13,7 +13,7 @@ export class ExternalDestinationsRepository {
             .where(eq(externalDestinations.id, id))
             .limit(1);
 
-        if (!result) {return null;}
+        if (result === undefined) {return null;}
 
         // Map DB type to Shared Type if needed (or cast)
         // Drizzle result `authConfig` is jsonb, typically cast to Record<string, any>

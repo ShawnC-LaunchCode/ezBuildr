@@ -6,6 +6,8 @@
  * @date December 2025
  */
 
+import { logger } from '../../logger';
+
 // Provider interface and factory
 export { EsignProviderFactory } from './EsignProvider';
 export type {
@@ -47,7 +49,7 @@ export function initializeEsignProviders(): void {
   const docusignProvider = createDocusignProvider();
   if (docusignProvider) {
     EsignProviderFactory.registerProvider('docusign', docusignProvider);
-    console.log('[Esign] DocuSign provider registered');
+    logger.info('[Esign] DocuSign provider registered');
   }
 
   // TODO: Register other providers (HelloSign, Native)
@@ -57,5 +59,5 @@ export function initializeEsignProviders(): void {
   // }
 
   const registeredProviders = EsignProviderFactory.getAllProviders();
-  console.log(`[Esign] Initialized ${registeredProviders.length} provider(s): ${registeredProviders.join(', ')}`);
+  logger.info(`[Esign] Initialized ${registeredProviders.length} provider(s): ${registeredProviders.join(', ')}`);
 }

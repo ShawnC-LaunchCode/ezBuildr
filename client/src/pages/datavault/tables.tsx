@@ -7,7 +7,7 @@
  */
 
 import { Loader2, Search, Plus, Sparkles, Database as DatabaseIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
@@ -291,7 +291,7 @@ export default function DataVaultTablesPage() {
                     table={table}
                     onClick={() => { void handleTableClick(table.id); }}
                     onDelete={() => setDeleteConfirm({ id: table.id, name: table.name })}
-                    onMove={() => setMoveTable({ id: table.id, name: table.name, currentDatabaseId: (table as any).databaseId || null })}
+                    onMove={() => setMoveTable({ id: table.id, name: table.name, currentDatabaseId: (table as any).databaseId ?? null })}
                   />
                 ))}
               </div>
@@ -366,7 +366,7 @@ export default function DataVaultTablesPage() {
           onOpenChange={(open) => !open && setMoveTable(null)}
           tableName={moveTable.name}
           currentDatabaseId={moveTable.currentDatabaseId}
-          databases={databases || []}
+          databases={databases ?? []}
           onMove={handleMoveTable}
           isLoading={moveTableMutation.isPending}
         />

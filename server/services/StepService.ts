@@ -4,6 +4,9 @@ import { stepRepository, sectionRepository } from "../repositories";
 
 import { workflowService } from "./WorkflowService";
 
+const SECTION_NOT_FOUND = "Section not found";
+const STEP_NOT_FOUND = "Step not found";
+
 /**
  * Service layer for step-related business logic
  */
@@ -17,9 +20,9 @@ export class StepService {
     sectionRepo?: typeof sectionRepository,
     workflowSvc?: typeof workflowService
   ) {
-    this.stepRepo = stepRepo || stepRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
-    this.workflowSvc = workflowSvc || workflowService;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
   }
 
   /**
@@ -68,7 +71,7 @@ export class StepService {
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Validate alias uniqueness if provided
@@ -102,7 +105,7 @@ export class StepService {
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
-      throw new Error("Step not found");
+      throw new Error(STEP_NOT_FOUND);
     }
 
     // Verify step's section belongs to workflow
@@ -135,7 +138,7 @@ export class StepService {
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
-      throw new Error("Step not found");
+      throw new Error(STEP_NOT_FOUND);
     }
 
     // Verify step's section belongs to workflow
@@ -161,7 +164,7 @@ export class StepService {
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Update each step's order
@@ -179,7 +182,7 @@ export class StepService {
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     return this.stepRepo.findBySectionId(sectionId);
@@ -196,7 +199,7 @@ export class StepService {
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Use the existing method with the workflowId
@@ -212,7 +215,7 @@ export class StepService {
     // Look up the section
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Verify the section belongs to the expected workflow
@@ -234,7 +237,7 @@ export class StepService {
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Use the existing method with the workflowId
@@ -252,7 +255,7 @@ export class StepService {
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Use the existing method with the workflowId
@@ -270,13 +273,13 @@ export class StepService {
     // Look up the step to get its section
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
-      throw new Error("Step not found");
+      throw new Error(STEP_NOT_FOUND);
     }
 
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(step.sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Use the existing method with the workflowId
@@ -290,13 +293,13 @@ export class StepService {
     // Look up the step to get its section
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
-      throw new Error("Step not found");
+      throw new Error(STEP_NOT_FOUND);
     }
 
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(step.sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Use the existing method with the workflowId
@@ -310,13 +313,13 @@ export class StepService {
     // Look up the step
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
-      throw new Error("Step not found");
+      throw new Error(STEP_NOT_FOUND);
     }
 
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(step.sectionId);
     if (!section) {
-      throw new Error("Section not found");
+      throw new Error(SECTION_NOT_FOUND);
     }
 
     // Verify ownership

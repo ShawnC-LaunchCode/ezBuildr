@@ -42,14 +42,15 @@ export interface FinalBlockOutput {
     durationMs?: number;
 }
 export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlockOutput> {
-    const { nodeId, config, context, tenantId, runId, workflowVersionId } = input;
+    const { config, context, tenantId, runId } = input;
     const startTime = Date.now();
     try {
         // 1. Resolve Markdown content (if any)
-        let markdownContent = config.markdownHeader || '';
+        let markdownContent = config.markdownHeader ?? '';
         if (markdownContent) {
             // Simple interpolation for now, could use evaluateExpression for more complex templates if needed
-            markdownContent = markdownContent.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
+            markdownContent = markdownContent.replace(/\{\{(\w+)\}\}/g, (match, varName: string) => {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 return context.vars[varName] !== undefined ? String(context.vars[varName]) : match;
             });
         }
@@ -70,8 +71,8 @@ export async function executeFinalNode(input: FinalBlockInput): Promise<FinalBlo
         const request: FinalBlockRenderRequest = {
             finalBlockConfig: config,
             stepValues: context.vars,
-            workflowId: context.workflowId || 'unknown',
-            runId: runId || `preview-${Date.now()}`,
+            workflowId: context.workflowId ?? 'unknown',
+            runId: runId ?? `preview-${Date.now()}`,
             resolveTemplate: templateResolver,
             toPdf: false // Default to false for now
         };

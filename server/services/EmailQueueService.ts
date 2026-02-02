@@ -15,7 +15,7 @@ if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@ezbuildr.com';
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
 export class EmailQueueService {
     private isProcessing = false;
@@ -48,17 +48,18 @@ export class EmailQueueService {
     /**
      * Start the worker
      */
-    startWorker(intervalMs: number = 5000) {
+    startWorker(intervalMs: number = 5000): void {
         if (this.pollInterval) {return;}
 
         logger.info({ intervalMs }, 'Starting email queue worker');
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         this.pollInterval = setInterval(() => this.processQueue(), intervalMs);
     }
 
     /**
      * Stop the worker
      */
-    stopWorker() {
+    stopWorker(): void {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
@@ -69,7 +70,7 @@ export class EmailQueueService {
     /**
      * Process pending jobs
      */
-    private async processQueue() {
+    private async processQueue(): Promise<void> {
         if (this.isProcessing) {return;}
         this.isProcessing = true;
 
@@ -112,7 +113,7 @@ export class EmailQueueService {
         }
     }
 
-    private async processJob(job: typeof emailQueue.$inferSelect) {
+    private async processJob(job: typeof emailQueue.$inferSelect): Promise<void> {
         // Mark as processing
         await db.update(emailQueue)
             .set({ status: 'processing', updatedAt: new Date() })

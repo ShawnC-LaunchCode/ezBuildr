@@ -29,11 +29,11 @@ export class ReadTableBlockService {
     stepRepo?: typeof stepRepository,
     sectionRepo?: typeof sectionRepository
   ) {
-    this.blockRepo = blockRepo || blockRepository;
-    this.workflowRepo = workflowRepo || workflowRepository;
-    this.workflowSvc = workflowSvc || workflowService;
-    this.stepRepo = stepRepo || stepRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
+    this.blockRepo = blockRepo ?? blockRepository;
+    this.workflowRepo = workflowRepo ?? workflowRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
   }
 
   /**
@@ -102,7 +102,7 @@ export class ReadTableBlockService {
       workflowId,
       type: 'read_table',
       phase: data.phase,
-      sectionId: data.sectionId || null,
+      sectionId: data.sectionId ?? null,
       config: data.config,
       order: newOrder,
       virtualStepId: virtualStep.id,
@@ -152,7 +152,7 @@ export class ReadTableBlockService {
     ) {
       await this.stepRepo.update(block.virtualStepId, {
         alias: data.config.outputKey,
-        title: `Read Table: ${data.name || 'Updated Read Table'}`
+        title: `Read Table: ${data.name ?? 'Updated Read Table'}`
       });
     } else if (data.name && block.virtualStepId) {
       // Update title if only name changed

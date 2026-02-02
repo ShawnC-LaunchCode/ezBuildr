@@ -105,7 +105,7 @@ async function cookieStrategy(req: Request): Promise<boolean> {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) { return false; }
   try {
-    const cookies = parseCookies(req.headers.cookie || '');
+    const cookies = parseCookies(req.headers.cookie ?? '');
     const refreshToken = cookies['refresh_token'];
     if (refreshToken) {
       const userId = await authService.validateRefreshToken(refreshToken);
@@ -116,7 +116,7 @@ async function cookieStrategy(req: Request): Promise<boolean> {
           Object.assign(req, {
             userId: user.id,
             userEmail: user.email,
-            tenantId: user.tenantId || undefined,
+            tenantId: user.tenantId ?? undefined,
             userRole: user.tenantRole
           } as AuthRequest);
           logger.debug({ userId }, 'Authenticated via Refresh Token Cookie (Hybrid)');
@@ -132,7 +132,7 @@ async function cookieStrategy(req: Request): Promise<boolean> {
     logger.error({ error }, 'Cookie strategy error');
   }
   // logger.debug({
-  //   cookiePresent: !!parseCookies(req.headers.cookie || '')['refresh_token'],
+  //   cookiePresent: !!parseCookies(req.headers.cookie ?? '')['refresh_token'],
   //   method: req.method,
   //   url: req.url
   // }, 'Cookie strategy failed');
@@ -187,9 +187,9 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
   Object.assign(req, {
     userId: payload.userId,
     userEmail: payload.email,
-    tenantId: payload.tenantId || undefined,
-    userRole: payload.tenantRole || null, // Prefer tenantRole from payload, fallback handled below
-    systemRole: payload.role as any, // Admin/Creator
+    tenantId: payload.tenantId ?? undefined,
+    userRole: payload.tenantRole ?? null,
+    systemRole: payload.role as string | undefined,
     jwtPayload: payload
   } as AuthRequest);
   // Now we can safely access via type guard
@@ -197,7 +197,9 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
     try {
       const user = await userRepository.findById(req.userId);
       if (user?.tenantId) {
+        // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
         req.tenantId = user.tenantId;
+        // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
         req.userRole = user.tenantRole;
         logger.debug({ userId: req.userId, tenantId: req.tenantId }, 'Hydrated tenantId from DB');
       } else {
@@ -213,13 +215,6 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
       source: 'token'
     }, 'User attached from token');
   }
-}
-/**
- * @deprecated Use sendErrorResponse from utils/responses.ts instead
- * This function is kept for backward compatibility but will be removed in v2.0
- */
-function handleAuthError(error: unknown, req: Request, res: Response) {
-  sendErrorResponse(res, error as Error);
 }
 /**
  * Safely get user ID from request (type-safe)

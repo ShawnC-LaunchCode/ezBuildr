@@ -174,9 +174,9 @@ export async function importSnip(
         const sectionPayload = {
             workflowId,
             title: finalPageTitle,
-            description: snipPage.description || null,
+            description: snipPage.description ?? null,
             order: currentOrder++,
-            visibleIf: snipPage.visibleIf || null, // PRESERVE CONDITIONAL LOGIC
+            visibleIf: snipPage.visibleIf ?? null, // PRESERVE CONDITIONAL LOGIC
         };
         const sectionResponse = await fetch(`/api/workflows/${workflowId}/sections`, {
             method: "POST",
@@ -202,12 +202,12 @@ export async function importSnip(
                 sectionId: section.id,
                 type: snipQuestion.type,
                 title: snipQuestion.title,
-                description: snipQuestion.description || null,
+                description: snipQuestion.description ?? null,
                 required: snipQuestion.required, // PRESERVE REQUIRED STATUS
                 alias: finalAlias,
-                options: snipQuestion.options || null,
-                defaultValue: snipQuestion.defaultValue || null,
-                visibleIf: snipQuestion.visibleIf || null, // PRESERVE CONDITIONAL LOGIC
+                options: snipQuestion.options ?? null,
+                defaultValue: snipQuestion.defaultValue ?? null,
+                visibleIf: snipQuestion.visibleIf ?? null, // PRESERVE CONDITIONAL LOGIC
                 order: snipQuestion.order,
                 config: {},
             };

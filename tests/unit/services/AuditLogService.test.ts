@@ -260,10 +260,7 @@ describe("AuditLogService", () => {
         "user-123",
         true,
         "device-fingerprint-123",
-        "Chrome on Windows",
-        "192.168.1.1",
-        "Mozilla/5.0",
-        "New York, US"
+        { deviceName: "Chrome on Windows", ipAddress: "192.168.1.1", userAgent: "Mozilla/5.0", location: "New York, US" }
       );
 
       expect(mockInsert).toHaveBeenCalled();
@@ -290,9 +287,7 @@ describe("AuditLogService", () => {
         "user-123",
         false,
         "device-fingerprint-123",
-        "Chrome on Windows",
-        "192.168.1.1",
-        "Mozilla/5.0"
+        { deviceName: "Chrome on Windows", ipAddress: "192.168.1.1", userAgent: "Mozilla/5.0" }
       );
 
       expect(mockInsert).toHaveBeenCalled();

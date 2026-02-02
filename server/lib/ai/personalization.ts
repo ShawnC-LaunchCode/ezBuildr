@@ -23,7 +23,7 @@ export class PersonalizationService {
 
         if (process.env.NODE_ENV !== 'test_without_mock') {
             try {
-                this.genAI = new GoogleGenerativeAI(apiKey || "");
+                this.genAI = new GoogleGenerativeAI(apiKey ?? "");
                 const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
                 this.model = this.genAI.getGenerativeModel({ model });
             } catch (e) {
@@ -31,7 +31,7 @@ export class PersonalizationService {
                 this.model = null;
             }
         } else {
-            this.genAI = new GoogleGenerativeAI(apiKey || "");
+            this.genAI = new GoogleGenerativeAI(apiKey ?? "");
             const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
             this.model = this.genAI.getGenerativeModel({ model });
         }

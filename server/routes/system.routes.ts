@@ -17,7 +17,7 @@ const logger = createLogger({ module: 'system-routes' });
 router.post('/cleanup', asyncHandler(async (req, res) => {
     const authHeader = req.headers['x-system-key'];
     // In production, this should be set in environment variables
-    const systemKey = process.env.SYSTEM_CLEANUP_KEY || 'ezbuildr-cleanup-secret';
+    const systemKey = process.env.SYSTEM_CLEANUP_KEY ?? 'ezbuildr-cleanup-secret';
 
     if (authHeader !== systemKey) {
         res.status(403).json({ error: 'Unauthorized' });

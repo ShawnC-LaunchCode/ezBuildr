@@ -7,79 +7,86 @@
  * This module operates on in-memory list data and does NOT perform database queries.
  */
 
-import type { ListVariable, ListToolsFilterGroup, ListToolsFilterRule, ListToolsSortKey, ListToolsDedupe, ReadTableOperator } from './types/blocks';
+import type { ListVariable, ListToolsFilterGroup, ListToolsFilterRule, ListToolsSortKey, ListToolsDedupe } from './types/blocks';
+
+/** Row from a ListVariable - has an id and arbitrary column values */
+type ListRow = ListVariable['rows'][number];
 
 /**
  * Get value from object using dot notation path
  * Examples: "name", "address.city", "user.profile.age"
  */
-export function getFieldValue(obj: any, fieldPath: string): any {
+export function getFieldValue(obj: Record<string, unknown>, fieldPath: string): unknown {
   if (!fieldPath) {return undefined;}
 
   const keys = fieldPath.split('.');
-  let value: any = obj;
+  let value: unknown = obj;
 
   for (const key of keys) {
     if (value === null || value === undefined) {return undefined;}
-    value = value[key];
+    value = (value as Record<string, unknown>)[key];
   }
 
   return value;
 }
 
+/** Convert unknown to string safely for comparison */
+function safeStr(value: unknown): string {
+  return String(value ?? '');
+}
+
 /**
  * Evaluate a single filter rule against a row
  */
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
 export function evaluateFilterRule(
-  row: any,
+  row: Record<string, unknown>,
   rule: ListToolsFilterRule,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): boolean {
-  const fieldValue = getFieldValue(row, rule.fieldPath);
+  const fieldValue: unknown = getFieldValue(row, rule.fieldPath);
 
   // Resolve comparison value (constant or variable reference)
-  let compareValue = rule.value;
-  if (rule.valueSource === 'var' && context && rule.value) {
+  let compareValue: unknown = rule.value;
+  if (rule.valueSource === 'var' && context !== undefined && rule.value !== undefined && rule.value !== null) {
     compareValue = context[rule.value as string];
   }
 
   // Apply operator
   switch (rule.op) {
     case 'equals':
-      // Strict equality for predictability
       return fieldValue === compareValue;
 
     case 'not_equals':
-      // Strict inequality
       return fieldValue !== compareValue;
 
     case 'contains':
-      return String(fieldValue || '').includes(String(compareValue || ''));
+      return safeStr(fieldValue).includes(safeStr(compareValue));
 
     case 'not_contains':
-      return !String(fieldValue || '').includes(String(compareValue || ''));
+      return !safeStr(fieldValue).includes(safeStr(compareValue));
 
     case 'starts_with':
-      return String(fieldValue || '').startsWith(String(compareValue || ''));
+      return safeStr(fieldValue).startsWith(safeStr(compareValue));
 
     case 'ends_with':
-      return String(fieldValue || '').endsWith(String(compareValue || ''));
+      return safeStr(fieldValue).endsWith(safeStr(compareValue));
 
     // Case-insensitive variants
     case 'equals_ci':
-      return String(fieldValue || '').toLowerCase() === String(compareValue || '').toLowerCase();
+      return safeStr(fieldValue).toLowerCase() === safeStr(compareValue).toLowerCase();
 
     case 'contains_ci':
-      return String(fieldValue || '').toLowerCase().includes(String(compareValue || '').toLowerCase());
+      return safeStr(fieldValue).toLowerCase().includes(safeStr(compareValue).toLowerCase());
 
     case 'not_contains_ci':
-      return !String(fieldValue || '').toLowerCase().includes(String(compareValue || '').toLowerCase());
+      return !safeStr(fieldValue).toLowerCase().includes(safeStr(compareValue).toLowerCase());
 
     case 'starts_with_ci':
-      return String(fieldValue || '').toLowerCase().startsWith(String(compareValue || '').toLowerCase());
+      return safeStr(fieldValue).toLowerCase().startsWith(safeStr(compareValue).toLowerCase());
 
     case 'ends_with_ci':
-      return String(fieldValue || '').toLowerCase().endsWith(String(compareValue || '').toLowerCase());
+      return safeStr(fieldValue).toLowerCase().endsWith(safeStr(compareValue).toLowerCase());
 
     case 'greater_than':
       return (fieldValue as number) > (compareValue as number);
@@ -102,12 +109,10 @@ export function evaluateFilterRule(
     case 'in_list':
     case 'in':
       if (!Array.isArray(compareValue)) {return false;}
-      // Strict equality for predictability
       return compareValue.some(v => v === fieldValue);
 
     case 'not_in_list':
       if (!Array.isArray(compareValue)) {return true;}
-      // Strict equality
       return !compareValue.some(v => v === fieldValue);
 
     case 'exists':
@@ -122,9 +127,9 @@ export function evaluateFilterRule(
  * Evaluate filter group (supports AND/OR + nested groups)
  */
 export function evaluateFilterGroup(
-  row: any,
+  row: Record<string, unknown>,
   group: ListToolsFilterGroup,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): boolean {
   const results: boolean[] = [];
 
@@ -156,7 +161,7 @@ export function evaluateFilterGroup(
 export function applyListFilters(
   list: ListVariable,
   filterGroup: ListToolsFilterGroup,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): ListVariable {
   const filteredRows = list.rows.filter(row =>
     evaluateFilterGroup(row, filterGroup, context)
@@ -176,17 +181,18 @@ export function applyListSort(
   list: ListVariable,
   sortKeys: ListToolsSortKey[]
 ): ListVariable {
-  if (!sortKeys || sortKeys.length === 0) {return list;}
+  if (sortKeys.length === 0) {return list;}
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-key sort comparator
   const sortedRows = [...list.rows].sort((a, b) => {
     for (const sortKey of sortKeys) {
-      const valA = getFieldValue(a, sortKey.fieldPath);
-      const valB = getFieldValue(b, sortKey.fieldPath);
+      const valA: unknown = getFieldValue(a, sortKey.fieldPath);
+      const valB: unknown = getFieldValue(b, sortKey.fieldPath);
 
       // Handle null/undefined
-      if (valA == null && valB == null) {continue;}
-      if (valA == null) {return sortKey.direction === 'asc' ? -1 : 1;}
-      if (valB == null) {return sortKey.direction === 'asc' ? 1 : -1;}
+      if ((valA === null || valA === undefined) && (valB === null || valB === undefined)) {continue;}
+      if (valA === null || valA === undefined) {return sortKey.direction === 'asc' ? -1 : 1;}
+      if (valB === null || valB === undefined) {return sortKey.direction === 'asc' ? 1 : -1;}
 
       // Compare values
       let cmp = 0;
@@ -244,8 +250,8 @@ export function applyListSelect(
   list: ListVariable,
   selectFields: string[]
 ): ListVariable {
-  const selectedRows = list.rows.map(row => {
-    const newRow: any = {};
+  const selectedRows: ListRow[] = list.rows.map(row => {
+    const newRow: Record<string, unknown> = {};
 
     // Always preserve id
     if (row.id !== undefined) {
@@ -260,7 +266,7 @@ export function applyListSelect(
       }
     }
 
-    return newRow;
+    return newRow as ListRow;
   });
 
   return {
@@ -280,9 +286,9 @@ export function applyListDedupe(
   list: ListVariable,
   dedupe: ListToolsDedupe
 ): ListVariable {
-  const seen = new Set<any>();
+  const seen = new Set<string>();
   const dedupedRows = list.rows.filter(row => {
-    const value = getFieldValue(row, dedupe.fieldPath);
+    const value: unknown = getFieldValue(row, dedupe.fieldPath);
 
     // Don't dedupe null/undefined values - keep all of them
     if (value === null || value === undefined) {
@@ -317,14 +323,14 @@ export interface ListTransformConfig {
 }
 
 export function transformList(
-  inputList: ListVariable | any[],
+  inputList: ListVariable | unknown[],
   config: ListTransformConfig,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): ListVariable {
   // Normalize input
   let workingList: ListVariable;
   if (isListVariable(inputList)) {
-    workingList = inputList as ListVariable;
+    workingList = inputList;
   } else if (Array.isArray(inputList)) {
     workingList = arrayToListVariable(inputList);
   } else {
@@ -370,18 +376,18 @@ export function transformList(
 /**
  * Helper: Check if data is a ListVariable
  */
-export function isListVariable(data: any): boolean {
-  return data && typeof data === 'object' && 'rows' in data && 'columns' in data && 'metadata' in data;
+export function isListVariable(data: unknown): data is ListVariable {
+  return data !== null && data !== undefined && typeof data === 'object' && 'rows' in data && 'columns' in data && 'metadata' in data;
 }
 
 /**
  * Helper: Convert plain array to ListVariable
  */
-export function arrayToListVariable(array: any[]): ListVariable {
+export function arrayToListVariable(array: unknown[]): ListVariable {
   // Extract all unique keys from array items
   const allKeys = new Set<string>();
   array.forEach(item => {
-    if (item && typeof item === 'object') {
+    if (item !== null && item !== undefined && typeof item === 'object') {
       Object.keys(item).forEach(key => allKeys.add(key));
     }
   });
@@ -394,10 +400,13 @@ export function arrayToListVariable(array: any[]): ListVariable {
 
   return {
     metadata: { source: 'list_tools' },
-    rows: array.map((item, idx) => ({
-      id: item?.id || `row-${idx}`,
-      ...item
-    })),
+    rows: array.map((item, idx) => {
+      const obj = (item !== null && item !== undefined && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+      return {
+        id: (typeof obj.id === 'string' ? obj.id : undefined) ?? `row-${String(idx)}`,
+        ...obj
+      } as ListRow;
+    }),
     count: array.length,
     columns
   };

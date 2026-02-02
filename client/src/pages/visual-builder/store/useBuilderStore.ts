@@ -187,7 +187,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
       },
     }));
 
-    const edges: Edge[] = (graphJson.edges || []).map((edge: any) => ({
+    const edges: Edge[] = (graphJson.edges ?? []).map((edge: any) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,

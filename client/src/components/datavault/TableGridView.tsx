@@ -88,13 +88,13 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     enabled: hasNextPage ?? false,
   });
   // Flatten all pages into a single array of rows
-  const allRows = infiniteData?.pages.flatMap((page) => page.rows) || [];
+  const allRows = infiniteData?.pages.flatMap((page) => page.rows) ?? [];
   // Batch fetch all reference values (fixes N+1 query problem)
   // Before: 100 rows × 3 reference columns = 300 API requests
   // After: 1 batch API request
   const { data: batchReferencesData } = useBatchReferences(
     allRows,
-    localColumns.length > 0 ? localColumns : (schema?.columns || [])
+    localColumns.length > 0 ? localColumns : (schema?.columns ?? [])
   );
   const handleCellUpdate = async (rowId: string, column: DatavaultColumn, value: any) => {
     try {
@@ -157,7 +157,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     );
   }
   // Use local columns if available (for optimistic updates), otherwise use schema
-  const columns = localColumns.length > 0 ? localColumns : (schema?.columns || []);
+  const columns = localColumns.length > 0 ? localColumns : (schema?.columns ?? []);
   // Sort columns by orderIndex
   const sortedColumns = [...columns].sort((a, b) => a.orderIndex - b.orderIndex);
   return (

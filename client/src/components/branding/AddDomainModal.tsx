@@ -5,7 +5,7 @@
  */
 
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,8 @@ export default function AddDomainModal({
     }
 
     // Check format: alphanumeric and hyphens only, no leading/trailing hyphens
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(value)) {
+    // Using a more robust regex for subdomain validation (RFC 1035)
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)) {
       return 'Subdomain can only contain lowercase letters, numbers, and hyphens (no leading/trailing hyphens)';
     }
 
@@ -111,7 +112,8 @@ export default function AddDomainModal({
     }
 
     // Basic domain format validation
-    const domainRegex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i;
+    // Use a clearer regex pattern for domain names (RFC 1035)
+    const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
     if (!domainRegex.test(value)) {
       return 'Please enter a valid domain name (e.g., example.com)';
     }
@@ -155,8 +157,9 @@ export default function AddDomainModal({
       setSubdomain('');
       setCustomDomain('');
       setError(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to add domain');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add domain';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -189,7 +192,7 @@ export default function AddDomainModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={domainType} onValueChange={(v) => setDomainType(v as any)} className="mt-4">
+        <Tabs value={domainType} onValueChange={(v) => setDomainType(v as 'subdomain' | 'custom')} className="mt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="subdomain">Subdomain</TabsTrigger>
             <TabsTrigger value="custom">Custom Domain</TabsTrigger>
@@ -279,10 +282,10 @@ export default function AddDomainModal({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { void handleOpenChange(false); }} disabled={isSubmitting}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={() => { void handleSubmit(); }} disabled={!currentValue || isSubmitting || !isValid}>
+          <Button onClick={() => handleSubmit()} disabled={!currentValue || isSubmitting || !isValid}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

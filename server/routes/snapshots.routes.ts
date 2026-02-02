@@ -7,6 +7,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 import type { Express, Request, Response } from "express";
 
+const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+
 // Zod schemas for request validation
 const createSnapshotSchema = z.object({
   name: z.string().min(1).max(255),
@@ -24,6 +26,7 @@ const saveFromRunSchema = z.object({
  * Register snapshot-related routes
  * Handles snapshot CRUD operations and run value persistence
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerSnapshotRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/snapshots
@@ -33,7 +36,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { workflowId } = req.params;
@@ -57,7 +60,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;
@@ -85,7 +88,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { workflowId } = req.params;
@@ -115,7 +118,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;
@@ -150,7 +153,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;
@@ -179,7 +182,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;
@@ -209,7 +212,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;
@@ -238,7 +241,7 @@ export function registerSnapshotRoutes(app: Express): void {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
 
       const { snapshotId } = req.params;

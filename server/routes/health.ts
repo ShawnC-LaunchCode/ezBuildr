@@ -43,16 +43,16 @@ interface HealthCheckResponse {
 }
 
 router.get('/health', asyncHandler(async (req: Request, res: Response) => {
-  const startTime = Date.now();
   const healthCheck: HealthCheckResponse = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '1.7.0',
-    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version ?? '1.7.0',
+    environment: process.env.NODE_ENV ?? 'development',
     database: {
       connected: false,
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Express request augmented with id
     requestId: (req as any).id,
   };
 

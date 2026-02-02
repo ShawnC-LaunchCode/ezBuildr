@@ -7,7 +7,7 @@ import {
     AlertCircle,
     Plus
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,12 +34,12 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
     // Parse existing assignments
-    const assignments: AssignmentRule[] = workflow?.intakeConfig?.assignments || [];
+    const assignments: AssignmentRule[] = workflow?.intakeConfig?.assignments ?? [];
     // Filter out self and upstream (loops)
     const candidateWorkflows = projectWorkflows?.filter(w =>
         w.id !== workflowId &&
         w.intakeConfig?.upstreamWorkflowId === workflowId
-    ) || [];
+    ) ?? [];
     // If a workflow is NOT linked as upstream, it shouldn't show up here? 
     // OR, this tab suggests which workflows *could* be assigned.
     // The Prompt says: "If intake data matches X, then make Y workflows available."
@@ -51,7 +51,7 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
     const filteredWorkflows = projectWorkflows?.filter(w =>
         w.id !== workflowId &&
         w.title.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || [];
+    ) ?? [];
     const handleToggleAssignment = async (targetId: string, currentEnabled: boolean) => {
         // If enabling, we need a rule entry. If disabling, we just set enabled: false?
         // Or we remove it?

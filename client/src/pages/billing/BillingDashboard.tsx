@@ -1,5 +1,5 @@
 import { Loader2, Zap, FileText, Upload } from "lucide-react";
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

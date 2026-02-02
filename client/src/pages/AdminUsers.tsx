@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 
 import Header from "@/components/layout/Header";
@@ -180,7 +180,7 @@ export default function AdminUsers() {
                               <div>
                                 <div className="font-medium">
                                   {user.firstName || user.lastName
-                                    ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                                    ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
                                     : 'User'}
                                 </div>
                                 <div className="text-xs text-muted-foreground">

@@ -3,7 +3,7 @@
  * Full Afterpattern-style visual builder using React Flow
  */
 import { ArrowLeft, Share2, Clock, BarChart3 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { useParams, useLocation } from 'wouter';
 
@@ -307,7 +307,7 @@ export default function VisualWorkflowBuilder() {
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
         workflowId={workflowId}
-        workflowTitle={workflow?.name || ''}
+        workflowTitle={workflow?.name ?? ''}
       />
       <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
         <DialogContent>

@@ -39,7 +39,7 @@ export interface MultiFieldBlockProps {
 export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: MultiFieldBlockProps) {
   const config = step.config as MultiFieldConfig;
   const layout = config?.layout || "first_last";
-  const fields = config?.fields || [];
+  const fields = config?.fields ?? [];
 
   // Parse current value (nested object)
   const currentValue: MultiFieldValue = value || {};
@@ -54,7 +54,7 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
 
   // Render field based on type
   const renderField = (field: any) => {
-    const fieldValue = currentValue[field.key] || "";
+    const fieldValue = currentValue[field.key] ?? "";
 
     let inputType = "text";
     if (field.type === "email") {inputType = "email";}

@@ -12,7 +12,7 @@ import { z } from "zod";
 // STEP TYPES (mirrors schema.ts stepTypeEnum)
 // =====================================================================
 
-export type StepType =
+export type ConditionSupportedStepType =
   | "short_text"
   | "long_text"
   | "multiple_choice"
@@ -87,7 +87,7 @@ export interface OperatorConfig {
   value: ComparisonOperator;
   label: string;
   needsValue: boolean;
-  impliedValue?: any; // For operators like is_true/is_false
+  impliedValue?: unknown; // For operators like is_true/is_false
   valueType?: "text" | "number" | "boolean" | "date" | "choices" | "multi_choices";
   needsTwoValues?: boolean; // For 'between' operator
 }
@@ -95,7 +95,8 @@ export interface OperatorConfig {
 /**
  * Operators available for each step type
  */
-export const OPERATORS_BY_STEP_TYPE: Record<StepType, OperatorConfig[]> = {
+/* eslint-disable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string -- keys match StepType enum values; labels are intentionally repeated for readability */
+export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, OperatorConfig[]> = {
   // Boolean type - simplified operators
   yes_no: [
     { value: "is_true", label: "is Yes", needsValue: false, impliedValue: true },
@@ -214,19 +215,20 @@ export const OPERATORS_BY_STEP_TYPE: Record<StepType, OperatorConfig[]> = {
     { value: "is_not_empty", label: "is not empty", needsValue: false },
   ],
 };
+/* eslint-enable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string */
 
 /**
  * Get operators for a given step type
  */
-export function getOperatorsForStepType(stepType: StepType): OperatorConfig[] {
-  return OPERATORS_BY_STEP_TYPE[stepType] || OPERATORS_BY_STEP_TYPE.short_text;
+export function getOperatorsForStepType(stepType: ConditionSupportedStepType): OperatorConfig[] {
+  return OPERATORS_BY_STEP_TYPE[stepType] ?? OPERATORS_BY_STEP_TYPE.short_text;
 }
 
 /**
  * Get operator config by value
  */
 export function getOperatorConfig(
-  stepType: StepType,
+  stepType: ConditionSupportedStepType,
   operator: ComparisonOperator
 ): OperatorConfig | undefined {
   const operators = getOperatorsForStepType(stepType);
@@ -255,8 +257,8 @@ export interface Condition {
   id: string; // Unique ID for React keys and reordering
   variable: string; // Step alias or step ID
   operator: ComparisonOperator;
-  value?: any; // The comparison value (not needed for is_empty, is_true, etc.)
-  value2?: any; // Second value for 'between' operator
+  value?: unknown; // The comparison value (not needed for is_empty, is_true, etc.)
+  value2?: unknown; // Second value for 'between' operator
   valueType: ValueType; // 'constant' or 'variable' (reference another step)
 }
 
@@ -395,7 +397,7 @@ export function createInitialExpression(): ConditionGroup {
  * Check if expression has any valid conditions
  */
 export function hasValidConditions(expression: ConditionExpression): boolean {
-  if (!expression) {return false;}
+  if (!expression) { return false; }
 
   function checkGroup(group: ConditionGroup): boolean {
     return group.conditions.some((item) => {
@@ -416,7 +418,7 @@ export function hasValidConditions(expression: ConditionExpression): boolean {
  * Count total conditions in expression
  */
 export function countConditions(expression: ConditionExpression): number {
-  if (!expression) {return 0;}
+  if (!expression) { return 0; }
 
   function countInGroup(group: ConditionGroup): number {
     return group.conditions.reduce((count, item) => {
@@ -442,7 +444,7 @@ export interface VariableInfo {
   alias: string | null; // Human-friendly alias
   label: string; // Display label (alias or title)
   title: string; // Step title
-  type: StepType;
+  type: ConditionSupportedStepType;
   sectionId: string;
   sectionTitle: string;
   choices?: Array<{ value: string; label: string }>; // For choice-based steps

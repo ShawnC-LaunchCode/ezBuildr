@@ -16,6 +16,7 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
     return "list_tools";
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async execute(config: any, context: BlockContext, block: Block): Promise<BlockResult> {
     const listConfig = config as ListToolsConfig;
     try {
@@ -29,9 +30,11 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
       }
 
       // Resolve input list from context data
-      const inputKey = context.aliasMap?.[listConfig.sourceListVar] || listConfig.sourceListVar;
+      const inputKey = context.aliasMap?.[listConfig.sourceListVar] ?? listConfig.sourceListVar;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const inputData = context.data[inputKey];
 
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!inputData) {
         logger.warn({ sourceListVar: listConfig.sourceListVar, inputKey }, "Input list not found, treating as empty array");
         // Treat as empty list rather than error
@@ -51,7 +54,7 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
       // Normalize input - handle both ListVariable and plain arrays
       let workingList: ListVariable;
       if (isListVariable(inputData)) {
-        workingList = inputData as ListVariable;
+        workingList = inputData;
       } else if (Array.isArray(inputData)) {
         // Convert plain array to ListVariable
         workingList = arrayToListVariable(inputData);
@@ -119,9 +122,9 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
   private buildListToolsOutputData(
     config: ListToolsConfig,
     resultList: ListVariable,
-    context: BlockContext
-  ): Record<string, any> {
-    const outputData: Record<string, any> = {
+    _context: BlockContext
+  ): Record<string, unknown> {
+    const outputData: Record<string, unknown> = {
       [config.outputListVar]: resultList
     };
 
@@ -131,7 +134,7 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
     }
 
     if (config.outputs?.firstVar) {
-      outputData[config.outputs.firstVar] = resultList.rows[0] || null;
+      outputData[config.outputs.firstVar] = resultList.rows[0] ?? null;
     }
 
     return outputData;

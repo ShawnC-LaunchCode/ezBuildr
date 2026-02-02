@@ -155,7 +155,7 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
     }
 
     // Resolve URL and headers
-    let url = config.url || '';
+    let url = config.url ?? '';
     let headers: Record<string, string> = { ...(config.headers || {}) };
     let body = config.body || {};
 

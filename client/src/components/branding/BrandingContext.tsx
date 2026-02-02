@@ -5,7 +5,7 @@
  * Provides branding configuration, theme tokens, and tenant information.
  */
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 
 import type { TenantBranding } from '@shared/types/branding';
 
@@ -58,7 +58,7 @@ const BrandingContext = createContext<BrandingContextValue | undefined>(undefine
  * Branding provider props
  */
 export interface BrandingProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
 
   /** Explicit tenant ID to load branding for */
   tenantId?: string | null;
@@ -115,7 +115,7 @@ export function BrandingProvider({
   /**
    * Load branding from API
    */
-  const loadBranding = async () => {
+  const loadBranding = useCallback(async () => {
     if (!tenantId) {
       setIsLoading(false);
       setHasLoaded(true);
@@ -136,14 +136,14 @@ export function BrandingProvider({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [tenantId]);
 
   /**
    * Reload branding
    */
-  const reload = async () => {
+  const reload = useCallback(async () => {
     await loadBranding();
-  };
+  }, [loadBranding]);
 
   /**
    * Optimistically update branding
@@ -160,7 +160,7 @@ export function BrandingProvider({
     if (!skipAutoLoad && tenantId) {
       void loadBranding();
     }
-  }, [tenantId, skipAutoLoad]);
+  }, [tenantId, skipAutoLoad, loadBranding]);
 
   // Apply theme tokens when enabled and branding changes
   useEffect(() => {
@@ -181,7 +181,7 @@ export function BrandingProvider({
   }, [enableTheming, branding, themeTokens, hasLoaded]);
 
   const value: BrandingContextValue = {
-    tenantId: tenantId || null,
+    tenantId: tenantId ?? null,
     branding,
     isLoading,
     error,
@@ -245,7 +245,7 @@ export function useIsDarkMode(): boolean {
  */
 export function usePrimaryColor(): string | null {
   const { branding } = useBranding();
-  return branding?.primaryColor || null;
+  return branding?.primaryColor ?? null;
 }
 
 /**
@@ -253,7 +253,7 @@ export function usePrimaryColor(): string | null {
  */
 export function useAccentColor(): string | null {
   const { branding } = useBranding();
-  return branding?.accentColor || null;
+  return branding?.accentColor ?? null;
 }
 
 /**
@@ -261,7 +261,7 @@ export function useAccentColor(): string | null {
  */
 export function useLogoUrl(): string | null {
   const { branding } = useBranding();
-  return branding?.logoUrl || null;
+  return branding?.logoUrl ?? null;
 }
 
 /**
@@ -269,5 +269,5 @@ export function useLogoUrl(): string | null {
  */
 export function useIntakeHeaderText(): string | null {
   const { branding } = useBranding();
-  return branding?.intakeHeaderText || null;
+  return branding?.intakeHeaderText ?? null;
 }

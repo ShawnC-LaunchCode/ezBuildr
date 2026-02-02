@@ -13,7 +13,7 @@ export interface TemplateManifest {
     requiredFeatures: string[]; // e.g. ['email_integration']
 
     // The workflow structure
-    workflow: any; // The exported workflow schema
+    workflow: unknown; // The exported workflow schema
 
     // Assets (base64 encoded for simplicity in v1)
     thumbnail?: string;

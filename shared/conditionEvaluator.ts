@@ -20,7 +20,7 @@ import type {
  * Data map containing step values
  * Keys can be step IDs or step aliases
  */
-export type DataMap = Record<string, any>;
+export type DataMap = Record<string, unknown>;
 
 /**
  * Alias resolver function - converts step alias to step ID
@@ -159,8 +159,8 @@ function evaluateSingleCondition(
   const actualValue = getValueByPath(data, variableKey);
 
   // Get the comparison value
-  let compareValue = condition.value;
-  let compareValue2 = condition.value2;
+  let compareValue: unknown = condition.value;
+  let compareValue2: unknown = condition.value2;
 
   // If valueType is 'variable', resolve the comparison value from data
   if (condition.valueType === "variable" && typeof condition.value === "string") {
@@ -184,7 +184,7 @@ function resolveVariable(
   aliasResolver?: AliasResolver
 ): string {
   if (aliasResolver) {
-    return aliasResolver(aliasOrId) || aliasOrId;
+    return aliasResolver(aliasOrId) ?? aliasOrId;
   }
   return aliasOrId;
 }
@@ -196,11 +196,12 @@ function resolveVariable(
 /**
  * Evaluate a comparison operator
  */
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
 function evaluateOperator(
   operator: ComparisonOperator,
-  actualValue: any,
-  compareValue: any,
-  compareValue2?: any
+  actualValue: unknown,
+  compareValue: unknown,
+  compareValue2?: unknown
 ): boolean {
   switch (operator) {
     // Equality
@@ -236,11 +237,12 @@ function evaluateOperator(
     case "less_or_equal":
       return toNumber(actualValue) <= toNumber(compareValue);
 
-    case "between":
+    case "between": {
       const num = toNumber(actualValue);
       const min = toNumber(compareValue);
       const max = toNumber(compareValue2);
       return num >= min && num <= max;
+    }
 
     // Boolean shortcuts
     case "is_true":
@@ -263,15 +265,17 @@ function evaluateOperator(
     case "not_includes":
       return !toArray(actualValue).some((v) => isEqual(v, compareValue));
 
-    case "includes_all":
+    case "includes_all": {
       const requiredAll = toArray(compareValue);
       const actualArr = toArray(actualValue);
       return requiredAll.every((req) => actualArr.some((act) => isEqual(act, req)));
+    }
 
-    case "includes_any":
+    case "includes_any": {
       const requiredAny = toArray(compareValue);
       const actualArrAny = toArray(actualValue);
       return requiredAny.some((req) => actualArrAny.some((act) => isEqual(act, req)));
+    }
 
     default:
       // Unknown operator - default to true
@@ -287,10 +291,11 @@ function evaluateOperator(
 /**
  * Check if two values are equal (with type coercion)
  */
-function isEqual(a: any, b: any): boolean {
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- multi-type equality requires branching
+function isEqual(a: unknown, b: unknown): boolean {
   // Handle null/undefined
-  if (a == null && b == null) {return true;}
-  if (a == null || b == null) {return false;}
+  if ((a === null || a === undefined) && (b === null || b === undefined)) {return true;}
+  if (a === null || a === undefined || b === null || b === undefined) {return false;}
 
   // Handle arrays
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -300,10 +305,12 @@ function isEqual(a: any, b: any): boolean {
 
   // Handle objects
   if (typeof a === "object" && typeof b === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
+    const objA = a as Record<string, unknown>;
+    const objB = b as Record<string, unknown>;
+    const keysA = Object.keys(objA);
+    const keysB = Object.keys(objB);
     if (keysA.length !== keysB.length) {return false;}
-    return keysA.every((key) => isEqual(a[key], b[key]));
+    return keysA.every((key) => isEqual(objA[key], objB[key]));
   }
 
   // String comparison (case-insensitive for strings)
@@ -328,8 +335,8 @@ function isEqual(a: any, b: any): boolean {
 /**
  * Convert value to string
  */
-function toString(value: any): string {
-  if (value == null) {return "";}
+function toString(value: unknown): string {
+  if (value === null || value === undefined) {return "";}
   if (typeof value === "string") {return value;}
   if (typeof value === "object") {return JSON.stringify(value);}
   return String(value);
@@ -338,8 +345,9 @@ function toString(value: any): string {
 /**
  * Convert value to number
  */
-function toNumber(value: any): number {
-  if (value == null) {return 0;}
+// eslint-disable-next-line sonarjs/cognitive-complexity -- multi-type conversion requires branching
+function toNumber(value: unknown): number {
+  if (value === null || value === undefined) {return 0;}
   if (typeof value === "number") {return value;}
   if (typeof value === "string") {
     // Handle date strings
@@ -360,22 +368,22 @@ function toNumber(value: any): number {
 /**
  * Convert value to boolean
  */
-function toBoolean(value: any): boolean {
-  if (value == null) {return false;}
+function toBoolean(value: unknown): boolean {
+  if (value === null || value === undefined) {return false;}
   if (typeof value === "boolean") {return value;}
   if (typeof value === "string") {
     const lower = value.toLowerCase().trim();
     return lower === "true" || lower === "yes" || lower === "1";
   }
   if (typeof value === "number") {return value !== 0;}
-  return !!value;
+  return Boolean(value);
 }
 
 /**
  * Check if value is empty
  */
-function isEmpty(value: any): boolean {
-  if (value == null) {return true;}
+function isEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) {return true;}
   if (typeof value === "string") {return value.trim() === "";}
   if (Array.isArray(value)) {return value.length === 0;}
   if (typeof value === "object") {return Object.keys(value).length === 0;}
@@ -385,9 +393,9 @@ function isEmpty(value: any): boolean {
 /**
  * Convert value to array
  */
-function toArray(value: any): any[] {
-  if (value == null) {return [];}
-  if (Array.isArray(value)) {return value;}
+function toArray(value: unknown): unknown[] {
+  if (value === null || value === undefined) {return [];}
+  if (Array.isArray(value)) {return value as unknown[];}
   return [value];
 }
 
@@ -396,8 +404,8 @@ function toArray(value: any): any[] {
  * @param data - Source data object
  * @param path - Key or dot-notation path (e.g. "user.email" or "list.rowCount")
  */
-export function getValueByPath(data: any, path: string): any {
-  if (data == null) {return undefined;}
+export function getValueByPath(data: Record<string, unknown>, path: string): unknown {
+  if (data === null || data === undefined) {return undefined;}
 
   // Direct match priority (in case key contains dots)
   if (path in data) {return data[path];}
@@ -406,12 +414,12 @@ export function getValueByPath(data: any, path: string): any {
   const parts = path.split('.');
   if (parts.length === 1) {return data[path];} // Fallback for simple keys not in data
 
-  let current = data;
+  let current: unknown = data;
   for (const part of parts) {
-    if (current == null || typeof current !== 'object') {
+    if (current === null || current === undefined || typeof current !== 'object') {
       return undefined;
     }
-    current = current[part];
+    current = (current as Record<string, unknown>)[part];
   }
   return current;
 }
@@ -516,7 +524,7 @@ function describeCondition(
   condition: Condition,
   variableLabels?: Record<string, string>
 ): string {
-  const varLabel = variableLabels?.[condition.variable] || condition.variable;
+  const varLabel = variableLabels?.[condition.variable] ?? condition.variable;
   const operator = getOperatorLabel(condition.operator);
 
   // Operators that don't need a value
@@ -526,12 +534,12 @@ function describeCondition(
 
   // Between operator
   if (condition.operator === "between") {
-    return `${varLabel} ${operator} ${condition.value} and ${condition.value2}`;
+    return `${varLabel} ${operator} ${String(condition.value)} and ${String(condition.value2)}`;
   }
 
   // Variable reference
   if (condition.valueType === "variable") {
-    const refLabel = variableLabels?.[condition.value] || condition.value;
+    const refLabel = variableLabels?.[String(condition.value)] ?? String(condition.value);
     return `${varLabel} ${operator} ${refLabel}`;
   }
 
@@ -540,6 +548,7 @@ function describeCondition(
   return `${varLabel} ${operator} ${valueStr}`;
 }
 
+/* eslint-disable @typescript-eslint/naming-convention -- keys match ComparisonOperator enum values */
 function getOperatorLabel(operator: ComparisonOperator): string {
   const labels: Record<ComparisonOperator, string> = {
     equals: "=",
@@ -570,13 +579,14 @@ function getOperatorLabel(operator: ComparisonOperator): string {
     on_or_before: "is on or before",
     on_or_after: "is on or after",
   };
-  return labels[operator] || operator;
+  return labels[operator] ?? operator;
 }
+/* eslint-enable @typescript-eslint/naming-convention */
 
-function formatValue(value: any): string {
-  if (value == null) {return "null";}
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) {return "null";}
   if (typeof value === "string") {return `"${value}"`;}
   if (typeof value === "boolean") {return value ? "Yes" : "No";}
-  if (Array.isArray(value)) {return `[${value.join(", ")}]`;}
+  if (Array.isArray(value)) {return `[${(value as unknown[]).join(", ")}]`;}
   return String(value);
 }

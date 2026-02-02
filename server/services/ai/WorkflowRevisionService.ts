@@ -347,7 +347,7 @@ export class WorkflowRevisionService {
     ): Promise<AIWorkflowRevisionResponse> {
         const startTime = Date.now();
         const workflow = request.currentWorkflow;
-        const sections = workflow.sections || [];
+        const sections = workflow.sections ?? [];
         if (sections.length === 0) {
             // No sections to chunk, fall back to single shot
             return this.reviseWorkflowSingleShot(request);
@@ -490,9 +490,9 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
                 }
 
                 // Collect changes and metadata
-                allChanges.push(...(chunkResult.diff?.changes || []));
-                allExplanations.push(...(chunkResult.explanation || []));
-                allSuggestions.push(...(chunkResult.suggestions || []));
+                allChanges.push(...(chunkResult.diff?.changes ?? []));
+                allExplanations.push(...(chunkResult.explanation ?? []));
+                allSuggestions.push(...(chunkResult.suggestions ?? []));
 
                 logger.info({
                     chunkNumber,
@@ -533,8 +533,8 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
             sections: revisedSections,
             // Preserve original logic rules and transform blocks
             // (chunking doesn't modify these - only sections)
-            logicRules: workflow.logicRules || [],
-            transformBlocks: workflow.transformBlocks || [],
+            logicRules: workflow.logicRules ?? [],
+            transformBlocks: workflow.transformBlocks ?? [],
         };
         const duration = Date.now() - startTime;
         logger.info({
@@ -611,10 +611,10 @@ Output ONLY the JSON object.`;
             // Then use normal chunked revision to fill in details
             const structuredWorkflow = {
                 ...request.currentWorkflow,
-                sections: (structureData.sections || []).map((s: any, idx: number) => ({
+                sections: (structureData.sections ?? []).map((s: any, idx: number) => ({
                     id: `section-${idx + 1}`,
                     title: s.title,
-                    description: s.description || null,
+                    description: s.description ?? null,
                     order: idx,
                     steps: [], // Empty - will be filled by chunked revision
                 })),
@@ -641,7 +641,7 @@ Output ONLY the JSON object.`;
                     `✨ Processed large document using two-pass strategy:`,
                     `Pass 1: Created ${structureData.sections?.length || 0} sections`,
                     `Pass 2: Filled details for each section`,
-                    ...(result.explanation || []),
+                    ...(result.explanation ?? []),
                 ],
             };
         } catch (error: any) {

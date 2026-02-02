@@ -1,4 +1,4 @@
-import type { Team, InsertTeam, TeamMember, InsertTeamMember, TeamRole } from "@shared/schema";
+import type { Team, TeamMember, TeamRole } from "@shared/schema";
 
 import {
   teamRepository,
@@ -20,9 +20,9 @@ export class TeamService {
     teamMemberRepo?: typeof teamMemberRepository,
     userRepo?: typeof userRepository
   ) {
-    this.teamRepo = teamRepo || teamRepository;
-    this.teamMemberRepo = teamMemberRepo || teamMemberRepository;
-    this.userRepo = userRepo || userRepository;
+    this.teamRepo = teamRepo ?? teamRepository;
+    this.teamMemberRepo = teamMemberRepo ?? teamMemberRepository;
+    this.userRepo = userRepo ?? userRepository;
   }
 
   /**
@@ -59,6 +59,7 @@ export class TeamService {
   /**
    * Get all teams a user has access to (as member or admin)
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getUserTeams(userId: string, tx?: DbTransaction) {
     return this.teamRepo.findByUserId(userId, tx);
   }
@@ -66,6 +67,7 @@ export class TeamService {
   /**
    * Get team by ID with members
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getTeamWithMembers(teamId: string, userId: string, tx?: DbTransaction) {
     const team = await this.teamRepo.findById(teamId, tx);
 

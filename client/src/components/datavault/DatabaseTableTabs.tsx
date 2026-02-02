@@ -4,7 +4,7 @@
  */
 
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

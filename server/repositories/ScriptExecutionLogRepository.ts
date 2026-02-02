@@ -65,7 +65,7 @@ export class ScriptExecutionLogRepository extends BaseRepository<
       .values(data)
       .returning();
 
-    if (!log) {
+    if (log === undefined) {
       throw new Error("Failed to create script execution log");
     }
 

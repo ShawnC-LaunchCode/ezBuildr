@@ -51,7 +51,9 @@ export class StorageQuotaService {
               Vitest/Drizzle mock might behave differently, but in prod PG it's result.rows.
               If using postgres.js, it returns array directly.
             */
-            const rows = (result as any).rows || result;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- raw SQL result type varies by driver
+            const rows = (result as any).rows ?? result;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- raw SQL result access
             return parseInt(rows[0]?.used ?? '0', 10);
 
         } catch (error) {

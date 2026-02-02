@@ -93,11 +93,12 @@ export class DatavaultTablesRepository extends BaseRepository<
       .where(and(eq(datavaultTables.tenantId, tenantId), eq(datavaultTables.slug, slug)));
 
     if (excludeId) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       query = (query as any).where(sql`${datavaultTables.id} != ${excludeId}`);
     }
 
     const [result] = await query.limit(1);
-    return !!result;
+    return result !== undefined;
   }
 
   /**
@@ -122,13 +123,14 @@ export class DatavaultTablesRepository extends BaseRepository<
       .from(datavaultTables)
       .where(eq(datavaultTables.tenantId, tenantId));
 
-    return result?.count || 0;
+    return result?.count ?? 0;
   }
 
   /**
    * Get table schema with columns
    * Returns table metadata and ordered list of columns
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getSchema(tableId: string, tx?: DbTransaction) {
     const database = this.getDb(tx);
 

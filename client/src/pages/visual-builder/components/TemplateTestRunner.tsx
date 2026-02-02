@@ -20,7 +20,7 @@ import {
   FileCode,
   Database,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '../../../components/ui/badge';

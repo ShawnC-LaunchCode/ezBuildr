@@ -7,7 +7,7 @@
 import { createLogger } from "../logger";
 import { evaluateCondition, type EvaluationContext } from "../workflows/conditions";
 
-import type { ListVariable } from "../../shared/types/query";
+import type { QueryListVariable } from "../../shared/types/query";
 import type {
   RepeaterConfig,
   RepeaterValue,
@@ -31,7 +31,7 @@ export class RepeaterService {
       instanceErrors: new Map(),
       globalErrors: [],
     };
-    const instances = value?.instances || [];
+    const instances = value?.instances ?? [];
     // Check instance count constraints
     const minInstances = config.minInstances || 0;
     const maxInstances = config.maxInstances || Infinity;
@@ -104,7 +104,7 @@ export class RepeaterService {
   flattenRepeaterData(repeaterKey: string, value: RepeaterValue): FlattenedRepeaterData {
     return {
       repeaterKey,
-      instances: (value.instances || []).map((instance, index) => ({
+      instances: (value.instances ?? []).map((instance, index) => ({
         index,
         fields: instance.values,
       })),
@@ -128,7 +128,7 @@ export class RepeaterService {
    * Create repeater value from a ListVariable
    * (Stage 20: List-Based Inputs)
    */
-  createFromList(list: ListVariable, config: RepeaterConfig): RepeaterValue {
+  createFromList(list: QueryListVariable, config: RepeaterConfig): RepeaterValue {
     const instances: RepeaterInstance[] = [];
     // Determine count (list size, bounded by maxInstances)
     const max = config.maxInstances || Infinity;

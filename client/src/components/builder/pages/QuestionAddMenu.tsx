@@ -55,7 +55,7 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
         description: null,
         required: false,
         alias: null,
-        options: config || null,
+        options: config ?? null,
         config: config || {},
         order: nextOrder,
       });

@@ -117,10 +117,10 @@ export function isResponseTruncated(response: string): boolean {
   }
 
   // Check 2: Count opening vs closing braces
-  const openBraces = (trimmed.match(/\{/g) || []).length;
-  const closeBraces = (trimmed.match(/\}/g) || []).length;
-  const openBrackets = (trimmed.match(/\[/g) || []).length;
-  const closeBrackets = (trimmed.match(/\]/g) || []).length;
+  const openBraces = (trimmed.match(/\{/g) ?? []).length;
+  const closeBraces = (trimmed.match(/\}/g) ?? []).length;
+  const openBrackets = (trimmed.match(/\[/g) ?? []).length;
+  const closeBrackets = (trimmed.match(/\]/g) ?? []).length;
 
   if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
     logger.warn({
@@ -213,7 +213,7 @@ export function getTroubleshootingHints(code: string): string {
     ].join('\n'),
   };
 
-  return hints[code] || '';
+  return hints[code] ?? '';
 }
 
 /**
@@ -299,7 +299,7 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
   }
 
   // Validate logic rules reference existing steps/sections
-  for (const rule of (workflow.logicRules || [])) {
+  for (const rule of (workflow.logicRules ?? [])) {
     if (rule.conditionStepAlias && !stepAliases.has(rule.conditionStepAlias)) {
       throw createAIError(
         `Logic rule references non-existent step alias: ${rule.conditionStepAlias}`,

@@ -53,11 +53,11 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId);
-        if (!query) {throw new Error('Query not found');}
+        if (!query) { throw new Error('Query not found'); }
         // Execute query to get live list
         const list = await queryRunner.executeQuery(query, context, tenantId);
         // Map to options
-        return list.rows.map(row => ({
+        return list.rows.map((row: Record<string, any>) => ({
             label: row[labelColumnId] ?? row['_id'], // Fallback to ID
             value: row[valueColumnId] ?? row['_id']
         }));
@@ -74,9 +74,9 @@ export class QueryService {
         tenantId: string
     ) {
         const query = await this.getQuery(queryId);
-        if (!query) {throw new Error('Query not found');}
+        if (!query) { throw new Error('Query not found'); }
         const list = await queryRunner.executeQuery(query, context, tenantId);
-        return list.rows.some(row => {
+        return list.rows.some((row: Record<string, any>) => {
             const rowValue = row[valueColumnId];
             // Loose equality check for strings/numbers might be needed
             return rowValue == value;

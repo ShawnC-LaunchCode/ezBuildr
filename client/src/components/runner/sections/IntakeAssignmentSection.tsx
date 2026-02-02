@@ -1,5 +1,5 @@
 import { CheckCircle2, ArrowRight, GitBranch, AlertCircle, FileText } from "lucide-react";
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

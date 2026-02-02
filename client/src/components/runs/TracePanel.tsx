@@ -4,7 +4,7 @@
  */
 
 import { CheckCircle2, XCircle, Circle, ChevronRight } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { JsonViewer } from '@/components/shared/JsonViewer';
 import { Badge } from '@/components/ui/badge';

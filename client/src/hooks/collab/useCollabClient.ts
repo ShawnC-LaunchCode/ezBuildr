@@ -133,7 +133,7 @@ export function useCollabClient(
       userId: user.id,
       displayName: user.name,
       color: user.color,
-      email: user.email || '',
+      email: user.email ?? '',
       role: 'editor', // Default role
       activeBlockId: null,
       mode: 'easy', // Default mode

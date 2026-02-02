@@ -4,7 +4,7 @@
  */
 
 import { Plus, Search, Loader2, Database } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 import { CollectionCard } from "@/components/collections/CollectionCard";

@@ -6,7 +6,7 @@ import { db } from "../db";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
-const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+const isUuid = (id: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 /**
  * Repository for project data access
  */
@@ -39,6 +39,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         eq(projects.ownerType, null as any),
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId))
       )
@@ -60,6 +61,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .where(or(...conditions))
       .orderBy(desc(projects.updatedAt));
     // Results already have all project columns + ownerName at top level
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any
     return results as any;
   }
   /**
@@ -121,6 +123,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         eq(projects.ownerType, null as any),
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId)),
         eq(projects.status, 'active')

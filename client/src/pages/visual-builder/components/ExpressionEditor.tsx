@@ -3,7 +3,7 @@
  */
 
 import Editor, { Monaco } from '@monaco-editor/react';
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
 
 import { useAvailableVars } from '../hooks/useAvailableVars';
@@ -138,7 +138,7 @@ export function ExpressionEditor({
   };
 
   const handleChange = (value: string | undefined) => {
-    onChange(value || '');
+    onChange(value ?? '');
   };
 
   return (

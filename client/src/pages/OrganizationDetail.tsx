@@ -49,8 +49,8 @@ export default function OrganizationDetail() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const isAdmin = organization?.role === 'admin';
   const handleEditOrg = () => {
-    setOrgName(organization?.name || '');
-    setOrgDescription(organization?.description || '');
+    setOrgName(organization?.name ?? '');
+    setOrgDescription(organization?.description ?? '');
     setIsEditingOrg(true);
   };
   const handleSaveOrg = async () => {

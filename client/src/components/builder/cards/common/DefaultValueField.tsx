@@ -1,5 +1,5 @@
 import { Database, Link as LinkIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,18 @@ import { useUpdateStep, useWorkflow } from "@/lib/vault-hooks";
 
 import { useIntake } from "../../IntakeContext";
 
+export interface IntakeLinkValue {
+    source: 'intake';
+    variable: string;
+}
+
+export type DefaultValueType = string | boolean | number | null | IntakeLinkValue;
+
 interface DefaultValueFieldProps {
     stepId: string;
     sectionId: string;
     workflowId: string;
-    defaultValue: any;
+    defaultValue: DefaultValueType;
     type: string;
     mode?: 'easy' | 'advanced';
 }
@@ -32,8 +39,8 @@ export function DefaultValueField({
     const { data: workflow } = useWorkflow(workflowId);
     const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
 
-    const isLinkedToIntake = !!defaultValue && typeof defaultValue === 'object' && defaultValue.source === 'intake';
-    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === defaultValue.variable) : null;
+    const isLinkedToIntake = defaultValue !== null && defaultValue !== undefined && typeof defaultValue === 'object' && 'source' in defaultValue && defaultValue.source === 'intake';
+    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === (defaultValue).variable) : null;
 
     // Local state for active tab to allow switching without committing/wiping
     const [activeTab, setActiveTab] = useState(isLinkedToIntake ? "intake" : "static");
@@ -175,10 +182,10 @@ export function DefaultValueField({
                                     <SelectContent>
                                         <SelectItem value="none">-- Select Variable --</SelectItem>
                                         {upstreamVariables.map(v => (
-                                            <SelectItem key={v.key} value={v.alias || v.key}>
+                                            <SelectItem key={v.key} value={v.alias ?? v.key}>
                                                 <div className="flex flex-col text-left">
                                                     <span className="font-medium text-sm">{v.label}</span>
-                                                    <span className="text-[10px] text-muted-foreground font-mono">{v.alias || v.key}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-mono">{v.alias ?? v.key}</span>
                                                 </div>
                                             </SelectItem>
                                         ))}

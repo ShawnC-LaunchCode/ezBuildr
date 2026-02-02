@@ -34,6 +34,7 @@ export function registerFileRoutes(app: Express): void {
 
   // Secure download endpoint with authorization
   // GET /api/files/download/:filename
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
   app.get('/api/files/download/:filename', hybridAuth, asyncHandler(async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { filename } = req.params;

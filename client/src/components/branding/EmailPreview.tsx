@@ -5,9 +5,9 @@
  */
 
 import { Mail } from 'lucide-react';
-import React, { useMemo } from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useResolvedBranding } from '@/hooks/useResolvedBranding';
 import type { TenantBranding } from '@/lib/vault-api';
 
 export interface EmailPreviewProps {
@@ -24,39 +24,15 @@ export default function EmailPreview({
   enabledTokens,
 }: EmailPreviewProps) {
   // Extract enabled branding values
-  const resolvedBranding = useMemo(() => {
-    const resolved: Partial<TenantBranding> = {};
+  // Extract enabled branding values
+  const resolvedBranding = useResolvedBranding(branding, enabledTokens);
 
-    if (branding) {
-      if (enabledTokens.logoUrl && branding.logoUrl) {
-        resolved.logoUrl = branding.logoUrl;
-      }
-      if (enabledTokens.primaryColor && branding.primaryColor) {
-        resolved.primaryColor = branding.primaryColor;
-      }
-      if (enabledTokens.accentColor && branding.accentColor) {
-        resolved.accentColor = branding.accentColor;
-      }
-      if (enabledTokens.emailSenderName && branding.emailSenderName) {
-        resolved.emailSenderName = branding.emailSenderName;
-      }
-      if (enabledTokens.emailSenderAddress && branding.emailSenderAddress) {
-        resolved.emailSenderAddress = branding.emailSenderAddress;
-      }
-      if (enabledTokens.intakeHeaderText && branding.intakeHeaderText) {
-        resolved.intakeHeaderText = branding.intakeHeaderText;
-      }
-    }
-
-    return resolved;
-  }, [branding, enabledTokens]);
-
-  const primaryColor = resolvedBranding.primaryColor || '#3B82F6';
-  const accentColor = resolvedBranding.accentColor || '#10B981';
+  const primaryColor = resolvedBranding.primaryColor ?? '#3B82F6';
+  const accentColor = resolvedBranding.accentColor ?? '#10B981';
   const logoUrl = resolvedBranding.logoUrl;
-  const senderName = resolvedBranding.emailSenderName || 'VaultLogic';
-  const senderAddress = resolvedBranding.emailSenderAddress || 'noreply@vaultlogic.com';
-  const headerText = resolvedBranding.intakeHeaderText || 'Welcome';
+  const senderName = resolvedBranding.emailSenderName ?? 'VaultLogic';
+  const senderAddress = resolvedBranding.emailSenderAddress ?? 'noreply@vaultlogic.com';
+  const headerText = resolvedBranding.intakeHeaderText ?? 'Welcome';
 
   return (
     <Card className="sticky top-6">
@@ -86,7 +62,7 @@ export default function EmailPreview({
               <div className="flex gap-2">
                 <span className="font-medium text-gray-600 dark:text-gray-400 w-16">Subject:</span>
                 <span className="text-gray-900 dark:text-gray-100">
-                  {subjectPreview || 'Email Subject Line'}
+                  {subjectPreview ?? 'Email Subject Line'}
                 </span>
               </div>
             </div>
@@ -159,7 +135,7 @@ export default function EmailPreview({
             <p className="text-sm font-medium">Active Branding Tokens:</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(enabledTokens).map(([key, enabled]) => {
-                if (!enabled) {return null;}
+                if (enabled !== true) { return null; }
 
                 const labels: Record<string, string> = {
                   logoUrl: 'Logo',
@@ -176,7 +152,7 @@ export default function EmailPreview({
                     className="flex items-center gap-2 text-xs bg-muted px-2 py-1.5 rounded"
                   >
                     <div className="h-2 w-2 rounded-full bg-green-500" />
-                    <span>{labels[key]}</span>
+                    <span>{labels[key] ?? 'Unknown'}</span>
                   </div>
                 );
               })}

@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -34,9 +34,9 @@ export default function EditTemplateModal({ open, onClose, template }: EditTempl
 
   useEffect(() => {
     if (template) {
-      setName(template.name || "");
-      setDescription(template.description || "");
-      setTags(template.tags?.join(", ") || "");
+      setName(template.name ?? "");
+      setDescription(template.description ?? "");
+      setTags(template.tags?.join(", ") ?? "");
     }
   }, [template]);
 

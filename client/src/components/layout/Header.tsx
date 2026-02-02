@@ -1,5 +1,5 @@
 import { Menu } from "lucide-react";
-import React, { ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
@@ -150,12 +150,12 @@ export default function Header({ title, description, actions }: HeaderProps) {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
                         {user?.firstName || user?.lastName
-                          ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+                          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
                           : user?.email || "User"
                         }
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {user?.email || ""}
+                        {user?.email ?? ""}
                       </p>
                     </div>
                   </div>

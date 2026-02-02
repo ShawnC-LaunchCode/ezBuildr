@@ -30,7 +30,7 @@ export class Profiler {
         }
     }
 
-    private static record(name: string, durationMs: number, labels: Record<string, string>) {
+    private static record(name: string, durationMs: number, labels: Record<string, string>): void {
         // Record to metrics
         metrics.observe(name, durationMs, labels);
 

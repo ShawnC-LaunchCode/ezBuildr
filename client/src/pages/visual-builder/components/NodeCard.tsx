@@ -3,7 +3,7 @@
  */
 
 import { MessageSquare, Calculator, GitBranch, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Handle, Position, type NodeProps } from 'reactflow';
 
 import { Badge } from '@/components/ui/badge';

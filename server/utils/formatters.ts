@@ -47,7 +47,7 @@ export function date(
   iso: string | Date | null | undefined,
   format: 'short' | 'long' | 'iso' = 'short'
 ): string {
-  if (!iso) {
+  if (iso === null || iso === undefined) {
     return '';
   }
 

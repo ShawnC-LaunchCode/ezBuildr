@@ -40,6 +40,7 @@ export abstract class BaseAIProvider implements IAIProvider {
      * Get max context tokens using ModelRegistry
      */
     getMaxContextTokens(): number {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         return ModelRegistry.getMaxContextTokens(this.config.provider as any, this.config.model);
     }
 
@@ -48,6 +49,7 @@ export abstract class BaseAIProvider implements IAIProvider {
      */
     estimateCost(promptTokens: number, responseTokens: number): number {
         return ModelRegistry.estimateCost(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
             this.config.provider as any,
             this.config.model,
             promptTokens,
@@ -109,7 +111,9 @@ export abstract class BaseAIProvider implements IAIProvider {
     /**
      * Helper to create typed AI errors
      */
-    protected createError(message: string, code: string, details?: any): AIError {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    protected createError(message: string, code: string, details?: unknown): AIError {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         return new AIError(message, code as any, details);
     }
 
@@ -130,10 +134,10 @@ export abstract class BaseAIProvider implements IAIProvider {
         }
 
         // Check 2: Count opening vs closing braces
-        const openBraces = (trimmed.match(/\{/g) || []).length;
-        const closeBraces = (trimmed.match(/\}/g) || []).length;
-        const openBrackets = (trimmed.match(/\[/g) || []).length;
-        const closeBrackets = (trimmed.match(/\]/g) || []).length;
+        const openBraces = (trimmed.match(/\{/g) ?? []).length;
+        const closeBraces = (trimmed.match(/\}/g) ?? []).length;
+        const openBrackets = (trimmed.match(/\[/g) ?? []).length;
+        const closeBrackets = (trimmed.match(/\]/g) ?? []).length;
 
         if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
             logger.warn({

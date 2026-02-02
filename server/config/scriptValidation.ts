@@ -220,8 +220,8 @@ export function getValidationConfig(profile: ValidationProfile = "strict"): ASTV
  * - Development: Configurable via env var
  */
 export function getValidationConfigForEnvironment(): ASTValidationConfig {
-  const env = process.env.NODE_ENV || "development";
-  const configProfile = (process.env.SCRIPT_VALIDATION_PROFILE || "strict") as ValidationProfile;
+  const env = process.env.NODE_ENV ?? "development";
+  const configProfile = (process.env.SCRIPT_VALIDATION_PROFILE ?? "strict") as ValidationProfile;
 
   // Always use strict in production
   if (env === "production") {

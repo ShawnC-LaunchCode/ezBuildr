@@ -110,10 +110,10 @@ export class TemplateAnalyticsService {
     try {
       await db.insert(templateGenerationMetrics).values({
         templateId,
-        runId: runId || null,
+        runId: runId ?? null,
         result,
-        durationMs: durationMs || null,
-        errorMessage: errorMessage || null,
+        durationMs: durationMs ?? null,
+        errorMessage: errorMessage ?? null,
       });
       logger.debug(
         {
@@ -317,7 +317,7 @@ export class TemplateAnalyticsService {
           sql`${templateGenerationMetrics.durationMs} IS NOT NULL`
         )
       )
-      .then((result) => result[0]?.avg || null);
+      .then((result) => result[0]?.avg ?? null);
     // Top templates by generation count
     const topTemplatesData = await db
       .select({
@@ -424,9 +424,9 @@ export class TemplateAnalyticsService {
     let csv = 'ID,Template ID,Run ID,Result,Duration (ms),Error,Created At\n';
     // CSV rows
     for (const metric of metrics) {
-      csv += `${metric.id},${metric.templateId},${metric.runId || ''},${metric.result},${
-        metric.durationMs || ''
-      },"${(metric.errorMessage || '').replace(/"/g, '""')}",${metric.createdAt}\n`;
+      csv += `${metric.id},${metric.templateId},${metric.runId ?? ''},${metric.result},${
+        metric.durationMs ?? ''
+      },"${(metric.errorMessage ?? '').replace(/"/g, '""')}",${metric.createdAt}\n`;
     }
     return csv;
   }

@@ -69,7 +69,7 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .from(datavaultColumns)
       .where(and(...conditions))
       .limit(1);
-    return !!result;
+    return result !== undefined;
   }
   /**
    * Count columns for a table
@@ -80,7 +80,7 @@ export class DatavaultColumnsRepository extends BaseRepository<
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultColumns)
       .where(eq(datavaultColumns.tableId, tableId));
-    return result?.count || 0;
+    return result?.count ?? 0;
   }
   /**
    * Get max order index for a table

@@ -244,7 +244,7 @@ export function registerTenantRoutes(app: Express): void {
         .insert(tenants)
         .values({
           name,
-          billingEmail: billingEmail || null,
+          billingEmail: billingEmail ?? null,
           plan: plan || 'free',
         })
         .returning();

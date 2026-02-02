@@ -11,7 +11,16 @@ interface AuthResponse {
   token: string;
 }
 
-export function useAuth() {
+interface AuthHookReturn {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  error: Error | null;
+  logout: () => Promise<void>;
+}
+
+export function useAuth(): AuthHookReturn {
   const queryClient = useQueryClient();
 
   const { data: authData, isLoading, error } = useQuery<AuthResponse | null>({
@@ -30,8 +39,8 @@ export function useAuth() {
           throw new Error("Failed to refresh session");
         }
 
-        return await res.json(); // { user, token }
-      } catch (err) {
+        return await res.json() as AuthResponse;
+      } catch (_err) {
         return null;
       }
     },
@@ -46,12 +55,12 @@ export function useAuth() {
   useEffect(() => {
     if (authData?.token) {
       setAccessToken(authData.token);
-    } else if (error || authData === null) {
+    } else if (error !== null || authData === null) {
       setAccessToken(null);
     }
   }, [authData, error]);
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     await authAPI.logout();
     setAccessToken(null);
     queryClient.setQueryData(["auth"], null);

@@ -180,8 +180,8 @@ export function validateSelector(selector: string): { valid: boolean; error?: st
     }
 
     // Check for unclosed brackets
-    const openBrackets = (normalized.match(/\[/g) || []).length;
-    const closeBrackets = (normalized.match(/\]/g) || []).length;
+    const openBrackets = (normalized.match(/\[/g) ?? []).length;
+    const closeBrackets = (normalized.match(/\]/g) ?? []).length;
     if (openBrackets !== closeBrackets) {
       return { valid: false, error: 'Unclosed brackets in selector' };
     }

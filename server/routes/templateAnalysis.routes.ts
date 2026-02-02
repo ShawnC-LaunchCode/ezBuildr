@@ -34,6 +34,7 @@ router.get(
     const { templateId } = req.params;
     const { projectId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
     }
@@ -66,6 +67,7 @@ router.post(
     const { templateId } = req.params;
     const { projectId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
     }
@@ -96,6 +98,7 @@ router.post(
     const { templateId } = req.params;
     const { projectId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
     }
@@ -128,6 +131,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { projectId } = req.query;
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
     }

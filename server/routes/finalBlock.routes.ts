@@ -84,7 +84,7 @@ export function registerFinalBlockRoutes(app: Express): void {
       try {
         const runAuthReq = req as RunAuthRequest;
         const { runId } = req.params;
-        const userId = runAuthReq.userId || ''; // Handle undefined userId (run token)
+        const userId = runAuthReq.userId ?? ''; // Handle undefined userId (run token)
 
         // Validate request body
         const { stepId, toPdf, pdfStrategy } = generateFinalDocumentsSchema.parse(req.body);
@@ -309,7 +309,7 @@ export function registerFinalBlockRoutes(app: Express): void {
       try {
         const runAuthReq = req as RunAuthRequest;
         const { runId, filename } = req.params;
-        const userId = runAuthReq.userId || '';
+        const userId = runAuthReq.userId ?? '';
 
         logger.info({
           runId,

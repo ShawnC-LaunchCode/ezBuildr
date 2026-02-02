@@ -133,8 +133,8 @@ export class WorkflowExportService {
         run.id,
         run.createdBy || 'anon',
         (run.completed ?? false).toString(),
-        run.completedAt?.toISOString() || '',
-        run.createdAt?.toISOString() || '',
+        run.completedAt?.toISOString() ?? '',
+        run.createdAt?.toISOString() ?? '',
         ...Array.from(allStepKeys).map((key) => {
           const value = valueMap.get(key);
           if (value === null || value === undefined) {

@@ -316,7 +316,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                 <Input
                   id={`${step.id}-street`}
                   type="text"
-                  value={currentValue.street || ""}
+                  value={currentValue.street ?? ""}
                   onChange={handleStreetChange}
                   placeholder="123 Main St"
                   disabled={readOnly}
@@ -366,7 +366,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
         <Input
           id={`${step.id}-city`}
           type="text"
-          value={currentValue.city || ""}
+          value={currentValue.city ?? ""}
           onChange={(e) => { void updateField("city", e.target.value); }}
           placeholder="Miami"
           disabled={readOnly}
@@ -381,7 +381,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             State
           </Label>
           <Select
-            value={currentValue.state || ""}
+            value={currentValue.state ?? ""}
             onValueChange={(newValue) => updateField("state", newValue)}
             disabled={readOnly}
           >
@@ -406,7 +406,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
           <Input
             id={`${step.id}-zip`}
             type="text"
-            value={currentValue.zip || ""}
+            value={currentValue.zip ?? ""}
             onChange={(e) => { void updateField("zip", e.target.value); }}
             placeholder="33101"
             maxLength={5}

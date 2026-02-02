@@ -83,7 +83,7 @@ export function SectionLogicSheet({
           workflowId={workflowId}
           elementId={section.id}
           elementType="section"
-          value={(section.visibleIf as ConditionExpression) || null}
+          value={(section.visibleIf as ConditionExpression) ?? null}
           onChange={handleLogicChange}
           isSaving={updateSectionMutation.isPending}
         />

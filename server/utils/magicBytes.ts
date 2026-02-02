@@ -16,7 +16,7 @@ const SIGNATURES = {
 export function validateMagicBytes(buffer: Buffer, filename: string): boolean {
     if (!buffer || buffer.length < 4) {return false;}
 
-    const ext = filename.toLowerCase().split('.').pop() || '';
+    const ext = filename.toLowerCase().split('.').pop() ?? '';
 
     // Check PDF
     if (ext === 'pdf') {

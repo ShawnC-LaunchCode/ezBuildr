@@ -31,7 +31,7 @@ export function generateWorkflowVersionHash(steps: Step[]): string {
   const structure = steps
     .map(step => ({
       id: step.id,
-      alias: step.alias || null,
+      alias: step.alias ?? null,
       type: step.type,
       sectionId: step.sectionId,
     }))

@@ -29,7 +29,7 @@ export class AiSettingsService {
      * 3. Global settings
      * 4. Hardcoded fallback
      */
-    async getEffectivePrompt({ userId, orgId }: { userId?: string; orgId?: string }): Promise<string> {
+    async getEffectivePrompt({ userId: _userId, orgId: _orgId }: { userId?: string; orgId?: string }): Promise<string> {
         // For now, simple implementation: just get Global
         const globalSettings = await this.getGlobalSettings();
         if (globalSettings?.systemPrompt) {
@@ -40,6 +40,7 @@ export class AiSettingsService {
     /**
      * Get global AI settings
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async getGlobalSettings() {
         return db.query.aiSettings.findFirst({
             where: eq(aiSettings.scope, "global"),
@@ -48,6 +49,7 @@ export class AiSettingsService {
     /**
      * Update global system prompt
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async updateGlobalSettings(systemPrompt: string, userId: string) {
         // Check if global settings exist
         const existing = await this.getGlobalSettings();

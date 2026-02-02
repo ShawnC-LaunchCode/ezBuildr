@@ -35,7 +35,7 @@ export function registerBrandingRoutes(app: Express): void {
         const { tenantId } = req.params;
         const branding = await brandingService.getBrandingByTenantId(tenantId);
         res.json({
-          branding: branding || null,
+          branding: branding ?? null,
         });
       } catch (error) {
         logger.error({ error }, 'Failed to fetch tenant branding');

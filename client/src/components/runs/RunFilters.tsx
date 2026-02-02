@@ -18,7 +18,7 @@ interface RunFiltersProps {
 }
 
 export function RunFilters({ filters, onChange }: RunFiltersProps) {
-  const [searchTerm, setSearchTerm] = useState(filters.q || '');
+  const [searchTerm, setSearchTerm] = useState(filters.q ?? '');
 
   const handleStatusChange = (value: string) => {
     onChange({
