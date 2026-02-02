@@ -2,9 +2,11 @@
  * Debug script to investigate workflow structure
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { workflowRuns, sections, workflows, templates } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { workflowRuns, sections, workflows, templates } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
 
 async function debugWorkflow() {
   // Initialize database first

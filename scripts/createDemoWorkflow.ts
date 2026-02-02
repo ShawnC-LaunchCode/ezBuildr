@@ -3,6 +3,7 @@ dotenv.config();
 
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
+
 import { randomUUID } from 'crypto';
 
 async function createDemoWorkflow() {
@@ -331,7 +332,7 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
     console.log("   • Choose 'Yes' for dietary restrictions to see details field");
     console.log("   • Select 'Yes' for hotel to see nights input");
     console.log("   • Complete workflow to see total price calculation");
-    console.log("\n" + "═".repeat(60));
+    console.log(`\n${  "═".repeat(60)}`);
 
     client.release();
     process.exit(0);

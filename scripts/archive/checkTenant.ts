@@ -1,6 +1,7 @@
+import { eq } from 'drizzle-orm';
+
 import { getDb, initializeDatabase } from '../server/db';
 import { tenants, users, projects } from '../shared/schema';
-import { eq } from 'drizzle-orm';
 
 async function checkTenant() {
   await initializeDatabase();

@@ -3,10 +3,11 @@
  * Check which migrations have been applied
  */
 
-import { neon } from '@neondatabase/serverless';
 import { readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);

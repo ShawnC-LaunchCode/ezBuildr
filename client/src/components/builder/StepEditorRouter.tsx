@@ -1,5 +1,3 @@
-import React from 'react';
-
 import type { ApiStep } from '@/lib/vault-api';
 
 import { AddressCardEditor } from './cards/AddressCardEditor';

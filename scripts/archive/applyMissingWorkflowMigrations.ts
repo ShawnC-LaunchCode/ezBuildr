@@ -11,10 +11,11 @@
  *   npx tsx scripts/applyMissingWorkflowMigrations.ts
  */
 
-import { neon } from '@neondatabase/serverless';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 // ES module equivalent of __dirname
@@ -45,7 +46,7 @@ function splitSqlStatements(sql: string): string[] {
       insideDoBlock = true;
     }
 
-    currentStatement += line + '\n';
+    currentStatement += `${line  }\n`;
 
     // Check for DO block end
     if (insideDoBlock && (line.trim() === 'END $$;' || line.trim() === 'END $;')) {

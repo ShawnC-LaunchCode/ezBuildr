@@ -19,7 +19,7 @@ async function test() {
         } catch (e) {
             console.log("Called pdf(buffer) but it failed (expected for dummy buffer):", e.message);
             // If it failed with parsing error, it means the FUNCTION exists and tried to parse.
-            if (e.message && e.message.includes('Invalid PDF structure') || e.message) {
+            if (e.message?.includes('Invalid PDF structure') || e.message) {
                 console.log("Verification successful: pdf-parse is a function.");
             }
         }

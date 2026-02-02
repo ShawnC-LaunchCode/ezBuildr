@@ -5,15 +5,18 @@
  */
 
 import 'dotenv/config';
-import { config } from 'dotenv';
 import { resolve } from 'path';
+
+import { config } from 'dotenv';
 
 // Load .env.local if it exists
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { initializeDatabase, getDb } from '../server/db';
-import { users, tenants } from '@shared/schema';
 import { eq, isNull } from 'drizzle-orm';
+
+import { users, tenants } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
 
 async function fixUserTenantIds() {
   // Initialize database connection

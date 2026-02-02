@@ -8,25 +8,47 @@ interface DiffChange {
     name: string;
     details?: string;
 }
+interface AiSuggestionSection {
+    title: string;
+    steps?: unknown[];
+}
+
+interface AiSuggestionStep {
+    title: string;
+    type: string;
+}
+
+interface AiSuggestionModification {
+    entity: DiffChange['entity'];
+    name: string;
+    reason?: string;
+}
+
+interface AiSuggestions {
+    newSections?: AiSuggestionSection[];
+    newSteps?: AiSuggestionStep[];
+    modifications?: AiSuggestionModification[];
+}
+
 interface AiDiffViewProps {
-    suggestions: any;
+    suggestions: AiSuggestions;
 }
 export function AiDiffView({ suggestions }: AiDiffViewProps) {
     // Parse suggestions into a flat list of changes for display
     const changes: DiffChange[] = [];
     if (suggestions.newSections) {
-        suggestions.newSections.forEach((s: any) => {
-            changes.push({ type: 'add', entity: 'section', name: s.title, details: `${s.steps?.length || 0} steps` });
+        suggestions.newSections.forEach((s) => {
+            changes.push({ type: 'add', entity: 'section', name: s.title, details: `${s.steps?.length ?? 0} steps` });
         });
     }
     if (suggestions.newSteps) {
-        suggestions.newSteps.forEach((s: any) => {
+        suggestions.newSteps.forEach((s) => {
             changes.push({ type: 'add', entity: 'step', name: s.title, details: s.type });
         });
     }
     // Hypothetical 'modifications' structure from AI
     if (suggestions.modifications) {
-        suggestions.modifications.forEach((m: any) => {
+        suggestions.modifications.forEach((m) => {
             changes.push({ type: 'modify', entity: m.entity, name: m.name, details: m.reason });
         });
     }

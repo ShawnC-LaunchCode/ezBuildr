@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+
 import { securityHeaders } from '../server/middleware/securityHeaders.js';
 
 const app = express();

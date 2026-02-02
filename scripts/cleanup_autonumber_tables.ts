@@ -1,7 +1,9 @@
 
-import { db, initializeDatabase } from '../server/db';
-import { datavaultTables } from '@shared/schema';
 import { ilike, and } from 'drizzle-orm';
+
+import { datavaultTables } from '@shared/schema';
+
+import { db, initializeDatabase } from '../server/db';
 import { datavaultTablesService } from '../server/services/DatavaultTablesService';
 
 async function cleanup() {

@@ -175,7 +175,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         });
     };
 
-    const handleOptionsChange = (options: OptionItemData[] | import("@/../../shared/types/stepConfigs").DynamicOptionsConfig) => {
+    const handleOptionsChange = (options: OptionItemData[] | import("@shared/types/stepConfigs").DynamicOptionsConfig) => {
         if (Array.isArray(options)) {
             setLocalOptions(options);
             updateStepMutation.mutate({

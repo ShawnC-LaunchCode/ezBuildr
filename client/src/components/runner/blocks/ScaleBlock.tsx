@@ -16,7 +16,7 @@ import React from "react";
 import { Slider } from "@/components/ui/slider";
 import type { Step } from "@/types";
 
-import type { ScaleConfig } from "@/../../shared/types/stepConfigs";
+import type { ScaleConfig } from "@shared/types/stepConfigs";
 
 export interface ScaleBlockProps {
   step: Step;

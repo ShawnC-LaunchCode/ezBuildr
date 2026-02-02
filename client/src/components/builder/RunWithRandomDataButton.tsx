@@ -54,11 +54,12 @@ export function RunWithRandomDataButton({
 
       // Navigate to preview
       setLocation(`/preview/${runId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to create random run:", error);
+      const message = error instanceof Error ? error.message : "Failed to generate data";
 
       // Check if AI service is not configured
-      if (error.message?.includes("not configured") || error.message?.includes("503")) {
+      if (message.includes("not configured") || message.includes("503")) {
         toast({
           title: "AI Service Not Available",
           description: "Please configure AI_API_KEY in environment variables",
@@ -67,7 +68,7 @@ export function RunWithRandomDataButton({
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to generate data",
+          description: message,
           variant: "destructive",
         });
       }

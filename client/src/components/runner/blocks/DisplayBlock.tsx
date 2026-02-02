@@ -15,7 +15,7 @@ import ReactMarkdown from "react-markdown";
 
 import type { Step } from "@/types";
 
-import type { DisplayConfig } from "@/../../shared/types/stepConfigs";
+import type { DisplayConfig } from "@shared/types/stepConfigs";
 
 export interface DisplayBlockProps {
   step: Step;

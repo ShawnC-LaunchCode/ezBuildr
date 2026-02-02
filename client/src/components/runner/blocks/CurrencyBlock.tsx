@@ -16,7 +16,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { CurrencyConfig } from "@/../../shared/types/stepConfigs";
+import type { CurrencyConfig } from "@shared/types/stepConfigs";
 
 export interface CurrencyBlockProps {
   step: Step;

@@ -139,12 +139,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
 
             toast({
                 title: "Test Run Complete ✓",
-                description: `${JSON.stringify({ input: mockInput, output: result as unknown }, null, 2).slice(0, 100)}...` // Simple summary
-                // Note: The UI for toast description was complex JSX. 
-                // We can't return JSX from this hook easily without importing React.
-                // I will keep the toast simple here or return the result to the component to display?
-                // The original code passed JSX to toast.
-                // We need to impart usage of React/JSX in .ts file? .tsx?
+                description: `${JSON.stringify({ input: mockInput, output: result as unknown }, null, 2).slice(0, 100)}...`
             });
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';

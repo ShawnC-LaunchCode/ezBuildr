@@ -5,13 +5,20 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea"; // Assuming we might want description
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateSection } from "@/lib/vault-hooks";
 
-import type { ValidateRule } from "@shared/types/blocks"; // Need to ensure this is importable
+import type { ValidateRule } from "@shared/types/blocks";
 
 import { ValidationRulesEditor } from "./ValidationRulesEditor";
+
+interface SectionSettingsSection {
+    id: string;
+    title: string;
+    description?: string | null;
+    config?: { validationRules?: ValidateRule[]; [key: string]: unknown };
+}
 
 export function SectionSettingsDialog({
     workflowId,
@@ -21,7 +28,7 @@ export function SectionSettingsDialog({
     mode = "easy"
 }: {
     workflowId: string;
-    section: any;
+    section: SectionSettingsSection | null;
     isOpen: boolean;
     onClose: () => void;
     mode?: "easy" | "advanced";
@@ -102,7 +109,7 @@ export function SectionSettingsDialog({
                             rules={validationRules}
                             onChange={setValidationRules}
                             workflowId={workflowId}
-                            mode={mode as any}
+                            mode={mode}
                         />
                     </TabsContent>
 

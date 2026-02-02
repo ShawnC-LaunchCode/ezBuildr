@@ -2,9 +2,11 @@
  * Test document generation for the most recent run
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { workflowRuns } from '@shared/schema';
 import { desc } from 'drizzle-orm';
+
+import { workflowRuns } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
 import { documentGenerationService } from '../server/services/DocumentGenerationService';
 
 async function testDocGeneration() {

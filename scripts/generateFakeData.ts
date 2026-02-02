@@ -1,8 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { users, surveys, surveyPages, questions, responses, answers } from "../shared/schema";
 import { eq } from "drizzle-orm";
+
+import { users, surveys, surveyPages, questions, responses, answers } from "../shared/schema";
+
 import { randomUUID } from "crypto";
 
 // Initialize database connection

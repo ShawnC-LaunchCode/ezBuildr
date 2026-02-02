@@ -24,8 +24,7 @@ import { StepEditorCommonProps } from "../StepEditorRouter";
 import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
 import { VisibilityField } from "./common/VisibilityField";
 
-import type { DisplayConfig, DisplayAdvancedConfig } from "@/../../shared/types/stepConfigs";
-
+import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepConfigs";
 
 export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();

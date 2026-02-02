@@ -1,6 +1,7 @@
-import dotenv from 'dotenv';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+
+import dotenv from 'dotenv';
 
 // Load .env manually to be sure
 const envPath = path.resolve(process.cwd(), '.env');

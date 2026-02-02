@@ -1,6 +1,6 @@
 import { getDb, initializeDatabase } from '../server/db';
-import { tenants, users, projects } from '../shared/schema';
 import { projectService } from '../server/services/ProjectService';
+import { tenants, users, projects } from '../shared/schema';
 
 async function testProjectCreation() {
   await initializeDatabase();

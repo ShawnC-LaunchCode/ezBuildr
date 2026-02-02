@@ -1,6 +1,6 @@
 
 import { Check, ChevronsUpDown, FileText } from "lucide-react";
-import React from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +32,7 @@ export function DocumentPicker({
     placeholder = "Select a document...",
     disabled = false
 }: DocumentPickerProps) {
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = useState(false);
     const { data: templates, isLoading } = useTemplates();
 
     const selectedTemplate = templates?.find((template) => template.id === value);

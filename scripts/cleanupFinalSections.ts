@@ -12,9 +12,10 @@
  * Usage: npx tsx scripts/cleanupFinalSections.ts
  */
 
+import { eq, sql } from 'drizzle-orm';
+
 import { db } from '../server/db';
 import { sections, steps } from '../shared/schema';
-import { eq, sql } from 'drizzle-orm';
 
 async function cleanupFinalSections() {
   console.log('🧹 Starting cleanup of Final Documents sections...\n');

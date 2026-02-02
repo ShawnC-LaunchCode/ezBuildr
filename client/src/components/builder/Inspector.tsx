@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
 import { BlocksPanel } from "./BlocksPanel";
-// const BlocksPanel = ({ workflowId }: { workflowId: string }) => <div className="p-4 text-sm text-muted-foreground">Blocks Panel is currently unavailable.</div>;
 import { LogicPanel } from "./LogicPanel";
 import { StepPropertiesPanel } from "./StepPropertiesPanel";
 import { TransformBlocksPanel } from "./TransformBlocksPanel";
@@ -61,7 +60,7 @@ export function Inspector({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs value={inspectorTab} onValueChange={(v: any) => setInspectorTab(v)} className="flex-1 flex flex-col">
+      <Tabs value={inspectorTab} onValueChange={(v) => setInspectorTab(v as typeof inspectorTab)} className="flex-1 flex flex-col">
         <TabsList className="w-full grid grid-cols-4 m-2">
           <TabsTrigger value="properties" className="text-xs">
             <Settings className="w-3 h-3 mr-1" />

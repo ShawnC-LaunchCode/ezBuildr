@@ -60,7 +60,7 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
     return true;
   });
   const groupedVariables = filteredVariables.reduce((acc, variable) => {
-    const section = variable.sectionTitle || "Other";
+    const section = variable.sectionTitle ?? "Other";
     if (acc[section] === undefined) {
       acc[section] = [];
     }

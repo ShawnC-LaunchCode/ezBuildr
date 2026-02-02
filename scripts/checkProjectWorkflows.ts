@@ -3,9 +3,11 @@
  * Run with: npx tsx scripts/checkProjectWorkflows.ts
  */
 
-import { getDb, initializeDatabase } from '../server/db';
-import { projects, workflows } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { projects, workflows } from '@shared/schema';
+
+import { getDb, initializeDatabase } from '../server/db';
 
 async function checkProjectWorkflows() {
   try {

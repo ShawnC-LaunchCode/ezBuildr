@@ -28,7 +28,7 @@ export function TrendsTab({ timeSeries }: TrendsTabProps) {
                                 labelFormatter={formatDate}
                                 formatter={(value: number, name: string) => {
                                     if (name === 'avgRating') { return [value.toFixed(1), 'Avg Rating']; }
-                                    if (name === 'avgQualityScore') { return [value?.toFixed(0) || 'N/A', 'Avg Quality']; }
+                                    if (name === 'avgQualityScore') { return [value?.toFixed(0) ?? 'N/A', 'Avg Quality']; }
                                     return [value, name];
                                 }}
                             />

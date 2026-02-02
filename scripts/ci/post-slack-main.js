@@ -21,8 +21,9 @@
  * }
  */
 
-import { WebClient } from '@slack/web-api';
 import fs from 'fs';
+
+import { WebClient } from '@slack/web-api';
 
 /**
  * Parse command line arguments

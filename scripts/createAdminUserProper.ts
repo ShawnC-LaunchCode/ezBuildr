@@ -125,7 +125,7 @@ async function createAdminUserProper() {
     client.release();
   }
 
-  console.log("\n" + "=".repeat(70));
+  console.log(`\n${  "=".repeat(70)}`);
   console.log("🎉 ADMIN USER CREATION COMPLETE!");
   console.log("\n💡 Next steps:");
   console.log("   1. Clear your browser cookies and session storage");

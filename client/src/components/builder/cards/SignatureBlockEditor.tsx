@@ -9,7 +9,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import { DocumentPicker } from "./common/DocumentPicker";
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
 
-import type { SignatureBlockConfig } from "@/../../shared/types/stepConfigs";
+import type { SignatureBlockConfig } from "@shared/types/stepConfigs";
 
 interface SignatureBlockEditorProps {
   stepId: string;

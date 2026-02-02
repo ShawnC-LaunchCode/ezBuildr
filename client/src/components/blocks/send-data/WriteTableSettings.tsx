@@ -32,7 +32,7 @@ export function WriteTableSettings({
             {/* Mode */}
             <div className="space-y-2">
                 <Label>Write Mode</Label>
-                <Select value={config.mode || "create"} onValueChange={(val: "create" | "update" | "upsert") => onChange({ mode: val })}>
+                <Select value={config.mode ?? "create"} onValueChange={(val: "create" | "update" | "upsert") => onChange({ mode: val })}>
                     <SelectTrigger className="bg-white">
                         <SelectValue />
                     </SelectTrigger>
@@ -68,7 +68,7 @@ export function WriteTableSettings({
             {/* Execution Phase */}
             <div className="space-y-2">
                 <Label>When to Run</Label>
-                <Select value={phase || "onSectionSubmit"} onValueChange={onPhaseChange}>
+                <Select value={phase ?? "onSectionSubmit"} onValueChange={onPhaseChange}>
                     <SelectTrigger className="bg-white">
                         <SelectValue />
                     </SelectTrigger>

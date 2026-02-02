@@ -5,10 +5,11 @@
  * Applies migrations in order: 0007, 0009a, 0010, 0015, 0016, 0017, 0018, 0019, 0023
  */
 
-import { neon } from '@neondatabase/serverless';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,7 +33,7 @@ function splitSqlStatements(sql: string): string[] {
       insideDoBlock = true;
     }
 
-    currentStatement += line + '\n';
+    currentStatement += `${line  }\n`;
 
     if (insideDoBlock && (line.trim() === 'END $$;' || line.trim() === 'END $;')) {
       insideDoBlock = false;
@@ -67,7 +68,7 @@ async function applyMigration(client: any, migrationName: string, migrationFile:
     let skipCount = 0;
 
     for (const statement of statements) {
-      if (!statement.trim()) continue;
+      if (!statement.trim()) {continue;}
 
       try {
         await client(statement);

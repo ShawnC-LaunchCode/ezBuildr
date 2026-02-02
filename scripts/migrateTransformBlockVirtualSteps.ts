@@ -10,9 +10,11 @@
  *   tsx scripts/migrateTransformBlockVirtualSteps.ts
  */
 
-import { db } from "../server/db";
-import { transformBlocks, steps, sections } from "@shared/schema";
 import { eq, isNull, and } from "drizzle-orm";
+
+import { transformBlocks, steps, sections } from "@shared/schema";
+
+import { db } from "../server/db";
 import { createLogger } from "../server/logger";
 
 const logger = createLogger({ module: "migrate-transform-blocks" });

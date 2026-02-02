@@ -1,6 +1,7 @@
 import 'dotenv/config';
-import { getDb, dbInitPromise } from '../server/db';
 import { sql } from 'drizzle-orm';
+
+import { getDb, dbInitPromise } from '../server/db';
 
 async function checkWorkflowsTable() {
   console.log('Checking workflows table structure...');

@@ -1,7 +1,9 @@
-import { aclService } from '../server/services/AclService';
-import { workflowRepository } from '../server/repositories';
-import { initializeDatabase } from '../server/db';
 import dotenv from 'dotenv';
+
+import { initializeDatabase } from '../server/db';
+import { workflowRepository } from '../server/repositories';
+import { aclService } from '../server/services/AclService';
+
 
 dotenv.config();
 

@@ -3,8 +3,8 @@
  * Just the CREATE INDEX statements without COMMENT commands
  */
 
-import { config } from 'dotenv';
 import { neon } from '@neondatabase/serverless';
+import { config } from 'dotenv';
 
 config();
 

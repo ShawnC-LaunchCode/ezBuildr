@@ -130,7 +130,7 @@ async function checkDatabaseState() {
     client.release();
   }
 
-  console.log("\n" + "=".repeat(70));
+  console.log(`\n${  "=".repeat(70)}`);
   console.log("🎯 DATABASE STATE CHECK COMPLETE\n");
   process.exit(0);
 }

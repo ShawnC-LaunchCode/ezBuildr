@@ -17,9 +17,7 @@ import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
-
-
-import type { EmailConfig } from "@/../../shared/types/stepConfigs";
+import type { EmailConfig } from "@shared/types/stepConfigs";
 
 export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();

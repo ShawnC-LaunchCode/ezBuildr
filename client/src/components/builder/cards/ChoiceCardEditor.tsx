@@ -36,7 +36,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
 import { StaticOptionsEditor } from "./StaticOptionsEditor";
 
-import type { ChoiceAdvancedConfig, ChoiceOption } from "@/../../shared/types/stepConfigs";
+import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
 
 

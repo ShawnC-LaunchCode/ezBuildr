@@ -14,7 +14,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { TimeConfig } from "@/../../shared/types/stepConfigs";
+import type { TimeConfig } from "@shared/types/stepConfigs";
 
 export interface TimeBlockProps {
   step: Step;

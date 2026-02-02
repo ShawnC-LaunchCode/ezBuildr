@@ -21,81 +21,104 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { importSnip, validateSnipImport } from "@/lib/snips/importService";
 import { getAllSnips } from "@/lib/snips/registry";
+import { SnipDefinition } from "@/lib/snips/types";
 
 import { CollisionResolutionModal } from "./CollisionResolutionModal";
+
 interface AddSnipDialogProps {
     workflowId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
+
+interface SnipCardProps {
+    snip: SnipDefinition;
+    isSelected: boolean;
+    onSelect: (id: string) => void;
+}
+
+function SnipCard({ snip, isSelected, onSelect }: SnipCardProps) {
+    return (
+        <Card
+            className={`cursor-pointer transition-all ${isSelected
+                ? "ring-2 ring-indigo-500 border-indigo-500"
+                : "hover:border-indigo-300"
+                }`}
+            onClick={() => { onSelect(snip.id); }}
+        >
+            <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <CardTitle className="text-base">{snip.displayName}</CardTitle>
+                        <CardDescription className="text-sm mt-1">
+                            {snip.description}
+                        </CardDescription>
+                    </div>
+                    {snip.category && (
+                        <Badge variant="secondary" className="ml-2">
+                            {snip.category}
+                        </Badge>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{snip.pages.length} page{snip.pages.length !== 1 ? 's' : ''}</span>
+                    <span>
+                        {snip.pages.reduce((sum, p) => sum + p.questions.length, 0)} question
+                        {snip.pages.reduce((sum, p) => sum + p.questions.length, 0) !== 1 ? 's' : ''}
+                    </span>
+                    <span className="ml-auto font-mono">v{snip.version}</span>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogProps) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
+
     const [importing, setImporting] = useState(false);
     const [selectedSnipId, setSelectedSnipId] = useState<string | null>(null);
+
     // Collision resolution state
     const [showCollisionModal, setShowCollisionModal] = useState(false);
     const [detectedCollisions, setDetectedCollisions] = useState<string[]>([]);
-    const [resolvedMappings, setResolvedMappings] = useState<Record<string, string>>({});
+
     const snips = getAllSnips();
-    const handleImportClick = async () => {
-        if (!selectedSnipId) {
-            toast({
-                title: "No snip selected",
-                description: "Please select a snip to import",
-                variant: "destructive",
-            });
-            return;
-        }
-        // Step 1: Detect collisions
-        setImporting(true);
-        try {
-            const validation = await validateSnipImport(workflowId, selectedSnipId);
-            if (validation.aliasConflicts.length > 0) {
-                // Collisions detected - show resolution modal
-                setDetectedCollisions(validation.aliasConflicts);
-                setShowCollisionModal(true);
-                setImporting(false);
-            } else {
-                // No collisions - proceed with import
-                await executeImport({});
-            }
-        } catch (error) {
-            console.error('[AddSnipDialog] Validation error:', error);
-            toast({
-                title: "Validation failed",
-                description: error instanceof Error ? error.message : "Failed to validate snip",
-                variant: "destructive",
-            });
-            setImporting(false);
-        }
-    };
+
     const executeImport = async (aliasMappings: Record<string, string>) => {
-        if (!selectedSnipId) {return;}
+        if (!selectedSnipId) { return; }
         setImporting(true);
+
         try {
             const result = await importSnip(workflowId, {
                 snipId: selectedSnipId,
                 aliasMappings,
             });
+
             // Invalidate workflow queries to refresh sections/steps
             await queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
             await queryClient.invalidateQueries({ queryKey: ["sections", workflowId] });
             await queryClient.invalidateQueries({ queryKey: ["workflow-all-steps", workflowId] });
+
             // Enhanced feedback based on collision status
             let description = "Pages and questions have been added to your workflow";
             if (result.hadCollisions) {
                 description += ". Some variables were renamed to avoid conflicts";
             }
+
             toast({
                 title: "Snip imported",
                 description,
             });
+
             onOpenChange(false);
             setSelectedSnipId(null);
             setShowCollisionModal(false);
             setDetectedCollisions([]);
-            setResolvedMappings({});
+
         } catch (error) {
             console.error('[AddSnipDialog] Import error:', error);
             toast({
@@ -107,21 +130,56 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
             setImporting(false);
         }
     };
+
+    const handleImportClick = async () => {
+        if (!selectedSnipId) {
+            toast({
+                title: "No snip selected",
+                description: "Please select a snip to import",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Step 1: Detect collisions
+        setImporting(true);
+        try {
+            const validation = await validateSnipImport(workflowId, selectedSnipId);
+            if (validation.aliasConflicts.length > 0) {
+                // Collisions detected - show resolution modal
+                setDetectedCollisions(validation.aliasConflicts);
+                setShowCollisionModal(true);
+                setImporting(false);
+            } else {
+                // No collisions - proceed with import
+                void executeImport({});
+            }
+        } catch (error) {
+            console.error('[AddSnipDialog] Validation error:', error);
+            toast({
+                title: "Validation failed",
+                description: error instanceof Error ? error.message : "Failed to validate snip",
+                variant: "destructive",
+            });
+            setImporting(false);
+        }
+    };
+
     const handleCollisionResolve = (resolutions: Record<string, string>) => {
-        setResolvedMappings(resolutions);
         setShowCollisionModal(false);
         // Proceed with import using resolved mappings
-        executeImport(resolutions);
+        void executeImport(resolutions);
     };
+
     const handleCollisionCancel = () => {
         setShowCollisionModal(false);
         setDetectedCollisions([]);
-        setResolvedMappings({});
         toast({
             title: "Import cancelled",
             description: "No changes were made to your workflow",
         });
     };
+
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,6 +191,7 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                             Snips include pre-configured pages, questions, and logic.
                         </DialogDescription>
                     </DialogHeader>
+
                     <div className="space-y-3">
                         {snips.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
@@ -141,43 +200,16 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                             </div>
                         ) : (
                             snips.map((snip) => (
-                                <Card
+                                <SnipCard
                                     key={snip.id}
-                                    className={`cursor-pointer transition-all ${selectedSnipId === snip.id
-                                        ? "ring-2 ring-indigo-500 border-indigo-500"
-                                        : "hover:border-indigo-300"
-                                        }`}
-                                    onClick={() => { void setSelectedSnipId(snip.id); }}
-                                >
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <CardTitle className="text-base">{snip.displayName}</CardTitle>
-                                                <CardDescription className="text-sm mt-1">
-                                                    {snip.description}
-                                                </CardDescription>
-                                            </div>
-                                            {snip.category && (
-                                                <Badge variant="secondary" className="ml-2">
-                                                    {snip.category}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                            <span>{snip.pages.length} page{snip.pages.length !== 1 ? 's' : ''}</span>
-                                            <span>
-                                                {snip.pages.reduce((sum, p) => sum + p.questions.length, 0)} question
-                                                {snip.pages.reduce((sum, p) => sum + p.questions.length, 0) !== 1 ? 's' : ''}
-                                            </span>
-                                            <span className="ml-auto font-mono">v{snip.version}</span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                    snip={snip}
+                                    isSelected={selectedSnipId === snip.id}
+                                    onSelect={setSelectedSnipId}
+                                />
                             ))
                         )}
                     </div>
+
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { void onOpenChange(false); }} disabled={importing}>
                             Cancel
@@ -198,6 +230,7 @@ export function AddSnipDialog({ workflowId, open, onOpenChange }: AddSnipDialogP
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
             {/* Collision Resolution Modal */}
             <CollisionResolutionModal
                 open={showCollisionModal}

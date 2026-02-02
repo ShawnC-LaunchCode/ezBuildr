@@ -7,10 +7,11 @@
  * Usage: npx tsx scripts/assignOrphanedWorkflows.ts
  */
 
-import { initializeDatabase, getDb } from '../server/db.js';
-import { workflows, projects, tenants } from '../shared/schema.js';
 import { isNull, eq } from 'drizzle-orm';
+
+import { initializeDatabase, getDb } from '../server/db.js';
 import { logger } from '../server/logger.js';
+import { workflows, projects, tenants } from '../shared/schema.js';
 
 async function main() {
   logger.info('Starting orphaned workflows assignment...');

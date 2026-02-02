@@ -13,10 +13,11 @@
  *   DATABASE_URL="postgresql://..." npx tsx scripts/applyMigration0011.ts
  */
 
-import { neon } from '@neondatabase/serverless';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 // ES module equivalent of __dirname
@@ -41,7 +42,7 @@ function splitSqlStatements(sql: string): string[] {
       continue;
     }
 
-    currentStatement += line + '\n';
+    currentStatement += `${line  }\n`;
 
     // Statement end (semicolon)
     if (line.trim().endsWith(';')) {

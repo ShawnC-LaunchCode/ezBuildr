@@ -4,7 +4,6 @@ import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Le
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
-
 import { FeedbackStats } from "./types";
 import { getRatingColor, getQualityColor } from "./utils";
 
@@ -31,7 +30,7 @@ export function OperationsTab({ byOperationType }: OperationsTabProps) {
                                 <Tooltip
                                     formatter={(value: number, name: string) => {
                                         if (name === 'avgRating') { return [value.toFixed(1), 'Avg Rating']; }
-                                        if (name === 'avgQualityScore') { return [value?.toFixed(0) || 'N/A', 'Avg Quality']; }
+                                        if (name === 'avgQualityScore') { return [value?.toFixed(0) ?? 'N/A', 'Avg Quality']; }
                                         return [value, name];
                                     }}
                                 />

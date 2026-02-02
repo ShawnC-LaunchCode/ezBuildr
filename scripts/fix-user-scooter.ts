@@ -1,7 +1,9 @@
 
-import { dbInitPromise, db } from "../server/db";
-import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+import { users } from "@shared/schema";
+
+import { dbInitPromise, db } from "../server/db";
 
 async function main() {
     await dbInitPromise;

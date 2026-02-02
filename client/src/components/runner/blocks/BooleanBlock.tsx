@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Step } from "@/types";
 
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
+import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
 export interface BooleanBlockProps {
   step: Step;

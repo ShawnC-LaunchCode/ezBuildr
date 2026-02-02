@@ -1,8 +1,8 @@
 
+import { initializeDatabase } from "../server/db";
+import { UserRepository } from "../server/repositories/UserRepository";
 import { WorkflowRepository } from "../server/repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../server/repositories/WorkflowRunRepository";
-import { UserRepository } from "../server/repositories/UserRepository";
-import { initializeDatabase } from "../server/db";
 
 async function main() {
     console.log("Initializing database...");

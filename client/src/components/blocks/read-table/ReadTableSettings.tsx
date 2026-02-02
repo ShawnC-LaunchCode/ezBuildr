@@ -37,12 +37,12 @@ export function ReadTableSettings({
                 <Label>Sort By</Label>
                 <div className="flex gap-2">
                     <Select
-                        value={config.sort?.columnId || "none"}
+                        value={config.sort?.columnId ?? "none"}
                         onValueChange={(val) => {
                             if (val === 'none') {
                                 onChange({ sort: undefined });
                             } else {
-                                onChange({ sort: { columnId: val, direction: config.sort?.direction || 'asc' } });
+                                onChange({ sort: { columnId: val, direction: config.sort?.direction ?? 'asc' } });
                             }
                         }}
                     >
@@ -81,7 +81,7 @@ export function ReadTableSettings({
                 <Label>Row Limit</Label>
                 <Input
                     type="number"
-                    value={config.limit || 100}
+                    value={config.limit ?? 100}
                     onChange={(e) => onChange({ limit: parseInt(e.target.value) })}
                     className="bg-white"
                 />
@@ -93,7 +93,7 @@ export function ReadTableSettings({
             {/* Execution Phase */}
             <div className="space-y-2">
                 <Label>When to Run</Label>
-                <Select value={phase || "onRunStart"} onValueChange={onPhaseChange}>
+                <Select value={phase ?? "onRunStart"} onValueChange={onPhaseChange}>
                     <SelectTrigger className="bg-white">
                         <SelectValue />
                     </SelectTrigger>

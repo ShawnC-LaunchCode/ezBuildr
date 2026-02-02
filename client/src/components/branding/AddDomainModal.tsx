@@ -60,6 +60,68 @@ const RESERVED_SUBDOMAINS = [
   'vaultlogic',
 ];
 
+const validateSubdomain = (value: string, existingDomains: string[]): string | null => {
+  if (!value) {
+    return 'Subdomain is required';
+  }
+
+  // Check length
+  if (value.length < 3) {
+    return 'Subdomain must be at least 3 characters';
+  }
+
+  if (value.length > 63) {
+    return 'Subdomain must be less than 63 characters';
+  }
+
+  // Check format: alphanumeric and hyphens only, no leading/trailing hyphens
+  // Using a more robust regex for subdomain validation (RFC 1035)
+  // eslint-disable-next-line security/detect-unsafe-regex
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)) {
+    return 'Subdomain can only contain lowercase letters, numbers, and hyphens (no leading/trailing hyphens)';
+  }
+
+  // Check for reserved names
+  if (RESERVED_SUBDOMAINS.includes(value.toLowerCase())) {
+    return 'This subdomain is reserved and cannot be used';
+  }
+
+  // Check if already exists
+  const fullDomain = `${value}.vaultlogic.com`;
+  if (existingDomains.includes(fullDomain)) {
+    return 'This subdomain is already configured';
+  }
+
+  return null;
+};
+
+const validateCustomDomain = (value: string, existingDomains: string[]): string | null => {
+  if (!value) {
+    return 'Domain is required';
+  }
+
+  // Basic domain format validation
+  // Use a clearer regex pattern for domain names (RFC 1035)
+  // eslint-disable-next-line security/detect-unsafe-regex
+  const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
+  if (!domainRegex.test(value)) {
+    return 'Please enter a valid domain name (e.g., example.com)';
+  }
+
+  // Check if already exists
+  if (existingDomains.includes(value.toLowerCase())) {
+    return 'This domain is already configured';
+  }
+
+  // Prevent vaultlogic.com domains in custom
+  if (value.toLowerCase().endsWith('.vaultlogic.com')) {
+    return 'VaultLogic subdomains should be added using the Subdomain tab';
+  }
+
+  return null;
+};
+
+// eslint-disable-next-line max-lines-per-function
 export default function AddDomainModal({
   open,
   onOpenChange,
@@ -72,64 +134,7 @@ export default function AddDomainModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const validateSubdomain = (value: string): string | null => {
-    if (!value) {
-      return 'Subdomain is required';
-    }
 
-    // Check length
-    if (value.length < 3) {
-      return 'Subdomain must be at least 3 characters';
-    }
-
-    if (value.length > 63) {
-      return 'Subdomain must be less than 63 characters';
-    }
-
-    // Check format: alphanumeric and hyphens only, no leading/trailing hyphens
-    // Using a more robust regex for subdomain validation (RFC 1035)
-    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)) {
-      return 'Subdomain can only contain lowercase letters, numbers, and hyphens (no leading/trailing hyphens)';
-    }
-
-    // Check for reserved names
-    if (RESERVED_SUBDOMAINS.includes(value.toLowerCase())) {
-      return 'This subdomain is reserved and cannot be used';
-    }
-
-    // Check if already exists
-    const fullDomain = `${value}.vaultlogic.com`;
-    if (existingDomains.includes(fullDomain)) {
-      return 'This subdomain is already configured';
-    }
-
-    return null;
-  };
-
-  const validateCustomDomain = (value: string): string | null => {
-    if (!value) {
-      return 'Domain is required';
-    }
-
-    // Basic domain format validation
-    // Use a clearer regex pattern for domain names (RFC 1035)
-    const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
-    if (!domainRegex.test(value)) {
-      return 'Please enter a valid domain name (e.g., example.com)';
-    }
-
-    // Check if already exists
-    if (existingDomains.includes(value.toLowerCase())) {
-      return 'This domain is already configured';
-    }
-
-    // Prevent vaultlogic.com domains in custom
-    if (value.toLowerCase().endsWith('.vaultlogic.com')) {
-      return 'VaultLogic subdomains should be added using the Subdomain tab';
-    }
-
-    return null;
-  };
 
   const handleSubmit = async () => {
     setError(null);
@@ -138,10 +143,10 @@ export default function AddDomainModal({
     let validationError: string | null;
 
     if (domainType === 'subdomain') {
-      validationError = validateSubdomain(subdomain);
+      validationError = validateSubdomain(subdomain, existingDomains);
       domainToAdd = `${subdomain.toLowerCase()}.vaultlogic.com`;
     } else {
-      validationError = validateCustomDomain(customDomain);
+      validationError = validateCustomDomain(customDomain, existingDomains);
       domainToAdd = customDomain.toLowerCase();
     }
 
@@ -179,8 +184,8 @@ export default function AddDomainModal({
   const currentValue = domainType === 'subdomain' ? subdomain : customDomain;
   const isValid =
     domainType === 'subdomain'
-      ? validateSubdomain(subdomain) === null
-      : validateCustomDomain(customDomain) === null;
+      ? validateSubdomain(subdomain, existingDomains) === null
+      : validateCustomDomain(customDomain, existingDomains) === null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -188,7 +193,7 @@ export default function AddDomainModal({
         <DialogHeader>
           <DialogTitle>Add Domain</DialogTitle>
           <DialogDescription>
-            Add a subdomain or custom domain for your tenant's intake portals
+            Add a subdomain or custom domain for your tenant&apos;s intake portals
           </DialogDescription>
         </DialogHeader>
 
@@ -285,7 +290,7 @@ export default function AddDomainModal({
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={() => handleSubmit()} disabled={!currentValue || isSubmitting || !isValid}>
+          <Button onClick={() => { void handleSubmit(); }} disabled={!currentValue || isSubmitting || !isValid}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -13,7 +13,7 @@ import type {
     LegacyMultipleChoiceConfig,
     LegacyRadioConfig,
     DynamicOptionsConfig
-} from '@/../../shared/types/stepConfigs';
+} from '@shared/types/stepConfigs';
 
 export interface ChoiceCardState {
     display: "radio" | "dropdown" | "multiple";

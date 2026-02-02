@@ -32,7 +32,7 @@ function formatDuration(ms: number): string {
 }
 
 function printResults(): void {
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${  '='.repeat(60)}`);
   console.log('Pre-Commit Quality Check Results');
   console.log('='.repeat(60));
 
@@ -49,7 +49,7 @@ function printResults(): void {
   const total = results.length;
   console.log('='.repeat(60));
   console.log(`Total: ${passed}/${total} checks passed`);
-  console.log('='.repeat(60) + '\n');
+  console.log(`${'='.repeat(60)  }\n`);
 }
 
 function runCommand(command: string, name: string): boolean {

@@ -31,6 +31,23 @@ interface ReadTableBlockEditorProps {
   onEnabledChange: (enabled: boolean) => void;
 }
 
+
+// Helper Interface for Native Table Data Source Config
+interface NativeTableConfig {
+  isNativeTable?: boolean;
+  tableId?: string;
+}
+
+function isNativeTableConfig(config: unknown): config is NativeTableConfig {
+  return typeof config === 'object' && config !== null && 'isNativeTable' in config;
+}
+
+interface FetchedTable {
+  name: string;
+  id?: string;
+  type?: string;
+}
+
 export function ReadTableBlockEditor({
   workflowId,
   config,
@@ -45,22 +62,25 @@ export function ReadTableBlockEditor({
   const { data: dataSources } = useWorkflowDataSources(workflowId);
   const selectedDataSource = dataSources?.find(ds => ds.id === config.dataSourceId);
 
+  const dsConfig = selectedDataSource?.config;
+  const isNative = isNativeTableConfig(dsConfig) && dsConfig.isNativeTable;
+
   // Fetch tables
   const { data: fetchedTables } = useQuery({
     queryKey: ["dataSource", config.dataSourceId, "tables"],
     queryFn: () => config.dataSourceId ? dataSourceAPI.getTables(config.dataSourceId) : Promise.resolve([]),
-    enabled: !!config.dataSourceId && !((selectedDataSource?.config as any)?.isNativeTable)
+    enabled: !!config.dataSourceId && !isNative
   });
 
   const { data: allNativeTables } = useTables();
   let tables: { name: string; type: string; id: string }[] = [];
 
   if (fetchedTables) {
-    tables = fetchedTables.map((t: any) => ({ ...t, id: t.id || t.name }));
+    tables = (fetchedTables as FetchedTable[]).map((t) => ({ ...t, type: t.type ?? 'unknown', id: t.id || t.name }));
   }
 
-  if ((selectedDataSource?.config as any)?.isNativeTable && (selectedDataSource?.config as any)?.tableId) {
-    const targetTable = allNativeTables?.find(t => t.id === (selectedDataSource?.config as any).tableId);
+  if (isNative && isNativeTableConfig(dsConfig) && dsConfig.tableId) {
+    const targetTable = allNativeTables?.find(t => t.id === dsConfig.tableId);
     if (targetTable) {
       tables = [{ name: targetTable.name, type: 'native', id: targetTable.id }];
     }
@@ -75,7 +95,7 @@ export function ReadTableBlockEditor({
 
   // Auto-select table if native table proxy
   useEffect(() => {
-    if ((selectedDataSource?.config as any)?.isNativeTable && tables.length === 1 && config.tableId !== tables[0].id) {
+    if (isNative && tables.length === 1 && config.tableId !== tables[0].id) {
       updateConfig({ tableId: tables[0].id });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

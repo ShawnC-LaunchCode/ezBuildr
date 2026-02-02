@@ -1,6 +1,7 @@
 
-import { db, initializeDatabase } from "../server/db";
 import { sql } from "drizzle-orm";
+
+import { db, initializeDatabase } from "../server/db";
 
 async function applyFix() {
     await initializeDatabase();

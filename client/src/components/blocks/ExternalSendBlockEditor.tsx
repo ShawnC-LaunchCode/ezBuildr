@@ -21,24 +21,25 @@ interface ExternalSendBlockEditorProps {
     phase?: string;
     onPhaseChange?: (phase: string) => void;
 }
-export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, onPhaseChange }: ExternalSendBlockEditorProps) {
+export function ExternalSendBlockEditor({ workflowId, config, onChange, phase, onPhaseChange }: ExternalSendBlockEditorProps): JSX.Element {
     const { data: dataSources } = useWorkflowDataSources(workflowId);
     const { data: variables = [] } = useWorkflowVariables(workflowId);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- legacy type check
+
     const destinations = dataSources?.filter(ds => ds.type === 'external' || (ds.type as string) === 'api');
-    const updateConfig = (updates: Partial<ExternalSendConfig>) => {
+
+    const updateConfig = (updates: Partial<ExternalSendConfig>): void => {
         onChange({ ...config, ...updates });
     };
-    const addMapping = () => {
+    const addMapping = (): void => {
         const mappings = config.payloadMappings ?? [];
         updateConfig({ payloadMappings: [...mappings, { key: "", value: "" }] });
     };
-    const updateMapping = (index: number, key: keyof PayloadMapping, value: string) => {
+    const updateMapping = (index: number, key: keyof PayloadMapping, value: string): void => {
         const mappings = [...(config.payloadMappings ?? [])];
         mappings[index] = { ...mappings[index], [key]: value };
         updateConfig({ payloadMappings: mappings });
     };
-    const removeMapping = (index: number) => {
+    const removeMapping = (index: number): void => {
         const mappings = [...(config.payloadMappings ?? [])];
         mappings.splice(index, 1);
         updateConfig({ payloadMappings: mappings });

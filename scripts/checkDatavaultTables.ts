@@ -1,7 +1,9 @@
-import { db } from '../server/db';
-import { sql } from 'drizzle-orm';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+
+import { sql } from 'drizzle-orm';
+
+import { db } from '../server/db';
 
 /**
  * Check if DataVault tables exist and apply migration if needed

@@ -18,8 +18,7 @@ import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
-
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@/../../shared/types/stepConfigs";
+import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
 export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -100,8 +99,6 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     }
   };
-
-
 
   const handleAliasChange = (alias: string | null) => {
     updateStepMutation.mutate({ id: stepId, sectionId, alias });

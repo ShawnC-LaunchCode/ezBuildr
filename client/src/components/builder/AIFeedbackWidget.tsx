@@ -66,10 +66,10 @@ export function AIFeedbackWidget({
       await fetchAPI('/api/ai/feedback', {
         method: 'POST',
         body: JSON.stringify({
-          workflowId: workflowId || undefined,
+          workflowId: workflowId ? workflowId : undefined,
           operationType,
           rating,
-          comment: comment.trim() || undefined,
+          comment: comment.trim() === '' ? undefined : comment.trim(),
           aiProvider,
           aiModel,
           qualityScore: qualityScore?.overall,

@@ -33,7 +33,7 @@ async function main() {
   console.log('');
 
   // Determine the user to check
-  let targetUserId = userId || workflow.creator_id;
+  const targetUserId = userId || workflow.creator_id;
   console.log(`👤 Checking access for user: ${targetUserId}\n`);
 
   // Check if user has direct workflow access

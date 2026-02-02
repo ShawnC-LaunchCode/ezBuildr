@@ -7,6 +7,6 @@ export interface StepEditorProps {
     step: ApiStep;
     sectionId: string;
     workflowId: string;
-    // Optional: Pass the mode explicitly if calculated upstream to avoid recalcuating in every child
+    // Optional: Pass the mode explicitly if calculated upstream to avoid recalculating in every child
     mode?: 'easy' | 'advanced';
 }

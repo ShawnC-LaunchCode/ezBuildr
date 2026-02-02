@@ -1,10 +1,12 @@
 /**
  * Apply migration 0026: Fix metrics_rollups unique index
  */
-import { getDb, dbInitPromise } from '../server/db';
-import { sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
+
+import { sql } from 'drizzle-orm';
+
+import { getDb, dbInitPromise } from '../server/db';
 
 async function applyMigration() {
   try {

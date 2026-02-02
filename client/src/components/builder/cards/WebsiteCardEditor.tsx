@@ -19,7 +19,7 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 
-import type { WebsiteConfig } from "@/../../shared/types/stepConfigs";
+import type { WebsiteConfig } from "@shared/types/stepConfigs";
 
 interface WebsiteCardState {
   requireProtocol: boolean;

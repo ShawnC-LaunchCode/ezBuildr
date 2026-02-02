@@ -23,8 +23,6 @@ export default function EmailPreview({
   branding,
   enabledTokens,
 }: EmailPreviewProps) {
-  // Extract enabled branding values
-  // Extract enabled branding values
   const resolvedBranding = useResolvedBranding(branding, enabledTokens);
 
   const primaryColor = resolvedBranding.primaryColor ?? '#3B82F6';

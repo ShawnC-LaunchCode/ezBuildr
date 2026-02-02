@@ -25,7 +25,7 @@ async function fixOrphanedWorkflows() {
     console.log('');
 
     // Get or create default tenant
-    let defaultTenant = await client('SELECT id FROM tenants LIMIT 1');
+    const defaultTenant = await client('SELECT id FROM tenants LIMIT 1');
     let defaultTenantId;
 
     if (defaultTenant.length === 0) {
@@ -47,7 +47,7 @@ async function fixOrphanedWorkflows() {
     const firstUserId = firstUser.length > 0 ? firstUser[0].id : 'system';
 
     // Get or create default project
-    let defaultProject = await client(`
+    const defaultProject = await client(`
       SELECT id FROM projects WHERE tenant_id = $1 LIMIT 1
     `, [defaultTenantId]);
     let defaultProjectId;

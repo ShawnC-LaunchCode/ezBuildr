@@ -19,7 +19,7 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 
-import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
+import type { PhoneConfig } from "@shared/types/stepConfigs";
 
 interface PhoneCardState {
   format: 'US' | 'international';

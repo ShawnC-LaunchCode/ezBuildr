@@ -3,8 +3,9 @@
  * Run with: npx tsx scripts/checkProjectCreators.ts
  */
 
-import { getDb, initializeDatabase } from '../server/db';
 import { projects } from '@shared/schema';
+
+import { getDb, initializeDatabase } from '../server/db';
 
 async function checkProjectCreators() {
   try {

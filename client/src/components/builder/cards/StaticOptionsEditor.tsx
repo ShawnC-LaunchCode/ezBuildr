@@ -1,10 +1,9 @@
 import { GripVertical, Trash2, Plus } from 'lucide-react';
-import React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-import type { ChoiceOption } from '@/../../shared/types/stepConfigs';
+import type { ChoiceOption } from '@shared/types/stepConfigs';
 
 interface StaticOptionsEditorProps {
     options: ChoiceOption[];

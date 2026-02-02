@@ -1,10 +1,13 @@
 
-import { db } from "../server/db";
+import { eq } from "drizzle-orm";
+
 import { users, userCredentials } from "@shared/schema";
-import { authService } from "../server/services/AuthService";
+
+import { db } from "../server/db";
 import { userCredentialsRepository } from "../server/repositories/UserCredentialsRepository";
 import { userRepository } from "../server/repositories/UserRepository";
-import { eq } from "drizzle-orm";
+import { authService } from "../server/services/AuthService";
+
 
 async function main() {
     const { dbInitPromise } = await import("../server/db");

@@ -1,6 +1,7 @@
 
-import { db } from "../server/db";
 import { sql } from "drizzle-orm";
+
+import { db } from "../server/db";
 
 async function main() {
     console.log("Altering audit_logs table...");

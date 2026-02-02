@@ -11,7 +11,10 @@
  * - Document template generation capabilities
  */
 
+import { eq } from 'drizzle-orm';
+
 import { getDb, initializeDatabase } from '../server/db';
+import logger from '../server/logger';
 import {
   projects,
   workflows,
@@ -20,8 +23,6 @@ import {
   transformBlocks,
   logicRules,
 } from '../shared/schema';
-import { eq } from 'drizzle-orm';
-import logger from '../server/logger';
 
 // 2024 Federal Poverty Level thresholds (for demonstration)
 const POVERTY_LEVELS: Record<number, number> = {

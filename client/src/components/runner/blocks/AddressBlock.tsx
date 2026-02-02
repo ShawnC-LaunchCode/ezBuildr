@@ -45,7 +45,7 @@ import {
 import { usePreviewStore } from "@/store/preview";
 import type { Step } from "@/types";
 
-import type { AddressConfig, AddressValue } from "@/../../shared/types/stepConfigs";
+import type { AddressConfig, AddressValue } from "@shared/types/stepConfigs";
 
 // Import store to get access to preview tokens
 

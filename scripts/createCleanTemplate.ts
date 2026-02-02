@@ -3,10 +3,11 @@
  * This ensures tags like {{firstName}} are stored as single XML elements
  */
 
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import fs from 'fs';
 import path from 'path';
+
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
 
 // Create a minimal DOCX template with clean tags
 const content = '{{firstName}} {{lastName}}';
@@ -22,12 +23,12 @@ zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`);
 
-zip.folder('_rels')!.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`);
 
-zip.folder('word')!.file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     <w:p>

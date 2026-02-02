@@ -2,10 +2,14 @@
  * Create a simple test workflow with document generation
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { workflows, sections, steps, templates, projects, users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
+
+import { workflows, sections, steps, templates, projects, users } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
+
 
 async function createTestWorkflow() {
   await initializeDatabase();
@@ -50,7 +54,7 @@ async function createTestWorkflow() {
     ownerId: user.id,   // Legacy field (required)
     status: 'active',
     isPublic: true,
-    publicLink: 'simple-doc-test-' + Date.now(),
+    publicLink: `simple-doc-test-${  Date.now()}`,
   }).returning();
 
   const workflowId = workflow[0].id;

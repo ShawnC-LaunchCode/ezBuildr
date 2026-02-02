@@ -57,7 +57,7 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
   const [selectedCollection, setSelectedCollection] = useState<string>("");
   // Stub: Create new collection
   const handleCreateCollection = () => {
-    if (!newCollectionName) {
+    if (newCollectionName === "") {
       toast({
         title: "Validation Error",
         description: "Please enter a collection name",
@@ -84,7 +84,7 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
   };
   // Stub: Link collection to workflow
   const handleLinkCollection = () => {
-    if (!selectedCollection) {
+    if (selectedCollection === "") {
       toast({
         title: "Validation Error",
         description: "Please select a collection",

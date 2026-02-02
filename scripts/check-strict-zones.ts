@@ -179,7 +179,7 @@ function checkStrictCompliance(verbose: boolean = false): boolean {
 
       if (!verbose && error.stdout) {
         console.log('\n   Error output:');
-        console.log('   ' + error.stdout.split('\n').slice(0, 10).join('\n   '));
+        console.log(`   ${  error.stdout.split('\n').slice(0, 10).join('\n   ')}`);
         console.log('\n   Run with --verbose flag for full output');
       }
 
@@ -188,7 +188,7 @@ function checkStrictCompliance(verbose: boolean = false): boolean {
   }
 
   // Summary
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${  '='.repeat(60)}`);
   console.log('\n📊 Summary:');
   console.log(`   Total zones: ${STRICT_ZONES.length}`);
   console.log(`   Total files: ${totalFiles}`);

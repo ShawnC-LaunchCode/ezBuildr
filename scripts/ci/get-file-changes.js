@@ -39,8 +39,8 @@
  * }
  */
 
-import fs from 'fs';
 import { execSync } from 'child_process';
+import fs from 'fs';
 
 /**
  * Parse command line arguments
@@ -146,7 +146,7 @@ function getGitFileChanges() {
   const lines = diffStats.split('\n').filter(line => line.trim());
   for (const line of lines) {
     const parts = line.split('\t');
-    if (parts.length !== 3) continue;
+    if (parts.length !== 3) {continue;}
 
     const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
     const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
@@ -191,7 +191,7 @@ function getPRInfo() {
     const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
     const pr = event.pull_request;
 
-    if (!pr) return null;
+    if (!pr) {return null;}
 
     console.log(`✓ PR detected: #${pr.number} - ${pr.title}`);
 
@@ -217,7 +217,7 @@ function getCommitInfo() {
   const sha = process.env.GITHUB_SHA;
   const actor = process.env.GITHUB_ACTOR;
 
-  if (!sha) return null;
+  if (!sha) {return null;}
 
   // Get commit message
   const message = gitCommand(`git log -1 --format=%s ${sha}`) || 'Unknown commit';
@@ -242,7 +242,7 @@ function getCompareUrl(baseRef) {
   const sha = process.env.GITHUB_SHA;
   const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
 
-  if (!repo || !sha || !baseRef) return null;
+  if (!repo || !sha || !baseRef) {return null;}
 
   return `${serverUrl}/${repo}/compare/${baseRef}...${sha}`;
 }

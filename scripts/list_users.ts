@@ -1,7 +1,9 @@
 
-import { db, initializeDatabase } from "../server/db";
-import { users } from "@shared/schema";
 import { count, eq } from "drizzle-orm";
+
+import { users } from "@shared/schema";
+
+import { db, initializeDatabase } from "../server/db";
 
 async function main() {
     await initializeDatabase();

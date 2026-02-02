@@ -2,10 +2,14 @@
  * Create loan application workflow for the current logged-in user
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { workflows, sections, steps, templates, projects, users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
+
+import { workflows, sections, steps, templates, projects, users } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
+
 
 async function createWorkflowForCurrentUser() {
   await initializeDatabase();
@@ -58,7 +62,7 @@ async function createWorkflowForCurrentUser() {
     ownerId: user.id,
     status: 'active',
     isPublic: true,
-    publicLink: 'quick-test-' + Date.now(),
+    publicLink: `quick-test-${  Date.now()}`,
   }).returning();
 
   console.log('✓ Workflow created:', workflow[0].id);

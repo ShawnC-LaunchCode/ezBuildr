@@ -17,7 +17,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@/../../shared/types/stepConfigs";
+import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@shared/types/stepConfigs";
 
 interface NumberCardEditorProps {
   stepId: string;

@@ -80,9 +80,9 @@ async function main() {
   } else {
     console.log('❌ User does NOT have access');
     console.log('Issues:');
-    if (!isOwner) console.log('  - User is not the workflow owner');
-    if (!tenantMatch) console.log('  - Tenant mismatch');
-    if (!hasViewPermission) console.log('  - User role lacks workflow:view permission');
+    if (!isOwner) {console.log('  - User is not the workflow owner');}
+    if (!tenantMatch) {console.log('  - Tenant mismatch');}
+    if (!hasViewPermission) {console.log('  - User role lacks workflow:view permission');}
   }
 }
 

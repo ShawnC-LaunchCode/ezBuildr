@@ -162,7 +162,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         const isDynamic = configOptions !== null && typeof configOptions === 'object' && 'type' in configOptions;
 
         if (isDynamic) {
-            return resolveDynamicOptions(configOptions as DynamicOptionsConfig, ctx, currentOpts);
+            return resolveDynamicOptions(configOptions, ctx, currentOpts);
         } else {
             const opts = (configOptions as ChoiceOption[]) ?? [];
             return opts.map(opt => ({ ...opt, alias: opt.alias ?? opt.id }));

@@ -1,9 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import { eq } from "drizzle-orm";
+
 import * as schema from "@shared/schema";
 import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
 
 async function setAdmin() {
   const email = process.argv[2];

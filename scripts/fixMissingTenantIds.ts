@@ -1,8 +1,10 @@
+import dotenv from 'dotenv';
+import { eq, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
-import dotenv from 'dotenv';
+
 import { tenants, users, projects } from '../shared/schema';
-import { eq, isNull } from 'drizzle-orm';
+
 
 const { Pool } = pg;
 

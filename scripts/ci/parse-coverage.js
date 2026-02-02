@@ -54,8 +54,8 @@ function parseArgs() {
  * Determine color based on coverage percentage
  */
 function getCoverageColor(pct) {
-  if (pct >= 80) return 'green';
-  if (pct >= 50) return 'yellow';
+  if (pct >= 80) {return 'green';}
+  if (pct >= 50) {return 'yellow';}
   return 'red';
 }
 
@@ -63,8 +63,8 @@ function getCoverageColor(pct) {
  * Get emoji for coverage percentage
  */
 function getCoverageEmoji(pct) {
-  if (pct >= 80) return '🟢';
-  if (pct >= 50) return '🟡';
+  if (pct >= 80) {return '🟢';}
+  if (pct >= 50) {return '🟡';}
   return '🔴';
 }
 
@@ -138,10 +138,10 @@ function extractTopFiles(data) {
 
   // Iterate through all files (skip 'total')
   for (const [filePath, coverage] of Object.entries(data)) {
-    if (filePath === 'total') continue;
+    if (filePath === 'total') {continue;}
 
     // Skip files with no statements (type definition files, etc.)
-    if (coverage.statements.total === 0) continue;
+    if (coverage.statements.total === 0) {continue;}
 
     files.push({
       file: simplifyPath(filePath),

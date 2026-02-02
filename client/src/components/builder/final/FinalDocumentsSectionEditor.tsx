@@ -18,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 interface FinalDocumentsSectionEditorProps {
   section: ApiSection;
   workflowId: string;
@@ -27,7 +29,6 @@ interface WorkflowTemplate {
   name: string;
   description: string | null;
 }
-import { useWorkflowBuilder } from "@/store/workflow-builder";
 export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocumentsSectionEditorProps) {
   const updateSectionMutation = useUpdateSection();
   const { mode } = useWorkflowBuilder();
@@ -42,7 +43,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   }
 
   // Get config from section or use defaults
-  const config = (section.config || {
+  const config = (section.config ?? {
     finalBlock: true,
     templates: [],
     screenTitle: "Your Completed Documents",
@@ -51,8 +52,8 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   }) as FinalDocumentsConfig;
 
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>(config.templates ?? []);
-  const [screenTitle, setScreenTitle] = useState(config.screenTitle || "Your Completed Documents");
-  const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage || "# Thank You!\n\nYour documents are ready for download below.");
+  const [screenTitle, setScreenTitle] = useState(config.screenTitle ?? "Your Completed Documents");
+  const [markdownMessage, setMarkdownMessage] = useState(config.markdownMessage ?? "# Thank You!\n\nYour documents are ready for download below.");
   // Fetch workflow to get projectId
   const { data: workflow } = useQuery({
     queryKey: ["workflow", workflowId],
@@ -74,7 +75,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   // API returns paginated response: { items: [...], nextCursor, hasMore }
   const templates = templatesData?.items ?? [];
   // Update section config when values change
-  const handleUpdate = (field: string, value: any) => {
+  const handleUpdate = (field: string, value: unknown) => {
     const newConfig = {
       ...config,
       [field]: value

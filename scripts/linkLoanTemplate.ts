@@ -2,10 +2,14 @@
  * Link the loan application template to the workflow
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { templates, sections, workflows } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
+
+import { templates, sections, workflows } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
+
 
 async function linkLoanTemplate() {
   await initializeDatabase();

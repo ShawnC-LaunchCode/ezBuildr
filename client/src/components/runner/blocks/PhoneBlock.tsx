@@ -15,7 +15,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
 
-import type { PhoneConfig } from "@/../../shared/types/stepConfigs";
+import type { PhoneConfig } from "@shared/types/stepConfigs";
 
 export interface PhoneBlockProps {
   step: Step;

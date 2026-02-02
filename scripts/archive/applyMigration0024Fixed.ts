@@ -3,10 +3,11 @@
  * Apply Migration 0024: Fix Missing Columns (Fixed for Neon)
  */
 
-import { Pool, neonConfig } from '@neondatabase/serverless';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { Pool, neonConfig } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 import ws from 'ws';
 

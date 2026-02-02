@@ -191,7 +191,7 @@ async function fixAllMissingColumns() {
 
   } catch (error: any) {
     console.error('❌ Error fixing schema:', error.message);
-    if (error.detail) console.error('Details:', error.detail);
+    if (error.detail) {console.error('Details:', error.detail);}
     process.exit(1);
   }
 }

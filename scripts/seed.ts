@@ -1,8 +1,9 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq } from 'drizzle-orm';
-import pg from 'pg';
 import dotenv from 'dotenv';
+import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { nanoid } from 'nanoid';
+import pg from 'pg';
+
 import * as schema from '../shared/schema.js';
 
 const { Pool } = pg;
@@ -238,7 +239,7 @@ async function seed() {
       .values({
         projectId: project.id,
         prefix: 'sk_test',
-        keyHash: 'hashed_api_key_' + nanoid(),
+        keyHash: `hashed_api_key_${  nanoid()}`,
         scopes: ['read', 'write'],
       })
       .returning();

@@ -17,7 +17,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { MultiFieldConfig } from "@/../../shared/types/stepConfigs";
+import type { MultiFieldConfig } from "@shared/types/stepConfigs";
 
 // Local Props
 interface MultiFieldCardEditorProps {

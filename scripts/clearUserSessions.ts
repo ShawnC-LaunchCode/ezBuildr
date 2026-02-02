@@ -73,7 +73,7 @@ async function clearUserSessions() {
     client.release();
   }
 
-  console.log("\n" + "=".repeat(70));
+  console.log(`\n${  "=".repeat(70)}`);
   console.log("🎯 SESSION CLEARING COMPLETE\n");
   console.log("💡 Next steps:");
   console.log("   1. Clear your browser cookies/storage (Ctrl+Shift+Delete)");

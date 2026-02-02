@@ -1,5 +1,5 @@
 import { Loader2, Sparkles, Send, Check, X, Paperclip, FileText } from "lucide-react";
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type DragEvent, type FormEvent } from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,25 +10,42 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/vault-api";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+
+import { AIGeneratedWorkflow, WorkflowDiff, WorkflowChange, AIGeneratedTransformBlock, AIWorkflowRevisionResponse } from "@shared/types/ai";
+
 interface Message {
     role: 'user' | 'assistant';
     content: string;
-    diff?: any;
+    diff?: WorkflowDiff;
     timestamp: number;
     status?: 'pending' | 'applied' | 'discarded';
 }
+
 interface UploadedFile {
     name: string;
     content: string;
 }
+
+interface ExtractTextResponse {
+    text?: string;
+    message?: string;
+}
+
 interface AiConversationPanelProps {
     workflowId: string;
-    currentWorkflow: any; // Basic workflow metadata
-    transformBlocks?: any[];
+    currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>;
+    transformBlocks?: AIGeneratedTransformBlock[];
     initialPrompt?: string;
     className?: string;
 }
-export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], initialPrompt, className }: AiConversationPanelProps) {
+
+// eslint-disable-next-line max-lines-per-function
+function useAiConversation(
+    workflowId: string,
+    currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>,
+    transformBlocks: AIGeneratedTransformBlock[] = [],
+    initialPrompt?: string
+) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -37,7 +54,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             timestamp: Date.now()
         }
     ]);
-    const [proposedWorkflow, setProposedWorkflow] = useState<any>(null);
+    const [proposedWorkflow, setProposedWorkflow] = useState<AIGeneratedWorkflow | Record<string, unknown> | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [contextFiles, setContextFiles] = useState<UploadedFile[]>([]);
@@ -46,12 +63,14 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
     const reviseMutation = useReviseWorkflow();
     const updateMutation = useUpdateWorkflow();
     const { data: workflowMode } = useWorkflowMode(workflowId);
-    const mode = workflowMode?.mode || 'easy';
+    const mode = workflowMode?.mode ?? 'easy';
+
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
     // Handle initial prompt from "Create with AI" flow
     const hasSentInitialPrompt = useRef(false);
     useEffect(() => {
@@ -63,24 +82,30 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 void handleSend(initialPrompt);
             }, 100);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialPrompt, messages.length]);
-    const handleDragOver = (e: React.DragEvent) => {
+
+    const handleDragOver = (e: DragEvent) => {
         e.preventDefault();
         setIsDragging(true);
     };
-    const handleDragLeave = (e: React.DragEvent) => {
+
+    const handleDragLeave = (e: DragEvent) => {
         e.preventDefault();
         // Prevent flickering: only disable if leaving the main container, not entering a child
         if (e.currentTarget.contains(e.relatedTarget as Node)) { return; }
         setIsDragging(false);
     };
-    const handleDrop = async (e: React.DragEvent) => {
+
+    const handleDrop = async (e: DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
         const files = Array.from(e.dataTransfer.files);
         if (files.length === 0) { return; }
+
         setUploading(true);
         const newContextFiles: UploadedFile[] = [];
+
         try {
             for (const file of files) {
                 // Check type (MIME or Extension)
@@ -94,27 +119,33 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt', '.md'];
                 const isTypeValid = allowedTypes.includes(file.type);
                 const isExtValid = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
                 if (!isTypeValid && !isExtValid) {
                     toast({ title: "Skipped File", description: `${file.name} is not a supported document type (PDF/Word/Txt).` });
                     continue;
                 }
+
                 const formData = new FormData();
                 formData.append('file', file);
+
                 try {
                     // Use fetch directly to handle FormData correctly (apiRequest forces JSON)
                     const token = getAccessToken();
                     const headers: Record<string, string> = {};
                     if (token) { headers['Authorization'] = `Bearer ${token}`; }
+
                     const res = await fetch('/api/ai/doc/extract-text', {
                         method: 'POST',
                         body: formData,
                         headers
                     });
+
                     if (!res.ok) {
-                        const errData = await res.json().catch(() => ({}));
-                        throw new Error(errData.message || res.statusText);
+                        const errData = await res.json().catch(() => ({})) as ExtractTextResponse;
+                        throw new Error(errData.message ?? res.statusText);
                     }
-                    const data = await res.json();
+
+                    const data = await res.json() as ExtractTextResponse;
                     if (data.text) {
                         newContextFiles.push({
                             name: file.name,
@@ -131,45 +162,85 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             setUploading(false);
         }
     };
-    const handleSend = async (textOverride?: string) => {
-        const textToSend = textOverride !== undefined ? textOverride : input;
-        if (!textToSend.trim() && contextFiles.length === 0) { return; }
-        // Construct full message with context
-        let fullMessage = textToSend;
-        if (contextFiles.length > 0) {
+
+    const buildFullMessage = (text: string, files: UploadedFile[]) => {
+        let fullMessage = text;
+        if (files.length > 0) {
             fullMessage += `\n\n--- CONTEXT FROM UPLOADED FILES ---\n`;
-            contextFiles.forEach(f => {
+            files.forEach(f => {
                 fullMessage += `DATA FROM FILE: ${f.name}\n${f.content}\n\n`;
             });
             fullMessage += `--- END CONTEXT ---\n`;
         }
+        return fullMessage;
+    };
+
+    const processAutoApply = async (result: AIWorkflowRevisionResponse) => {
+        try {
+            await updateMutation.mutateAsync({
+                id: workflowId,
+                ...result.updatedWorkflow
+            });
+
+            const assistantMsg: Message = {
+                role: 'assistant',
+                content: result.explanation ? result.explanation.join(' ') : 'I have updated the workflow.',
+                diff: result.diff,
+                timestamp: Date.now(),
+                status: 'applied'
+            };
+
+            setMessages(prev => [...prev, assistantMsg]);
+            toast({ title: "Changes Applied", description: "Workflow updated successfully." });
+        } catch (error) {
+            console.error("Auto-apply failed", error);
+        }
+    };
+
+    const handleSend = async (textOverride?: string) => {
+        const textToSend = textOverride ?? input;
+
+        // Explicit boolean check for empty input and context files
+        const isInputEmpty = textToSend.trim() === '';
+        const hasNoFiles = contextFiles.length === 0;
+
+        if (isInputEmpty && hasNoFiles) { return; }
+
+        const fullMessage = buildFullMessage(textToSend, contextFiles);
+
         // Display message (hide massive context from UI, show attachment badges instead)
-        const displayContent = textToSend || (contextFiles.length > 0 ? "Processed uploaded files." : "");
+        const displayContent = !isInputEmpty ? textToSend : "Processed uploaded files.";
+
         const userMsg: Message = {
             role: 'user',
             content: displayContent,
             timestamp: Date.now()
         };
+
         // Add a "visible" note about attachments if they exist
         if (contextFiles.length > 0) {
             userMsg.content += `\n\n[Attached: ${contextFiles.map(f => f.name).join(', ')}]`;
         }
+
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setContextFiles([]); // Clear context after sending
         setProposedWorkflow(null);
+
         try {
             const history = messages
                 .filter(m => !m.diff)
                 .map(m => ({ role: m.role, content: m.content }));
+
             const fullWorkflow = {
-                title: currentWorkflow.title || 'Untitled Workflow',
-                description: currentWorkflow.description ?? '',
-                sections: currentWorkflow.sections ?? [],
-                logicRules: currentWorkflow.logicRules ?? [],
+                title: (currentWorkflow as AIGeneratedWorkflow).title ?? 'Untitled Workflow',
+                description: (currentWorkflow as AIGeneratedWorkflow).description ?? '',
+                sections: (currentWorkflow as AIGeneratedWorkflow).sections ?? [],
+                logicRules: (currentWorkflow as AIGeneratedWorkflow).logicRules ?? [],
                 transformBlocks: transformBlocks,
                 notes: ''
             };
+
             const result = await reviseMutation.mutateAsync({
                 workflowId,
                 currentWorkflow: fullWorkflow,
@@ -177,28 +248,13 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 conversationHistory: history,
                 mode: mode
             });
+
             // Auto-apply if in easy mode
-            if (mode === 'easy' && result.updatedWorkflow) {
-                try {
-                    await updateMutation.mutateAsync({
-                        id: workflowId,
-                        ...result.updatedWorkflow
-                    });
-                    const assistantMsg: Message = {
-                        role: 'assistant',
-                        content: result.explanation ? result.explanation.join(' ') : 'I have updated the workflow.',
-                        diff: result.diff,
-                        timestamp: Date.now(),
-                        status: 'applied'
-                    };
-                    setMessages(prev => [...prev, assistantMsg]);
-                    toast({ title: "Changes Applied", description: "Workflow updated successfully." });
-                    return; // Done
-                } catch (error) {
-                    console.error("Auto-apply failed", error);
-                    // Fallback to manual if update fails
-                }
+            if (mode === 'easy') {
+                await processAutoApply(result);
+                return;
             }
+
             // Normal Flow (Manual Review)
             const assistantMsg: Message = {
                 role: 'assistant',
@@ -207,18 +263,21 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 timestamp: Date.now(),
                 status: 'pending'
             };
+
             setMessages(prev => [...prev, assistantMsg]);
             setProposedWorkflow(result.updatedWorkflow);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `Sorry, I encountered an error: ${error.message}`,
+                content: `Sorry, I encountered an error: ${errorMessage}`,
                 timestamp: Date.now()
             }]);
         }
     };
+
     const handleApply = async () => {
-        if (!proposedWorkflow) { return; }
+        if (proposedWorkflow === null) { return; }
         try {
             await updateMutation.mutateAsync({
                 id: workflowId,
@@ -226,6 +285,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             });
             toast({ title: "Changes Applied", description: "Workflow updated successfully." });
             setProposedWorkflow(null);
+
             // Update the last message status to applied
             setMessages(prev => {
                 const newMessages = [...prev];
@@ -247,6 +307,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             toast({ title: "Update Failed", variant: "destructive", description: "Could not apply changes." });
         }
     };
+
     const handleDiscard = () => {
         setProposedWorkflow(null);
         setMessages(prev => {
@@ -264,6 +325,191 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
             return newMessages;
         });
     };
+
+    return {
+        input,
+        setInput,
+        messages,
+        proposedWorkflow,
+        isDragging,
+        uploading,
+        contextFiles,
+        setContextFiles,
+        scrollRef,
+        reviseMutation,
+        mode,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleSend,
+        handleApply,
+        handleDiscard
+    };
+}
+
+interface AiMessageItemProps {
+    msg: Message;
+    idx: number;
+    isLast: boolean;
+    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
+    onApply: () => void;
+    onDiscard: () => void;
+}
+
+function AiMessageItem({ msg, isLast, proposedWorkflow, onApply, onDiscard }: AiMessageItemProps) {
+    return (
+        <div className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
+            <div className={`rounded-lg p-3 max-w-[80%] text-sm shadow-sm ${msg.role === 'user'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border'
+                }`}>
+                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+            </div>
+
+            {msg.diff?.changes && msg.diff.changes.length > 0 && (
+                <Card className={cn(
+                    "w-full max-w-[80%] mt-1 p-3 border shadow-sm self-start",
+                    msg.status === 'applied' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900" :
+                        msg.status === 'discarded' ? "bg-muted/50 opacity-70" :
+                            "bg-purple-50/50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-900"
+                )}>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className={cn(
+                            "text-xs font-semibold",
+                            msg.status === 'applied' ? "text-green-700 dark:text-green-400" :
+                                msg.status === 'discarded' ? "text-muted-foreground" :
+                                    "text-purple-700 dark:text-purple-300"
+                        )}>
+                            {msg.status === 'applied' ? 'Changes Applied' :
+                                msg.status === 'discarded' ? 'Changes Discarded' :
+                                    'Proposed Changes'}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] whitespace-nowrap ml-2">{msg.diff.changes.length} changes</Badge>
+                    </div>
+
+                    <ul className="space-y-1 mb-3 min-w-0">
+                        {msg.diff.changes.map((change: WorkflowChange, i: number) => (
+                            <li key={i} className="text-xs flex gap-2 w-full min-w-0 items-center">
+                                <Badge
+                                    variant={change.type === 'add' ? 'default' : change.type === 'remove' ? 'destructive' : 'secondary'}
+                                    className={cn("h-5 px-1 text-[10px] capitalize shrink-0",
+                                        change.type === 'add' && "bg-green-500 hover:bg-green-600",
+                                        change.type === 'update' && "bg-blue-500 hover:bg-blue-600"
+                                    )}
+                                >
+                                    {change.type}
+                                </Badge>
+                                <span className="whitespace-normal break-words text-muted-foreground min-w-0">{change.explanation}</span>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {/* Only show buttons if pending */}
+                    {msg.status === 'pending' && proposedWorkflow !== null && isLast && (
+                        <div className="flex gap-2 justify-end pt-2 border-t border-purple-200/50 dark:border-purple-800/50">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30" onClick={() => { void onDiscard(); }}>
+                                <X className="w-3 h-3 mr-1" /> Discard
+                            </Button>
+                            <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={() => { void onApply(); }}>
+                                <Check className="w-3 h-3 mr-1" /> Apply
+                            </Button>
+                        </div>
+                    )}
+                </Card>
+            )}
+        </div>
+    );
+}
+
+interface AiInputAreaProps {
+    input: string;
+    setInput: (val: string) => void;
+    contextFiles: UploadedFile[];
+    setContextFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
+    mode: string;
+    reviseMutationPending: boolean;
+    uploading: boolean;
+    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
+    onSend: () => void;
+}
+
+function AiInputArea({
+    input,
+    setInput,
+    contextFiles,
+    setContextFiles,
+    mode,
+    reviseMutationPending,
+    uploading,
+    proposedWorkflow,
+    onSend
+}: AiInputAreaProps) {
+    return (
+        <div className="p-4 border-t bg-background">
+            {/* File Previews */}
+            {contextFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                    {contextFiles.map((f, i) => (
+                        <Badge key={i} variant="secondary" className="pl-1 pr-2 py-0.5 h-6 text-xs flex items-center gap-1">
+                            <FileText className="w-3 h-3" />
+                            <span className="max-w-[100px] truncate">{f.name}</span>
+                            <button
+                                onClick={() => setContextFiles(prev => prev.filter((_, idx) => idx !== i))}
+                                className="ml-1 hover:text-destructive"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </Badge>
+                    ))}
+                </div>
+            )}
+
+            <form
+                className="flex gap-2"
+                onSubmit={(e: FormEvent) => {
+                    e.preventDefault();
+                    void onSend();
+                }}
+            >
+                <Input
+                    placeholder={mode === 'easy' ? "Describe changes to auto-apply..." : "Describe changes..."}
+                    value={input}
+                    onChange={(e) => { setInput(e.target.value); }}
+                    disabled={reviseMutationPending || proposedWorkflow !== null || uploading}
+                    className="flex-1"
+                />
+                <Button type="submit" size="icon" disabled={(!input.trim() && contextFiles.length === 0) || reviseMutationPending || proposedWorkflow !== null || uploading}>
+                    <Send className="w-4 h-4" />
+                </Button>
+            </form>
+            {proposedWorkflow !== null && (
+                <p className="text-xs text-center mt-2 text-muted-foreground animate-pulse">Waiting for your review...</p>
+            )}
+        </div>
+    );
+}
+
+export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], initialPrompt, className }: AiConversationPanelProps) {
+    const {
+        input,
+        setInput,
+        messages,
+        proposedWorkflow,
+        isDragging,
+        uploading,
+        contextFiles,
+        setContextFiles,
+        scrollRef,
+        reviseMutation,
+        mode,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleSend,
+        handleApply,
+        handleDiscard
+    } = useAiConversation(workflowId, currentWorkflow, transformBlocks, initialPrompt);
+
     return (
         <div
             className={cn("flex flex-col h-full bg-background relative", className)}
@@ -281,72 +527,27 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     </div>
                 </div>
             )}
+
             <div className="p-4 border-b flex items-center gap-2 font-semibold bg-muted/40">
                 <Sparkles className="w-5 h-5 text-purple-500" />
                 AI Assistant
                 {mode === 'easy' && <Badge variant="secondary" className="ml-auto text-xs">Easy Mode</Badge>}
             </div>
+
             <ScrollArea className="flex-1 p-4" ref={scrollRef}>
                 <div className="space-y-6 pb-4">
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
-                            <div className={`rounded-lg p-3 max-w-[80%] text-sm shadow-sm ${msg.role === 'user'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-card border'
-                                }`}>
-                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                            </div>
-                            {msg.diff?.changes && msg.diff.changes.length > 0 && (
-                                <Card className={cn(
-                                    "w-full max-w-[80%] mt-1 p-3 border shadow-sm self-start",
-                                    msg.status === 'applied' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900" :
-                                        msg.status === 'discarded' ? "bg-muted/50 opacity-70" :
-                                            "bg-purple-50/50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-900"
-                                )}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={cn(
-                                            "text-xs font-semibold",
-                                            msg.status === 'applied' ? "text-green-700 dark:text-green-400" :
-                                                msg.status === 'discarded' ? "text-muted-foreground" :
-                                                    "text-purple-700 dark:text-purple-300"
-                                        )}>
-                                            {msg.status === 'applied' ? 'Changes Applied' :
-                                                msg.status === 'discarded' ? 'Changes Discarded' :
-                                                    'Proposed Changes'}
-                                        </span>
-                                        <Badge variant="outline" className="text-[10px] whitespace-nowrap ml-2">{msg.diff.changes.length} changes</Badge>
-                                    </div>
-                                    <ul className="space-y-1 mb-3 min-w-0">
-                                        {msg.diff.changes.map((change: any, i: number) => (
-                                            <li key={i} className="text-xs flex gap-2 w-full min-w-0 items-center">
-                                                <Badge
-                                                    variant={change.type === 'add' ? 'default' : change.type === 'remove' ? 'destructive' : 'secondary'}
-                                                    className={cn("h-5 px-1 text-[10px] capitalize shrink-0",
-                                                        change.type === 'add' && "bg-green-500 hover:bg-green-600",
-                                                        change.type === 'update' && "bg-blue-500 hover:bg-blue-600"
-                                                    )}
-                                                >
-                                                    {change.type}
-                                                </Badge>
-                                                <span className="whitespace-normal break-words text-muted-foreground min-w-0">{change.explanation}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    {/* Only show buttons if pending */}
-                                    {msg.status === 'pending' && proposedWorkflow && idx === messages.length - 1 && (
-                                        <div className="flex gap-2 justify-end pt-2 border-t border-purple-200/50 dark:border-purple-800/50">
-                                            <Button size="sm" variant="ghost" className="h-7 text-xs hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30" onClick={() => { void handleDiscard(); }}>
-                                                <X className="w-3 h-3 mr-1" /> Discard
-                                            </Button>
-                                            <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700 text-white" onClick={() => { void handleApply(); }}>
-                                                <Check className="w-3 h-3 mr-1" /> Apply
-                                            </Button>
-                                        </div>
-                                    )}
-                                </Card>
-                            )}
-                        </div>
+                        <AiMessageItem
+                            key={idx}
+                            msg={msg}
+                            idx={idx}
+                            isLast={idx === messages.length - 1}
+                            proposedWorkflow={proposedWorkflow}
+                            onApply={() => { void handleApply(); }}
+                            onDiscard={() => { void handleDiscard(); }}
+                        />
                     ))}
+
                     {(reviseMutation.isPending || uploading) && (
                         <div className="flex items-start gap-2">
                             <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
@@ -360,46 +561,18 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                     <div ref={scrollRef} />
                 </div>
             </ScrollArea>
-            <div className="p-4 border-t bg-background">
-                {/* File Previews */}
-                {contextFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
-                        {contextFiles.map((f, i) => (
-                            <Badge key={i} variant="secondary" className="pl-1 pr-2 py-0.5 h-6 text-xs flex items-center gap-1">
-                                <FileText className="w-3 h-3" />
-                                <span className="max-w-[100px] truncate">{f.name}</span>
-                                <button
-                                    onClick={() => setContextFiles(prev => prev.filter((_, idx) => idx !== i))}
-                                    className="ml-1 hover:text-destructive"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
-                <form
-                    className="flex gap-2"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        void handleSend();
-                    }}
-                >
-                    <Input
-                        placeholder={mode === 'easy' ? "Describe changes to auto-apply..." : "Describe changes..."}
-                        value={input}
-                        onChange={(e) => { void setInput(e.target.value); }}
-                        disabled={reviseMutation.isPending || !!proposedWorkflow || uploading}
-                        className="flex-1"
-                    />
-                    <Button type="submit" size="icon" disabled={(!input.trim() && contextFiles.length === 0) || reviseMutation.isPending || !!proposedWorkflow || uploading}>
-                        <Send className="w-4 h-4" />
-                    </Button>
-                </form>
-                {!!proposedWorkflow && (
-                    <p className="text-xs text-center mt-2 text-muted-foreground animate-pulse">Waiting for your review...</p>
-                )}
-            </div>
+
+            <AiInputArea
+                input={input}
+                setInput={setInput}
+                contextFiles={contextFiles}
+                setContextFiles={setContextFiles}
+                mode={mode}
+                reviseMutationPending={reviseMutation.isPending}
+                uploading={uploading}
+                proposedWorkflow={proposedWorkflow}
+                onSend={() => void handleSend()}
+            />
         </div>
     );
 }

@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { userRepository } from '../server/repositories';
 import { initializeDatabase } from '../server/db';
+import { userRepository } from '../server/repositories';
 
 async function testFindById() {
   console.log("🔍 Testing userRepository.findById...\n");

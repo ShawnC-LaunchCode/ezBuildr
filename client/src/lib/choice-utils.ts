@@ -1,7 +1,7 @@
-import { transformList, getFieldValue, isListVariable, arrayToListVariable } from "@/../../shared/listPipeline";
+import { transformList, getFieldValue, isListVariable, arrayToListVariable } from "@shared/listPipeline";
 
-import type { ListVariable } from "@/../../shared/types/blocks";
-import type { DynamicOptionsConfig, ChoiceOption } from "@/../../shared/types/stepConfigs";
+import type { ListVariable } from "@shared/types/blocks";
+import type { DynamicOptionsConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
 /**
  * Generate choice options from a list variable with full transformation support

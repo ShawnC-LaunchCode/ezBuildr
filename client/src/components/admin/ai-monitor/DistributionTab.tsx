@@ -33,7 +33,7 @@ export function DistributionTab({ statsData, ratingChartData }: DistributionTabP
                                 fill="#8884d8"
                                 dataKey="value"
                             >
-                                {ratingChartData.map((entry, index) => (
+                                {ratingChartData.map((_entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
@@ -44,6 +44,7 @@ export function DistributionTab({ statsData, ratingChartData }: DistributionTabP
                         {Object.entries(statsData.ratingDistribution)
                             .reverse()
                             .map(([rating, count]) => {
+                                const ratingNum = Number(rating);
                                 const percentage = statsData.totalFeedback > 0
                                     ? (count / statsData.totalFeedback) * 100
                                     : 0;
@@ -51,14 +52,14 @@ export function DistributionTab({ statsData, ratingChartData }: DistributionTabP
                                     <div key={rating} className="space-y-1">
                                         <div className="flex items-center justify-between text-sm">
                                             <div className="flex items-center gap-2">
-                                                <Star className={cn('h-4 w-4', parseInt(rating) >= 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400')} />
+                                                <Star className={cn('h-4 w-4', ratingNum >= 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400')} />
                                                 <span>{rating} Stars</span>
                                             </div>
                                             <span className="text-muted-foreground">{count} ({percentage.toFixed(0)}%)</span>
                                         </div>
                                         <div className="w-full bg-muted rounded-full h-2">
                                             <div
-                                                className={cn('h-2 rounded-full', parseInt(rating) >= 4 ? 'bg-green-500' : parseInt(rating) === 3 ? 'bg-yellow-500' : 'bg-red-500')}
+                                                className={cn('h-2 rounded-full', ratingNum >= 4 ? 'bg-green-500' : ratingNum === 3 ? 'bg-yellow-500' : 'bg-red-500')}
                                                 style={{ width: `${percentage}%` }}
                                             />
                                         </div>

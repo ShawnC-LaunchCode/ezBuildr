@@ -35,7 +35,7 @@ import {
   PenTool,
 } from "lucide-react";
 
-import type { StepConfig } from "@/../../shared/types/stepConfigs";
+import type { StepConfig } from "@shared/types/stepConfigs";
 
 // ============================================================================
 // TYPES

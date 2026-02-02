@@ -4,8 +4,8 @@
  * Checks that all expected indexes from migrations were created successfully
  */
 
-import { config } from 'dotenv';
 import { neon } from '@neondatabase/serverless';
+import { config } from 'dotenv';
 
 config();
 

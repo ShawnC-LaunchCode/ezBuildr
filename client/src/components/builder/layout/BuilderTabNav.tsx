@@ -10,15 +10,15 @@ import {
   Camera,
   ClipboardCheck,
   GitBranch,
-  Sparkles,
 } from "lucide-react";
+import type { ComponentType } from "react";
 
 import { cn } from "@/lib/utils";
 export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
 interface TabConfig {
   id: BuilderTab;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
 }
 const TABS: TabConfig[] = [
   { id: "sections", label: "Sections", icon: Layers },

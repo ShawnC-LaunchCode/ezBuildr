@@ -1,5 +1,6 @@
-import { getDb, dbInitPromise } from '../server/db';
 import { sql } from 'drizzle-orm';
+
+import { getDb, dbInitPromise } from '../server/db';
 
 async function fixUsersTable() {
   try {

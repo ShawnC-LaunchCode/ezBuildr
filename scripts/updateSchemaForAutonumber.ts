@@ -49,7 +49,7 @@ export const autonumberResetPolicyEnum = pgEnum('autonumber_reset_policy', [
 // 3. Add autonumber columns to datavaultColumns if not present
 if (!schema.includes('autonumber_prefix')) {
   // Find the datavaultColumns table definition and add the new columns after autoNumberStart
-  const autoNumberStartPattern = /autoNumberStart: integer\("auto_number_start"\)\.default\(1\),  \/\/ Starting value for auto_number columns/;
+  const autoNumberStartPattern = /autoNumberStart: integer\("auto_number_start"\)\.default\(1\), {2}\/\/ Starting value for auto_number columns/;
   if (autoNumberStartPattern.test(schema)) {
     schema = schema.replace(
       autoNumberStartPattern,

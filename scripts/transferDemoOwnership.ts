@@ -3,10 +3,11 @@
  * Transfers ownership of the Fee Waiver demo workflow and project to a specific user
  */
 
-import { getDb, initializeDatabase } from '../server/db';
-import { users, projects, workflows } from '../shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { getDb, initializeDatabase } from '../server/db';
 import logger from '../server/logger';
+import { users, projects, workflows } from '../shared/schema';
 
 async function transferOwnership(targetEmail: string, workflowId: string) {
   try {

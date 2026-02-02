@@ -1,8 +1,10 @@
 
-import { pdfService } from '../server/services/document/PdfService';
-import { PDFDocument, PDFTextField } from 'pdf-lib';
 import fs from 'fs/promises';
 import path from 'path';
+
+import { PDFDocument, PDFTextField } from 'pdf-lib';
+
+import { pdfService } from '../server/services/document/PdfService';
 
 async function run() {
     console.log('Testing PdfService...');

@@ -16,7 +16,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { ScaleAdvancedConfig } from "@/../../shared/types/stepConfigs";
+import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
 
 // Define props locally to avoid cycle with StepEditorRouter
 interface ScaleCardEditorProps {

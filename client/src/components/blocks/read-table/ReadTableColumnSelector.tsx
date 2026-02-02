@@ -16,10 +16,10 @@ export function ReadTableColumnSelector({ config, columns, onChange }: ReadTable
     const handleAllColsChange = (checked: boolean) => {
         if (checked) {
             // Explicitly set columns to null to clear it from database
-            onChange({ columns: null, totalColumnCount: columns?.length || 0 });
+            onChange({ columns: null, totalColumnCount: columns?.length ?? 0 });
         } else {
             // Default to all selected when switching to manual mode
-            onChange({ columns: columns?.map(c => c.id) ?? [], totalColumnCount: columns?.length || 0 });
+            onChange({ columns: columns?.map(c => c.id) ?? [], totalColumnCount: columns?.length ?? 0 });
         }
     };
 
@@ -50,7 +50,7 @@ export function ReadTableColumnSelector({ config, columns, onChange }: ReadTable
                     </Label>
                 </div>
                 <Badge variant="outline">
-                    {isAllSelected ? `All (${columns?.length || 0})` : config.columns?.length}
+                    {isAllSelected ? `All (${columns?.length ?? 0})` : config.columns?.length}
                 </Badge>
             </div>
 
@@ -79,7 +79,7 @@ export function ReadTableColumnSelector({ config, columns, onChange }: ReadTable
 
             {isAllSelected && (
                 <div className="py-4 text-center text-xs text-muted-foreground italic">
-                    Retrieving all ({columns?.length || 0}) fields.
+                    Retrieving all ({columns?.length ?? 0}) fields.
                 </div>
             )}
         </div>

@@ -17,7 +17,7 @@ interface ReadTableFilterSelectorProps {
 export function ReadTableFilterSelector({ config, columns, onChange }: ReadTableFilterSelectorProps) {
     const handleUpdateFilter = (index: number, updates: Partial<ReadTableFilter>) => {
         const newFilters = [...(config.filters ?? [])];
-        if (newFilters[index]) {
+        if (index >= 0 && index < newFilters.length) {
             newFilters[index] = { ...newFilters[index], ...updates };
             onChange({ filters: newFilters });
         }
@@ -37,7 +37,7 @@ export function ReadTableFilterSelector({ config, columns, onChange }: ReadTable
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <h3 className="font-semibold">Filters</h3>
-                <Badge variant="outline">{config.filters?.length || 0}</Badge>
+                <Badge variant="outline">{config.filters?.length ?? 0}</Badge>
             </div>
             <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
                 {(config.filters ?? []).map((filter, index) => (
@@ -77,7 +77,7 @@ export function ReadTableFilterSelector({ config, columns, onChange }: ReadTable
                             </Select>
 
                             <Input
-                                value={filter.value}
+                                value={String(filter.value ?? "")}
                                 onChange={(e) => handleUpdateFilter(index, { value: e.target.value })}
                                 className="h-8 text-xs"
                                 placeholder="Value..."

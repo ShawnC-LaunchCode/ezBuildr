@@ -1,8 +1,9 @@
 
-import axios from 'axios';
-import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
+
+import axios from 'axios';
+import FormData from 'form-data';
 
 async function run() {
     console.log('Starting upload debug script...');

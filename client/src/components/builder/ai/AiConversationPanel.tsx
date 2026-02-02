@@ -1,5 +1,5 @@
 import { Send, Sparkles, AlertTriangle, HelpCircle, History, Undo } from "lucide-react";
-import React, { useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -44,7 +44,7 @@ export function AiConversationPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!input.trim() || isLoading) {return;}
@@ -88,7 +88,7 @@ export function AiConversationPanel({
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.summary?.join("\n") || "No changes made",
+        content: data.summary?.join("\n") ?? "No changes made",
         timestamp: new Date(),
         summary: data.summary,
         warnings: data.warnings,
@@ -291,7 +291,7 @@ export function AiConversationPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSubmit(e);
+                void handleSubmit(e);
               }
             }}
             disabled={isLoading}

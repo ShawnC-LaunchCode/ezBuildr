@@ -29,7 +29,7 @@ import { DocumentPicker } from "./common/DocumentPicker";
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
 
 
-import type { FinalBlockConfig, LogicExpression } from "@/../../shared/types/stepConfigs";
+import type { FinalBlockConfig, LogicExpression } from "@shared/types/stepConfigs";
 
 interface FinalBlockEditorProps {
   stepId: string;

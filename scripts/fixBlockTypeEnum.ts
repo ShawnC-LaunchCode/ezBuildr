@@ -1,6 +1,7 @@
 
-import { db, dbInitPromise } from '../server/db';
 import { sql } from 'drizzle-orm';
+
+import { db, dbInitPromise } from '../server/db';
 
 async function fixBlockTypeEnum() {
     await dbInitPromise;

@@ -11,7 +11,7 @@ import type {
   AddressValue,
   MultiFieldValue,
   MultiFieldConfig,
-} from "@/../../shared/types/stepConfigs";
+} from "@shared/types/stepConfigs";
 
 /**
  * Validate a single step/block value

@@ -5,9 +5,10 @@
  * so we execute each index creation individually.
  */
 
-import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
 import * as fs from 'fs';
+
+import * as dotenv from 'dotenv';
+import { Pool } from 'pg';
 
 dotenv.config();
 
@@ -60,7 +61,7 @@ async function applyPerformanceIndexes() {
       }
     }
 
-    console.log('\n' + '='.repeat(60));
+    console.log(`\n${  '='.repeat(60)}`);
     console.log('📊 Summary:');
     console.log(`   ✅ Created: ${successCount}`);
     console.log(`   ⏭️  Skipped: ${skipCount}`);

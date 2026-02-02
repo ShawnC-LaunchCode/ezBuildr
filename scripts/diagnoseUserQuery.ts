@@ -2,9 +2,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
-import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from 'ws';
+
 import { users } from '../shared/schema';
 
 async function diagnoseUserQuery() {
@@ -114,7 +115,7 @@ async function diagnoseUserQuery() {
     console.error("❌ UserRepository error:", error);
   }
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${  "=".repeat(60)}`);
   console.log("🎯 DIAGNOSTIC COMPLETE\n");
 
   client.release();

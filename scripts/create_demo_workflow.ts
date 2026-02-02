@@ -1,8 +1,10 @@
 
-import { db, initializeDatabase } from "../server/db";
-import { users, workflows, workflowVersions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
+
+import { users, workflows, workflowVersions } from "@shared/schema";
+
+import { db, initializeDatabase } from "../server/db";
 
 async function main() {
     await initializeDatabase();

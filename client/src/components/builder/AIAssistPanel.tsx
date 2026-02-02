@@ -36,7 +36,21 @@ interface AIAssistPanelProps {
     onClose: () => void;
 }
 
-export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: AIAssistPanelProps) {
+const inspirationalPhrases = [
+    "Every great workflow starts with a single step.",
+    "Automation is not about replacing humans, it's about empowering them.",
+    "Good workflows are built, great workflows are evolved.",
+    "The best time to automate was yesterday. The second best time is now.",
+    "Small improvements in process lead to massive gains in productivity.",
+    "A well-designed workflow is like a good conversation - it flows naturally.",
+    "Simplicity is the ultimate sophistication in workflow design.",
+    "Your future self will thank you for documenting this process.",
+    "Great workflows don't just save time, they create possibilities.",
+    "Think of this as building the future, one question at a time."
+];
+
+// eslint-disable-next-line max-lines-per-function
+function useAiAssist(workflowId: string, currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -55,19 +69,8 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
     const reviseMutation = useReviseWorkflow();
     const updateMutation = useUpdateWorkflow();
     const { data: workflowMode } = useWorkflowMode(workflowId);
-    const mode = workflowMode?.mode || 'easy';
-    const inspirationalPhrases = [
-        "Every great workflow starts with a single step.",
-        "Automation is not about replacing humans, it's about empowering them.",
-        "Good workflows are built, great workflows are evolved.",
-        "The best time to automate was yesterday. The second best time is now.",
-        "Small improvements in process lead to massive gains in productivity.",
-        "A well-designed workflow is like a good conversation - it flows naturally.",
-        "Simplicity is the ultimate sophistication in workflow design.",
-        "Your future self will thank you for documenting this process.",
-        "Great workflows don't just save time, they create possibilities.",
-        "Think of this as building the future, one question at a time."
-    ];
+    const mode = workflowMode?.mode ?? 'easy';
+
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -83,7 +86,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             }, 4000); // Change phrase every 4 seconds
             return () => clearInterval(interval);
         }
-    }, [reviseMutation.isPending, inspirationalPhrases.length]);
+    }, [reviseMutation.isPending]);
 
     const handleSend = async () => {
         if (!input.trim()) { return; }
@@ -135,7 +138,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 setMessages(prev => [...prev, assistantMsg]);
                 toast({
                     title: "Changes Applied",
-                    description: `${result.diff?.changes?.length || 0} changes applied successfully.`
+                    description: `${result.diff?.changes?.length ?? 0} changes applied successfully.`
                 });
                 // Show feedback widget after successful auto-apply
                 if (qualityScore) {
@@ -214,6 +217,47 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
             return newMessages;
         });
     };
+
+    return {
+        input,
+        setInput,
+        messages,
+        proposedWorkflow,
+        showFeedbackWidget,
+        setShowFeedbackWidget,
+        lastQualityScore,
+        lastOperationMeta,
+        inspirationIndex,
+        scrollRef,
+        reviseMutation,
+        mode,
+        inspirationalPhrases,
+        handleSend,
+        handleApply,
+        handleDiscard
+    };
+}
+
+export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: AIAssistPanelProps) {
+    const {
+        input,
+        setInput,
+        messages,
+        proposedWorkflow,
+        showFeedbackWidget,
+        setShowFeedbackWidget,
+        lastQualityScore,
+        lastOperationMeta,
+        inspirationIndex,
+        scrollRef,
+        reviseMutation,
+        mode,
+        inspirationalPhrases,
+        handleSend,
+        handleApply,
+        handleDiscard
+    } = useAiAssist(workflowId, currentWorkflow);
+
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0">

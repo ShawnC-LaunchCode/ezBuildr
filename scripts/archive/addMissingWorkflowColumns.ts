@@ -1,6 +1,7 @@
 import 'dotenv/config';
-import { getDb, dbInitPromise } from '../server/db';
 import { sql } from 'drizzle-orm';
+
+import { getDb, dbInitPromise } from '../server/db';
 
 async function addMissingWorkflowColumns() {
   console.log('Adding missing columns to workflows and related tables...');

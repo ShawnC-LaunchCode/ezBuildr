@@ -1,9 +1,10 @@
 
+import { eq } from 'drizzle-orm';
+
 import { db, dbInitPromise } from '../server/db';
-import { sections } from '../shared/schema';
 import { sectionRepository } from '../server/repositories';
 import { readTableBlockService } from '../server/services/ReadTableBlockService';
-import { eq } from 'drizzle-orm';
+import { sections } from '../shared/schema';
 
 async function testReadBlockCreation() {
     await dbInitPromise;

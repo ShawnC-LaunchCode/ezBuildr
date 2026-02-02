@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
-import type { ConditionExpression } from "@/../../shared/types/conditions";
+import type { ConditionExpression } from "@shared/types/conditions";
 
 interface VisibilityFieldProps {
     stepId: string;

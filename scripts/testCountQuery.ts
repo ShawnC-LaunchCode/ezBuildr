@@ -1,6 +1,7 @@
+import { eq } from 'drizzle-orm';
+
 import { dbInitPromise, getDb } from '../server/db';
 import { datavaultTables } from '../shared/schema';
-import { eq } from 'drizzle-orm';
 
 const databaseId = '9159eca7-bf5f-4dae-8cba-aa3d5b3ed4dd';
 

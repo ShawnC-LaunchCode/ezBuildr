@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import type { DynamicOptionsConfig, DynamicOptionsSourceType } from "@/../../shared/types/stepConfigs";
+import type { DynamicOptionsConfig, DynamicOptionsSourceType } from "@shared/types/stepConfigs";
 
 export interface OptionItemData {
   id: string;

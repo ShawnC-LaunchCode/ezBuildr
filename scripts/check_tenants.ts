@@ -1,6 +1,6 @@
 
-import { db, initializeDatabase } from './server/db';
-import { tenants } from './shared/schema';
+import { db, initializeDatabase } from '../server/db';
+import { tenants } from '../shared/schema';
 
 async function check() {
     await initializeDatabase();
@@ -14,4 +14,7 @@ async function check() {
     process.exit(0);
 }
 
-check().catch(console.error);
+check().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+});

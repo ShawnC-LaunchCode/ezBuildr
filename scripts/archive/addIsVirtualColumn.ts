@@ -33,8 +33,8 @@ async function addIsVirtualColumn() {
 
   } catch (error: any) {
     console.error('❌ Error:', error.message);
-    if (error.code) console.error('Error code:', error.code);
-    if (error.position) console.error('Error position:', error.position);
+    if (error.code) {console.error('Error code:', error.code);}
+    if (error.position) {console.error('Error position:', error.position);}
     process.exit(1);
   }
 }

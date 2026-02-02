@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Sparkles, Loader2, Send, RotateCcw, Check, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -20,14 +20,13 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
-    suggestions?: any;
+    suggestions?: unknown;
     applied?: boolean;
 }
 export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistantDialogProps) {
     const [prompt, setPrompt] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const { toast } = useToast();
-    const queryClient = useQueryClient();
     const scrollRef = useRef<HTMLDivElement>(null);
     // Hooks for mutations
     const createSection = useCreateSection();
@@ -38,7 +37,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             scrollRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
-    const handleApply = async (suggestions: any) => {
+    const handleApply = async (suggestions: unknown) => {
         const success = await applyAiSuggestions(workflowId, suggestions, {
             createSection,
             createStep
@@ -65,10 +64,11 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             };
             setMessages(prev => [...prev, newMessage]);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
+            const message = error instanceof Error ? error.message : "Failed to generate suggestions.";
             toast({
                 title: "AI Error",
-                description: error?.message || "Failed to generate suggestions.",
+                description: message,
                 variant: "destructive",
             });
         },

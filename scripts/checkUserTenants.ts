@@ -1,7 +1,8 @@
 #!/usr/bin/env tsx
 import 'dotenv/config';
-import { initializeDatabase, getDb } from '../server/db';
 import { users } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
 
 async function checkUsers() {
   await initializeDatabase();

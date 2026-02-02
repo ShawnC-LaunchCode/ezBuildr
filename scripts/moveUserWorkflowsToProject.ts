@@ -3,9 +3,11 @@
  * Run with: npx tsx scripts/moveUserWorkflowsToProject.ts
  */
 
-import { getDb, initializeDatabase } from '../server/db';
-import { workflows, projects } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+
+import { workflows, projects } from '@shared/schema';
+
+import { getDb, initializeDatabase } from '../server/db';
 
 const USER_ID = '116568744155653496130'; // Your user ID
 const DEFAULT_PROJECT_ID = 'f94a5b56-a836-4454-82e0-83c0e2495a31';

@@ -46,7 +46,7 @@ async function directFix() {
 
     // Get or create default project
     console.log('🔍 Looking for default project...');
-    let defaultProject = await client`
+    const defaultProject = await client`
       SELECT id, name FROM projects
       ORDER BY created_at ASC
       LIMIT 1
@@ -62,7 +62,7 @@ async function directFix() {
       const userId = firstUser[0]?.id || 'system';
 
       // Get or create default tenant
-      let tenant = await client`SELECT id FROM tenants LIMIT 1`;
+      const tenant = await client`SELECT id FROM tenants LIMIT 1`;
       let tenantId: string;
 
       if (tenant.length === 0) {

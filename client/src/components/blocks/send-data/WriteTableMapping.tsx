@@ -39,7 +39,7 @@ export function WriteTableMapping({
     const activeRingClass = "ring-2 ring-emerald-500 ring-offset-2 bg-emerald-50/20";
     const inactiveClass = "opacity-40 pointer-events-none grayscale-[0.5]";
 
-    const getColumnName = (colId: string) => columns?.find(c => c.id === colId)?.name || colId;
+    const getColumnName = (colId: string) => columns?.find(c => c.id === colId)?.name ?? colId;
 
     const addMapping = () => {
         const mappings = config.columnMappings ?? [];
@@ -105,7 +105,7 @@ export function WriteTableMapping({
 
             <div className="bg-slate-50 border rounded-lg p-4 space-y-3">
                 {(config.columnMappings ?? []).map((mapping, index) => {
-                    const isDuplicate = mapping.columnId && duplicateColumns.includes(mapping.columnId);
+                    const isDuplicate = !!mapping.columnId && duplicateColumns.includes(mapping.columnId);
                     const isEmpty = !mapping.columnId || !mapping.value;
                     return (
                         <div key={index} className={cn(

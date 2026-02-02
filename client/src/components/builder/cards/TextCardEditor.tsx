@@ -18,7 +18,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
+import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 // Local Props
 interface TextCardEditorProps {

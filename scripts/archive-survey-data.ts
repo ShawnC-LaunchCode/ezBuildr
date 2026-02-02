@@ -9,10 +9,12 @@
  * Usage: npx tsx scripts/archive-survey-data.ts
  */
 
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
 import { surveys, surveyPages, questions, loopGroupSubquestions, conditionalRules, responses, answers, files, analyticsEvents } from '../shared/schema';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -197,7 +199,7 @@ If you need to access or restore this data, contact the development team.
     console.log('✅ Wrote README.md');
 
     // Print summary
-    console.log('\n' + '='.repeat(60));
+    console.log(`\n${  '='.repeat(60)}`);
     console.log('✅ ARCHIVE COMPLETE');
     console.log('='.repeat(60));
     console.log(`\n📁 Archive location: ${archiveDir}`);

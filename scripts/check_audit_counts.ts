@@ -1,7 +1,9 @@
 
-import { db, initializeDatabase } from "../server/db";
 import { sql } from "drizzle-orm";
+
 import { auditLogs, analyticsEvents } from "@shared/schema";
+
+import { db, initializeDatabase } from "../server/db";
 
 async function main() {
     await initializeDatabase();

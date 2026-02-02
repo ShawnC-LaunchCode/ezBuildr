@@ -21,7 +21,7 @@ interface ListVariable {
   };
   rows: Array<{
     id: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
   count: number;
   columns: Array<{

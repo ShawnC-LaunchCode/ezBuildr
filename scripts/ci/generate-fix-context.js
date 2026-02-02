@@ -20,8 +20,8 @@
  * - Suggested investigation steps
  */
 
-import fs from 'fs';
 import { execSync } from 'child_process';
+import fs from 'fs';
 
 /**
  * Parse command line arguments
@@ -81,17 +81,17 @@ function gitCommand(cmd) {
  */
 function getGitDiff(maxFiles = 5) {
   const sha = process.env.GITHUB_SHA;
-  if (!sha) return null;
+  if (!sha) {return null;}
 
   const compareTarget = `${sha}^`;
   const diff = gitCommand(`git diff ${compareTarget} HEAD`);
 
-  if (!diff) return null;
+  if (!diff) {return null;}
 
   // Truncate if too large (max 5000 lines)
   const lines = diff.split('\n');
   if (lines.length > 5000) {
-    return lines.slice(0, 5000).join('\n') + '\n\n... (diff truncated, too large)';
+    return `${lines.slice(0, 5000).join('\n')  }\n\n... (diff truncated, too large)`;
   }
 
   return diff;
@@ -300,8 +300,8 @@ function main() {
   }
 
   console.log('✓ Loaded test results');
-  if (failureDelta) console.log('✓ Loaded failure delta');
-  if (fileChanges) console.log('✓ Loaded file changes');
+  if (failureDelta) {console.log('✓ Loaded failure delta');}
+  if (fileChanges) {console.log('✓ Loaded file changes');}
 
   // Generate markdown
   const markdown = generateFixContext(testResults, failureDelta, fileChanges);

@@ -1,9 +1,10 @@
-import { db, initializeDatabase } from '../server/db';
-import * as schema from '../shared/schema';
 import { eq } from 'drizzle-orm';
+
+import { db, initializeDatabase } from '../server/db';
+import { logger } from '../server/logger';
 import { getPdfFieldExtractor } from '../server/services/document/extractors/PdfFieldExtractor';
 import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';
-import { logger } from '../server/logger';
+import * as schema from '../shared/schema';
 
 // Hardcoded template ID from user logs
 const TEMPLATE_ID = 'ee86b75f-bac8-4f51-9b40-129227cd6d81';

@@ -49,12 +49,13 @@ export function ResizableBuilderLayout({
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
-        const { left, right } = JSON.parse(saved);
-        if (left) {setLeftWidth(left);}
-        if (right) {setRightWidth(right);}
+        const parsed = JSON.parse(saved);
+        const { left, right } = parsed;
+        if (left != null) {setLeftWidth(left);}
+        if (right != null) {setRightWidth(right);}
         // We don't load collapsed state if it's controlled externally
-        if (rightPanelOpen === undefined && JSON.parse(saved).rightCollapsed !== undefined) {
-          setInternalRightCollapsed(JSON.parse(saved).rightCollapsed);
+        if (rightPanelOpen === undefined && parsed.rightCollapsed !== undefined) {
+          setInternalRightCollapsed(parsed.rightCollapsed);
         }
       }
     } catch (error) {

@@ -12,8 +12,9 @@
  *   SLACK_BOT_TOKEN: Slack bot token (required)
  */
 
-import { WebClient } from '@slack/web-api';
 import fs from 'fs';
+
+import { WebClient } from '@slack/web-api';
 
 /**
  * Parse command line arguments
@@ -131,7 +132,7 @@ async function postAllThreads(client, channel, threadTs, threads) {
   }
 
   // 2. Post failures thread (if there are failures)
-  if (threads.failures && threads.failures.text.includes('Failed')) {
+  if (threads.failures?.text.includes('Failed')) {
     results.failures = await postThreadReply(
       client,
       channel,

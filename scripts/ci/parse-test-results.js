@@ -105,7 +105,7 @@ function parseVitestResults(filePath) {
       data.testResults.forEach(testFile => {
         if (testFile.assertionResults) {
           testFile.assertionResults.forEach(test => {
-            const name = test.ancestorTitles?.join(' › ') + ' › ' + test.title || test.fullName || 'Unknown test';
+            const name = `${test.ancestorTitles?.join(' › ')  } › ${  test.title}` || test.fullName || 'Unknown test';
             const duration = test.duration || 0;
             if (duration > 0) {
               allTests.push({ name, duration });

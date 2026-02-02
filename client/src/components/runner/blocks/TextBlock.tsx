@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Step } from "@/types";
 
-import type { TextAdvancedConfig } from "@/../../shared/types/stepConfigs";
+import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 export interface TextBlockProps {
   step: Step;

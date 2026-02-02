@@ -11,8 +11,8 @@
  */
 
 import { computeAndSaveSLIs } from '../server/jobs/metricsRollup';
-import sli from '../server/services/sli';
 import { createLogger } from '../server/logger';
+import sli from '../server/services/sli';
 
 const logger = createLogger({ module: 'sli-computation-script' });
 

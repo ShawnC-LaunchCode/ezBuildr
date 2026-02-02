@@ -89,11 +89,11 @@ function loadJSON(path) {
  * Format duration in human-readable format
  */
 function formatDuration(ms) {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) {return `${ms}ms`;}
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  if (minutes === 0) return `${seconds}s`;
+  if (minutes === 0) {return `${seconds}s`;}
   return `${minutes}m ${remainingSeconds}s`;
 }
 
@@ -177,8 +177,8 @@ function buildMainMessage(testResults, coverage, fileChanges, coverageDelta, fai
 
   // Determine message color
   let color = '#10B981'; // green
-  if (status === 'failure') color = '#EF4444'; // red
-  else if (status === 'warning') color = '#F59E0B'; // amber
+  if (status === 'failure') {color = '#EF4444';} // red
+  else if (status === 'warning') {color = '#F59E0B';} // amber
 
   // Build blocks
   const blocks = [
@@ -485,10 +485,10 @@ function main() {
   }
 
   console.log('✓ Loaded test results');
-  if (coverage) console.log('✓ Loaded coverage');
-  if (fileChanges) console.log('✓ Loaded file changes');
-  if (coverageDelta) console.log('✓ Loaded coverage delta');
-  if (failureDelta) console.log('✓ Loaded failure delta');
+  if (coverage) {console.log('✓ Loaded coverage');}
+  if (fileChanges) {console.log('✓ Loaded file changes');}
+  if (coverageDelta) {console.log('✓ Loaded coverage delta');}
+  if (failureDelta) {console.log('✓ Loaded failure delta');}
 
   // Build payloads
   const payload = {

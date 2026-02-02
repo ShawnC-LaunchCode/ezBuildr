@@ -6,9 +6,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { eq } from 'drizzle-orm';
+
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 
 async function fixUserRole() {
   const userId = '116568744155653496130'; // Your Google user ID

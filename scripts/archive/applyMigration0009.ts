@@ -1,8 +1,10 @@
+import fs from 'fs';
+
+import { neon } from '@neondatabase/serverless';
+import dotenv from 'dotenv';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
-import fs from 'fs';
-import dotenv from 'dotenv';
+
 
 dotenv.config();
 

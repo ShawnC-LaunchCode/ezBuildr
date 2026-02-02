@@ -2,12 +2,15 @@
  * Setup test template and link it to the test workflow
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { templates, sections, workflows } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import { eq, and } from 'drizzle-orm';
+
+import { templates, sections, workflows } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
 
 async function setupTestTemplate() {
   await initializeDatabase();

@@ -3,10 +3,14 @@
  * Demonstrates: multiple sections, conditional logic, transform blocks, and document generation
  */
 
-import { initializeDatabase, getDb } from '../server/db';
-import { workflows, sections, steps, templates, projects, users, logicRules, transformBlocks } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
+
+import { workflows, sections, steps, templates, projects, users, logicRules, transformBlocks } from '@shared/schema';
+
+import { initializeDatabase, getDb } from '../server/db';
+
 
 async function createLoanApplicationWorkflow() {
   await initializeDatabase();
@@ -50,7 +54,7 @@ async function createLoanApplicationWorkflow() {
     ownerId: user.id,
     status: 'active',
     isPublic: true,
-    publicLink: 'loan-application-' + Date.now(),
+    publicLink: `loan-application-${  Date.now()}`,
   }).returning();
 
   const workflowId = workflow[0].id;
