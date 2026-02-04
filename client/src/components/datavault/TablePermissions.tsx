@@ -40,7 +40,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission } from "@/lib/datavault-hooks";
-import type {  } from "@shared/schema";
+
 interface TablePermissionsProps {
   tableId: string;
 }
@@ -239,7 +239,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
               <CardDescription>Manage table access for team members</CardDescription>
             </div>
             {!addUserMode && (
-              <Button onClick={() => { void setAddUserMode(true); }} size="sm">
+              <Button onClick={() => setAddUserMode(true)} size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Add User
               </Button>
@@ -254,13 +254,13 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                 <Input
                   id="userId"
                   value={newUserId}
-                  onChange={(e) => { void setNewUserId(e.target.value); }}
+                  onChange={(e) => setNewUserId(e.target.value)}
                   placeholder="Enter user ID or email"
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={newUserRole} onValueChange={(value: any) => setNewUserRole(value)}>
+                <Select value={newUserRole} onValueChange={(value: "owner" | "write" | "read") => setNewUserRole(value)}>
                   <SelectTrigger id="role">
                     <SelectValue />
                   </SelectTrigger>
@@ -336,7 +336,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                           {editingPermission === permission.id ? (
                             <Select
                               value={permission.role}
-                              onValueChange={(value: any) => handleUpdateRole(permission.id, value)}
+                              onValueChange={(value: "owner" | "write" | "read") => { void handleUpdateRole(permission.id, value); }}
                             >
                               <SelectTrigger className="w-[180px]">
                                 <SelectValue />
@@ -375,7 +375,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => { void setEditingPermission(null); }}
+                                onClick={() => setEditingPermission(null)}
                               >
                                 Cancel
                               </Button>
@@ -384,7 +384,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => { void setEditingPermission(permission.id); }}
+                                  onClick={() => setEditingPermission(permission.id)}
                                   disabled={isOnlyOwner}
                                   title={isOnlyOwner ? "Cannot edit the only owner" : "Edit role"}
                                 >
@@ -393,7 +393,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => { void setDeletePermissionId(permission.id); }}
+                                  onClick={() => setDeletePermissionId(permission.id)}
                                   disabled={cannotDelete || isOnlyOwner}
                                   title={
                                     cannotDelete
@@ -471,7 +471,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRoleChange} disabled={grantMutation.isPending}>
+            <AlertDialogAction onClick={() => { void confirmRoleChange(); }} disabled={grantMutation.isPending}>
               {grantMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirm Downgrade
             </AlertDialogAction>

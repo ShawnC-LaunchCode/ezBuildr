@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -18,7 +19,6 @@ import { TextField, SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
-import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
 export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();

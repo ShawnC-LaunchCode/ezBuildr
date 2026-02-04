@@ -35,12 +35,12 @@ export function PublishWorkflowDialog({ isOpen, onClose, onPublish, isPublishing
                     <Textarea
                         placeholder="Release notes (optional) - e.g. 'Fixed validation logic'"
                         value={notes}
-                        onChange={(e) => { void setNotes(e.target.value); }}
+                        onChange={(e) => setNotes(e.target.value)}
                         className="min-h-[100px]"
                     />
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => { void onClose(); }} disabled={isPublishing}>Cancel</Button>
+                    <Button variant="outline" onClick={onClose} disabled={isPublishing}>Cancel</Button>
                     <Button onClick={() => { void handlePublish(); }} disabled={isPublishing}>
                         {isPublishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Publish Version

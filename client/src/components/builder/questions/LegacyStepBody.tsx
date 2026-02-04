@@ -51,7 +51,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
-    const mode = modeData?.mode || 'easy';
+    const mode = modeData?.mode ?? 'easy';
     const { data: workflow } = useWorkflow(workflowId);
     const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
 
@@ -66,8 +66,8 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
 
     const [localOptions, setLocalOptions] = useState<OptionItemData[]>(() => {
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = step.options?.options ?? [];
-            return opts.map((opt: any, idx: number) => {
+            const opts = (step.options as { options?: unknown[] })?.options ?? [];
+            return opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
                         id: `opt-${Date.now()}-${idx}`,
@@ -75,7 +75,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                         alias: opt.toLowerCase().replace(/\s+/g, '_')
                     };
                 }
-                return opt;
+                return opt as OptionItemData;
             });
         }
         return [];
@@ -99,8 +99,8 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         setLocalRequired(step.required ?? false);
         setLocalType(step.type);
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = step.options?.options ?? [];
-            setLocalOptions(opts.map((opt: any, idx: number) => {
+            const opts = (step.options as { options?: unknown[] })?.options ?? [];
+            setLocalOptions(opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
                         id: `opt-${Date.now()}-${idx}`,
@@ -108,7 +108,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                         alias: opt.toLowerCase().replace(/\s+/g, '_')
                     };
                 }
-                return opt;
+                return opt as OptionItemData;
             }));
         }
 
@@ -131,10 +131,11 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         updateStepMutation.mutate(
             { id: step.id, sectionId, alias: value.trim() ?? null },
             {
-                onError: (error: any) => {
+                onError: (error: unknown) => {
+                    const errorMessage = error instanceof Error ? error.message : "Failed to update variable name";
                     toast({
                         title: "Error",
-                        description: error?.message || "Failed to update variable name",
+                        description: errorMessage,
                         variant: "destructive",
                     });
                 },
@@ -412,10 +413,10 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                                                 <SelectContent>
                                                     <SelectItem value="none">-- Select Variable --</SelectItem>
                                                     {upstreamVariables.map(v => (
-                                                        <SelectItem key={v.key} value={v.alias || v.key}>
+                                                        <SelectItem key={v.key} value={v.alias ?? v.key}>
                                                             <div className="flex flex-col text-left">
                                                                 <span className="font-medium text-sm">{v.label}</span>
-                                                                <span className="text-[10px] text-muted-foreground font-mono">{v.alias || v.key}</span>
+                                                                <span className="text-[10px] text-muted-foreground font-mono">{v.alias ?? v.key}</span>
                                                             </div>
                                                         </SelectItem>
                                                     ))}

@@ -25,6 +25,7 @@ import {
   CATEGORY_ORDER,
   type BlockRegistryEntry,
 } from "@/lib/blockRegistry";
+import { StepType } from "@/lib/vault-api";
 import { useCreateStep, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
@@ -34,15 +35,19 @@ interface QuestionAddMenuProps {
   workflowId: string;
 }
 
-export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAddMenuProps) {
+export function QuestionAddMenu({
+  sectionId,
+  nextOrder,
+  workflowId,
+}: QuestionAddMenuProps) {
   const createStepMutation = useCreateStep();
   const { toast } = useToast();
   const { selectStep } = useWorkflowBuilder();
   const { data: workflowMode } = useWorkflowMode(workflowId);
 
-  const mode = workflowMode?.mode || "easy";
+  const mode = workflowMode?.mode ?? "easy";
 
-  const handleAddQuestion = async (block: BlockRegistryEntry) => {
+  const handleAddQuestion = async (block: BlockRegistryEntry): Promise<void> => {
     try {
       // Generate default config
       const config = block.createDefaultConfig();
@@ -50,13 +55,13 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
       // Create the step
       const step = await createStepMutation.mutateAsync({
         sectionId,
-        type: block.type as any, // Cast to any to avoid strict StepType mismatch until registry is fully typed
+        type: block.type as StepType,
         title: `New ${block.label}`,
         description: null,
         required: false,
         alias: null,
         options: config ?? null,
-        config: config || {},
+        config: config ?? {},
         order: nextOrder,
       });
 
@@ -82,7 +87,7 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
 
   // Filter out empty categories and sort by defined order
   const orderedCategories = CATEGORY_ORDER.filter(
-    (category) => blocksByCategory[category]?.length > 0
+    (category) => (blocksByCategory[category]?.length ?? 0) > 0
   );
 
   return (
@@ -93,25 +98,30 @@ export function QuestionAddMenu({ sectionId, nextOrder, workflowId }: QuestionAd
           Add Question
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 max-h-[600px] overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="w-64 max-h-[600px] overflow-y-auto"
+      >
         {orderedCategories.map((category, categoryIndex) => (
           <div key={category}>
             {categoryIndex > 0 && <DropdownMenuSeparator />}
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               {CATEGORY_LABELS[category]}
             </DropdownMenuLabel>
-            {blocksByCategory[category].map((block) => {
+            {blocksByCategory[category]?.map((block) => {
               const Icon = block.icon;
               return (
                 <DropdownMenuItem
                   key={block.type}
-                  onClick={() => { void handleAddQuestion(block); }}
+                  onClick={() => {
+                    void handleAddQuestion(block);
+                  }}
                   className="cursor-pointer"
                 >
                   <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-col">
                     <span>{block.label}</span>
-                    {block.description && (
+                    {block.description !== undefined && (
                       <span className="text-xs text-muted-foreground">
                         {block.description}
                       </span>

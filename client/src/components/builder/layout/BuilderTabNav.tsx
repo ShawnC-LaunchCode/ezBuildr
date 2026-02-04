@@ -11,9 +11,11 @@ import {
   ClipboardCheck,
   GitBranch,
 } from "lucide-react";
-import type { ComponentType } from "react";
 
 import { cn } from "@/lib/utils";
+
+import type { ComponentType } from "react";
+
 export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
 interface TabConfig {
   id: BuilderTab;

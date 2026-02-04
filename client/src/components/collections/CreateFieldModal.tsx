@@ -4,7 +4,7 @@
  */
 
 import { Loader2, Plus, X } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,7 @@ export function CreateFieldModal({
     setOptions(options.filter(o => o !== option));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { return; }
 
@@ -126,7 +126,7 @@ export function CreateFieldModal({
     }
   };
 
-  const parseDefaultValue = (type: FieldType, value: string): any => {
+  const parseDefaultValue = (type: FieldType, value: string): unknown => {
     switch (type) {
       case 'number':
         return Number(value);
@@ -258,7 +258,7 @@ export function CreateFieldModal({
                     placeholder="Add option"
                     value={newOption}
                     onChange={(e) => setNewOption(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         handleAddOption();

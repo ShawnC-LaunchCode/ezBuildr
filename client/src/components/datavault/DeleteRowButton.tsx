@@ -26,7 +26,7 @@ interface DeleteRowButtonProps {
   onDelete: () => void;
 }
 
-export function DeleteRowButton({ tableId, rowId, onDelete }: DeleteRowButtonProps) {
+export function DeleteRowButton({ tableId: _tableId, rowId, onDelete }: DeleteRowButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
@@ -58,7 +58,7 @@ export function DeleteRowButton({ tableId, rowId, onDelete }: DeleteRowButtonPro
   return (
     <>
       <Button
-        onClick={() => { void setConfirmOpen(true); }}
+        onClick={() => setConfirmOpen(true)}
         size="sm"
         variant="ghost"
         className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"

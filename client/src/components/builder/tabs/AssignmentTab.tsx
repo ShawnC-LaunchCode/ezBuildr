@@ -1,63 +1,42 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    ArrowRight,
-    Check,
     Search,
     GitBranch,
-    AlertCircle,
-    Plus
 } from "lucide-react";
 import { useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow, useProjectWorkflows, useUpdateWorkflow } from "@/lib/vault-hooks";
-// import { LogicBuilder } from "@/components/builder/logic/LogicBuilder"; // Assuming this exists or we use a simplified version
-// If LogicBuilder doesn't exist at that path, we might need to build a simple condition builder here.
-// Re-using specific parts if possible.
-interface AssignmentRule {
-    targetWorkflowId: string;
-    condition: any; // ConditionExpression
-    enabled: boolean;
-}
+
+import { AssignmentRuleCard, AssignmentRule } from "./assignment/AssignmentRuleCard";
+
 export function AssignmentTab({ workflowId }: { workflowId: string }) {
     const { data: workflow } = useWorkflow(workflowId);
     // Fix: handle potentially null projectId by defaulting to undefined if it's absent
-    const { data: projectWorkflows } = useProjectWorkflows(workflow?.projectId || undefined);
+    const { data: projectWorkflows } = useProjectWorkflows(workflow?.projectId ?? undefined);
     const updateWorkflow = useUpdateWorkflow();
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+
     // Parse existing assignments
-    const assignments: AssignmentRule[] = workflow?.intakeConfig?.assignments ?? [];
-    // Filter out self and upstream (loops)
-    const candidateWorkflows = projectWorkflows?.filter(w =>
-        w.id !== workflowId &&
-        w.intakeConfig?.upstreamWorkflowId === workflowId
-    ) ?? [];
-    // If a workflow is NOT linked as upstream, it shouldn't show up here? 
-    // OR, this tab suggests which workflows *could* be assigned.
-    // The Prompt says: "If intake data matches X, then make Y workflows available."
-    // It implies we are creating the link HERE.
-    // BUT Prompt 24 established that downstream workflows link UP to intake.
-    // LET'S ASSUME: We only show workflows that have explicitly linked this Intake as their upstream.
-    // OR, we show all, and if selected, we warn? 
-    // Better: Show all project flows, but highlight linked ones.
+    const assignments: AssignmentRule[] = (workflow?.intakeConfig?.assignments as AssignmentRule[] | undefined) ?? [];
+
     const filteredWorkflows = projectWorkflows?.filter(w =>
         w.id !== workflowId &&
         w.title.toLowerCase().includes(searchTerm.toLowerCase())
     ) ?? [];
+
     const handleToggleAssignment = async (targetId: string, currentEnabled: boolean) => {
         // If enabling, we need a rule entry. If disabling, we just set enabled: false?
         // Or we remove it?
         // Let's create a default rule if none exists.
         const newAssignments = [...assignments];
         const existingIndex = newAssignments.findIndex(a => a.targetWorkflowId === targetId);
+
         if (existingIndex >= 0) {
             newAssignments[existingIndex] = {
                 ...newAssignments[existingIndex],
@@ -70,6 +49,7 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                 enabled: true
             });
         }
+
         try {
             await updateWorkflow.mutateAsync({
                 id: workflowId,
@@ -83,6 +63,7 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
             toast({ title: "Failed to update", variant: "destructive" });
         }
     };
+
     return (
         <div className="container mx-auto max-w-4xl py-6 space-y-6">
             <div className="flex items-center justify-between">
@@ -96,6 +77,7 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                     </p>
                 </div>
             </div>
+
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -115,69 +97,18 @@ export function AssignmentTab({ workflowId }: { workflowId: string }) {
                     <div className="space-y-4">
                         {filteredWorkflows.map(target => {
                             const rule = assignments.find(a => a.targetWorkflowId === target.id);
-                            const isAssigned = rule?.enabled;
                             const isLinked = target.intakeConfig?.upstreamWorkflowId === workflowId;
+
                             return (
-                                <div key={target.id} className={`
-                                border rounded-lg p-4 transition-all
-                                ${isAssigned ? 'border-indigo-200 bg-indigo-50/30' : 'border-border opacity-80 hover:opacity-100'}
-                            `}>
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3">
-                                                <Switch
-                                                    checked={isAssigned}
-                                                    onCheckedChange={() => handleToggleAssignment(target.id, !!isAssigned)}
-                                                />
-                                                <div>
-                                                    <div className="font-medium flex items-center gap-2">
-                                                        {target.title}
-                                                        {isLinked && (
-                                                            <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-50 border-emerald-200 h-5">
-                                                                Linked
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-sm text-muted-foreground mt-0.5">
-                                                        {isAssigned
-                                                            ? (rule?.condition ? "Available when condition is met" : "Always available after intake")
-                                                            : "Not assigned"
-                                                        }
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {isAssigned && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="ml-4"
-                                                onClick={() => { void setEditingRuleId(editingRuleId === target.id ? null : target.id); }}
-                                            >
-                                                {editingRuleId === target.id ? "Close Condition" : "Edit Condition"}
-                                            </Button>
-                                        )}
-                                    </div>
-                                    {/* Condition Editor Area */}
-                                    {isAssigned && editingRuleId === target.id && (
-                                        <div className="mt-4 pl-12 border-t pt-4">
-                                            <p className="text-xs font-medium text-muted-foreground mb-2 text-indigo-600 uppercase tracking-wider">
-                                                Assignment Condition
-                                            </p>
-                                            <div className="bg-background border rounded-md p-4 min-h-[100px] flex items-center justify-center text-muted-foreground text-sm border-dashed">
-                                                Condition Builder Placeholder
-                                                {/* We will implement the actual logic builder integration later if needed */}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-2">
-                                                Only verify assignment if this condition evaluates to true. Leave empty to always assign.
-                                            </p>
-                                            {/* 
-                                            TODO: Integrate <BlockRenderer> or <ConditionBuilder> here. 
-                                            For now, we are just mocking the UI structure as per Prompt 25.
-                                        */}
-                                        </div>
-                                    )}
-                                </div>
+                                <AssignmentRuleCard
+                                    key={target.id}
+                                    target={target}
+                                    rule={rule}
+                                    isLinked={!!isLinked}
+                                    isEditing={editingRuleId === target.id}
+                                    onToggle={handleToggleAssignment}
+                                    onEditClick={(id) => setEditingRuleId(editingRuleId === id ? null : id)}
+                                />
                             );
                         })}
                         {filteredWorkflows.length === 0 && (

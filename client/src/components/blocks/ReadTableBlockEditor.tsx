@@ -76,7 +76,7 @@ export function ReadTableBlockEditor({
   let tables: { name: string; type: string; id: string }[] = [];
 
   if (fetchedTables) {
-    tables = (fetchedTables as FetchedTable[]).map((t) => ({ ...t, type: t.type ?? 'unknown', id: t.id || t.name }));
+    tables = (fetchedTables as FetchedTable[]).map((t) => ({ ...t, type: t.type ?? 'unknown', id: t.id ?? t.name }));
   }
 
   if (isNative && isNativeTableConfig(dsConfig) && dsConfig.tableId) {

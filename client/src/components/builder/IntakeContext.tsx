@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import React, { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import { variableAPI, workflowAPI, type ApiWorkflowVariable, type ApiWorkflow } from '@/lib/vault-api';
 import { useWorkflow } from '@/lib/vault-hooks';
@@ -20,7 +20,7 @@ export function IntakeProvider({
     children
 }: {
     workflowId: string;
-    children: React.ReactNode
+    children: ReactNode
 }) {
     // 1. Get current workflow to check config
     const { data: workflow, isLoading: workflowLoading } = useWorkflow(workflowId);

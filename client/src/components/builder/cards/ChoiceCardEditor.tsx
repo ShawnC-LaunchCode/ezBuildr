@@ -26,6 +26,8 @@ import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiWorkflowVariable, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
+import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
+
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -36,7 +38,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
 import { StaticOptionsEditor } from "./StaticOptionsEditor";
 
-import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
 
 

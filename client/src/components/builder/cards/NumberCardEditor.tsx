@@ -9,6 +9,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
@@ -17,7 +18,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { NumberConfig, CurrencyConfig, NumberAdvancedConfig } from "@shared/types/stepConfigs";
 
 interface NumberCardEditorProps {
   stepId: string;

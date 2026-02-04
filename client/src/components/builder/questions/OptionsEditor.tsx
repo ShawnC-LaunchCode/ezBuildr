@@ -55,13 +55,13 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
   // =========================================================================
 
   // Determine source type from options structure
-  const getSourceType = (opts: any): DynamicOptionsSourceType => {
-    if (opts && typeof opts === 'object' && 'type' in opts) {
-      return opts.type as DynamicOptionsSourceType;
+  const getSourceType = (opts: unknown): DynamicOptionsSourceType => {
+    if (typeof opts === 'object' && opts !== null && 'type' in opts) {
+      return (opts as { type: string }).type as DynamicOptionsSourceType;
     }
-    if (opts && typeof opts === 'object' && ('listVariable' in opts || 'dataSourceId' in opts)) {
+    if (typeof opts === 'object' && opts !== null && ('listVariable' in opts || 'dataSourceId' in opts)) {
       // Legacy dynamic format
-      return opts.listVariable ? 'list' : 'table_column';
+      return 'listVariable' in opts ? 'list' : 'table_column';
     }
     return 'static';
   };
@@ -69,10 +69,10 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
   const [sourceType, setSourceType] = useState<DynamicOptionsSourceType>(getSourceType(options));
 
   // Static options
-  const normalizeOptions = (opts: any): OptionItemData[] => {
-    if (!opts) {return [];}
-    if (!Array.isArray(opts)) {return [];}
-    return opts.map((opt, index) => {
+  const normalizeOptions = (opts: unknown): OptionItemData[] => {
+    if (!opts) { return []; }
+    if (!Array.isArray(opts)) { return []; }
+    return opts.map((opt: unknown, index) => {
       if (typeof opt === 'string') {
         return {
           id: `opt-${Date.now()}-${index}`,
@@ -80,9 +80,16 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
           alias: opt.toLowerCase().replace(/\s+/g, '_')
         };
       }
+      if (typeof opt === 'object' && opt !== null) {
+        return {
+          ...(opt as OptionItemData),
+          id: (opt as OptionItemData).id || `opt-${Date.now()}-${index}`
+        };
+      }
       return {
-        ...opt,
-        id: opt.id || `opt-${Date.now()}-${index}`
+        id: `opt-${Date.now()}-${index}`,
+        label: `Option ${index + 1}`,
+        alias: `option_${index + 1}`
       };
     });
   };
@@ -118,7 +125,7 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
         columnId: options.columnId ?? '',
         labelColumnId: options.labelColumnId ?? '',
         sort: options.sort,
-        limit: options.limit || 100,
+        limit: typeof options.limit === 'number' && (options.limit) > 0 ? options.limit : 100,
       };
     }
     return {
@@ -229,7 +236,7 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
         tableId: tableConfig.tableId ?? '',
         columnId: tableConfig.columnId ?? '',
         labelColumnId: tableConfig.labelColumnId ?? '',
-        limit: tableConfig.limit || 100,
+        limit: typeof tableConfig.limit === 'number' && (tableConfig.limit) > 0 ? tableConfig.limit : 100,
       } as DynamicOptionsConfig);
     }
   };
@@ -253,7 +260,7 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
   // Table Config Handlers
   // =========================================================================
 
-  const handleTableConfigChange = (field: keyof typeof tableConfig, value: any) => {
+  const handleTableConfigChange = (field: keyof typeof tableConfig, value: unknown) => {
     const newConfig = { ...tableConfig, [field]: value };
     setTableConfig(newConfig);
     onChange({
@@ -262,7 +269,7 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
       tableId: newConfig.tableId,
       columnId: newConfig.columnId,
       labelColumnId: newConfig.labelColumnId,
-      limit: newConfig.limit,
+      limit: typeof newConfig.limit === 'number' && (newConfig.limit) > 0 ? (newConfig.limit) : 100,
     } as DynamicOptionsConfig);
   };
 
@@ -346,7 +353,7 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
 
           {localOptions.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 text-center border border-dashed rounded">
-              No options defined. Click "Add Option" to get started.
+              No options defined. Click &quot;Add Option&quot; to get started.
             </p>
           ) : (
             <DndContext
@@ -501,7 +508,10 @@ export function OptionsEditor({ options, onChange, className, elementId, mode = 
                 placeholder="100"
                 className="h-8 text-xs"
                 value={tableConfig.limit}
-                onChange={(e) => handleTableConfigChange('limit', parseInt(e.target.value) || 100)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  handleTableConfigChange('limit', isNaN(val) ? 100 : val);
+                }}
               />
             </div>
           )}

@@ -169,7 +169,7 @@ export function ColumnManager({
               <CardTitle>Columns</CardTitle>
               <CardDescription>Manage table columns and their properties</CardDescription>
             </div>
-            <Button onClick={() => { void setAddDialogOpen(true); }} size="sm">
+            <Button onClick={() => setAddDialogOpen(true)} size="sm">
               <Plus className="w-4 h-4 mr-2" />
               Add Column
             </Button>
@@ -223,7 +223,7 @@ export function ColumnManager({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => { void openEditDialog(column); }}
+                      onClick={() => openEditDialog(column)}
                       disabled={isLoading}
                       title="Edit column"
                     >
@@ -232,7 +232,7 @@ export function ColumnManager({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => { void setDeleteConfirm({ id: column.id, name: column.name }); }}
+                      onClick={() => setDeleteConfirm({ id: column.id, name: column.name })}
                       disabled={isLoading || (column.isPrimaryKey && columns.filter(c => c.isPrimaryKey).length === 1)}
                       className="text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
                       title={
@@ -267,7 +267,7 @@ export function ColumnManager({
                 id="column-name"
                 placeholder="e.g., Full Name, Email, Age"
                 value={newColumnName}
-                onChange={(e) => { void setNewColumnName(e.target.value); }}
+                onChange={(e) => setNewColumnName(e.target.value)}
                 autoFocus
               />
             </div>
@@ -310,10 +310,10 @@ export function ColumnManager({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { void setAddDialogOpen(false); }}>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => { void handleAddColumn(); }} disabled={!newColumnName.trim() || isLoading}>
+            <Button onClick={() => void handleAddColumn()} disabled={!newColumnName.trim() || isLoading}>
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Add Column
             </Button>
@@ -338,7 +338,7 @@ export function ColumnManager({
               <Input
                 id="edit-column-name"
                 value={editColumnName}
-                onChange={(e) => { void setEditColumnName(e.target.value); }}
+                onChange={(e) => setEditColumnName(e.target.value)}
                 autoFocus
               />
             </div>
@@ -360,10 +360,10 @@ export function ColumnManager({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { void setEditDialog(null); }}>
+            <Button variant="outline" onClick={() => setEditDialog(null)}>
               Cancel
             </Button>
-            <Button onClick={() => { void handleEditColumn(); }} disabled={!editColumnName.trim() || isLoading}>
+            <Button onClick={() => void handleEditColumn()} disabled={!editColumnName.trim() || isLoading}>
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Changes
             </Button>
@@ -384,7 +384,7 @@ export function ColumnManager({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { void handleDeleteColumn(); }}
+              onClick={() => void handleDeleteColumn()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isLoading}
             >

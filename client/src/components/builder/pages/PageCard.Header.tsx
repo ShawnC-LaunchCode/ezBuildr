@@ -1,0 +1,177 @@
+import {
+    ChevronDown,
+    ChevronRight,
+    EyeOff,
+    FileText,
+    GripVertical,
+    Settings,
+    Trash2,
+} from "lucide-react";
+import React from "react";
+import { DraggableAttributes } from "@dnd-kit/core";
+import { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
+
+import { LogicIndicator } from "@/components/logic";
+import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CardHeader } from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { ApiSection } from "@/lib/vault-api";
+import type { ConditionExpression } from "@shared/types/conditions";
+
+interface PageCardHeaderProps {
+    page: ApiSection;
+    mode: string;
+    index: number | undefined;
+    total: number | undefined;
+    isFinalDocumentsSection: boolean;
+    isCollapsed: boolean;
+    attributes: DraggableAttributes;
+    listeners: SyntheticListenerMap | undefined;
+    onToggleCollapse: (e: React.MouseEvent) => void;
+    onTitleChange: (val: string) => void;
+    onDescriptionChange: (val: string) => void;
+    onSelectSection: () => void;
+    onOpenLogicSheet: () => void;
+    onDelete: () => void;
+}
+
+export function PageCardHeader({
+    page,
+    mode,
+    index,
+    total,
+    isFinalDocumentsSection,
+    isCollapsed,
+    attributes,
+    listeners,
+    onToggleCollapse,
+    onTitleChange,
+    onDescriptionChange,
+    onSelectSection,
+    onOpenLogicSheet,
+    onDelete,
+}: PageCardHeaderProps) {
+    return (
+        <CardHeader className="pb-3">
+            <div className="flex items-start gap-2">
+                {/* Drag handle for page reordering */}
+                <button
+                    className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
+                    {...attributes}
+                    {...listeners}
+                >
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </button>
+
+                {/* Collapse/Expand button */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 mt-1"
+                    onClick={onToggleCollapse}
+                >
+                    {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4" />
+                    ) : (
+                        <ChevronDown className="h-4 w-4" />
+                    )}
+                </Button>
+
+                {/* Page title and description */}
+                <div className="flex-1 space-y-1">
+                    {mode === "easy" &&
+                        typeof index === "number" &&
+                        typeof total === "number" &&
+                        !isFinalDocumentsSection && (
+                            <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest pl-1 select-none">
+                                Page {index + 1} of {total}
+                            </div>
+                        )}
+                    <div className="flex items-center gap-2">
+                        <Input
+                            value={page.title}
+                            onChange={(e) => {
+                                onTitleChange(e.target.value);
+                            }}
+                            className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
+                            placeholder="Page title"
+                        />
+                        {isFinalDocumentsSection && (
+                            <Badge variant="secondary" className="text-xs px-2 py-1">
+                                <FileText className="h-3 w-3 mr-1" />
+                                Final Documents Block
+                            </Badge>
+                        )}
+                        <LogicIndicator
+                            visibleIf={page.visibleIf as ConditionExpression | undefined}
+                            variant="badge"
+                            size="sm"
+                            elementType="page"
+                        />
+                    </div>
+                    <AutoExpandTextarea
+                        value={page.description ?? ""}
+                        onChange={(e) => {
+                            onDescriptionChange(e.target.value);
+                        }}
+                        className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
+                        placeholder="Page description (optional)"
+                        minRows={1}
+                        maxRows={4}
+                    />
+                </div>
+
+                {/* Page actions */}
+                <div className="flex items-center gap-1">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Page settings">
+                                <Settings className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    onSelectSection();
+                                }}
+                            >
+                                <Settings className="h-4 w-4 mr-2" />
+                                Page Settings
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    onOpenLogicSheet();
+                                }}
+                            >
+                                <EyeOff className="h-4 w-4 mr-2" />
+                                Visibility Logic
+                                {!!page.visibleIf && (
+                                    <span className="ml-auto text-xs text-amber-600">Active</span>
+                                )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    onDelete();
+                                }}
+                                className="text-destructive focus:text-destructive"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Page
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+        </CardHeader>
+    );
+}

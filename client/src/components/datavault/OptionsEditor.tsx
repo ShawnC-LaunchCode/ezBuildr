@@ -91,7 +91,7 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
                   className="text-sm"
                 />
                 <Select
-                  value={option.color || "blue"}
+                  value={option.color ?? "blue"}
                   onValueChange={(color) => updateOption(index, { color })}
                 >
                   <SelectTrigger className="text-sm">

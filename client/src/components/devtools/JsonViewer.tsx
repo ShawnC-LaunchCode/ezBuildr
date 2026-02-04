@@ -1,9 +1,9 @@
 import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
 interface JsonViewerProps {
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     className?: string;
 }
 // Hook to detect dark mode from HTML class
@@ -26,7 +26,7 @@ function useDarkModeObserver() {
     return isDark;
 }
 // Helper to check if two values are effectively different
-function isDifferent(val1: any, val2: any): boolean {
+function isDifferent(val1: unknown, val2: unknown): boolean {
     if (val1 === val2) { return false; }
     if (typeof val1 !== typeof val2) { return true; }
     if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
@@ -37,7 +37,7 @@ function isDifferent(val1: any, val2: any): boolean {
 }
 export function JsonViewer({ data, className }: JsonViewerProps) {
     const isDark = useDarkModeObserver();
-    const prevDataRef = useRef<Record<string, any>>({});
+    const prevDataRef = useRef<Record<string, unknown>>({});
     const [changedPaths, setChangedPaths] = useState<Map<string, number>>(new Map());
     // Calculate changed paths
     useEffect(() => {
@@ -46,14 +46,14 @@ export function JsonViewer({ data, className }: JsonViewerProps) {
         const newChanges = new Map<string, number>();
         // Flatten keys to check changes? Or just recursive check?
         // Simple recursive diff
-        function findChanges(current: any, prev: any, path: string) {
+        function findChanges(current: unknown, prev: unknown, path: string) {
             if (isDifferent(current, prev)) {
                 newChanges.set(path, now);
             }
             if (typeof current === 'object' && current !== null && typeof prev === 'object' && prev !== null) {
-                Object.keys(current).forEach(key => {
+                Object.keys(current as Record<string, unknown>).forEach(key => {
                     const nextPath = path ? `${path}.${key}` : key;
-                    findChanges(current[key], prev[key], nextPath);
+                    findChanges((current as Record<string, unknown>)[key], (prev as Record<string, unknown>)[key], nextPath);
                 });
             }
         }
@@ -94,7 +94,7 @@ export function JsonViewer({ data, className }: JsonViewerProps) {
 }
 interface JsonNodeProps {
     name: string | null;
-    value: any;
+    value: unknown;
     isLast: boolean;
     depth: number;
     path: string;
@@ -110,13 +110,13 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
     const isObject = typeof value === 'object' && value !== null;
     const isArray = Array.isArray(value);
     const isEmpty = isObject && Object.keys(value).length === 0;
-    const handleCopy = (e: React.MouseEvent, text: string) => {
+    const handleCopy = (e: MouseEvent, text: string) => {
         e.stopPropagation();
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };
-    const getTypeColor = (val: any) => {
+    const getTypeColor = (val: unknown) => {
         if (val === null) { return "text-rose-500"; }
         switch (typeof val) {
             case 'string': return "text-emerald-600 dark:text-emerald-400";
@@ -125,7 +125,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
             default: return "text-gray-600 dark:text-gray-400";
         }
     };
-    const renderValue = (val: any) => {
+    const renderValue = (val: unknown) => {
         if (val === null) { return "null"; }
         if (typeof val === 'string') { return `"${val}"`; }
         return String(val);

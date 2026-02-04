@@ -6,7 +6,7 @@
  */
 
 import { Loader2 } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,8 @@ import type { DatavaultColumn } from "@shared/schema";
 
 interface EditableCellProps {
   column: DatavaultColumn;
-  value: any;
-  onSave: (value: any) => Promise<void>;
+  value: unknown;
+  onSave: (value: unknown) => Promise<void>;
   readOnly?: boolean;
   placeholder?: string;
 }
@@ -30,7 +30,7 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Update editValue when value prop changes
-  useEffect(() => { void setEditValue(value); }, [value]);
+  useEffect(() => { setEditValue(value); }, [value]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -72,10 +72,10 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSave();
+      void handleSave();
     } else if (e.key === "Escape") {
       e.preventDefault();
       setEditValue(value);
@@ -88,7 +88,7 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
   };
 
   // Format display value based on column type
-  const formatDisplayValue = (val: any) => {
+  const formatDisplayValue = (val: unknown) => {
     if (val === null || val === undefined) { return ""; }
 
     switch (column.type as string) {
@@ -96,21 +96,21 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
       case "yes_no":
         return val ? "Yes" : "No";
       case "date":
-        if (val) {
-          const date = new Date(val);
+        if (val !== null && val !== undefined && val !== "") {
+          const date = new Date(val as string | number | Date);
           return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
         }
         return "";
       case "datetime":
-        if (val) {
-          const date = new Date(val);
+        if (val !== null && val !== undefined && val !== "") {
+          const date = new Date(val as string | number | Date);
           return date.toLocaleString();
         }
         return "";
       case "number":
-        return typeof val === "number" ? val.toString() : val;
+        return typeof val === "number" ? val.toString() : String(val);
       default:
-        return val.toString();
+        return String(val);
     }
   };
 
@@ -129,43 +129,45 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
       >
         {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground flex-shrink-0" />}
         <Checkbox
-          checked={!!value}
-          onCheckedChange={async (checked) => {
+          checked={Boolean(value)}
+          onCheckedChange={(checked) => {
             if (!readOnly) {
               setIsSaving(true);
               setError(null);
-              try {
-                await onSave(checked);
-              } catch (error) {
-                setError(error instanceof Error ? error.message : "Failed to save");
+              onSave(checked).catch((err: unknown) => {
+                setError(err instanceof Error ? err.message : "Failed to save");
                 setTimeout(() => setError(null), 3000);
-              } finally {
+              }).finally(() => {
                 setIsSaving(false);
-              }
+              });
             }
           }}
           disabled={readOnly || isSaving}
           aria-label={column.name}
         />
-        {error && <span className="text-xs text-destructive flex-shrink-0">Error</span>}
+        {error !== null && <span className="text-xs text-destructive flex-shrink-0">Error</span>}
       </div>
     );
   }
 
-  // Display mode
+  // Display mode - helper to check for empty values
+  const isValuePresent = (val: unknown): boolean => {
+    return val !== null && val !== undefined && val !== "";
+  };
+
   if (!isEditing) {
     const displayValue = formatDisplayValue(value);
-    const showPlaceholder = !displayValue && placeholder;
+    const showPlaceholder = !isValuePresent(displayValue) && placeholder !== undefined;
 
     return (
       <div
         className={cn(
           "px-3 py-2 min-h-[40px] flex items-center gap-2 group",
           !readOnly && "cursor-pointer hover:bg-accent/50 transition-colors",
-          error && "bg-destructive/10 border-l-2 border-destructive"
+          error !== null && "bg-destructive/10 border-l-2 border-destructive"
         )}
         onDoubleClick={handleDoubleClick}
-        title={error || (readOnly ? "" : "Double-click to edit")}
+        title={error ?? (readOnly ? "" : "Double-click to edit")}
         role="gridcell"
         aria-label={`${column.name}: ${displayValue}${readOnly ? " (read-only)" : ""}`}
         tabIndex={readOnly ? -1 : 0}
@@ -180,7 +182,7 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
         <span className={cn("truncate flex-1", isSaving && "opacity-50", showPlaceholder && "text-muted-foreground italic")}>
           {showPlaceholder ? placeholder : displayValue}
         </span>
-        {error && <span className="text-xs text-destructive flex-shrink-0">Error</span>}
+        {error !== null && <span className="text-xs text-destructive flex-shrink-0">Error</span>}
       </div>
     );
   }
@@ -203,14 +205,14 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
                     ? "datetime-local"
                     : "text"
         }
-        value={editValue ?? ""}
-        onChange={(e) => { void setEditValue(e.target.value); }}
+        value={(editValue ?? "") as string}
+        onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         disabled={isSaving}
         className="h-9"
         aria-label={`Edit ${column.name}`}
-        placeholder={placeholder || `Enter ${column.name.toLowerCase()}`}
+        placeholder={placeholder ?? `Enter ${column.name.toLowerCase()}`}
       />
     </div>
   );

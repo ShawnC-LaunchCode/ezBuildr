@@ -18,7 +18,7 @@ import { useDevPanel } from "@/store/devpanel";
 interface RuntimeVariableListProps {
     workflowId: string;
     variables: ApiWorkflowVariable[];
-    values: Record<string, any>;
+    values: Record<string, unknown>;
 }
 
 export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVariableListProps) {
@@ -62,7 +62,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
         togglePin(workflowId, key);
     };
 
-    const formatValue = (val: any) => {
+    const formatValue = (val: unknown) => {
         if (val === undefined || val === null) {return <span className="text-muted-foreground italic">undefined</span>;}
         if (typeof val === 'object') {return JSON.stringify(val);}
         return String(val);
@@ -85,7 +85,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                     <Input
                         placeholder="Search variables..."
                         value={searchQuery}
-                        onChange={(e) => { void setSearchQuery(e.target.value); }}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-8"
                     />
                 </div>
@@ -156,7 +156,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                                                 "h-5 w-5",
                                                                                 pinned && "text-primary opacity-100"
                                                                             )}
-                                                                            onClick={() => { void handlePin(displayKey); }}
+                                                                            onClick={() => handlePin(displayKey)}
                                                                             title={pinned ? "Unpin" : "Pin"}
                                                                         >
                                                                             <Pin className={cn("h-3 w-3", pinned && "fill-current")} />
@@ -165,7 +165,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                                 </div>
 
                                                                 <div className="pl-3 space-y-0.5">
-                                                                    {Object.entries(currentValue as Record<string, any>)
+                                                                    {Object.entries(currentValue as Record<string, unknown>)
                                                                         .filter(([_, v]) => v) // Only show fields with values
                                                                         .map(([field, val]) => (
                                                                             <div key={field} className="text-[11px] font-mono flex items-start">
@@ -215,7 +215,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                                                             "h-5 w-5",
                                                                             pinned && "text-primary opacity-100"
                                                                         )}
-                                                                        onClick={() => { void handlePin(displayKey); }}
+                                                                        onClick={() => handlePin(displayKey)}
                                                                         title={pinned ? "Unpin" : "Pin"}
                                                                     >
                                                                         <Pin className={cn("h-3 w-3", pinned && "fill-current")} />

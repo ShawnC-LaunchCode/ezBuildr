@@ -4,7 +4,7 @@
  */
 
 import { Pencil, Trash2, Type, Hash, ToggleLeft, Calendar, FileIcon, List, Braces } from "lucide-react";
-import React from "react";
+import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,7 @@ export function FieldsList({ fields, onEdit, onDelete }: FieldsListProps) {
                         <div className="flex flex-wrap gap-1">
                           {field.options.map((option, idx) => (
                             <Badge key={idx} variant="outline" className="text-xs">
-                              {option as React.ReactNode}
+                              {option as ReactNode}
                             </Badge>
                           ))}
                         </div>

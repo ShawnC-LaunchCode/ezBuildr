@@ -26,18 +26,18 @@ export function VariablePalette({ workflowId, onInsert }: VariablePaletteProps) 
     const groups = new Map<string, typeof variables>();
 
     variables.forEach((variable) => {
-      const sectionTitle = variable.sectionTitle || "Other";
+      const sectionTitle = variable.sectionTitle ?? "Other";
       if (!groups.has(sectionTitle)) {
         groups.set(sectionTitle, []);
       }
-      groups.get(sectionTitle)!.push(variable);
+      groups.get(sectionTitle)?.push(variable);
     });
 
     return Array.from(groups.entries());
   }, [variables]);
 
   const handleCopy = (key: string) => {
-    navigator.clipboard.writeText(key);
+    void navigator.clipboard.writeText(key);
     toast({
       title: "Copied",
       description: `Variable key "${key}" copied to clipboard`,
@@ -76,7 +76,7 @@ export function VariablePalette({ workflowId, onInsert }: VariablePaletteProps) 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-medium text-sm truncate">
-                        {variable.alias || variable.key}
+                        {variable.alias ?? variable.key}
                       </span>
                       {variable.type && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1 py-0 uppercase">

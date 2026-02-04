@@ -1,5 +1,4 @@
 import { transformList, getFieldValue, isListVariable, arrayToListVariable } from "@shared/listPipeline";
-
 import type { ListVariable } from "@shared/types/blocks";
 import type { DynamicOptionsConfig, ChoiceOption } from "@shared/types/stepConfigs";
 

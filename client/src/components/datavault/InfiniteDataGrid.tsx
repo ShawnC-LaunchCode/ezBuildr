@@ -19,13 +19,13 @@ interface InfiniteDataGridProps {
   showArchived?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  filters?: Array<{ columnId: string; operator: string; value: any }>;
+  filters?: Array<{ columnId: string; operator: string; value: unknown }>;
   selectedRowIds?: Set<string>;
   onSelectRow?: (rowId: string, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;
   onSort?: (columnSlug: string) => void;
   onColumnResize?: (columnId: string, widthPx: number) => void;
-  onEditRow: (rowId: string, values: Record<string, any>) => void;
+  onEditRow: (rowId: string, values: Record<string, unknown>) => void;
   onDeleteRow: (rowId: string) => void;
   onArchiveRow?: (rowId: string) => void;
   onUnarchiveRow?: (rowId: string) => void;

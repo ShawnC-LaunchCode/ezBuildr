@@ -83,7 +83,7 @@ export function FilterBuilderUI({
     newRules[index] = { ...newRules[index], ...updates };
 
     onChange({
-      combinator: filters?.combinator || 'and',
+      combinator: filters?.combinator ?? 'and',
       rules: newRules
     });
   };
@@ -95,7 +95,7 @@ export function FilterBuilderUI({
       onChange(undefined); // No filters
     } else {
       onChange({
-        combinator: filters?.combinator || 'and',
+        combinator: filters?.combinator ?? 'and',
         rules: newRules
       });
     }

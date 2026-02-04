@@ -6,10 +6,11 @@ import { Separator } from "@/components/ui/separator";
 import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
+import type { SignatureBlockConfig } from "@shared/types/stepConfigs";
+
 import { DocumentPicker } from "./common/DocumentPicker";
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
 
-import type { SignatureBlockConfig } from "@shared/types/stepConfigs";
 
 interface SignatureBlockEditorProps {
   stepId: string;

@@ -9,6 +9,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { TextField, NumberField, SwitchField, SectionHeader } from "./common/EditorField";
@@ -16,7 +17,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
 
 // Define props locally to avoid cycle with StepEditorRouter
 interface ScaleCardEditorProps {

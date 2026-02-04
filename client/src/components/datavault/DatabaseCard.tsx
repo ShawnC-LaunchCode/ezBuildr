@@ -119,7 +119,7 @@ export function DatabaseCard({ database, onClick, onTransfer, onDelete }: Databa
           <div className="flex items-center gap-2">
             <Table className="w-4 h-4" />
             <span>
-              {database.tableCount || 0} {database.tableCount === 1 ? 'table' : 'tables'}
+              {database.tableCount ?? 0} {database.tableCount === 1 ? 'table' : 'tables'}
             </span>
           </div>
 

@@ -36,8 +36,8 @@ export function CollaborationProvider({ children, config, onNodesChange, onEdges
         token: config.token,
         enabled: config.enabled ?? true,
         user: config.user,
-        onNodesChange: onNodesChange || noOp,
-        onEdgesChange: onEdgesChange || noOp,
+        onNodesChange: onNodesChange ?? noOp,
+        onEdgesChange: onEdgesChange ?? noOp,
     });
     return (
         <CollabContext.Provider value={collab}>

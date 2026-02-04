@@ -5,7 +5,7 @@
  */
 
 import { ChevronRight, Home } from "lucide-react";
-import React from "react";
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export interface BreadcrumbItem {
   label: string;
   href?: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }
 
 interface BreadcrumbsProps {

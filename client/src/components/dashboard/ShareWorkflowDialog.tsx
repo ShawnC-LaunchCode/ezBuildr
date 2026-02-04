@@ -73,8 +73,8 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                                 id="email"
                                 placeholder="colleague@example.com"
                                 value={inviteEmail}
-                                onChange={(e) => { void setInviteEmail(e.target.value); }}
-                                onKeyDown={(e) => { void e.key === "Enter" && handleInvite(); }}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleInvite(); }}
                             />
                         </div>
                         <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
@@ -86,7 +86,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                                 <SelectItem value="editor">Editor</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button onClick={() => { void handleInvite(); }} disabled={!inviteEmail.trim()}>
+                        <Button onClick={handleInvite} disabled={!inviteEmail.trim()}>
                             <UserPlus className="w-4 h-4 mr-2" />
                             Invite
                         </Button>
@@ -97,7 +97,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                         <div className="text-sm text-muted-foreground truncate flex-1 pl-1">
                             {window.location.origin}/workflows/{workflowId}/...
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { void handleCopyLink(); }}>
+                        <Button variant="ghost" size="sm" onClick={handleCopyLink}>
                             <Copy className="w-4 h-4 mr-2" />
                             Copy Link
                         </Button>
@@ -138,7 +138,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                                        onClick={() => { void removeCollaborator(c.email); }}
+                                                        onClick={() => removeCollaborator(c.email)}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </Button>

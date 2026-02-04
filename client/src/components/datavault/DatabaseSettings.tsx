@@ -90,7 +90,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => { void onClose(); }}
+          onClick={onClose}
           className="absolute -top-2 -right-2 h-8 w-8 rounded-full p-0 hover:bg-destructive/10"
           aria-label="Close settings"
         >
@@ -115,7 +115,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
             <Input
               id="name"
               value={name}
-              onChange={(e) => { void setName(e.target.value); }}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Database name"
             />
           </div>
@@ -125,7 +125,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
             <Textarea
               id="description"
               value={description}
-              onChange={(e) => { void setDescription(e.target.value); }}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
               rows={3}
             />
@@ -184,7 +184,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
               <Input
                 id="scopeId"
                 value={scopeId}
-                onChange={(e) => { void setScopeId(e.target.value); }}
+                onChange={(e) => setScopeId(e.target.value)}
                 placeholder={`Enter ${scopeType} UUID`}
               />
               <Alert>
@@ -226,7 +226,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Tables</span>
             <Badge variant="secondary">
-              {database.tableCount || 0} {database.tableCount === 1 ? 'table' : 'tables'}
+              {database.tableCount ?? 0} {database.tableCount === 1 ? 'table' : 'tables'}
             </Badge>
           </div>
           <div className="flex justify-between items-center">
@@ -255,7 +255,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
         </Button>
         <Button
           variant="outline"
-          onClick={() => { void handleReset(); }}
+          onClick={handleReset}
           disabled={!hasChanges || updateMutation.isPending}
         >
           Reset

@@ -3,7 +3,7 @@
  * Dynamic form for creating/editing collection records
  */
 import { Loader2 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,7 +31,7 @@ interface RecordEditorModalProps {
   onOpenChange: (open: boolean) => void;
   fields: ApiCollectionField[];
   record?: ApiCollectionRecord;
-  onSubmit: (data: Record<string, any>) => Promise<void>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
   isLoading?: boolean;
 }
 export function RecordEditorModal({
@@ -43,11 +43,11 @@ export function RecordEditorModal({
   isLoading = false,
 }: RecordEditorModalProps) {
   const isEditing = !!record;
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   // Initialize form data from record or defaults
   useEffect(() => {
     if (open) {
-      const initialData: Record<string, any> = {};
+      const initialData: Record<string, unknown> = {};
       fields.forEach((field) => {
         if (record) {
           // Editing: use existing value
@@ -61,7 +61,7 @@ export function RecordEditorModal({
     }
   }, [open, record, fields]);
   // Get default value for a field
-  const getDefaultValue = (field: ApiCollectionField): any => {
+  const getDefaultValue = (field: ApiCollectionField): unknown => {
     if (field.defaultValue !== null && field.defaultValue !== undefined) {
       return field.defaultValue;
     }
@@ -79,11 +79,11 @@ export function RecordEditorModal({
     }
   };
   // Update form field value
-  const updateField = (slug: string, value: any) => {
+  const updateField = (slug: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [slug]: value }));
   };
   // Validate and submit
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     // Validate required fields
     const missingFields = fields
@@ -100,7 +100,7 @@ export function RecordEditorModal({
       return;
     }
     // Clean up data (remove empty optional fields, convert types)
-    const cleanedData: Record<string, any> = {};
+    const cleanedData: Record<string, unknown> = {};
     fields.forEach((field) => {
       let value = formData[field.slug];
       // Skip empty optional fields
@@ -130,7 +130,7 @@ export function RecordEditorModal({
         return (
           <Input
             value={value ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder={`Enter ${field.name.toLowerCase()}`}
           />
         );
@@ -139,7 +139,7 @@ export function RecordEditorModal({
           <Input
             type="number"
             value={value ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder="0"
           />
         );
@@ -160,7 +160,7 @@ export function RecordEditorModal({
           <Input
             type="date"
             value={value ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
           />
         );
       case "datetime":
@@ -168,7 +168,7 @@ export function RecordEditorModal({
           <Input
             type="datetime-local"
             value={value ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
           />
         );
       case "select":
@@ -241,7 +241,7 @@ export function RecordEditorModal({
         return (
           <Textarea
             value={jsonValue ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder='{"key": "value"}'
             className="font-mono text-sm"
             rows={4}
@@ -251,7 +251,7 @@ export function RecordEditorModal({
         return (
           <Textarea
             value={value ?? ""}
-            onChange={(e) => { void updateField(field.slug, e.target.value); }}
+            onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder={`Enter ${field.name.toLowerCase()}`}
             rows={3}
           />

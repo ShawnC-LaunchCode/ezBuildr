@@ -62,7 +62,7 @@ export function MoveTableModal({
         <DialogHeader>
           <DialogTitle>Move Table</DialogTitle>
           <DialogDescription>
-            Move "{tableName}" to a different database or to the main folder.
+            Move &ldquo;{tableName}&rdquo; to a different database or to the main folder.
           </DialogDescription>
         </DialogHeader>
 
@@ -72,7 +72,7 @@ export function MoveTableModal({
               Destination <span className="text-destructive">*</span>
             </Label>
             <Select
-              value={selectedDatabaseId || "main"}
+              value={selectedDatabaseId ?? "main"}
               onValueChange={(value) =>
                 setSelectedDatabaseId(value === "main" ? null : value)
               }
@@ -103,7 +103,7 @@ export function MoveTableModal({
             <div className="text-sm text-muted-foreground">
               Current location:{" "}
               <span className="font-medium">
-                {databases.find((db) => db.id === currentDatabaseId)?.name ||
+                {databases.find((db) => db.id === currentDatabaseId)?.name ??
                   "Unknown"}
               </span>
             </div>
@@ -119,7 +119,7 @@ export function MoveTableModal({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => { void onOpenChange(false); }}
+            onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
             Cancel

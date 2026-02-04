@@ -10,6 +10,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { MultiFieldConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { SectionHeader } from "./common/EditorField";
@@ -17,7 +18,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { MultiFieldConfig } from "@shared/types/stepConfigs";
 
 // Local Props
 interface MultiFieldCardEditorProps {

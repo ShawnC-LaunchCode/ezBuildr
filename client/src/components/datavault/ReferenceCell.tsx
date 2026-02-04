@@ -10,9 +10,9 @@ import { useReferenceRow } from '@/hooks/useReferenceRow';
 import type { DatavaultColumn } from '@/lib/types/datavault';
 
 interface ReferenceCellProps {
-  value: any;
+  value: string | null | undefined;
   column: DatavaultColumn;
-  batchData?: Record<string, { displayValue: string; row: any }>;
+  batchData?: Record<string, { displayValue: string; row: Record<string, unknown> }>;
 }
 
 export function ReferenceCell({ value, column, batchData }: ReferenceCellProps) {
@@ -22,13 +22,13 @@ export function ReferenceCell({ value, column, batchData }: ReferenceCellProps) 
 
   // Use batch data if available (preferred - fixes N+1 query problem)
   // Fall back to individual query for backward compatibility
-  const shouldUseBatch = batchData !== undefined;
+  const hasBatchData = batchData !== undefined;
 
   const { data: refRow, isLoading, isError } = useReferenceRow(
     tableId,
     rowId,
     displayColumnSlug,
-    { enabled: !shouldUseBatch } // Only fetch if batch data not available
+    { enabled: !hasBatchData } // Only fetch if batch data not available
   );
 
   // Handle empty/null value
@@ -37,10 +37,10 @@ export function ReferenceCell({ value, column, batchData }: ReferenceCellProps) 
   }
 
   // Use batch data if available
-  if (shouldUseBatch) {
+  if (batchData !== undefined) {
     const batchItem = batchData[rowId];
 
-    if (!batchItem) {
+    if (batchItem === undefined) {
       return (
         <span className="inline-flex items-center gap-1.5 text-destructive text-sm">
           <Link2 className="w-3 h-3" />

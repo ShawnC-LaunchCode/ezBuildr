@@ -1,4 +1,4 @@
-import {   useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
@@ -23,11 +23,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 import { workflowAPI } from "@/lib/vault-api";
 import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
-import type {  } from "@shared/schema";
+import type { } from "@shared/schema";
 export default function WorkflowsList() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
-  const queryClient = useQueryClient();
   const createSampleMutation = useCreateSampleWorkflow();
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
@@ -69,7 +68,7 @@ export default function WorkflowsList() {
     }
     createProjectMutation.mutate({
       title: newProjectName,
-      description: newProjectDescription || undefined,
+      description: newProjectDescription ? newProjectDescription : undefined,
     }, {
       onSuccess: () => {
         toast({
@@ -80,10 +79,10 @@ export default function WorkflowsList() {
         setNewProjectName("");
         setNewProjectDescription("");
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         toast({
           title: "Error",
-          description: error.message || "Failed to create project",
+          description: (error instanceof Error ? error.message : "Failed to create project"),
           variant: "destructive",
         });
       },
@@ -99,10 +98,10 @@ export default function WorkflowsList() {
         });
         setDeletingWorkflowId(null);
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         toast({
           title: "Error",
-          description: error.message || "Failed to delete workflow",
+          description: error instanceof Error ? error.message : "Failed to delete workflow",
           variant: "destructive",
         });
         setDeletingWorkflowId(null);
@@ -119,10 +118,10 @@ export default function WorkflowsList() {
         });
         setDeletingProjectId(null);
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         toast({
           title: "Error",
-          description: error.message || "Failed to delete project",
+          description: error instanceof Error ? error.message : "Failed to delete project",
           variant: "destructive",
         });
         setDeletingProjectId(null);
@@ -130,7 +129,7 @@ export default function WorkflowsList() {
     });
   };
   const handleTransferWorkflow = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
-    if (!transferringWorkflow) {return;}
+    if (!transferringWorkflow) { return; }
     try {
       await transferWorkflowMutation.mutateAsync({
         id: transferringWorkflow.id,
@@ -142,17 +141,17 @@ export default function WorkflowsList() {
         description: `Workflow transferred successfully`,
       });
       setTransferringWorkflow(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to transfer workflow",
+        description: error instanceof Error ? error.message : "Failed to transfer workflow",
         variant: "destructive",
       });
       throw error;
     }
   };
   const handleTransferProject = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
-    if (!transferringProject) {return;}
+    if (!transferringProject) { return; }
     try {
       await transferProjectMutation.mutateAsync({
         id: transferringProject.id,
@@ -164,10 +163,10 @@ export default function WorkflowsList() {
         description: `Project transferred successfully (all workflows also transferred)`,
       });
       setTransferringProject(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to transfer project",
+        description: error instanceof Error ? error.message : "Failed to transfer project",
         variant: "destructive",
       });
       throw error;
@@ -242,7 +241,7 @@ export default function WorkflowsList() {
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {(projectsLoading || workflowsLoading) ? (
               <SkeletonCard count={6} height="h-48" />
-            ) : (projects && projects.length > 0) || (unfiledWorkflows && unfiledWorkflows.length > 0) ? (
+            ) : ((projects?.length ?? 0) > 0) || ((unfiledWorkflows?.length ?? 0) > 0) ? (
               <>
                 {/* Projects - shown first */}
                 {projects?.filter(p => p.title !== 'Other Project').map((project) => (
@@ -321,7 +320,7 @@ export default function WorkflowsList() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{workflow.title}"? This action cannot be undone.
+                                  Are you sure you want to delete &quot;{workflow.title}&quot;? This action cannot be undone.
                                   All sections, steps, and run data will be permanently deleted.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
@@ -471,7 +470,7 @@ export default function WorkflowsList() {
       {/* Transfer Ownership Dialog - Workflow */}
       {transferringWorkflow && (
         <TransferOwnershipDialog
-          open={!!transferringWorkflow}
+          open={transferringWorkflow !== null}
           onOpenChange={(open) => !open && setTransferringWorkflow(null)}
           assetType="workflow"
           assetName={transferringWorkflow.title}
@@ -482,7 +481,7 @@ export default function WorkflowsList() {
       {/* Transfer Ownership Dialog - Project */}
       {transferringProject && (
         <TransferOwnershipDialog
-          open={!!transferringProject}
+          open={transferringProject !== null}
           onOpenChange={(open) => !open && setTransferringProject(null)}
           assetType="project"
           assetName={transferringProject.title}

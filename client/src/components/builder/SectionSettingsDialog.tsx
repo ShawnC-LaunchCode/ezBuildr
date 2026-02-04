@@ -7,18 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection } from "@/lib/vault-hooks";
 
 import type { ValidateRule } from "@shared/types/blocks";
 
 import { ValidationRulesEditor } from "./ValidationRulesEditor";
-
-interface SectionSettingsSection {
-    id: string;
-    title: string;
-    description?: string | null;
-    config?: { validationRules?: ValidateRule[]; [key: string]: unknown };
-}
 
 export function SectionSettingsDialog({
     workflowId,
@@ -28,7 +22,7 @@ export function SectionSettingsDialog({
     mode = "easy"
 }: {
     workflowId: string;
-    section: SectionSettingsSection | null;
+    section: ApiSection | null;
     isOpen: boolean;
     onClose: () => void;
     mode?: "easy" | "advanced";
@@ -40,18 +34,21 @@ export function SectionSettingsDialog({
     const [title, setTitle] = useState(section?.title ?? "");
     const [description, setDescription] = useState(section?.description ?? "");
     // Validation rules are stored in section.config.validationRules
-    const [validationRules, setValidationRules] = useState<ValidateRule[]>(section?.config?.validationRules ?? []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- API config is unknown
+    const [validationRules, setValidationRules] = useState<ValidateRule[]>(((section?.config as any)?.validationRules as ValidateRule[]) ?? []);
 
     // Sync state when section changes (e.g. opening different section)
     useEffect(() => {
         if (isOpen && section) {
             setTitle(section?.title ?? "");
             setDescription(section?.description ?? "");
-            setValidationRules(section?.config?.validationRules ?? []);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- API config is unknown
+            setValidationRules(((section?.config as any)?.validationRules as ValidateRule[]) ?? []);
         }
     }, [isOpen, section]);
 
     const handleSave = async () => {
+        if (!section) { return; }
         try {
             await updateSectionMutation.mutateAsync({
                 id: section.id,
@@ -59,8 +56,9 @@ export function SectionSettingsDialog({
                 title,
                 description,
                 config: {
-                    ...section.config,
-                    validationRules: validationRules
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config is generic
+                    ...(section.config as any),
+                    validationRules
                 }
             });
             toast({ title: "Success", description: "Page settings saved." });

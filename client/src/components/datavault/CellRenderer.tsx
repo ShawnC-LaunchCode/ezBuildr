@@ -5,7 +5,7 @@
  * Future: email, url, reference fields
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,13 @@ interface CellRendererProps {
   row: ApiDatavaultRowWithValues;
   column: DatavaultColumn;
   editing: boolean;
-  onCommit: (value: any) => void;
+  onCommit: (value: unknown) => void;
   onCancel?: () => void;
-  batchReferencesData?: Record<string, { displayValue: string; row: any }>;
+  batchReferencesData?: Record<string, { displayValue: string; row: unknown }>;
 }
 
 // Helper: Render value based on column type (display mode)
-function renderValue(value: any, type: string): string {
+function renderValue(value: unknown, type: string): string {
   if (value === null || value === undefined) {return "";}
 
   switch (type) {
@@ -36,21 +36,21 @@ function renderValue(value: any, type: string): string {
       return value ? "Yes" : "No";
     case "date":
       if (value) {
-        const date = new Date(value);
+        const date = new Date(value as string | number | Date);
         return date.toLocaleDateString();
       }
       return "";
     case "datetime":
       if (value) {
-        const date = new Date(value);
+        const date = new Date(value as string | number | Date);
         return date.toLocaleString();
       }
       return "";
     case "number":
     case "auto_number":
-      return typeof value === "number" ? value.toString() : value;
+      return typeof value === "number" ? value.toString() : String(value);
     default:
-      return value.toString();
+      return String(value);
   }
 }
 
@@ -76,7 +76,7 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
     onCommit(editValue);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSave();
@@ -255,18 +255,18 @@ function EditableTextCell({
   onKeyDown,
   inputRef
 }: {
-  value: any;
+  value: unknown;
   type: string;
-  onCommit: (v: any) => void;
-  onChange: (v: any) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  onCommit: (v: unknown) => void;
+  onChange: (v: unknown) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+  inputRef: RefObject<HTMLInputElement>;
 }) {
   return (
     <Input
       ref={inputRef}
       type={type === "email" ? "email" : type === "url" ? "url" : "text"}
-      value={value ?? ""}
+      value={(value as string) ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={() => onCommit(value)}
       onKeyDown={onKeyDown}
@@ -284,18 +284,18 @@ function NumberCell({
   inputRef,
   readOnly = false
 }: {
-  value: any;
-  onCommit: (v: any) => void;
-  onChange: (v: any) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  value: unknown;
+  onCommit: (v: unknown) => void;
+  onChange: (v: unknown) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+  inputRef: RefObject<HTMLInputElement>;
   readOnly?: boolean;
 }) {
   return (
     <Input
       ref={inputRef}
       type="number"
-      value={value ?? ""}
+      value={(value as string | number) ?? ""}
       onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
       onBlur={() => onCommit(value)}
       onKeyDown={onKeyDown}
@@ -310,8 +310,8 @@ function BooleanCell({
   value,
   onCommit
 }: {
-  value: any;
-  onCommit: (v: any) => void;
+  value: unknown;
+  onCommit: (v: unknown) => void;
 }) {
   return (
     <div className="flex items-center">
@@ -332,14 +332,14 @@ function DateCell({
   onKeyDown,
   inputRef
 }: {
-  value: any;
-  onCommit: (v: any) => void;
-  onChange: (v: any) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  value: unknown;
+  onCommit: (v: unknown) => void;
+  onChange: (v: unknown) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+  inputRef: RefObject<HTMLInputElement>;
 }) {
   // Convert to YYYY-MM-DD format
-  const dateValue = value ? new Date(value).toISOString().split('T')[0] : "";
+  const dateValue = value ? new Date(value as string | number | Date).toISOString().split('T')[0] : "";
 
   return (
     <Input
@@ -362,15 +362,15 @@ function DateTimeCell({
   onKeyDown,
   inputRef
 }: {
-  value: any;
-  onCommit: (v: any) => void;
-  onChange: (v: any) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  value: unknown;
+  onCommit: (v: unknown) => void;
+  onChange: (v: unknown) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+  inputRef: RefObject<HTMLInputElement>;
 }) {
   // Convert to datetime-local format (YYYY-MM-DDThh:mm)
   const dateTimeValue = value
-    ? new Date(value).toISOString().slice(0, 16)
+    ? new Date(value as string | number | Date).toISOString().slice(0, 16)
     : "";
 
   return (
@@ -392,12 +392,12 @@ function SelectCell({
   options,
   onCommit
 }: {
-  value: any;
+  value: unknown;
   options: SelectOption[];
-  onCommit: (v: any) => void;
+  onCommit: (v: unknown) => void;
 }) {
   return (
-    <Select value={value ?? ""} onValueChange={onCommit}>
+    <Select value={(value as string) ?? ""} onValueChange={onCommit}>
       <SelectTrigger className="h-8 text-sm focus:ring-2 focus:ring-primary">
         <SelectValue placeholder="Select..." />
       </SelectTrigger>
@@ -430,9 +430,9 @@ function MultiselectCell({
   options,
   onCommit
 }: {
-  value: any;
+  value: unknown;
   options: SelectOption[];
-  onCommit: (v: any) => void;
+  onCommit: (v: unknown) => void;
 }) {
   const [selectedValues, setSelectedValues] = useState<string[]>(Array.isArray(value) ? value : []);
 
@@ -444,7 +444,7 @@ function MultiselectCell({
     onCommit(newValues);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, optionValue: string) => {
+  const handleKeyDownOption = (e: KeyboardEvent, optionValue: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggleValue(optionValue);
@@ -477,7 +477,7 @@ function MultiselectCell({
               key={option.value}
               className="flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer focus-within:bg-accent transition-colors"
               onClick={() => toggleValue(option.value)}
-              onKeyDown={(e) => handleKeyDown(e, option.value)}
+              onKeyDown={(e) => handleKeyDownOption(e, option.value)}
               tabIndex={0}
               role="option"
               aria-selected={selectedValues.includes(option.value)}

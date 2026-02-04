@@ -5,7 +5,7 @@
  */
 
 import { Loader2, Info } from "lucide-react";
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export function CreateDatabaseModal({
   const [scopeType, setScopeType] = useState<'account' | 'project' | 'workflow'>('account');
   const [scopeId, setScopeId] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -113,7 +113,7 @@ export function CreateDatabaseModal({
                 id="name"
                 placeholder="e.g., Customer Data, Product Catalog"
                 value={name}
-                onChange={(e) => { void setName(e.target.value); }}
+                onChange={(e) => setName(e.target.value)}
                 required
                 autoFocus
               />
@@ -126,7 +126,7 @@ export function CreateDatabaseModal({
                 id="description"
                 placeholder="Optional description of this database..."
                 value={description}
-                onChange={(e) => { void setDescription(e.target.value); }}
+                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
               />
             </div>
@@ -177,7 +177,7 @@ export function CreateDatabaseModal({
                   id="scopeId"
                   placeholder={`Enter ${scopeType} UUID`}
                   value={scopeId}
-                  onChange={(e) => { void setScopeId(e.target.value); }}
+                  onChange={(e) => setScopeId(e.target.value)}
                   required
                 />
                 <Alert>
@@ -204,7 +204,7 @@ export function CreateDatabaseModal({
             <Button
               type="button"
               variant="outline"
-              onClick={() => { void onOpenChange(false); }}
+              onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
               Cancel

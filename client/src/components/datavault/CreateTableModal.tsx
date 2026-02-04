@@ -4,7 +4,7 @@
  */
 
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,13 +64,13 @@ export function CreateTableModal({
     }
   };
 
-  const updateColumn = (index: number, field: keyof Column, value: any) => {
+  const updateColumn = (index: number, field: keyof Column, value: Column[keyof Column]) => {
     const updated = [...columns];
     updated[index] = { ...updated[index], [field]: value };
     setColumns(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {return;}
 

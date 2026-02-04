@@ -22,11 +22,11 @@ import { EditableDataGrid } from "./EditableDataGrid";
 interface InfiniteEditableDataGridProps {
   tableId: string;
   columns: DatavaultColumn[];
-  onEditRow: (rowId: string, values: Record<string, any>) => void;
+  onEditRow: (rowId: string, values: Record<string, unknown>) => void;
   onDeleteRow: (rowId: string) => void;
   onReorderColumns?: (columnIds: string[]) => Promise<void>;
   onAddRow?: () => void;
-  onCreateRow?: (values: Record<string, any>) => Promise<void>;
+  onCreateRow?: (values: Record<string, unknown>) => Promise<void>;
 }
 
 export function InfiniteEditableDataGrid({
@@ -73,7 +73,7 @@ export function InfiniteEditableDataGrid({
     }: {
       rowId: string;
       columnId: string;
-      value: any;
+      value: unknown;
     }) => {
       // Get current row values
       const allRows = data?.pages.flatMap((page) => page.rows) ?? [];
@@ -105,13 +105,13 @@ export function InfiniteEditableDataGrid({
       // Optimistically update to the new value
       queryClient.setQueryData(
         [...datavaultQueryKeys.tableRows(tableId), "infinite"],
-        (old: any) => {
+        (old: { pages: Array<{ rows: Array<{ row: { id: string }; values: Record<string, unknown> }> }> } | undefined) => {
           if (!old) {return old;}
           return {
             ...old,
-            pages: old.pages.map((page: any) => ({
+            pages: old.pages.map((page) => ({
               ...page,
-              rows: page.rows.map((row: any) =>
+              rows: page.rows.map((row) =>
                 row.row.id === rowId
                   ? {
                       ...row,
@@ -132,13 +132,13 @@ export function InfiniteEditableDataGrid({
     },
     onSuccess: () => {
       // Invalidate and refetch to ensure consistency
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: [...datavaultQueryKeys.tableRows(tableId), "infinite"],
       });
     },
     onError: (error, _variables, context) => {
       // Revert to previous data on error
-      if (context?.previousData) {
+      if (context?.previousData !== undefined) {
         queryClient.setQueryData(
           [...datavaultQueryKeys.tableRows(tableId), "infinite"],
           context.previousData
@@ -158,7 +158,7 @@ export function InfiniteEditableDataGrid({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+          void fetchNextPage();
         }
       },
       { threshold: 0.1 }
@@ -176,7 +176,7 @@ export function InfiniteEditableDataGrid({
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const handleCellUpdate = async (rowId: string, columnId: string, value: any) => {
+  const handleCellUpdate = async (rowId: string, columnId: string, value: unknown) => {
     await updateCellMutation.mutateAsync({ rowId, columnId, value });
   };
 
@@ -227,7 +227,7 @@ export function InfiniteEditableDataGrid({
       {onAddRow && (
         <div className="mt-4 flex justify-start">
           <Button
-            onClick={() => { void onAddRow(); }}
+            onClick={onAddRow}
             disabled={columns.length === 0}
             variant="outline"
             size="sm"

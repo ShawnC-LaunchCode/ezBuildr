@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
+import type { DynamicOptionsConfig } from "@shared/types/stepConfigs";
+
 import { generateOptionsFromList } from "./choice-utils";
 
-import type { DynamicOptionsConfig } from "@shared/types/stepConfigs";
 
 describe("choice-utils", () => {
     const mockList = {

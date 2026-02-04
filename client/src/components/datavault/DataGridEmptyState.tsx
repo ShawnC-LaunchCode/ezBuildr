@@ -57,9 +57,9 @@ export function DataGridEmptyState({
   };
 
   const showAction =
-    (variant === "no_rows" && onAddRow) ||
-    (variant === "filtered_empty" && onClearFilters) ||
-    (variant === "no_archived" && onShowAll);
+    (variant === "no_rows" && onAddRow !== undefined) ||
+    (variant === "filtered_empty" && onClearFilters !== undefined) ||
+    (variant === "no_archived" && onShowAll !== undefined);
 
   return (
     <div className="border rounded-lg bg-muted/10 flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -70,7 +70,7 @@ export function DataGridEmptyState({
       <p className="text-sm text-muted-foreground mb-4 max-w-sm">
         {config.description}
       </p>
-      {showAction && (
+      {showAction === true && (
         <Button onClick={handleAction} variant="outline">
           {config.actionLabel}
         </Button>

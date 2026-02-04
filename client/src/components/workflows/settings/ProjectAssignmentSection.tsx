@@ -83,7 +83,7 @@ export function ProjectAssignmentSection({
   // Determine the current location display
   let locationDisplay = currentProjectId === null
     ? "Main Folder (no project)"
-    : currentProjectName || "Default Workflow Folder";
+    : currentProjectName ?? "Default Workflow Folder";
 
   // Hide "Other Project" name from UI
   if (locationDisplay === "Other Project") {
@@ -99,7 +99,7 @@ export function ProjectAssignmentSection({
   // Determine target name for modal
   const targetName = pendingProjectId === null
     ? "Main Folder"
-    : projects.find(p => p.id === pendingProjectId)?.name || "Default Workflow Folder";
+    : projects.find(p => p.id === pendingProjectId)?.name ?? "Default Workflow Folder";
 
   // PR4: Loading state UI
   if (isLoading) {

@@ -32,6 +32,17 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | client/src/components/builder/AiConversationPanel.tsx | `max-lines-per-function`, `no-misused-promises`, `strict-boolean-expressions`, `no-explicit-any` | Extracted `useAiConversation`, `AiMessageItem`, `AiInputArea`. Fixed types (`AIGeneratedWorkflow`, `TransformBlock`). Wrapped async handlers. |
 | client/src/components/builder/BlockEditorDialog.tsx | `max-lines-per-function`, `complexity`, `prefer-nullish-coalescing`, `strict-boolean-expressions` | Extracted hooks `useBlockEditorState`, `useBlockSave`, `getTitleForBlock` to `BlockEditorDialog.hooks.ts`. Simplified complexity. |
 | client/src/components/builder/BlocksPanel.tsx | None | Stub component. Verified clean. |
+| client/src/components/builder/CanvasEditor.tsx | `no-unused-vars`, `react/no-unescaped-entities`, `no-explicit-any`, `no-unsafe-assignment` | Refactored to use strict types (`ApiSection`, `ApiStep`, `StepType`) from `vault-hooks` and `vault-api`. Removed `any` usage and fixed unescaped entities. |
+| client/src/components/builder/CollisionResolutionModal.tsx | `max-lines-per-function`, `react/no-unescaped-entities` | Extracted `useCollisionResolution` hook and `CollisionRow` component. Simplified logic and fixed quotes. |
+| client/src/components/builder/HelperLibraryDocs.tsx | None | Verified clean. |
+| client/src/components/builder/Inspector.tsx | None | Verified clean. |
+| client/src/components/builder/IntakeContext.tsx | `naming-convention` | Removed default React import to resolve naming convention error. |
+| client/src/components/builder/ListInspector.tsx | `max-lines-per-function` | Refactored into sub-components (`ListMetadata`, `ListColumns`, `ListQuickRefs`, `ListPreview`) to reduce main function size. |
+| client/src/components/builder/LogicInspectorPanel.tsx | `no-explicit-any`, `max-lines-per-function`, `strict-boolean-expressions`, `no-unsafe-call` | Extracted `LogicGeneratorTab`, `LogicDebugTab`, `LogicVariablesTab`. Applied strict AI types (`AIGeneratedWorkflow`, `AIDebugLogicResponse`). Fixed imports. |
+| client/src/components/builder/LogicPanel.tsx | None | Verified clean. |
+| client/src/components/builder/RunWithRandomDataButton.tsx | None | Verified clean. |
+| client/src/components/builder/RunnerPreview.tsx | None | Verified clean. |
+| client/src/components/builder/SectionSettingsDialog.tsx | None | Verified clean. Added safety checks for `section` prop. |
 | client/src/components/builder/AIFeedbackWidget.tsx | Fixed prefer-nullish-coalescing | Replaced || with explicit logical checks |
 | client/src/components/builder/AddSnipDialog.tsx | Fixed no-floating-promises, max-lines | Extracted `SnipCard` component, fixed promises, removed unused state |
 | errorHandler.examples.ts | Added eslint-disable (Examples only) | Pure documentation file |
@@ -168,7 +179,116 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | layout/BuilderLayout.tsx | Verified clean | 36 lines |
 | layout/BuilderTabNav.tsx | Removed unused `Sparkles` import, `React.ComponentType` to named `ComponentType` | 68 lines |
 | layout/ResizableBuilderLayout.tsx | Fixed double JSON.parse, strict-boolean on numbers (`!= null`) | 233 lines |
-| transforms/index.ts | Verified clean | Barrel exports, 10 lines |
+| builder/SidebarTree.tsx | Extracted `SectionItem`, `StepItem`, `BlockTreeItem`, `SectionItemHeader`, `SectionLogicMenu`. Fixed strict types, complex logic, `any` usage. | Major refactor (was 630 lines, now ~230). |
+| builder/validation/* | Created extracted components for `ValidationRulesEditor` | Validated and linted. |
+| builder/ValidationRulesEditor.tsx | Extracted sub-components, fixed `any` types, `||` to `??` | Component extraction. |
+| builder/WorkflowSettings.tsx | Verified clean. | No refactor needed. |
+| pages/WorkflowBuilder.tsx | Fixed 30+ lint errors: `any`, `\|\|` to `??`, floating promises, unused vars. | Added explicit type casts where needed, voided promises, removed unused code. |
+| pages/WorkflowDashboard.tsx | Extracted dialogs to components, fixed unused vars and nullish coalescing. | Greatly reduced complexity (28-><15) and line count. |
+| pages/WorkflowPreview.tsx | None | Verified clean. |
+| pages/WorkflowRunner.tsx | Extracted helpers and SectionSteps, fixed 94+ lints | Reduced size (969->~750 lines), fixed type safety and strict boolean checks. |
+| pages/WorkflowsList.tsx | Fixed unused vars, error types in mutations, strict booleans. | Cleaned up lint errors (completed). |
+| client/src/components/builder/StepPropertiesPanel.tsx | Extracted DefaultValueEditor and StepTypeSettings, fixed lints. | Reduced complexity, clean. |
+| client/src/components/builder/questions/JSQuestionEditor.tsx | Extracted JSDisplaySettings and JSCodeEditorSection. | Reduced max-lines, fixed strict boolean checks. |
+| client/src/components/builder/step-properties/OptionsEditor.tsx | None | Verified clean. |
+| client/src/components/builder/sidebar/DocumentStatusPanel.tsx | Extracted MissingItemsList. | Verified clean (strict boolean fixes). |
+| client/src/components/builder/tabs/AssignmentTab.tsx | Extracted AssignmentRuleCard. | Reduced complexity, removed unused imports/vars. |
+| client/src/components/builder/tabs/DataSourcesTab.tsx | Extracted DataSourceCard/SelectionDialog. | Reduced complexity, clean. |
+| client/src/components/builder/tabs/ReviewTab.tsx | Extracted ReviewStatsCard/ReviewIssueList. | Reduced complexity, clean. |
+| client/src/components/builder/tabs/SectionsTab.tsx | None | Verified clean. |
+| client/src/components/builder/tabs/SettingsTab.tsx | Extracted 6 components. | Reduced complexity, clean. |
+| client/src/components/builder/tabs/SnapshotsTab.tsx | Extracted Table and Dialogs. | Reduced complexity. |
+| client/src/components/builder/tabs/TemplatesTab.tsx | Extracted Card and UploadDialog. | Reduced complexity, clean. |
+| client/src/components/builder/tabs/VisualBuilderTab.tsx | Extracted useVisualBuilderShortcuts. | Cleaned up. |
+| client/src/components/builder/pages/LogicAddMenu.tsx | Removed explicit any, strict boolean fixes, standardized config | Refactored handleAddLogic types |
+| client/src/components/builder/pages/PageCanvas.tsx | Extracted drag/drop logic to hook, fixed multiple lint errors | Created PageCanvas.hooks.ts, reduced complexity |
+| client/src/components/builder/pages/PageCard.tsx | Major refactor: extracted hooks, header, and content components | Solved max-lines (345->146), complexity, and type safety issues across 6 files |
+| client/src/components/builder/pages/QuestionAddMenu.tsx | Fixed any types, loose boolean logic, and unsafe casts | Cleaned up. |
+| client/src/components/builder/pages/VariablePalette.tsx | Replaced non-null assertions and enforced strict boolean checks | Safer variable access. |
+| client/src/components/builder/templates/PdfMappingEditor.tsx | Extracted PdfCanvas and MappingSidebar, fixed 47 lint errors | Reduced complexity, type safety, improved maintainability. |
+| client/src/components/builder/questions/LegacyStepBody.tsx | Fixed any types, strict boolean checks | Cleaned up legacy code. |
+| client/src/components/builder/questions/JSQuestionEditor.tsx | Verified clean (already refactored) | No refactor needed. |
+| client/src/components/builder/questions/OptionsEditor.tsx | Fixed 20/22 errors (any, duplicates, unescaped) | 2 strict-boolean errors remain (safe). |
+| client/src/components/blocks/JSBlockEditor.tsx | Verified clean (already refactored) | No refactor needed. |
+| client/src/components/blocks/FinalBlockEditor.tsx | Verified clean | No lint errors. Lines < 150. |
+| client/src/components/blocks/ExternalSendBlockEditor.tsx | Extracted PayloadMappingEditor | Fixed max-lines (168 -> reduced). Clean lint. |
+| client/src/components/blocks/ListToolsBlockEditor.tsx | Extracted 7 sub-components | Fixed max-lines & complexity (39 -> low). Clean lint. |
+| client/src/components/blocks/QueryBlockEditor.tsx | Extracted QueryFilterBuilder | Fixed max-lines. Clean lint. |
+| client/src/components/blocks/SendDataToTableBlockEditor.tsx | Extracted useWriteTableMapping | Fixed complexity & type safety. Clean lint. |
+| client/src/components/blocks/ReadTableBlockEditor.tsx | Verified clean | Fixed 1 lint error (prefer-nullish-coalescing). |
+| client/src/components/builder/TransformBlocksPanel.tsx | Extracted 3 sub-components | Cleaned up lint errors. |
+| client/src/components/builder/LogicInspectorPanel.tsx | Extracted 3 sub-components | Verified clean. |
+| client/src/components/builder/AiConversationPanel.tsx | Extracted hooks & components | Reduced complexity, clean structure. |
+| client/src/components/builder/AIAssistPanel.tsx | Extracted hooks & constants, reused components | Reduced duplication, improved maintainability. |
+| client/src/components/builder/CanvasEditor.tsx | Extracted sub-components into `canvas/` | Greatly reduced file size, clean separation of concerns. |
+| client/src/components/builder/VariablesInspector.tsx | Extracted hook & component into `variables/` | Cleaned up logic and rendering loop. |
+| client/src/components/builder/AddSnipDialog.tsx | Extracted hook & component into `snips/` | Cleaned up dialog logic, extracted import behavior. |
+| client/src/components/builder/questions/JSQuestionEditor.tsx | Removed legacy commented-out code | Cleaned up hygiene. |
+| client/src/components/builder/transforms/AdvancedTransformUI.tsx | Removed unused React import | Clean, 66 lines. |
+| client/src/components/builder/transforms/FilterBuilderUI.tsx | Fixed `\|\|` to `??` for combinator fallback | Clean, 262 lines. Uses React.Fragment. |
+| client/src/components/builder/transforms/RangeControlsUI.tsx | Removed unused React import, added parseInt radix | Clean, 57 lines. |
+| client/src/components/builder/transforms/SortBuilderUI.tsx | Removed unused React import | Clean, 164 lines. |
+| client/src/components/builder/transforms/index.ts | Verified clean | Barrel file, no changes needed. |
+| client/src/components/builder/versioning/DiffViewer.tsx | Fixed `any` types, added proper interfaces, useCallback for loadDiff, fixed deps | 172 lines. |
+| client/src/components/builder/versioning/PublishWorkflowDialog.tsx | Removed unnecessary `void` on sync functions | 53 lines, clean. |
+| client/src/components/builder/versioning/VersionBadge.tsx | Removed unused React import | 29 lines, clean. |
+| client/src/components/builder/versioning/VersionHistoryPanel.tsx | Fixed useCallback/useEffect deps, typed migrationInfo, removed unused error | 156 lines. |
+| client/src/components/collab/CollaborationContext.tsx | Fixed `\|\|` to `??` for callback fallbacks | 71 lines. |
+| client/src/components/collab/CommentsPanel.tsx | Fixed React import to named, removed unnecessary void, proper promise handling | 183 lines. |
+| client/src/components/collab/LiveCursorsLayer.tsx | Removed unused `now` and `lastUpdate` variables | 91 lines. |
+| client/src/components/collab/PresenceAvatars.tsx | Removed unused React import | 99 lines. |
+| client/src/components/collections/CollectionCard.tsx | Verified clean | 63 lines. |
+| client/src/components/collections/CreateCollectionModal.tsx | Fixed React import to named FormEvent | 152 lines. |
+| client/src/components/collections/CreateFieldModal.tsx | Fixed React import, `any` to `unknown`, deprecated onKeyPress to onKeyDown | 338 lines. |
+| client/src/components/collections/FieldsList.tsx | Fixed React import to named ReactNode | 140 lines. |
+| client/src/components/collections/RecordEditorModal.tsx | Fixed React import, `any` to `unknown`, removed unnecessary void | 307 lines. |
+| client/src/components/collections/RecordTable.tsx | Removed empty React import | 234 lines. |
+| client/src/components/collections/RecordsList.tsx | Verified clean | 116 lines. |
+| client/src/components/common/Breadcrumbs.tsx | Fixed React import to named ReactNode | 67 lines. |
+| client/src/components/common/EnhancedVariablePicker.tsx | Removed unnecessary void operators on sync functions | 314 lines. |
+| client/src/components/common/VariableSelect.tsx | Verified clean | 114 lines. |
+| client/src/components/dashboard/ProjectCard.tsx | Verified clean | 89 lines. |
+| client/src/components/dashboard/ShareWorkflowDialog.tsx | Removed unnecessary void, fixed onKeyDown logic | 157 lines. |
+| client/src/components/dashboard/WorkflowCard.tsx | Verified clean | 112 lines. |
+| client/src/components/dashboard/index.ts | Verified clean | Barrel file. |
+| client/src/components/dataSource/AddGoogleSheetsDialog.tsx | Fixed unnecessary void on sync functions, kept void on async | 273 lines. |
+| client/src/components/dataSource/AddNativeTableDialog.tsx | Fixed `any` to `Record<string, unknown>`, removed unnecessary void | 192 lines. |
+| client/src/components/datavault/AddRowButton.tsx | Fixed React import, `any` to `unknown`, removed unnecessary void | Via subagent. |
+| client/src/components/datavault/BulkActionsToolbar.tsx | Verified clean | Via subagent. |
+| client/src/components/datavault/CellRenderer.tsx | Fixed React import, `any` to `unknown`, KeyboardEvent type | Via subagent. |
+| client/src/components/datavault/ColumnHeaderCell.tsx | Verified clean | Via subagent. |
+| client/src/components/datavault/ColumnManager.tsx | Removed unnecessary void on sync functions | Via subagent. |
+| client/src/components/datavault/ColumnManagerWithDnd.tsx | Removed unnecessary void on sync functions | Via subagent. |
+| client/src/components/datavault/ColumnTypeIcon.tsx | Removed unused React import | Via subagent. |
+| client/src/components/datavault/CreateDatabaseModal.tsx | Fixed React import, removed unnecessary void | Via subagent. |
+| client/src/components/datavault/CreateTableModal.tsx | Fixed React import, `any` type to Column[keyof Column] | Via subagent. |
+| client/src/components/datavault/DataGrid.tsx | Fixed React MouseEvent import, `any` to `unknown`, `\|\|` to `??` | Via subagent. |
+| client/src/components/datavault/DataGridEmptyState.tsx | Fixed strict boolean expressions | Via subagent. |
+| client/src/components/datavault/DataGridSkeleton.tsx | Verified clean | Via subagent. |
+| client/src/components/datavault/DatabaseApiTokens.tsx | Removed unnecessary void, fixed floating promise | Via subagent. |
+| client/src/components/datavault/DatabaseCard.tsx | Fixed `\|\|` to `??` | Via subagent. |
+| client/src/components/datavault/DatabaseSettings.tsx | Removed unnecessary void, `\|\|` to `??` | Via subagent. |
+| client/src/components/datavault/DatabaseTableTabs.tsx | Verified clean | Via subagent. |
+| client/src/components/datavault/DeleteRowButton.tsx | Prefixed unused prop with `_`, removed void | Via subagent. |
+| client/src/components/datavault/EditableCell.tsx | Fixed React import, `any` to `unknown`, `\|\|` to `??`, strict boolean | Via subagent. |
+| client/src/components/datavault/EditableDataGrid.tsx | Added RowData interface, fixed `any` types, strict boolean | Via subagent. |
+| client/src/components/datavault/FilterPanel.tsx | Minor remaining issues (naming convention - API mapping) | Via subagent. |
+| client/src/components/datavault/SortableColumnHeader.tsx | Removed unused React import | Direct. |
+| client/src/components/datavault/TableCard.tsx | Removed unused React import | Direct. |
+| client/src/components/datavault/RowEditorModal.tsx | Removed redundant e.preventDefault(), simplified onClick handlers, removed unnecessary braces in onChange | Direct. |
+| client/src/components/datavault/TableGridView.tsx | Removed React import, fixed `any` to `unknown` | Direct. |
+| client/src/components/datavault/TemplateCard.tsx | Removed unused React import | Direct. |
+| client/src/components/datavault/TablePermissions.tsx | Removed empty import, removed unnecessary void operators, fixed `any` to typed values | Direct. |
+| client/src/components/datavault/NotesTab.tsx | Simplified form onSubmit, removed unnecessary braces in onChange | Direct. |
+| client/src/components/datavault/MoveTableModal.tsx | Simplified onClick handlers, removed unnecessary void | Previous session. |
+| client/src/components/datavault/InfiniteEditableDataGrid.tsx | Simplified onClick handler | Previous session. |
+| client/src/components/devpanel/RuntimeVariableList.tsx | Fixed `any` to `unknown`, removed unnecessary void operators | Direct. |
+| client/src/components/devpanel/VariableList.tsx | Removed unnecessary void operators | Direct. |
+| client/src/components/devtools/JsonViewer.tsx | Removed React import, fixed `any` to `unknown` | Direct. |
+| client/src/components/devtools/DevToolsPanel.tsx | Fixed `any` to `unknown` in deepSet helper | Direct. |
+| client/src/components/dialogs/TransferOwnershipDialog.tsx | Removed unnecessary void operator | Direct. |
+| client/src/components/history/WorkflowHistoryDialog.tsx | Removed unnecessary void operators | Direct. |
+| client/src/components/intake/IntakeDemo.tsx | Changed React import to named FormEvent import | Direct. |
 
 ### Files Needing Future Work
 | File | Issue | Priority |

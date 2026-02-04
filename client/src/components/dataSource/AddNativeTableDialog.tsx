@@ -34,7 +34,7 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
         enabled: open,
     });
     const createMutation = useMutation({
-        mutationFn: async (data: { name: string; type: string; config: any }) => {
+        mutationFn: async (data: { name: string; type: string; config: Record<string, unknown> }) => {
             const res = await fetch("/api/data-sources", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                     <Input
                         placeholder="Search tables..."
                         value={filter}
-                        onChange={(e) => { void setFilter(e.target.value); }}
+                        onChange={(e) => setFilter(e.target.value)}
                         className="h-8"
                     />
                 </div>
@@ -123,7 +123,7 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                                                     {db.tables.map(table => (
                                                         <button
                                                             key={table.id}
-                                                            onClick={() => { void handleSelect(table.id, table.name, db.id); }}
+                                                            onClick={() => handleSelect(table.id, table.name, db.id)}
                                                             className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors ${selectedTableId === table.id
                                                                     ? "bg-primary text-primary-foreground"
                                                                     : "hover:bg-accent hover:text-accent-foreground"
@@ -151,7 +151,7 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                                     {filteredOrphans.map(table => (
                                         <button
                                             key={table.id}
-                                            onClick={() => { void handleSelect(table.id, table.name, null); }}
+                                            onClick={() => handleSelect(table.id, table.name, null)}
                                             className={`w-full flex items-center justify-between px-2 py-2 rounded-md text-sm transition-colors ${selectedTableId === table.id
                                                     ? "bg-primary text-primary-foreground"
                                                     : "hover:bg-accent hover:text-accent-foreground"
@@ -175,11 +175,11 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                     )}
                 </ScrollArea>
                 <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={() => { void onOpenChange(false); }}>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
                     <Button
-                        onClick={() => { void handleAdd(); }}
+                        onClick={handleAdd}
                         disabled={!selectedTableId || createMutation.isPending}
                     >
                         {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

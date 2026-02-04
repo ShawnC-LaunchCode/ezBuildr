@@ -2,7 +2,6 @@
  * TemplateCard Component
  * Displays a table template placeholder with "Coming Soon" badge
  */
-import React from 'react';
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

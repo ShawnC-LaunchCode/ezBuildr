@@ -42,14 +42,19 @@ import { RowDetailDrawer } from "./RowDetailDrawer";
 
 
 
+interface RowData {
+  row: { id: string };
+  values: Record<string, unknown>;
+}
+
 interface EditableDataGridProps {
   columns: DatavaultColumn[];
-  rows: any[];
-  onCellUpdate: (rowId: string, columnId: string, value: any) => Promise<void>;
-  onEditRow?: (rowId: string, values: Record<string, any>) => void;
+  rows: RowData[];
+  onCellUpdate: (rowId: string, columnId: string, value: unknown) => Promise<void>;
+  onEditRow?: (rowId: string, values: Record<string, unknown>) => void;
   onDeleteRow?: (rowId: string) => void;
   onReorderColumns?: (columnIds: string[]) => Promise<void>;
-  onCreateRow?: (values: Record<string, any>) => Promise<void>;
+  onCreateRow?: (values: Record<string, unknown>) => Promise<void>;
 }
 
 interface SortableColumnHeaderProps {
@@ -127,9 +132,9 @@ export function EditableDataGrid({
   onReorderColumns,
   onCreateRow,
 }: EditableDataGridProps) {
-  const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
+  const [_savingCells, setSavingCells] = useState<Set<string>>(new Set());
   const [localColumns, setLocalColumns] = useState(columns);
-  const [emptyRowValues, setEmptyRowValues] = useState<Record<string, any>>({});
+  const [emptyRowValues, setEmptyRowValues] = useState<Record<string, unknown>>({});
   const [emptyRowTouched, setEmptyRowTouched] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -147,7 +152,7 @@ export function EditableDataGrid({
   );
 
   // Update local columns when props change
-  useEffect(() => { void setLocalColumns(columns); }, [columns]);
+  useEffect(() => { setLocalColumns(columns); }, [columns]);
 
   // Sort columns by orderIndex (memoized to prevent unnecessary recalculations)
   const sortedColumns = useMemo(
@@ -223,7 +228,7 @@ export function EditableDataGrid({
     }
   };
 
-  const handleCellSave = async (rowId: string, columnId: string, value: any) => {
+  const handleCellSave = async (rowId: string, columnId: string, value: unknown) => {
     const cellKey = `${rowId}-${columnId}`;
     setSavingCells((prev) => new Set(prev).add(cellKey));
 
@@ -238,7 +243,7 @@ export function EditableDataGrid({
     }
   };
 
-  const handleEmptyRowCellUpdate = async (columnId: string, value: any) => {
+  const handleEmptyRowCellUpdate = async (columnId: string, value: unknown) => {
     // Update the empty row values
     const updatedValues = {
       ...emptyRowValues,
@@ -258,7 +263,7 @@ export function EditableDataGrid({
       // Create the actual row
       try {
         // Filter out undefined/null values
-        const valuesToSave: Record<string, any> = {};
+        const valuesToSave: Record<string, unknown> = {};
         for (const [colId, val] of Object.entries(updatedValues)) {
           if (val !== undefined && val !== null && val !== '') {
             valuesToSave[colId] = val;
@@ -318,7 +323,7 @@ export function EditableDataGrid({
         </div>
         <h3 className="text-lg font-semibold text-foreground mb-2">No data yet</h3>
         <p className="text-sm text-muted-foreground max-w-sm mb-4">
-          This table is empty. Click the "Add Row" button above to create your first row of data.
+          This table is empty. Click the &quot;Add Row&quot; button above to create your first row of data.
         </p>
         <p className="text-xs text-muted-foreground">
           💡 Tip: You can also double-click any cell to edit it inline after adding rows.
@@ -333,7 +338,7 @@ export function EditableDataGrid({
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
+          onDragEnd={(event) => { void handleDragEnd(event); }}
         >
           <table className="w-full border-collapse" role="table" aria-label="Data table with inline editing">
             <thead className="border-b" role="rowgroup">
@@ -383,20 +388,20 @@ export function EditableDataGrid({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { void setSelectedRowId(row.row.id); }}>
+                      <DropdownMenuItem onClick={() => setSelectedRowId(row.row.id)}>
                         <FileText className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      {(onEditRow || onDeleteRow) && <DropdownMenuSeparator />}
+                      {(onEditRow !== undefined || onDeleteRow !== undefined) && <DropdownMenuSeparator />}
                       {onEditRow && (
-                        <DropdownMenuItem onClick={() => { void onEditRow(row.row.id, row.values); }}>
+                        <DropdownMenuItem onClick={() => onEditRow(row.row.id, row.values)}>
                           <Edit2 className="w-4 h-4 mr-2" />
                           Edit Row
                         </DropdownMenuItem>
                       )}
                       {onDeleteRow && (
                         <DropdownMenuItem
-                          onClick={() => { void onDeleteRow(row.row.id); }}
+                          onClick={() => onDeleteRow(row.row.id)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -426,7 +431,7 @@ export function EditableDataGrid({
                     placeholder={
                       column.isPrimaryKey && column.type === 'auto_number'
                         ? String(emptyRowValues[column.id] ?? '')
-                        : column.required
+                        : column.required === true
                         ? 'Required'
                         : 'Optional'
                     }

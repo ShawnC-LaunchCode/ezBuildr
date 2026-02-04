@@ -3,13 +3,13 @@ import { ReactFlowProvider } from 'reactflow';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { BuilderCanvas } from '@/pages/visual-builder/components/BuilderCanvas';
 import { ConnectionsPanel } from '@/pages/visual-builder/components/ConnectionsPanel';
 import { NodeSidebar } from '@/pages/visual-builder/components/NodeSidebar';
 import { PreviewPanel } from '@/pages/visual-builder/components/PreviewPanel';
 import { Toolbar } from '@/pages/visual-builder/components/Toolbar';
+import { useVisualBuilderShortcuts } from '@/pages/visual-builder/hooks/useVisualBuilderShortcuts';
 import { useWorkflowGraph, useUpdateWorkflow } from '@/pages/visual-builder/hooks/useWorkflowAPI';
 import { useBuilderStore } from '@/pages/visual-builder/store/useBuilderStore';
 
@@ -19,7 +19,6 @@ interface VisualBuilderTabProps {
 }
 
 export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualBuilderTabProps) {
-    const { toast } = useToast();
     const [showPreview, setShowPreview] = useState(false);
     const [selectedVersion, setSelectedVersion] = useState<string>('current');
 
@@ -37,72 +36,24 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
         setDirty,
         setSaving,
         setSaveError,
-        nodes,
         duplicateNode,
         deleteNode,
         selectedNodeId,
     } = useBuilderStore();
 
     // Keyboard Shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
-                return;
-            }
-
-            // Save: Cmd+S
-            if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-                e.preventDefault();
-                if (isReadOnly) {
-                    toast({ title: 'View Only', description: 'Cannot save in view-only mode.', variant: 'destructive' });
-                    return;
-                }
-
-                setSaving(true);
-                const graphJson = exportGraph();
-                updateWorkflow.mutate(graphJson, {
-                    onSuccess: () => {
-                        setDirty(false);
-                        setSaveError(null);
-                        setSaving(false);
-                        toast({ title: 'Saved', description: 'Workflow saved successfully.' });
-                    },
-                    onError: (err) => {
-                        setSaveError(err.message);
-                        setSaving(false);
-                    }
-                });
-            }
-
-            // Preview: Cmd+Enter
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                setShowPreview(prev => !prev);
-            }
-
-            // Duplicate: Cmd+D
-            if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-                e.preventDefault();
-                if (isReadOnly) {return;}
-                if (selectedNodeId) {
-                    duplicateNode(selectedNodeId);
-                    toast({ title: 'Duplicated', description: 'Block duplicated.' });
-                }
-            }
-
-            // Delete: Backspace or Delete
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                if (isReadOnly) {return;}
-                if (selectedNodeId) {
-                    deleteNode(selectedNodeId);
-                    toast({ title: 'Deleted', description: 'Block deleted.' });
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedNodeId, duplicateNode, deleteNode, exportGraph, updateWorkflow, setSaving, setDirty, setSaveError, toast, isReadOnly]);
+    useVisualBuilderShortcuts({
+        isReadOnly: !!isReadOnly,
+        selectedNodeId,
+        duplicateNode,
+        deleteNode,
+        exportGraph,
+        updateWorkflow,
+        setSaving,
+        setDirty,
+        setSaveError,
+        setShowPreview
+    });
 
     // Load workflow graph
     useEffect(() => {
@@ -113,7 +64,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
 
     // Auto-save
     useEffect(() => {
-        if (!isDirty || !workflowId || isReadOnly) {return;}
+        if (!isDirty || !workflowId || isReadOnly) { return; }
 
         const timeoutId = setTimeout(async () => {
             try {
@@ -160,7 +111,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
                     <div className="flex-1 overflow-hidden relative flex flex-col">
                         {selectedVersion !== 'current' && (
                             <div className="bg-amber-100 text-amber-800 px-4 py-2 text-sm text-center border-b border-amber-200">
-                                Viewing older version. <Button variant="link" className="h-auto p-0 text-amber-900 font-semibold ml-1" onClick={() => { void setSelectedVersion('current'); }}>Switch to current</Button>
+                                Viewing older version. <Button variant="link" className="h-auto p-0 text-amber-900 font-semibold ml-1" onClick={() => setSelectedVersion('current')}>Switch to current</Button>
                             </div>
                         )}
                         <div className="flex-1 relative">

@@ -1,33 +1,22 @@
-/**
- * Workflow Runner - Participant view for completing workflows
- *
- * Supports two modes:
- * 1. Production mode: runId is a real database run
- * 2. Preview mode: previewEnvironment is an in-memory PreviewEnvironment instance
- */
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Check, Loader2, Database } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
-// import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
-// Importing individually to avoid lint 'Module not found' if aliases differ, but they seem to use @/lib/vault-hooks
-import { BlockRenderer } from "@/components/runner/blocks";
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
-import { Badge } from "@/components/ui/badge";
+import { SectionSteps } from "@/components/runner/SectionSteps";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
-import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
 import { analytics } from "@/lib/analytics";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
 import type { ApiStep } from "@/lib/vault-api";
-import { useRunWithValues, useSections, useSteps, useSubmitSection, useNext, useCompleteRun, useWorkflow } from "@/lib/vault-hooks";
-import type { Step } from "@/types";
+import { useRunWithValues, useSections, useSubmitSection, useNext, useCompleteRun, useWorkflow } from "@/lib/vault-hooks";
+import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue, type DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { LogicRule } from "@shared/schema";
@@ -48,62 +37,11 @@ interface WorkflowRunnerProps {
   onPreviewComplete?: () => void;
 }
 
-interface DefaultValueConfig {
-  source?: string;
-  variable?: string;
-  value?: unknown;
-}
-
 interface SectionConfig {
   finalBlock?: boolean;
   validationRules?: ValidateRule[];
 }
 
-type StepValue = unknown; // Safer than any
-// Helper to check if a string is a valid UUID
-function isUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-}
-// Helper to start a run from a public link slug
-async function startRunFromSlug(
-  slug: string,
-  initialValues?: Record<string, unknown>
-): Promise<{ runId: string; runToken: string; workflowId: string }> {
-  const response = await fetch(`/api/workflows/public/${slug}/start`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ initialValues }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to start workflow');
-  }
-  const result = await response.json();
-  return result.data;
-}
-// Helper to start a run from a workflow UUID
-async function startRunFromWorkflowId(
-  workflowId: string,
-  initialValues?: Record<string, unknown>
-): Promise<{ runId: string; runToken: string; workflowId: string }> {
-  const response = await fetch(`/api/workflows/${workflowId}/runs`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include', // Include session cookies for authenticated users
-    body: JSON.stringify({ initialValues }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to start workflow');
-  }
-  const result = await response.json();
-  return result.data;
-}
 export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -238,16 +176,20 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
   // Fetch run data - PRODUCTION MODE ONLY
   // In preview mode, we use previewEnvironment data instead
   const { data: run } = useRunWithValues(actualRunId ?? '', {
-    enabled: mode === 'production' && !!actualRunId && !isInitializing,
+    enabled: mode === 'production' && actualRunId !== null && !isInitializing,
   });
+
   // Get workflow ID from run (production) or preview environment (preview)
   const workflowId = mode === 'preview'
     ? previewState?.workflowId
     : run?.workflowId;
+
   // Fetch Intake Data (Upstream)
   const intakeData = useIntakeRuntime(workflowId ?? "");
+
   // Fetch Workflow Definition (for intake config)
   const { data: workflow } = useWorkflow(workflowId ?? "");
+
   // Get sections - from preview environment or API
   const { data: fetchedSections } = useSections(workflowId, {
     enabled: mode !== 'preview', // Only fetch if NOT in preview mode
@@ -258,6 +200,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       ? previewEnvironment?.getSections()
       : fetchedSections;
   }, [mode, previewEnvironment, fetchedSections]);
+
   // Fetch logic rules for visibility evaluation
   const { data: logicRules } = useQuery<LogicRule[]>({
     queryKey: ["workflow-logic-rules", workflowId],
@@ -266,30 +209,35 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         credentials: "include",
       });
       if (!response.ok) { throw new Error("Failed to fetch logic rules"); }
-      return response.json();
+      return response.json() as Promise<LogicRule[]>;
     },
     enabled: !!workflowId,
   });
+
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [showReview, setShowReview] = useState(false);
+
   // Sync section index from preview environment (if changed externally, e.g. by Random Fill)
   useEffect(() => {
     if (previewState && previewState.currentSectionIndex !== currentSectionIndex) {
       setCurrentSectionIndex(previewState.currentSectionIndex);
     }
   }, [previewState?.currentSectionIndex, currentSectionIndex, previewState]);
+
   // Use preview values in preview mode, form values in production mode - memoized to prevent re-render loops
   const effectiveValues = useMemo(() => {
     return mode === 'preview'
       ? (previewState?.values || {})
       : formValues;
   }, [mode, previewState?.values, formValues]);
+
   const submitMutation = useSubmitSection();
   const nextMutation = useNext();
   const completeMutation = useCompleteRun();
+
   // Fetch all steps for alias resolution - MUST be before early returns
   // In preview mode, get steps from previewEnvironment; in production mode, fetch from API
   const { data: allSteps } = useQuery({
@@ -304,22 +252,25 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       const allStepPromises = sections.map(section =>
         fetch(`/api/sections/${section.id}/steps`, {
           credentials: "include",
-        }).then(res => res.json())
+        }).then(res => res.json() as Promise<ApiStep[]>)
       );
       const allStepArrays = await Promise.all(allStepPromises);
       return allStepArrays.flat();
     },
     enabled: (mode === 'preview' ? !!previewEnvironment : !!workflowId) && !!sections,
   });
+
   // Memoize visible sections calculation with alias resolution - MUST be before early returns
   const visibleSections = useMemo(() => {
     if (!sections) { return []; }
+
     // Create alias resolver for section visibility
     const aliasResolver = (variableName: string): string | undefined => {
       if (!allSteps) { return undefined; }
       const step = allSteps.find((s: ApiStep) => s.alias === variableName);
       return step?.id;
     };
+
     return sections.filter(section => {
       if (!section.visibleIf) { return true; }
       try {
@@ -331,6 +282,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
       }
     });
   }, [sections, effectiveValues, allSteps]);
+
   // Initialize form values from run.values (production mode only)
   useEffect(() => {
     if (mode === 'production' && run?.values) {
@@ -644,7 +596,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
         currentSectionId: currentSection.id,
       });
       // Find next section index in visibleSections (not all sections)
-      if (nextResult.nextSectionId) {
+      if (nextResult.nextSectionId != null) {
         const nextIndex = visibleSections.findIndex((s) => s.id === nextResult.nextSectionId);
         if (nextIndex >= 0) {
           setCurrentSectionIndex(nextIndex);
@@ -684,9 +636,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     }
     setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
   };
-  // Determine if we are at the end (Review or Completion)
-  const isReviewStep = currentSectionIndex === visibleSections.length;
-  // If isReviewStep is true, we display the Review Screen.
+
   // The actual "Completion" happens AFTER review relative to user flow,
   // but logically "Final Documents" is section-based.
   // Let's adjust:
@@ -795,7 +745,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
                 } else {
                   setFormValues((prev) => ({ ...prev, [stepId]: value }));
                 }
-                if (fieldErrors[stepId]) {
+                if (fieldErrors[stepId] != null) {
                   const newFieldErrors = { ...fieldErrors };
                   delete newFieldErrors[stepId];
                   setFieldErrors(newFieldErrors);
@@ -844,126 +794,4 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview = false, o
     console.error('[WR] Render error:', error);
     return <div className="min-h-screen flex items-center justify-center"><p>Error rendering workflow: {String(error)}</p></div>;
   }
-}
-function SectionSteps({
-  sectionId,
-  steps: providedSteps,
-  values,
-  logicRules,
-  onChange,
-  errors,
-  intakeData
-}: {
-  sectionId: string;
-  steps?: ApiStep[];
-  values: Record<string, unknown>;
-  logicRules: LogicRule[];
-  onChange: (stepId: string, value: any) => void;
-  errors?: Record<string, string[]>;
-  intakeData?: any;
-}) {
-  const { data: rawSteps } = useSteps(sectionId, {
-    enabled: !providedSteps
-  });
-  const sourceSteps = providedSteps || rawSteps;
-  const steps = useMemo(() => {
-    if (!sourceSteps) { return []; }
-    return sourceSteps.map(step => ({
-      ...step,
-      createdAt: step.createdAt ? new Date(step.createdAt) : null,
-      updatedAt: step.updatedAt ? new Date(step.updatedAt) : null,
-      alias: step.alias,
-      description: step.description,
-      visibleIf: step.visibleIf ?? null,
-      defaultValue: step.defaultValue ?? null,
-      isVirtual: step.isVirtual ?? false,
-      repeaterConfig: step.repeaterConfig ?? null,
-    }));
-  }, [sourceSteps]);
-  // Use visibility hook to evaluate which steps should be shown
-  const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
-  if (!steps || steps.length === 0) {
-    return <p className="text-muted-foreground text-sm">No steps in this section</p>;
-  }
-  // Filter steps to only show visible ones
-  const visibleSteps = steps.filter((step) => {
-    // Virtual steps are never shown
-    if (step.isVirtual) { return false; }
-    // Check visibility from logic rules
-    return isStepVisible(step.id);
-  });
-  if (visibleSteps.length === 0) {
-    return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
-  }
-  return (
-    <>
-      {visibleSteps.map((step) => (
-        <StepField
-          key={step.id}
-          step={step}
-          value={values[step.id]}
-          onChange={(v) => { void onChange(step.id, v); }}
-          error={errors?.[step.id]?.[0]} // Pass first error message
-          context={values}
-          intakeSource={
-            (() => {
-              const defVal = step.defaultValue as DefaultValueConfig | undefined;
-              return defVal?.source === 'intake' && defVal.variable
-                ? {
-                  title: intakeData?.sourceWorkflowTitle || 'Intake',
-                  variable: defVal.variable,
-                  value: intakeData?.values?.[defVal.variable]
-                }
-                : undefined;
-            })()
-          }
-        />
-      ))}
-    </>
-  )
-}
-/**
- * StepField - Thin wrapper around BlockRenderer
- *
- * Now uses the new comprehensive BlockRenderer system that supports
- * all block types with proper validation and nested data handling.
- */
-type RuntimeStep = Omit<ApiStep, 'createdAt' | 'updatedAt'> & {
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  [key: string]: any; // Allow for other runtime props
-};
-
-function StepField({ step, value, onChange, error, context, intakeSource }: { step: RuntimeStep; value: any; onChange: (value: any) => void; error?: string; context: Record<string, any>; intakeSource?: any }) {
-  // Check if current value matches intake value to decide if we show the badge
-  const isUsingIntakeValue = intakeSource && value === intakeSource.value;
-  return (
-    <div className="space-y-1 relative group">
-      {intakeSource && isUsingIntakeValue && (
-        <div className="absolute -top-3 right-0 z-10">
-          <Badge variant="outline" className="text-[10px] h-5 gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-            <Database className="w-3 h-3" />
-            From {intakeSource.title}
-          </Badge>
-        </div>
-      )}
-      <BlockRenderer
-        step={step as unknown as Step}
-        value={value}
-        onChange={(v) => { void onChange(v); }}
-        required={step.required}
-        readOnly={false}
-        error={error}
-        showValidation={!!error}
-        context={context}
-      />
-      {intakeSource && (
-        <div className="flex justify-end">
-          {isUsingIntakeValue ? null : ( // If value changed, maybe show "Restore" button? For now just visual cue
-            <span className="text-[10px] text-muted-foreground hidden">Modified from original</span>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }

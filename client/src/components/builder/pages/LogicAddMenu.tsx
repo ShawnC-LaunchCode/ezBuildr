@@ -15,13 +15,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { UI_LABELS } from "@/lib/labels";
 import { isFeatureAllowed } from "@/lib/mode";
+import { BlockPhase, BlockType } from "@/lib/vault-api";
 import { useCreateBlock, useCreateTransformBlock, useWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 interface LogicAddMenuProps {
   workflowId: string;
   sectionId: string;
   nextOrder: number;
 }
+
 const LOGIC_TYPES = {
   easy: [
     {
@@ -58,14 +61,17 @@ const LOGIC_TYPES = {
     },
   ],
 };
+
 export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuProps) {
   const createBlockMutation = useCreateBlock();
   const createTransformBlockMutation = useCreateTransformBlock();
   const { data: workflowMode } = useWorkflowMode(workflowId);
   const { toast } = useToast();
   const { selectBlock } = useWorkflowBuilder();
-  const mode = workflowMode?.mode || "easy";
+
+  const mode = workflowMode?.mode ?? "easy";
   const showAdvanced = isFeatureAllowed(mode, "js");
+
   const handleAddLogic = async (type: string) => {
     try {
       // Handle JS blocks differently
@@ -74,7 +80,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
           workflowId,
           sectionId,
           name: "JS Transform",
-          language: "javascript" as const,
+          language: "javascript",
           phase: "onSectionSubmit",
           code: "// Write your custom JavaScript here\n// Access variables via input.variableName\n// Return an object with your transformed data\n\nreturn {\n  // your computed values\n};",
           inputKeys: [],
@@ -87,10 +93,12 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
         toast({ title: "Logic block added", description: "JS Transform created" });
         return;
       }
+
       // Handle regular blocks
-      let config = {};
-      let phase: "onSectionEnter" | "onSectionSubmit" = "onSectionSubmit";
-      const blockType = type as any;
+      let config: Record<string, unknown> = {};
+      let phase: BlockPhase = "onSectionSubmit";
+      const blockType = type as BlockType;
+
       // New Block Defaults
       if (type === 'write') {
         config = {
@@ -122,6 +130,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
       } else if (type === 'branch') {
         config = { conditions: [], targetSectionId: null };
       }
+
       const block = await createBlockMutation.mutateAsync({
         workflowId,
         sectionId,
@@ -131,11 +140,13 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
         enabled: true,
         order: nextOrder,
       });
+
       selectBlock(block.id);
+
       const label = [...LOGIC_TYPES.easy, ...LOGIC_TYPES.advanced].find((t) => t.type === type)?.label;
       toast({
         title: "Logic block added",
-        description: `${label} created`,
+        description: `${label ?? type} created`,
       });
     } catch (error) {
       toast({
@@ -145,6 +156,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
       });
     }
   };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -173,6 +185,7 @@ export function LogicAddMenu({ workflowId, sectionId, nextOrder }: LogicAddMenuP
             </DropdownMenuItem>
           );
         })}
+
         {showAdvanced && (
           <>
             <DropdownMenuSeparator />

@@ -4,7 +4,8 @@
  */
 
 import { Loader2 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,12 +23,14 @@ import { Textarea } from "@/components/ui/textarea";
 
 import type { DatavaultColumn } from "@shared/schema";
 
+import type { FormEvent } from "react";
+
 interface RowEditorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   columns: DatavaultColumn[];
-  initialValues?: Record<string, any>;
-  onSubmit: (values: Record<string, any>) => Promise<void>;
+  initialValues?: Record<string, unknown>;
+  onSubmit: (values: Record<string, unknown>) => Promise<void>;
   isLoading?: boolean;
   mode: "add" | "edit";
 }
@@ -41,7 +44,7 @@ export function RowEditorModal({
   isLoading = false,
   mode,
 }: RowEditorModalProps) {
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, unknown>>({});
 
   // Initialize values when modal opens
   // Using open as the only dependency - we capture initialValues at open time
@@ -52,16 +55,17 @@ export function RowEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     // Validate required fields (excluding auto_number fields which are auto-generated)
     const missingRequired = columns
-      .filter((col) => col.required && col.type !== "auto_number" && !values[col.id])
+      .filter((col) => col.required === true && col.type !== "auto_number" && (values[col.id] === undefined || values[col.id] === null || values[col.id] === ""))
       .map((col) => col.name);
 
     if (missingRequired.length > 0) {
-      alert(`Please fill in required fields: ${missingRequired.join(", ")}`);
+      // eslint-disable-next-line no-alert
+      globalThis.alert(`Please fill in required fields: ${missingRequired.join(", ")}`);
       return;
     }
 
@@ -85,7 +89,7 @@ export function RowEditorModal({
   };
 
   const renderField = (column: DatavaultColumn) => {
-    const value = values[column.id] ?? "";
+    const value = (values[column.id] ?? "") as string;
     const isAutoNumber = column.type === "auto_number";
     const isReadOnly = isAutoNumber || isLoading;
 
@@ -111,7 +115,7 @@ export function RowEditorModal({
             id={column.id}
             type={column.type === "email" ? "email" : column.type === "url" ? "url" : "text"}
             value={value}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
           />
@@ -133,7 +137,7 @@ export function RowEditorModal({
           <Textarea
             id={column.id}
             value={typeof value === "object" ? JSON.stringify(value, null, 2) : value}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
             rows={4}
@@ -146,7 +150,7 @@ export function RowEditorModal({
             id={column.id}
             type="number"
             value={value}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
           />
@@ -173,7 +177,7 @@ export function RowEditorModal({
             id={column.id}
             type="date"
             value={value ? new Date(value).toISOString().split("T")[0] : ""}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
           />
@@ -185,7 +189,7 @@ export function RowEditorModal({
             id={column.id}
             type="datetime-local"
             value={value ? new Date(value).toISOString().slice(0, 16) : ""}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
           />
@@ -196,7 +200,7 @@ export function RowEditorModal({
           <Input
             id={column.id}
             value={value}
-            onChange={(e) => { void setValues({ ...values, [column.id]: e.target.value }); }}
+            onChange={(e) => setValues({ ...values, [column.id]: e.target.value })}
             required={column.required}
             disabled={isReadOnly}
           />
@@ -207,7 +211,7 @@ export function RowEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }}>
+        <form onSubmit={(e) => { void handleSubmit(e); }}>
           <DialogHeader>
             <DialogTitle>{mode === "add" ? "Add Row" : "Edit Row"}</DialogTitle>
             <DialogDescription>
@@ -237,7 +241,7 @@ export function RowEditorModal({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { void handleCancel(); }} disabled={isLoading}>
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || columns.length === 0}>

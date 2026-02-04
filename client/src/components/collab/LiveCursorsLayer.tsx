@@ -48,10 +48,6 @@ function RemoteCursor({ user, viewport }: RemoteCursorProps) {
 
     const { x, y } = user.cursor;
 
-    // Throttle cursor updates to ~30fps
-    const now = Date.now();
-    const lastUpdate = lastPositionRef.current;
-
     // Calculate screen position from canvas position
     const screenX = x * viewport.zoom + viewport.x;
     const screenY = y * viewport.zoom + viewport.y;

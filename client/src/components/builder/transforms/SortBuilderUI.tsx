@@ -3,7 +3,6 @@
  * Supports arrow buttons for reordering (drag-drop deferred to v2)
  */
 import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
-import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
 import { dataSourceAPI } from "@/lib/vault-api";
 import { useWorkflowDataSources, useWorkflowVariables } from "@/lib/vault-hooks";
 
-import type { WriteBlockConfig, ColumnMapping } from "@shared/types/blocks";
+import type { WriteBlockConfig } from "@shared/types/blocks";
 
+import { useWriteTableMapping } from "./send-data/useWriteTableMapping";
 import { WriteTableMapping } from "./send-data/WriteTableMapping";
 import { WriteTableSettings } from "./send-data/WriteTableSettings";
 import { WriteTableSource } from "./send-data/WriteTableSource";
@@ -101,73 +102,15 @@ export function SendDataToTableBlockEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDataSource, tables, config.tableId]); // Intentionally omitting updateConfig
 
-  // Auto-add required columns and clean up duplicates
-  useEffect(() => {
-    if (config.tableId && columns && columns.length > 0) {
-      const existingMappings = config.columnMappings ?? [];
-      const existingMappedColIds = existingMappings.map(m => m.columnId);
-
-      // 1. Identify missing required columns
-      const uniqueRequiredCols = Array.from(new Map(columns.filter(c => c.required).map(c => [c.id, c])).values());
-      const missingRequiredCols = uniqueRequiredCols.filter(c => !existingMappedColIds.includes(c.id));
-
-      // 2. Identify duplicates in existing mappings
-      const seenIds = new Set();
-      const uniqueExistingMappings: ColumnMapping[] = [];
-      let hasDuplicates = false;
-
-      for (const m of existingMappings) {
-        // If we've seen this column ID before (and it's not empty), skip it
-        if (m.columnId && seenIds.has(m.columnId)) {
-          hasDuplicates = true;
-          continue;
-        }
-        if (m.columnId) { seenIds.add(m.columnId); }
-        uniqueExistingMappings.push(m);
-      }
-
-      // 3. Update if needed
-      if (missingRequiredCols.length > 0 || hasDuplicates) {
-        const newMappings = missingRequiredCols.map(col => ({
-          columnId: col.id,
-          value: ''
-        }));
-        updateConfig({
-          columnMappings: [...uniqueExistingMappings, ...newMappings]
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.tableId, columns, config.columnMappings?.length]); // Intentionally robust deps
-
-  // Validation
-  const getDuplicateColumns = () => {
-    const mappings = config.columnMappings ?? [];
-    const columnCounts = mappings.reduce((acc, m) => {
-      if (m.columnId) { acc[m.columnId] = (acc[m.columnId] ?? 0) + 1; }
-      return acc;
-    }, {} as Record<string, number>);
-    return Object.entries(columnCounts).filter(([_, count]) => count > 1).map(([colId, _]) => colId);
-  };
-
-  const getMissingRequiredColumns = () => {
-    if (!columns) { return []; }
-    const requiredCols = columns.filter(c => c.required);
-    const mappedColIds = (config.columnMappings ?? []).map(m => m.columnId);
-    return requiredCols.filter(c => !mappedColIds.includes(c.id));
-  };
-
-  const getIncompleteRows = () => {
-    return (config.columnMappings ?? []).filter(m => !m.columnId || !m.value || m.value.trim() === '');
-  };
-
-  const duplicateColumns = getDuplicateColumns();
-  const missingRequiredColumns = getMissingRequiredColumns();
-  const incompleteRows = getIncompleteRows();
+  // Auto-mapping and Validation Logic encapsulated in hook
+  const {
+    duplicateColumns,
+    missingRequiredColumns,
+    incompleteRows,
+    hasValidMappings
+  } = useWriteTableMapping({ config, columns, onChange: updateConfig });
 
   const hasDestination = !!config.dataSourceId && !!config.tableId;
-  const hasMappings = (config.columnMappings?.length ?? 0) > 0;
-  const hasValidMappings = hasMappings && duplicateColumns.length === 0 && missingRequiredColumns.length === 0;
 
   // --- INTERACTIVE FLOW LOGIC ---
   // Steps: 

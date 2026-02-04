@@ -93,7 +93,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
           <Input
             placeholder="Search variables..."
             value={searchQuery}
-            onChange={(e) => { void setSearchQuery(e.target.value); }}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -155,7 +155,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
                                 size="icon"
                                 variant="ghost"
                                 className="h-7 w-7"
-                                onClick={() => { void handleCopy(displayKey); }}
+                                onClick={() => handleCopy(displayKey)}
                                 title="Copy to clipboard"
                               >
                                 <Copy className="h-3.5 w-3.5" />
@@ -164,7 +164,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
                                 size="icon"
                                 variant="ghost"
                                 className="h-7 w-7"
-                                onClick={() => { void handleInsert(displayKey); }}
+                                onClick={() => handleInsert(displayKey)}
                                 title="Insert into editor"
                               >
                                 <Plus className="h-3.5 w-3.5" />
@@ -176,7 +176,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
                                   "h-7 w-7",
                                   pinned && "text-primary opacity-100"
                                 )}
-                                onClick={() => { void handlePin(displayKey); }}
+                                onClick={() => handlePin(displayKey)}
                                 title={pinned ? "Unpin" : "Pin"}
                               >
                                 <Pin className={cn("h-3.5 w-3.5", pinned && "fill-current")} />

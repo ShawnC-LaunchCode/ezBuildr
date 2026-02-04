@@ -1,5 +1,5 @@
 import { Loader2, ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -14,9 +14,22 @@ interface DiffViewerProps {
     isOpen: boolean;
     onClose: () => void;
 }
+interface PropertyChange {
+    oldValue: unknown;
+    newValue: unknown;
+}
+
+interface DiffItem {
+    id: string;
+    title?: string;
+    type?: string;
+    changeType: 'added' | 'removed' | 'modified';
+    propertyChanges?: Record<string, PropertyChange>;
+}
+
 interface DiffResult {
-    sections: any[];
-    steps: any[];
+    sections: DiffItem[];
+    steps: DiffItem[];
     summary: {
         sectionsAdded: number;
         sectionsRemoved: number;
@@ -29,18 +42,13 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
     const [diff, setDiff] = useState<DiffResult | null>(null);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
-    useEffect(() => {
-        if (isOpen && workflowId && version1 && version2) {
-            void loadDiff();
-        }
-    }, [isOpen, workflowId, version1, version2]);
-    const loadDiff = async () => {
+    const loadDiff = useCallback(async () => {
         if (!version1 || !version2) { return; }
         setLoading(true);
         try {
             const result = await versionAPI.diff(version1.id, version2.id);
             setDiff(result);
-        } catch (error) {
+        } catch {
             toast({
                 title: "Error loading diff",
                 description: "Failed to compute difference",
@@ -49,7 +57,13 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
         } finally {
             setLoading(false);
         }
-    };
+    }, [version1, version2, toast]);
+
+    useEffect(() => {
+        if (isOpen && workflowId && version1 && version2) {
+            void loadDiff();
+        }
+    }, [isOpen, workflowId, version1, version2, loadDiff]);
     const renderChangeBadge = (type: string) => {
         switch (type) {
             case 'added': return <Badge className="bg-green-500">Added</Badge>;
@@ -114,7 +128,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                             </CardHeader>
                                             {s.propertyChanges && (
                                                 <CardContent className="py-2 text-sm bg-muted/20">
-                                                    {Object.entries(s.propertyChanges).map(([prop, change]: [string, any]) => (
+                                                    {Object.entries(s.propertyChanges).map(([prop, change]) => (
                                                         <div key={prop} className="grid grid-cols-[100px_1fr_20px_1fr] items-center gap-2">
                                                             <span className="font-semibold text-muted-foreground">{prop}:</span>
                                                             <span className="truncate text-red-600 bg-red-50 p-1 rounded">{String(change.oldValue)}</span>
@@ -145,7 +159,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                             </CardHeader>
                                             {s.propertyChanges && (
                                                 <CardContent className="py-2 text-sm bg-muted/20">
-                                                    {Object.entries(s.propertyChanges).map(([prop, change]: [string, any]) => (
+                                                    {Object.entries(s.propertyChanges).map(([prop, change]) => (
                                                         <div key={prop} className="grid grid-cols-[100px_1fr_20px_1fr] items-center gap-2">
                                                             <span className="font-semibold text-muted-foreground">{prop}:</span>
                                                             <span className="truncate text-red-600 bg-red-50 p-1 rounded">{JSON.stringify(change.oldValue)}</span>

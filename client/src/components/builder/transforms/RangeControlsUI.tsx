@@ -3,8 +3,6 @@
  * Extracted from ListToolsBlockEditor for reusability
  */
 
-import React from "react";
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -29,7 +27,7 @@ export function RangeControlsUI({ offset, limit, onChange, className }: RangeCon
             placeholder="0"
             value={offset ?? ''}
             onChange={(e) => {
-              const value = e.target.value ? parseInt(e.target.value) : undefined;
+              const value = e.target.value ? parseInt(e.target.value, 10) : undefined;
               onChange({ offset: value, limit });
             }}
           />
@@ -45,7 +43,7 @@ export function RangeControlsUI({ offset, limit, onChange, className }: RangeCon
             placeholder="No limit"
             value={limit ?? ''}
             onChange={(e) => {
-              const value = e.target.value ? parseInt(e.target.value) : undefined;
+              const value = e.target.value ? parseInt(e.target.value, 10) : undefined;
               onChange({ offset, limit: value });
             }}
           />

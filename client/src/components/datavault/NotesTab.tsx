@@ -5,7 +5,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, MessageSquare } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
+
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { datavaultAPI } from "@/lib/datavault-api";
 
 import { NoteItem } from "./NoteItem";
+
+import type { FormEvent } from "react";
 
 interface NotesTabProps {
   rowId: string;
@@ -45,7 +48,7 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
   const createNoteMutation = useMutation({
     mutationFn: (text: string) => datavaultAPI.createRowNote(rowId, text),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["datavault", "rows", rowId, "notes"] });
+      void queryClient.invalidateQueries({ queryKey: ["datavault", "rows", rowId, "notes"] });
       setNoteText("");
       toast({
         title: "Note added",
@@ -58,10 +61,10 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
         }
       }, 100);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to add note",
-        description: error.message || "An error occurred while adding the note.",
+        description: error.message ?? "An error occurred while adding the note.",
         variant: "destructive",
       });
     },
@@ -71,22 +74,22 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
   const deleteNoteMutation = useMutation({
     mutationFn: (noteId: string) => datavaultAPI.deleteRowNote(noteId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["datavault", "rows", rowId, "notes"] });
+      void queryClient.invalidateQueries({ queryKey: ["datavault", "rows", rowId, "notes"] });
       toast({
         title: "Note deleted",
         description: "The note has been deleted successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to delete note",
-        description: error.message || "An error occurred while deleting the note.",
+        description: error.message ?? "An error occurred while deleting the note.",
         variant: "destructive",
       });
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmedText = noteText.trim();
     if (!trimmedText) {
@@ -106,7 +109,7 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
   };
 
   // Check if user can delete a note (owner or table owner)
-  const canDeleteNote = (note: any) => {
+  const canDeleteNote = (note: { userId: string }) => {
     if (!user) {return false;}
     return note.userId === user.id || tableOwnerId === user.id;
   };
@@ -158,10 +161,10 @@ export function NotesTab({ rowId, tableOwnerId }: NotesTabProps) {
 
       {/* Add note form */}
       <div className="border-t p-4 bg-background">
-        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-2">
           <Textarea
             value={noteText}
-            onChange={(e) => { void setNoteText(e.target.value); }}
+            onChange={(e) => setNoteText(e.target.value)}
             placeholder="Add a note..."
             className="min-h-[80px] resize-none"
             disabled={createNoteMutation.isPending}

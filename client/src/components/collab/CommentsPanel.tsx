@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Send, Trash2, X } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -46,10 +46,10 @@ export function CommentsPanel({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleSubmit();
+      void handleSubmit();
     }
   };
 
@@ -64,7 +64,7 @@ export function CommentsPanel({
             </CardTitle>
           </div>
           {onClose && (
-            <Button variant="ghost" size="sm" onClick={() => { void onClose(); }}>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>
           )}
@@ -102,8 +102,8 @@ export function CommentsPanel({
           <Textarea
             placeholder="Add a comment... (Cmd/Ctrl+Enter to submit)"
             value={newComment}
-            onChange={(e) => { void setNewComment(e.target.value); }}
-            onKeyDown={(e) => { void handleKeyDown(e); }}
+            onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="min-h-[80px] resize-none"
             disabled={isSubmitting}
           />
@@ -159,7 +159,7 @@ function CommentItem({ comment, currentUserId, onDelete }: CommentItemProps) {
             variant="ghost"
             size="sm"
             className="mt-1 h-auto py-1 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => { void onDelete(comment.id); }}
+            onClick={() => onDelete(comment.id)}
           >
             <Trash2 className="w-3 h-3 mr-1" />
             Delete

@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { WebsiteConfig } from "@shared/types/stepConfigs";
 
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
@@ -19,7 +20,6 @@ import { VisibilityField } from "./common/VisibilityField";
 
 
 
-import type { WebsiteConfig } from "@shared/types/stepConfigs";
 
 interface WebsiteCardState {
   requireProtocol: boolean;

@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { type Mode } from "@/lib/mode";
 
 import { useBlockEditorState, useBlockSave, getTitleForBlock, type UniversalBlock } from "./BlockEditorDialog.hooks";
+export type { UniversalBlock };
 import { RegularBlockForm } from "./forms/RegularBlockForm";
 import { TransformBlockForm } from "./forms/TransformBlockForm";
 

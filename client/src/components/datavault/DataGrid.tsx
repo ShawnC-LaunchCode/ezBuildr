@@ -4,7 +4,7 @@
  */
 
 import { MoreVertical, Edit2, Trash2, Archive, ArchiveRestore, ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type MouseEvent as ReactMouseEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ interface DataGridProps {
   onSelectAll?: (selected: boolean) => void;
   onSort?: (columnSlug: string) => void;
   onColumnResize?: (columnId: string, widthPx: number) => void;
-  onEditRow: (rowId: string, values: Record<string, any>) => void;
+  onEditRow: (rowId: string, values: Record<string, unknown>) => void;
   onDeleteRow: (rowId: string) => void;
   onArchiveRow?: (rowId: string) => void;
   onUnarchiveRow?: (rowId: string) => void;
@@ -69,16 +69,16 @@ export function DataGrid({
   });
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
-  const formatValue = (value: any, type: string): string => {
+  const formatValue = (value: unknown, type: string): string => {
     if (value === null || value === undefined) {return "-";}
 
     switch (type) {
       case "boolean":
         return value ? "Yes" : "No";
       case "date":
-        return value ? new Date(value).toLocaleDateString() : "-";
+        return value ? new Date(value as string | number | Date).toLocaleDateString() : "-";
       case "datetime":
-        return value ? new Date(value).toLocaleString() : "-";
+        return value ? new Date(value as string | number | Date).toLocaleString() : "-";
       case "json":
         return typeof value === "object" ? JSON.stringify(value) : String(value);
       default:
@@ -87,11 +87,11 @@ export function DataGrid({
   };
 
   // Resize handlers
-  const handleResizeStart = (columnId: string, e: React.MouseEvent) => {
+  const handleResizeStart = (columnId: string, e: ReactMouseEvent) => {
     e.preventDefault();
     setResizingColumn(columnId);
     resizeStartX.current = e.clientX;
-    resizeStartWidth.current = columnWidths[columnId] || 150;
+    resizeStartWidth.current = columnWidths[columnId] ?? 150;
   };
 
   const handleResizeMove = (e: MouseEvent) => {

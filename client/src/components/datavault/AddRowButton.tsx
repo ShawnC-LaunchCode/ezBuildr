@@ -4,7 +4,7 @@
  */
 
 import { Plus, Loader2 } from "lucide-react";
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,17 +31,17 @@ interface AddRowButtonProps {
 
 export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
   const [open, setOpen] = useState(false);
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       // Filter out empty values and auto-number fields
-      const filteredValues: Record<string, any> = {};
+      const filteredValues: Record<string, unknown> = {};
       for (const [colId, value] of Object.entries(values)) {
         const column = columns.find(c => c.id === colId);
         if (column?.type === 'auto_number') {continue;} // Skip auto-number fields
@@ -95,7 +95,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type={column.type === 'email' ? 'email' : column.type === 'url' ? 'url' : 'text'}
-            value={value ?? ''}
+            value={(value as string) ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -105,7 +105,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="number"
-            value={value ?? ''}
+            value={(value as string | number) ?? ''}
             onChange={(e) => setValues(prev => ({
               ...prev,
               [column.id]: e.target.value ? parseFloat(e.target.value) : null
@@ -131,7 +131,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="date"
-            value={value ?? ''}
+            value={(value as string) ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -141,7 +141,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="datetime-local"
-            value={value ?? ''}
+            value={(value as string) ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -151,7 +151,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
         return (
           <Input
             type="text"
-            value={value ?? ''}
+            value={(value as string) ?? ''}
             onChange={(e) => setValues(prev => ({ ...prev, [column.id]: e.target.value }))}
             required={column.required}
           />
@@ -161,7 +161,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
 
   return (
     <>
-      <Button onClick={() => { void setOpen(true); }} size="sm" variant="outline">
+      <Button onClick={() => setOpen(true)} size="sm" variant="outline">
         <Plus className="w-4 h-4 mr-2" />
         Add Row
       </Button>
@@ -194,7 +194,7 @@ export function AddRowButton({ tableId, columns, onAdd }: AddRowButtonProps) {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { void setOpen(false); }}>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>

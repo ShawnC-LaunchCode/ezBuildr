@@ -1,28 +1,11 @@
+
 /**
  * Sidebar Tree - Drag-and-drop page/question hierarchy
  */
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { Plus, GripVertical, ChevronDown, ChevronRight, FileText, Blocks, Code, FileCheck, Sparkles, Database, Save, Send, GitBranch, Play, CheckCircle, Lock, Zap, Settings, Trash2 } from "lucide-react";
+import { Plus, FileText, FileCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,23 +15,21 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
-import { cn } from "@/lib/utils";
-import { ApiSection, ApiStep, ApiBlock } from "@/lib/vault-api";
-import { useSections, useSteps, useCreateSection, useCreateStep, useBlocks, useTransformBlocks, useWorkflow, useCreateBlock, useDeleteStep, useDeleteBlock } from "@/lib/vault-hooks";
-import { useWorkflowBuilder } from "@/store/workflow-builder";
+import { ApiSection, ApiBlock } from "@/lib/vault-api";
+import { useSections, useCreateSection, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
 
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
 import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
-
+import { SectionItem } from "./sidebar/SectionItem";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
   const { data: sections } = useSections(workflowId);
-  const { data: transformBlocks } = useTransformBlocks(workflowId);
-  const mode: Mode = (workflow?.modeOverride as Mode) || 'easy';
+  // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
+  const mode: Mode = (workflow?.modeOverride as Mode) ?? 'easy';
   const { data: blocks } = useBlocks(workflowId);
   const createSectionMutation = useCreateSection();
   const createStepMutation = useCreateStep();
@@ -59,6 +40,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   const [isSectionSettingsOpen, setIsSectionSettingsOpen] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
   const [showSnipDialog, setShowSnipDialog] = useState(false);
+
   // Group blocks by section
   const blocksBySection = (blocks ?? []).reduce((acc: Record<string, ApiBlock[]>, block: ApiBlock) => {
     if (block.sectionId) {
@@ -67,20 +49,18 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
     }
     return acc;
   }, {});
-  // We don't have sectionId for transform blocks easily available in current API mock/usage potentially?
-  // If they don't have sectionId, we might not be able to map them easily. 
-  // Assuming they might be mapped by logic or assume they are global if not mapped.
-  // For now, let's just map regular blocks which have explicit sectionId.
+
   const handleCreateSection = async () => {
-    const order = sections?.length || 0;
+    const order = sections?.length ?? 0;
     await createSectionMutation.mutateAsync({
       workflowId,
       title: `${UI_LABELS.PAGE} ${order + 1}`,
       order,
     });
   };
+
   const handleCreateFinalDocumentsSection = async () => {
-    const order = sections?.length || 0;
+    const order = sections?.length ?? 0;
     const section = await createSectionMutation.mutateAsync({
       workflowId,
       title: "Final Documents",
@@ -106,6 +86,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       config: {},
     });
   };
+
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -117,6 +98,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       return next;
     });
   };
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b space-y-2">
@@ -249,382 +231,4 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       />
     </div>
   );
-}
-function SectionItem({
-  section,
-  workflowId,
-  isExpanded,
-  onToggle,
-  mode,
-  blocks,
-  onEditBlock,
-  onEditSection,
-}: {
-  section: ApiSection;
-  workflowId: string;
-  isExpanded: boolean;
-  onToggle: () => void;
-  mode: Mode;
-  blocks: ApiBlock[];
-  onEditBlock: (block: ApiBlock) => void;
-  onEditSection: () => void;
-}) {
-  const { data: steps } = useSteps(section.id);
-  const createStepMutation = useCreateStep();
-  const createBlockMutation = useCreateBlock();
-  const { selection, selectSection } = useWorkflowBuilder();
-  const isSelected = selection?.type === "section" && selection.id === section.id;
-  // Check if this is a Final Documents section
-  const isFinalSection = (section.config as Record<string, unknown> | undefined)?.finalBlock === true;
-  // Don't show page-level required pill based on questions - only show if page is conditional
-  const isPageConditional = !!section.visibleIf;
-
-  const createStep = async () => {
-    // Prevent adding questions to Final Documents sections
-    if (isFinalSection) {
-      return;
-    }
-    const order = steps?.length || 0;
-    await createStepMutation.mutateAsync({
-      sectionId: section.id,
-      type: "short_text",
-      title: `${UI_LABELS.QUESTION} ${order + 1}`,
-      description: null,
-      required: false,
-      alias: null,
-      options: null,
-      order,
-      config: {},
-    });
-    if (!isExpanded) { onToggle(); }
-  };
-
-  const handleCreateStep = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await createStep();
-  };
-  const handleCreateLogicBlock = async (type: "write" | "read_table" | "list_tools" | "external_send") => {
-    const order = blocks?.length || 0;
-    // Default configs for quick-add
-    const config = type === "write" ? {
-      dataSourceId: "",
-      tableId: "",
-      mode: "upsert",
-      columnMappings: []
-    } : type === "read_table" ? {
-      tableId: "",
-      outputKey: "list_data",
-      filters: []
-    } : {};
-    await createBlockMutation.mutateAsync({
-      workflowId,
-      type,
-      phase: "onSectionSubmit", // Default to submit phase for flow
-      sectionId: section.id,
-      config,
-      enabled: true,
-      order
-    });
-    if (!isExpanded) { onToggle(); }
-  };
-  // Combine steps and blocks for display (if advanced mode or simple mode interoperability)
-  // In Advanced: Show items interleaved based on something? 
-  // Blocks have 'order'. Steps have 'order'. They might clash.
-  // For now, let's just show blocks AT THE TOP of the section (like pre-fill) or BOTTOM?
-  // Blocks have phases. 
-  // onSectionEnter -> Top
-  // onSectionSubmit -> Bottom
-  const topBlocks = blocks.filter(b => b.phase === 'onSectionEnter' || b.phase === 'onRunStart');
-  const bottomBlocks = blocks.filter(b => !topBlocks.includes(b)); // Submit, Next, etc.
-  return (
-    <div className="mb-1">
-      <div
-        className={cn(
-          "flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent/50 cursor-pointer group transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
-          isSelected && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-        )}
-        onClick={() => { void selectSection(section.id); }}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            selectSection(section.id);
-          }
-          if (e.key === 'ArrowRight') {
-            if (!isExpanded) { onToggle(); }
-          }
-          if (e.key === 'ArrowLeft') {
-            if (isExpanded) { onToggle(); }
-          }
-        }}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-4 w-4 p-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-        >
-          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        </Button>
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <span className="flex-1 text-sm truncate">{section.title}</span>
-        {isFinalSection && (
-          <Badge variant="secondary" className="text-xs px-1.5 py-0">
-            <FileCheck className="h-3 w-3 mr-1" />
-            Final
-          </Badge>
-        )}
-        {isPageConditional && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
-            Conditional
-          </Badge>
-        )}
-        <div className="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditSection();
-            }}
-            title="Page Settings"
-          >
-            <Settings className="h-3 w-3 text-muted-foreground" />
-          </Button>
-        </div>
-        {!isFinalSection && (
-          <div className={cn(
-            "flex gap-1",
-            mode === 'easy' ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
-          )}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => { void createStep(); }}
-              title="Add Question"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            {(mode === 'easy' || mode === 'advanced') && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    title="Add Logic"
-                    onClick={(e) => { void e.stopPropagation(); }}
-                  >
-                    <Zap className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreateLogicBlock("write");
-                  }}>
-                    <Save className="w-3 h-3 mr-2" />
-                    Send Data to Table
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreateLogicBlock("read_table");
-                  }}>
-                    <Database className="w-3 h-3 mr-2" />
-                    Read from Table
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreateLogicBlock("external_send");
-                  }}>
-                    <Send className="w-3 h-3 mr-2" />
-                    Send Data to API
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreateLogicBlock("list_tools");
-                  }}>
-                    <Sparkles className="w-3 h-3 mr-2" />
-                    List Tools
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        )}
-      </div>
-      {isExpanded && (
-        <div className="ml-4 pl-2 mt-1 space-y-0.5 border-l border-sidebar-border/50">
-          {/* Top Blocks (Prefill/Enter) */}
-          {topBlocks.map((block) => (
-            <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
-          ))}
-          {/* Steps */}
-          {steps && steps.length > 0 &&
-            steps
-              // Filter out system steps and questions in final sections
-              .filter((step) => {
-                // Hide final_documents system steps (they're just metadata)
-                if (step.type === 'final_documents') { return false; }
-                // Hide any other questions that might exist in final sections (orphaned data)
-                if (isFinalSection) { return false; }
-                return true;
-              })
-              .map((step) => (
-                <StepItem key={step.id} step={step} sectionId={section.id} />
-              ))}
-          {/* Bottom Blocks (Submit/Next) */}
-          {bottomBlocks.map((block) => (
-            <BlockTreeItem key={block.id} block={block} mode={mode} onEdit={() => onEditBlock(block)} workflowId={workflowId} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-function StepItem({ step, sectionId }: { step: ApiStep; sectionId: string }) {
-  const { selection, selectStep } = useWorkflowBuilder();
-  const deleteStepMutation = useDeleteStep();
-  const isSelected = selection?.type === "step" && selection.id === step.id;
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this question?")) {
-      deleteStepMutation.mutate({ id: step.id, sectionId });
-    }
-  };
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-2 py-1.5 px-1.5 rounded-md hover:bg-sidebar-accent/50 cursor-pointer text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 group",
-        isSelected && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-      )}
-      onClick={() => { void selectStep(step.id); }}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          selectStep(step.id);
-        }
-      }}
-    >
-      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-      {/* Required pill before question */}
-      {step.required && (
-        <Badge variant="destructive" className="text-[8px] h-3.5 px-1 font-medium shrink-0 mt-0.5">
-          Req
-        </Badge>
-      )}
-      <FileText className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-      {/* Question title and alias stacked */}
-      <div className="flex-1 min-w-0">
-        <div className="truncate text-xs leading-tight">{step.title || "(Untitled)"}</div>
-        {step.alias && (
-          <div className="text-[10px] text-muted-foreground/70 font-mono ml-2 truncate leading-tight mt-0.5">
-            {step.alias}
-          </div>
-        )}
-      </div>
-      {step.visibleIf !== null && step.visibleIf !== undefined && (
-        <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium shrink-0 mt-0.5">
-          Cond
-        </Badge>
-      )}
-      {/* Delete Action (Hover) */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={(e) => { void handleDelete(e); }}
-          title="Delete Question"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-function BlockTreeItem({ block, mode, onEdit, workflowId }: { block: ApiBlock, mode: Mode, onEdit: () => void, workflowId: string }) {
-  // Unlock editing for supported blocks in Easy Mode
-  const isEditableInEasyMode = ['read_table', 'write', 'send_table', 'external_send', 'list_tools', 'query'].includes(block.type);
-  const isLocked = mode === 'easy' && !isEditableInEasyMode;
-  const deleteBlockMutation = useDeleteBlock();
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // eslint-disable-next-line no-alert
-    if (confirm("Are you sure you want to delete this block?")) {
-      deleteBlockMutation.mutate({ id: block.id, workflowId });
-    }
-  };
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'prefill': return <Play className="w-3 h-3" />;
-      case 'validate': return <CheckCircle className="w-3 h-3" />;
-      case 'branch': return <GitBranch className="w-3 h-3" />;
-      case 'query': case 'read_table': return <Database className="w-3 h-3" />;
-      case 'write': case 'send_table': return <Save className="w-3 h-3" />;
-      case 'external_send': return <Send className="w-3 h-3" />;
-      case 'js': case 'transform': return <Code className="w-3 h-3" />;
-      case 'list_tools': return <Sparkles className="w-3 h-3" />;
-      default: return <Blocks className="w-3 h-3" />;
-    }
-  }
-  const getLabel = (type: string) => {
-    switch (type) {
-      case 'read_table': return 'Read Table';
-      case 'write': case 'send_table': return 'Send to Table';
-      case 'external_send': return 'Send to API';
-      case 'list_tools': return 'List Tool';
-      case 'js': return 'Script';
-      case 'query': return 'Read Data (Legacy)';
-      default: return type;
-    }
-  }
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 p-1.5 rounded-md text-sm transition-colors border border-transparent group",
-        isLocked
-          ? "bg-slate-50 text-slate-400 cursor-not-allowed italic"
-          : "hover:bg-sidebar-accent/50 cursor-pointer text-slate-600"
-      )}
-      onClick={(e) => {
-        if (!isLocked) {
-          e.stopPropagation();
-          onEdit();
-        }
-      }}
-      title={isLocked ? "This block type is only editable in Advanced Mode" : block.type}
-    >
-      <div className={cn("w-3 mr-1", isLocked ? "opacity-50" : "")}>
-        {isLocked ? <Lock className="w-3 h-3" /> : <GripVertical className="w-3 h-3 text-muted-foreground" />}
-      </div>
-      <div className={cn(isLocked ? "opacity-50" : "text-indigo-500")}>
-        {getIcon(block.type)}
-      </div>
-      <span className="flex-1 truncate text-xs font-medium">
-        {getLabel(block.type)}
-        {block.phase === 'onSectionEnter' ? ' (Enter)' : ' (Submit)'}
-      </span>
-      {/* Delete Action (Hover) */}
-      {!isLocked && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={(e) => { void handleDelete(e); }}
-            title="Delete Block"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      )}
-    </div>
-  )
 }

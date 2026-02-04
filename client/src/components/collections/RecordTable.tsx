@@ -3,7 +3,6 @@
  * Displays collection records in a table format with type-specific rendering
  */
 import { ChevronLeft, ChevronRight, FileIcon, CheckCircle2, XCircle, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import {  } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

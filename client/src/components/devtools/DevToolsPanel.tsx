@@ -54,11 +54,11 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
         const values = { ...state.values };
         const steps = env.getSteps();
 
-        const contextAwareValues: Record<string, any> = {};
+        const contextAwareValues: Record<string, unknown> = {};
 
         // Helper to deep set values
-        const deepSet = (obj: Record<string, any>, path: string[], value: any) => {
-            let current = obj;
+        const deepSet = (obj: Record<string, unknown>, path: string[], value: unknown) => {
+            let current = obj as Record<string, unknown>;
             for (let i = 0; i < path.length - 1; i++) {
                 const key = path[i];
                 // If the key doesn't exist, create an object
@@ -70,7 +70,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
                     // Collision: Primitive blocks path. Skip this nested value to prevent crash.
                     return;
                 }
-                current = current[key];
+                current = current[key] as Record<string, unknown>;
             }
             const lastKey = path[path.length - 1];
             current[lastKey] = value;

@@ -1,7 +1,7 @@
 
 import { format } from "date-fns";
 import { Loader2, GitCommit, RotateCcw, FileDiff, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,18 +35,12 @@ export function VersionHistoryPanel({
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        if (isOpen && workflowId) {
-            loadVersions();
-        }
-    }, [isOpen, workflowId]);
-
-    const loadVersions = async () => {
+    const loadVersions = useCallback(async () => {
         setLoading(true);
         try {
             const data = await versionAPI.list(workflowId);
             setVersions(data);
-        } catch (error) {
+        } catch {
             toast({
                 title: "Error loading versions",
                 description: "Failed to fetch version history",
@@ -55,7 +49,13 @@ export function VersionHistoryPanel({
         } finally {
             setLoading(false);
         }
-    };
+    }, [workflowId, toast]);
+
+    useEffect(() => {
+        if (isOpen && workflowId) {
+            void loadVersions();
+        }
+    }, [isOpen, workflowId, loadVersions]);
 
     const handleRestore = async (version: ApiWorkflowVersion) => {
         if (confirm(`Are you sure you want to restore version ${version.versionNumber}? This will overwrite your current draft.`)) {
@@ -64,8 +64,7 @@ export function VersionHistoryPanel({
                 toast({ title: "Restored successfully", description: `Reverted to v${version.versionNumber}` });
                 onRestore(version);
                 onClose();
-                // Trigger reload? The parent should handle it.
-            } catch (error) {
+            } catch {
                 toast({ title: "Restore failed", variant: "destructive" });
             }
         }
@@ -90,10 +89,11 @@ export function VersionHistoryPanel({
                         <ScrollArea className="h-[calc(100vh-200px)] pr-4">
                             <div className="space-y-4">
                                 {versions.map((version) => {
-                                                    const isAiGenerated = version.migrationInfo &&
-                                                        typeof version.migrationInfo === 'object' &&
-                                                        'aiMetadata' in version.migrationInfo &&
-                                                        (version.migrationInfo).aiMetadata?.aiGenerated;
+                                                    const migrationInfo = version.migrationInfo as { aiMetadata?: { aiGenerated?: boolean } } | null;
+                                                    const isAiGenerated = migrationInfo &&
+                                                        typeof migrationInfo === 'object' &&
+                                                        'aiMetadata' in migrationInfo &&
+                                                        migrationInfo.aiMetadata?.aiGenerated;
 
                                                     return (
                                     <div

@@ -1,21 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { dataSourceAPI } from "@/lib/vault-api";
 import { useWorkflowDataSources } from "@/lib/vault-hooks";
-interface QueryFilter {
-    column: string;
-    operator: string;
-    value: string;
-}
+
+import { QueryFilter, QueryFilterBuilder } from "./query/QueryFilterBuilder";
+
 interface QuerySort {
     column: string;
     direction: "asc" | "desc";
 }
+
 interface QueryConfig {
     dataSourceId?: string;
     queryId?: string;
@@ -24,36 +21,27 @@ interface QueryConfig {
     filters?: QueryFilter[];
     sort?: QuerySort;
 }
+
 interface QueryBlockEditorProps {
     workflowId: string;
     config: QueryConfig;
     onChange: (config: QueryConfig) => void;
 }
+
 export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEditorProps) {
     const { data: dataSources } = useWorkflowDataSources(workflowId);
+
     // Fetch tables
     const { data: tables } = useQuery({
         queryKey: ["dataSource", config.dataSourceId, "tables"],
         queryFn: () => config.dataSourceId ? dataSourceAPI.getTables(config.dataSourceId) : Promise.resolve([]),
         enabled: !!config.dataSourceId
     });
+
     const handleChange = <K extends keyof QueryConfig>(key: K, value: QueryConfig[K]) => {
         onChange({ ...config, [key]: value });
     };
-    const addFilter = () => {
-        const filters = config.filters ?? [];
-        handleChange("filters", [...filters, { column: "", operator: "equals", value: "" }]);
-    };
-    const removeFilter = (index: number) => {
-        const filters = config.filters ?? [];
-        handleChange("filters", filters.filter((_, i) => i !== index));
-    };
-    const updateFilter = (index: number, field: keyof QueryFilter, value: string) => {
-        const filters = config.filters ?? [];
-        const newFilters = [...filters];
-        newFilters[index] = { ...newFilters[index], [field]: value };
-        handleChange("filters", newFilters);
-    };
+
     return (
         <div className="space-y-4">
             <div className="space-y-2">
@@ -72,6 +60,7 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </SelectContent>
                 </Select>
             </div>
+
             <div className="space-y-2">
                 <Label>Table / Collection</Label>
                 <Select
@@ -89,6 +78,7 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </SelectContent>
                 </Select>
             </div>
+
             {/* Output Variable */}
             <div className="space-y-2">
                 <Label>Output List Variable</Label>
@@ -105,48 +95,13 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     This variable can be used in Dropdowns or Logic (e.g., <code>usersList.length</code>).
                 </p>
             </div>
+
             {/* Filters */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <Label>Filters</Label>
-                    <Button variant="ghost" size="sm" onClick={addFilter} type="button">
-                        <Plus className="w-3 h-3 mr-1" /> Add
-                    </Button>
-                </div>
-                {config.filters?.map((filter, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                        <Input
-                            placeholder="Column"
-                            className="h-8 text-xs"
-                            value={filter.column}
-                            onChange={(e) => updateFilter(idx, "column", e.target.value)}
-                        />
-                        <Select value={filter.operator} onValueChange={(v) => updateFilter(idx, "operator", v)}>
-                            <SelectTrigger className="h-8 w-[100px] text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="equals">=</SelectItem>
-                                <SelectItem value="contains">contains</SelectItem>
-                                <SelectItem value="gt">&gt;</SelectItem>
-                                <SelectItem value="lt">&lt;</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Input
-                            placeholder="Value"
-                            className="h-8 text-xs"
-                            value={filter.value}
-                            onChange={(e) => updateFilter(idx, "value", e.target.value)}
-                        />
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeFilter(idx)}>
-                            <Trash2 className="w-3 h-3" />
-                        </Button>
-                    </div>
-                ))}
-                {(!config.filters || config.filters.length === 0) && (
-                    <p className="text-xs text-muted-foreground italic">No filters applied (select all).</p>
-                )}
-            </div>
+            <QueryFilterBuilder
+                filters={config.filters}
+                onChange={(filters) => handleChange("filters", filters)}
+            />
+
             {/* Sorting */}
             <div className="space-y-2">
                 <Label>Sort By</Label>
@@ -176,6 +131,7 @@ export function QueryBlockEditor({ workflowId, config, onChange }: QueryBlockEdi
                     </Select>
                 </div>
             </div>
+
             {!config.dataSourceId && (
                 <div className="p-2 border border-yellow-200 bg-yellow-50 text-yellow-800 text-xs rounded">
                     Please select a data source.

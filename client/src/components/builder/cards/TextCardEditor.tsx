@@ -10,6 +10,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 
 
 import type { ConditionExpression } from "@shared/types/conditions";
+import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
@@ -18,7 +19,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 // Local Props
 interface TextCardEditorProps {

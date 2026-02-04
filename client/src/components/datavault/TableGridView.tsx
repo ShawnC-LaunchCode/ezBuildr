@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 
 import { useToast } from "@/hooks/use-toast";
 import { useBatchReferences } from "@/hooks/useBatchReferences";
@@ -96,7 +96,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
     allRows,
     localColumns.length > 0 ? localColumns : (schema?.columns ?? [])
   );
-  const handleCellUpdate = async (rowId: string, column: DatavaultColumn, value: any) => {
+  const handleCellUpdate = async (rowId: string, column: DatavaultColumn, value: unknown) => {
     try {
       // Get current row values
       const row = allRows.find(r => r.row.id === rowId);

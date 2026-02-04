@@ -5,7 +5,7 @@
  * Useful for preview and testing
  */
 
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 import IntakeLayout from './IntakeLayout';
 import IntakeProgressBar from './IntakeProgressBar';
@@ -53,7 +53,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     alert('Form submitted! (This is a demo)');
   };
