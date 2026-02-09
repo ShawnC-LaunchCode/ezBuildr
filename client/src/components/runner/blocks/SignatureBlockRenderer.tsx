@@ -68,7 +68,9 @@ export function SignatureBlockRenderer({
 
   // Replace variables in text fields (basic implementation)
   const replaceVariables = (text: string): string => {
-    if (!text) {return text;}
+    if (!text) {
+      return text;
+    }
 
     let result = text;
     Object.entries(stepValues).forEach(([key, value]) => {
@@ -93,7 +95,9 @@ export function SignatureBlockRenderer({
 
   // Handle signature initiation in preview mode
   const handlePreviewSign = async () => {
-    if (!preview) {return;}
+    if (!preview) {
+      return;
+    }
 
     setIsSimulating(true);
 
@@ -106,7 +110,9 @@ export function SignatureBlockRenderer({
 
   // Handle decline in preview mode
   const handlePreviewDecline = async () => {
-    if (!preview) {return;}
+    if (!preview) {
+      return;
+    }
 
     setIsSimulating(true);
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -128,7 +134,7 @@ export function SignatureBlockRenderer({
       case 'signed':
         return (
           <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" aria-hidden="true" />
             <div>
               <p className="font-medium text-green-900 dark:text-green-100">Signature Completed</p>
               <p className="text-sm text-green-700 dark:text-green-300">All documents have been signed</p>
@@ -139,7 +145,7 @@ export function SignatureBlockRenderer({
       case 'declined':
         return (
           <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">Signature Declined</p>
               <p className="text-sm text-red-700 dark:text-red-300">The signature request was declined</p>
@@ -150,7 +156,7 @@ export function SignatureBlockRenderer({
       case 'expired':
         return (
           <div className="flex items-center gap-2 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-            <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
             <div>
               <p className="font-medium text-orange-900 dark:text-orange-100">Signature Expired</p>
               <p className="text-sm text-orange-700 dark:text-orange-300">The signature request has expired</p>
@@ -161,7 +167,7 @@ export function SignatureBlockRenderer({
       case 'error':
         return (
           <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" aria-hidden="true" />
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">Signature Error</p>
               <p className="text-sm text-red-700 dark:text-red-300">
@@ -174,7 +180,7 @@ export function SignatureBlockRenderer({
       case 'signing':
         return (
           <div className="flex items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-pulse" />
+            <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-pulse" aria-hidden="true" />
             <div>
               <p className="font-medium text-blue-900 dark:text-blue-100">Signature In Progress</p>
               <p className="text-sm text-blue-700 dark:text-blue-300">Redirecting to signature provider...</p>
@@ -192,7 +198,7 @@ export function SignatureBlockRenderer({
       {/* Preview Mode Badge */}
       {preview && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
-          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <span className="text-blue-900 dark:text-blue-100">
             <strong>Preview Mode:</strong> No actual signature request will be sent. This is a simulation.
           </span>
@@ -213,7 +219,7 @@ export function SignatureBlockRenderer({
       {status === 'pending' && (
         <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <PenTool className="h-4 w-4" />
+            <PenTool className="h-4 w-4" aria-hidden="true" />
             <span>Signature Required</span>
           </div>
 
@@ -263,7 +269,7 @@ export function SignatureBlockRenderer({
                 key={doc.id}
                 className="flex items-center gap-3 p-3 border rounded-lg bg-background"
               >
-                <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     Document {index + 1}
@@ -281,7 +287,7 @@ export function SignatureBlockRenderer({
       {/* No Documents Warning */}
       {status === 'pending' && displayConfig.documents.length === 0 && (
         <div className="flex items-center gap-2 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm">
-          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
           <span className="text-yellow-900 dark:text-yellow-100">
             No documents configured for signature
           </span>
@@ -296,7 +302,7 @@ export function SignatureBlockRenderer({
             disabled={isSimulating}
             className="flex-1"
           >
-            <PenTool className="h-4 w-4 mr-2" />
+            <PenTool className="h-4 w-4 mr-2" aria-hidden="true" />
             {isSimulating ? 'Processing...' : preview ? 'Simulate Signature' : 'Continue to Sign'}
           </Button>
 

@@ -58,7 +58,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
 
         // Helper to deep set values
         const deepSet = (obj: Record<string, unknown>, path: string[], value: unknown) => {
-            let current = obj as Record<string, unknown>;
+            let current = obj;
             for (let i = 0; i < path.length - 1; i++) {
                 const key = path[i];
                 // If the key doesn't exist, create an object

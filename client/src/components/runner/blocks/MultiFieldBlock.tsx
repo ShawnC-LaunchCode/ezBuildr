@@ -57,16 +57,24 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
     const fieldValue = currentValue[field.key] ?? "";
 
     let inputType = "text";
-    if (field.type === "email") {inputType = "email";}
-    if (field.type === "phone") {inputType = "tel";}
-    if (field.type === "date") {inputType = "date";}
-    if (field.type === "number") {inputType = "number";}
+    if (field.type === "email") {
+      inputType = "email";
+    }
+    if (field.type === "phone") {
+      inputType = "tel";
+    }
+    if (field.type === "date") {
+      inputType = "date";
+    }
+    if (field.type === "number") {
+      inputType = "number";
+    }
 
     return (
       <div key={field.key} className="space-y-1">
         <Label htmlFor={`${step.id}-${field.key}`} className="text-sm">
           {field.label}
-          {field.required && <span className="text-destructive ml-1">*</span>}
+          {field.required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
         </Label>
         <Input
           id={`${step.id}-${field.key}`}
@@ -100,7 +108,7 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
         {fields.map((field) => renderField(field))}
         {/* Validation: start <= end */}
         {currentValue.start && currentValue.end && currentValue.start > currentValue.end && (
-          <p className="text-sm text-destructive">End date must be after start date</p>
+          <p className="text-sm text-destructive" role="alert">End date must be after start date</p>
         )}
       </div>
     );

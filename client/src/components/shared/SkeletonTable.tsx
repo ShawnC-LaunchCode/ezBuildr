@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 interface SkeletonTableProps {
   rows?: number;
   columns?: number;
@@ -7,10 +9,10 @@ interface SkeletonTableProps {
 export function SkeletonTable({
   rows = 5,
   columns = 4,
-  className = ""
+  className
 }: SkeletonTableProps) {
   return (
-    <div className={`w-full ${className}`}>
+    <div className={cn("w-full", className)}>
       <div className="animate-pulse">
         {/* Table Header */}
         <div className="flex gap-4 p-4 border-b border-border">

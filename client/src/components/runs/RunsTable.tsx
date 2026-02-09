@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DocumentRun , documentRunsAPI } from '@/lib/vault-api';
+import { DocumentRun, documentRunsAPI } from '@/lib/vault-api';
 
 
 
@@ -35,9 +35,15 @@ export function RunsTable({ runs }: RunsTableProps) {
   };
 
   const formatDuration = (ms?: number) => {
-    if (!ms) {return '-';}
-    if (ms < 1000) {return `${ms}ms`;}
-    if (ms < 60000) {return `${(ms / 1000).toFixed(1)}s`;}
+    if (!ms) {
+      return '-';
+    }
+    if (ms < 1000) {
+      return `${ms}ms`;
+    }
+    if (ms < 60000) {
+      return `${(ms / 1000).toFixed(1)}s`;
+    }
     return `${(ms / 60000).toFixed(1)}m`;
   };
 
@@ -86,14 +92,14 @@ export function RunsTable({ runs }: RunsTableProps) {
               <TableCell className="text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" aria-label="Run actions">
+                      <MoreVertical className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
                       <Link href={`/runs/${run.id}`}>
-                        <Eye className="h-4 w-4 mr-2" />
+                        <Eye className="h-4 w-4 mr-2" aria-hidden="true" />
                         View Details
                       </Link>
                     </DropdownMenuItem>
@@ -106,7 +112,7 @@ export function RunsTable({ runs }: RunsTableProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <Download className="h-4 w-4 mr-2" />
+                            <Download className="h-4 w-4 mr-2" aria-hidden="true" />
                             Download DOCX
                           </a>
                         </DropdownMenuItem>
@@ -117,7 +123,7 @@ export function RunsTable({ runs }: RunsTableProps) {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <FileText className="h-4 w-4 mr-2" />
+                            <FileText className="h-4 w-4 mr-2" aria-hidden="true" />
                             Download PDF
                           </a>
                         </DropdownMenuItem>
@@ -126,7 +132,7 @@ export function RunsTable({ runs }: RunsTableProps) {
 
                     <DropdownMenuItem asChild>
                       <Link href={`/runs/${run.id}/rerun`}>
-                        <PlayCircle className="h-4 w-4 mr-2" />
+                        <PlayCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                         Re-run
                       </Link>
                     </DropdownMenuItem>

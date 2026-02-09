@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 interface SkeletonListProps {
   count?: number;
   itemHeight?: string;
@@ -9,14 +11,14 @@ export function SkeletonList({
   count = 3,
   itemHeight = "h-20",
   showAvatar = false,
-  className = ""
+  className
 }: SkeletonListProps) {
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={cn("space-y-4", className)}>
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className={`flex items-center justify-between p-3 border border-border rounded-lg animate-pulse ${itemHeight}`}
+          className={cn("flex items-center justify-between p-3 border border-border rounded-lg animate-pulse", itemHeight)}
         >
           <div className="flex items-center space-x-3 flex-1">
             {showAvatar && (

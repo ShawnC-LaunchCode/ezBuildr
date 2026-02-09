@@ -1,13 +1,16 @@
 ﻿import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 import EasyAdvancedStory from "./components/EasyAdvancedStory";
 import FeatureGrid from "./components/FeatureGrid";
 import FinalCTA from "./components/FinalCTA";
 import Hero from "./components/Hero";
 import TargetAudience from "./components/TargetAudience";
+
 export default function LandingPage() {
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const [, setLocation] = useLocation();
+
   return (
     <main className="min-h-screen bg-white font-sans">
       {/* Header with Login */}
@@ -26,13 +29,13 @@ export default function LandingPage() {
               <Button
                 variant="ghost"
                 className="text-gray-600 hover:text-gray-900 font-medium"
-                onClick={() => window.location.href = '/auth/login'}
+                onClick={() => setLocation('/auth/login')}
               >
                 Sign In
               </Button>
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md"
-                onClick={() => window.location.href = '/auth/register'}
+                onClick={() => setLocation('/auth/register')}
               >
                 Get Started
               </Button>

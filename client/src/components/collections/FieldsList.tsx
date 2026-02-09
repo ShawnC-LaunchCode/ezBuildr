@@ -4,12 +4,14 @@
  */
 
 import { Pencil, Trash2, Type, Hash, ToggleLeft, Calendar, FileIcon, List, Braces } from "lucide-react";
-import type { ReactNode } from "react";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ApiCollectionField } from "@/lib/vault-api";
+
+import type { ReactNode } from "react";
 
 interface FieldsListProps {
   fields: ApiCollectionField[];

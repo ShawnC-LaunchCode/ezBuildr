@@ -71,7 +71,7 @@ export function SectionLogicSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto" data-testid="section-logic-sheet">
         <SheetHeader className="mb-6">
           <SheetTitle>Page Visibility</SheetTitle>
           <SheetDescription>

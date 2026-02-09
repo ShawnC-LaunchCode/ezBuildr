@@ -28,8 +28,8 @@ interface MultiFieldCardEditorProps {
 }
 
 // Layout presets
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const LAYOUT_PRESETS: Record<string, MultiFieldConfig['fields']> = {
+// Layout presets
+const layoutPresets: Record<string, MultiFieldConfig['fields']> = {
   "first_last": [
     { key: "first", label: "First Name", type: "text", required: true },
     { key: "last", label: "Last Name", type: "text", required: true },
@@ -170,7 +170,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: Mu
 
   const [localConfig, setLocalConfig] = useState<MultiFieldConfig>({
     layout: (config?.layout ?? "first_last"),
-    fields: config?.fields ?? LAYOUT_PRESETS["first_last"],
+    fields: config?.fields ?? layoutPresets["first_last"],
     storeAs: (config?.storeAs ?? "separate"),
   });
 
@@ -178,7 +178,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: Mu
     const currentConfig = step.config as MultiFieldConfig | undefined;
     setLocalConfig({
       layout: (currentConfig?.layout ?? "first_last"),
-      fields: currentConfig?.fields ?? LAYOUT_PRESETS["first_last"],
+      fields: currentConfig?.fields ?? layoutPresets["first_last"],
       storeAs: (currentConfig?.storeAs ?? "separate"),
     });
   }, [step.config]);
@@ -197,7 +197,7 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: Mu
   };
 
   const handleLayoutChange = (layout: "first_last" | "contact" | "date_range") => {
-    const newFields = LAYOUT_PRESETS[layout];
+    const newFields = layoutPresets[layout];
     handleUpdate({ layout, fields: newFields });
   };
 

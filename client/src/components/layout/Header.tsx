@@ -17,6 +17,18 @@ interface HeaderProps {
   actions?: ReactNode;
 }
 
+const navigation = [
+  { name: "Dashboard", href: "/", icon: "fas fa-home" },
+  { name: "Workflows", href: "/surveys", icon: "fas fa-list-ul" },
+  { name: "Templates", href: "/templates", icon: "fas fa-puzzle-piece" },
+];
+
+const adminNavigation = [
+  { name: "Admin Dashboard", href: "/admin", icon: "fas fa-shield-alt" },
+  { name: "Manage Users", href: "/admin/users", icon: "fas fa-users-cog" },
+  { name: "Activity Logs", href: "/admin/logs", icon: "fas fa-clipboard-list" },
+];
+
 export default function Header({ title, description, actions }: HeaderProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -42,19 +54,7 @@ export default function Header({ title, description, actions }: HeaderProps) {
   };
 
   // Check if user is admin
-  const isAdmin = (user as any)?.role === 'admin';
-
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: "fas fa-home" },
-    { name: "Workflows", href: "/surveys", icon: "fas fa-list-ul" },
-    { name: "Templates", href: "/templates", icon: "fas fa-puzzle-piece" },
-  ];
-
-  const adminNavigation = [
-    { name: "Admin Dashboard", href: "/admin", icon: "fas fa-shield-alt" },
-    { name: "Manage Users", href: "/admin/users", icon: "fas fa-users-cog" },
-    { name: "Activity Logs", href: "/admin/logs", icon: "fas fa-clipboard-list" },
-  ];
+  const isAdmin = user?.role === 'admin';
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -95,7 +95,7 @@ export default function Header({ title, description, actions }: HeaderProps) {
                 {navigation.map((item) => (
                   <Link key={item.name} href={item.href}>
                     <div
-                      onClick={() => { void setMobileMenuOpen(false); }}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -118,7 +118,7 @@ export default function Header({ title, description, actions }: HeaderProps) {
                     {adminNavigation.map((item) => (
                       <Link key={item.name} href={item.href}>
                         <div
-                          onClick={() => { void setMobileMenuOpen(false); }}
+                          onClick={() => setMobileMenuOpen(false)}
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors cursor-pointer ${isActive(item.href)
                             ? "bg-purple-600 text-white"
                             : "text-muted-foreground hover:text-foreground hover:bg-purple-50"

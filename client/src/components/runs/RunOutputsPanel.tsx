@@ -65,9 +65,10 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
 
       return response.json();
     },
-    refetchInterval: (data: any) => {
+    refetchInterval: (query) => {
       // Auto-refresh if there are pending outputs
-      const hasPending = data?.data?.some((o: any) => o.status === 'pending');
+      const response = query.state.data;
+      const hasPending = response?.data?.some((o) => o.status === 'pending');
       return hasPending ? 5000 : false; // Poll every 5 seconds
     },
   });
@@ -143,11 +144,11 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ready':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-600" />;
+        return <Clock className="h-4 w-4 text-yellow-600" aria-hidden="true" />;
       case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
+        return <AlertCircle className="h-4 w-4 text-red-600" aria-hidden="true" />;
       default:
         return null;
     }
@@ -186,7 +187,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" role="status" aria-label="Loading outputs" />
       </div>
     );
   }
@@ -195,7 +196,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
     return (
       <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
         <p className="text-red-900 dark:text-red-100 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4" aria-hidden="true" />
           Error: {(error).message}
         </p>
       </div>
@@ -205,7 +206,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
   if (!outputs?.data || outputs.data.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" aria-hidden="true" />
         <p>No outputs generated yet</p>
         <p className="text-sm">
           Outputs will appear here once the workflow generates documents
@@ -227,7 +228,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <FileText className="h-5 w-5" />
+          <FileText className="h-5 w-5" aria-hidden="true" />
           Generated Documents ({outputs.data.length})
         </h3>
       </div>
@@ -250,7 +251,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
 
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <FileText className="h-4 w-4 text-gray-500" />
+                        <FileText className="h-4 w-4 text-gray-500" aria-hidden="true" />
                         <span className="font-medium">
                           {output.fileType.toUpperCase()} Output
                         </span>
@@ -265,7 +266,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
 
                       {output.status === 'pending' && (
                         <p className="text-sm text-yellow-700 dark:text-yellow-300 flex items-center gap-1">
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                           Processing...
                         </p>
                       )}
@@ -301,7 +302,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
                         onClick={() => { void handleDownload(output.id); }}
                         disabled={downloadMutation.isPending}
                       >
-                        <Download className="h-4 w-4 mr-1" />
+                        <Download className="h-4 w-4 mr-1" aria-hidden="true" />
                         Download
                       </Button>
                     )}
@@ -313,7 +314,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
                         onClick={() => { void handleRetry(output.id); }}
                         disabled={retryMutation.isPending}
                       >
-                        <RefreshCw className="h-4 w-4 mr-1" />
+                        <RefreshCw className="h-4 w-4 mr-1" aria-hidden="true" />
                         Retry
                       </Button>
                     )}
@@ -328,7 +329,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
       {outputs.data.some((o) => o.status === 'pending') && (
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Some outputs are still being processed. This panel will auto-refresh.
           </p>
         </div>

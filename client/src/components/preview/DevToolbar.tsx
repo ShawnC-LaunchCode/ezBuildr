@@ -1,13 +1,11 @@
 import { formatDistanceToNow } from "date-fns";
 import {
-    Play,
     RotateCcw,
     Wand2,
-    Save,
     Files,
     ChevronDown,
     X,
-    Bug
+    Bug,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -17,7 +15,6 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -28,6 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import type { ApiSnapshot } from "@/lib/vault-api";
 import { useSnapshots } from "@/lib/vault-hooks";
 interface DevToolbarProps {
     workflowId: string;
@@ -73,12 +71,12 @@ export function DevToolbar({
                 <div className="flex items-center gap-2">
                     <Files className="w-4 h-4 text-muted-foreground" />
                     <Select value={selectedSnapshot} onValueChange={handleSnapshotSelect}>
-                        <SelectTrigger className="w-[200px] h-8 text-xs">
+                        <SelectTrigger className="w-[200px] h-8 text-xs" aria-label="Select snapshot to load">
                             <SelectValue placeholder="Load Snapshot..." />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">None (Reset)</SelectItem>
-                            {snapshots?.map((snap: any) => (
+                            {snapshots?.map((snap: ApiSnapshot) => (
                                 <SelectItem key={snap.id} value={snap.id}>
                                     <div className="flex flex-col items-start">
                                         <span>{snap.name}</span>
@@ -118,6 +116,7 @@ export function DevToolbar({
                     className="h-8 w-8 p-0"
                     onClick={onReset}
                     title="Reset Preview"
+                    aria-label="Reset Preview"
                 >
                     <RotateCcw className="w-4 h-4" />
                 </Button>

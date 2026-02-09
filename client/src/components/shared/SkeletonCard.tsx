@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface SkeletonCardProps {
   count?: number;
@@ -9,12 +10,12 @@ interface SkeletonCardProps {
 export function SkeletonCard({
   count = 1,
   height = "h-48",
-  className = ""
+  className
 }: SkeletonCardProps) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <Card key={i} className={`${height} ${className}`}>
+        <Card key={i} className={cn(height, className)}>
           <CardContent className="p-6">
             <div className="animate-pulse">
               <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>

@@ -11,7 +11,7 @@ export interface AnalyticsEvent {
     type: string;
     blockId?: string;
     pageId?: string;
-    payload?: Record<string, any>;
+    payload?: Record<string, unknown>;
     timestamp?: string; // ISO string
     isPreview?: boolean;
 }

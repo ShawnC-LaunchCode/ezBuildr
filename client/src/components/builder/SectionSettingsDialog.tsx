@@ -2,16 +2,15 @@ import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { ApiSection } from "@/lib/vault-api";
 import { useUpdateSection } from "@/lib/vault-hooks";
 
 import type { ValidateRule } from "@shared/types/blocks";
 
+import { SectionAdvancedSettings } from "./sections/SectionAdvancedSettings";
+import { SectionGeneralSettings } from "./sections/SectionGeneralSettings";
 import { ValidationRulesEditor } from "./ValidationRulesEditor";
 
 export function SectionSettingsDialog({
@@ -84,19 +83,13 @@ export function SectionSettingsDialog({
                         {mode === 'advanced' && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
                     </TabsList>
 
-                    <TabsContent value="general" className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Page Title</Label>
-                            <Input value={title} onChange={(e) => { void setTitle(e.target.value); }} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Description</Label>
-                            <Textarea
-                                value={description}
-                                onChange={(e) => { void setDescription(e.target.value); }}
-                                placeholder="Internal description or notes (optional)"
-                            />
-                        </div>
+                    <TabsContent value="general">
+                        <SectionGeneralSettings
+                            title={title}
+                            setTitle={setTitle}
+                            description={description}
+                            setDescription={setDescription}
+                        />
                     </TabsContent>
 
                     <TabsContent value="validation" className="space-y-4 py-4">
@@ -112,10 +105,8 @@ export function SectionSettingsDialog({
                     </TabsContent>
 
                     {mode === 'advanced' && (
-                        <TabsContent value="advanced" className="py-4">
-                            <div className="p-4 border border-dashed rounded text-center text-muted-foreground">
-                                Advanced visibility/logic settings coming soon.
-                            </div>
+                        <TabsContent value="advanced">
+                            <SectionAdvancedSettings />
                         </TabsContent>
                     )}
                 </Tabs>

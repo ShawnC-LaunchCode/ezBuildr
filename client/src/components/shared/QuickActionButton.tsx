@@ -2,6 +2,7 @@ import { ChevronRight, type LucideIcon } from "lucide-react";
 import { Link } from "wouter";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface QuickActionButtonProps {
   href?: string;
@@ -11,6 +12,7 @@ interface QuickActionButtonProps {
   iconBgColor?: string;
   label: string;
   testId?: string;
+  className?: string;
 }
 
 /**
@@ -42,7 +44,8 @@ export function QuickActionButton({
   iconColor = "text-primary",
   iconBgColor = "bg-primary/10",
   label,
-  testId
+  testId,
+  className
 }: QuickActionButtonProps) {
   const handleClick = () => {
     if (onClick) {
@@ -53,17 +56,17 @@ export function QuickActionButton({
   const buttonContent = (
     <Button
       variant="ghost"
-      className="w-full justify-between"
+      className={cn("w-full justify-between h-auto py-3", className)}
       data-testid={testId}
       onClick={handleClick}
     >
       <div className="flex items-center space-x-3">
-        <div className={`w-8 h-8 ${iconBgColor} rounded-lg flex items-center justify-center`}>
-          <Icon className={`h-4 w-4 ${iconColor}`} />
+        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", iconBgColor)}>
+          <Icon className={cn("h-4 w-4", iconColor)} aria-hidden="true" />
         </div>
         <span className="font-medium">{label}</span>
       </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
     </Button>
   );
 

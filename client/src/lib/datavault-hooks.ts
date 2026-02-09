@@ -55,7 +55,7 @@ export function useDatavaultDatabase(id: string | undefined): UseQueryResult<Dat
   return useQuery({
     queryKey: id ? datavaultQueryKeys.database(id) : ['datavault', 'databases', 'null'],
     queryFn: () => {
-      if (!id) {throw new Error('Database ID is required');}
+      if (!id) { throw new Error('Database ID is required'); }
       return datavaultAPI.getDatabase(id);
     },
     enabled: !!id,
@@ -68,7 +68,7 @@ export function useDatabaseTables(databaseId: string | undefined): UseQueryResul
       ? datavaultQueryKeys.databaseTables(databaseId)
       : ['datavault', 'databases', 'null', 'tables'],
     queryFn: () => {
-      if (!databaseId) {throw new Error('Database ID is required');}
+      if (!databaseId) { throw new Error('Database ID is required'); }
       return datavaultAPI.getTablesInDatabase(databaseId);
     },
     enabled: !!databaseId,
@@ -165,8 +165,7 @@ export function useDatavaultTable(tableId: string | undefined, withColumns = fal
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- return type inferred from getTableSchema which has no explicit return type
-export function useDatavaultTableSchema(tableId: string | undefined) {
+export function useDatavaultTableSchema(tableId: string | undefined): UseQueryResult<Record<string, any>> {
   const isUuid = !!tableId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tableId);
   return useQuery({
     queryKey: [...datavaultQueryKeys.table(tableId!), 'schema'],
@@ -408,7 +407,7 @@ export function useDatavaultApiTokens(databaseId: string | undefined): UseQueryR
       ? datavaultQueryKeys.apiTokens(databaseId)
       : ['datavault', 'databases', 'null', 'tokens'],
     queryFn: () => {
-      if (!databaseId) {throw new Error('Database ID is required');}
+      if (!databaseId) { throw new Error('Database ID is required'); }
       return datavaultAPI.listApiTokens(databaseId);
     },
     enabled: !!databaseId,
@@ -467,7 +466,7 @@ export function useTablePermissions(tableId: string | undefined): UseQueryResult
       ? datavaultQueryKeys.tablePermissions(tableId)
       : ['datavault', 'tables', 'null', 'permissions'],
     queryFn: () => {
-      if (!tableId) {throw new Error('Table ID is required');}
+      if (!tableId) { throw new Error('Table ID is required'); }
       return datavaultAPI.listTablePermissions(tableId);
     },
     enabled: !!tableId,

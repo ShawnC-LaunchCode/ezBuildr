@@ -38,16 +38,16 @@ export function TracePanel({ trace }: TracePanelProps) {
 
   const getStatusIcon = (status: string, error?: string) => {
     if (error) {
-      return <XCircle className="h-5 w-5 text-destructive" />;
+      return <XCircle className="h-5 w-5 text-destructive" aria-hidden="true" />;
     }
 
     switch (status) {
       case 'executed':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-500" aria-hidden="true" />;
       case 'skipped':
-        return <Circle className="h-5 w-5 text-muted-foreground" />;
+        return <Circle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />;
       default:
-        return <Circle className="h-5 w-5" />;
+        return <Circle className="h-5 w-5" aria-hidden="true" />;
     }
   };
 
@@ -133,9 +133,9 @@ export function TracePanel({ trace }: TracePanelProps) {
                       className="h-auto py-1 px-2"
                     >
                       <ChevronRight
-                        className={`h-4 w-4 mr-1 transition-transform ${
-                          expandedNodes.has(index) ? 'rotate-90' : ''
-                        }`}
+                        className={`h-4 w-4 mr-1 transition-transform ${expandedNodes.has(index) ? 'rotate-90' : ''
+                          }`}
+                        aria-hidden="true"
                       />
                       {expandedNodes.has(index) ? 'Hide' : 'Show'} Outputs (
                       {Object.keys(entry.outputsDelta).length} variables)

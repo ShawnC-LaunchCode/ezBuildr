@@ -45,12 +45,12 @@ export function isFeatureAllowed(mode: Mode, feature: string): boolean {
   // Easy mode restrictions
   if (feature.startsWith('block:')) {
     const blockType = feature.substring(6);
-    return FEATURES.EASY_BLOCK_TYPES.includes(blockType as any);
+    return (FEATURES.EASY_BLOCK_TYPES as readonly string[]).includes(blockType);
   }
 
   if (feature.startsWith('operator:')) {
     const operator = feature.substring(9);
-    return FEATURES.EASY_OPERATORS.includes(operator as any);
+    return (FEATURES.EASY_OPERATORS as readonly string[]).includes(operator);
   }
 
   if (feature === 'raw_json_editor') {

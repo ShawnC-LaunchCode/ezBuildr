@@ -92,9 +92,10 @@ export default function ShareTemplateModal({
       setEmail("");
       setAccess("use");
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error instanceof Error ? error.message : "An error occurred";
       toast({
         title: "Failed to share template",
-        description: error.response?.data?.error || "An error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -110,9 +111,10 @@ export default function ShareTemplateModal({
         description: `Access level changed to ${newAccess}`,
       });
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error instanceof Error ? error.message : "An error occurred";
       toast({
         title: "Failed to update access",
-        description: error.response?.data?.error || "An error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -126,9 +128,10 @@ export default function ShareTemplateModal({
         description: `${email} no longer has access to this template`,
       });
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.error || error instanceof Error ? error.message : "An error occurred";
       toast({
         title: "Failed to revoke access",
-        description: error.response?.data?.error || "An error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -177,13 +180,13 @@ export default function ShareTemplateModal({
                   <SelectContent>
                     <SelectItem value="use">
                       <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4" aria-hidden="true" />
                         Use
                       </div>
                     </SelectItem>
                     <SelectItem value="edit">
                       <div className="flex items-center gap-2">
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
                         Edit
                       </div>
                     </SelectItem>
@@ -191,7 +194,7 @@ export default function ShareTemplateModal({
                 </Select>
                 <Button onClick={() => { void handleShare(); }} disabled={isSharing}>
                   {isSharing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
                     "Invite"
                   )}
@@ -211,11 +214,11 @@ export default function ShareTemplateModal({
 
             {isLoading ? (
               <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
               </div>
             ) : shares.length === 0 ? (
               <div className="text-center p-8 text-muted-foreground border rounded-lg">
-                <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" aria-hidden="true" />
                 <p className="text-sm">No collaborators yet</p>
                 <p className="text-xs mt-1">Invite someone to get started</p>
               </div>
@@ -233,9 +236,9 @@ export default function ShareTemplateModal({
                       <div className="flex items-center gap-3 flex-1">
                         <div className="flex-shrink-0">
                           {isPending ? (
-                            <Clock className="h-5 w-5 text-amber-500" />
+                            <Clock className="h-5 w-5 text-amber-500" aria-hidden="true" />
                           ) : (
-                            <User className="h-5 w-5 text-primary" />
+                            <User className="h-5 w-5 text-primary" aria-hidden="true" />
                           )}
                         </div>
 
@@ -250,7 +253,7 @@ export default function ShareTemplateModal({
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="text-xs">
-                                <CheckCircle className="h-3 w-3 mr-1" />
+                                <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />
                                 Accepted
                               </Badge>
                             )}
@@ -278,13 +281,13 @@ export default function ShareTemplateModal({
                           <SelectContent>
                             <SelectItem value="use">
                               <div className="flex items-center gap-2">
-                                <Eye className="h-3 w-3" />
+                                <Eye className="h-3 w-3" aria-hidden="true" />
                                 Use
                               </div>
                             </SelectItem>
                             <SelectItem value="edit">
                               <div className="flex items-center gap-2">
-                                <Pencil className="h-3 w-3" />
+                                <Pencil className="h-3 w-3" aria-hidden="true" />
                                 Edit
                               </div>
                             </SelectItem>
@@ -296,8 +299,9 @@ export default function ShareTemplateModal({
                           size="sm"
                           onClick={() => { void handleRevoke(share.id, displayEmail); }}
                           disabled={revoke.isPending}
+                          aria-label={`Revoke access for ${displayEmail}`}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </div>
                     </div>

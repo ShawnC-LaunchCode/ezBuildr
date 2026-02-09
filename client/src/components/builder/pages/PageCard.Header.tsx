@@ -1,3 +1,5 @@
+import { DraggableAttributes } from "@dnd-kit/core";
+import { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 import {
     ChevronDown,
     ChevronRight,
@@ -8,8 +10,6 @@ import {
     Trash2,
 } from "lucide-react";
 import React from "react";
-import { DraggableAttributes } from "@dnd-kit/core";
-import { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
 import { LogicIndicator } from "@/components/logic";
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ApiSection } from "@/lib/vault-api";
+
 import type { ConditionExpression } from "@shared/types/conditions";
 
 interface PageCardHeaderProps {

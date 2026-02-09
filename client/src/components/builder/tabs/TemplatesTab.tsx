@@ -49,7 +49,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   // Fetch templates for this project
   const fetchTemplates = async () => {
     try {
-      if (!workflowProjectId) return;
+      if (!workflowProjectId) {return;}
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data = response.data;
       const mappedTemplates = (data.items ?? []).map((t: any) => ({

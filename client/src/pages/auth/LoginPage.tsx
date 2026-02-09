@@ -43,7 +43,7 @@ export default function LoginPage() {
                 token: response.token
             });
         }
-        window.location.href = "/dashboard";
+        setLocation("/dashboard");
     };
     const onSubmit = async (data: LoginFormValues) => {
         setIsLoading(true);
@@ -72,7 +72,7 @@ export default function LoginPage() {
     };
     const handleMfaSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!mfaToken) {return;}
+        if (!mfaToken) { return; }
         setIsLoading(true);
         try {
             const response = await authAPI.verifyMfaLogin(mfaUserId, mfaToken);
@@ -112,14 +112,14 @@ export default function LoginPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <form onSubmit={(e) => { e.preventDefault(); void handleMfaSubmit(e); }} className="space-y-4">
+                            <form onSubmit={(e) => { e.preventDefault(); handleMfaSubmit(e); }} className="space-y-4">
                                 <div className="space-y-2">
                                     <FormLabel>Authentication Code</FormLabel>
                                     <div className="relative">
                                         <Smartphone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                                         <Input
                                             value={mfaToken}
-                                            onChange={(e) => { void setMfaToken(e.target.value); }}
+                                            onChange={(e) => setMfaToken(e.target.value)}
                                             className="pl-10 text-lg tracking-widest"
                                             placeholder="000 000"
                                             maxLength={6}
@@ -139,7 +139,7 @@ export default function LoginPage() {
                                 </Button>
                                 <button
                                     type="button"
-                                    onClick={() => { void setMfaRequired(false); }}
+                                    onClick={() => setMfaRequired(false)}
                                     className="w-full text-sm text-gray-500 hover:text-gray-900"
                                 >
                                     Back to login
@@ -177,7 +177,7 @@ export default function LoginPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-center w-full">
-                            <GoogleLogin onSuccess={() => window.location.href = "/dashboard"} />
+                            <GoogleLogin onSuccess={() => setLocation("/dashboard")} />
                         </div>
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">

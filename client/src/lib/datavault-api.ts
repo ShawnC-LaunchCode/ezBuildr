@@ -49,8 +49,8 @@ export const datavaultAPI = {
     scopeId?: string;
   }): Promise<DatavaultDatabase[]> => {
     const queryParams = new URLSearchParams();
-    if (params?.scopeType) {queryParams.set('scopeType', params.scopeType);}
-    if (params?.scopeId) {queryParams.set('scopeId', params.scopeId);}
+    if (params?.scopeType) { queryParams.set('scopeType', params.scopeType); }
+    if (params?.scopeId) { queryParams.set('scopeId', params.scopeId); }
 
     const url = `/api/datavault/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
     const res = await apiRequest('GET', url);
@@ -147,13 +147,12 @@ export const datavaultAPI = {
       await res.json();
     }
   },
-
   moveTable: async (tableId: string, databaseId: string | null): Promise<DatavaultTable> => {
     const res = await apiRequest('PATCH', `/api/datavault/tables/${tableId}/move`, { databaseId });
     return res.json();
   },
 
-  getTableSchema: async (tableId: string) => {
+  getTableSchema: async (tableId: string): Promise<Record<string, any>> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/schema`);
     return res.json();
   },
@@ -216,11 +215,11 @@ export const datavaultAPI = {
     pagination: { limit: number; offset: number; total: number; hasMore: boolean };
   }> => {
     const params = new URLSearchParams();
-    if (options?.limit) {params.append('limit', options.limit.toString());}
-    if (options?.offset !== undefined) {params.append('offset', options.offset.toString());}
-    if (options?.showArchived) {params.append('showArchived', 'true');}
-    if (options?.sortBy) {params.append('sortBy', options.sortBy);}
-    if (options?.sortOrder) {params.append('sortOrder', options.sortOrder);}
+    if (options?.limit) { params.append('limit', options.limit.toString()); }
+    if (options?.offset !== undefined) { params.append('offset', options.offset.toString()); }
+    if (options?.showArchived) { params.append('showArchived', 'true'); }
+    if (options?.sortBy) { params.append('sortBy', options.sortBy); }
+    if (options?.sortOrder) { params.append('sortOrder', options.sortOrder); }
     if (options?.filters && options.filters.length > 0) {
       params.append('filters', JSON.stringify(options.filters));
     }

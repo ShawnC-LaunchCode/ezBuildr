@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, KeyboardEvent } from "react";
 
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface InlineEditableTitleProps {
   value: string;
@@ -14,7 +15,7 @@ interface InlineEditableTitleProps {
 export function InlineEditableTitle({
   value,
   onSave,
-  className = "",
+  className,
   placeholder = "Enter title...",
   autoFocus = false,
   onEnterKey,
@@ -36,26 +37,16 @@ export function InlineEditableTitle({
 
   const handleSave = () => {
     const trimmedValue = localValue.trim();
-    console.log('[InlineEditableTitle] handleSave called', {
-      originalValue: value,
-      newValue: trimmedValue,
-      isDifferent: trimmedValue !== value,
-      willSave: trimmedValue && trimmedValue !== value
-    });
 
     if (trimmedValue && trimmedValue !== value) {
-      console.log('[InlineEditableTitle] Calling onSave with:', trimmedValue);
       onSave(trimmedValue);
     } else if (!trimmedValue) {
-      console.log('[InlineEditableTitle] Empty value, reverting');
       setLocalValue(value); // Revert if empty
-    } else {
-      console.log('[InlineEditableTitle] No change detected, not saving');
     }
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSave();
       if (onEnterKey) {
@@ -75,19 +66,24 @@ export function InlineEditableTitle({
         onChange={(e) => setLocalValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className={`border-b-2 border-blue-500 focus-visible:ring-0 ${className}`}
+        className={cn("border-b-2 border-primary focus-visible:ring-0", className)}
         placeholder={placeholder}
       />
     );
   }
 
   return (
-    <span
+    <button
+      type="button"
       onClick={() => setIsEditing(true)}
-      className={`hover:text-blue-500 cursor-pointer transition-colors ${className}`}
+      className={cn(
+        "hover:text-primary cursor-pointer transition-colors bg-transparent border-none p-0 text-left font-inherit",
+        className
+      )}
       title="Click to edit"
+      aria-label="Edit title"
     >
       {value || placeholder}
-    </span>
+    </button>
   );
 }

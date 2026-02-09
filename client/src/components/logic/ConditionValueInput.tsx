@@ -31,7 +31,9 @@ export function ConditionValueInput({
 
     // Helpers to safely get string values from potentially mixed types
     const getStringValue = (val: unknown): string => {
-        if (val === null || val === undefined) {return "";}
+        if (val === null || val === undefined) {
+            return "";
+        }
         return String(val);
     };
 
@@ -45,7 +47,9 @@ export function ConditionValueInput({
 
     // Group variables for dropdown if needed
     const variablesBySection = useMemo(() => {
-        if (condition.valueType !== "variable") {return {};}
+        if (condition.valueType !== "variable") {
+            return {};
+        }
 
         return allVariables.reduce((acc, variable) => {
             const sectionId = variable.sectionId;
@@ -116,6 +120,7 @@ export function ConditionValueInput({
                     onChange={(e) => handleValueChange(e.target.value)}
                     className="w-[100px] text-sm bg-background"
                     placeholder="Value"
+                    aria-label="Numeric value"
                 />
                 {needsTwoValues && (
                     <>
@@ -126,6 +131,7 @@ export function ConditionValueInput({
                             onChange={(e) => handleValue2Change(e.target.value)}
                             className="w-[100px] text-sm bg-background"
                             placeholder="Value"
+                            aria-label="Second numeric value"
                         />
                     </>
                 )}
@@ -142,6 +148,7 @@ export function ConditionValueInput({
                     value={getStringValue(condition.value)}
                     onChange={(e) => handleValueChange(e.target.value)}
                     className="w-[140px] text-sm bg-background"
+                    aria-label="Date value"
                 />
                 {needsTwoValues && (
                     <>
@@ -151,6 +158,7 @@ export function ConditionValueInput({
                             value={getStringValue(condition.value2)}
                             onChange={(e) => handleValue2Change(e.target.value)}
                             className="w-[140px] text-sm bg-background"
+                            aria-label="Second date value"
                         />
                     </>
                 )}
@@ -166,6 +174,7 @@ export function ConditionValueInput({
             onChange={(e) => handleValueChange(e.target.value)}
             className="w-[180px] text-sm bg-background"
             placeholder="Value"
+            aria-label="Text value"
         />
     );
 }

@@ -1,4 +1,4 @@
-import { Circle, CheckCircle2, XCircle, AlertCircle, Archive , LucideIcon } from "lucide-react";
+import { Circle, CheckCircle2, XCircle, AlertCircle, Archive, LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -79,7 +79,7 @@ export function StatusBadge({
       variant={variantToUse}
       className={cn(config.className, className)}
     >
-      {showIcon && <Icon className="mr-1 h-3 w-3" />}
+      {showIcon && <Icon className="mr-1 h-3 w-3" aria-hidden="true" />}
       {finalLabel}
     </Badge>
   );

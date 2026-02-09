@@ -24,7 +24,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
   const source = modeData?.source ?? "user";
 
   const handleModeSwitch = async (targetMode: "easy" | "advanced") => {
-    if (mode === targetMode) {return;}
+    if (mode === targetMode) { return; }
 
     try {
       await setModeMutation.mutateAsync({
@@ -48,7 +48,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
   };
 
   const handleClearOverride = async () => {
-    if (source === "user") {return;}
+    if (source === "user") { return; }
 
     try {
       await setModeMutation.mutateAsync({
@@ -76,7 +76,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Workflow Mode
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           </CardTitle>
           <CardDescription>
             Switch between Easy and Advanced modes.
@@ -91,12 +91,12 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
             <div className="mt-2 flex items-center gap-2">
               {mode === "advanced" ? (
                 <>
-                  <Code2 className="h-5 w-5 text-violet-500" />
+                  <Code2 className="h-5 w-5 text-violet-500" aria-hidden="true" />
                   <span className="text-lg font-semibold text-violet-500">Advanced</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-5 w-5 text-slate-600" />
+                  <Sparkles className="h-5 w-5 text-slate-600" aria-hidden="true" />
                   <span className="text-lg font-semibold text-slate-600">Easy</span>
                 </>
               )}
@@ -119,7 +119,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
                 disabled={setModeMutation.isPending || mode === "easy"}
                 className="flex-1"
               >
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 mr-2" aria-hidden="true" />
                 Easy
               </Button>
               <Button
@@ -129,7 +129,7 @@ export function WorkflowSettings({ workflowId }: WorkflowSettingsProps) {
                 disabled={setModeMutation.isPending || mode === "advanced"}
                 className="flex-1"
               >
-                <Code2 className="h-4 w-4 mr-2" />
+                <Code2 className="h-4 w-4 mr-2" aria-hidden="true" />
                 Advanced
               </Button>
             </div>

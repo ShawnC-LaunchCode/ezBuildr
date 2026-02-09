@@ -29,7 +29,7 @@ export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: Websit
 
   const handleBlur = () => {
     // Auto-prepend https:// if missing
-    if (value && !value.match(/^https?:\/\//i)) {
+    if (value && !String(value).match(/^https?:\/\//i)) {
       onChange(`https://${value}`);
     }
   };
@@ -42,6 +42,7 @@ export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: Websit
       onChange={(e) => onChange(e.target.value)}
       onBlur={handleBlur}
       placeholder={placeholder}
+      autoComplete="url"
       disabled={readOnly}
     />
   );

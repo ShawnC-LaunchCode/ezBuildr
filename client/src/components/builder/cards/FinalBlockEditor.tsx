@@ -41,7 +41,7 @@ interface FinalBlockEditorProps {
     title: string;
     alias: string | null;
     required: boolean;
-    config: any;
+    config: unknown;
   };
 }
 

@@ -14,23 +14,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { aiAPI, runAPI, type AIStepData } from "@/lib/vault-api";
-
-interface Step {
-  id: string;
-  type: string;
-  title: string;
-  alias?: string | null;
-  description?: string | null;
-  config?: any;
-  required?: boolean;
-  visibleIf?: any;
-}
+import { aiAPI, runAPI, type AIStepData, type ApiStep } from "@/lib/vault-api";
 
 interface FillPageWithRandomDataButtonProps {
   runId: string;
-  currentSectionSteps: Step[];
-  onValuesFilled?: (values: Record<string, any>) => void;
+  currentSectionSteps: ApiStep[];
+  onValuesFilled?: (values: Record<string, unknown>) => void;
   className?: string;
 }
 
@@ -59,7 +48,9 @@ export function FillPageWithRandomDataButton({
       // Filter out virtual/computed steps (they're populated by transform blocks)
       const fillableSteps = currentSectionSteps.filter((step) => {
         // Skip virtual/computed steps
-        if (step.type === 'computed') {return false;}
+        if (step.type === 'computed') {
+          return false;
+        }
 
         // TODO: Respect visibility logic if available
         // For now, include all non-computed steps
@@ -81,7 +72,7 @@ export function FillPageWithRandomDataButton({
         key: step.alias || step.id,
         type: step.type,
         label: step.title,
-        options: step.config?.options || undefined,
+        options: Array.isArray((step.config as any)?.options) ? ((step.config as any)?.options as string[]) : undefined,
         description: step.description || undefined,
       }));
 
@@ -92,7 +83,9 @@ export function FillPageWithRandomDataButton({
       const savePromises = Object.entries(generatedValues).map(([key, value]) => {
         // Find the step by alias or id
         const step = fillableSteps.find((s) => s.alias === key || s.id === key);
-        if (!step) {return null;}
+        if (!step) {
+          return null;
+        }
 
         return runAPI.upsertValue(runId, step.id, value);
       }).filter(Boolean);
@@ -108,11 +101,12 @@ export function FillPageWithRandomDataButton({
         title: "Page Filled",
         description: `Generated values for ${Object.keys(generatedValues).length} fields`,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to fill page:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
       // Check if AI service is not configured
-      if (error.message?.includes("not configured") || error.message?.includes("503")) {
+      if (errorMessage.includes("not configured") || errorMessage.includes("503")) {
         toast({
           title: "AI Service Not Available",
           description: "Please configure AI_API_KEY in environment variables",
@@ -121,7 +115,7 @@ export function FillPageWithRandomDataButton({
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to generate random data",
+          description: errorMessage || "Failed to generate random data",
           variant: "destructive",
         });
       }
@@ -137,7 +131,7 @@ export function FillPageWithRandomDataButton({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { void handleFillPage(); }}
+            onClick={handleFillPage}
             disabled={isFilling}
             className={className}
           >

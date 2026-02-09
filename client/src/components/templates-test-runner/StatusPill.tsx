@@ -13,7 +13,9 @@ interface StatusPillProps {
   status: TestStatus;
 }
 
-const statusConfig: Record<TestStatus, { label: string; variant: string; className: string }> = {
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+
+const statusConfig: Record<TestStatus, { label: string; variant: BadgeVariant; className: string }> = {
   idle: {
     label: "Ready",
     variant: "secondary",
@@ -46,7 +48,7 @@ export function StatusPill({ status }: StatusPillProps) {
 
   return (
     <Badge
-      variant={config.variant as any}
+      variant={config.variant}
       className={cn(config.className, "font-medium")}
     >
       {config.label}

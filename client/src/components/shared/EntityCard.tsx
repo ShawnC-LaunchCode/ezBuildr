@@ -3,10 +3,11 @@
  * Reusable card component for displaying projects, workflows, and other entities
  */
 
-import { MoreVertical , LucideIcon } from "lucide-react";
+import { MoreVertical, LucideIcon } from "lucide-react";
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,7 +29,7 @@ import {
 export interface EntityAction {
   label: string | ReactNode;
   icon?: LucideIcon;
-  onClick?: (entity: any) => void;
+  onClick?: (entity: unknown) => void;
   href?: string;
   variant?: "default" | "destructive";
   separator?: boolean; // Add separator before this item
@@ -40,7 +41,7 @@ export interface EntityCardProps {
     title: string;
     description?: string | null;
     updatedAt: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   icon: LucideIcon;
   iconClassName?: string;
@@ -49,8 +50,8 @@ export interface EntityCardProps {
     label?: string;
   };
   actions?: EntityAction[];
-  renderBadge?: (entity: any) => ReactNode;
-  onClick?: (entity: any) => void;
+  renderBadge?: (entity: unknown) => ReactNode;
+  onClick?: (entity: unknown) => void;
   className?: string;
 }
 
@@ -62,7 +63,7 @@ export function EntityCard({
   actions = [],
   renderBadge,
   onClick,
-  className = "",
+  className,
 }: EntityCardProps) {
   const hasActions = actions.length > 0;
   const [, setLocation] = useLocation();
@@ -78,14 +79,18 @@ export function EntityCard({
 
   return (
     <Card
-      className={`group hover:shadow-lg transition-shadow overflow-hidden h-full flex flex-col ${onClick || link ? 'cursor-pointer' : ''} ${className}`}
+      className={cn(
+        "group hover:shadow-lg transition-shadow overflow-hidden h-full flex flex-col",
+        (onClick || link) && "cursor-pointer",
+        className
+      )}
       onClick={onClick || link ? handleCardClick : undefined}
     >
       <CardHeader className="flex-1">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1">
-            <div className={`p-2 rounded-lg ${iconClassName} shrink-0`}>
-              <Icon className="w-5 h-5" />
+            <div className={cn("p-2 rounded-lg shrink-0", iconClassName)}>
+              <Icon className="w-5 h-5" aria-hidden="true" />
             </div>
             <div className="flex-1 min-w-0">
               <TooltipProvider>
@@ -118,8 +123,9 @@ export function EntityCard({
                   size="icon"
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
+                  aria-label="Actions"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <MoreVertical className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -134,7 +140,7 @@ export function EntityCard({
                       {action.href ? (
                         <DropdownMenuItem asChild>
                           <Link href={action.href}>
-                            {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" />}
+                            {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" aria-hidden="true" />}
                             {action.label}
                           </Link>
                         </DropdownMenuItem>
@@ -146,7 +152,7 @@ export function EntityCard({
                             action.onClick?.(entity);
                           }}
                         >
-                          {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" />}
+                          {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" aria-hidden="true" />}
                           {action.label}
                         </DropdownMenuItem>
                       )}

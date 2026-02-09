@@ -74,7 +74,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
                                 placeholder="colleague@example.com"
                                 value={inviteEmail}
                                 onChange={(e) => setInviteEmail(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") handleInvite(); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") {handleInvite();} }}
                             />
                         </div>
                         <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>

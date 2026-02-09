@@ -47,9 +47,6 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
   };
 
-  const _handleLabelChange = (title: string) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, title });
-  };
 
   const handleAliasChange = (alias: string | null) => {
     updateStepMutation.mutate({ id: stepId, sectionId, alias });

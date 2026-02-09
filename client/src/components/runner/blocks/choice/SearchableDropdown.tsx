@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-import { ChoiceOption } from "../../../../../../shared/types/stepConfigs";
+import { ChoiceOption } from "@shared/types/stepConfigs";
 
 interface SearchableDropdownProps {
     options: ChoiceOption[];
@@ -50,7 +50,7 @@ export function SearchableDropdown({
                     {value
                         ? options.find((option) => (option.alias ?? option.id) === value)?.label
                         : <span className="text-muted-foreground">{placeholder}</span>}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
@@ -73,6 +73,7 @@ export function SearchableDropdown({
                                             "mr-2 h-4 w-4",
                                             (option.alias ?? option.id) === value ? "opacity-100" : "opacity-0"
                                         )}
+                                        aria-hidden="true"
                                     />
                                     {option.label}
                                 </CommandItem>

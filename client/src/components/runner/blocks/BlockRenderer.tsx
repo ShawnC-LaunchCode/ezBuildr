@@ -182,7 +182,7 @@ export function BlockRenderer(props: BlockRendererProps) {
       {/* Label */}
       <Label htmlFor={step.id}>
         {step.title}
-        {required && <span className="text-destructive ml-1">*</span>}
+        {required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
       </Label>
 
       {/* Description/Help Text */}

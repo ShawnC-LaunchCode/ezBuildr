@@ -37,10 +37,14 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
   const config = step.config as FinalBlockConfig;
   // Evaluate which documents should be shown
   const visibleDocuments = useMemo(() => {
-    if (!config?.documents) {return [];}
+    if (!config?.documents) {
+      return [];
+    }
     return config.documents.filter(doc => {
       // If no conditions, always show
-      if (!doc.conditions) {return true;}
+      if (!doc.conditions) {
+        return true;
+      }
       // Evaluate conditions (simplified for now)
       // Full logic evaluation will be enhanced in future prompts
       return evaluateDocumentConditions(doc.conditions, stepValues);
@@ -78,7 +82,7 @@ export function FinalBlockRenderer({ step, stepValues = {}, preview = false }: F
         </div>
       ) : (
         <div className="text-center py-8 text-muted-foreground">
-          <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" aria-hidden="true" />
           <p>No documents are available based on your responses.</p>
         </div>
       )}
@@ -110,7 +114,7 @@ function DocumentCard({ document, index, preview }: DocumentCardProps) {
     <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-md bg-primary/10">
-          <FileDown className="h-5 w-5 text-primary" />
+          <FileDown className="h-5 w-5 text-primary" aria-hidden="true" />
         </div>
         <div>
           <p className="font-medium">{document.alias.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
@@ -121,7 +125,7 @@ function DocumentCard({ document, index, preview }: DocumentCardProps) {
       </div>
       {preview ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <FileText className="h-4 w-4" />
+          <FileText className="h-4 w-4" aria-hidden="true" />
           <span>Placeholder</span>
         </div>
       ) : (

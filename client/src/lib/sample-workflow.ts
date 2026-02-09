@@ -132,7 +132,8 @@ export function useCreateSampleWorkflow() {
             // Navigate to builder
             navigate(`/workflows/${workflow.id}/builder`);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
+            console.error("Failed to create sample workflow:", error);
             toast({
                 title: "Error",
                 description: "Failed to create sample workflow. Please try creating a new one manually.",

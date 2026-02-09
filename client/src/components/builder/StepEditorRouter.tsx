@@ -9,6 +9,7 @@ import { MultiFieldCardEditor } from './cards/MultiFieldCardEditor';
 import { NumberCardEditor } from './cards/NumberCardEditor';
 import { PhoneCardEditor } from './cards/PhoneCardEditor';
 import { ScaleCardEditor } from './cards/ScaleCardEditor';
+import { SignatureBlockEditor } from './cards/SignatureBlockEditor';
 import { TextCardEditor } from './cards/TextCardEditor';
 import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
 import { LegacyStepBody } from './questions/LegacyStepBody';
@@ -81,6 +82,11 @@ export function StepEditorRouter({ step, sectionId, workflowId }: { step: ApiSte
     // Multi-Field Steps
     if (step.type === 'multi_field') {
         return <MultiFieldCardEditor {...commonProps} />;
+    }
+
+    // Signature Steps
+    if (step.type === 'signature_block' || step.type === 'signature') {
+        return <SignatureBlockEditor {...commonProps} />;
     }
 
     // Phase 1: Route everything to LegacyStepBody

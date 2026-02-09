@@ -38,7 +38,7 @@ export default function IntakeProgressBar({
   className = '',
 }: IntakeProgressBarProps) {
   // Calculate percentage
-  const percentage = Math.round((currentStep / totalSteps) * 100);
+  const percentage = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0;
 
   return (
     <div className={`intake-progress ${className}`}>

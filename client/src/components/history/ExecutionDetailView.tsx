@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { runAPI } from "@/lib/vault-api";
+import { runAPI, type ApiStepValue } from "@/lib/vault-api";
+
+interface ApiDocument {
+    id: string;
+    name: string;
+    fileType: string;
+}
+
 interface ExecutionDetailViewProps {
     runId: string;
     onBack: () => void;
@@ -18,7 +25,10 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
     });
     const { data: documents } = useQuery({
         queryKey: ['run-documents', runId],
-        queryFn: () => runAPI.getDocuments(runId),
+        queryFn: async () => {
+            const docs = await runAPI.getDocuments(runId);
+            return docs as unknown as ApiDocument[];
+        },
     });
     if (isLoading) {
         return <div className="p-8 text-center">Loading execution details...</div>;
@@ -73,7 +83,7 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                                 <CardTitle className="text-sm font-medium text-muted-foreground">Step Values</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-lg font-semibold">{run.values?.length || 0}</div>
+                                <div className="text-lg font-semibold">{run.values?.length ?? 0}</div>
                             </CardContent>
                         </Card>
                         <Card>
@@ -81,7 +91,7 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                                 <CardTitle className="text-sm font-medium text-muted-foreground">Generated Docs</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-lg font-semibold">{documents?.length || 0}</div>
+                                <div className="text-lg font-semibold">{documents?.length ?? 0}</div>
                             </CardContent>
                         </Card>
                     </div>
@@ -94,7 +104,7 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="grid gap-2">
-                                {documents.map((doc: any) => (
+                                {documents.map((doc) => (
                                     <div key={doc.id} className="flex items-center justify-between p-3 bg-muted/30 rounded border">
                                         <span className="font-medium text-sm">{doc.name}</span>
                                         <Badge variant="outline">{doc.fileType}</Badge>
@@ -123,7 +133,7 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
-                                            {run.values.map((val: any) => (
+                                            {run.values.map((val: ApiStepValue) => (
                                                 <tr key={val.id}>
                                                     <td className="p-3 font-mono text-xs">{val.stepId}</td>
                                                     <td className="p-3">

@@ -1,13 +1,13 @@
 
-import { Loader2, Sparkles, Send } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 import { AIGeneratedWorkflow } from "@shared/types/ai";
 
+import { AiAssistInput } from "./ai/AiAssistInput";
 import { AiMessageItem } from "./ai/AiMessageItem";
 import { useAiAssist } from "./ai/useAiAssist";
 import { AIFeedbackWidget } from "./AIFeedbackWidget";
@@ -99,28 +99,14 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                         <div ref={scrollRef} />
                     </div>
                 </div>
-                <div className="p-4 border-t bg-background">
-                    <form
-                        className="flex gap-2"
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            void handleSend();
-                        }}
-                    >
-                        <Input
-                            placeholder={mode === 'easy' ? "Describe changes to auto-apply..." : "Describe changes..."}
-                            value={input}
-                            onChange={(e) => { setInput(e.target.value); }}
-                            disabled={reviseMutation.isPending || !!proposedWorkflow}
-                        />
-                        <Button type="submit" size="icon" disabled={!input.trim() || reviseMutation.isPending || !!proposedWorkflow}>
-                            <Send className="w-4 h-4" />
-                        </Button>
-                    </form>
-                    {!!proposedWorkflow && (
-                        <p className="text-xs text-center mt-2 text-muted-foreground animate-pulse">Waiting for your review...</p>
-                    )}
-                </div>
+                <AiAssistInput
+                    input={input}
+                    setInput={setInput}
+                    handleSend={handleSend}
+                    isLoading={reviseMutation.isPending}
+                    isWaitingForReview={!!proposedWorkflow}
+                    mode={mode}
+                />
             </SheetContent>
         </Sheet>
     );

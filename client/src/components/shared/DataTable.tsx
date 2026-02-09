@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface Column<T> {
   header: string;
@@ -36,7 +37,7 @@ export function DataTable<T>({
   data,
   columns,
   emptyState,
-  className = "",
+  className,
   getRowKey
 }: DataTableProps<T>) {
   if (data.length === 0 && emptyState) {
@@ -44,20 +45,22 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <div className={cn("overflow-x-auto", className)}>
       <table className="w-full">
         <thead>
           <tr className="border-b">
             {columns.map((column, index) => (
               <th
-                key={index}
-                className={`p-2 ${
-                  column.align === "right"
-                    ? "text-right"
-                    : column.align === "center"
-                    ? "text-center"
-                    : "text-left"
-                } ${column.className ?? ""}`}
+                key={typeof column.accessor === "string" ? String(column.accessor) : index}
+                className={cn(
+                  "p-2",
+                  {
+                    "text-right": column.align === "right",
+                    "text-center": column.align === "center",
+                    "text-left": !column.align || column.align === "left"
+                  },
+                  column.className
+                )}
               >
                 {column.header}
               </th>
@@ -75,14 +78,16 @@ export function DataTable<T>({
 
                 return (
                   <td
-                    key={colIndex}
-                    className={`p-2 ${
-                      column.align === "right"
-                        ? "text-right"
-                        : column.align === "center"
-                        ? "text-center"
-                        : "text-left"
-                    } ${column.className ?? ""}`}
+                    key={typeof column.accessor === "string" ? String(column.accessor) : colIndex}
+                    className={cn(
+                      "p-2",
+                      {
+                        "text-right": column.align === "right",
+                        "text-center": column.align === "center",
+                        "text-left": !column.align || column.align === "left"
+                      },
+                      column.className
+                    )}
                   >
                     {value as ReactNode}
                   </td>

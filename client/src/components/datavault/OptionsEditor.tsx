@@ -44,7 +44,7 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
   const [newColor, setNewColor] = useState("blue");
 
   const addOption = () => {
-    if (!newLabel.trim() || !newValue.trim()) {return;}
+    if (!newLabel.trim() || !newValue.trim()) { return; }
 
     const newOption: SelectOption = {
       label: newLabel.trim(),
@@ -75,6 +75,7 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
       {options.length > 0 && (
         <div className="space-y-2">
           {options.map((option, index) => (
+            // eslint-disable-next-line react/no-array-index-key
             <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-accent/20">
               <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab flex-shrink-0" />
               <div className="flex-1 grid grid-cols-3 gap-2 min-w-0">
@@ -83,18 +84,20 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
                   value={option.label}
                   onChange={(e) => updateOption(index, { label: e.target.value })}
                   className="text-sm"
+                  aria-label={`Option ${index + 1} Label`}
                 />
                 <Input
                   placeholder="Value"
                   value={option.value}
                   onChange={(e) => updateOption(index, { value: e.target.value })}
                   className="text-sm"
+                  aria-label={`Option ${index + 1} Value`}
                 />
                 <Select
                   value={option.color ?? "blue"}
                   onValueChange={(color) => updateOption(index, { color })}
                 >
-                  <SelectTrigger className="text-sm">
+                  <SelectTrigger className="text-sm" aria-label={`Option ${index + 1} Color`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

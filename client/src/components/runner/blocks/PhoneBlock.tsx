@@ -30,15 +30,21 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
 
   // Format phone number for display
   const formatPhoneDisplay = (phone: string): string => {
-    if (!phone) {return "";}
+    if (!phone) {
+      return "";
+    }
 
     // Remove all non-digits
     const digits = phone.replace(/\D/g, "");
 
     if (format === "US") {
       // US format: (XXX) XXX-XXXX
-      if (digits.length <= 3) {return digits;}
-      if (digits.length <= 6) {return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;}
+      if (digits.length <= 3) {
+        return digits;
+      }
+      if (digits.length <= 6) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+      }
       return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
     }
 
@@ -52,7 +58,9 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
     const digits = newValue.replace(/\D/g, "");
 
     // Limit to 10 digits for US
-    if (format === "US" && digits.length > 10) {return;}
+    if (format === "US" && digits.length > 10) {
+      return;
+    }
 
     // Store normalized value (digits only)
     onChange(digits);
@@ -67,6 +75,7 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
       value={displayValue}
       onChange={(e) => handleChange(e.target.value)}
       placeholder={format === "US" ? "(555) 123-4567" : "Phone number"}
+      autoComplete="tel"
       disabled={readOnly}
     />
   );

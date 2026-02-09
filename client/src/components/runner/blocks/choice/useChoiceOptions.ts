@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { generateOptionsFromList } from "@/lib/choice-utils";
 import { Step } from "@/types";
 
-import { ChoiceOption, ChoiceAdvancedConfig, DynamicOptionsConfig } from "../../../../../../shared/types/stepConfigs";
+import { ChoiceOption, ChoiceAdvancedConfig, DynamicOptionsConfig } from "@shared/types/stepConfigs";
 
 // Interfaces for Legacy Options
 interface LegacyOption {
@@ -61,7 +61,9 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     }
 
     const parseLegacyOptions = (rawOptions: unknown): ChoiceOption[] => {
-        if (!Array.isArray(rawOptions)) { return []; }
+        if (!Array.isArray(rawOptions)) {
+            return [];
+        }
 
         return rawOptions.map((opt: string | LegacyOption, idx: number) => {
             if (typeof opt === "string") {
@@ -76,7 +78,9 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     };
 
     const fetchTableOptions = async (dynamicConfig: DynamicOptionsConfig): Promise<ChoiceOption[]> => {
-        if (dynamicConfig.type !== 'table_column') { return []; }
+        if (dynamicConfig.type !== 'table_column') {
+            return [];
+        }
 
         const { tableId, columnId, labelColumnId, limit = 100 } = dynamicConfig;
 
@@ -107,9 +111,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
 
     const resolveDynamicOptions = async (
         dynamicConfig: DynamicOptionsConfig,
-        ctx: Record<string, unknown> | undefined,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        currentOptions: ChoiceOption[]
+        ctx: Record<string, unknown> | undefined
     ): Promise<ChoiceOption[]> => {
         if (dynamicConfig.type === 'static') {
             const opts = dynamicConfig.options ?? [];
@@ -153,8 +155,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
 
     const getAdvancedOptions = async (
         config: unknown,
-        ctx: Record<string, unknown> | undefined,
-        currentOpts: ChoiceOption[]
+        ctx: Record<string, unknown> | undefined
     ): Promise<ChoiceOption[]> => {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         const advancedConfig = config as ChoiceAdvancedConfig | undefined;
@@ -162,7 +163,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         const isDynamic = configOptions !== null && typeof configOptions === 'object' && 'type' in configOptions;
 
         if (isDynamic) {
-            return resolveDynamicOptions(configOptions, ctx, currentOpts);
+            return resolveDynamicOptions(configOptions, ctx);
         } else {
             const opts = (configOptions as ChoiceOption[]) ?? [];
             return opts.map(opt => ({ ...opt, alias: opt.alias ?? opt.id }));
@@ -173,7 +174,9 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         let isMounted = true;
 
         const loadOptions = async (): Promise<void> => {
-            if (!isMounted) { return; }
+            if (!isMounted) {
+                return;
+            }
             setLoading(true);
             setError(null);
 
@@ -184,10 +187,12 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
                     newOptions = resolveLegacyOptions(step);
                 }
                 else if (step.type === "choice") {
-                    newOptions = await getAdvancedOptions(step.config, context, options);
+                    newOptions = await getAdvancedOptions(step.config, context);
                 }
 
-                if (isMounted) { setOptions(newOptions); }
+                if (isMounted) {
+                    setOptions(newOptions);
+                }
 
             } catch (err) {
                 console.error('[ChoiceBlock] Error loading options:', err);
@@ -197,7 +202,9 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
                     setOptions([]);
                 }
             } finally {
-                if (isMounted) { setLoading(false); }
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 

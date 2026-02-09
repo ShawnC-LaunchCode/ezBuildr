@@ -44,7 +44,11 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly }: ScaleBlo
         <Slider
           id={step.id}
           value={[currentValue]}
-          onValueChange={(vals) => !readOnly && onChange(vals[0])}
+          onValueChange={(vals) => {
+            if (!readOnly) {
+              onChange(vals[0]);
+            }
+          }}
           min={min}
           max={max}
           step={step_value}
@@ -75,16 +79,20 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly }: ScaleBlo
           <button
             key={starValue}
             type="button"
-            onClick={() => !readOnly && onChange(starValue)}
+            onClick={() => {
+              if (!readOnly) {
+                onChange(starValue);
+              }
+            }}
             disabled={readOnly}
             className="transition-colors hover:scale-110 disabled:cursor-not-allowed"
+            aria-label={`Rate ${starValue} out of ${numStars}`}
           >
             <Star
-              className={`w-8 h-8 ${
-                starValue <= currentValue
+              className={`w-8 h-8 ${starValue <= currentValue
                   ? "fill-yellow-400 text-yellow-400"
                   : "text-gray-300"
-              }`}
+                }`}
             />
           </button>
         ))}

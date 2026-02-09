@@ -1,8 +1,3 @@
-/**
- * SampleDataEditor - JSON editor for template test data
- * PR2: Full implementation with JSON validation
- */
-
 import { RotateCcw, AlignLeft } from "lucide-react";
 import { useState, useCallback } from "react";
 
@@ -14,7 +9,7 @@ import { cn } from "@/lib/utils";
 interface SampleDataEditorProps {
   value: string;
   onChange: (value: string) => void;
-  onValidChange?: (parsed: any | null) => void;
+  onValidChange?: (parsed: unknown | null) => void;
 }
 
 export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataEditorProps) {
@@ -66,7 +61,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
       {/* Toolbar */}
       <div className="border-b px-4 py-2 flex items-center justify-between bg-muted/50">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Sample Data</span>
+          <label htmlFor="sample-data-editor" className="text-sm font-medium text-muted-foreground cursor-pointer">Sample Data</label>
           {value.trim() && (
             <Badge
               variant={isValidJson ? "default" : "destructive"}
@@ -88,7 +83,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
             disabled={!isValidJson}
             title="Format JSON"
           >
-            <AlignLeft className="w-4 h-4 mr-1" />
+            <AlignLeft className="w-4 h-4 mr-1" aria-hidden="true" />
             Format
           </Button>
           <Button
@@ -97,7 +92,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
             onClick={handleReset}
             title="Reset to empty object"
           >
-            <RotateCcw className="w-4 h-4 mr-1" />
+            <RotateCcw className="w-4 h-4 mr-1" aria-hidden="true" />
             Reset
           </Button>
         </div>
@@ -106,6 +101,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
       {/* JSON Editor (textarea) */}
       <div className="flex-1 overflow-hidden p-4">
         <textarea
+          id="sample-data-editor"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
           className={cn(
@@ -116,13 +112,14 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
           )}
           placeholder='{\n  "name": "John Doe",\n  "email": "john@example.com"\n}'
           spellCheck={false}
+          aria-label="Sample Data JSON Editor"
         />
       </div>
 
       {/* Validation Error */}
       {jsonError && (
         <div className="border-t px-4 py-2 bg-destructive/10">
-          <p className="text-sm text-destructive font-medium">
+          <p className="text-sm text-destructive font-medium" role="alert">
             JSON Error: {jsonError}
           </p>
         </div>

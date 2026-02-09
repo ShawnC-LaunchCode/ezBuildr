@@ -10,7 +10,7 @@ import {
     Tag,
     Grid
 } from 'lucide-react';
-import {  useState } from 'react';
+import { useState, KeyboardEvent } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { blueprintAPI, ApiBlueprint } from '@/lib/vault-api';
+import { cn } from "@/lib/utils";
+
 interface TemplateBrowserDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -78,6 +80,14 @@ export function TemplateBrowserDialog({
             onOpenChange(false);
         }
     };
+
+    const handleKeyDown = (e: KeyboardEvent, template: ApiBlueprint) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setSelectedTemplate(template);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
@@ -86,7 +96,7 @@ export function TemplateBrowserDialog({
                     <DialogDescription>{description}</DialogDescription>
                     <div className="flex items-center gap-4 mt-4">
                         <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                             <Input
                                 placeholder="Search templates..."
                                 className="pl-9"
@@ -106,7 +116,7 @@ export function TemplateBrowserDialog({
                                 className="w-full justify-start"
                                 onClick={() => setActiveTab('all')}
                             >
-                                <Grid className="w-4 h-4 mr-2" />
+                                <Grid className="w-4 h-4 mr-2" aria-hidden="true" />
                                 All Templates
                             </Button>
                             <Button
@@ -114,7 +124,7 @@ export function TemplateBrowserDialog({
                                 className="w-full justify-start"
                                 onClick={() => setActiveTab('mine')}
                             >
-                                <User className="w-4 h-4 mr-2" />
+                                <User className="w-4 h-4 mr-2" aria-hidden="true" />
                                 My Templates
                             </Button>
                             <Button
@@ -122,7 +132,7 @@ export function TemplateBrowserDialog({
                                 className="w-full justify-start"
                                 onClick={() => setActiveTab('system')}
                             >
-                                <Box className="w-4 h-4 mr-2" />
+                                <Box className="w-4 h-4 mr-2" aria-hidden="true" />
                                 System
                             </Button>
                         </div>
@@ -140,7 +150,7 @@ export function TemplateBrowserDialog({
                             </div>
                         ) : filteredTemplates.length === 0 ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                                <FileText className="w-12 h-12 mb-4 opacity-20" />
+                                <FileText className="w-12 h-12 mb-4 opacity-20" aria-hidden="true" />
                                 <p>No templates found.</p>
                             </div>
                         ) : (
@@ -149,15 +159,19 @@ export function TemplateBrowserDialog({
                                     {filteredTemplates.map((template) => (
                                         <div
                                             key={template.id}
-                                            className={`
-                         group relative border rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md
-                         ${selectedTemplate?.id === template.id ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}
-                       `}
+                                            className={cn(
+                                                "group relative border rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md",
+                                                selectedTemplate?.id === template.id ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'
+                                            )}
                                             onClick={() => setSelectedTemplate(template)}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => handleKeyDown(e, template)}
+                                            aria-pressed={selectedTemplate?.id === template.id}
                                         >
                                             {/* Preview Header */}
                                             <div className="h-32 bg-muted/50 p-4 border-b group-hover:bg-muted/70 transition-colors flex items-center justify-center">
-                                                <Layout className="w-12 h-12 text-muted-foreground/40" />
+                                                <Layout className="w-12 h-12 text-muted-foreground/40" aria-hidden="true" />
                                             </div>
                                             {/* Content */}
                                             <div className="p-4">
@@ -167,7 +181,7 @@ export function TemplateBrowserDialog({
                                                 </p>
                                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                                     <div className="flex items-center gap-1">
-                                                        <Clock className="w-3 h-3" />
+                                                        <Clock className="w-3 h-3" aria-hidden="true" />
                                                         {new Date(template.createdAt).toLocaleDateString()}
                                                     </div>
                                                     {template.tags && template.tags.length > 0 && (

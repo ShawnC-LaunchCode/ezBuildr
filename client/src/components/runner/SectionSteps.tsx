@@ -86,22 +86,22 @@ export function SectionSteps({
                     onChange={(v) => { onChange(step.id, v); }}
                     error={errors?.[step.id]?.[0]} // Pass first error message
                     context={values}
-                    intakeSource={
-                        (() => {
-                            const defVal = step.defaultValue as DefaultValueConfig | undefined;
-                            return defVal?.source === 'intake' && defVal.variable
-                                ? {
-                                    title: intakeData?.sourceWorkflowTitle ?? 'Intake',
-                                    variable: defVal.variable,
-                                    value: intakeData?.values?.[defVal.variable]
-                                }
-                                : undefined;
-                        })()
-                    }
+                    intakeSource={getIntakeSource(step, intakeData)}
                 />
             ))}
         </>
     );
+}
+
+function getIntakeSource(step: any, intakeData?: { sourceWorkflowTitle?: string; values?: Record<string, unknown> }) {
+    const defVal = step.defaultValue as DefaultValueConfig | undefined;
+    return defVal?.source === 'intake' && defVal.variable
+        ? {
+            title: intakeData?.sourceWorkflowTitle ?? 'Intake',
+            variable: defVal.variable,
+            value: intakeData?.values?.[defVal.variable]
+        }
+        : undefined;
 }
 
 /**
@@ -151,7 +151,7 @@ function StepField({ step, value, onChange, error, context, intakeSource }: Step
             <BlockRenderer
                 step={step as unknown as Step}
                 value={value}
-                onChange={(v) => { onChange(v); }}
+                onChange={onChange}
                 required={step.required}
                 readOnly={false}
                 error={error}

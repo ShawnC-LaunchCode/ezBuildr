@@ -49,7 +49,9 @@ const ColumnSelection = ({
     labelColumnWarning: string | null;
     valueColumnWarning: string | null;
 }) => {
-    if (!sourceTableId) { return null; }
+    if (!sourceTableId) {
+        return null;
+    }
 
     return (
         <>

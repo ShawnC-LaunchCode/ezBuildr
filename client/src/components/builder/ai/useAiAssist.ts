@@ -3,29 +3,11 @@ import { useState, useRef, useEffect } from 'react';
 
 import { useToast } from "@/hooks/use-toast";
 import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+
 import { AIGeneratedWorkflow, QualityScore } from "@shared/types/ai";
 
 import { inspirationalPhrases } from "./constants";
 import { Message, OperationMeta } from "./types";
-
-interface UseAiAssistReturn {
-    input: string;
-    setInput: (val: string) => void;
-    messages: Message[];
-    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
-    showFeedbackWidget: boolean;
-    setShowFeedbackWidget: (show: boolean) => void;
-    lastQualityScore: QualityScore | undefined;
-    lastOperationMeta: OperationMeta | null;
-    inspirationIndex: number;
-    scrollRef: React.RefObject<HTMLDivElement>;
-    reviseMutation: ReturnType<typeof useReviseWorkflow>;
-    mode: string;
-    inspirationalPhrases: string[];
-    handleSend: () => Promise<void>;
-    handleApply: () => Promise<void>;
-    handleDiscard: () => void;
-}
 
 interface UseInspirationalPhrasesReturn {
     currentPhrase: string;
@@ -49,6 +31,25 @@ function useInspirationalPhrases(isPending: boolean): UseInspirationalPhrasesRet
         currentPhrase: inspirationalPhrases[inspirationIndex],
         inspirationIndex // keeping index for now if needed, but phrase is enough
     };
+}
+
+interface UseAiAssistReturn {
+    input: string;
+    setInput: (input: string) => void;
+    messages: Message[];
+    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
+    showFeedbackWidget: boolean;
+    setShowFeedbackWidget: (show: boolean) => void;
+    lastQualityScore: QualityScore | undefined;
+    lastOperationMeta: OperationMeta | null;
+    inspirationIndex: number;
+    scrollRef: React.RefObject<HTMLDivElement>;
+    reviseMutation: ReturnType<typeof useReviseWorkflow>;
+    mode: 'easy' | 'advanced';
+    inspirationalPhrases: string[];
+    handleSend: () => Promise<void>;
+    handleApply: () => Promise<void>;
+    handleDiscard: () => void;
 }
 
 export function useAiAssist(

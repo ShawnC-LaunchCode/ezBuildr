@@ -22,14 +22,22 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
     const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId || undefined);
     // Evaluate assignments
     const assignedWorkflows = useMemo(() => {
-        if (!workflow.intakeConfig?.assignments) { return []; }
-        if (!projectWorkflows) { return []; }
+        if (!workflow.intakeConfig?.assignments) {
+            return [];
+        }
+        if (!projectWorkflows) {
+            return [];
+        }
         const assignments = workflow.intakeConfig.assignments as AssignmentRule[];
         return assignments
             .filter(rule => {
-                if (!rule.enabled) { return false; }
+                if (!rule.enabled) {
+                    return false;
+                }
                 // If no condition, it's always available
-                if (!rule.condition) { return true; }
+                if (!rule.condition) {
+                    return true;
+                }
                 // Evaluate condition against run values
                 // Note: evaluateConditionExpression generic might need 'any' cast if strict types aren't matching
                 try {
@@ -54,7 +62,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                 <CardHeader>
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                            <CheckCircle2 className="h-6 w-6" />
+                            <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
                         </div>
                         <div>
                             <CardTitle className="text-xl">Intake Complete</CardTitle>
@@ -65,7 +73,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
             </Card>
             <div className="grid gap-4 md:grid-cols-1">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <GitBranch className="h-5 w-5 text-secondary" />
+                    <GitBranch className="h-5 w-5 text-secondary" aria-hidden="true" />
                     Recommended Next Actions
                 </h3>
                 {assignedWorkflows.length > 0 ? (
@@ -75,7 +83,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className="h-10 w-10 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary">
-                                            <FileText className="h-5 w-5" />
+                                            <FileText className="h-5 w-5" aria-hidden="true" />
                                         </div>
                                         <div>
                                             <h4 className="font-semibold">{targetWorkflow!.title}</h4>
@@ -85,7 +93,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                                         </div>
                                     </div>
                                     <Button variant="outline" className="gap-2">
-                                        Start Workflow <ArrowRight className="h-4 w-4" />
+                                        Start Workflow <ArrowRight className="h-4 w-4" aria-hidden="true" />
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -94,7 +102,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                 ) : (
                     <Card>
                         <CardContent className="p-6 text-center text-muted-foreground flex flex-col items-center gap-2">
-                            <AlertCircle className="h-8 w-8 opacity-50" />
+                            <AlertCircle className="h-8 w-8 opacity-50" aria-hidden="true" />
                             <p>No specific workflows matched the intake criteria.</p>
                         </CardContent>
                     </Card>

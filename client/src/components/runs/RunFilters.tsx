@@ -112,7 +112,7 @@ export function RunFilters({ filters, onChange }: RunFiltersProps) {
               onClick={handleClearFilters}
               className="w-full"
             >
-              <X className="h-4 w-4 mr-2" />
+              <X className="h-4 w-4 mr-2" aria-hidden="true" />
               Clear Filters
             </Button>
           )}
@@ -124,12 +124,12 @@ export function RunFilters({ filters, onChange }: RunFiltersProps) {
         <div className="flex-1">
           <Input
             placeholder="Search by run ID, creator email, or input data..."
-            value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Search runs"
           />
         </div>
         <Button type="submit" variant="secondary">
-          <Search className="h-4 w-4 mr-2" />
+          <Search className="h-4 w-4 mr-2" aria-hidden="true" />
           Search
         </Button>
       </form>

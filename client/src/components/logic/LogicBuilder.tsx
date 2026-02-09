@@ -72,7 +72,9 @@ export function LogicBuilder({
 
   // Convert raw variables to VariableInfo format
   const variables: VariableInfo[] = useMemo(() => {
-    if (!rawVariables) {return [];}
+    if (!rawVariables) {
+      return [];
+    }
 
     return rawVariables
       .filter((v) => v.key !== elementId) // Filter out self-references
@@ -142,8 +144,12 @@ export function LogicBuilder({
 
   // Check if there are unsaved changes
   const hasChanges = useMemo(() => {
-    if (hasConditions !== (value !== null)) {return true;}
-    if (!hasConditions) {return false;}
+    if (hasConditions !== (value !== null)) {
+      return true;
+    }
+    if (!hasConditions) {
+      return false;
+    }
     // Deep compare would be better, but for now just check if both exist
     return JSON.stringify(localExpression) !== JSON.stringify(value);
   }, [hasConditions, localExpression, value]);
@@ -189,7 +195,7 @@ export function LogicBuilder({
             )}
           </div>
           <div>
-            <Label className="text-sm font-medium">
+            <Label className="text-sm font-medium" htmlFor="conditional-visibility-toggle">
               Conditional Visibility
             </Label>
             <p className="text-xs text-muted-foreground">
@@ -200,6 +206,7 @@ export function LogicBuilder({
           </div>
         </div>
         <Switch
+          id="conditional-visibility-toggle"
           checked={hasConditions}
           onCheckedChange={handleToggleConditions}
         />

@@ -33,7 +33,9 @@ const AutoExpandTextarea = React.forwardRef<
 
   const adjustHeight = React.useCallback(() => {
     const textarea = textareaRef.current;
-    if (!textarea) {return;}
+    if (!textarea) {
+      return;
+    }
 
     // Reset height to allow shrinking
     textarea.style.height = `${minHeight}px`;
@@ -83,7 +85,9 @@ function useCombinedRefs<T>(
 ): React.RefCallback<T> {
   return React.useCallback((element: T) => {
     refs.forEach((ref) => {
-      if (!ref) {return;}
+      if (!ref) {
+        return;
+      }
       if (typeof ref === "function") {
         ref(element);
       } else {

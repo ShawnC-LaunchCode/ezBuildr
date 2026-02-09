@@ -14,14 +14,14 @@ interface StatsCardProps {
   isLoading?: boolean;
 }
 
-export default function StatsCard({ 
-  title, 
-  value, 
-  icon, 
-  iconColor = "text-primary", 
-  change, 
+export default function StatsCard({
+  title,
+  value,
+  icon,
+  iconColor = "text-primary",
+  change,
   changeLabel,
-  isLoading = false 
+  isLoading = false
 }: StatsCardProps) {
   if (isLoading) {
     return (
@@ -55,7 +55,7 @@ export default function StatsCard({
             </p>
           </div>
           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center" data-testid="icon-stats">
-            {React.createElement(icon, { className: `h-6 w-6 ${iconColor}` })}
+            {React.createElement(icon, { className: `h-6 w-6 ${iconColor}`, "aria-hidden": "true" })}
           </div>
         </div>
         {change && changeLabel && (

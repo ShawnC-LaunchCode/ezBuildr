@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from "react";
 
-import { testTemplate, type TestTemplateRequest } from "@/lib/api-client";
+import { templateAPI, type TestTemplateRequest } from "@/lib/vault-api";
 
 import type { TestStatus, TestResult } from "./types";
 
@@ -37,7 +37,8 @@ export function useTemplateTest(): UseTemplateTestReturn {
       setStatus('rendering');
 
       // Call API
-      const testResult = await testTemplate(workflowId, templateId, request);
+      // Cast the result to TestResult to match component expectations
+      const testResult = await templateAPI.test(workflowId, templateId, request) as unknown as TestResult;
 
       // Phase 3: Set final status
       if (testResult.ok) {

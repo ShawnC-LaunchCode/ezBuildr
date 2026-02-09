@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 import type { TenantBranding } from '@shared/types/branding';
 
@@ -31,7 +31,7 @@ export function BrandingProvider({ children, tenantId, domain }: BrandingProvide
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const loadBranding = async () => {
+  const loadBranding = useCallback(async () => {
     // Skip if neither tenantId nor domain is provided
     if (!tenantId && !domain) {
       setIsLoading(false);
@@ -78,7 +78,7 @@ export function BrandingProvider({ children, tenantId, domain }: BrandingProvide
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [tenantId, domain]);
 
   useEffect(() => {
     loadBranding();
@@ -87,14 +87,14 @@ export function BrandingProvider({ children, tenantId, domain }: BrandingProvide
     return () => {
       removeThemeTokens();
     };
-  }, [tenantId, domain]);
+  }, [loadBranding]);
 
-  const value: BrandingContextValue = {
+  const value = useMemo<BrandingContextValue>(() => ({
     branding,
     isLoading,
     error,
     refreshBranding: loadBranding,
-  };
+  }), [branding, isLoading, error, loadBranding]);
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }

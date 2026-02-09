@@ -9,7 +9,7 @@
  * Storage: YYYY-MM-DD (ISO 8601 date string)
  */
 
-import React from "react";
+import { useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
@@ -27,7 +27,7 @@ export function DateBlockRenderer({ step, value, onChange, readOnly }: DateBlock
   const config = step.config as DateConfig;
 
   // Initialize with today's date if configured
-  React.useEffect(() => {
+  useEffect(() => {
     if (!value && config?.defaultToToday) {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
       onChange(today);

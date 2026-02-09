@@ -5,7 +5,7 @@ import {
   BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import AIHeroCard from "@/components/AIHeroCard";
@@ -39,6 +39,7 @@ interface DashboardStats {
 export default function Dashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
 
   // Analytics tracking helper
@@ -65,7 +66,7 @@ export default function Dashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/";
+        setLocation("/");
       }, 500);
     }
   }, [isAuthenticated, isLoading, toast]);
@@ -81,10 +82,7 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const _handleDataUpdate = () => {
-    void refetchStats();
-    void refetchWorkflows();
-  };
+
 
   if (isLoading || !isAuthenticated) {
     return null;
@@ -217,7 +215,7 @@ export default function Dashboard() {
                       iconBgColor="bg-primary/10"
                       label="Create New Workflow"
                       testId="button-quick-create-workflow"
-                      onClick={() => { void track("new_workflow_blank_clicked", { source: "quick_actions" }); }}
+                      onClick={() => { track("new_workflow_blank_clicked", { source: "quick_actions" }); }}
                     />
 
                     <QuickActionButton

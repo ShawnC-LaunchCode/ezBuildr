@@ -1354,6 +1354,25 @@ export interface ApiTemplate {
   createdAt: string;
   updatedAt: string;
 }
+export interface TestTemplateRequest {
+  outputType: 'docx' | 'pdf' | 'both';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sample data is dynamic
+  sampleData: Record<string, any>;
+}
+
+export interface ApiTemplateTestResult {
+  ok: boolean;
+  status: 'success' | 'error';
+  durationMs?: number;
+  docxUrl?: string;
+  pdfUrl?: string;
+  errors?: Array<{
+    code: string;
+    message: string;
+    details?: unknown;
+  }>;
+}
+
 export const templateAPI = {
   list: () =>
     fetchAPI<ApiTemplate[]>(`/api/templates`),
@@ -1381,6 +1400,11 @@ export const templateAPI = {
     fetchAPI<{ templateId: string; placeholders: ApiPlaceholderInfo[] }>(
       `/api/templates/${id}/placeholders`
     ),
+  test: (workflowId: string, templateId: string, request: TestTemplateRequest) =>
+    fetchAPI<ApiTemplateTestResult>(`/api/workflows/${workflowId}/templates/${templateId}/test`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
 };
 // ============================================================================
 // Blueprints (Workflow Templates) FE-15

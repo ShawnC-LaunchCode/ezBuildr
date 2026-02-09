@@ -47,12 +47,13 @@ export function LogicIndicator({
   }
   const tooltipText = `This ${elementType} has ${conditionCount} visibility condition${conditionCount !== 1 ? "s" : ""}`;
   const iconSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
+
   if (variant === "icon") {
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={cn("inline-flex items-center text-amber-500", className)}>
+            <span className={cn("inline-flex items-center text-amber-500", className)} aria-label={tooltipText}>
               <EyeOff className={iconSize} />
             </span>
           </TooltipTrigger>
@@ -63,16 +64,20 @@ export function LogicIndicator({
       </TooltipProvider>
     );
   }
+
   if (variant === "compact") {
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={cn(
-              "inline-flex items-center gap-0.5 text-amber-500",
-              size === "sm" ? "text-xs" : "text-sm",
-              className
-            )}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-0.5 text-amber-500",
+                size === "sm" ? "text-xs" : "text-sm",
+                className
+              )}
+              aria-label={tooltipText}
+            >
               <EyeOff className={iconSize} />
               <span className="font-medium">{conditionCount}</span>
             </span>
@@ -84,6 +89,7 @@ export function LogicIndicator({
       </TooltipProvider>
     );
   }
+
   // Default badge variant
   return (
     <TooltipProvider>
@@ -96,6 +102,7 @@ export function LogicIndicator({
               size === "sm" ? "text-xs px-1.5 py-0" : "text-sm px-2 py-0.5",
               className
             )}
+            aria-label={tooltipText}
           >
             <EyeOff className={iconSize} />
             <span>{conditionCount}</span>

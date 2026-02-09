@@ -44,10 +44,16 @@ function useDarkModeObserver() {
 
 // Helper to check if two values are effectively different
 function isDifferent(val1: any, val2: any): boolean {
-  if (val1 === val2) { return false; }
-  if (typeof val1 !== typeof val2) { return true; }
+  if (val1 === val2) {
+    return false;
+  }
+  if (typeof val1 !== typeof val2) {
+    return true;
+  }
   if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
-    if (Array.isArray(val1) !== Array.isArray(val2)) { return true; }
+    if (Array.isArray(val1) !== Array.isArray(val2)) {
+      return true;
+    }
     return JSON.stringify(val1) !== JSON.stringify(val2);
   }
   return true;
@@ -132,12 +138,12 @@ export function JsonViewer({ data, className, maxHeight = '400px', readOnly = tr
         >
           {copiedAll ? (
             <>
-              <Check className="h-3 w-3 mr-1" />
+              <Check className="h-3 w-3 mr-1" aria-hidden="true" />
               Copied
             </>
           ) : (
             <>
-              <Copy className="h-3 w-3 mr-1" />
+              <Copy className="h-3 w-3 mr-1" aria-hidden="true" />
               Copy All
             </>
           )}
@@ -227,11 +233,18 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
 
     return (
       <div className="ml-0">
-        <div className={containerClass} onClick={() => { if (!isEmpty) {setExpanded(!expanded);} }}>
+        <div
+          className={containerClass}
+          onClick={() => { if (!isEmpty) { setExpanded(!expanded); } }}
+          role="button"
+          tabIndex={!isEmpty ? 0 : -1}
+          onKeyDown={(e) => { if (!isEmpty && (e.key === 'Enter' || e.key === ' ')) { setExpanded(!expanded); e.preventDefault(); } }}
+          aria-expanded={expanded}
+        >
           {/* Toggle */}
           {!isEmpty ? (
             <span className="cursor-pointer mr-1 mt-0.5 opacity-50 hover:opacity-100">
-              {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              {expanded ? <ChevronDown className="w-3 h-3" aria-hidden="true" /> : <ChevronRight className="w-3 h-3" aria-hidden="true" />}
             </span>
           ) : <span className="w-4 mr-1"></span>}
 
@@ -259,13 +272,14 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
               <button
                 onClick={(e) => { void handleCopyPath(e, path); }}
                 title="Copy Path"
+                aria-label="Copy path"
                 className="text-xs px-1.5 py-0.5 rounded bg-muted/50 hover:bg-muted"
               >
-                {copiedPath ? <Check className="w-3 h-3 text-green-500" /> : "path"}
+                {copiedPath ? <Check className="w-3 h-3 text-green-500" aria-hidden="true" /> : "path"}
               </button>
             )}
-            <button onClick={(e) => handleCopy(e, JSON.stringify(value, null, 2))} title="Copy Value">
-              {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />}
+            <button onClick={(e) => handleCopy(e, JSON.stringify(value, null, 2))} title="Copy Value" aria-label="Copy value">
+              {copied ? <Check className="w-3 h-3 text-green-500" aria-hidden="true" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -317,13 +331,14 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
           <button
             onClick={(e) => { void handleCopyPath(e, path); }}
             title="Copy Path"
+            aria-label="Copy path"
             className="text-xs px-1.5 py-0.5 rounded bg-muted/50 hover:bg-muted"
           >
-            {copiedPath ? <Check className="w-3 h-3 text-green-500" /> : "path"}
+            {copiedPath ? <Check className="w-3 h-3 text-green-500" aria-hidden="true" /> : "path"}
           </button>
         )}
-        <button onClick={(e) => handleCopy(e, String(value))} title="Copy Value">
-          {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />}
+        <button onClick={(e) => handleCopy(e, String(value))} title="Copy Value" aria-label="Copy value">
+          {copied ? <Check className="w-3 h-3 text-green-500" aria-hidden="true" /> : <Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" aria-hidden="true" />}
         </button>
       </div>
     </div>

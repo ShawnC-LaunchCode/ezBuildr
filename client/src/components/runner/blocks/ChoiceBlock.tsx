@@ -69,12 +69,12 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
   // Loading & Error States
   // -------------------------------------------------------------------------
   if (loading) {
-    return <div className="text-sm text-muted-foreground animate-pulse">Loading options...</div>;
+    return <div className="text-sm text-muted-foreground animate-pulse" role="status">Loading options...</div>;
   }
 
   if (error !== null) {
     return (
-      <div className="text-sm text-destructive border border-destructive/20 bg-destructive/5 rounded p-2">
+      <div className="text-sm text-destructive border border-destructive/20 bg-destructive/5 rounded p-2" role="alert">
         Error: {error}
       </div>
     );
@@ -91,7 +91,11 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
     return (
       <RadioGroup
         value={currentValue as string}
-        onValueChange={(newValue) => { if (!readOnly) { onChange(newValue); } }}
+        onValueChange={(newValue) => {
+          if (!readOnly) {
+            onChange(newValue);
+          }
+        }}
         disabled={readOnly}
       >
         {options.map((option) => (
@@ -115,7 +119,11 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
         <SearchableDropdown
           options={options}
           value={currentValue as string}
-          onChange={(val) => { if (!readOnly) { onChange(val); } }}
+          onChange={(val) => {
+            if (!readOnly) {
+              onChange(val);
+            }
+          }}
           disabled={readOnly}
         />
       );
@@ -124,7 +132,11 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
     return (
       <Select
         value={currentValue as string}
-        onValueChange={(newValue) => { if (!readOnly) { onChange(newValue); } }}
+        onValueChange={(newValue) => {
+          if (!readOnly) {
+            onChange(newValue);
+          }
+        }}
         disabled={readOnly}
       >
         <SelectTrigger id={step.id}>
@@ -148,7 +160,9 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
     const selectedAliases = Array.isArray(currentValue) ? (currentValue as string[]) : [];
 
     const handleToggle = (optionAlias: string, checked: boolean) => {
-      if (readOnly) { return; }
+      if (readOnly) {
+        return;
+      }
 
       let newValue: string[];
       if (checked) {

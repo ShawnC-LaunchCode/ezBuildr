@@ -42,7 +42,7 @@ export function StatCard({
             </p>
           </div>
           <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center`}>
-            <Icon className={`${colors.text} w-6 h-6`} />
+            <Icon className={`${colors.text} w-6 h-6`} aria-hidden="true" />
           </div>
         </div>
       </CardContent>

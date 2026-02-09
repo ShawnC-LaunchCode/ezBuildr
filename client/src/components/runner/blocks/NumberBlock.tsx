@@ -10,7 +10,7 @@
  * Storage: number (pure numeric value)
  */
 
-import React from "react";
+import { useState, useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
@@ -33,10 +33,11 @@ export function NumberBlockRenderer({ step, value, onChange, readOnly }: NumberB
   const allowDecimal = config?.allowDecimal ?? true;
   const placeholder = (config as any)?.placeholder || "0";
 
-  const [displayValue, setDisplayValue] = React.useState("");
+  const [displayValue, setDisplayValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   // Sync display value with prop value
-  React.useEffect(() => {
+  useEffect(() => {
     if (value !== null && value !== undefined) {
       setDisplayValue(String(value));
     } else {
@@ -61,8 +62,12 @@ export function NumberBlockRenderer({ step, value, onChange, readOnly }: NumberB
     }
 
     // Enforce min/max
-    if (min !== undefined && parsed < min) {return;}
-    if (max !== undefined && parsed > max) {return;}
+    if (min !== undefined && parsed < min) {
+      return;
+    }
+    if (max !== undefined && parsed > max) {
+      return;
+    }
 
     onChange(parsed);
   };

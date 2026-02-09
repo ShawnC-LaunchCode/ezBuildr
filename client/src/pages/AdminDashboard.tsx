@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users, FileText, BarChart, CheckCircle, Shield, TrendingUp, Database, Trash2 } from "lucide-react";
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+
 interface AdminStats {
   totalUsers: number;
   adminUsers: number;
@@ -19,14 +21,17 @@ interface AdminStats {
   completedRuns: number;
   inProgressRuns: number;
 }
+
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: stats, isLoading: statsLoading, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     enabled: !!isAuthenticated,
     retry: false,
   });
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -36,10 +41,11 @@ export default function AdminDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/";
+        setLocation("/");
       }, 500);
     }
-  }, [isAuthenticated, authLoading, toast]);
+  }, [isAuthenticated, authLoading, toast, setLocation]);
+
   // Show error if access denied (not admin)
   useEffect(() => {
     if (error) {
@@ -49,13 +55,15 @@ export default function AdminDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/";
+        setLocation("/");
       }, 1000);
     }
-  }, [error, toast]);
+  }, [error, toast, setLocation]);
+
   if (authLoading || !isAuthenticated || error) {
     return null;
   }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />

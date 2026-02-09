@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useConfetti } from "@/hooks/useConfetti";
 import { useTemplates } from "@/hooks/useTemplates";
 
-
 interface Template {
   id: string;
   name: string;
@@ -41,7 +40,7 @@ export default function EditTemplateModal({ open, onClose, template }: EditTempl
   }, [template]);
 
   async function handleSave() {
-    if (!template) {return;}
+    if (!template) { return; }
 
     if (!name.trim()) {
       toast({
@@ -130,7 +129,7 @@ export default function EditTemplateModal({ open, onClose, template }: EditTempl
             Cancel
           </Button>
           <Button onClick={() => { void handleSave(); }} disabled={update.isPending}>
-            {update.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {update.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
             Save changes
           </Button>
         </DialogFooter>

@@ -6,10 +6,27 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type {  } from "@shared/schema";
 interface SidebarProps {
   className?: string;
 }
+
+const navigation = [
+  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Workflows", href: "/workflows", icon: Workflow },
+  { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
+  { name: "Billing", href: "/billing", icon: CreditCard },
+  { name: "Organizations", href: "/organizations", icon: Users },
+  { name: "DataVault", href: "/datavault", icon: Folder },
+  { name: "Settings", href: "/settings", icon: Settings },
+];
+
+const adminNavigation = [
+  { name: "Admin Dashboard", href: "/admin", icon: Shield },
+  { name: "Manage Users", href: "/admin/users", icon: Users },
+  { name: "Activity Logs", href: "/admin/logs", icon: List },
+  { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },
+];
+
 export default function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -31,22 +48,7 @@ export default function Sidebar({ className }: SidebarProps) {
     }
   };
   // Check if user is admin (from server response)
-  const isAdmin = (user as any)?.role === 'admin';
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "Workflows", href: "/workflows", icon: Workflow },
-    { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
-    { name: "Billing", href: "/billing", icon: CreditCard },
-    { name: "Organizations", href: "/organizations", icon: Users },
-    { name: "DataVault", href: "/datavault", icon: Folder },
-    { name: "Settings", href: "/settings", icon: Settings },
-  ];
-  const adminNavigation = [
-    { name: "Admin Dashboard", href: "/admin", icon: Shield },
-    { name: "Manage Users", href: "/admin/users", icon: Users },
-    { name: "Activity Logs", href: "/admin/logs", icon: List },
-    { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },
-  ];
+  const isAdmin = user?.role === 'admin';
   const isActive = (href: string) => {
     if (href === "/") {
       return location === "/";
@@ -145,7 +147,7 @@ export default function Sidebar({ className }: SidebarProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { void handleLogout(); }}
+            onClick={() => handleLogout()}
             data-testid="button-logout"
             className="w-full flex items-center justify-center space-x-2 h-9"
           >

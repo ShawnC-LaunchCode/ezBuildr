@@ -41,12 +41,12 @@ export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescrib
 
   if (step.type === "short_text") {
     variant = "short";
-    maxLength = (step.config)?.maxLength;
-    placeholder = (step.config)?.placeholder || "Your answer...";
+    maxLength = step.config?.maxLength;
+    placeholder = step.config?.placeholder || "Your answer...";
   } else if (step.type === "long_text") {
     variant = "long";
-    maxLength = (step.config)?.maxLength;
-    placeholder = (step.config)?.placeholder || "Your answer...";
+    maxLength = step.config?.maxLength;
+    placeholder = step.config?.placeholder || "Your answer...";
   } else if (step.type === "text") {
     const config = step.config as TextAdvancedConfig;
     variant = config?.variant || "short";
@@ -75,6 +75,7 @@ export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescrib
           disabled={readOnly}
           className="resize-y"
           aria-describedby={ariaDescribedBy}
+          maxLength={maxLength}
         />
         {maxLength && (
           <p className="text-xs text-muted-foreground text-right">

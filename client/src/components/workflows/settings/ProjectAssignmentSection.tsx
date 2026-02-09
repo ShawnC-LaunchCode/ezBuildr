@@ -107,7 +107,7 @@ export function ProjectAssignmentSection({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5" />
+            <FolderOpen className="w-5 h-5" aria-hidden="true" />
             <CardTitle>Project Assignment</CardTitle>
           </div>
           <CardDescription>
@@ -134,7 +134,7 @@ export function ProjectAssignmentSection({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5" />
+            <FolderOpen className="w-5 h-5" aria-hidden="true" />
             <CardTitle>Project Assignment</CardTitle>
           </div>
           <CardDescription>
@@ -204,3 +204,4 @@ export function ProjectAssignmentSection({
     </>
   );
 }
+

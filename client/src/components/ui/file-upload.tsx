@@ -222,9 +222,9 @@ export function FileUpload({
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) { return <Image className="h-4 w-4" />; }
-    if (mimeType.includes('pdf')) { return <FileText className="h-4 w-4" />; }
-    return <File className="h-4 w-4" />;
+    if (mimeType.startsWith('image/')) { return <Image className="h-4 w-4" aria-hidden="true" />; }
+    if (mimeType.includes('pdf')) { return <FileText className="h-4 w-4" aria-hidden="true" />; }
+    return <File className="h-4 w-4" aria-hidden="true" />;
   };
 
   const maxFiles = config?.maxFiles || 5;
@@ -242,11 +242,11 @@ export function FileUpload({
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => { if (!disabled) {fileInputRef.current?.click();} }}
+          onClick={() => { if (!disabled) { fileInputRef.current?.click(); } }}
           data-testid="file-upload-dropzone"
         >
           <CardContent className="flex flex-col items-center justify-center py-8 px-4">
-            <Upload className="h-8 w-8 text-muted-foreground mb-4" />
+            <Upload className="h-8 w-8 text-muted-foreground mb-4" aria-hidden="true" />
             <div className="text-center">
               <p className="text-sm font-medium text-foreground mb-1">
                 {dragOver ? 'Drop files here' : 'Click to upload or drag and drop'}
@@ -324,8 +324,9 @@ export function FileUpload({
                     size="sm"
                     onClick={() => { void window.open(`/api/files/${file.id}/download`, '_blank'); }}
                     data-testid={`button-download-${file.id}`}
+                    aria-label="Download file"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4" aria-hidden="true" />
                   </Button>
 
                   {!disabled && (
@@ -335,8 +336,9 @@ export function FileUpload({
                       onClick={() => { void handleFileRemove(file.id); }}
                       className="text-destructive hover:text-destructive"
                       data-testid={`button-remove-${file.id}`}
+                      aria-label="Remove file"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   )}
                 </div>

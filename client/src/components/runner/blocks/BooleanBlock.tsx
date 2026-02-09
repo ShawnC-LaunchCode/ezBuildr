@@ -38,8 +38,8 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
   let displayStyle: "toggle" | "radio" | "checkbox" | "buttons" = "buttons";
 
   if (step.type === "yes_no") {
-    trueLabel = (step.config)?.yesLabel || "Yes";
-    falseLabel = (step.config)?.noLabel || "No";
+    trueLabel = step.config?.yesLabel || "Yes";
+    falseLabel = step.config?.noLabel || "No";
   } else if (step.type === "true_false") {
     const config = step.config as TrueFalseConfig;
     trueLabel = config?.trueLabel || "True";
@@ -54,6 +54,7 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
 
   // Determine current value
   const isTrue = storeAsBoolean ? value === true : value === trueLabel;
+  const isDefined = value !== undefined && value !== null;
 
   // Handle change
   const handleChange = (newValue: boolean) => {
@@ -70,19 +71,21 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
       <div className="flex gap-2">
         <Button
           type="button"
-          variant={isTrue ? "default" : "outline"}
+          variant={isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(true)}
           disabled={readOnly}
           className="flex-1"
+          aria-pressed={isTrue && isDefined}
         >
           {trueLabel}
         </Button>
         <Button
           type="button"
-          variant={!isTrue && value !== undefined && value !== null ? "default" : "outline"}
+          variant={!isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(false)}
           disabled={readOnly}
           className="flex-1"
+          aria-pressed={!isTrue && isDefined}
         >
           {falseLabel}
         </Button>
@@ -93,7 +96,7 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
   // Render as radio group (alternative)
   return (
     <RadioGroup
-      value={isTrue ? "true" : "false"}
+      value={isDefined ? (isTrue ? "true" : "false") : undefined}
       onValueChange={(v) => !readOnly && handleChange(v === "true")}
       disabled={readOnly}
     >

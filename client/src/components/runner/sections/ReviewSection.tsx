@@ -18,18 +18,28 @@ export function ReviewSection({
 }: ReviewSectionProps) {
     // Helper to format values for display
     const formatValue = (val: any): string => {
-        if (val === null || val === undefined || val === "") {return "Not answered";}
-        if (typeof val === "boolean") {return val ? "Yes" : "No";}
-        if (val instanceof Date) {return val.toLocaleDateString();}
-        if (Array.isArray(val)) {return val.join(", ");}
-        if (typeof val === "object") {return JSON.stringify(val);} // Fallback
+        if (val === null || val === undefined || val === "") {
+            return "Not answered";
+        }
+        if (typeof val === "boolean") {
+            return val ? "Yes" : "No";
+        }
+        if (val instanceof Date) {
+            return val.toLocaleDateString();
+        }
+        if (Array.isArray(val)) {
+            return val.join(", ");
+        }
+        if (typeof val === "object") {
+            return JSON.stringify(val);
+        } // Fallback
         return String(val);
     };
     return (
         <div className="space-y-8">
             <div className="text-center space-y-2 mb-8">
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 mb-2">
-                    <CheckCircle2 className="w-6 h-6" />
+                    <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <h2 className="text-2xl font-bold tracking-tight text-slate-900">Review your answers</h2>
                 <p className="text-slate-500 max-w-md mx-auto">
@@ -39,7 +49,9 @@ export function ReviewSection({
             <div className="space-y-6">
                 {sections.map((section, index) => {
                     // Only show visible sections
-                    if (!visibleSectionIds.includes(section.id)) {return null;}
+                    if (!visibleSectionIds.includes(section.id)) {
+                        return null;
+                    }
                     const sectionSteps = allSteps.filter(s => s.sectionId === section.id);
                     // Hide sections with no visible steps? For now show all visible sections.
                     return (
@@ -54,7 +66,7 @@ export function ReviewSection({
                                     className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2"
                                     onClick={() => onEditSection(index)}
                                 >
-                                    <Edit2 className="w-3 h-3 mr-1.5" />
+                                    <Edit2 className="w-3 h-3 mr-1.5" aria-hidden="true" />
                                     Edit
                                 </Button>
                             </CardHeader>
@@ -67,7 +79,9 @@ export function ReviewSection({
                                         // Ideally, we check step visibility too, but that requires re-running logic.
                                         // Simplification: Show if value exists or if it's in the list.
                                         const val = values[step.id];
-                                        if (val === undefined || val === null || val === "") {return null;} // Skip empty for conciseness
+                                        if (val === undefined || val === null || val === "") {
+                                            return null;
+                                        } // Skip empty for conciseness
                                         return (
                                             <div key={step.id} className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 p-4 hover:bg-slate-50/30 transition-colors">
                                                 <div className="text-sm font-medium text-slate-500 md:col-span-1">

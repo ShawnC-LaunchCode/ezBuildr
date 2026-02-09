@@ -1,11 +1,5 @@
-import { CheckCircle2, Lightbulb, X } from 'lucide-react';
 import { useState } from 'react';
-
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchAPI } from '@/lib/vault-api';
@@ -13,6 +7,8 @@ import { fetchAPI } from '@/lib/vault-api';
 import type { QualityScore } from '@shared/types/ai';
 
 // Imported sub-components
+import { FeedbackFormContent } from './ai-feedback/FeedbackFormContent';
+import { FeedbackSuccessMessage } from './ai-feedback/FeedbackSuccessMessage';
 import { IssueList } from './ai-feedback/IssueList';
 import { QualityBreakdown, QualityHeader } from './ai-feedback/QualityBreakdown';
 import { RatingInput } from './ai-feedback/RatingInput';
@@ -105,89 +101,22 @@ export function AIFeedbackWidget({
 
   if (isSubmitted) {
     return (
-      <Card className={cn('border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10', className)}>
-        <CardContent className="pt-6 flex flex-col items-center justify-center text-center space-y-3">
-          <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
-            <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">Thank You!</h3>
-          <p className="text-sm text-green-700 dark:text-green-300">Your feedback helps us improve the AI assistant.</p>
-        </CardContent>
-      </Card>
+      <FeedbackSuccessMessage className={className} />
     );
   }
 
   return (
     <Card className={cn('border-indigo-200 dark:border-indigo-800', className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg flex items-center gap-2">
-              AI Quality & Feedback
-              {qualityScore && <QualityHeader qualityScore={qualityScore} />}
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Rate the AI&apos;s performance to help us improve
-            </CardDescription>
-          </div>
-          {onClose && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { void onClose(); }}>
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {qualityScore && (
-          <>
-            <QualityBreakdown qualityScore={qualityScore} />
-            <IssueList issues={qualityScore.issues} />
-            <Separator />
-          </>
-        )}
-
-        <RatingInput rating={rating} setRating={setRating} />
-
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium">Additional Comments (Optional)</h4>
-          <Textarea
-            placeholder="Tell us what worked well or what could be improved..."
-            value={comment}
-            onChange={(e) => { void setComment(e.target.value); }}
-            rows={3}
-            className="text-sm resize-none"
-          />
-        </div>
-
-        {qualityScore?.suggestions && qualityScore.suggestions.length > 0 && (
-          <Alert>
-            <Lightbulb className="w-4 h-4" />
-            <AlertDescription className="text-xs">
-              <strong>Suggestions:</strong>
-              <ul className="list-disc list-inside mt-1 space-y-0.5">
-                {qualityScore.suggestions.slice(0, 3).map((suggestion, idx) => (
-                  <li key={idx}>{suggestion}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex gap-2 justify-end pt-2">
-          {onClose && (
-            <Button variant="outline" onClick={() => { void onClose(); }} disabled={isSubmitting}>
-              Skip
-            </Button>
-          )}
-          <Button
-            onClick={() => { void handleSubmit(); }}
-            disabled={rating === 0 || isSubmitting}
-            className="bg-indigo-600 hover:bg-indigo-700"
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
-          </Button>
-        </div>
-      </CardContent>
+      <FeedbackFormContent
+        qualityScore={qualityScore}
+        onClose={onClose}
+        rating={rating}
+        setRating={setRating}
+        comment={comment}
+        setComment={setComment}
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+      />
     </Card>
   );
 }

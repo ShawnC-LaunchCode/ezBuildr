@@ -185,6 +185,7 @@ export function ConditionRow({
                 size="icon"
                 className="h-8 w-8 shrink-0 hover:bg-background"
                 onClick={handleToggleValueType}
+                aria-label={condition.valueType === "constant" ? "Switch to variable comparison" : "Switch to constant comparison"}
               >
                 <ArrowRightLeft className={`h-3.5 w-3.5 ${condition.valueType === "variable" ? "text-primary" : "text-muted-foreground"}`} />
               </Button>
@@ -203,6 +204,7 @@ export function ConditionRow({
         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
         onClick={onDelete}
         disabled={!canDelete}
+        aria-label="Delete condition"
       >
         <X className="h-4 w-4" />
       </Button>

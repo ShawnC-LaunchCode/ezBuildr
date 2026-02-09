@@ -46,7 +46,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
 
   // Handle rename snapshot
   const handleRename = async (newName: string) => {
-    if (!selectedSnapshot) return;
+    if (!selectedSnapshot) {return;}
 
     try {
       await renameSnapshot.mutateAsync({
@@ -68,7 +68,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
 
   // Handle delete snapshot
   const handleDelete = async () => {
-    if (!selectedSnapshot) return;
+    if (!selectedSnapshot) {return;}
 
     try {
       await deleteSnapshot.mutateAsync({

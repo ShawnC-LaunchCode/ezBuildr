@@ -12,6 +12,7 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
 import { GoogleLogin } from "@/components/GoogleLogin";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   // Debug logging for Google Sign-In
@@ -49,7 +51,7 @@ export default function Landing() {
             <div className="flex items-center space-x-3">
               <img
                 src={logo}
-                alt="Vault-Logic Logo"
+                alt="ezBuildr Logo"
                 className="w-8 h-8 rounded-lg object-cover"
               />
               <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
@@ -133,7 +135,7 @@ export default function Landing() {
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 hover:opacity-90 text-white px-8"
-                  onClick={() => window.location.href = '/api/auth/dev-login'}
+                  onClick={() => setLocation('/api/auth/dev-login')}
                 >
                   Start Building <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
@@ -194,7 +196,7 @@ export default function Landing() {
               Everything you need to build logic
             </motion.h2>
             <motion.p variants={fadeIn} className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              From simple flows to complex automations, Vault-Logic adapts to your needs
+              From simple flows to complex automations, ezBuildr adapts to your needs
             </motion.p>
           </motion.div>
 
@@ -279,7 +281,7 @@ export default function Landing() {
               </h2>
               <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
                 Most tools force you to choose: simple but limited, or powerful but complex.
-                Vault-Logic gives you both. Start with drag-and-drop simplicity, add code when you need it.
+                ezBuildr gives you both. Start with drag-and-drop simplicity, add code when you need it.
               </p>
               <ul className="space-y-4">
                 {[
@@ -318,7 +320,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why Vault-Logic - Comparison */}
+      {/* Why ezBuildr - Comparison */}
       <section className="py-24 bg-muted/30" >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -332,7 +334,7 @@ export default function Landing() {
               Other tools stop at data collection
             </motion.h2>
             <motion.p variants={fadeIn} className="text-lg text-muted-foreground">
-              Vault-Logic goes further — automating the decisions that come after
+              ezBuildr goes further — automating the decisions that come after
             </motion.p>
           </motion.div>
 
@@ -526,7 +528,7 @@ export default function Landing() {
                         }`}
                       variant={plan.highlight ? "default" : "outline"}
                       size="lg"
-                      onClick={() => window.location.href = '/app'}
+                      onClick={() => setLocation('/app')}
                     >
                       {plan.cta}
                     </Button>
@@ -554,7 +556,7 @@ export default function Landing() {
               </span>
             </h2>
             <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
-              Join teams building smarter workflows with Vault-Logic
+              Join teams building smarter workflows with ezBuildr
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {googleClientId ? (
@@ -563,7 +565,7 @@ export default function Landing() {
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 hover:opacity-90 text-white px-8"
-                  onClick={() => window.location.href = '/app'}
+                  onClick={() => setLocation('/app')}
                 >
                   Start Building Free <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
@@ -574,6 +576,7 @@ export default function Landing() {
                 disabled
                 className="opacity-50"
               >
+                <Play className="mr-2 w-4 h-4" />
                 Watch Demo (Coming Soon)
               </Button>
             </div>
@@ -621,11 +624,11 @@ export default function Landing() {
             <div className="flex items-center space-x-3">
               <img
                 src={logo}
-                alt="Vault-Logic Logo"
+                alt="ezBuildr Logo"
                 className="w-6 h-6 rounded-lg object-cover"
               />
               <span className="text-sm text-muted-foreground">
-                © 2025 Vault-Logic. All rights reserved.
+                © 2025 ezBuildr. All rights reserved.
               </span>
             </div>
             <div className="text-sm text-muted-foreground">

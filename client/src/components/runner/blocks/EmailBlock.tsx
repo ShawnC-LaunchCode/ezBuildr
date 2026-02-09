@@ -34,6 +34,7 @@ export function EmailBlockRenderer({ step, value, onChange, readOnly }: EmailBlo
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      autoComplete="email"
       disabled={readOnly}
     />
   );

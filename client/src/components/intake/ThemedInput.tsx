@@ -56,7 +56,7 @@ export const ThemedInput = forwardRef<HTMLInputElement, ThemedInputProps>(
     },
     ref
   ) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const inputId = id || `input-${Math.random().toString(36).substring(2, 11)}`;
 
     const inputStyles = {
       width: '100%',
@@ -145,7 +145,7 @@ export const ThemedTextarea = forwardRef<HTMLTextAreaElement, ThemedTextareaProp
     },
     ref
   ) => {
-    const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+    const textareaId = id || `textarea-${Math.random().toString(36).substring(2, 11)}`;
 
     const textareaStyles = {
       width: '100%',

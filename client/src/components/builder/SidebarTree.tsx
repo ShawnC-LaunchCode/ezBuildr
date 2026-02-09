@@ -1,17 +1,6 @@
-
-/**
- * Sidebar Tree - Drag-and-drop page/question hierarchy
- */
-import { Plus, FileText, FileCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
@@ -24,6 +13,8 @@ import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { SectionItem } from "./sidebar/SectionItem";
+import { SidebarEmptyState } from "./sidebar/SidebarEmptyState";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
@@ -54,7 +45,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
     const order = sections?.length ?? 0;
     await createSectionMutation.mutateAsync({
       workflowId,
-      title: `${UI_LABELS.PAGE} ${order + 1}`,
+      title: `${UI_LABELS.PAGE} ${order + 1} `,
       order,
     });
   };
@@ -101,45 +92,22 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b space-y-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              {UI_LABELS.ADD_PAGE}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={() => { void handleCreateSection(); }}>
-              <FileText className="w-4 h-4 mr-2" />
-              Regular Page
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { void handleCreateFinalDocumentsSection(); }}>
-              <FileCheck className="w-4 h-4 mr-2" />
-              Final Documents Section
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {/* AI Assistant Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full border-dashed border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
-          onClick={() => { void setShowAiDialog(true); }}
-        >
-          <Sparkles className="w-3 h-3 mr-2" />
-          Edit with AI
-        </Button>
-        {/* Add Snip Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-          onClick={() => { void setShowSnipDialog(true); }}
-        >
-          <Plus className="w-3 h-3 mr-2" />
-          Add Snip
-        </Button>
+      <div className="flex items-center justify-between border-b p-2">
+        <h2 className="text-lg font-semibold">Document Outline</h2>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => { void handleCreateSection(); }}>
+            Add Page
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { void handleCreateFinalDocumentsSection(); }}>
+            Add Final Docs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { void setShowAiDialog(true); }}>
+            AI Assist
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { void setShowSnipDialog(true); }}>
+            Add Snip
+          </Button>
+        </div>
       </div>
       {mode === 'easy' && workflow?.projectId && (
         <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
@@ -147,21 +115,11 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       <ScrollArea className="flex-1">
         <div className="p-2">
           {sections && sections.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-center px-4 animate-in fade-in duration-500">
-              <div className="p-3 bg-indigo-50 rounded-full mb-3 ring-4 ring-indigo-50/50">
-                <FileText className="w-5 h-5 text-indigo-600" />
-              </div>
-              <h4 className="font-medium text-sm text-foreground mb-1">Start Building</h4>
-              <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-                Pages are the main steps of your workflow. Add one to begin.
-              </p>
-              <div className="relative">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-indigo-200"></div>
-                <Button onClick={() => { void handleCreateSection(); }} size="sm" className="bg-indigo-600 hover:bg-indigo-700 shadow-sm">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Add First Page
-                </Button>
-              </div>
+            <div className="p-4 text-center text-muted-foreground">
+              <p>No sections yet.</p>
+              <Button variant="link" onClick={() => { void handleCreateSection(); }}>
+                Click here to add your first page.
+              </Button>
             </div>
           )}
           {sections?.map((section) => (

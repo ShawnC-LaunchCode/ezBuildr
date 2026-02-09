@@ -99,7 +99,9 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     enabled: !!isValidRunId, // Only fetch if runId is valid
     refetchInterval: (query) => {
       // Only refetch if runId is valid
-      if (!isValidRunId) { return false; }
+      if (!isValidRunId) {
+        return false;
+      }
       // If no documents yet, refetch every 2 seconds until they're ready
       const docs = query.state.data;
       if (!docs || docs.length === 0) {
@@ -110,9 +112,13 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     },
   });
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) { return ''; }
+    if (!bytes) {
+      return '';
+    }
     const kb = bytes / 1024;
-    if (kb < 1024) { return `${kb.toFixed(1)} KB`; }
+    if (kb < 1024) {
+      return `${kb.toFixed(1)} KB`;
+    }
     const mb = kb / 1024;
     return `${mb.toFixed(1)} MB`;
   };
@@ -150,7 +156,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       {/* Success Header */}
       <div className="text-center space-y-6">
         <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
-          <CheckCircle className="w-8 h-8" />
+          <CheckCircle className="w-8 h-8" aria-hidden="true" />
         </div>
         <div className="space-y-2">
           <h1
@@ -188,7 +194,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
         <Card className="border-slate-200 shadow-md overflow-hidden bg-white">
           <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
             <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-500" />
+              <FileText className="w-4 h-4 text-slate-500" aria-hidden="true" />
               Generated Documents
             </CardTitle>
           </CardHeader>
@@ -213,7 +219,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                        <span className="text-xl">{getFileIcon(doc.mimeType)}</span>
+                        <span className="text-xl" role="img" aria-label="Document Type">{getFileIcon(doc.mimeType)}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm text-slate-900 truncate pr-4">{doc.fileName}</div>
@@ -230,7 +236,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
                       asChild
                     >
                       <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-3.5 h-3.5 mr-2" />
+                        <Download className="w-3.5 h-3.5 mr-2" aria-hidden="true" />
                         Download
                       </a>
                     </Button>

@@ -1,8 +1,3 @@
-/**
- * ResultsPanel - Display test results with tabs
- * PR3: Full implementation with Summary/Errors/Preview tabs
- */
-
 import { AlertCircle, Download, FileText, CheckCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +22,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
     return (
       <Card className="flex-1 p-4 overflow-auto">
         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-          <FileText className="w-16 h-16 mb-4 opacity-20" />
+          <FileText className="w-16 h-16 mb-4 opacity-20" aria-hidden="true" />
           <p className="text-sm font-medium mb-2">No results yet</p>
           <p className="text-xs max-w-sm">
             Run a test to preview your document output.
@@ -49,7 +44,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
             <TabsTrigger value="errors" className="relative">
               Errors
               <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
-                {result.errors!.length}
+                {result.errors?.length || 0}
               </Badge>
             </TabsTrigger>
           )}
@@ -64,12 +59,12 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
               <div className="flex items-center gap-2">
                 {result.ok ? (
                   <>
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <CheckCircle2 className="w-5 h-5 text-green-600" aria-hidden="true" />
                     <span className="text-sm text-green-600 font-medium">Test Successful</span>
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="w-5 h-5 text-destructive" />
+                    <AlertCircle className="w-5 h-5 text-destructive" aria-hidden="true" />
                     <span className="text-sm text-destructive font-medium">Test Failed</span>
                   </>
                 )}
@@ -94,7 +89,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
               {hasErrors && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Errors</p>
-                  <p className="text-sm font-medium text-destructive">{result.errors!.length} error(s)</p>
+                  <p className="text-sm font-medium text-destructive">{result.errors?.length || 0} error(s)</p>
                 </div>
               )}
 
@@ -124,13 +119,13 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
           <TabsContent value="errors" className="flex-1 overflow-auto p-4 m-0">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">
-                {result.errors!.length} Error{result.errors!.length !== 1 ? 's' : ''} Found
+                {result.errors?.length || 0} Error{(result.errors?.length || 0) !== 1 ? 's' : ''} Found
               </h3>
-              {result.errors!.map((error, index) => (
+              {result.errors?.map((error, index) => (
                 <Card key={index} className="border-destructive/50 bg-destructive/5">
                   <div className="p-3">
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" aria-hidden="true" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="outline" className="text-xs font-mono">
@@ -168,7 +163,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
                   <Card className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <FileText className="w-8 h-8 text-blue-600" />
+                        <FileText className="w-8 h-8 text-blue-600" aria-hidden="true" />
                         <div>
                           <p className="text-sm font-medium">DOCX Document</p>
                           <p className="text-xs text-muted-foreground">Microsoft Word format</p>
@@ -176,7 +171,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
                       </div>
                       <Button size="sm" asChild>
                         <a href={result.docxUrl} download>
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="w-4 h-4 mr-2" aria-hidden="true" />
                           Download
                         </a>
                       </Button>
@@ -188,7 +183,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
                   <Card className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <FileText className="w-8 h-8 text-red-600" />
+                        <FileText className="w-8 h-8 text-red-600" aria-hidden="true" />
                         <div>
                           <p className="text-sm font-medium">PDF Document</p>
                           <p className="text-xs text-muted-foreground">Portable Document Format</p>
@@ -196,7 +191,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
                       </div>
                       <Button size="sm" asChild>
                         <a href={result.pdfUrl} download>
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="w-4 h-4 mr-2" aria-hidden="true" />
                           Download
                         </a>
                       </Button>
@@ -214,7 +209,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-              <FileText className="w-12 h-12 mb-3 opacity-20" />
+              <FileText className="w-12 h-12 mb-3 opacity-20" aria-hidden="true" />
               <p className="text-sm">No outputs available</p>
               <p className="text-xs mt-1">
                 {result.ok

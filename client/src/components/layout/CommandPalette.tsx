@@ -1,21 +1,15 @@
 import {
     Calculator,
-    Calendar,
-    CreditCard,
-    Settings,
-    Smile,
-    User,
-    LayoutDashboard,
-    Plus,
-    Play,
-    Save,
     Code2,
+    LayoutDashboard,
+    Play,
+    Plus,
+    Save,
+    Settings,
     Sparkles,
-    FileText,
-    Search
 } from "lucide-react";
-import * as React from "react";
-import {  useLocation } from "wouter";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 import {
     CommandDialog,
@@ -27,34 +21,36 @@ import {
     CommandSeparator,
     CommandShortcut,
 } from "@/components/ui/command";
-import { useWorkflowMode, useSetWorkflowMode } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
+
 export function CommandPalette() {
-    const [open, setOpen] = React.useState(false);
-    const [, navigate] = useLocation();
+    const [open, setOpen] = useState(false);
+    const [location, setLocation] = useLocation();
     const { mode: builderMode } = useWorkflowBuilder();
+
     // Use location to determine context (some actions only valid in builder)
-    const isBuilder = window.location.pathname.includes("/builder");
-    const workflowIdMatch = window.location.pathname.match(/\/workflows\/([^\/]+)\/builder/);
-    const workflowId = workflowIdMatch ? workflowIdMatch[1] : null;
-    React.useEffect(() => {
+    const isBuilder = location.includes("/builder");
+
+    useEffect(() => {
         const down = (e: KeyboardEvent) => {
             if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
-                setOpen((open) => !open);
+                setOpen((currentOpen) => !currentOpen);
             }
         };
         document.addEventListener("keydown", down);
         return () => document.removeEventListener("keydown", down);
     }, []);
-    const runCommand = React.useCallback((command: () => unknown) => {
+
+    const runCommand = useCallback((command: () => unknown) => {
         setOpen(false);
         command();
     }, []);
+
     return (
         <>
             {/* Hidden hint for accessibility/discovery */}
-            <div className="hidden">
+            <div className="hidden" aria-hidden="true">
                 Press <kbd>⌘K</kbd> to open command palette
             </div>
             <CommandDialog open={open} onOpenChange={setOpen}>
@@ -80,15 +76,15 @@ export function CommandPalette() {
                         </CommandGroup>
                     )}
                     <CommandGroup heading="Navigation">
-                        <CommandItem onSelect={() => runCommand(() => navigate("/workflows"))}>
+                        <CommandItem onSelect={() => runCommand(() => setLocation("/workflows"))}>
                             <LayoutDashboard className="mr-2 h-4 w-4" />
                             <span>Go to Dashboard</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/workflows/new"))}>
+                        <CommandItem onSelect={() => runCommand(() => setLocation("/workflows/new"))}>
                             <Plus className="mr-2 h-4 w-4" />
                             <span>Create New Workflow</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => navigate("/settings"))}>
+                        <CommandItem onSelect={() => runCommand(() => setLocation("/settings"))}>
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Settings</span>
                         </CommandItem>

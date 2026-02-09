@@ -19,6 +19,7 @@ import type {
   ConditionGroup as ConditionGroupType,
   LogicalOperator,
   VariableInfo,
+  ScriptCondition,
 } from "@shared/types/conditions";
 import { createEmptyCondition, createEmptyGroup } from "@shared/types/conditions";
 
@@ -50,7 +51,7 @@ export function ConditionGroup({
   };
 
   // Update a condition at a specific index
-  const handleConditionChange = (index: number, updated: Condition | ConditionGroupType) => {
+  const handleConditionChange = (index: number, updated: Condition | ConditionGroupType | ScriptCondition) => {
     const newConditions = [...group.conditions];
     newConditions[index] = updated;
     onChange({
@@ -86,30 +87,31 @@ export function ConditionGroup({
   };
 
   // Render a single item (condition or nested group)
-  const renderItem = (item: Condition | ConditionGroupType, index: number) => {
+  const renderItem = (item: Condition | ConditionGroupType | ScriptCondition, index: number) => {
     if (item.type === "condition") {
       return (
         <ConditionRow
           key={item.id}
           condition={item}
           variables={variables}
-          onChange={(updated: any) => handleConditionChange(index, updated)}
+          onChange={(updated: Condition) => handleConditionChange(index, updated)}
           onDelete={() => handleConditionDelete(index)}
           canDelete={group.conditions.length > 1}
         />
       );
-    } else {
+    } else if (item.type === "group") {
       return (
         <ConditionGroup
           key={item.id}
           group={item}
           variables={variables}
-          onChange={(updated: any) => handleConditionChange(index, updated)}
+          onChange={(updated: ConditionGroupType) => handleConditionChange(index, updated)}
           onDelete={() => handleConditionDelete(index)}
           depth={depth + 1}
         />
       );
     }
+    return null;
   };
 
   // Style based on depth
@@ -167,7 +169,7 @@ export function ConditionGroup({
         {group.conditions.map((item, index) => (
           <div key={item.id}>
             {/* Render the condition or nested group */}
-            {renderItem(item as any, index)}
+            {renderItem(item, index)}
 
             {/* Operator divider between conditions */}
             {index < group.conditions.length - 1 && (

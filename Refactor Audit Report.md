@@ -58,11 +58,6 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | ExternalSendBlockEditor.tsx | Removed React import, fixed type casts, ?? operators | |
 | QueryBlockEditor.tsx | Removed React import, typed handleChange, ?? operators | |
 | JSBlockEditor.tsx | Typed block interface, removed any types, ?? operators, error handling | Needs major refactor (478 lines) |
-| BrandingContext.tsx | useCallback for loadBranding, fixed deps, ?? operators | |
-| ActivateToggle.tsx | Removed React import, Content-Type eslint disable | |
-| AdvancedModeBanner.tsx | Removed React import | |
-| AddSnipDialog.tsx | Removed React import, removed empty type import | |
-| HelperLibraryDocs.tsx | Removed React import | |
 | LogicPanel.tsx | Removed React import | |
 | LogicInspectorPanel.tsx | Removed React import | |
 | TransformSummary.tsx | Removed React import | |
@@ -137,34 +132,80 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | builder/ai/AiAssistantDialog.tsx | Removed unused `queryClient`, fixed `any` types to `unknown`, added type guard for error | 195 lines |
 | builder/ai/AiConversationPanel.tsx | Fixed `React.FormEvent` to `FormEvent`, `\|\|` to `??`, added `void` for floating promise | 314 lines |
 | builder/ai/AiDiffView.tsx | Replaced `suggestions: any` with typed interfaces, typed forEach callbacks, `\|\|` to `??` | 87 lines |
-| cards/AddressCardEditor.tsx | Fixed import path `@/../../shared` to `@shared`, removed extra blank lines | 155 lines |
-| cards/BooleanCardEditor.tsx | Fixed import path `@/../../shared` to `@shared`, removed extra blank lines | 219 lines |
-| cards/DisplayCardEditor.tsx | Fixed import path `@/../../shared` to `@shared`, removed extra blank line | 144 lines |
-| cards/EmailCardEditor.tsx | Fixed import path `@/../../shared` to `@shared`, removed extra blank lines | 123 lines |
-| cards/FinalBlockEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/ChoiceCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | Already refactored |
-| cards/MultiFieldCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/NumberCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/PhoneCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/ScaleCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/SignatureBlockEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/StaticOptionsEditor.tsx | Fixed import path, removed unused `React` import | - |
-| cards/TextCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/WebsiteCardEditor.tsx | Fixed import path `@/../../shared` to `@shared` | - |
-| cards/common/VisibilityField.tsx | Fixed import path `@/../../shared` to `@shared` | - |
+| client/src/components/builder/cards/BooleanCardEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/ChoiceCardEditor.tsx | Refactored | Extracted dialogs to ListToolsDialogs.tsx |
+| client/src/components/builder/cards/choices/ListToolsDialogs.tsx | New | Extracted from ChoiceCardEditor |
+| client/src/components/builder/cards/DisplayCardEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/EmailCardEditor.tsx | Verified | Verified Clean (Removed unused code) |
+| client/src/components/builder/cards/FinalBlockEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/MultiFieldCardEditor.tsx | Verified | Verified Clean (Inline Components) |
+| client/src/components/builder/cards/NumberCardEditor.tsx | Verified | Verified Clean (Refactored) |
+| client/src/components/builder/cards/NumberCardEditor.components.tsx | Verified | Verified Clean |Clean |
+| client/src/components/builder/cards/PhoneCardEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/ScaleCardEditor.tsx | Verified | Verified Clean (Refactored) |
+| client/src/components/builder/cards/ScaleCardEditor.components.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/SignatureBlockEditor.tsx | Verified | Verified Clean (Refactored) |
+| client/src/components/builder/cards/SignatureBlockEditor.components.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/TextCardEditor.tsx | Verified | Verified Clean (Refactored) |
+| client/src/components/builder/cards/TextCardEditor.components.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/WebsiteCardEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/StaticOptionsEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/StepEditorRouter.tsx | Updated | Wired SignatureBlockEditor |
+| client/src/components/builder/ListInspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/BlockEditorDialog.tsx | Verified | Verified Clean (Refactored) |
+| client/src/components/builder/cards/common/RequiredToggle.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/VisibilityField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DescriptionField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DocumentPicker.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/LabelField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/AliasField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DefaultValueField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/EditorField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/RequiredToggle.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/VisibilityField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DescriptionField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DocumentPicker.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/LabelField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepGuidance.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepIcons.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepTitleRow.tsx | Verified | Verified Clean |
+| client/src/components/builder/questions/LegacyStepBody.tsx | Verified | Verified Clean (Legacy) |
+| client/src/components/builder/templates/MappingSidebar.tsx | Verified | Verified Clean |
+| client/src/components/builder/templates/PdfCanvas.tsx | Verified | Verified Clean |
+| client/src/components/builder/templates/PdfMappingEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/versioning/DiffViewer.tsx | Verified | Verified Clean |
+| client/src/components/builder/versioning/PublishWorkflowDialog.tsx | Verified | Verified Clean |
+| client/src/components/builder/versioning/VersionBadge.tsx | Verified | Verified Clean |
+| client/src/components/builder/versioning/VersionHistoryPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/AssignmentTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/DataSourcesTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/ReviewTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/SectionsTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/SettingsTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/SnapshotsTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/TemplatesTab.tsx | Verified | Verified Clean |
+| client/src/components/builder/tabs/VisualBuilderTab.tsx | Verified | Verified Clean |
 | cards/StepCard.tsx | Verified clean | - |
 | cards/index.tsx | Verified clean | Barrel exports |
-| cards/common/AliasField.tsx | Verified clean | 107 lines |
-| cards/common/DefaultValueField.tsx | Verified clean | 251 lines |
-| cards/common/DescriptionField.tsx | Verified clean | 47 lines |
+| client/src/components/builder/cards/common/AliasField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DefaultValueField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/DocumentPicker.tsx | Verified | Verified Clean |
 | cards/common/DocumentPicker.tsx | Replaced `React.useState` with named `useState` import | 99 lines |
+| client/src/components/ui/switch.tsx | Verified | Radix primitive implementation |
+| client/src/components/ui/card.tsx | Verified | Clean UI component |
+| client/src/components/ui/badge.tsx | Verified | Clean UI component |
+| client/src/components/ui/button.tsx | Verified | Clean UI component |
+| client/src/components/ui/input.tsx | Verified | Clean UI component |
+| client/src/components/ui/label.tsx | client/src/components/ui/separator.tsx | Verified | Radix primitive implementation |
+| client/src/components/ui/scroll-area.tsx | Verified | Radix primitive implementation |
+| client/src/components/ui/alert.tsx | Verified | Clean UI component |
 | cards/common/EditorField.tsx | Verified clean | 213 lines |
-| cards/common/LabelField.tsx | Verified clean | 45 lines |
-| cards/common/RequiredToggle.tsx | Verified clean | 27 lines |
-| cards/common/StepGuidance.tsx | Removed unused `useState` import | 31 lines |
-| cards/common/StepIcons.tsx | Verified clean | 39 lines |
-| cards/common/StepTitleRow.tsx | Verified clean | 87 lines |
-| runner/blocks/* (17 files) | Fixed import path `@/../../shared` to `@shared` | Batch fix via subagent |
+| client/src/components/builder/cards/common/EditorField.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/RequiredToggle.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepGuidance.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepIcons.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/StepTitleRow.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/common/VisibilityField.tsx | Verified | Verified Clean |Batch fix via subagent |
 | builder/questions/LegacyStepBody.tsx | Fixed import path `@/../../shared` to `@shared` | Batch fix |
 | builder/questions/OptionsEditor.tsx | Fixed import path `@/../../shared` to `@shared` | Batch fix |
 | lib/choice-utils.ts | Fixed import path `@/../../shared` to `@shared` | Batch fix |
@@ -188,7 +229,49 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | pages/WorkflowPreview.tsx | None | Verified clean. |
 | pages/WorkflowRunner.tsx | Extracted helpers and SectionSteps, fixed 94+ lints | Reduced size (969->~750 lines), fixed type safety and strict boolean checks. |
 | pages/WorkflowsList.tsx | Fixed unused vars, error types in mutations, strict booleans. | Cleaned up lint errors (completed). |
-| client/src/components/builder/StepPropertiesPanel.tsx | Extracted DefaultValueEditor and StepTypeSettings, fixed lints. | Reduced complexity, clean. |
+| client/src/components/builder/HelperLibraryDocs.tsx | Verified | Verified Clean |
+| client/src/components/builder/Inspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/IntakeContext.tsx | Verified | Verified Clean |
+| client/src/components/builder/ListInspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/LogicInspectorPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/LogicPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/LogicInspectorPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/RunWithRandomDataButton.tsx | Verified | Verified Clean |
+| client/src/components/builder/RunnerPreview.tsx | Verified | Verified Clean |
+| client/src/components/builder/SectionSettingsDialog.tsx | Verified | Verified Clean |
+| client/src/components/builder/SidebarTree.tsx | Refactored | Extracted SidebarHeader and SidebarEmptyState |
+| client/src/components/builder/BlockEditorDialog.tsx | Refactored | Extracted BlockTypeSelector |
+| client/src/components/builder/SectionSettingsDialog.tsx | Refactored | Extracted SectionGeneralSettings and SectionAdvancedSettings |
+| client/src/components/builder/sections/SectionGeneralSettings.tsx | New | Extracted from SectionSettingsDialog |
+| client/src/components/builder/sections/SectionAdvancedSettings.tsx | New | Extracted from SectionSettingsDialog |
+| client/src/components/builder/ValidationRulesEditor.tsx | Verified | Verified Clean (already uses RuleCard) |
+| client/src/components/builder/AdvancedModeBanner.tsx | Verified | Verified Clean |
+| client/src/components/builder/AIAssistPanel.tsx | Refactored | Extracted AiAssistInput |
+| client/src/components/builder/ai/AiAssistInput.tsx | New | Extracted from AIAssistPanel |
+| client/src/components/builder/AIFeedbackWidget.tsx | Refactored | Extracted content and success message |
+| client/src/components/builder/ai-feedback/FeedbackFormContent.tsx | New | Extracted from AIFeedbackWidget |
+| client/src/components/builder/ai-feedback/FeedbackSuccessMessage.tsx | New | Extracted from AIFeedbackWidget |
+| client/src/components/builder/AddSnipDialog.tsx | Verified | Verified Clean |
+| client/src/components/builder/BlockEditorDialog.hooks.ts | Verified | Verified Clean (Logic/Hooks) |
+| client/src/components/builder/CanvasEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/StepEditorRouter.tsx | Verified | Verified Clean |
+| client/src/components/builder/StepPropertiesPanel.tsx | Verified | Verified Clean (Modular) |
+| client/src/components/builder/TransformBlocksPanel.tsx | Refactored | Extracted TransformBlockEditorDialog |
+| client/src/components/builder/transforms/TransformBlockEditorDialog.tsx | New | Extracted from TransformBlocksPanel |
+| client/src/components/builder/TransformSummary.tsx | Verified | Verified Clean |
+| client/src/components/builder/ValidationRulesEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/VariablesInspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/WorkflowSettings.tsx | Verified | Verified Clean |
+| client/src/components/builder/cards/AddressCardEditor.tsx | Verified | Verified Clean (Removed unused code) |
+| client/src/components/builder/canvas/* | Verified | Verified Clean (SectionCanvas, StepCanvas, etc.) |
+| client/src/components/builder/layout/* | Verified | Verified Clean (BuilderLayout, ResizableBuilderLayout) |
+| client/src/components/builder/logic/* | Verified | Verified Clean (LogicDebugTab, LogicGeneratorTab) |
+| client/src/components/builder/sidebar/* | Verified | Verified Clean (BlockTreeItem, DocumentStatusPanel, etc.) |
+| client/src/components/builder/step-properties/* | Verified | Verified Clean (DefaultValueEditor, OptionsEditor) |
+| client/src/components/builder/transforms/* | Verified | Verified Clean (FilterBuilderUI, SortBuilderUI, etc.) |
+| client/src/components/builder/validation/* | Verified | Verified Clean (RuleCard, CompareRuleEditor, etc.) |
+| client/src/components/builder/variables/* | Verified | Verified Clean (VariableItem, useFilteredVariables) |
+| client/src/components/builder/questions/JSQuestionEditor.tsx | Extracted JSDisplaySettings and JSCodeEditorSection. | Reduced max-lines, fixed strict boolean checks. |
 | client/src/components/builder/questions/JSQuestionEditor.tsx | Extracted JSDisplaySettings and JSCodeEditorSection. | Reduced max-lines, fixed strict boolean checks. |
 | client/src/components/builder/step-properties/OptionsEditor.tsx | None | Verified clean. |
 | client/src/components/builder/sidebar/DocumentStatusPanel.tsx | Extracted MissingItemsList. | Verified clean (strict boolean fixes). |
@@ -290,20 +373,267 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | client/src/components/history/WorkflowHistoryDialog.tsx | Removed unnecessary void operators | Direct. |
 | client/src/components/intake/IntakeDemo.tsx | Changed React import to named FormEvent import | Direct. |
 
+| client/src/components/datavault/InfiniteDataGrid.tsx | Verified clean | No changes needed |
+
+| client/src/components/datavault/LoadingSkeleton.tsx | Verified clean | No changes needed |
+
+| client/src/components/datavault/NoteItem.tsx | Verified clean | No changes needed |
+
+| client/src/components/datavault/OptionsEditor.tsx | Improved a11y | Added aria-labels to loop inputs |
+
+| client/src/components/datavault/ReferenceCell.tsx | Verified clean | No changes needed |
+
+| client/src/components/datavault/RowDetailDrawer.tsx | Verified clean | No changes needed |
+
+| client/src/components/devpanel/DevPanel.tsx | Verified clean | No changes needed |
+
+| client/src/components/devpanel/ExecutionTimeline.tsx | Implemented fixes | Added Loader2, enforced braces |
+
+| client/src/components/devpanel/UnifiedDevPanel.tsx | Verified clean | No changes needed |
+
+| client/src/components/history/ExecutionDetailView.tsx | Fixed types | Replaced any with interfaces |
+
+| client/src/components/intake/IntakeFooter.tsx | Verified clean | No changes needed |
+
+| client/src/components/intake/IntakeHeader.tsx | Verified clean | No changes needed |
+
+| client/src/components/intake/IntakeLayout.tsx | Verified clean | No changes needed |
+
+| client/src/components/intake/IntakeProgressBar.tsx | Improved robustness | Prevented division by zero |
+
+| client/src/components/intake/ThemedButton.tsx | Refactored | Replaced custom SVG with Loader2 |
+
+| client/src/components/intake/ThemedInput.tsx | Refactored | Replaced deprecated substr with substring |
+
+| client/src/components/intake/index.ts | Verified clean | No changes needed |
+
+| client/src/components/layout/Header.tsx | Refactored | Removed `any` cast, extracted constants, removed void |
+
+| client/src/components/layout/ShortcutHelper.tsx | Refactored | Removed dead code, fixed key usage |
+
+| client/src/components/layout/Sidebar.tsx | Refactored | Removed `any` cast, empty import, moved constants |
+
+| client/src/components/runner/ClientRunnerLayout.tsx | Improved robustness | Added totalSteps guard |
+
+| client/src/components/runner/FillPageWithRandomDataButton.tsx | Refactored | Removed `any` types, improved error handling |
+
+| client/src/components/runner/SectionSteps.tsx | Refactored | Extracted logic, simplified handlers |
+
+| client/src/components/runner/blocks/index.ts | Verified clean | No changes needed |
+
+| client/src/main.tsx | Verified clean | No changes needed |
+
+| client/src/pages/auth/LoginPage.tsx | Refactored | Used setLocation, cleaned up types |
+
+| client/src/pages/Landing.tsx | Refactored | Replaced Vault-Logic with ezBuildr, setLocation used |
+| client/src/App.tsx | Refactored | Extracted Router |
+| client/src/Router.tsx | Created | Validated new active routing file |
+| client/src/pages/Dashboard.tsx | Refactored | Replaced window.location.href with setLocation, removed dead code |
+| client/src/components/layout/CommandPalette.tsx | Refactored | Cleaned imports, used useLocation, removed window.location usage |
+| client/src/components/logic/ConditionGroup.tsx | Refactored | Removed any types, added ScriptCondition handling, fixed recursive render types |
+| client/src/components/logic/ConditionRow.tsx | Refactored | Added aria-labels for accessibility |
+| client/src/components/logic/ConditionValueInput.tsx | Refactored | Added aria-labels, fixed formatting |
+| client/src/components/logic/LogicBuilder.tsx | Refactored | Fixed formatting, improved accessibility |
+| client/src/components/logic/LogicIndicator.tsx | Refactored | Added aria-labels for accessibility |
+| client/src/components/logic/SectionLogicSheet.tsx | Verified | Added data-testid, structure is clean |
+| client/src/components/preview/DevToolbar.tsx | Refactored | Replaced any with ApiSnapshot, cleaned imports, added accessibility |
+| client/src/components/preview/PreviewRunner.tsx | Refactored | Fixed formatting, added loader accessibility |
+| client/src/components/providers/BrandingProvider.tsx | Refactored | Optimized with useCallback/useMemo |
+| client/src/components/runner/ClientRunnerLayout.tsx | Refactored | Replaced hardcoded colors with theme tokens, added accessibility |
+| client/src/components/runner/FillPageWithRandomDataButton.tsx | Refactored | Used ApiStep type, fixed formatting |
+| client/src/components/runner/blocks/AddressBlock.tsx | Refactored | Fixed formatting, added aria-label, fixed duplicate attributes |
+| client/src/components/runner/blocks/BlockRenderer.tsx | Refactored | added aria-hidden to required asterisk |
+| client/src/components/runner/blocks/BooleanBlock.tsx | Refactored | Fixed RadioGroup default, added aria-pressed |
+| client/src/components/runner/blocks/ChoiceBlock.tsx | Refactored | Fixed formatting, added status/alert roles |
+| client/src/components/runner/blocks/CurrencyBlock.tsx | Refactored | Fixed imports, formatting, added inputmode and aria-hidden |
+| client/src/components/runner/blocks/DateBlock.tsx | Refactored | Standardized React imports |
+| client/src/components/runner/blocks/DateTimeBlock.tsx | Verified | Clean |
+| client/src/components/runner/blocks/DisplayBlock.tsx | Refactored | Fixed single line if |
+| client/src/components/runner/blocks/EmailBlock.tsx | Refactored | Added autocomplete |
+| client/src/components/runner/blocks/FinalBlock.tsx | Refactored | Fixed formatting, added aria-hidden to decorative icons |
+| client/src/components/runner/blocks/MultiFieldBlock.tsx | Refactored | Fixed formatting, added aria-hidden and alert role |
+| client/src/components/runner/blocks/NumberBlock.tsx | Refactored | Standardized imports, fixed formatting |
+| client/src/components/runner/blocks/PhoneBlock.tsx | Refactored | Fixed formatting, added autocomplete |
+| client/src/components/runner/blocks/ScaleBlock.tsx | Refactored | Fixed formatting, added aria-label to stars |
+| client/src/components/runner/blocks/SignatureBlockRenderer.tsx | Refactored | Fixed formatting, added aria-hidden, fixed syntax |
+| client/src/components/runner/blocks/TextBlock.tsx | Refactored | Fixed syntax, added maxLength |
+| client/src/components/runner/blocks/TimeBlock.tsx | Refactored | Fixed naming conventions |
+| client/src/components/runner/blocks/WebsiteBlock.tsx | Refactored | Fixed imports, added autocomplete, improved blur handler |
+| client/src/components/runner/blocks/choice/SearchableDropdown.tsx | Refactored | Fixed deep import, added aria-hidden, fixed syntax |
+| client/src/components/runner/blocks/choice/useChoiceOptions.ts | Refactored | Fixed imports, formatting, unused params |
+| client/src/components/runner/blocks/index.ts | Verified | Clean |
+| client/src/components/runner/blocks/validation.ts | Verified | Clean |
+| client/src/components/runner/sections/FinalDocumentsSection.tsx | Refactored | Fixed formatting, added aria-hidden, improved icon accessibility |
+| client/src/components/runner/sections/IntakeAssignmentSection.tsx | Refactored | Fixed formatting, added aria-hidden |
+| client/src/components/runner/sections/ReviewSection.tsx | Refactored | Fixed formatting, added aria-hidden, fixed syntax |
+| client/src/components/runs/RunFilters.tsx | Refactored | Fixed accessibility, fixed syntax |
+| client/src/components/runs/RunOutputsPanel.tsx | Refactored | Fixed types, accessibility |
+| client/src/components/runs/RunsTable.tsx | Refactored | Fixed formatting, accessibility |
+| client/src/components/runs/TracePanel.tsx | Refactored | Fixed accessibility |
+| client/src/components/shared/ChartEmptyState.tsx | Refactored | Used cn(), added accessibility |
+| client/src/components/shared/ConfirmationDialog.tsx | Verified | Clean |
+| client/src/components/shared/DataTable.tsx | Refactored | Used cn(), improved key usage |
+| client/src/components/shared/EmptyState.tsx | Refactored | Used cn(), added accessibility |
+| client/src/components/shared/EntityCard.tsx | Refactored | Used cn(), improved types (unknown), added accessibility |
+| client/src/components/shared/InlineEditableTitle.tsx | Refactored | Used cn(), removed logs, improved accessibility |
+| client/src/components/shared/JsonViewer.tsx | Refactored | Fixed formatting, accessibility |
+| client/src/components/shared/LoadingState.tsx | Refactored | Used cn(), added accessibility |
+| client/src/components/shared/QuickActionButton.tsx | Refactored | Used cn(), added accessibility |
+| client/src/components/shared/SkeletonCard.tsx | Refactored | Used cn() |
+| client/src/components/shared/SkeletonList.tsx | Refactored | Used cn() |
+| client/src/components/shared/SkeletonTable.tsx | Refactored | Used cn() |
+| client/src/components/shared/StatCard.tsx | Refactored | Fixed accessibility |
+| client/src/components/shared/StatusBadge.tsx | Refactored | Fixed accessibility |
+| client/src/components/shared/index.ts | Verified | Clean |
+| client/src/components/ui/accordion.tsx | Refactored | Fixed accessibility |
+| client/src/components/builder/layout/BuilderLayout.tsx | Verified | Verified Clean |
+| client/src/components/builder/layout/BuilderTabNav.tsx | Verified | Verified Clean |
+| client/src/components/builder/layout/ResizableBuilderLayout.tsx | Verified | Verified Clean |
+| client/src/components/ui/auto-expand-textarea.tsx | Refactored | Fixed formatting |
+| client/src/components/layout/CommandPalette.tsx | Verified | Verified Clean |
+| client/src/components/layout/Header.tsx | Verified | Verified Clean |
+| client/src/components/layout/ShortcutHelper.tsx | Verified | Verified Clean |
+| client/src/components/layout/Sidebar.tsx | Verified | Verified Clean |
+| client/src/components/ui/calendar.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/card.tsx | Verified | Clean |
+| client/src/components/ui/carousel.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/chart.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/checkbox.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/collapsible.tsx | Verified | Clean |
+| client/src/components/ui/command.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/context-menu.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/dialog.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/drawer.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/dropdown-menu.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/file-upload.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/form.tsx | Verified | Clean |
+| client/src/components/builder/Inspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/ListInspector.tsx | Verified | Verified Clean |
+| client/src/components/builder/LogicInspectorPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/LogicPanel.tsx | Verified | Verified Clean |
+| client/src/components/ui/menubar.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/navigation-menu.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/pagination.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/popover.tsx | Verified | Clean |
+| client/src/components/ui/progress.tsx | Verified | Clean |
+| client/src/components/ui/radio-group.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/resizable.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/scroll-area.tsx | Verified | Clean |
+| client/src/components/ui/pagination.tsx | Refactored | Fixed accessibility |
+| client/src/components/builder/transforms/AdvancedTransformUI.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/FilterBuilderUI.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/RangeControlsUI.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/SortBuilderUI.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/TransformBlockCard.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/TransformBlockForm.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/TransformBlockTester.tsx | Verified | Verified Clean |
+| client/src/components/builder/transforms/index.ts | Verified | Verified Clean |
+| client/src/components/builder/step-properties/DefaultValueEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/step-properties/OptionsEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/step-properties/StepTypeSettings.tsx | Verified | Verified Clean |
+| client/src/components/builder/variables/VariableItem.tsx | Verified | Verified Clean |
+| client/src/components/builder/variables/useFilteredVariables.ts | Verified | Verified Clean |
+| client/src/components/builder/variables/utils.tsx | Verified | Verified Clean |
+| client/src/components/builder/validation/CompareRuleEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/validation/ConditionalRequiredRuleEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/validation/ForEachRuleEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/validation/RuleCard.tsx | Verified | Verified Clean |
+| client/src/components/builder/AddSnipDialog.tsx | Verified | Verified Clean |
+| client/src/components/builder/ai/AiAssistantDialog.tsx | Verified | Verified Clean |
+| client/src/components/builder/ai/AiConversationPanel.tsx | Verified | Verified Clean |
+| client/src/components/builder/ai/useAiAssist.ts | Verified | Verified Clean |
+| client/src/components/builder/data-sources/CollectionsDrawer.tsx | Verified | Verified Clean (Stub) |
+| client/src/components/builder/final/FinalDocumentsSectionEditor.tsx | Verified | Verified Clean |
+| client/src/components/builder/forms/RegularBlockForm.tsx | Verified | Verified Clean |
+| client/src/components/builder/forms/TransformBlockForm.tsx | Verified | Verified Clean |rified Clean |
+| client/src/components/builder/StepEditorRouter.tsx | Verified | Verified Clean |
+| client/src/components/builder/BlockEditorDialog.hooks.ts | Verified | Verified Clean |rified Clean |
+| client/src/components/builder/canvas/StepEmptyState.tsx | Verified | Verified Clean |rified Clean |rified Clean |
+| client/src/components/builder/AIFeedbackWidget.tsx | Verified | Verified Clean |
+| client/src/components/ui/loader.tsx | Refactored | Fixed accessibility and imports |
+| client/src/components/ui/sidebar.tsx | Refactored | Fixed accessibility |
+| client/src/components/ui/stats-card.tsx | Refactored | Fixed accessibility |
+| client/src/components/templates-test-runner/ResultsPanel.tsx | Refactored | Fixed accessibility, removed non-null assertions |
+| client/src/components/templates-test-runner/SampleDataEditor.tsx | Refactored | Fixed types, accessibility |
+| client/src/components/templates-test-runner/StatusPill.tsx | Refactored | Fixed types (removed as any cast) |
+| client/src/components/templates-test-runner/index.ts | Verified | Clean |
+| client/src/components/templates-test-runner/types.ts | Verified | Clean |
+| client/src/components/templates-test-runner/useTemplateTest.ts | Verified | Clean |
+| client/src/components/templates/EditTemplateModal.tsx | Refactored | Fixed accessibility (loader) |
+| client/src/components/templates/ShareTemplateModal.tsx | Refactored | Fixed accessibility (icons, buttons), robust error handling |
+| client/src/components/templates/TemplateBrowserDialog.tsx | Refactored | Fixed accessibility (keyboard nav), used cn() |
+| client/src/components/workflows/settings/ConfirmMoveWorkflowModal.tsx | Verified | Clean |
+| client/src/components/workflows/settings/ProjectAssignmentSection.tsx | Refactored | Fixed import path, accessibility |
+| client/src/components/builder/WorkflowSettings.tsx | Refactored | Fixed accessibility |
+| client/src/components/website/* | Not Found | Directory does not exist |
+| client/src/components/workflow-run/* | Not Found | Directory does not exist |
+| client/src/components/builder/IntakeContext.tsx | Verified | Clean |
+| client/src/hooks/use-mobile.tsx | Verified | Clean |
+| client/src/hooks/use-toast.ts | Verified | Custom implementation, long remove delay noted |
+| client/src/hooks/useTemplates.ts | Verified | Clean |
+| client/src/hooks/useAuth.ts | Verified | Clean |
+| client/src/hooks/useAutoSave.ts | Verified | Clean |
+| client/src/hooks/useBatchReferences.ts | Verified | Clean, uses `any` for generic row data |
+| client/src/lib/vault-api.ts | Verified | Expanded with template test API |
+| client/src/lib/api-client.ts | Deleted | Merged into vault-api.ts |
+| client/src/lib/datavault-api.ts | Verified | Added generic return type to getTableSchema |
+| client/src/lib/datavault-hooks.ts | Verified | Added explicit return type to useDatavaultTableSchema |
+| client/src/lib/api/datavault.ts | Verified | Clean, strict typing |
+| client/src/lib/api/organizations.ts | Verified | Clean |
+| client/src/lib/config/environment.ts | Verified | Clean, uses Zod for validation |
+| client/src/lib/connectors/interface.ts | Verified | Clean, uses `any` for dynamic row data (acceptable) |
+| client/src/lib/featureFlags/* | Verified | Clean |
+| client/src/lib/googleSheets/columnMapping.ts | Verified | Clean |
+| client/src/lib/googleSheets/writeConnector.ts | Verified | Uses `any` for sheet data (acceptable artifact of external API) |
+| client/src/lib/preview/* | Verified | Uses `any` for dynamic runtime state (acceptable) |
+| client/src/lib/previewRunner/* | Verified | Uses `any` for dynamic runtime state (acceptable) |
+| client/src/lib/randomizer/* | Verified | Clean, handles `any` from AI/config gracefully |
+| client/src/lib/snips/* | Verified | Clean |
+| client/src/lib/stores/* | Verified | Clean |
+| client/src/lib/suppressGoogleOAuthWarnings.ts | Verified | Clean |
+| client/src/lib/tenantTheme.ts | Verified | Clean |
+| client/src/lib/sample-workflow.ts | Verified | Changed error type from `any` to `unknown` |
+| client/src/marketing/LandingPage.tsx | Refactored | Replaced `window.location` with `wouter` hook, removed unused var |
+| client/src/marketing/components/* | Verified | Clean, modern standards (wouter, framer-motion) |
+| client/src/pages/AdminDashboard.tsx | Refactored | Replaced `window.location` with `wouter` hook |
+| client/src/lib/utils.ts | Verified | Clean |
+| client/src/lib/index.ts | Verified | Clean |
+| client/src/lib/queryKeys.ts | Verified | Clean |
+| client/src/lib/devpanelBus.ts | Verified | Clean |
+| client/src/lib/labels.ts | Verified | Clean |
+| client/src/lib/logger.ts | Verified | Clean (uses `any[]` for args, standard for console wrapper) |
+| client/src/lib/mode.ts | Verified | Replaced `as any` with `as readonly string[]` cast on array |
+| client/src/lib/analytics.ts | Verified | Changed payload type from `any` to `unknown` |
+| client/src/lib/analyticsUtils.ts | Verified | Clean |
+| client/src/lib/api.ts | Verified | Clean wrapper around queryClient |
+| client/src/lib/authUtils.ts | Verified | Clean |
+| client/src/lib/queryClient.ts | Verified | Core utility, uses some necessary `any` |
+| client/src/lib/dnd.ts | Verified | Clean, strict typing with ApiStep/ApiBlock |
+| client/src/lib/formatting.ts | Verified | Clean |
+| client/src/pages/Dashboard.tsx | Verified | Already refactored |
+| client/src/contexts/* | Not Found | Directory does not exist |
+| MainLayout.tsx / Navbar.tsx | Not Found | Files not present in codebase |
 ### Files Needing Future Work
 | File | Issue | Priority |
 |------|-------|----------|
-| AIPerformanceMonitor.tsx | Refactored into sub-components (Trends, Distribution, etc.) and extracted Filters | ~140 lines (was 464) |
-| JSBlockEditor.tsx | Refactored into sub-components (TestConfig, InputPanel) | ~200 lines (was 478) |
-| AIFeedbackWidget.tsx | Refactored into sub-components (QualityBreakdown, IssueList, etc.) | - |
-| BrandingPreview.tsx | Removed React import, strict CSS casting | - |
-| JSBlockEditor Panels | Typed variables with EditorVariable | - |
-| StepPropertiesPanel.tsx | Fixed unescaped entities and explicit any | - |
-| CanvasEditor.tsx | Fixed Hook Loop, Unescaped entities, suppressed unsafe legacy types | - |
-| BlocksPanel.tsx | Removed unused imports and props (placeholder) | - |
-| IntakeContext.tsx | Fixed type safety (casting unknown) and strict boolean checks | - |
-| WorkflowSettings.tsx | Verified clean | - |
-| use-toast.ts | Named imports, explicit return types, disabled naming convention for constants | - |
+| client/src/components/admin/AIPerformanceMonitor.tsx | Refactored | Extracted sub-components, reduced size to ~178 lines |
+| client/src/components/blocks/JSBlockEditor.tsx | Refactored | Extracted sub-components, reduced size to ~153 lines |
+| client/src/components/branding/BrandingPreview.tsx | Refactored | Removed React import, strict CSS casting |
+| client/src/components/branding/BrandingContext.tsx | Verified | Clean, proper typing and hooks |
+| client/src/components/builder/ActivateToggle.tsx | Verified | Clean, proper typing and error handling |
+| client/src/components/builder/AdvancedModeBanner.tsx | Refactored | Converted to Button component, fixed styling and imports |
+| client/src/components/builder/TransformSummary.tsx | Refactored | Removed non-null assertions, fixed nullish coalescing |
+| client/src/components/builder/ValidationRulesEditor.tsx | Verified | Clean, extracted sub-components |
+| client/src/components/builder/VariablesInspector.tsx | Verified | Clean, uses filtered variables hook |
+| client/src/components/blocks/js-editor/* | Refactored | Typed variables with EditorVariable |
+| client/src/components/builder/StepPropertiesPanel.tsx | Refactored | Fixed unescaped entities and explicit any |
+| client/src/components/builder/CanvasEditor.tsx | Refactored | Fixed Hook Loop, Unescaped entities, suppressed unsafe legacy types |
+| client/src/components/builder/BlocksPanel.tsx | Refactored | Removed unused imports and props (placeholder) |
+| client/src/components/builder/IntakeContext.tsx | Refactored | Fixed type safety (casting unknown) and strict boolean checks |
+| client/src/components/builder/questions/LegacyStepBody.tsx | Verified | Refactored to use intake context, safe type casting |
+| client/src/components/builder/cards/StepCard.tsx | Verified | Clean, uses dnd-kit and collaboration hooks |
+| client/src/components/builder/WorkflowSettings.tsx | Verified | Verified clean |
+| client/src/hooks/use-toast.ts | Verified | Named imports, explicit return types |
 
 ## Patterns Identified
 - React import naming convention errors (PascalCase vs camelCase)

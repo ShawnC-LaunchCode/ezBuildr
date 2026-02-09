@@ -1,7 +1,8 @@
 
-import { useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { UseMutationResult } from '@tanstack/react-query';
+import { useEffect } from 'react';
+
+import { useToast } from '@/hooks/use-toast';
 
 interface UseVisualBuilderShortcutsProps {
     isReadOnly: boolean;

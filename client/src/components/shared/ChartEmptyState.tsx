@@ -1,9 +1,11 @@
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ChartEmptyStateProps {
   icon: LucideIcon;
   message: string;
   height?: string;
+  className?: string;
 }
 
 /**
@@ -16,11 +18,11 @@ interface ChartEmptyStateProps {
  *   height="h-96"
  * />
  */
-export function ChartEmptyState({ icon: Icon, message, height = "h-64" }: ChartEmptyStateProps) {
+export function ChartEmptyState({ icon: Icon, message, height = "h-64", className }: ChartEmptyStateProps) {
   return (
-    <div className={`${height} flex items-center justify-center text-muted-foreground`}>
+    <div className={cn("flex items-center justify-center text-muted-foreground", height, className)}>
       <div className="text-center">
-        <Icon className="h-16 w-16 mb-4 opacity-50 mx-auto" />
+        <Icon className="h-16 w-16 mb-4 opacity-50 mx-auto" aria-hidden="true" />
         <p>{message}</p>
       </div>
     </div>

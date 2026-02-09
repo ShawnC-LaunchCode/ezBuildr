@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import * as React from "react"
 
 import { cn } from "@/lib/utils";
 
@@ -16,8 +17,8 @@ export function Loader({ className, size = "default", ...props }: LoaderProps) {
     };
 
     return (
-        <div className={cn("flex justify-center items-center p-4", className)} {...props}>
-            <Loader2 className={cn("animate-spin text-muted-foreground", sizeClasses[size])} />
+        <div role="status" aria-label="Loading" className={cn("flex justify-center items-center p-4", className)} {...props}>
+            <Loader2 className={cn("animate-spin text-muted-foreground", sizeClasses[size])} aria-hidden="true" />
         </div>
     );
 }

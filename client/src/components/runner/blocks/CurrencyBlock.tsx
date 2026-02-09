@@ -11,7 +11,7 @@
  * Storage: number (pure numeric value without formatting)
  */
 
-import React from "react";
+import { useState, useEffect } from "react";
 
 import { Input } from "@/components/ui/input";
 import type { Step } from "@/types";
@@ -32,12 +32,14 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
   const min = config?.min;
   const max = config?.max;
 
-  const [displayValue, setDisplayValue] = React.useState("");
-  const [isFocused, setIsFocused] = React.useState(false);
+  const [displayValue, setDisplayValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   // Format number with commas and decimals
   const formatCurrency = (num: number | null): string => {
-    if (num === null || num === undefined) {return "";}
+    if (num === null || num === undefined) {
+      return "";
+    }
 
     if (allowDecimal) {
       return num.toLocaleString("en-US", {
@@ -50,7 +52,7 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
   };
 
   // Sync display value with prop value
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isFocused) {
       if (value !== null && value !== undefined) {
         setDisplayValue(formatCurrency(value));
@@ -99,20 +101,25 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
     }
 
     // Enforce min/max
-    if (min !== undefined && parsed < min) {return;}
-    if (max !== undefined && parsed > max) {return;}
+    if (min !== undefined && parsed < min) {
+      return;
+    }
+    if (max !== undefined && parsed > max) {
+      return;
+    }
 
     onChange(parsed);
   };
 
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true">
         $
       </span>
       <Input
         id={step.id}
         type="text"
+        inputMode="decimal"
         value={displayValue}
         onChange={(e) => handleChange(e.target.value)}
         onFocus={handleFocus}
