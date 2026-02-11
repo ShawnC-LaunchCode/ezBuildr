@@ -39,8 +39,8 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        eq(projects.ownerType, null as any),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        eq(projects.ownerType, null as any), // Drizzle null check for legacy data
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId))
       )
     );
@@ -61,8 +61,8 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .where(or(...conditions))
       .orderBy(desc(projects.updatedAt));
     // Results already have all project columns + ownerName at top level
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any
-    return results as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return results as any; // Drizzle join result with organization name
   }
   /**
    * Find projects by status
@@ -123,8 +123,8 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        eq(projects.ownerType, null as any),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        eq(projects.ownerType, null as any), // Drizzle null check for legacy data
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId)),
         eq(projects.status, 'active')
       )

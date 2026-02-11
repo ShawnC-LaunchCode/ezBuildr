@@ -149,7 +149,7 @@ router.post(
           .insert(schema.workflowVersions)
           .values({
             workflowId: workflow.id,
-            graphJson: data.graphJson || {},
+            graphJson: data.graphJson ?? {},
             createdBy: userId,
             published: false,
           })
@@ -268,9 +268,8 @@ router.patch(
       }
       // Update workflow and version
       const result = await db.transaction(async (tx: PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>) => {
-        // Update workflow name and intakeConfig if provided
-        if (data.name || data.intakeConfig) {
-          const updateValues: any = { updatedAt: new Date() };
+        if (data.name ?? data.intakeConfig) {
+          const updateValues: Record<string, unknown> = { updatedAt: new Date() };
           if (data.name) { updateValues.name = data.name; }
           if (data.intakeConfig) { updateValues.intakeConfig = data.intakeConfig; }
           await tx
@@ -346,9 +345,8 @@ router.post(
       if (!workflow.currentVersion) {
         throw createError.workflowNoVersion();
       }
-      // Validate graph structure and expressions before publishing
       const graphJson = workflow.currentVersion.graphJson as GraphJson;
-      validateGraphStructure(graphJson as any);
+      validateGraphStructure(graphJson as unknown as Record<string, unknown>);
       // Validate node conditions and expressions (STRICT for publish)
       const conditionsValidation = validateNodeConditions(graphJson);
       if (!conditionsValidation.valid) {
@@ -530,7 +528,7 @@ router.post(
       const tenantId = authReq.tenantId!;
       const userId = authReq.userId!;
       const { workflowId, nodeId, expression } = req.body;
-      if (!workflowId || !nodeId || typeof expression !== 'string') {
+      if (typeof workflowId !== 'string' || typeof nodeId !== 'string' || typeof expression !== 'string') {
         return res.status(400).json({
           ok: false,
           errors: [{

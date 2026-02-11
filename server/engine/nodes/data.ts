@@ -43,14 +43,14 @@ type PreviewWritesMap = Record<string, Record<string, PreviewWrite>>;
 export interface QueryNodeConfig {
     tableId: string;
     filters?: Array<{
-        columnId: string; // or 'createdAt', 'updatedAt'
+        columnId: string;
         operator: 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'in';
-        value: string; // Expression
+        value: string;
     }>;
     limit?: number;
-    outputKey: string; // Variable to store result
+    outputKey: string;
     condition?: string;
-    singleRow?: boolean; // If true, returns object instead of array
+    singleRow?: boolean;
 }
 
 export interface QueryNodeInput {
@@ -74,7 +74,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
     const { config, context } = input;
 
     try {
-        if (config.condition !== undefined && config.condition !== null && config.condition !== '' && !evaluateExpression(config.condition, context)) {
+        if ((config.condition ?? '') !== '' && !evaluateExpression(config.condition ?? '', context)) {
             return { status: STATUS_SKIPPED, skipReason: 'condition false' };
         }
 
@@ -129,7 +129,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
         }));
 
         // 3. Overlay Preview Writes
-        if (context.executionMode === 'preview' && context.writes !== undefined && context.writes !== null) {
+        if (context.executionMode === 'preview' && context.writes !== undefined) {
             const writes = context.writes as PreviewWritesMap;
             const tableWrites: Record<string, PreviewWrite> = writes[config.tableId] ?? {};
 
@@ -157,7 +157,7 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
         if (resolvedFilters.length > 0) {
             flatRows = flatRows.filter(row => {
                 return resolvedFilters.every(filter => {
-                    const rowValue = (row as any)[filter.columnId];
+                    const rowValue = (row as Record<string, unknown>)[filter.columnId];
                     const filterValue = filter.resolvedValue;
 
                     switch (filter.operator) {
@@ -209,9 +209,9 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
 export interface WriteNodeConfig {
     tableId: string;
     operation: 'create' | 'update' | 'delete';
-    rowId?: string; // Expression, required for update/delete
-    data?: Record<string, string>; // columnId -> Expression
-    outputKey?: string; // Stores resulting Row ID or Object
+    rowId?: string;
+    data?: Record<string, string>;
+    outputKey?: string;
     condition?: string;
 }
 
@@ -220,7 +220,7 @@ export interface WriteNodeInput {
     config: WriteNodeConfig;
     context: EvalContext;
     tenantId: string;
-    userInputs?: Record<string, any>; // Added userInputs to interface
+    userInputs?: Record<string, unknown>;
 }
 
 export type WriteNodeOutput = QueryNodeOutput; // Same structure
@@ -246,7 +246,7 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
         }
 
         // Prepare data
-        const dataToWrite: Record<string, any> = {};
+        const dataToWrite: Record<string, unknown> = {};
         if (config.data) {
             for (const [colId, expr] of Object.entries(config.data)) {
                 dataToWrite[colId] = evaluateExpression(expr, context);
@@ -254,7 +254,7 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
         }
 
         // Identify Row ID
-        let rowId = config.rowId ? evaluateExpression(config.rowId, context) : undefined;
+        let rowId: unknown = config.rowId ? evaluateExpression(config.rowId, context) : undefined;
         if (config.operation === 'create' && !rowId) {
             // Auto-generate ID if needed, though DB usually handles it. 
             // For Preview, we MUST generate it.
@@ -268,22 +268,22 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
                 context.writes[config.tableId] = {};
             }
 
-            const tableWrites = context.writes[config.tableId];
+            const tableWrites = context.writes[config.tableId] as Record<string, PreviewWrite>;
 
             if (config.operation === 'delete') {
-                if (!rowId) { throw new Error('Row ID required for delete'); }
-                tableWrites[rowId] = { deleted: true };
+                if (!rowId) { throw new Error(ROW_ID_REQUIRED_DELETE); }
+                tableWrites[String(rowId)] = { deleted: true };
             } else if (config.operation === 'update') {
-                if (!rowId) { throw new Error('Row ID required for update'); }
+                if (!rowId) { throw new Error(ROW_ID_REQUIRED_UPDATE); }
                 // We merge with existing "live" data logically, but here we just store the delta
-                const currentWrite = tableWrites[rowId] || {};
-                tableWrites[rowId] = {
+                const currentWrite = tableWrites[String(rowId)] ?? {};
+                tableWrites[String(rowId)] = {
                     ...currentWrite,
-                    data: { ...(currentWrite.data || {}), ...dataToWrite }
+                    data: { ...(currentWrite.data ?? {}), ...dataToWrite }
                 };
             } else if (config.operation === 'create') {
                 // rowId is already generated above for create
-                tableWrites[rowId] = {
+                tableWrites[String(rowId)] = {
                     data: { ...dataToWrite, id: rowId }
                 };
             }
@@ -312,21 +312,20 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
         }
 
         // LIVE MODE
-        let result: any;
+        let result: unknown;
 
         if (config.operation === 'create') {
             const { row } = await datavaultRowsRepository.createRowWithValues(
-                { tableId: config.tableId, tenantId: tenantId as any } as any, // Type cast for MVP
+                { tableId: config.tableId, tenantId } as DatavaultRow,
                 Object.entries(dataToWrite).map(([k, v]) => ({ columnId: k, value: v }))
             );
             result = row;
-            // Re-fetch to get full object with IDs if needed? Usually just ID is enough.
             if (config.outputKey) { context.vars[config.outputKey] = row; }
 
         } else if (config.operation === 'update') {
-            if (!rowId) { throw new Error('Row ID required for update'); }
+            if (!rowId) { throw new Error(ROW_ID_REQUIRED_UPDATE); }
             await datavaultRowsRepository.updateRowValues(
-                rowId,
+                String(rowId),
                 Object.entries(dataToWrite).map(([k, v]) => ({ columnId: k, value: v }))
             );
             result = { id: rowId, ...dataToWrite };
@@ -334,8 +333,8 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
             if (outKey) { context.vars[outKey] = result; }
 
         } else if (config.operation === 'delete') {
-            if (!rowId) { throw new Error('Row ID required for delete'); }
-            await datavaultRowsRepository.deleteRow(rowId);
+            if (!rowId) { throw new Error(ROW_ID_REQUIRED_DELETE); }
+            await datavaultRowsRepository.deleteRow(String(rowId));
             result = { id: rowId, deleted: true };
         }
 

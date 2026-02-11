@@ -7,7 +7,6 @@ import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
 import { templateSharingService } from "./services/TemplateSharingService";
 
-import type { } from "./types";
 import type { Express } from "express";
 const logger = createLogger({ module: 'auth' });
 // Initialize Google OAuth2 client
@@ -94,8 +93,8 @@ const authRateLimit = rateLimit({
   legacyHeaders: false,
 });
 // Helper function to validate Origin/Referer
-function validateOrigin(req: any): boolean {
-  const origin = req.get('Origin') || req.get('Referer');
+function validateOrigin(req: Express.Request): boolean {
+  const origin = req.get('Origin') ?? req.get('Referer');
   if (!origin) { return false; }
   try {
     const originUrl = new URL(origin);

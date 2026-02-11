@@ -38,7 +38,9 @@ export class IntakeReceiptService {
             const stepValues = await stepValueRepository.findByRunId(runId);
 
             // Create Map for efficient lookups
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step structure varies by type
             const stepMap = new Map(allSteps.map((s: any) => [s.id, s]));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step structure varies by type
             const emailStep = allSteps.find((s: any) => s.alias === intakeConfig.receiptEmailVar);
 
             if (!emailStep) {
@@ -56,6 +58,7 @@ export class IntakeReceiptService {
             const email = emailValue.value;
 
             // Build summary (non-sensitive fields only)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- summary contains arbitrary workflow data
             const summary: Record<string, any> = {};
             const excludeList = intakeConfig.excludeFromReceipt ?? [];
 
@@ -89,11 +92,12 @@ export class IntakeReceiptService {
                 error: emailResult.error,
             };
 
-        } catch (emailError: any) {
+        } catch (emailError: unknown) {
             // Catch email logic errors so we don't fail the submission
+            const message = emailError instanceof Error ? emailError.message : 'Unknown error';
             logger.error({
                 error: emailError,
-                message: emailError.message,
+                message,
                 runId
             }, "Critical error in intake email receipt logic");
 

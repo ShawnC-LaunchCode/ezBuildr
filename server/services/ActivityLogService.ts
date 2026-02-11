@@ -50,6 +50,7 @@ export class ActivityLogService {
     ];
 
     // Helper to escape CSV values
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CSV escaping handles various value types
     const escapeCsv = (value: any): string => {
       if (value === null || value === undefined) {return "";}
 
@@ -75,6 +76,7 @@ export class ActivityLogService {
       // Data rows
       ...rows.map(row =>
         headers
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic row access for CSV export
           .map(header => escapeCsv((row as any)[header]))
           .join(",")
       )
@@ -108,6 +110,7 @@ export class ActivityLogService {
       status: string | null;
       ipAddress: string | null;
       userAgent: string | null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata is dynamic JSON content
       metadata: any;
     }>
   ): Promise<void> {

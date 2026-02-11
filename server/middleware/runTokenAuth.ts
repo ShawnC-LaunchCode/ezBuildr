@@ -108,7 +108,7 @@ export async function creatorOrRunTokenAuth(
 ): Promise<void> {
   // Check if user is authenticated via hybridAuth (bearer token or cookie)
   // The hybridAuth middleware should run before this and set req.userId
-  const userId = (req as any).userId;
+  const userId = (req as { userId?: string }).userId;
 
   if (userId) {
     // User is authenticated, continue (assuming authorization validation happens in service)

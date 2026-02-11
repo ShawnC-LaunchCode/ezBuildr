@@ -13,8 +13,8 @@ async function main() {
     const [userCount] = await db.select({ count: count() }).from(users);
     const [workflowCount] = await db.select({ count: count() }).from(workflows);
 
-    const currentUsers = userCount?.count || 0;
-    const currentWorkflows = workflowCount?.count || 0;
+    const currentUsers = userCount?.count ?? 0;
+    const currentWorkflows = workflowCount?.count ?? 0;
 
     console.log(`Found ${currentUsers} users and ${currentWorkflows} workflows.`);
 

@@ -17,6 +17,7 @@ router.use(requireWorkspace);
 // Get Current Subscription & Usage
 router.get("/subscription", asyncHandler(async (req, res) => {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with organizationId/workspaceId
         const organizationId = (req as any).organizationId || (req as any).workspaceId; // Assuming 1:1 for now or resolved upstream
 
         // Mock resolution of org from workspace if they are different tables
@@ -38,14 +39,16 @@ router.get("/subscription", asyncHandler(async (req, res) => {
             usage,
             features: sub.plan.features
         });
-    } catch (e: any) {
+    } catch (e: unknown) {
         logger.error({ error: e }, "Billing Error");
-        res.status(500).json({ error: e.message });
+        const message = e instanceof Error ? e.message : 'Unknown error';
+        res.status(500).json({ error: message });
     }
 }));
 
 // Create Stripe Portal Session
 router.post("/portal", asyncHandler(async (req, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with workspaceId
     const organizationId = (req as any).workspaceId;
     // Look up customer ID ... 
     // Simplified:
@@ -53,6 +56,7 @@ router.post("/portal", asyncHandler(async (req, res) => {
     res.json({ url });
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express app parameter
 export const registerBillingRoutes = (app: any) => {
     app.use("/api/billing", router);
 };

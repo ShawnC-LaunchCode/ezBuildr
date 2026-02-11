@@ -19,7 +19,7 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 
 
-export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as EmailConfig | undefined;
@@ -34,7 +34,7 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
       allowMultiple: config?.allowMultiple ?? false,
       validate: true,
     });
-  }, [step.config, config]);
+  }, [config]);
 
   const handleUpdate = (updates: Partial<typeof localConfig>) => {
     const newConfig = { ...localConfig, ...updates };

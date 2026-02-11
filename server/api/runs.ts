@@ -122,14 +122,12 @@ router.post(
           context: log.context ?? null,
         }));
         await createRunLogs(logEntries);
-        // Prepare response
         const response: CreateRunResponse = {
           runId: updatedRun.id,
           status: updatedRun.status,
-          outputRefs: updatedRun.outputRefs as Record<string, any>,
+          outputRefs: updatedRun.outputRefs as Record<string, unknown>,
           durationMs: updatedRun.durationMs ?? undefined,
         };
-        // Include logs if debug mode
         if (data.options?.debug) {
           response.logs = result.logs.map(log => ({
             level: log.level,
@@ -210,7 +208,7 @@ router.get(
         .innerJoin(schema.workflows, eq(schema.workflowVersions.workflowId, schema.workflows.id))
         .leftJoin(schema.projects, eq(schema.workflows.projectId, schema.projects.id))
         .leftJoin(schema.users, eq(schema.runs.createdBy, schema.users.id));
-      const conditions: any[] = [];
+      const conditions: unknown[] = [];
       // 1. Tenant Isolation (CRITICAL)
       // We must only show runs from projects in the user's tenant
       if (tenantId) {
@@ -296,7 +294,7 @@ router.get(
       const query = exportRunsQuerySchema.parse(req.query);
       const { workflowId, projectId, status, from, to, q } = query;
       // Build where conditions
-      const whereConditions: any[] = [];
+      const whereConditions: unknown[] = [];
       if (status) {
         whereConditions.push(eq(schema.runs.status, status));
       }
@@ -433,9 +431,8 @@ router.get(
       if (!projectB || projectB.tenantId !== tenantId) {
         throw createError.forbidden('Access denied to Run B');
       }
-      // Compare inputs
-      const inputsA = (runA.inputJson as Record<string, any>) || {};
-      const inputsB = (runB.inputJson as Record<string, any>) || {};
+      const inputsA = (runA.inputJson as Record<string, unknown>) ?? {};
+      const inputsB = (runB.inputJson as Record<string, unknown>) ?? {};
       const allInputKeys = new Set([...Object.keys(inputsA), ...Object.keys(inputsB)]);
       const inputsChangedKeys: string[] = [];
       allInputKeys.forEach(key => {
@@ -443,9 +440,8 @@ router.get(
           inputsChangedKeys.push(key);
         }
       });
-      // Compare outputs
-      const outputsA = (runA.outputRefs as Record<string, any>) || {};
-      const outputsB = (runB.outputRefs as Record<string, any>) || {};
+      const outputsA = (runA.outputRefs as Record<string, unknown>) ?? {};
+      const outputsB = (runB.outputRefs as Record<string, unknown>) ?? {};
       const allOutputKeys = new Set([...Object.keys(outputsA), ...Object.keys(outputsB)]);
       const outputsChangedKeys: string[] = [];
       allOutputKeys.forEach(key => {
@@ -453,7 +449,6 @@ router.get(
           outputsChangedKeys.push(key);
         }
       });
-      // Prepare response
       res.json({
         runA: {
           id: runA.id,
@@ -566,14 +561,10 @@ router.get(
         nodeId: log.nodeId,
         level: log.level,
         message: log.message,
-        context: log.context as Record<string, any> | null,
+        context: log.context as Record<string, unknown> | null,
         createdAt: log.createdAt!.toISOString(),
       }));
-      // Create paginated response
-      const response = createPaginatedResponse(
-        formattedLogs as any,
-        query.limit
-      );
+      const response = createPaginatedResponse(formattedLogs, query.limit);
       res.json(response);
     } catch (error) {
       const formatted = formatErrorResponse(error);
@@ -626,16 +617,16 @@ router.get(
       let mimeType: string;
       let extension: string;
       if (query.type === 'pdf') {
-        // Try to get PDF version
-        fileRef = outputRefs.document?.pdfRef || outputRefs.pdfRef;
+        const outputRefsTyped = outputRefs as { document?: { pdfRef?: string }; pdfRef?: string };
+        fileRef = outputRefsTyped.document?.pdfRef ?? outputRefsTyped.pdfRef;
         mimeType = 'application/pdf';
         extension = 'pdf';
         if (!fileRef) {
           throw createError.notFound('PDF output not available. Only DOCX format was generated.');
         }
       } else {
-        // Default to DOCX
-        fileRef = outputRefs.document?.fileRef || outputRefs.fileRef;
+        const outputRefsTyped = outputRefs as { document?: { fileRef?: string }; fileRef?: string };
+        fileRef = outputRefsTyped.document?.fileRef ?? outputRefsTyped.fileRef;
         mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         extension = 'docx';
       }
@@ -717,9 +708,8 @@ router.post(
       }
       // Merge inputs (override or use original)
       const inputJson = data.overrideInputJson
-        ? { ...((originalRun.inputJson as Record<string, any>) || {}), ...data.overrideInputJson }
-        : (originalRun.inputJson as Record<string, any>) || {};
-      // Create new run record
+        ? { ...((originalRun.inputJson as Record<string, unknown>) ?? {}), ...data.overrideInputJson }
+        : (originalRun.inputJson as Record<string, unknown>) ?? {};
       const newRun = await createRun({
         workflowVersionId: workflowVersion.id,
         inputJson,
@@ -758,8 +748,8 @@ router.post(
         const response: CreateRunResponse = {
           runId: updatedRun.id,
           status: updatedRun.status,
-          outputRefs: updatedRun.outputRefs as Record<string, any>,
-          durationMs: updatedRun.durationMs || undefined,
+          outputRefs: updatedRun.outputRefs as Record<string, unknown>,
+          durationMs: updatedRun.durationMs ?? undefined,
         };
         res.status(201).json(response);
       } catch (error) {
@@ -805,7 +795,7 @@ router.get(
       const query = exportRunsQuerySchema.parse(req.query);
       const { workflowId, projectId, status, from, to, q } = query;
       // Build where conditions
-      const whereConditions: any[] = [];
+      const whereConditions: unknown[] = [];
       if (status) {
         whereConditions.push(eq(schema.runs.status, status));
       }
@@ -942,19 +932,18 @@ router.get(
         }
       }
       // Calculate diff summary (simplified)
-      const inputsA = (runA.inputJson as Record<string, any>) || {};
-      const inputsB = (runB.inputJson as Record<string, any>) || {};
+      const inputsA = (runA.inputJson as Record<string, unknown>) ?? {};
+      const inputsB = (runB.inputJson as Record<string, unknown>) ?? {};
       const allInputKeys = new Set([...Object.keys(inputsA), ...Object.keys(inputsB)]);
       const inputsChangedKeys = Array.from(allInputKeys).filter(
         key => JSON.stringify(inputsA[key]) !== JSON.stringify(inputsB[key])
       );
-      const outputsA = (runA.outputRefs as Record<string, any>) || {};
-      const outputsB = (runB.outputRefs as Record<string, any>) || {};
+      const outputsA = (runA.outputRefs as Record<string, unknown>) ?? {};
+      const outputsB = (runB.outputRefs as Record<string, unknown>) ?? {};
       const allOutputKeys = new Set([...Object.keys(outputsA), ...Object.keys(outputsB)]);
       const outputsChangedKeys = Array.from(allOutputKeys).filter(
         key => JSON.stringify(outputsA[key]) !== JSON.stringify(outputsB[key])
       );
-      // Prepare response
       const response = {
         runA: {
           id: runA.id,
@@ -980,7 +969,7 @@ router.get(
           inputsChangedKeys,
           outputsChangedKeys,
           statusMatch: runA.status === runB.status,
-          durationDiff: (runA.durationMs || 0) - (runB.durationMs || 0),
+          durationDiff: (runA.durationMs ?? 0) - (runB.durationMs ?? 0),
         },
       };
       res.json(response);

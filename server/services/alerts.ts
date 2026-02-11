@@ -203,6 +203,7 @@ function setCooldown(key: string): void {
 /**
  * Determine alert severity based on SLI violations
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SLI result structure varies by computation
 function getSeverity(sliResult: any): 'warning' | 'critical' {
   // Critical if error budget is burned > 100%
   if (sliResult.errorBudgetBurnPct > 100) {
@@ -225,6 +226,7 @@ function getSeverity(sliResult: any): 'warning' | 'critical' {
 /**
  * Build alert title
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SLI result structure varies by computation
 function buildAlertTitle(sliResult: any, workflowId?: string): string {
   const scope = workflowId ? 'Workflow' : 'Project';
   const violations: string[] = [];
@@ -243,6 +245,7 @@ function buildAlertTitle(sliResult: any, workflowId?: string): string {
 /**
  * Build alert message
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SLI result structure varies by computation
 function buildAlertMessage(sliResult: any): string {
   const lines: string[] = [];
 
@@ -298,8 +301,10 @@ export async function batchEvaluateAlerts(): Promise<void> {
       WHERE bucket_start >= NOW() - INTERVAL '7 days'
     `;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw SQL execute returns untyped result
     const result = await db.execute({ sql: query, args: [] } as any) as any;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database rows are dynamically typed
     for (const row of result.rows as any[]) {
       try {
         await evaluateAndAlert({

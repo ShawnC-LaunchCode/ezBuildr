@@ -130,7 +130,7 @@ async function processDocumentGenerationJob(
       .update(workflowRuns)
       .set({
         metadata: {
-          ...(run.metadata as any),
+          ...(run.metadata as Record<string, unknown>),
           documentsGenerated: true,
           documentsGeneratedAt: new Date().toISOString(),
           documentGenerationResult: {
@@ -177,7 +177,7 @@ async function processDocumentGenerationJob(
       completedAt: new Date(endTime),
       processingTimeMs,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(
       {
         error,
@@ -201,7 +201,7 @@ async function processDocumentGenerationJob(
           .update(workflowRuns)
           .set({
             metadata: {
-              ...(run.metadata as any),
+              ...(run.metadata as Record<string, unknown>),
               documentsGenerated: false,
               documentGenerationError: error.message,
               documentGenerationErrorAt: new Date().toISOString(),
@@ -229,7 +229,7 @@ interface NotificationOptions {
 interface NotificationData {
   runId: string;
   workflowId: string;
-  result: any;
+  result: { totalGenerated?: number; skipped?: unknown[]; failed?: unknown[] };
 }
 
 /**
@@ -239,7 +239,7 @@ async function sendNotifications(
   options: NotificationOptions,
   data: NotificationData
 ): Promise<void> {
-  const promises: Promise<any>[] = [];
+  const promises: Promise<unknown>[] = [];
 
   // Email notification
   if (options.email) {

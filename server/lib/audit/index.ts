@@ -9,7 +9,7 @@ export class SystemAudit {
     /**
      * Run a full audit on a specific workflow.
      */
-    static async auditWorkflow(workflow: any) {
+    static async auditWorkflow(workflow: { id: string; blocks?: unknown[]; nodes?: unknown[]; startNodeId?: string; script?: string }) {
         logger.info({ msg: "Starting System Audit", workflowId: workflow.id });
 
         const blockResults = BlockAudit.audit(workflow.blocks ?? []);

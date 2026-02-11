@@ -9,8 +9,12 @@ export function log(message: string, source = "express"): void {
  * Safe for null/undefined intermediate values.
  */
 export function getValueByPath(obj: unknown, path: string): unknown {
-  if (obj === null || obj === undefined || path === '') {return undefined;}
-  if (path === '.') {return obj;}
+  if (obj === null || obj === undefined || path === '') {
+    return undefined;
+  }
+  if (path === '.') {
+    return obj;
+  }
 
   const keys = path.split('.');
   let current: unknown = obj;

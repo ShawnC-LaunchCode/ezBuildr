@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as Y from 'yjs';
 
 export interface Comment {
@@ -19,7 +19,6 @@ interface UseCommentsOptions {
  */
 export function useComments({ doc, nodeId }: UseCommentsOptions) {
   const [comments, setComments] = useState<Comment[]>([]);
-  const yCommentsMapRef = useRef<Y.Map<any> | null>(null);
 
   // Load comments when node changes
   useEffect(() => {
@@ -29,7 +28,6 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
     }
 
     const yComments = doc.getMap('yComments');
-    yCommentsMapRef.current = yComments;
 
     const loadComments = () => {
       const nodeComments = yComments.get(nodeId);
@@ -66,7 +64,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
         const nodeComments = (yComments.get(nodeId) as Comment[] | undefined) ?? [];
 
         const newComment: Comment = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           userId,
           userName,
           text,

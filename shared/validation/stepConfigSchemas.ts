@@ -325,7 +325,7 @@ const LogicExpressionSchema = z.object({
   conditions: z.array(z.object({
     key: z.string(),
     op: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty']),
-    value: z.any().optional(),
+    value: z.unknown().optional(),
   })),
 });
 

@@ -12,8 +12,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-
-import { usePersonalizationStore } from '../../../lib/stores/personalizationStore';
+import { usePersonalizationStore } from '@/store/personalizationStore';
 interface FloatingAIAssistProps {
     currentBlockText?: string;
     onRewrite?: (text: string) => void;
@@ -23,9 +22,9 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
     const { isOpen, togglePanel, settings, setSettings } = usePersonalizationStore();
     const [loading, setLoading] = useState(false);
     const [aiResponse, setAiResponse] = useState<string | null>(null);
-    if (!settings) {return null;} // Wait for settings to load
+    if (!settings) { return null; } // Wait for settings to load
     const handleRewrite = async () => {
-        if (!currentBlockText) {return;}
+        if (!currentBlockText) { return; }
         setLoading(true);
         try {
             // Trigger rewrite via API
@@ -47,7 +46,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
         }
     };
     const handleExplain = async () => {
-        if (!currentBlockText) {return;}
+        if (!currentBlockText) { return; }
         setLoading(true);
         try {
             const res = await fetch('/api/ai/personalize/help', {
@@ -58,7 +57,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
             const data = await res.json();
             if (data.text) {
                 setAiResponse(data.text);
-                if (onHelp) {onHelp(data.text);}
+                if (onHelp) { onHelp(data.text); }
             }
         } catch (e) {
             setAiResponse("Sorry, I couldn't explain that.");

@@ -42,7 +42,9 @@ export function useDatabase(id: string | undefined) {
   return useQuery({
     queryKey: id ? datavaultKeys.database(id) : ['datavault', 'databases', 'null'],
     queryFn: () => {
-      if (!id) {throw new Error('Database ID is required');}
+      if (!id) {
+        throw new Error('Database ID is required');
+      }
       return api.getDatabaseById(id);
     },
     enabled: !!id,
@@ -55,7 +57,9 @@ export function useDatabaseTables(databaseId: string | undefined) {
       ? datavaultKeys.databaseTables(databaseId)
       : ['datavault', 'databases', 'null', 'tables'],
     queryFn: () => {
-      if (!databaseId) {throw new Error('Database ID is required');}
+      if (!databaseId) {
+        throw new Error('Database ID is required');
+      }
       return api.getTablesInDatabase(databaseId);
     },
     enabled: !!databaseId,

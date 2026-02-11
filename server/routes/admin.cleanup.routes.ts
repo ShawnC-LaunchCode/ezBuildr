@@ -18,6 +18,7 @@ export function registerAdminCleanupRoutes(app: Express): void {
    */
   app.post('/api/admin/cleanup/placeholder-users', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- adminUser is added by isAdmin middleware
       const adminUser = (req as any).adminUser;
       if (!adminUser) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -32,6 +33,7 @@ export function registerAdminCleanupRoutes(app: Express): void {
         deletedCount,
       });
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- adminUser is added by isAdmin middleware
       logger.error({ error, adminId: (req as any).adminUser?.id }, 'Error running placeholder cleanup');
       res.status(500).json({
         message: 'Failed to run placeholder user cleanup',

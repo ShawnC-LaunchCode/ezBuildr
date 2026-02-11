@@ -80,6 +80,7 @@ async function runJsWithHelpers(
     ivm = await import("isolated-vm");
   } catch (error) {
     logger.warn({ error }, "isolated-vm not found, falling back to node 'vm' module");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helper library has dynamic method signatures
     const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);
     // Merge logs from helper library (which captures helpers.console.* calls)
     if (helperLib.getConsoleLogs) {
@@ -136,9 +137,9 @@ async function runJsWithHelpers(
     const getStructure = (obj: unknown): unknown => {
       if (typeof obj === 'function') { return '__fn__'; }
       if (typeof obj === 'object' && obj !== null) {
-        const struct: any = {};
+        const struct: Record<string, unknown> = {};
         for (const k of Object.keys(obj)) {
-          (struct)[k] = getStructure((obj as any)[k]);
+          struct[k] = getStructure((obj as Record<string, unknown>)[k]);
         }
         return struct;
       }
@@ -192,6 +193,7 @@ async function runJsWithHelpers(
     await jail.set("callHost", new ivm.Reference((path: string[], ...args: unknown[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic helper object tree
       let target: any = actualHelpers;
       // Debug log
       // logger.debug({ path: path.join('.') }, 'Bridge Path');
@@ -203,6 +205,7 @@ async function runJsWithHelpers(
         target = target[key];
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- dynamic helper function invocation
       const fn = target as Function;
 
       // Args are already copies
@@ -300,7 +303,9 @@ async function runJsWithHelpers(
     // Prioritize emitted value if exists
     if (emittedValue !== undefined) {
       output = emittedValue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference has dynamic copy method
     } else if (typeof resultRef === 'object' && resultRef !== null && typeof (resultRef as any).copy === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference API
       output = await (resultRef as any).copy();
     }
 
@@ -314,8 +319,8 @@ async function runJsWithHelpers(
       durationMs,
     };
 
-  } catch (error: any) {
-    const msg = error.message || String(error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("timed out") || msg.includes("timeout")) {
       return { ok: false, error: "TimeoutError: Execution exceeded time limit" };
     }
@@ -689,7 +694,7 @@ except Exception as e:
       // Send payload to stdin
       pythonProcess.stdin.write(payloadJson);
       pythonProcess.stdin.end();
-    } catch (error: any) {
+    } catch (error: unknown) {
       resolve({
         ok: false,
         error: `SetupError: ${error instanceof Error ? error.message : 'unknown error'}`,
@@ -762,6 +767,7 @@ async function runJsWithVmFallback(
     },
     emit: (val: unknown) => {
       // Mimic emit behavior: captures the value as the result
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox needs dynamic property for emit capture
       (sandbox as any).__emitResult__ = val;
     }
   };
@@ -780,14 +786,15 @@ async function runJsWithVmFallback(
       timeout: timeoutMs
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox emit capture uses dynamic property
     return {
       ok: true,
       output: (sandbox as any).__emitResult__ !== undefined ? (sandbox as any).__emitResult__ : result,
       consoleLogs: consoleLogs.length > 0 ? consoleLogs : undefined,
       durationMs: Date.now() - startTime
     };
-  } catch (error: any) {
-    const msg = error.message;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("timed out")) {
       return { ok: false, error: "TimeoutError: Execution exceeded time limit" };
     }

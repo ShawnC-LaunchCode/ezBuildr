@@ -227,7 +227,7 @@ export function FileUpload({
     return <File className="h-4 w-4" aria-hidden="true" />;
   };
 
-  const maxFiles = config?.maxFiles || 5;
+  const maxFiles = config?.maxFiles ?? 5;
   const canUploadMore = uploadedFiles.length < maxFiles && !disabled;
 
   return (

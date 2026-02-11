@@ -14,7 +14,7 @@ interface SortBuilderUIProps {
   onChange: (sort: ListToolsSortKey[] | undefined) => void;
   className?: string;
 }
-export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps) {
+export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps): JSX.Element {
   const sortKeys = sort ?? [];
   const handleAddSort = () => {
     const newSort: ListToolsSortKey = {
@@ -33,13 +33,13 @@ export function SortBuilderUI({ sort, onChange, className }: SortBuilderUIProps)
     onChange(newSort.length > 0 ? newSort : undefined);
   };
   const handleMoveUp = (index: number) => {
-    if (index === 0) {return;}
+    if (index === 0) { return; }
     const newSort = [...sortKeys];
     [newSort[index - 1], newSort[index]] = [newSort[index], newSort[index - 1]];
     onChange(newSort);
   };
   const handleMoveDown = (index: number) => {
-    if (index === sortKeys.length - 1) {return;}
+    if (index === sortKeys.length - 1) { return; }
     const newSort = [...sortKeys];
     [newSort[index], newSort[index + 1]] = [newSort[index + 1], newSort[index]];
     onChange(newSort);
@@ -95,7 +95,7 @@ function SortKeyRow({
   onRemove,
   onMoveUp,
   onMoveDown
-}: SortKeyRowProps) {
+}: SortKeyRowProps): JSX.Element {
   return (
     <div className="bg-background border rounded-lg p-3 flex items-center gap-2">
       {/* Priority indicator */}

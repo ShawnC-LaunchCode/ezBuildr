@@ -98,7 +98,7 @@ async function rollupSingleBucket(params: {
   `;
   const results = await db.execute(query);
   // Upsert rollups for each group
-  for (const row of results.rows as any[]) {
+  for (const row of results.rows as unknown[]) {
     const rollupData: InsertMetricsRollup = {
       tenantId: row.tenant_id,
       projectId: row.project_id,
@@ -186,7 +186,7 @@ export async function computeAndSaveSLIs(): Promise<void> {
     WHERE bucket_start >= NOW() - INTERVAL '30 days'
   `;
   const results = await db.execute(query);
-  for (const row of results.rows as any[]) {
+  for (const row of results.rows as unknown[]) {
     try {
       const sliResult = await sli.computeSLI({
         projectId: row.project_id,

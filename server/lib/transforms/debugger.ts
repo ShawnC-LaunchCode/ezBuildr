@@ -23,7 +23,8 @@ export class TransformDebugger {
         // 2. Detect Missing Variables (Simplified check)
         // In a real implementation, this would check against variable schema
         transforms.forEach(t => {
-            const block = t as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
+            const block = t as Record<string, any>;
             if (block.inputPaths && block.inputPaths.length === 0 && block.type !== 'script') {
                 issues.push({
                     id: `missing_inputs_${t.id}`,
@@ -39,7 +40,8 @@ export class TransformDebugger {
         // Assuming output path maps to a variable name, and input paths read from variables
         const edges: Record<string, string[]> = {};
         transforms.forEach(t => {
-            const block = t as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
+            const block = t as Record<string, any>;
             if (block.outputPath) {
                 // This transform produces 't.outputPath'
                 // It consumes 't.inputPaths'
@@ -52,8 +54,9 @@ export class TransformDebugger {
 
         // 4. Type Mismatches (Basic)
         transforms.forEach(t => {
-            const block = t as any;
-            if (block.type === 'compute' && block.config.operation === 'math' && !block.inputPaths[0]) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
+            const block = t as Record<string, any>;
+            if (block.type === 'compute' && block.config?.operation === 'math' && !block.inputPaths?.[0]) {
                 // Example check
             }
         });

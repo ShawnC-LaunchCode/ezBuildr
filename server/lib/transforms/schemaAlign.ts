@@ -5,8 +5,8 @@ import { TransformBlock } from "shared/schema";
 
 interface SchemaAlignRequest {
     transforms: TransformBlock[];
-    documents: any[];
-    workflowVariables: any[];
+    documents: unknown[];
+    workflowVariables: unknown[];
 }
 
 interface SchemaAlignmentResult {
@@ -31,6 +31,7 @@ const getModel = () => {
                 generateContent: async () => ({
                     response: { text: () => "{ \"issues\": [], \"missingTransforms\": [] }" }
                 })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock
             } as any;
         }
         throw e;

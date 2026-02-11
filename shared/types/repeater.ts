@@ -43,6 +43,7 @@ export interface RepeaterField {
   order: number;
 
   /** Field-specific configuration */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config values vary by field type
   config?: Record<string, any>;
 
   /** Options for multiple_choice/radio fields */
@@ -101,6 +102,7 @@ export interface RepeaterInstance {
   index: number;
 
   /** Field values for this instance */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field values can be any type
   values: Record<string, any>;
 }
 
@@ -138,6 +140,7 @@ export interface FlattenedRepeaterData {
   /** Instances with field-level access paths */
   instances: Array<{
     index: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field values can be any type
     fields: Record<string, any>;
   }>;
 }

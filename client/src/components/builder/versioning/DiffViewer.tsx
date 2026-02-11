@@ -38,7 +38,7 @@ interface DiffResult {
         stepsModified: number;
     };
 }
-export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: DiffViewerProps) {
+export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: DiffViewerProps): JSX.Element {
     const [diff, setDiff] = useState<DiffResult | null>(null);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();

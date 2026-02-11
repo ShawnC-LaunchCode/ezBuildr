@@ -46,7 +46,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     tempId: z.string().optional(),
     title: z.string(),
     order: z.number(),
-    config: z.record(z.any()).optional(),
+    config: z.record(z.unknown()).optional(),
   }),
   z.object({
     op: z.literal("section.update"),
@@ -54,7 +54,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     tempId: z.string().optional(), // Or tempId reference
     title: z.string().optional(),
     order: z.number().optional(),
-    config: z.record(z.any()).optional(),
+    config: z.record(z.unknown()).optional(),
   }),
   z.object({
     op: z.literal("section.delete"),
@@ -77,8 +77,8 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     alias: z.string().optional(),
     required: z.boolean().optional(),
     order: z.number().optional(),
-    config: z.record(z.any()).optional(),
-    defaultValue: z.any().optional(),
+    config: z.record(z.unknown()).optional(),
+    defaultValue: z.unknown().optional(),
   }),
   z.object({
     op: z.literal("step.update"),
@@ -88,9 +88,9 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     title: z.string().optional(),
     alias: z.string().optional(),
     required: z.boolean().optional(),
-    config: z.record(z.any()).optional(),
+    config: z.record(z.unknown()).optional(),
     visibleIf: z.string().optional(),
-    defaultValue: z.any().optional(),
+    defaultValue: z.unknown().optional(),
   }),
   z.object({
     op: z.literal("step.delete"),
@@ -185,7 +185,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     columns: z.array(z.object({
       name: z.string(),
       type: z.enum(["text", "number", "date", "boolean", "select", "multiselect"]),
-      config: z.record(z.any()).optional(),
+      config: z.record(z.unknown()).optional(),
     })),
   }),
   z.object({
@@ -194,7 +194,7 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     columns: z.array(z.object({
       name: z.string(),
       type: z.enum(["text", "number", "date", "boolean", "select", "multiselect"]),
-      config: z.record(z.any()).optional(),
+      config: z.record(z.unknown()).optional(),
     })),
   }),
   z.object({
@@ -231,19 +231,19 @@ export const aiWorkflowEditRequestSchema = z.object({
   workflowId: z.string().uuid(),
   documentIds: z.array(z.string().uuid()).optional(),
   preferences: aiPreferencesSchema,
-  conversationState: z.record(z.any()).optional(),
+  conversationState: z.record(z.unknown()).optional(),
 });
 
 export type AiWorkflowEditRequest = z.infer<typeof aiWorkflowEditRequestSchema>;
 
 export const aiWorkflowEditResponseSchema = z.object({
-  workflow: z.any(), // ApiWorkflow type (full workflow object)
+  workflow: z.unknown(), // ApiWorkflow type (full workflow object)
   versionId: z.string().uuid().nullable(),
   summary: z.array(z.string()),
   warnings: z.array(z.string()).optional(),
   questions: z.array(aiQuestionSchema).optional(),
   confidence: z.number(),
-  diff: z.any().optional(), // DiffResult type
+  diff: z.unknown().optional(), // DiffResult type
   noChanges: z.boolean().optional(), // True if no ops were applied
 });
 

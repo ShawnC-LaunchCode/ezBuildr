@@ -16,6 +16,7 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
         const { slug } = req.params;
 
         // Use workflows table instead of legacy surveys
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow query result with dynamic schema
         const workflow: any = await db.query.workflows.findFirst({
             where: eq(workflows.slug, slug)
         });

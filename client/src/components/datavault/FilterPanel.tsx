@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useDatavaultFilterStore, EMPTY_FILTERS, type FilterCondition, type FilterOperator } from "@/stores/useDatavaultFilterStore";
+import { useDatavaultFilterStore, EMPTY_FILTERS, type FilterCondition, type FilterOperator } from "@/store/useDatavaultFilterStore";
 
 import type { DatavaultColumn } from "@shared/schema";
 
@@ -103,7 +103,7 @@ export function FilterPanel({ tableId, columns }: FilterPanelProps) {
   const clearFilters = useDatavaultFilterStore((state) => state.clearFilters);
 
   const handleAddFilter = () => {
-    if (columns.length === 0) {return;}
+    if (columns.length === 0) { return; }
 
     const firstColumn = columns[0];
     const defaultOperator = getOperatorsForType(firstColumn.type)[0];
@@ -120,7 +120,7 @@ export function FilterPanel({ tableId, columns }: FilterPanelProps) {
 
   const handleColumnChange = (filterId: string, columnId: string) => {
     const column = columns.find((c) => c.id === columnId);
-    if (!column) {return;}
+    if (!column) { return; }
 
     const availableOps = getOperatorsForType(column.type);
     const currentFilter = filters.find((f) => f.id === filterId);
@@ -200,7 +200,7 @@ export function FilterPanel({ tableId, columns }: FilterPanelProps) {
         <CardContent className="pt-0 pb-4 px-4 space-y-3">
           {filters.map((filter) => {
             const column = columns.find((c) => c.id === filter.columnId);
-            if (!column) {return null;}
+            if (!column) { return null; }
 
             const availableOperators = getOperatorsForType(column.type);
             const needsValue = operatorNeedsValue(filter.operator);

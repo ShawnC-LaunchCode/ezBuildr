@@ -158,6 +158,7 @@ async function issueTokens(user: User, req: Request, res: Response): Promise<{ m
 // SECURITY FIX: Rate limiting for password-based authentication
 // Disable rate limiting in test environment to prevent flaky tests
 const isTest = process.env.NODE_ENV === 'test';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express next function
 const authRateLimit = isTest ?
   (_req: Request, _res: Response, next: any) => next() :
   rateLimit({
@@ -203,6 +204,7 @@ export function registerAuthRoutes(app: Express): void {
         profileImageUrl: null,
         tenantId: tenantId ?? null,
         role: 'creator',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tenantRole can be various string values
         tenantRole: (tenantRole as any) ?? null,
         authProvider: 'local',
         defaultMode: 'easy',

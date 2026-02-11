@@ -11,6 +11,7 @@ const logger = createLogger({ module: "versions-routes" });
 
 // Validation schemas
 const publishSchema = z.object({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow graph structure is dynamic
   graphJson: z.any(),
   notes: z.string().optional(),
   force: z.boolean().optional(),

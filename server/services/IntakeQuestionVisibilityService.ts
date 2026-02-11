@@ -49,6 +49,7 @@ export class IntakeQuestionVisibilityService {
   async evaluatePageQuestions(
     sectionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recordData is dynamic workflow data with unknown structure
     recordData?: Record<string, any>
   ): Promise<QuestionVisibilityResult> {
     // OPTIMIZATION: Check cache first (unless recordData is provided, as it affects evaluation)
@@ -79,6 +80,7 @@ export class IntakeQuestionVisibilityService {
       }
     }
     // Build evaluation context
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variables is dynamic workflow context with unknown structure
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
@@ -153,6 +155,7 @@ export class IntakeQuestionVisibilityService {
   async getValidationFilter(
     sectionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recordData is dynamic workflow data with unknown structure
     recordData?: Record<string, any>
   ): Promise<QuestionValidationFilter> {
     const visibility = await this.evaluatePageQuestions(sectionId, runId, recordData);
@@ -193,6 +196,7 @@ export class IntakeQuestionVisibilityService {
   async isQuestionVisible(
     questionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recordData is dynamic workflow data with unknown structure
     recordData?: Record<string, any>
   ): Promise<boolean> {
     // Load question to get sectionId (FIXED: use findById instead of findBySectionIds)
@@ -216,6 +220,7 @@ export class IntakeQuestionVisibilityService {
   async getVisibleQuestionCount(
     sectionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recordData is dynamic workflow data with unknown structure
     recordData?: Record<string, any>
   ): Promise<number> {
     const visibility = await this.evaluatePageQuestions(sectionId, runId, recordData);
@@ -264,6 +269,7 @@ export class IntakeQuestionVisibilityService {
   async clearHiddenQuestionValues(
     sectionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recordData is dynamic workflow data with unknown structure
     recordData?: Record<string, any>
   ): Promise<string[]> {
     const visibility = await this.evaluatePageQuestions(sectionId, runId, recordData);

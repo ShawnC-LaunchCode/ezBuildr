@@ -140,7 +140,9 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
       case 'yes_no':
       case 'true_false':
       case 'boolean':
-        if (typeof value === 'boolean') {return value;}
+        if (typeof value === 'boolean') {
+          return value;
+        }
         if (typeof value === 'string') {
           return value.toLowerCase() === 'true' || value.toLowerCase() === 'yes';
         }
@@ -187,8 +189,12 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
       case 'radio':
       case 'choice':
         // Single selection
-        if (typeof value === 'string') {return value;}
-        if (Array.isArray(value) && value.length > 0) {return value[0];}
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (Array.isArray(value) && value.length > 0) {
+          return value[0];
+        }
         return undefined;
 
       case 'multiple_choice':
@@ -196,7 +202,9 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
         if (Array.isArray(value)) {
           return value.filter(v => typeof v === 'string');
         }
-        if (typeof value === 'string') {return [value];}
+        if (typeof value === 'string') {
+          return [value];
+        }
         return undefined;
 
       // Numeric types
@@ -204,7 +212,9 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
       case 'currency':
       case 'scale':
         const num = typeof value === 'number' ? value : parseFloat(value);
-        if (!isNaN(num)) {return num;}
+        if (!isNaN(num)) {
+          return num;
+        }
         return undefined;
 
       // Complex types

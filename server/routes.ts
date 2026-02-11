@@ -35,9 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     app.get('/api/realtime/rooms/:roomId/stats', (req, res) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- getRoomStats returns dynamic data
         const stats = getRoomStats(req.params.roomId);
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!stats) {
           return res.status(404).json({ error: 'Room not found' });
         }

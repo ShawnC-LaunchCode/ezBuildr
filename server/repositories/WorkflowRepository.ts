@@ -93,7 +93,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
     // Results already have all workflow columns + ownerName at top level
-    return results as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return results as any; // Drizzle join result with organization name
   }
   /**
    * Find workflows by user access (Owner OR Shared OR Org-owned)
@@ -147,7 +148,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     return database
       .select()
       .from(workflows)
-      .where(eq(workflows.status, status as any))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .where(eq(workflows.status, status as any)) // Drizzle enum type assertion
       .orderBy(desc(workflows.updatedAt));
   }
   /**
@@ -162,9 +164,11 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Get user's org memberships for org-owned workflow access
     const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
     // Build conditions for ownership access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conditions = [
-      and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)), // Legacy
-      and(eq(workflows.ownerId, creatorId), eq(workflows.status, status as any)), // Legacy
+      and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)), // Legacy - Drizzle enum assertion
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      and(eq(workflows.ownerId, creatorId), eq(workflows.status, status as any)), // Legacy - Drizzle enum assertion
     ];
     // User-owned via new ownership model
     if (isUuid(creatorId)) {
@@ -172,7 +176,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         and(
           eq(workflows.ownerType, 'user'),
           eq(workflows.ownerUuid, creatorId),
-          eq(workflows.status, status as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          eq(workflows.status, status as any) // Drizzle enum assertion
         )
       );
     }
@@ -182,7 +187,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         and(
           eq(workflows.ownerType, 'org'),
           inArray(workflows.ownerUuid, orgIds),
-          eq(workflows.status, status as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          eq(workflows.status, status as any) // Drizzle enum assertion
         )
       );
     }
@@ -311,9 +317,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     ]);
     return {
       total: systemStats.totalWorkflowsCreated, // Use lifetime total
-      active: Number(stats[0]?.active || 0),
-      draft: Number(stats[0]?.draft || 0),
-      archived: Number(stats[0]?.archived || 0),
+      active: Number(stats[0]?.active ?? 0),
+      draft: Number(stats[0]?.draft ?? 0),
+      archived: Number(stats[0]?.archived ?? 0),
     };
   }
 }

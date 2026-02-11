@@ -47,7 +47,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
                 workspaceId: accessToken.workspaceId,
                 scopes: accessToken.scope as string[],
                 clientId: accessToken.clientId,
-                userId: accessToken.userId || undefined
+                userId: accessToken.userId ?? undefined
             };
             return next();
 
@@ -84,7 +84,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
 
             req.externalAuth = {
                 type: 'api_key',
-                workspaceId: (keyRecord as any).workspaceId,
+                workspaceId: (keyRecord as Record<string, unknown>).workspaceId as string,
                 scopes: keyRecord.scopes,
                 apiKeyId: keyRecord.id
             };

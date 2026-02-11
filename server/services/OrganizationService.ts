@@ -458,7 +458,7 @@ export class OrganizationService {
       await db.update(organizationInvites)
         .set({ emailSentAt: new Date() })
         .where(eq(organizationInvites.id, invite.id));
-    } catch (emailError) {
+    } catch (emailError: unknown) {
       // Log email failure but don't fail the invite
       const errorMessage = emailError instanceof Error ? emailError.message : 'Unknown error';
       await db.update(organizationInvites)
@@ -871,7 +871,7 @@ export class OrganizationService {
         await tx.delete(users).where(eq(users.id, userId));
         console.info(`Cleaned up placeholder user ${userId} (no pending invites or memberships)`);
       });
-    } catch (error) {
+    } catch (error: unknown) {
       // Don't fail the operation if cleanup fails
       console.error('Failed to cleanup placeholder user:', error);
     }

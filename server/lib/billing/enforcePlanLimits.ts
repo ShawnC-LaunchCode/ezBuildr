@@ -13,7 +13,7 @@ import { SubscriptionService } from "./SubscriptionService";
  */
 export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: number = 1) {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const organizationId = (req as any).organizationId || (req.user as any)?.tenantId; // Adapt to auth context
+        const organizationId = (req as Record<string, unknown>).organizationId ?? (req.user as Record<string, unknown> | undefined)?.tenantId;
         if (!organizationId) {
             // If no org context, we arguably should block or skip. 
             // For safety in SaaS transition, let's log error and allow (fail open) till migration complete.
@@ -34,7 +34,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
             // This is slightly expensive for middleware. Ideally cached in Redis.
             const usage = await UsageAggregator.getPeriodUsage(organizationId, startOfMonth, now);
-            const currentUsage = usage[metric] || 0;
+            const currentUsage = usage[metric] ?? 0;
             // 3. Check Quota
             if (currentUsage + quantity > maxLimit) {
                 return res.status(402).json({
@@ -59,7 +59,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
  */
 export function requireFeature(feature: string) {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const organizationId = (req as any).organizationId || (req.user as any)?.tenantId;
+        const organizationId = (req as Record<string, unknown>).organizationId ?? (req.user as Record<string, unknown> | undefined)?.tenantId;
         if (!organizationId) {
             console.warn("Feature Check Skipped: No Organization Context");
             return next();

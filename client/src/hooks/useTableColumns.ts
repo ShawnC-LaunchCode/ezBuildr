@@ -14,7 +14,9 @@ export function useTableColumns(tableId: string | undefined) {
   return useQuery({
     queryKey: tableId ? tableKeys.columns(tableId) : ['datavault', 'tables', 'null', 'columns'],
     queryFn: () => {
-      if (!tableId) {throw new Error('Table ID is required');}
+      if (!tableId) {
+        throw new Error('Table ID is required');
+      }
       return api.getTableColumns(tableId);
     },
     enabled: !!tableId,

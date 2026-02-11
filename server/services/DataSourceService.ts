@@ -29,7 +29,8 @@ export class DataSourceService {
      * Create a new data source
      * Handles mapping of 'native_table' virtual type to 'native' DB type
      */
-    async createDataSource(data: InsertDatavaultDatabase | { type: string;[key: string]: unknown }): Promise<DatavaultDatabase> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accepts flexible data source configuration
+    async createDataSource(data: InsertDatavaultDatabase | { type: string;[key: string]: any }): Promise<DatavaultDatabase> {
         if (data.type === 'native_table') {
             const config = (data.config !== null && data.config !== undefined && typeof data.config === 'object')
                 ? data.config as Record<string, unknown>

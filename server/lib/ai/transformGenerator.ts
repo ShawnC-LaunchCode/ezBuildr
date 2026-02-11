@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TransformBlock } from "shared/schema";
 interface GenerationRequest {
-  workflowContext: any; // Simplified workflow context
+  workflowContext: unknown;
   description: string;
   currentTransforms?: TransformBlock[];
 }
@@ -23,7 +23,7 @@ const getModel = () => {
         generateContent: async () => ({
           response: { text: () => "{ \"transforms\": [] }" }
         })
-      } as any;
+      } as unknown as ReturnType<typeof genAI.getGenerativeModel>;
     }
     throw e;
   }
@@ -77,7 +77,7 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
     const parsed = JSON.parse(cleanedText);
     return {
       updatedTransforms: parsed.transforms,
-      explanation: parsed.transforms.map((t: any) => t.explanation)
+      explanation: parsed.transforms.map((t: { explanation: string }) => t.explanation)
     };
   } catch (e) {
     console.error("Failed to parse AI response", e);

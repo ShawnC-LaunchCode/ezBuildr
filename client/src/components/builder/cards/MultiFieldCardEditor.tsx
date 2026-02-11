@@ -28,7 +28,6 @@ interface MultiFieldCardEditorProps {
 }
 
 // Layout presets
-// Layout presets
 const layoutPresets: Record<string, MultiFieldConfig['fields']> = {
   "first_last": [
     { key: "first", label: "First Name", type: "text", required: true },
@@ -162,7 +161,7 @@ const StorageModeSection = ({
   </div>
 );
 
-export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: MultiFieldCardEditorProps) {
+export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: MultiFieldCardEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Parse config

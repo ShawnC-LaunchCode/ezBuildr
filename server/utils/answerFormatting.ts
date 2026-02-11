@@ -12,6 +12,7 @@
  * @param value - The raw answer value (can be string, number, boolean, object, array, etc.)
  * @returns The extracted text value, or the original value if it's already a primitive
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- handles dynamic answer values from various question types
 export function extractTextValue(value: any): string {
   // Handle null/undefined
   if (value === null || value === undefined) {
@@ -32,7 +33,7 @@ export function extractTextValue(value: any): string {
   if (typeof value === 'object' && !(value instanceof Date)) {
     // Check if it's a file upload object
     if ('files' in value) {
-      return `${value.files?.length || 0} file(s)`;
+      return `${value.files?.length ?? 0} file(s)`;
     }
     // For other objects, return empty string to avoid [object Object]
     return '';
@@ -49,6 +50,7 @@ export function extractTextValue(value: any): string {
  * @param questionType - The type of question (short_text, multiple_choice, etc.)
  * @returns Formatted string representation of the answer
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- handles dynamic answer values from various question types
 export function formatAnswerValue(value: any, questionType: string): string {
   if (!value) {return '';}
 
@@ -92,7 +94,7 @@ export function formatAnswerValue(value: any, questionType: string): string {
     case 'file_upload':
       // File upload metadata
       if (typeof value === 'object' && 'files' in value) {
-        const fileCount = value.files?.length || 0;
+        const fileCount = value.files?.length ?? 0;
         return `${fileCount} file(s)`;
       }
       return '';

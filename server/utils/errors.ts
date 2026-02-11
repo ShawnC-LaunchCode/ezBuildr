@@ -42,7 +42,7 @@ export interface ApiErrorResponse {
   error: {
     code: ErrorCodeType;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
@@ -53,7 +53,7 @@ export class ApiError extends Error {
   constructor(
     public code: ErrorCodeType,
     message: string,
-    public details?: any,
+    public details?: unknown,
     public statusCode: number = 500
   ) {
     super(message);
@@ -75,32 +75,32 @@ export class ApiError extends Error {
  * Error factory functions for common error types
  */
 export const createError = {
-  unauthorized(message = 'Authentication required', details?: any): ApiError {
+  unauthorized(message = 'Authentication required', details?: unknown): ApiError {
     return new ApiError(ErrorCode.UNAUTHORIZED, message, details, 401);
   },
 
-  forbidden(message = 'Permission denied', details?: any): ApiError {
+  forbidden(message = 'Permission denied', details?: unknown): ApiError {
     return new ApiError(ErrorCode.FORBIDDEN, message, details, 403);
   },
 
-  notFound(resource: string, id?: string, details?: any): ApiError {
+  notFound(resource: string, id?: string, details?: unknown): ApiError {
     const message = id ? `${resource} with id '${id}' not found` : `${resource} not found`;
     return new ApiError(ErrorCode.NOT_FOUND, message, details, 404);
   },
 
-  conflict(message: string, details?: any): ApiError {
+  conflict(message: string, details?: unknown): ApiError {
     return new ApiError(ErrorCode.CONFLICT, message, details, 409);
   },
 
-  validation(message: string, details?: any): ApiError {
+  validation(message: string, details?: unknown): ApiError {
     return new ApiError(ErrorCode.VALIDATION_ERROR, message, details, 400);
   },
 
-  invalidInput(message: string, details?: any): ApiError {
+  invalidInput(message: string, details?: unknown): ApiError {
     return new ApiError(ErrorCode.INVALID_INPUT, message, details, 400);
   },
 
-  badRequest(message: string, details?: any): ApiError {
+  badRequest(message: string, details?: unknown): ApiError {
     return new ApiError(ErrorCode.INVALID_INPUT, message, details, 400);
   },
 
@@ -112,15 +112,15 @@ export const createError = {
     return new ApiError(ErrorCode.WORKFLOW_NO_VERSION, message, undefined, 400);
   },
 
-  invalidFileType(message = 'Invalid file type', details?: any): ApiError {
+  invalidFileType(message = 'Invalid file type', details?: unknown): ApiError {
     return new ApiError(ErrorCode.INVALID_FILE_TYPE, message, details, 400);
   },
 
-  internal(message = 'Internal server error', details?: any): ApiError {
+  internal(message = 'Internal server error', details?: unknown): ApiError {
     return new ApiError(ErrorCode.INTERNAL_ERROR, message, details, 500);
   },
 
-  database(message = 'Database error', details?: any): ApiError {
+  database(message = 'Database error', details?: unknown): ApiError {
     return new ApiError(ErrorCode.DATABASE_ERROR, message, details, 500);
   },
 };
@@ -128,6 +128,7 @@ export const createError = {
 /**
  * Format error response for Express
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- handles various error types from Express and Zod
 export function formatErrorResponse(error: any): { status: number; body: ApiErrorResponse } {
   if (error instanceof ApiError) {
     return {
@@ -156,7 +157,7 @@ export function formatErrorResponse(error: any): { status: number; body: ApiErro
     body: {
       error: {
         code: ErrorCode.INTERNAL_ERROR,
-        message: error.message || 'Internal server error',
+        message: error.message ?? 'Internal server error',
       },
     },
   };

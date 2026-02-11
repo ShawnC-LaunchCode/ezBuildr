@@ -54,14 +54,18 @@ export function usePreviewSession(options: PreviewSessionOptions | null) {
 export function usePreviewSessionValues(session: PreviewSession | null) {
   const subscribe = useCallback(
     (callback: () => void) => {
-      if (!session) {return () => { };}
+      if (!session) {
+        return () => { };
+      }
       return session.subscribe(callback);
     },
     [session]
   );
 
   const getSnapshot = useCallback(() => {
-    if (!session) {return EMPTY_VALUES;}
+    if (!session) {
+      return EMPTY_VALUES;
+    }
     return session.getValues();
   }, [session]);
 
@@ -104,7 +108,9 @@ export function usePreviewSessionSection(session: PreviewSession | null) {
 
   // Subscribe to session changes
   useEffect(() => {
-    if (!session) {return;}
+    if (!session) {
+      return;
+    }
 
     const unsubscribe = session.subscribe(() => {
       setCurrentSectionIndex(session.getCurrentSectionIndex());

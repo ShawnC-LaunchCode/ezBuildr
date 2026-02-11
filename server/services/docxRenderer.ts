@@ -32,6 +32,7 @@ async function convertDocxToPdf(inputPath: string): Promise<string> {
 
 export interface RenderOptions {
   templatePath: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template data can be any JSON structure
   data: Record<string, any>;
   outputDir?: string;
   outputName?: string;
@@ -90,13 +91,16 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
     // Render with data
     try {
       await doc.renderAsync(templateData);
-    } catch (error: any) {
-      if (error.properties?.errors) {
-        console.error('Docxtemplater MultiError:', JSON.stringify(error.properties.errors, null, 2));
-        const errorMessages = error.properties.errors
-          .map((e: any) => e.message)
-          .join(', ');
-        throw createError.internal(`Failed to render template: ${errorMessages}`);
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'properties' in error) {
+        const err = error as { properties?: { errors?: Array<{ message: string }> } };
+        if (err.properties?.errors) {
+          console.error('Docxtemplater MultiError:', JSON.stringify(err.properties.errors, null, 2));
+          const errorMessages = err.properties.errors
+            .map((e) => e.message)
+            .join(', ');
+          throw createError.internal(`Failed to render template: ${errorMessages}`);
+        }
       }
       throw createError.internal('Failed to render template', error);
     }
@@ -137,15 +141,16 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
     }
 
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If it's already a formatted error, re-throw it
-    if (error.code && error.status) {
+    if (error && typeof error === 'object' && 'code' in error && 'status' in error) {
       throw error;
     }
 
     // Otherwise, wrap in a generic error
+    const message = error instanceof Error ? error.message : 'Unknown error';
     throw createError.internal(
-      `Failed to render template: ${error.message || 'Unknown error'}`
+      `Failed to render template: ${message}`
     );
   }
 }
@@ -189,12 +194,13 @@ export async function extractPlaceholdersFromDocx(
     }
 
     return Array.from(placeholders).sort();
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       throw createError.notFound('Template file', templatePath);
     }
+    const message = error instanceof Error ? error.message : 'Unknown error';
     throw createError.internal(
-      `Failed to extract placeholders: ${error.message || 'Unknown error'}`
+      `Failed to extract placeholders: ${message}`
     );
   }
 }
@@ -207,6 +213,7 @@ export async function extractPlaceholdersFromDocx(
  */
 export function validateTemplateData(
   placeholders: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template data can be any JSON structure
   data: Record<string, any>
 ): string[] {
   const missing: string[] = [];

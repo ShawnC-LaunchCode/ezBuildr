@@ -9,6 +9,7 @@ import type { AIErrorCode } from './types';
 export interface AIErrorDetails {
   code: AIErrorCode;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
   details?: any;
   retryable?: boolean;
   retryAfterSeconds?: number;
@@ -19,6 +20,7 @@ export interface AIErrorDetails {
  */
 export class AIError extends Error {
   public readonly code: AIErrorCode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
   public readonly details?: any;
   public readonly retryable: boolean;
   public readonly retryAfterSeconds?: number;
@@ -26,6 +28,7 @@ export class AIError extends Error {
   constructor(
     message: string,
     code: AIErrorCode,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
     details?: any,
     retryable = false,
     retryAfterSeconds?: number
@@ -81,6 +84,7 @@ export class AIError extends Error {
 export function createAIError(
   message: string,
   code: AIErrorCode,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
   details?: any,
   retryable = false,
   retryAfterSeconds?: number
@@ -91,6 +95,7 @@ export function createAIError(
 /**
  * Check if error is a rate limit error
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
 export function isRateLimitError(error: any): boolean {
   return (
     error?.code === 'RATE_LIMIT' ||
@@ -105,6 +110,7 @@ export function isRateLimitError(error: any): boolean {
 /**
  * Check if error is a timeout error
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
 export function isTimeoutError(error: any): boolean {
   return (
     error?.code === 'TIMEOUT' ||
@@ -117,6 +123,7 @@ export function isTimeoutError(error: any): boolean {
 /**
  * Extract retry-after seconds from error
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
 export function getRetryAfter(error: any): number {
   // Check for Retry-After header (seconds)
   if (error?.response?.headers?.['retry-after']) {

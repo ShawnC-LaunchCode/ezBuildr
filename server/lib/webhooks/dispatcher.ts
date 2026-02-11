@@ -1,14 +1,15 @@
+import crypto from "crypto";
+
 import { eq, and } from "drizzle-orm";
 
 import { webhookSubscriptions, webhookEvents } from "@shared/schema";
 
 import { db } from "../../db";
-// import fetch from "node-fetch"; // Node 18+ has built-in fetch
 export class WebhookDispatcher {
     /**
      * Dispatch an event to all subscribed listeners in a workspace
      */
-    static async dispatch(workspaceId: string, event: string, payload: any) {
+    static async dispatch(workspaceId: string, event: string, payload: unknown) {
         try {
             // 1. Find Subscriptions
             // We need to match workspaceId and verify if 'event' is in the subscription's events array
@@ -21,7 +22,7 @@ export class WebhookDispatcher {
                 )
             });
             // Filter relevant subs
-            const relevantSubs = subs.filter((sub: any) => {
+            const relevantSubs = subs.filter((sub) => {
                 const events = sub.events as string[];
                 return events.includes(event) || events.includes('*');
             });
@@ -45,7 +46,7 @@ export class WebhookDispatcher {
     /**
      * Deliver a single webhook event
      */
-    static async deliver(eventId: string, url: string, secret: string, event: string, payload: any) {
+    static async deliver(eventId: string, url: string, secret: string, event: string, payload: unknown) {
         try {
             // Sign payload
             const signature = this.signPayload(payload, secret);
@@ -71,8 +72,7 @@ export class WebhookDispatcher {
                 .where(eq(webhookEvents.id, eventId));
         }
     }
-    static signPayload(payload: any, secret: string): string {
-        const crypto = require('crypto');
+    static signPayload(payload: unknown, secret: string): string {
         return crypto.createHmac('sha256', secret)
             .update(JSON.stringify(payload))
             .digest('hex');

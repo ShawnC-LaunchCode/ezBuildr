@@ -23,6 +23,7 @@ export function capitalize(s: string | null | undefined): string {
 /**
  * Join array elements with separator
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- array can contain any template data types
 export function join(arr: any[] | null | undefined, separator: string = ', '): string {
   if (!arr || !Array.isArray(arr)) {return '';}
   return arr.filter(item => item != null).join(separator);
@@ -31,6 +32,7 @@ export function join(arr: any[] | null | undefined, separator: string = ', '): s
 /**
  * Get array length
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- array can contain any template data types
 export function length(arr: any[] | null | undefined): number {
   if (!arr || !Array.isArray(arr)) {return 0;}
   return arr.length;
@@ -39,6 +41,7 @@ export function length(arr: any[] | null | undefined): number {
 /**
  * Get first element of array
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- array can contain any template data types, returns any type
 export function first(arr: any[] | null | undefined): any {
   if (!arr || !Array.isArray(arr) || arr.length === 0) {return null;}
   return arr[0];
@@ -47,6 +50,7 @@ export function first(arr: any[] | null | undefined): any {
 /**
  * Get last element of array
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- array can contain any template data types, returns any type
 export function last(arr: any[] | null | undefined): any {
   if (!arr || !Array.isArray(arr) || arr.length === 0) {return null;}
   return arr[arr.length - 1];
@@ -55,6 +59,7 @@ export function last(arr: any[] | null | undefined): any {
 /**
  * Check if value is empty (null, undefined, '', [], {})
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- needs to check any template data type
 export function isEmpty(value: any): boolean {
   if (value === null || value === undefined || value === '') {return true;}
   if (Array.isArray(value)) {return value.length === 0;}
@@ -72,6 +77,7 @@ export function isNotEmpty(value: any): boolean {
 /**
  * Default value if empty
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- needs to accept and return any template data type
 export function defaultValue(value: any, defaultVal: any): any {
   return isEmpty(value) ? defaultVal : value;
 }
@@ -259,6 +265,7 @@ export const docxHelpers = {
  */
 export function createAngularParser() {
   return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scope is dynamic template data structure
     get(scope: any, context: string) {
       // Handle dot notation (e.g., "user.name")
       const keys = context.split('.');

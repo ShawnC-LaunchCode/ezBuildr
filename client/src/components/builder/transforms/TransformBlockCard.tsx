@@ -16,7 +16,7 @@ export function TransformBlockCard({
     block: ApiTransformBlock;
     workflowId: string;
     onEdit: (block: ApiTransformBlock) => void
-}) {
+}): JSX.Element {
     const deleteMutation = useDeleteTransformBlock();
     const { toast } = useToast();
     const { data: variables = [] } = useWorkflowVariables(workflowId);

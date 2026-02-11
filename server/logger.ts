@@ -49,35 +49,38 @@ export const logger = pino({
  * Create a child logger with additional context
  * @param context - Additional context to add to all logs
  */
-export const createLogger = (context: Record<string, any>) => {
+export const createLogger = (context: Record<string, unknown>) => {
   return logger.child(context);
 };
 
 /**
  * Express middleware for request logging
  */
-export const requestLogger = (req: any, res: any, next: any) => {
+export const requestLogger = (req: unknown, res: unknown, next: unknown) => {
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(7);
 
-  // Add request ID to request object for tracing
-  req.id = requestId;
-  req.log = logger.child({ requestId, method: req.method, url: req.url });
+  const reqTyped = req as { id?: string; log?: unknown; method?: string; url?: string; ip?: string; get?: (key: string) => string | undefined };
+  const resTyped = res as { on: (event: string, handler: () => void) => void; statusCode?: number };
+  const nextTyped = next as () => void;
 
-  res.on('finish', () => {
+  reqTyped.id = requestId;
+  reqTyped.log = logger.child({ requestId, method: reqTyped.method, url: reqTyped.url });
+
+  resTyped.on('finish', () => {
     const duration = Date.now() - start;
-    req.log.info(
+    (reqTyped.log as typeof logger).info(
       {
-        statusCode: res.statusCode,
+        statusCode: resTyped.statusCode,
         duration,
-        ip: req.ip,
-        userAgent: req.get('User-Agent'),
+        ip: reqTyped.ip,
+        userAgent: reqTyped.get?.('User-Agent'),
       },
-      `${req.method} ${req.url} ${res.statusCode} - ${duration}ms`
+      `${reqTyped.method} ${reqTyped.url} ${resTyped.statusCode} - ${duration}ms`
     );
   });
 
-  next();
+  nextTyped();
 };
 
 export default logger;

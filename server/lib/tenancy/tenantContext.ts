@@ -6,7 +6,7 @@ import { workspaces } from "@shared/schema";
 import { db } from "../../db";
 
 export class TenantContext {
-    static async assertTenantBoundary(workspaceId: string, resource: any): Promise<void> {
+    static async assertTenantBoundary(workspaceId: string, resource: Record<string, unknown> | null): Promise<void> {
         if (!resource) {return;}
 
         // If resource has workspaceId, it MUST match
@@ -24,6 +24,7 @@ export class TenantContext {
             where: eq(workspaces.id, workspaceId),
             with: {
                 members: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle relational query builder callback
                     where: (members: any, { eq }: any) => eq(members.userId, userId)
                 }
             }

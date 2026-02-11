@@ -12,14 +12,15 @@ export class TemplateRepository {
    */
   async create(
     name: string,
-    content: any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    content: any, // JSONB template structure - flexible schema
     creatorId: string,
     description?: string,
     isSystem: boolean = false,
     tags: string[] = [],
     tx?: DbTransaction
   ) {
-    const database = tx || db;
+    const database = tx ?? db;
     const [row] = await database
       .insert(surveyTemplates)
       .values({
@@ -29,7 +30,8 @@ export class TemplateRepository {
         creatorId,
         isSystem,
         tags,
-      } as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any) // Drizzle type assertion for flexible values
       .returning();
     return row;
   }
@@ -38,7 +40,7 @@ export class TemplateRepository {
    * Find all templates created by a specific user
    */
   async findAllByCreator(creatorId: string, tx?: DbTransaction) {
-    const database = tx || db;
+    const database = tx ?? db;
     return database
       .select()
       .from(surveyTemplates)
@@ -50,7 +52,7 @@ export class TemplateRepository {
    * Find all system templates (created by admins and marked as system)
    */
   async findSystemTemplates(tx?: DbTransaction) {
-    const database = tx || db;
+    const database = tx ?? db;
     return database
       .select()
       .from(surveyTemplates)
@@ -62,7 +64,7 @@ export class TemplateRepository {
    * Find all templates accessible to a user (their own + system templates)
    */
   async findAllAccessible(creatorId: string, tx?: DbTransaction) {
-    const database = tx || db;
+    const database = tx ?? db;
     return database
       .select()
       .from(surveyTemplates)
@@ -79,7 +81,7 @@ export class TemplateRepository {
    * Find a template by ID
    */
   async findById(id: string, tx?: DbTransaction) {
-    const database = tx || db;
+    const database = tx ?? db;
     const [tpl] = await database
       .select()
       .from(surveyTemplates)
@@ -93,13 +95,15 @@ export class TemplateRepository {
   async update(
     id: string,
     creatorId: string,
-    patch: { name?: string; description?: string; content?: any; tags?: string[] },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    patch: { name?: string; description?: string; content?: any; tags?: string[] }, // JSONB content - flexible schema
     tx?: DbTransaction
   ) {
-    const database = tx || db;
+    const database = tx ?? db;
     const [row] = await database
       .update(surveyTemplates)
-      .set({ ...patch, updatedAt: sql`now()` } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .set({ ...patch, updatedAt: sql`now()` } as any) // Drizzle type assertion for flexible values
       .where(and(eq(surveyTemplates.id, id), eq(surveyTemplates.creatorId, creatorId)))
       .returning();
     return row;
@@ -109,7 +113,7 @@ export class TemplateRepository {
    * Delete a template
    */
   async delete(id: string, creatorId: string, tx?: DbTransaction) {
-    const database = tx || db;
+    const database = tx ?? db;
     const res = await database
       .delete(surveyTemplates)
       .where(and(eq(surveyTemplates.id, id), eq(surveyTemplates.creatorId, creatorId)))

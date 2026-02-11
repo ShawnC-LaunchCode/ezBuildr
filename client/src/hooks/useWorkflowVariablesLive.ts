@@ -35,7 +35,9 @@ export function useWorkflowVariablesLive(
 
   // Listen to workflow update events from the bus
   useEffect(() => {
-    if (!workflowId || !enabled) {return;}
+    if (!workflowId || !enabled) {
+      return;
+    }
 
     const unsubscribe = DevPanelBus.onWorkflowUpdate(() => {
       // Invalidate immediately when workflow changes
@@ -51,7 +53,9 @@ export function useWorkflowVariablesLive(
 
   // Enable refetch interval for live updates
   useEffect(() => {
-    if (!workflowId || !enabled) {return;}
+    if (!workflowId || !enabled) {
+      return;
+    }
 
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: queryKeys.variables(workflowId) });

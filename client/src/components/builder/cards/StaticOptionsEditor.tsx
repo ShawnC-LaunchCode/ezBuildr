@@ -16,7 +16,7 @@ interface StaticOptionsEditorProps {
  * Component for editing static choice options
  * Displays a list of options with label/alias inputs and delete buttons
  */
-export function StaticOptionsEditor({ options, onUpdate, onDelete, onAdd }: StaticOptionsEditorProps) {
+export function StaticOptionsEditor({ options, onUpdate, onDelete, onAdd }: StaticOptionsEditorProps): JSX.Element {
     return (
         <div className="space-y-3">
             <div className="space-y-2">

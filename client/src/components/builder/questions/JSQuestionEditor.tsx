@@ -23,7 +23,7 @@ interface JSQuestionEditorProps {
   workflowId?: string; // For variable picker
 }
 
-export function JSQuestionEditor({ config, onChange, className, elementId, workflowId }: JSQuestionEditorProps) {
+export function JSQuestionEditor({ config, onChange, className, elementId, workflowId }: JSQuestionEditorProps): JSX.Element {
   const [localConfig, setLocalConfig] = useState<JSQuestionConfig>(config);
 
   // Sync with external changes

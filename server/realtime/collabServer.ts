@@ -241,7 +241,7 @@ async function handleMessage(
       default:
         logger.warn({ messageType }, 'Unknown message type');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({ error, userId: connection.user.userId, roomName: room.name }, 'Failed to decode message');
   }
 }
@@ -415,10 +415,10 @@ async function getOrCreateRoom(roomName: string, tenantId: string): Promise<Room
   });
 
   // Handle document updates (from clients or remote)
-  doc.on('update', async (update: Uint8Array, origin: any) => {
+  doc.on('update', async (update: Uint8Array, origin: unknown) => {
     // 1. Update from Remote (Redis) -> Broadcast to local clients
     if (origin === 'remote') {
-      broadcastUpdate(room!, update, null as any);
+      broadcastUpdate(room!, update, null as unknown as WebSocket);
       return;
     }
 
@@ -501,7 +501,7 @@ function parseRoomKey(roomKey: string): {
     return null;
   }
 
-  const result: any = {
+  const result: { tenantId: string; workflowId: string; versionId?: string } = {
     tenantId: parts[1],
     workflowId: parts[3],
   };
@@ -540,7 +540,7 @@ function generateClientId(): number {
 /**
  * Get collaboration metrics
  */
-export function getMetrics(): typeof metrics & { roomDetails: any[] } {
+export function getMetrics(): typeof metrics & { roomDetails: Array<{ name: string; activeUsers: number; documentSize: number }> } {
   const roomDetails = Array.from(rooms.entries()).map(([name, room]) => ({
     name,
     activeUsers: room.connections.size,
@@ -556,7 +556,13 @@ export function getMetrics(): typeof metrics & { roomDetails: any[] } {
 /**
  * Get room statistics (for debug endpoint)
  */
-export function getRoomStats(roomName: string): any {
+export function getRoomStats(roomName: string): {
+  name: string;
+  activeUsers: number;
+  users: Array<{ userId: string; displayName: string; role: string }>;
+  documentSize: number;
+  awarenessStates: number;
+} | null {
   const room = rooms.get(roomName);
   if (!room) {
     return null;

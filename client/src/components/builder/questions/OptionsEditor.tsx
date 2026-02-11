@@ -49,7 +49,7 @@ interface OptionsEditorProps {
   mode?: 'easy' | 'advanced';  // Easy mode shows simplified UI
 }
 
-export function OptionsEditor({ options, onChange, className, elementId, mode = 'advanced' }: OptionsEditorProps) {
+export function OptionsEditor({ options, onChange, className, elementId, mode = 'advanced' }: OptionsEditorProps): JSX.Element {
   // =========================================================================
   // State Management
   // =========================================================================
@@ -535,7 +535,7 @@ interface OptionItemProps {
   elementId: string;
 }
 
-function OptionItem({ id, data, index, onUpdate, onBlur, onRemove, elementId }: OptionItemProps) {
+function OptionItem({ id, data, index, onUpdate, onBlur, onRemove, elementId }: OptionItemProps): JSX.Element {
   const {
     attributes,
     listeners,

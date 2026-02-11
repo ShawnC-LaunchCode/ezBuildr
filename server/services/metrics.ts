@@ -17,6 +17,7 @@ export interface MetricsEventInput {
   runId?: string;
   ts?: Date;
   durationMs?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metrics payload can contain any event data
   payload?: Record<string, any>;
 }
 /**
@@ -291,6 +292,7 @@ export async function getRecentEvents(params: {
  * Redact sensitive fields from payload
  * Prevents secrets, PII, and other sensitive data from being logged
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- payload can contain any event data structure
 function redactPayload(payload: Record<string, any>): Record<string, any> {
   const sensitiveFields = [
     'password',
@@ -308,6 +310,7 @@ function redactPayload(payload: Record<string, any>): Record<string, any> {
     'auth',
     'authorization',
   ];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- redacted payload maintains same structure
   const redacted: Record<string, any> = {};
   for (const [key, value] of Object.entries(payload)) {
     const lowerKey = key.toLowerCase();

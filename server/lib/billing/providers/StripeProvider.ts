@@ -26,7 +26,7 @@ export class StripeProvider implements BillingProvider {
         logger.info({ subscriptionId }, "Stripe: Canceling subscription");
     }
 
-    async updateSubscription(subscriptionId: string, params: any) {
+    async updateSubscription(subscriptionId: string, params: { priceId?: string; quantity?: number }) {
         logger.info({ subscriptionId, params }, "Stripe: Updating subscription");
     }
 

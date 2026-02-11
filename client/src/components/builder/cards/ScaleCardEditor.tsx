@@ -24,7 +24,7 @@ interface ScaleCardEditorProps {
   step: ApiStep;
 }
 
-export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCardEditorProps) {
+export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCardEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Cast config safely
@@ -102,13 +102,13 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
     };
 
     // Add optional fields
-    if (newConfig.minLabel && newConfig.minLabel.trim() !== "") {
+    if (newConfig.minLabel?.trim()) {
       configToSave.minLabel = newConfig.minLabel;
     }
-    if (newConfig.maxLabel && newConfig.maxLabel.trim() !== "") {
+    if (newConfig.maxLabel?.trim()) {
       configToSave.maxLabel = newConfig.maxLabel;
     }
-    if (newConfig.display === "stars" && newConfig.stars !== null && newConfig.stars !== undefined) {
+    if (newConfig.display === "stars" && newConfig.stars) {
       configToSave.stars = newConfig.stars;
     }
 
@@ -124,7 +124,7 @@ export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCa
       updates.min = 1;
       updates.step = 1;
       // Keep max as is or set to stars count
-      if (localConfig.max === 0 || localConfig.max === null || localConfig.max === undefined || localConfig.max > 12) {
+      if (!localConfig.max || localConfig.max > 12) {
         updates.max = updates.stars;
       }
     }

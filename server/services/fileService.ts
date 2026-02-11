@@ -56,6 +56,7 @@ const storage = multerInstance.diskStorage({
 });
 
 // File filter for validation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express request type not needed for file filter
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Check file type
   if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
@@ -76,6 +77,7 @@ export const upload = multerInstance({
 });
 
 // Validate file upload configuration
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure varies by step type
 export function validateFileUploadConfig(config: any) {
   if (!config) { return true; } // No restrictions
 

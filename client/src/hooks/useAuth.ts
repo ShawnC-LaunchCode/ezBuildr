@@ -35,7 +35,9 @@ export function useAuth(): AuthHookReturn {
         });
 
         if (!res.ok) {
-          if (res.status === 401) {return null;}
+          if (res.status === 401) {
+            return null;
+          }
           throw new Error("Failed to refresh session");
         }
 

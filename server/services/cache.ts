@@ -41,6 +41,7 @@ function createSecureCacheKey(parts: {
   return `${baseKey}:${hmac}`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic cache needs to support any value type
 class LRUCache<T = any> {
   private cache: Map<string, CacheEntry<T>>;
   private maxSize: number;
@@ -169,6 +170,7 @@ const oAuth2TokenCache = new LRUCache<{
 
 const httpResponseCache = new LRUCache<{
   status: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP response data can be any JSON structure
   data: any;
   headers: Record<string, string>;
 }>(500); // 500 HTTP responses max
@@ -327,6 +329,7 @@ export const httpCache = {
   /**
    * Get a cached HTTP response
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP response data can be any JSON structure
   get(key: string): { status: number; data: any; headers: Record<string, string> } | undefined {
     return httpResponseCache.get(key);
   },
@@ -339,6 +342,7 @@ export const httpCache = {
    */
   set(
     key: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP response data can be any JSON structure
     response: { status: number; data: any; headers: Record<string, string> },
     ttlMs: number
   ): void {

@@ -110,8 +110,10 @@ export type ConditionExpression =
  */
 export interface EvaluationContext {
   /** Workflow variables (step values by alias or ID) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values are dynamic per question type
   variables: Record<string, any>;
   /** Collection record data (if prefilled from a collection) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
   record?: Record<string, any>;
 }
 
@@ -123,9 +125,11 @@ export interface EvaluationContext {
  * Resolves a variable path to its value in the context
  * Supports dot notation: "address.city", "items[0].name"
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- traverses arbitrary nested variable structures via dot notation
 function resolveVariable(path: string, context: EvaluationContext): any {
   // First try to resolve from variables
   const parts = path.split('.');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic nested structures
   let current: any = context.variables;
 
   for (const part of parts) {
@@ -172,6 +176,7 @@ function resolveVariable(path: string, context: EvaluationContext): any {
 /**
  * Resolves an operand to its actual value
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- resolves to dynamic variable or literal value
 function resolveOperand(operand: ConditionOperand, context: EvaluationContext): any {
   if (operand.type === 'value') {
     return operand.value;
@@ -183,6 +188,7 @@ function resolveOperand(operand: ConditionOperand, context: EvaluationContext): 
 /**
  * Checks if a value is empty
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- checks emptiness across all value types
 function isEmpty(value: any): boolean {
   if (value === null || value === undefined) {
     return true;
@@ -206,6 +212,7 @@ function isEmpty(value: any): boolean {
 /**
  * Coerces values to comparable types
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- coerces dynamic condition values for comparison
 function coerceToComparable(value: any): string | number | boolean | null {
   if (value === null || value === undefined) {
     return null;
@@ -230,6 +237,7 @@ function coerceToComparable(value: any): string | number | boolean | null {
 /**
  * Normalizes a value for case-insensitive comparison
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizes dynamic values for case-insensitive comparison
 function normalize(value: any): any {
   if (typeof value === 'string') {
     return value.toLowerCase().trim();
@@ -244,6 +252,7 @@ function normalize(value: any): any {
 /**
  * Evaluates a comparison condition
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- compares dynamic condition operand values
 function evaluateComparison(
   operator: ConditionOperator,
   left: any,
@@ -397,6 +406,7 @@ export function value(val: ConditionValue): ValueLiteral {
  * Validates a condition expression structure
  * Returns an array of error messages (empty if valid)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- validates arbitrary condition expression structures
 export function validateConditionExpression(expression: any): string[] {
   const errors: string[] = [];
 
@@ -410,6 +420,7 @@ export function validateConditionExpression(expression: any): string[] {
     if (!Array.isArray(expression.and)) {
       errors.push('AND condition must have an array of sub-expressions');
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursive validation of arbitrary expressions
       expression.and.forEach((subExpr: any, i: number) => {
         const subErrors = validateConditionExpression(subExpr);
         errors.push(...subErrors.map(err => `AND[${i}]: ${err}`));
@@ -422,6 +433,7 @@ export function validateConditionExpression(expression: any): string[] {
     if (!Array.isArray(expression.or)) {
       errors.push('OR condition must have an array of sub-expressions');
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursive validation of arbitrary expressions
       expression.or.forEach((subExpr: any, i: number) => {
         const subErrors = validateConditionExpression(subExpr);
         errors.push(...subErrors.map(err => `OR[${i}]: ${err}`));

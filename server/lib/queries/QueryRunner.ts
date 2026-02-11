@@ -10,7 +10,7 @@ import { datavaultRowsRepository } from '../../repositories/DatavaultRowsReposit
 export class QueryRunner {
     private db: typeof db;
     constructor(dbInstance?: typeof db) {
-        this.db = dbInstance || db;
+        this.db = dbInstance ?? db;
     }
     /**
      * Execute a defined query against the native data store
@@ -135,6 +135,7 @@ export class QueryRunner {
         const rowIds = results.map((r: { id: string }) => r.id);
         // 7. Fetch Full Data (Hydrate)
         // We need the data in the ListVariable format
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic EAV data
         let rows: Record<string, any>[] = [];
         let columnIds: string[] = [];
         if (rowIds.length > 0) {
@@ -153,7 +154,7 @@ export class QueryRunner {
                     _updatedAt: entry.row.updatedAt,
                     ...entry.values
                 };
-            }).filter((r: any) => r !== null) as Record<string, any>[];
+            }).filter(Boolean) as Record<string, any>[];
             // Extract all unique column IDs encountered
             const colSet = new Set<string>();
             rows.forEach((r: Record<string, any>) => Object.keys(r).forEach(k => {

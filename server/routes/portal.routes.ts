@@ -50,6 +50,7 @@ const requirePortalAuth = (req: Request, res: Response, next: Function) => {
     const token = authHeader.substring(7);
     try {
         const { email } = authService.verifyPortalToken(token);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
         (req as any).portalEmail = email;
         next();
     } catch (error) {
@@ -127,6 +128,7 @@ router.post("/auth/logout", (req, res) => {
  */
 router.get("/runs", requirePortalAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
         const email = (req as any).portalEmail;
         const runs = await portalService.listRunsForEmail(email);
         res.json(runs);

@@ -20,7 +20,7 @@ const questionNodeConfigSchema = z.object({
   questionType: z.enum(['text', 'number', 'boolean', 'select', 'multiselect']),
   required: z.boolean().optional(),
   options: z.array(z.object({
-    value: z.any(),
+    value: z.unknown(),
     label: z.string(),
   })).optional(),
   validation: z.object({

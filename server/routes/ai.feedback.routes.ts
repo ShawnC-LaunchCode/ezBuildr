@@ -82,8 +82,8 @@ export function registerAiFeedbackRoutes(app: Express): void {
             createdAt: feedback.createdAt,
           },
         });
-      } catch (error: any) {
-        if (error.name === 'ZodError') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'ZodError') {
           res.status(400).json({
             success: false,
             message: 'Invalid feedback data',
@@ -169,7 +169,7 @@ export function registerAiFeedbackRoutes(app: Express): void {
             period: '30 days',
           },
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error({ error }, 'Failed to get AI feedback stats');
         res.status(500).json({
           success: false,

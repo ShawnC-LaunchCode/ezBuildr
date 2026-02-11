@@ -18,56 +18,49 @@ import type { EvalContext } from '../expr';
  * HTTP Node Configuration
  */
 export interface HttpNodeConfig {
-  // Connection settings
-  connectionId?: string;              // Optional reference to ExternalConnection
-  baseUrl?: string;                   // Required if no connectionId
-  path: string;                       // URL path (supports {{var}} templates)
+  connectionId?: string;
+  baseUrl?: string;
+  path: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  // Request configuration
-  query?: Record<string, any>;        // Query parameters (supports {{var}} templates)
-  headers?: Record<string, string>;   // Headers (supports {{var}} templates)
-  body?: any;                         // Request body (JSON only for MVP)
-  // Authentication
+  query?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  body?: unknown;
   auth?: {
     type: 'api_key' | 'bearer' | 'oauth2' | 'basic_auth' | 'none';
-    location?: 'header' | 'query';   // For api_key
-    keyName?: string;                 // Header/query param name for api_key
-    secretRef?: string;               // Secret key for api_key/basic_auth
-    tokenRef?: string;                // Secret key for bearer
+    location?: 'header' | 'query';
+    keyName?: string;
+    secretRef?: string;
+    tokenRef?: string;
     oauth2?: {
       tokenUrl: string;
-      clientIdRef: string;            // Secret key for OAuth2 client ID
-      clientSecretRef: string;        // Secret key for OAuth2 client secret
+      clientIdRef: string;
+      clientSecretRef: string;
       scope?: string;
     };
   };
-  // Retry and timeout configuration
-  timeoutMs?: number;                 // Request timeout (default 8000ms)
-  retries?: number;                   // Number of retries (default 2)
-  backoffMs?: number;                 // Initial backoff delay (default 250ms)
-  // Caching
-  cacheTtlMs?: number;                // Optional cache TTL in milliseconds
-  // Response mapping
+  timeoutMs?: number;
+  retries?: number;
+  backoffMs?: number;
+  cacheTtlMs?: number;
   map: Array<{
-    as: string;                       // Output variable name
-    select: string;                   // JSONPath selector (e.g., $.data.user.id)
+    as: string;
+    select: string;
   }>;
-  // Conditional execution
-  condition?: string;                 // Optional condition expression
+  condition?: string;
 }
 export interface HttpNodeInput {
   nodeId: string;
   config: HttpNodeConfig;
   context: EvalContext;
-  projectId: string;                  // For secret/connection resolution
+  projectId: string;
 }
 export interface HttpNodeOutput {
   status: 'executed' | 'skipped' | 'error';
-  variables?: Record<string, any>;    // Mapped variables
+  variables?: Record<string, unknown>;
   response?: {
     status: number;
     headers: Record<string, string>;
-    data: any;
+    data: unknown;
     cached: boolean;
   };
   skipReason?: string;
@@ -215,8 +208,8 @@ async function resolveRequestConfig(
   timeoutMs: number;
   retries: number;
   backoffMs: number;
-  accessToken?: string; // For OAuth2 3-legged flow
-  connectionId?: string; // For marking as used
+  accessToken?: string;
+  connectionId?: string;
 }> {
   if (config.connectionId) {
     // Try new connections service first (Stage 16)
@@ -281,7 +274,7 @@ async function resolveRequestConfig(
       return {
         baseUrl: connection.baseUrl,
         auth: {
-          type: connection.authType as any,
+          type: connection.authType as 'api_key' | 'bearer' | 'oauth2' | 'basic_auth' | 'none',
           secretRef: connection.secretValue,
         },
         defaultHeaders: connection.defaultHeaders,
@@ -378,7 +371,7 @@ async function resolveHeaders(
 function buildUrl(
   baseUrl: string,
   path: string,
-  query: Record<string, any> | undefined,
+  query: Record<string, unknown> | undefined,
   context: EvalContext
 ): string {
   // Interpolate templates in path
@@ -416,11 +409,11 @@ async function executeWithRetries(config: {
   url: string;
   method: string;
   headers: Record<string, string>;
-  body?: any;
+  body?: unknown;
   timeoutMs: number;
   retries: number;
   backoffMs: number;
-}): Promise<{ status: number; headers: Record<string, string>; data: any }> {
+}): Promise<{ status: number; headers: Record<string, string>; data: unknown }> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= config.retries; attempt++) {
     try {
@@ -435,7 +428,7 @@ async function executeWithRetries(config: {
       clearTimeout(timeoutId);
       // Parse response
       const text = await response.text();
-      let data: any;
+      let data: unknown;
       try {
         data = text ? JSON.parse(text) : null;
       } catch {
@@ -470,8 +463,8 @@ async function executeWithRetries(config: {
 /**
  * Map response data to variables using JSONPath selectors
  */
-function mapResponse(data: any, mappings: Array<{ as: string; select: string }>): Record<string, any> {
-  const variables: Record<string, any> = {};
+function mapResponse(data: unknown, mappings: Array<{ as: string; select: string }>): Record<string, unknown> {
+  const variables: Record<string, unknown> = {};
   for (const mapping of mappings) {
     try {
       const value = select(data, mapping.select);

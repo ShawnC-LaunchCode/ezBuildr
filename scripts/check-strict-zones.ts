@@ -174,12 +174,12 @@ function checkStrictCompliance(verbose: boolean = false): boolean {
       );
 
       console.log('   ✅ PASSED - Strict mode compliant');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log('   ❌ FAILED - Strict mode violations detected');
 
-      if (!verbose && error.stdout) {
+      if (!verbose && error && typeof error === 'object' && 'stdout' in error && typeof (error as { stdout?: unknown }).stdout === 'string') {
         console.log('\n   Error output:');
-        console.log(`   ${  error.stdout.split('\n').slice(0, 10).join('\n   ')}`);
+        console.log(`   ${  (error as { stdout: string }).stdout.split('\n').slice(0, 10).join('\n   ')}`);
         console.log('\n   Run with --verbose flag for full output');
       }
 

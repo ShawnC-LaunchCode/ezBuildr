@@ -42,7 +42,9 @@ export function useTable(id: string | undefined) {
   return useQuery({
     queryKey: id ? tableKeys.table(id) : ['datavault', 'tables', 'null'],
     queryFn: () => {
-      if (!id) {throw new Error('Table ID is required');}
+      if (!id) {
+        throw new Error('Table ID is required');
+      }
       return api.getTableById(id);
     },
     enabled: !!id,
@@ -53,7 +55,9 @@ export function useTableSchema(tableId: string | undefined) {
   return useQuery({
     queryKey: tableId ? tableKeys.schema(tableId) : ['datavault', 'tables', 'null', 'schema'],
     queryFn: () => {
-      if (!tableId) {throw new Error('Table ID is required');}
+      if (!tableId) {
+        throw new Error('Table ID is required');
+      }
       return api.getTableSchema(tableId);
     },
     enabled: !!tableId,

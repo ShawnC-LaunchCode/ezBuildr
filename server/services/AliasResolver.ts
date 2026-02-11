@@ -420,6 +420,7 @@ export const AliasResolverUtils = {
       if (rule.conditionStepAlias) {
         const conditionId = resolver.resolve(rule.conditionStepAlias);
         if (conditionId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property assignment for logic rules
           (resolvedRule as any).conditionStepId = conditionId;
         } else {
           errors.push({
@@ -434,6 +435,7 @@ export const AliasResolverUtils = {
       if (rule.targetAlias) {
         const targetId = resolver.resolve(rule.targetAlias);
         if (targetId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property assignment for logic rules
           (resolvedRule as any).targetId = targetId;
         } else {
           errors.push({
@@ -457,9 +459,12 @@ export const AliasResolverUtils = {
    * Build data context with both IDs and aliases as keys
    */
   buildDualKeyContext(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values can be any type from workflow data
     stepValues: Array<{ stepId: string; value: any }>,
     resolver: AliasResolver
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- context holds arbitrary workflow data
   ): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- context holds arbitrary workflow data
     const context: Record<string, any> = {};
 
     for (const sv of stepValues) {

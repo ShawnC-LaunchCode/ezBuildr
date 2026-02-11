@@ -381,8 +381,9 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
     const { versionId } = req.query;
 
     // Default window: 30 days
-    const window = (req.query.window as string) || '30d';
-    const windowMs = parseWindow(window as any) || parseWindow('30d');
+    const window = (req.query.window as string) ?? '30d';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- window string is validated below
+    const windowMs = parseWindow(window as any) ?? parseWindow('30d');
     const windowStart = new Date(Date.now() - windowMs);
 
     const metricsConditions = [

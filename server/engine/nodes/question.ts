@@ -8,17 +8,17 @@ import type { EvalContext } from '../expr';
  */
 
 export interface QuestionNodeConfig {
-  key: string;                     // Variable name to store answer
-  questionText: string;            // Question prompt
+  key: string;
+  questionText: string;
   questionType: 'text' | 'number' | 'boolean' | 'select' | 'multiselect';
   required?: boolean;
-  options?: Array<{ value: any; label: string }>;
+  options?: Array<{ value: unknown; label: string }>;
   validation?: {
     min?: number;
     max?: number;
     pattern?: string;
   };
-  condition?: string;              // Optional conditional execution
+  condition?: string;
   skipBehavior?: 'skip' | 'hide' | 'disable';
 }
 
@@ -26,13 +26,13 @@ export interface QuestionNodeInput {
   nodeId: string;
   config: QuestionNodeConfig;
   context: EvalContext;
-  userAnswer?: any;                // Pre-provided answer (for batch execution)
+  userAnswer?: unknown;
 }
 
 export interface QuestionNodeOutput {
   status: 'executed' | 'skipped';
-  varName?: string;                // Variable name that was set
-  varValue?: any;                  // Value that was set
+  varName?: string;
+  varValue?: unknown;
   skipReason?: string;
 }
 
@@ -93,7 +93,7 @@ export async function executeQuestionNode(
 /**
  * Validate an answer against question configuration
  */
-function validateAnswer(config: QuestionNodeConfig, answer: any): void {
+function validateAnswer(config: QuestionNodeConfig, answer: unknown): void {
   // Type validation
   switch (config.questionType) {
     case 'number':

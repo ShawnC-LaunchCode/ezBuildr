@@ -1,6 +1,7 @@
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { TextField, NumberField, SectionHeader } from "./common/EditorField";
 
 export interface ScaleCardState {

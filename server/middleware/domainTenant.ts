@@ -42,7 +42,7 @@ export async function domainTenantLookup(
 ): Promise<void> {
   try {
     // Extract host from request
-    const host = req.hostname || req.get('host')?.split(':')[0];
+    const host = req.hostname ?? req.get('host')?.split(':')[0];
 
     if (!host) {
       logger.debug('No host found in request');

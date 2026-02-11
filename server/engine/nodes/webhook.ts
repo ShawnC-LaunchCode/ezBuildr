@@ -14,37 +14,30 @@ import type { EvalContext } from '../expr';
  * Webhook Node Configuration
  */
 export interface WebhookNodeConfig {
-  // Connection settings
-  connectionId?: string;              // Optional reference to Connection
-  url?: string;                       // Required if no connectionId
-  method: 'POST' | 'PUT' | 'PATCH';   // Webhook methods (no GET/DELETE)
-
-  // Request configuration
-  headers?: Record<string, string>;   // Headers (supports {{var}} templates)
-  body?: any;                         // Request body (JSON, supports {{var}} templates)
-
-  // Behavior
-  mode?: 'fire-and-forget' | 'blocking'; // Default: blocking
+  connectionId?: string;
+  url?: string;
+  method: 'POST' | 'PUT' | 'PATCH';
+  headers?: Record<string, string>;
+  body?: unknown;
+  mode?: 'fire-and-forget' | 'blocking';
   retryPolicy?: {
-    attempts?: number;                // Number of retries (default 3)
-    backoffMs?: number;               // Initial backoff delay (default 1000ms)
+    attempts?: number;
+    backoffMs?: number;
   };
-
-  // Conditional execution
-  condition?: string;                 // Optional condition expression
+  condition?: string;
 }
 
 export interface WebhookNodeInput {
   nodeId: string;
   config: WebhookNodeConfig;
   context: EvalContext;
-  projectId?: string;                 // For connection resolution
+  projectId?: string;
 }
 
 export interface WebhookNodeOutput {
   status: 'executed' | 'skipped' | 'error';
   statusCode?: number;
-  responseBody?: string;              // Limited to 512 bytes
+  responseBody?: string;
   skipReason?: string;
   error?: string;
   durationMs?: number;
@@ -63,13 +56,13 @@ function interpolateTemplate(template: string, context: EvalContext): string {
 /**
  * Interpolate template variables in an object (recursively)
  */
-function interpolateObject(obj: any, context: EvalContext): any {
+function interpolateObject(obj: unknown, context: EvalContext): unknown {
   if (typeof obj === 'string') {
     return interpolateTemplate(obj, context);
   } else if (Array.isArray(obj)) {
     return obj.map(item => interpolateObject(item, context));
   } else if (obj && typeof obj === 'object') {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = interpolateObject(value, context);
     }
@@ -85,7 +78,7 @@ async function executeWebhookWithRetries(params: {
   url: string;
   method: string;
   headers: Record<string, string>;
-  body: any;
+  body: unknown;
   attempts: number;
   backoffMs: number;
 }): Promise<{ statusCode: number; responseBody: string }> {
@@ -156,8 +149,8 @@ export async function executeWebhookNode(input: WebhookNodeInput): Promise<Webho
 
     // Resolve URL and headers
     let url = config.url ?? '';
-    let headers: Record<string, string> = { ...(config.headers || {}) };
-    let body = config.body || {};
+    let headers: Record<string, string> = { ...(config.headers ?? {}) };
+    let body: unknown = config.body ?? {};
 
     // If connectionId is provided, resolve connection
     if (config.connectionId && projectId) {

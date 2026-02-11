@@ -16,6 +16,7 @@ export interface IntakeRunnerState {
   /** Current page ID */
   currentPageId: string | null;
   /** All answers collected so far */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step answer values are dynamic per question type
   answers: Record<string, any>;
   /** Pages that have been visited */
   visitedPages: Set<string>;
@@ -33,6 +34,7 @@ export interface IntakeRunnerState {
 export interface StateTransition {
   type: 'NEXT' | 'BACK' | 'GOTO' | 'UPDATE_ANSWER' | 'SUBMIT';
   pageId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step answer values are dynamic per question type
   answersaround?: Record<string, any>;
 }
 export class IntakeStateMachine {
@@ -46,6 +48,7 @@ export class IntakeStateMachine {
   async initializeState(
     workflowId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
     recordData?: Record<string, any>
   ): Promise<IntakeRunnerState> {
     const nav = await this.navigationService.evaluateNavigation(
@@ -74,6 +77,7 @@ export class IntakeStateMachine {
     state: IntakeRunnerState,
     workflowId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
     recordData?: Record<string, any>
   ): Promise<IntakeRunnerState> {
     if (!state.canGoNext) {
@@ -114,6 +118,7 @@ export class IntakeStateMachine {
     state: IntakeRunnerState,
     workflowId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
     recordData?: Record<string, any>
   ): Promise<IntakeRunnerState> {
     if (!state.canGoBack) {
@@ -144,10 +149,12 @@ export class IntakeStateMachine {
    */
   async updateAnswers(
     state: IntakeRunnerState,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step answer values are dynamic per question type
     updates: Record<string, any>,
     steps: Step[],
     sectionId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
     recordData?: Record<string, any>
   ): Promise<IntakeRunnerState> {
     const newAnswers = {

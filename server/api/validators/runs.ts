@@ -7,8 +7,8 @@ import { paginationQuerySchema } from '../../utils/pagination';
  */
 
 export const createRunSchema = z.object({
-  inputJson: z.record(z.any()),
-  versionId: z.string().uuid().optional(), // Optional: use specific version, else use latest published
+  inputJson: z.record(z.unknown()),
+  versionId: z.string().uuid().optional(),
   options: z.object({
     debug: z.boolean().optional(),
   }).optional(),
@@ -40,8 +40,8 @@ export const workflowIdParamsSchema = z.object({
 
 // Stage 8: Rerun schema
 export const rerunSchema = z.object({
-  overrideInputJson: z.record(z.any()).optional(),
-  versionId: z.string().uuid().optional(), // Use different version
+  overrideInputJson: z.record(z.unknown()).optional(),
+  versionId: z.string().uuid().optional(),
   options: z.object({
     debug: z.boolean().optional(),
   }).optional(),
@@ -70,9 +70,9 @@ export type ListRunLogsQuery = z.infer<typeof listRunLogsQuerySchema>;
 export type DownloadRunQuery = z.infer<typeof downloadRunQuerySchema>;
 export type RunParams = z.infer<typeof runParamsSchema>;
 export type WorkflowIdParams = z.infer<typeof workflowIdParamsSchema>;
-export type RerunRequest = z.infer<typeof rerunSchema>; // Stage 8
-export type ExportRunsQuery = z.infer<typeof exportRunsQuerySchema>; // Stage 8
-export type CompareRunsQuery = z.infer<typeof compareRunsQuerySchema>; // Stage 8
+export type RerunRequest = z.infer<typeof rerunSchema>;
+export type ExportRunsQuery = z.infer<typeof exportRunsQuerySchema>;
+export type CompareRunsQuery = z.infer<typeof compareRunsQuerySchema>;
 
 // Run response shapes
 export interface CreateRunResponse {

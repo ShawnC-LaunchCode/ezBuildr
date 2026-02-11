@@ -15,7 +15,7 @@ interface AdvancedTransformUIProps {
   className?: string;
 }
 
-export function AdvancedTransformUI({ select, dedupe, onChange, className }: AdvancedTransformUIProps) {
+export function AdvancedTransformUI({ select, dedupe, onChange, className }: AdvancedTransformUIProps): JSX.Element {
   return (
     <div className={className}>
       <div className="space-y-3">

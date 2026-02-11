@@ -15,6 +15,7 @@ export function isListVariable(value: unknown): value is ListVariable {
     return false;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- narrowing unknown to ListVariable requires property access
   const v = value as any;
 
   // Check required properties
@@ -62,9 +63,13 @@ export function validateListVariable(
       {
         stepId: context?.stepId,
         stepAlias: context?.stepAlias,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
         hasMetadata: !!(value as any)?.metadata,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
         hasRows: Array.isArray((value as any)?.rows),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
         hasCount: typeof (value as any)?.count === "number",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
         hasColumns: Array.isArray((value as any)?.columns),
       },
       "Invalid ListVariable format in JS block output"

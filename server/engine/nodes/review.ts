@@ -14,12 +14,12 @@ import type { EvalContext } from '../expr';
  */
 export interface ReviewNodeConfig {
   reviewerType: 'internal' | 'external';
-  reviewerUserId?: string;             // Internal reviewer user ID
-  reviewerEmail?: string;              // External reviewer email
-  message?: string;                    // Message for reviewer
-  allowEdit?: boolean;                 // Reserved for future: allow editing before approval
-  autoApproveIfNoChange?: boolean;     // Reserved for future: auto-approve if no changes
-  condition?: string;                  // Optional conditional execution
+  reviewerUserId?: string;
+  reviewerEmail?: string;
+  message?: string;
+  allowEdit?: boolean;
+  autoApproveIfNoChange?: boolean;
+  condition?: string;
 }
 
 /**
@@ -29,10 +29,10 @@ export interface ReviewNodeInput {
   nodeId: string;
   config: ReviewNodeConfig;
   context: EvalContext;
-  runId: string;                       // Run ID for creating review task
-  workflowId: string;                  // Workflow ID
-  tenantId: string;                    // Tenant ID
-  projectId: string;                   // Project ID
+  runId: string;
+  workflowId: string;
+  tenantId: string;
+  projectId: string;
 }
 
 /**
@@ -40,7 +40,7 @@ export interface ReviewNodeInput {
  */
 export interface ReviewNodeOutput {
   status: 'executed' | 'skipped' | 'waiting';
-  reviewTaskId?: string;               // Created review task ID
+  reviewTaskId?: string;
   skipReason?: string;
   error?: string;
 }
@@ -99,12 +99,13 @@ export async function executeReviewNode(
 
     return {
       status: 'waiting',
-      // The service layer will create the review task and return its ID
     };
   } catch (error) {
     return {
       status: 'skipped',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : UNKNOWN_ERROR_MSG,
     };
   }
 }
+
+const UNKNOWN_ERROR_MSG = 'Unknown error';

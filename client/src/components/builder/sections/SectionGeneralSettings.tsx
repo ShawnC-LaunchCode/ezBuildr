@@ -15,7 +15,7 @@ export function SectionGeneralSettings({
     setTitle,
     description,
     setDescription
-}: SectionGeneralSettingsProps) {
+}: SectionGeneralSettingsProps): JSX.Element {
     return (
         <div className="space-y-4 py-4">
             <div className="space-y-2">

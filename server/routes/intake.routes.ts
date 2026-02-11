@@ -33,13 +33,16 @@ const upload = multer({
 // Validation schemas
 const createRunSchema = z.object({
   slug: z.string(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
   answers: z.record(z.any()).optional(),
   prefillParams: z.record(z.string()).optional(), // Stage 12.5: URL prefill
 });
 const saveProgressSchema = z.object({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
   answers: z.record(z.any()),
 });
 const submitRunSchema = z.object({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
   answers: z.record(z.any()),
   captcha: z.object({ // Stage 12.5: CAPTCHA validation
     type: z.enum(["simple", "recaptcha"]),

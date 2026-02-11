@@ -4,7 +4,7 @@
  * Modal for adding subdomains or custom domains to a tenant
  */
 
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,9 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { CustomDomainTab } from './CustomDomainTab';
+import { SubdomainTab } from './SubdomainTab';
 
 export interface AddDomainModalProps {
   open: boolean;
@@ -30,34 +31,10 @@ export interface AddDomainModalProps {
 
 // Reserved subdomain names that cannot be used
 const RESERVED_SUBDOMAINS = [
-  'www',
-  'api',
-  'app',
-  'admin',
-  'staging',
-  'dev',
-  'test',
-  'demo',
-  'portal',
-  'dashboard',
-  'login',
-  'auth',
-  'docs',
-  'blog',
-  'support',
-  'help',
-  'mail',
-  'email',
-  'cdn',
-  'assets',
-  'static',
-  'media',
-  'files',
-  'downloads',
-  'storage',
-  'backup',
-  'vault',
-  'vaultlogic',
+  'www', 'api', 'app', 'admin', 'staging', 'dev', 'test', 'demo', 'portal',
+  'dashboard', 'login', 'auth', 'docs', 'blog', 'support', 'help', 'mail',
+  'email', 'cdn', 'assets', 'static', 'media', 'files', 'downloads',
+  'storage', 'backup', 'vault', 'vaultlogic',
 ];
 
 const validateSubdomain = (value: string, existingDomains: string[]): string | null => {
@@ -65,7 +42,6 @@ const validateSubdomain = (value: string, existingDomains: string[]): string | n
     return 'Subdomain is required';
   }
 
-  // Check length
   if (value.length < 3) {
     return 'Subdomain must be at least 3 characters';
   }
@@ -75,18 +51,15 @@ const validateSubdomain = (value: string, existingDomains: string[]): string | n
   }
 
   // Check format: alphanumeric and hyphens only, no leading/trailing hyphens
-  // Using a more robust regex for subdomain validation (RFC 1035)
   // eslint-disable-next-line security/detect-unsafe-regex
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)) {
     return 'Subdomain can only contain lowercase letters, numbers, and hyphens (no leading/trailing hyphens)';
   }
 
-  // Check for reserved names
   if (RESERVED_SUBDOMAINS.includes(value.toLowerCase())) {
     return 'This subdomain is reserved and cannot be used';
   }
 
-  // Check if already exists
   const fullDomain = `${value}.vaultlogic.com`;
   if (existingDomains.includes(fullDomain)) {
     return 'This subdomain is already configured';
@@ -101,19 +74,16 @@ const validateCustomDomain = (value: string, existingDomains: string[]): string 
   }
 
   // Basic domain format validation
-  // Use a clearer regex pattern for domain names (RFC 1035)
   // eslint-disable-next-line security/detect-unsafe-regex
   const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
   if (!domainRegex.test(value)) {
     return 'Please enter a valid domain name (e.g., example.com)';
   }
 
-  // Check if already exists
   if (existingDomains.includes(value.toLowerCase())) {
     return 'This domain is already configured';
   }
 
-  // Prevent vaultlogic.com domains in custom
   if (value.toLowerCase().endsWith('.vaultlogic.com')) {
     return 'VaultLogic subdomains should be added using the Subdomain tab';
   }
@@ -121,7 +91,6 @@ const validateCustomDomain = (value: string, existingDomains: string[]): string 
   return null;
 };
 
-// eslint-disable-next-line max-lines-per-function
 export default function AddDomainModal({
   open,
   onOpenChange,
@@ -133,8 +102,6 @@ export default function AddDomainModal({
   const [customDomain, setCustomDomain] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-
 
   const handleSubmit = async () => {
     setError(null);
@@ -158,7 +125,6 @@ export default function AddDomainModal({
     setIsSubmitting(true);
     try {
       await onAddDomain(domainToAdd);
-      // Reset form on success
       setSubdomain('');
       setCustomDomain('');
       setError(null);
@@ -172,7 +138,6 @@ export default function AddDomainModal({
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      // Reset form when closing
       setSubdomain('');
       setCustomDomain('');
       setError(null);
@@ -197,100 +162,50 @@ export default function AddDomainModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={domainType} onValueChange={(v) => setDomainType(v as 'subdomain' | 'custom')} className="mt-4">
+        <Tabs
+          value={domainType}
+          onValueChange={(v) => setDomainType(v as 'subdomain' | 'custom')}
+          className="mt-4"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="subdomain">Subdomain</TabsTrigger>
             <TabsTrigger value="custom">Custom Domain</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="subdomain" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="subdomain">Subdomain</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="subdomain"
-                  placeholder="my-portal"
-                  value={subdomain}
-                  onChange={(e) => {
-                    setSubdomain(e.target.value.toLowerCase());
-                    setError(null);
-                  }}
-                  className="flex-1"
-                  disabled={isSubmitting}
-                />
-                <span className="text-muted-foreground">.vaultlogic.com</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Choose a unique subdomain for your branded intake portal
-              </p>
-            </div>
-
-            {subdomain && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-1">Preview URL:</p>
-                <p className="text-sm text-muted-foreground font-mono break-all">
-                  https://{subdomain}.vaultlogic.com
-                </p>
-              </div>
-            )}
-
-            <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Subdomains are instantly active - no DNS configuration required!
-              </AlertDescription>
-            </Alert>
+          <TabsContent value="subdomain">
+            <SubdomainTab
+              subdomain={subdomain}
+              setSubdomain={setSubdomain}
+              setError={setError}
+              isSubmitting={isSubmitting}
+            />
           </TabsContent>
 
-          <TabsContent value="custom" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="customDomain">Custom Domain</Label>
-              <Input
-                id="customDomain"
-                placeholder="portal.example.com"
-                value={customDomain}
-                onChange={(e) => {
-                  setCustomDomain(e.target.value.toLowerCase());
-                  setError(null);
-                }}
-                disabled={isSubmitting}
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter your custom domain (e.g., portal.example.com)
-              </p>
-            </div>
-
-            {customDomain && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-1">Preview URL:</p>
-                <p className="text-sm text-muted-foreground font-mono break-all">
-                  https://{customDomain}
-                </p>
-              </div>
-            )}
-
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Custom domains require DNS configuration. After adding, configure a CNAME record
-                pointing to <strong>vaultlogic.app</strong>
-              </AlertDescription>
-            </Alert>
+          <TabsContent value="custom">
+            <CustomDomainTab
+              customDomain={customDomain}
+              setCustomDomain={setCustomDomain}
+              setError={setError}
+              isSubmitting={isSubmitting}
+            />
           </TabsContent>
         </Tabs>
 
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={() => { void handleSubmit(); }} disabled={!currentValue || isSubmitting || !isValid}>
+          <Button
+            onClick={() => { void handleSubmit(); }}
+            disabled={!currentValue || isSubmitting || !isValid}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

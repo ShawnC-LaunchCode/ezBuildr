@@ -39,7 +39,9 @@ export function useOrganization(orgId: string | undefined) {
   return useQuery({
     queryKey: orgId ? organizationKeys.detail(orgId) : ['organizations', 'null'],
     queryFn: () => {
-      if (!orgId) {throw new Error('Organization ID is required');}
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
       return api.getOrganizationById(orgId);
     },
     enabled: !!orgId,
@@ -50,7 +52,9 @@ export function useOrganizationMembers(orgId: string | undefined) {
   return useQuery({
     queryKey: orgId ? organizationKeys.members(orgId) : ['organizations', 'null', 'members'],
     queryFn: () => {
-      if (!orgId) {throw new Error('Organization ID is required');}
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
       return api.getOrganizationMembers(orgId);
     },
     enabled: !!orgId,
@@ -61,7 +65,9 @@ export function useOrganizationInvites(orgId: string | undefined) {
   return useQuery({
     queryKey: orgId ? organizationKeys.invites(orgId) : ['organizations', 'null', 'invites'],
     queryFn: () => {
-      if (!orgId) {throw new Error('Organization ID is required');}
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
       return api.getOrganizationInvites(orgId);
     },
     enabled: !!orgId,

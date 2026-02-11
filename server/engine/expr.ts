@@ -13,17 +13,17 @@ import type { VariableLineage, ListLineage } from '@shared/types/debug';
 export type EvalContext = {
   vars: Record<string, unknown>;   // user answers + computed vars only
   workflowId?: string;             // Current workflow ID
-  helpers?: Record<string, (...args: any[]) => any>;
+  helpers?: Record<string, (...args: unknown[]) => unknown>;
   clock?: () => Date;              // injected clock for determinism (default fixed or from options)
   executionMode?: 'live' | 'preview' | 'snapshot'; // Execution mode
-  writes?: Record<string, any>;    // Isolated writes for preview mode
+  writes?: Record<string, unknown>;    // Isolated writes for preview mode
   variableLineage?: Record<string, VariableLineage>; // Variable derivation history
   listLineage?: Record<string, ListLineage>; // List variable sources
 
   // Performance and Caching
   cache?: {
-    queries: Map<string, any>;     // Cache for query results
-    scripts: Map<string, any>;     // Cache for compiled scripts
+    queries: Map<string, unknown>;     // Cache for query results
+    scripts: Map<string, unknown>;     // Cache for compiled scripts
   };
   metrics?: {
     dbTimeMs: number;
@@ -31,7 +31,7 @@ export type EvalContext = {
     queryCount: number;
   };
   resources?: {
-    isolate?: any; // isolated-vm instance
+    isolate?: unknown; // isolated-vm instance
   };
 
   // Guardrails
@@ -82,14 +82,14 @@ export const Helpers = {
   lower: (s: string): string => String(s).toLowerCase(),
   contains: (s: string, sub: string): boolean => String(s).includes(String(sub)),
   trim: (s: string): string => String(s).trim(),
-  concat: (...parts: any[]): string => parts.map(p => String(p)).join(''),
+  concat: (...parts: unknown[]): string => parts.map(p => String(p)).join(''),
 
   // Array helpers
-  includes: (arr: any[], v: any): boolean => {
+  includes: (arr: unknown[], v: unknown): boolean => {
     if (!Array.isArray(arr)) {return false;}
     return arr.includes(v);
   },
-  count: (arr: any[]): number => {
+  count: (arr: unknown[]): number => {
     if (!Array.isArray(arr)) {return 0;}
     return arr.length;
   },
@@ -116,7 +116,7 @@ export const Helpers = {
   },
 
   // Logic helpers
-  coalesce: (...vals: any[]): any => {
+  coalesce: (...vals: unknown[]): unknown => {
     for (const val of vals) {
       if (val !== null && val !== undefined) {
         return val;
@@ -124,17 +124,17 @@ export const Helpers = {
     }
     return null;
   },
-  isEmpty: (v: any): boolean => {
+  isEmpty: (v: unknown): boolean => {
     if (v === null || v === undefined) {return true;}
     if (typeof v === 'string') {return v.trim().length === 0;}
     if (Array.isArray(v)) {return v.length === 0;}
     if (typeof v === 'object') {return Object.keys(v).length === 0;}
     return false;
   },
-  not: (v: any): boolean => !v,
+  not: (v: unknown): boolean => !v,
 
   // PDF Helpers
-  checkbox: (v: any): string => v ? 'X' : '',
+  checkbox: (v: unknown): string => v ? 'X' : '',
 };
 
 // List of all allowed helper names for validation
@@ -169,7 +169,7 @@ export function validateExpression(expr: string, allowedVars: string[]): Validat
     // Note: All helpers registered as functions (not unaryOps) to support multi-arg
     for (const helperName of AllowedHelperNames) {
       // Use a variadic dummy function to support both single and multi-arg helpers
-      parser.functions[helperName] = ((...args: any[]) => null) as any;
+      parser.functions[helperName] = ((...args: unknown[]) => null) as unknown;
     }
 
     const parsed = parser.parse(expr);
@@ -217,7 +217,7 @@ export function evaluateExpression(
   expr: string,
   ctx: EvalContext,
   options?: { maxOps?: number; timeoutMs?: number }
-): any {
+): unknown {
   const maxOps = options?.maxOps ?? 10000;
   const timeoutMs = options?.timeoutMs ?? 50;
 
@@ -274,14 +274,14 @@ export function evaluateExpression(
     const MAX_OPERATIONS = options?.maxOps ?? 10000;
 
 
-    const wrappedHelpers: any = {};
+    const wrappedHelpers: Record<string, (...args: unknown[]) => unknown> = {};
     for (const [name, fn] of Object.entries(helpersWithClock)) {
-      wrappedHelpers[name] = (...args: any[]) => {
+      wrappedHelpers[name] = (...args: unknown[]) => {
         opCount++;
         if (opCount > MAX_OPERATIONS) {
           throw new Error(`Expression exceeded maximum operations (${MAX_OPERATIONS})`);
         }
-        return (fn as any)(...args);
+        return (fn as (...args: unknown[]) => unknown)(...args);
       };
     }
 
@@ -297,7 +297,7 @@ export function evaluateExpression(
 
     try {
       // Note: setTimeout doesn't interrupt JS execution, but operation counting does
-      const result = parsed.evaluate(cleanVars as any);
+      const result = parsed.evaluate(cleanVars);
       clearTimeout(timeoutId);
 
       // Additional time check

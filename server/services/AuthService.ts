@@ -61,6 +61,7 @@ export interface JWTPayload {
 export interface RefreshTokenMetadata {
     userAgent?: string;
     ip?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain any additional device tracking fields
     [key: string]: any;
 }
 
@@ -218,6 +219,7 @@ export class AuthService {
      * @param userInputs - Optional user information (email, firstName, lastName) to prevent personal info in password
      * @returns {valid: boolean, message?: string, score?: number, feedback?: object}
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- zxcvbn feedback has dynamic structure
     validatePasswordStrength(password: string, userInputs?: string[]): { valid: boolean; message?: string; score?: number; feedback?: any } {
         // Check length first (before expensive zxcvbn check)
         if (password.length < PASSWORD_POLICY.MIN_LENGTH) {
@@ -451,6 +453,7 @@ export class AuthService {
         }
 
         // Issue a new refresh token
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stored metadata is dynamically typed
         const newRefreshToken = await this.createRefreshToken(storedToken.userId, storedToken.metadata as any);
 
         return {

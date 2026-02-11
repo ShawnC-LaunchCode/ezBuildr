@@ -243,7 +243,7 @@ Requirements:
                 const fs = await import('fs/promises');
                 const buffer = await fs.readFile(filePath);
                 // PDFParse is a function in v1.1.1
-                const data = await documentProcessingLimiter.run(() => pdfLib(buffer)) as any;
+                const data = await documentProcessingLimiter.run(() => pdfLib(buffer));
                 return data.text;
             } catch (e) {
                 logger.error({ error: e }, "PDF parsing failed");

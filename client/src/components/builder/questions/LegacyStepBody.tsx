@@ -47,7 +47,7 @@ interface LegacyStepBodyProps {
     workflowId: string;
 }
 
-export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyProps) {
+export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);

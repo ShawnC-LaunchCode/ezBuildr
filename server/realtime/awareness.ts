@@ -28,7 +28,7 @@ export function createAwareness(doc: Y.Doc): Awareness {
   const awareness = new Awareness(doc);
 
   // Log awareness changes for debugging
-  awareness.on('change', (changes: any) => {
+  awareness.on('change', (changes: { added: Iterable<unknown>; updated: Iterable<unknown>; removed: Iterable<unknown> }) => {
     const added = Array.from(changes.added);
     const updated = Array.from(changes.updated);
     const removed = Array.from(changes.removed);
@@ -155,7 +155,7 @@ export function getActiveUserCount(awareness: Awareness): number {
  */
 export function isUserActive(
   presenceState: PresenceState,
-  thresholdMs: number = 30000
+  thresholdMs = 30000
 ): boolean {
   return Date.now() - presenceState.lastActive < thresholdMs;
 }
@@ -165,7 +165,7 @@ export function isUserActive(
  */
 export function cleanupInactiveUsers(
   awareness: Awareness,
-  thresholdMs: number = 60000
+  thresholdMs = 60000
 ): void {
   const states = awareness.getStates();
   const now = Date.now();
@@ -202,7 +202,7 @@ export function encodeAwarenessUpdate(
 export function applyAwarenessUpdate(
   awareness: Awareness,
   update: Uint8Array,
-  origin?: any
+  origin?: unknown
 ): void {
   const { applyAwarenessUpdate } = require('y-protocols/awareness');
   applyAwarenessUpdate(awareness, update, origin);

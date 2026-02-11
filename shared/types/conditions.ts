@@ -322,8 +322,8 @@ export const conditionSchema: z.ZodType<Condition> = z.object({
   id: z.string(),
   variable: z.string().min(1, "Variable is required"),
   operator: comparisonOperatorSchema,
-  value: z.any().optional(),
-  value2: z.any().optional(),
+  value: z.unknown().optional(),
+  value2: z.unknown().optional(),
   valueType: valueTypeSchema,
 });
 

@@ -34,8 +34,11 @@ export function registerTemplateSharingRoutes(app: Express): void {
 
       const shares = await sharingService.listShares(id, user);
       res.json(shares);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, "Error listing shares");
+      if (!(error instanceof Error)) {
+        return res.status(500).json({ error: "Failed to list shares" });
+      }
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -82,8 +85,11 @@ export function registerTemplateSharingRoutes(app: Express): void {
       });
 
       res.json(share);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, "Error sharing template");
+      if (!(error instanceof Error)) {
+        return res.status(500).json({ error: "Failed to share template" });
+      }
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -129,8 +135,11 @@ export function registerTemplateSharingRoutes(app: Express): void {
       }
 
       res.json(share);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, "Error updating share access");
+      if (!(error instanceof Error)) {
+        return res.status(500).json({ error: "Failed to update share access" });
+      }
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -163,8 +172,11 @@ export function registerTemplateSharingRoutes(app: Express): void {
       } else {
         res.status(404).json({ error: "Share not found" });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, "Error revoking share");
+      if (!(error instanceof Error)) {
+        return res.status(500).json({ error: "Failed to revoke share" });
+      }
       if (error.message.includes("Unauthorized")) {
         return res.status(403).json({ error: error.message });
       }
@@ -191,7 +203,7 @@ export function registerTemplateSharingRoutes(app: Express): void {
 
       const sharedTemplates = await sharingService.listSharedWithUser(userId, user.email ?? "");
       res.json(sharedTemplates);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, "Error listing shared templates");
       res.status(500).json({ error: "Failed to list shared templates" });
     }

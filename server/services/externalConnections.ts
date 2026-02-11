@@ -20,6 +20,7 @@ export interface ConnectionWithSecret {
   authType: string;
   secretId: string | null;
   secretKey?: string; // Key name from secrets table
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
   defaultHeaders: Record<string, any>;
   timeoutMs: number | null;
   retries: number | null;
@@ -64,6 +65,7 @@ export async function listConnections(projectId: string): Promise<ConnectionWith
     })
     .from(externalConnections)
     .where(eq(externalConnections.projectId, projectId));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database query returns untyped results
   return results.map((r: any) => {
     const refs = (r.connection.secretRefs as Record<string, string>) || {};
     const mainSecretId = refs.main ?? null;
@@ -75,7 +77,9 @@ export async function listConnections(projectId: string): Promise<ConnectionWith
       authType: r.connection.type,
       secretId: mainSecretId,
       secretKey: undefined, // Cannot join efficiently yet
-      defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
+    defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
       timeoutMs: r.connection.timeoutMs,
       retries: r.connection.retries,
       backoffMs: r.connection.backoffMs,
@@ -106,6 +110,7 @@ export async function getConnection(projectId: string, connectionId: string): Pr
     authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
     timeoutMs: r.connection.timeoutMs,
     retries: r.connection.retries,
@@ -136,6 +141,7 @@ export async function getConnectionByName(projectId: string, name: string): Prom
     authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
     timeoutMs: r.connection.timeoutMs,
     retries: r.connection.retries,
@@ -153,6 +159,7 @@ export async function connectionNameExists(projectId: string, name: string, excl
     .from(externalConnections)
     .where(and(eq(externalConnections.projectId, projectId), eq(externalConnections.name, name)));
   if (excludeId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database query returns untyped results
     return results.some((r: any) => r.id !== excludeId);
   }
   return results.length > 0;
@@ -183,12 +190,14 @@ export async function createConnection(input: CreateConnectionInput): Promise<Co
       projectId: input.projectId,
       name: input.name,
       baseUrl: input.baseUrl,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema enum type mismatch
       type: input.authType as any, // Cast to match schema enum
       secretRefs: input.secretId ? { main: input.secretId } : {},
       defaultHeaders: input.defaultHeaders || {},
       timeoutMs: input.timeoutMs ?? 8000,
       retries: input.retries ?? 2,
       backoffMs: input.backoffMs ?? 250,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema type mismatch requires explicit cast
     } as any) // Explicit cast for schema mismatch
     .returning();
   // Get with secret key
@@ -229,6 +238,7 @@ export async function updateConnection(
     }
   }
   // Build update object
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any to bypass schema strictness for dynamic updates
   const updates: Partial<any> = {}; // using any to bypass schema strictness for now
   if (input.name !== undefined) { updates.name = input.name; }
   if (input.baseUrl !== undefined) { updates.baseUrl = input.baseUrl; }
@@ -276,6 +286,7 @@ export interface ResolvedConnection {
   baseUrl: string;
   authType: string;
   secretValue?: string; // Decrypted secret value
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
   defaultHeaders: Record<string, any>;
   timeoutMs: number;
   retries: number;

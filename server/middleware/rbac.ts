@@ -322,7 +322,7 @@ export function requireRole(...roles: UserRole[]) {
 
     // Check if user has one of the required roles
     const userRole = authReq.userRole;
-    const allowed = userRole && roles.includes(userRole);
+    const allowed = userRole !== null && userRole !== undefined && roles.includes(userRole);
 
     if (!allowed) {
       logger.warn({

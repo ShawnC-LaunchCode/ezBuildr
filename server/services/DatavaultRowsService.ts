@@ -69,6 +69,7 @@ export class DatavaultRowsService {
   /**
    * Validate and coerce value based on column type
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic value types based on column configuration
   private validateAndCoerceValue(value: any, column: DatavaultColumn): any {
     if (value === null || value === undefined) {
       if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber') {
@@ -177,6 +178,7 @@ export class DatavaultRowsService {
   /**
    * Validate row data against column definitions
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed based on column configuration
   private async validateRowData(
     tableId: string,
     values: Record<string, any>,
@@ -267,6 +269,7 @@ export class DatavaultRowsService {
    * Create a new row with values
    * Wrapped in transaction to ensure atomicity
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   async createRow(
     tableId: string,
     tenantId: string,
@@ -288,6 +291,7 @@ export class DatavaultRowsService {
    * Internal implementation of createRow
    * Must be called within a transaction
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   private async _createRowImpl(
     tableId: string,
     tenantId: string,
@@ -326,6 +330,7 @@ export class DatavaultRowsService {
   /**
    * Get row by ID with tenant verification
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   async getRow(rowId: string, tenantId: string, tx?: DbTransaction): Promise<{ row: DatavaultRow; values: Record<string, any> } | null> {
     const row = await this.verifyRowOwnership(rowId, tenantId, tx);
     const result = await this.rowsRepo.getRowWithValues(rowId, tx);
@@ -372,6 +377,7 @@ export class DatavaultRowsService {
    * Update row values
    * Wrapped in transaction to ensure atomicity
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   async updateRow(
     rowId: string,
     tenantId: string,
@@ -393,6 +399,7 @@ export class DatavaultRowsService {
    * Internal implementation of updateRow
    * Must be called within a transaction
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   private async _updateRowImpl(
     rowId: string,
     tenantId: string,
@@ -486,7 +493,9 @@ export class DatavaultRowsService {
     }>,
     tenantId: string,
     tx?: DbTransaction
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
   ): Promise<Map<string, { displayValue: string; row: any }>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row data structure varies by table schema
     const resultMap = new Map<string, { displayValue: string; row: any }>();
 
     if (requests.length === 0) {return resultMap;}
@@ -601,6 +610,7 @@ export class DatavaultRowsService {
   /**
    * Get rows with filtering, sorting, and archiving support
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
   async getRowsWithOptions(
     tenantId: string,
     tableId: string,

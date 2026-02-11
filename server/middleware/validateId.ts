@@ -84,7 +84,7 @@ export function validateParam(
       const value = req.params[paramName];
 
       // Handle optional parameters
-      if (options.optional && (value === undefined || value === null || value === '')) {
+      if (options.optional === true && (value === undefined || value === null || value === '')) {
         return next();
       }
 
@@ -140,7 +140,7 @@ export function validateQuery(
       const value = req.query[queryName];
 
       // Handle optional query params
-      if (options.optional && (value === undefined || value === null || value === '')) {
+      if (options.optional === true && (value === undefined || value === null || value === '')) {
         return next();
       }
 

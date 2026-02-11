@@ -26,6 +26,7 @@ export class IntakeService {
    */
   async getPublishedWorkflow(slug: string): Promise<{
     workflow: Workflow;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sections have dynamic structure from database
     sections: any[];
     intakeConfig: IntakeConfig;
     tenantBranding?: {
@@ -83,6 +84,7 @@ export class IntakeService {
   async createIntakeRun(
     slug: string,
     userId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialAnswers is dynamic workflow data with unknown structure
     initialAnswers?: Record<string, any>,
     prefillParams?: Record<string, string>
   ): Promise<{ runId: string; runToken: string }> {
@@ -174,6 +176,7 @@ export class IntakeService {
    */
   async saveIntakeProgress(
     runToken: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- answers is dynamic workflow data with unknown structure
     answers: Record<string, any>
   ): Promise<void> {
     // Find run by token
@@ -205,6 +208,7 @@ export class IntakeService {
    */
   async submitIntakeRun(
     runToken: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- finalAnswers is dynamic workflow data with unknown structure
     finalAnswers: Record<string, any>,
     captchaResponse?: CaptchaResponse
   ): Promise<IntakeSubmitResult> {

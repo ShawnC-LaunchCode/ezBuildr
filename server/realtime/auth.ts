@@ -49,7 +49,7 @@ function parseRoomKey(roomKey: string): {
   if (parts.length < 4 || parts[0] !== 'tenant' || parts[2] !== 'workflow') {
     return null;
   }
-  const result: any = {
+  const result: { tenantId: string; workflowId: string; versionId?: string } = {
     tenantId: parts[1],
     workflowId: parts[3],
   };
@@ -176,7 +176,7 @@ export async function authenticateConnection(
     userId: payload.userId,
     email: payload.email,
     tenantId: payload.tenantId,
-    role: role as any,
+    role: role as 'owner' | 'builder' | 'runner' | 'viewer',
     displayName,
     color,
   };

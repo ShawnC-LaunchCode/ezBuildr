@@ -67,6 +67,7 @@ export class RecordService {
    */
   private async validateRecordData(
     collectionId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
     data: Record<string, any>,
     tx?: DbTransaction
   ): Promise<void> {
@@ -99,6 +100,7 @@ export class RecordService {
   /**
    * Validate a single field value
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field value can be any valid JSON type based on field definition
   private validateFieldValue(field: CollectionField, value: any): void {
     switch (field.type) {
       case 'text':
@@ -185,10 +187,13 @@ export class RecordService {
   /**
    * Apply default values to record data
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
   private async applyDefaults(
     collectionId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
     data: Record<string, any>,
     tx?: DbTransaction
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
   ): Promise<Record<string, any>> {
     const fields = await this.fieldRepo.findByCollectionId(collectionId, tx);
     const enrichedData = { ...data };
@@ -266,6 +271,7 @@ export class RecordService {
   async updateRecord(
     recordId: string,
     tenantId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record updates can contain any valid JSON value
     updates: Partial<Record<string, any>>,
     userId?: string,
     tx?: DbTransaction
@@ -317,6 +323,7 @@ export class RecordService {
   async findRecordsByFilters(
     collectionId: string,
     tenantId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB filters can contain any valid JSON value
     filters: Record<string, any>,
     tx?: DbTransaction
   ): Promise<CollectionRecord[]> {
@@ -335,6 +342,7 @@ export class RecordService {
   async findByFilters(
     tenantId: string,
     collectionId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter array can contain various filter structures
     filters: any[],
     options: { page?: number; limit?: number } = {},
     tx?: DbTransaction
@@ -348,6 +356,7 @@ export class RecordService {
     // OR if repo supports array filters, pass them.
     // Assuming repo supports array queries for now or mapping specific logic.
     // For MVP, handling simple equality from array filters:
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter object can contain any valid filter value
     const filterObj: Record<string, any> = {};
     if (Array.isArray(filters)) {
       for (const f of filters) {
@@ -376,6 +385,7 @@ export class RecordService {
   async bulkCreateRecords(
     collectionId: string,
     tenantId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
     recordsData: Array<Record<string, any>>,
     userId?: string,
     tx?: DbTransaction

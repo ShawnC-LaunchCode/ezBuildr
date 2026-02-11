@@ -81,6 +81,7 @@ export class LogicService {
     const currentValues = await this.valueRepo.findByRunId(runId);
 
     // Build data object for evaluation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
     const data: Record<string, any> = {};
     currentValues.forEach((v) => {
       data[v.stepId] = v.value;
@@ -136,6 +137,7 @@ export class LogicService {
           // 1. Check step-level visibleIf
           if (step.visibleIf) {
             const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
             const isVisible = evaluateConditionExpression(
               step.visibleIf as any,
               data,
@@ -225,6 +227,7 @@ export class LogicService {
     const currentValues = await this.valueRepo.findByRunId(runId);
 
     // Build data object for evaluation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
     const data: Record<string, any> = {};
     currentValues.forEach((v) => {
       data[v.stepId] = v.value;
@@ -276,6 +279,7 @@ export class LogicService {
           // 1. Check step-level visibleIf
           if (step.visibleIf) {
             const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
             const isVisible = evaluateConditionExpression(
               step.visibleIf as any,
               data,
@@ -377,6 +381,7 @@ export class LogicService {
   async isSectionVisible(
     workflowId: string,
     sectionId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
     data: Record<string, any>
   ): Promise<boolean> {
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
@@ -417,6 +422,7 @@ export class LogicService {
   async isStepVisible(
     workflowId: string,
     stepId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
     data: Record<string, any>
   ): Promise<boolean> {
     // Need to fetch step to check visibleIf
@@ -474,6 +480,7 @@ export class LogicService {
   async isStepRequired(
     workflowId: string,
     stepId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
     data: Record<string, any>
   ): Promise<boolean> {
     const step = await this.stepRepo.findById(stepId);

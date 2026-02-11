@@ -57,8 +57,6 @@ export async function setupVite(app: Express, server: Server): Promise<void> {
     appType: "custom",
   });
   const result = await Promise.race([vitePromise, timeout]);
-  // Type guard to check if result is ViteDevServer (not timeout error)
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- runtime type guard for Promise.race result
   if (!result || typeof result !== 'object' || !('middlewares' in result)) {
     throw new Error('Failed to create Vite server - timeout or invalid result');
   }

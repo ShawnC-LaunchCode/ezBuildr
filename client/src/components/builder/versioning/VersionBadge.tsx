@@ -10,7 +10,7 @@ interface VersionBadgeProps {
     onClick: () => void;
 }
 
-export function VersionBadge({ versionLabel, isDraft, onClick }: VersionBadgeProps) {
+export function VersionBadge({ versionLabel, isDraft, onClick }: VersionBadgeProps): JSX.Element {
     return (
         <Button
             variant="ghost"

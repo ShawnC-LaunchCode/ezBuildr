@@ -132,6 +132,7 @@ export class DatavaultColumnsService {
    */
   private validateSelectOptions(
     type: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- options structure varies by column type
     options: any | null | undefined
   ): void {
     if (type === 'select' || type === 'multiselect') {

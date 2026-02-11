@@ -12,6 +12,7 @@ import { repeaterService } from "../services/RepeaterService";
 
 export interface ValidationRule {
   type: 'required' | 'minLength' | 'maxLength' | 'min' | 'max' | 'email' | 'regex' | 'date';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rule values vary by type (number, string, RegExp, etc.)
   value?: any;
   message?: string;
 }
@@ -24,6 +25,7 @@ export interface FieldValidationConfig {
   max?: number;
   pattern?: string; // Regex pattern
   email?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom validator accepts dynamic field values
   custom?: (value: any) => string | null; // Custom validator
 }
 
@@ -43,6 +45,7 @@ export interface PageValidationResult {
  * Validates a single field value
  */
 export function validateField(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validates dynamic step values of various types
   value: any,
   config: FieldValidationConfig,
   fieldTitle: string
@@ -117,6 +120,7 @@ export function validateField(
  */
 export function validatePage(
   steps: Step[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values are dynamic per question type
   values: Record<string, any>,
   visibleStepIds: string[] // From IntakeQuestionVisibilityService
 ): PageValidationResult {
@@ -181,6 +185,7 @@ export function validatePage(
 /**
  * Checks if a value is empty
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- checks emptiness across all value types
 function isEmpty(value: any): boolean {
   if (value === null || value === undefined) {
     return true;

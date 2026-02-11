@@ -159,8 +159,8 @@ export function registerBrandingRoutes(app: Express): void {
           message: 'Domain added successfully',
           domain: newDomain,
         });
-      } catch (error: any) {
-        if (error.message === 'Domain already exists') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'Domain already exists') {
           res.status(409).json({
             message: 'Domain already exists',
             error: 'domain_exists',
@@ -199,8 +199,8 @@ export function registerBrandingRoutes(app: Express): void {
         res.json({
           message: 'Domain removed successfully',
         });
-      } catch (error: any) {
-        if (error.message === 'Domain does not belong to this tenant') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'Domain does not belong to this tenant') {
           res.status(403).json({
             message: 'Domain does not belong to this tenant',
             error: 'forbidden',

@@ -1516,8 +1516,12 @@ export interface ApiTimelineEvent {
 export const analyticsAPI = {
   getHealth: (workflowId: string, versionId?: string, window: '1d' | '7d' | '30d' = '30d') => {
     const params = new URLSearchParams();
-    if (versionId) { params.append("versionId", versionId); }
-    if (window) { params.append("window", window); }
+    if (versionId) {
+      params.append("versionId", versionId);
+    }
+    if (window) {
+      params.append("window", window);
+    }
     return fetchAPI<{ success: boolean; data: ApiAnalyticsHealth }>(
       `/api/workflow-analytics/${workflowId}/health?${params.toString()}`
     ).then((res) => res.data);

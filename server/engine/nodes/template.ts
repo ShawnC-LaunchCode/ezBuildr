@@ -22,22 +22,22 @@ import type { EvalContext } from '../expr';
  * - Output tracking in runOutputs table
  */
 export interface TemplateNodeConfig {
-  templateId?: string;             // Direct reference to template (legacy)
-  templateKey?: string;            // Key to resolve from workflowTemplates mapping (new)
-  bindings: Record<string, string>; // Map of template placeholders to expressions
-  outputName?: string;             // Optional output file name
-  condition?: string;              // Optional conditional execution
+  templateId?: string;
+  templateKey?: string;
+  bindings: Record<string, string>;
+  outputName?: string;
+  condition?: string;
   skipBehavior?: 'skip' | 'hide' | 'disable';
-  toPdf?: boolean;                 // Generate PDF version (Stage 21)
-  engine?: 'legacy' | 'v2';        // Which rendering engine to use (default: v2)
+  toPdf?: boolean;
+  engine?: 'legacy' | 'v2';
 }
 export interface TemplateNodeInput {
   nodeId: string;
   config: TemplateNodeConfig;
   context: EvalContext;
   tenantId: string;
-  runId?: string;                  // Run ID for output tracking (Stage 21)
-  workflowVersionId?: string;      // Workflow version for template key resolution (Stage 21)
+  runId?: string;
+  workflowVersionId?: string;
 }
 export interface TemplateNodeOutput {
   status: 'executed' | 'skipped';
@@ -47,7 +47,7 @@ export interface TemplateNodeOutput {
     format: string;
     size?: number;
   };
-  bindings?: Record<string, any>;  // Resolved binding values
+  bindings?: Record<string, unknown>;
   skipReason?: string;
   error?: string;
 }
@@ -73,7 +73,7 @@ export async function executeTemplateNode(
       }
     }
     // Resolve bindings by evaluating expressions
-    const resolvedBindings: Record<string, any> = {};
+    const resolvedBindings: Record<string, unknown> = {};
     for (const [placeholder, expression] of Object.entries(config.bindings)) {
       try {
         resolvedBindings[placeholder] = evaluateExpression(expression, context);
@@ -84,7 +84,7 @@ export async function executeTemplateNode(
       }
     }
     // Resolve template: either by templateKey (new) or templateId (legacy)
-    let template: any;
+    let template: unknown;
     let templateKey: string | undefined;
     if (config.templateKey && workflowVersionId) {
       // New path: resolve template from workflowTemplates mapping
@@ -125,20 +125,21 @@ export async function executeTemplateNode(
       );
     }
     // Verify tenant access
-    if (template.project.tenantId !== tenantId) {
-      throw new Error(`Access denied to template ${template.id}`);
+    if ((template as { project: { tenantId: string }; id: string }).project.tenantId !== tenantId) {
+      throw new Error(`Access denied to template ${(template as { id: string }).id}`);
     }
     // Choose rendering engine (default to v2)
     const engine = config.engine || 'v2';
     const toPdf = config.toPdf ?? false;
     let result: { fileRef: string; pdfRef?: string; size: number; format: string };
-    if (template.type === 'pdf') {
+    const templateTyped = template as { type: string; fileRef: string; mapping?: Record<string, string> };
+    if (templateTyped.type === 'pdf') {
       // Stage 22: PDF Form Filling
-      const templatePath = getTemplateFilePath(template.fileRef);
+      const templatePath = getTemplateFilePath(templateTyped.fileRef);
       const fileBuffer = await fs.readFile(templatePath);
       // Resolve mappings
       const pdfData: Record<string, string> = {};
-      const mapping = (template.mapping as Record<string, string>) || {};
+      const mapping = templateTyped.mapping ?? {};
       for (const [field, variable] of Object.entries(mapping)) {
         try {
           // Resolve value. If it's a direct variable name or simple expression, evaluate it.
@@ -168,7 +169,7 @@ export async function executeTemplateNode(
       };
     } else if (engine === 'v2') {
       // Use new docxRenderer2 with loops, conditionals, helpers
-      const templatePath = getTemplateFilePath(template.fileRef);
+      const templatePath = getTemplateFilePath(templateTyped.fileRef);
       const outputDir = path.join(process.cwd(), 'server', 'files', 'outputs');
       // Ensure output directory exists
       await fs.mkdir(outputDir, { recursive: true });
@@ -187,7 +188,7 @@ export async function executeTemplateNode(
       };
     } else {
       // Legacy rendering engine
-      result = await renderTemplate(template.fileRef, resolvedBindings, {
+      result = await renderTemplate(templateTyped.fileRef, resolvedBindings, {
         outputName: config.outputName,
         toPdf,
       });
@@ -244,7 +245,7 @@ export async function executeTemplateNode(
 export const docxService = {
   async render(
     templateId: string,
-    bindings: Record<string, any>,
+    bindings: Record<string, unknown>,
     tenantId: string
   ): Promise<{ fileRef: string; format: string; size: number }> {
     // Placeholder for actual implementation

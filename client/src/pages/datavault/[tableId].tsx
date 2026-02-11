@@ -51,7 +51,7 @@ import {
   useDatavaultDatabases,
   datavaultQueryKeys
 } from "@/lib/datavault-hooks";
-import { useDatavaultFilterStore, EMPTY_FILTERS } from "@/stores/useDatavaultFilterStore";
+import { useDatavaultFilterStore, EMPTY_FILTERS } from "@/store/useDatavaultFilterStore";
 
 export default function TableViewPage() {
   const { tableId } = useParams<{ tableId: string }>();

@@ -241,7 +241,7 @@ export function registerWorkflowRoutes(app: Express): void {
 
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
       return res.status(200).json(workflow);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, projectId: req.body.projectId }, "Error moving workflow");
 
       if (error instanceof z.ZodError) {
@@ -543,6 +543,7 @@ export function registerWorkflowRoutes(app: Express): void {
       // Validate request body
       const schema = z.object({
         outputType: z.enum(['docx', 'pdf', 'both']),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic sample data for template testing
         sampleData: z.record(z.any()),
       });
 

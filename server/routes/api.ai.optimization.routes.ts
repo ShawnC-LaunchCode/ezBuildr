@@ -9,6 +9,7 @@ const router = Router();
 // POST /api/ai/workflows/optimize/analyze
 router.post("/analyze", asyncHandler(async (req, res) => {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- workflowId may be used in future
         const { workflow, workflowId, ...options } = req.body;
         // Basic validation
         // Note: Zod schema usage might be tricky with "any" for workflow, so simplistic check

@@ -5,10 +5,9 @@ import { createLogger } from "../../../logger";
 const logger = createLogger({ module: "webhook-adapter" });
 
 export class WebhookAdapter implements DestinationAdapter {
-    async send(config: Record<string, any>, payload: any, headers: Record<string, string>, context: BlockContext): Promise<ExternalSendResult> {
-        // Config: { url, method, auth: { type, token, username, password } }
-        const url = config.url;
-        const method = config.method || "POST";
+    async send(config: Record<string, unknown>, payload: unknown, headers: Record<string, string>, _context: BlockContext): Promise<ExternalSendResult> {
+        const url = config.url as string | undefined;
+        const method = (config.method as string) ?? "POST";
 
         if (!url) {
             throw new Error("Webhook URL is missing in configuration");
@@ -20,11 +19,12 @@ export class WebhookAdapter implements DestinationAdapter {
         };
 
         // Auth injection
-        if (config.auth) {
-            if (config.auth.type === "bearer" && config.auth.token) {
-                fetchHeaders["Authorization"] = `Bearer ${config.auth.token}`;
-            } else if (config.auth.type === "basic" && config.auth.username && config.auth.password) {
-                const b64 = Buffer.from(`${config.auth.username}:${config.auth.password}`).toString("base64");
+        const auth = config.auth as { type?: string; token?: string; username?: string; password?: string } | undefined;
+        if (auth) {
+            if (auth.type === "bearer" && auth.token) {
+                fetchHeaders["Authorization"] = `Bearer ${auth.token}`;
+            } else if (auth.type === "basic" && auth.username && auth.password) {
+                const b64 = Buffer.from(`${auth.username}:${auth.password}`).toString("base64");
                 fetchHeaders["Authorization"] = `Basic ${b64}`;
             }
         }

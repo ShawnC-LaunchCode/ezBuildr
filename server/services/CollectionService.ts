@@ -79,7 +79,7 @@ export class CollectionService {
    */
   async createCollection(data: InsertCollection, tx?: DbTransaction): Promise<Collection> {
     // Generate slug if not provided
-    const baseSlug = data.slug || this.generateSlug(data.name);
+    const baseSlug = data.slug ?? this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tenantId, baseSlug, undefined, tx);
 
     return this.collectionRepo.create({

@@ -1,6 +1,7 @@
-﻿import logo from "@/assets/images/logo.png";
+﻿import { useLocation } from "wouter";
+
+import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "wouter";
 
 import EasyAdvancedStory from "./components/EasyAdvancedStory";
 import FeatureGrid from "./components/FeatureGrid";

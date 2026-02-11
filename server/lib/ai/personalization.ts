@@ -7,13 +7,13 @@ import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings 
 interface PersonalizationContext {
     userSettings: UserPersonalizationSettings;
     workflowSettings?: WorkflowPersonalizationSettings;
-    userAnswers?: Record<string, any>;
-    currentBlock?: any; // Todo: Type this properly
+    userAnswers?: Record<string, unknown>;
+    currentBlock?: unknown;
 }
 
 export class PersonalizationService {
     private genAI: GoogleGenerativeAI | null = null;
-    private model: any;
+    private model: unknown;
 
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;

@@ -30,7 +30,7 @@ export function VersionHistoryPanel({
     onClose,
     onRestore,
     onDiff
-}: VersionHistoryPanelProps) {
+}: VersionHistoryPanelProps): JSX.Element {
     const [versions, setVersions] = useState<ApiWorkflowVersion[]>([]);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
@@ -89,60 +89,59 @@ export function VersionHistoryPanel({
                         <ScrollArea className="h-[calc(100vh-200px)] pr-4">
                             <div className="space-y-4">
                                 {versions.map((version) => {
-                                                    const migrationInfo = version.migrationInfo as { aiMetadata?: { aiGenerated?: boolean } } | null;
-                                                    const isAiGenerated = migrationInfo &&
-                                                        typeof migrationInfo === 'object' &&
-                                                        'aiMetadata' in migrationInfo &&
-                                                        migrationInfo.aiMetadata?.aiGenerated;
+                                    const migrationInfo = version.migrationInfo as { aiMetadata?: { aiGenerated?: boolean } } | null;
+                                    const isAiGenerated = migrationInfo &&
+                                        typeof migrationInfo === 'object' &&
+                                        'aiMetadata' in migrationInfo &&
+                                        migrationInfo.aiMetadata?.aiGenerated;
 
-                                                    return (
-                                    <div
-                                        key={version.id}
-                                        className={`flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent/50 transition-colors ${
-                                            isAiGenerated ? 'border-purple-200 bg-purple-50/50' : ''
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant={version.isDraft ? "secondary" : "default"}>
-                                                    {version.isDraft ? "Draft" : `v${version.versionNumber}`}
-                                                </Badge>
-                                                {isAiGenerated && (
-                                                    <Badge variant="outline" className="gap-1 text-purple-600 border-purple-300">
-                                                        <Sparkles className="h-3 w-3" />
-                                                        AI
+                                    return (
+                                        <div
+                                            key={version.id}
+                                            className={`flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent/50 transition-colors ${isAiGenerated ? 'border-purple-200 bg-purple-50/50' : ''
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant={version.isDraft ? "secondary" : "default"}>
+                                                        {version.isDraft ? "Draft" : `v${version.versionNumber}`}
                                                     </Badge>
-                                                )}
-                                                <span className="text-sm text-muted-foreground">
-                                                    {format(new Date(version.createdAt), "PPP p")}
-                                                </span>
+                                                    {isAiGenerated && (
+                                                        <Badge variant="outline" className="gap-1 text-purple-600 border-purple-300">
+                                                            <Sparkles className="h-3 w-3" />
+                                                            AI
+                                                        </Badge>
+                                                    )}
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {format(new Date(version.createdAt), "PPP p")}
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <Button size="icon" variant="ghost" title="Compare" onClick={() => { void onDiff(version); }}>
+                                                        <FileDiff className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button size="icon" variant="ghost" title="Restore" onClick={() => { void handleRestore(version); }}>
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="flex gap-1">
-                                                <Button size="icon" variant="ghost" title="Compare" onClick={() => { void onDiff(version); }}>
-                                                    <FileDiff className="h-4 w-4" />
-                                                </Button>
-                                                <Button size="icon" variant="ghost" title="Restore" onClick={() => { void handleRestore(version); }}>
-                                                    <RotateCcw className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
 
-                                        {version.notes && (
-                                            <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                                                {version.notes}
-                                            </p>
-                                        )}
-
-                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                            <GitCommit className="h-3 w-3" />
-                                            <span>{version.createdBy}</span>
-                                            {isAiGenerated && (
-                                                <span className="text-purple-600">
-                                                    (via AI)
-                                                </span>
+                                            {version.notes && (
+                                                <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                                                    {version.notes}
+                                                </p>
                                             )}
+
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                <GitCommit className="h-3 w-3" />
+                                                <span>{version.createdBy}</span>
+                                                {isAiGenerated && (
+                                                    <span className="text-purple-600">
+                                                        (via AI)
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
                                     );
                                 })}
                             </div>

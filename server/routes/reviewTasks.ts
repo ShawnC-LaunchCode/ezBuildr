@@ -28,6 +28,7 @@ const decisionSchema = z.object({
 router.get("/tasks/:id", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { id } = req.params;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
     const userId = (req.user as any).id;
 
     const task = await reviewTaskService.getReviewTask(id, userId);
@@ -48,6 +49,7 @@ router.get("/tasks/:id", hybridAuth, asyncHandler(async (req, res, next) => {
 router.get("/tasks/project/:projectId", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { projectId } = req.params;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
     const userId = (req.user as any).id;
 
     const tasks = await reviewTaskService.getPendingTasksByProject(projectId, userId);
@@ -64,6 +66,7 @@ router.get("/tasks/project/:projectId", hybridAuth, asyncHandler(async (req, res
  */
 router.get("/my-tasks", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
     const userId = (req.user as any).id;
 
     const tasks = await reviewTaskService.getTasksForReviewer(userId);
@@ -83,6 +86,7 @@ router.get("/my-tasks", hybridAuth, asyncHandler(async (req, res, next) => {
 router.post("/tasks/:id/decision", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { id } = req.params;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
     const userId = (req.user as any).id;
 
     // Validate request body

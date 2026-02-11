@@ -17,6 +17,7 @@ import type { Express, Request, Response } from "express";
 interface BlockRequest {
   type: InsertBlock['type'];
   phase: BlockPhase;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure varies by block type
   config: any;
   name?: string;
   sectionId?: string;
@@ -279,6 +280,7 @@ export function registerBlockRoutes(app: Express): void {
         counter++;
       }
       // Build List Tools config from transform config
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure built dynamically
       const listToolsConfig: any = {
         sourceListVar,
         outputKey: outputVar,

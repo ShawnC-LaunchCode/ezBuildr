@@ -13,7 +13,7 @@ interface PublishWorkflowDialogProps {
     isPublishing?: boolean;
 }
 
-export function PublishWorkflowDialog({ isOpen, onClose, onPublish, isPublishing }: PublishWorkflowDialogProps) {
+export function PublishWorkflowDialog({ isOpen, onClose, onPublish, isPublishing }: PublishWorkflowDialogProps): JSX.Element {
     const [notes, setNotes] = useState("");
 
     const handlePublish = async () => {

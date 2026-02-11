@@ -193,10 +193,10 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
     jwtPayload: payload
   } as AuthRequest);
   // Now we can safely access via type guard
-  if (isAuthRequest(req) && req.userId && !req.tenantId) {
+  if (isAuthRequest(req) && req.userId !== undefined && req.tenantId === undefined) {
     try {
       const user = await userRepository.findById(req.userId);
-      if (user?.tenantId) {
+      if (user?.tenantId !== null && user?.tenantId !== undefined) {
         // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
         req.tenantId = user.tenantId;
         // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers

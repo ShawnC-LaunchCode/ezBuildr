@@ -7,7 +7,7 @@ import { resolvePayloadMappings } from "../shared/variableResolver";
 export interface ExternalSendResult {
     success: boolean;
     statusCode?: number;
-    responseBody?: any;
+    responseBody?: unknown;
     error?: string;
     simulated?: boolean;
 }
@@ -76,7 +76,7 @@ export class ExternalSendRunner {
             return { success: false, error: `Destination not found: ${config.destinationId}` };
         }
 
-        const destConfig = destination.config as any; // { url, method, headers }
+        const destConfig = destination.config as { url: string; method?: string; headers?: Record<string, string> };
 
         // SECURITY FIX: Validate URL to prevent SSRF attacks
         const urlValidation = this.validateUrl(destConfig.url);
@@ -108,10 +108,10 @@ export class ExternalSendRunner {
 
             try {
                 const response = await fetch(destConfig.url, {
-                    method: destConfig.method || 'POST',
+                    method: destConfig.method ?? 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(destConfig.headers || {})
+                        ...(destConfig.headers ?? {})
                     },
                     body: JSON.stringify(payload),
                     signal: controller.signal,

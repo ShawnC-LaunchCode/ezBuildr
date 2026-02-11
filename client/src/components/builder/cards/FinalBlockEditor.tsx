@@ -45,7 +45,7 @@ interface FinalBlockEditorProps {
   };
 }
 
-export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorProps) {
+export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Parse config
@@ -55,7 +55,6 @@ export function FinalBlockEditor({ stepId, sectionId, step }: FinalBlockEditorPr
     documents: config?.documents ?? [],
   });
 
-  const [showDocumentPicker, setShowDocumentPicker] = useState(false);
 
   useEffect(() => {
     const config = step.config as FinalBlockConfig | undefined;

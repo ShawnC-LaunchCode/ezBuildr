@@ -23,7 +23,7 @@ interface NumberCardEditorProps {
   step: ApiStep;
 }
 
-export function NumberCardEditor({ stepId, sectionId, workflowId, step }: NumberCardEditorProps) {
+export function NumberCardEditor({ stepId, sectionId, workflowId, step }: NumberCardEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
@@ -80,11 +80,11 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
     });
   }, [step.config, step.type]);
 
-  const validateMinMax = (): string | null => {
+  const validateMinMax = (min: number | undefined, max: number | undefined): string | null => {
     if (
-      localConfig.min !== undefined &&
-      localConfig.max !== undefined &&
-      localConfig.min > localConfig.max
+      min !== undefined &&
+      max !== undefined &&
+      min > max
     ) {
       return "Min cannot be greater than max";
     }
@@ -93,19 +93,21 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
 
   const handleUpdate = (updates: Partial<typeof localConfig>) => {
     const newConfig = { ...localConfig, ...updates };
-    setLocalConfig(newConfig);
 
     // Validate min/max with proper newConfig check
-    if (newConfig.min !== undefined && newConfig.max !== undefined && newConfig.min > newConfig.max) {
+    const validationError = validateMinMax(newConfig.min, newConfig.max);
+    if (validationError) {
       if (updates.min !== undefined || updates.max !== undefined) {
         toast({
           title: "Validation Error",
-          description: "Min cannot be greater than max",
+          description: validationError,
           variant: "destructive",
         });
         return;
       }
     }
+
+    setLocalConfig(newConfig);
 
     // Build config based on mode and type
     if (isAdvancedMode) {
@@ -183,7 +185,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
       <NumberValidationSection
         localConfig={localConfig}
         onUpdate={handleUpdate}
-        minMaxError={validateMinMax()}
+        minMaxError={validateMinMax(localConfig.min, localConfig.max)}
       />
 
       {/* Advanced Options */}

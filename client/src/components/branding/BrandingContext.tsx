@@ -148,12 +148,18 @@ export function BrandingProvider({
   /**
    * Optimistically update branding
    */
-  const updateBranding = (updates: Partial<TenantBranding>) => {
-    setBranding((prev) => ({
-      ...prev,
-      ...updates,
-    }));
-  };
+  /**
+   * Optimistically update branding
+   */
+  const updateBranding = useCallback((updates: Partial<TenantBranding>) => {
+    setBranding((prev) => {
+      if (!prev) {return null;}
+      return {
+        ...prev,
+        ...updates,
+      };
+    });
+  }, []);
 
   // Load branding on mount or when tenantId changes
   useEffect(() => {
@@ -180,17 +186,20 @@ export function BrandingProvider({
     };
   }, [enableTheming, branding, themeTokens, hasLoaded]);
 
-  const value: BrandingContextValue = {
-    tenantId: tenantId ?? null,
-    branding,
-    isLoading,
-    error,
-    themeTokens,
-    hasLoaded,
-    isDarkMode,
-    reload,
-    updateBranding,
-  };
+  const value: BrandingContextValue = useMemo(
+    () => ({
+      tenantId: tenantId ?? null,
+      branding,
+      isLoading,
+      error,
+      themeTokens,
+      hasLoaded,
+      isDarkMode,
+      reload,
+      updateBranding,
+    }),
+    [tenantId, branding, isLoading, error, themeTokens, hasLoaded, isDarkMode, reload, updateBranding]
+  );
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }

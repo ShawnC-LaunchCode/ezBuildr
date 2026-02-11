@@ -82,10 +82,10 @@ router.get(
         },
       });
 
-      // Map to include workflowCount (excluding archived workflows)
-      const projectsWithCount = projects.map((project: any) => {
+      type ProjectWithWorkflows = (typeof projects)[number];
+      const projectsWithCount = projects.map((project: ProjectWithWorkflows) => {
         const { workflows, ...rest } = project;
-        const activeWorkflows = workflows.filter((w: any) => w.status !== 'archived');
+        const activeWorkflows = workflows.filter(w => w.status !== 'archived');
         return {
           ...rest,
           workflowCount: activeWorkflows.length,

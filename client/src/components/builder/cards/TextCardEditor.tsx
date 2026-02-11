@@ -26,7 +26,7 @@ interface TextCardEditorProps {
   step: ApiStep;
 }
 
-export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCardEditorProps) {
+export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCardEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
@@ -98,11 +98,8 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
 
   const handleUpdate = (updates: Partial<typeof localConfig>) => {
     const newConfig = { ...localConfig, ...updates };
-    setLocalConfig(newConfig);
 
     // Validate pattern if it changed or exists in update
-    // Note: We validate against `newConfig` pattern if updates contains it, or re-validate if needed
-    // Actually, only validate if pattern is being updated
     if (updates.pattern !== undefined) {
       const error = validatePattern(updates.pattern);
       setPatternError(error);
@@ -120,6 +117,8 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
       });
       return;
     }
+
+    setLocalConfig(newConfig);
 
     // Build the config object for advanced mode
     const configToSave: TextAdvancedConfig = {
@@ -141,9 +140,9 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
       if (newConfig.maxLength !== undefined) {
         configToSave.validation.maxLength = newConfig.maxLength;
       }
-      if (newConfig.pattern && newConfig.pattern.trim() !== "") {
+      if (newConfig.pattern?.trim()) {
         configToSave.validation.pattern = newConfig.pattern;
-        if (newConfig.patternMessage && newConfig.patternMessage.trim() !== "") {
+        if (newConfig.patternMessage?.trim()) {
           configToSave.validation.patternMessage = newConfig.patternMessage;
         }
       }
@@ -153,11 +152,6 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
     if (isAdvancedMode) {
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     } else {
-      // In easy mode, type change handled separately, but validation still saves to config?
-      // Yes, short_text/long_text steps use validation config too.
-      // But updateStepMutation expects config to match type...
-      // `short_text` uses `TextConfig`?
-      // Assuming backend handles it or config structure is compatible.
       updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
     }
   };

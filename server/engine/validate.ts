@@ -170,8 +170,8 @@ export function validateNodeConditions(graphJson: GraphJson): ValidationResult {
     const varsAtNode = availableVars.get(node.id) ?? [];
 
     // Validate node-level condition
-    const config = node.config as any;
-    if (config.condition) {
+    const config = node.config as Record<string, unknown>;
+    if (config.condition && typeof config.condition === 'string') {
       const result = validateExpression(config.condition, varsAtNode);
       if (!result.ok) {
         errors.push({
@@ -244,7 +244,7 @@ export function validateNodeConditions(graphJson: GraphJson): ValidationResult {
  * Get output variable names for a node
  */
 function getNodeOutputVars(node: Node): string[] {
-  const config = node.config as any;
+  const config = node.config;
 
   switch (node.type) {
     case 'question':

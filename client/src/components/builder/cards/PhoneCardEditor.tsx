@@ -27,7 +27,7 @@ interface PhoneCardState {
   showFormattingMask: boolean;
 }
 
-export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
+export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   const config = step.config as PhoneConfig | undefined;
@@ -44,7 +44,7 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
       validateFormat: true,
       showFormattingMask: true,
     });
-  }, [step.config, config]);
+  }, [config]);
 
   const handleUpdate = (updates: Partial<typeof localConfig>) => {
     const newConfig = { ...localConfig, ...updates };
@@ -55,10 +55,6 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
     };
 
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
-  };
-
-  const _handleLabelChange = (title: string) => {
-    updateStepMutation.mutate({ id: stepId, sectionId, title });
   };
 
   const handleAliasChange = (alias: string | null) => {

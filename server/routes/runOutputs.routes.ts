@@ -31,6 +31,7 @@ router.get(
     const { runId } = req.params;
     const outputs = await db.query.runOutputs.findMany({
       where: eq(runOutputs.runId, runId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle orderBy callback types
       orderBy: (outputs: any, { asc }: any) => [asc(outputs.createdAt)],
     });
     res.json({

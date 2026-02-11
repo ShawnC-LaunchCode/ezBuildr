@@ -202,7 +202,7 @@ export async function saveUpdate(docId: string, update: Uint8Array): Promise<num
       orderBy: [desc(collabUpdates.seq)],
     });
 
-    const seq = (lastUpdate?.seq || 0) + 1;
+    const seq = (lastUpdate?.seq ?? 0) + 1;
 
     // Save update
     const base64Update = Buffer.from(update).toString('base64');
@@ -275,7 +275,12 @@ async function createSnapshot(docId: string, clock: number): Promise<void> {
 /**
  * Export document as JSON (for publishing workflow)
  */
-export async function exportDocumentAsJson(docId: string): Promise<any> {
+export async function exportDocumentAsJson(docId: string): Promise<{
+  nodes: unknown[];
+  edges: unknown[];
+  meta: unknown;
+  comments: Record<string, unknown>;
+}> {
   try {
     const doc = await loadDocument(docId);
 
@@ -285,12 +290,12 @@ export async function exportDocumentAsJson(docId: string): Promise<any> {
     const yComments = doc.getMap('yComments');
 
     // Convert to plain JSON
-    const nodes = (yGraph.get('nodes') as any)?.toJSON() ?? [];
-    const edges = (yGraph.get('edges') as any)?.toJSON() ?? [];
-    const meta = (yMeta as any).toJSON();
-    const comments: Record<string, any> = {};
+    const nodes = (yGraph.get('nodes') as { toJSON: () => unknown[] })?.toJSON() ?? [];
+    const edges = (yGraph.get('edges') as { toJSON: () => unknown[] })?.toJSON() ?? [];
+    const meta = (yMeta as { toJSON: () => unknown }).toJSON();
+    const comments: Record<string, unknown> = {};
 
-    yComments.forEach((value: any, key: string) => {
+    yComments.forEach((value: { toJSON: () => unknown }, key: string) => {
       comments[key] = value.toJSON();
     });
 
@@ -311,7 +316,11 @@ export async function exportDocumentAsJson(docId: string): Promise<any> {
  */
 export async function importJsonToDocument(
   docId: string,
-  graphJson: any
+  graphJson: {
+    nodes?: Array<Record<string, unknown>>;
+    edges?: Array<Record<string, unknown>>;
+    meta?: Record<string, unknown>;
+  }
 ): Promise<void> {
   try {
     const doc = await loadDocument(docId);
@@ -323,7 +332,7 @@ export async function importJsonToDocument(
       const yEdges = new Y.Array();
 
       if (graphJson.nodes) {
-        graphJson.nodes.forEach((node: any) => {
+        graphJson.nodes.forEach((node) => {
           const yNode = new Y.Map();
           Object.entries(node).forEach(([key, value]) => {
             yNode.set(key, value);
@@ -333,7 +342,7 @@ export async function importJsonToDocument(
       }
 
       if (graphJson.edges) {
-        graphJson.edges.forEach((edge: any) => {
+        graphJson.edges.forEach((edge) => {
           const yEdge = new Y.Map();
           Object.entries(edge).forEach(([key, value]) => {
             yEdge.set(key, value);
@@ -384,7 +393,7 @@ export async function getCollabMetrics(docId: string): Promise<{
     });
 
     const lastUpdate = updates.length > 0
-      ? updates.reduce((latest: any, update: any) =>
+      ? updates.reduce((latest: Date, update: { ts: Date }) =>
           update.ts > latest ? update.ts : latest,
           updates[0].ts
         )

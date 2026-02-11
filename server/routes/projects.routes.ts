@@ -57,7 +57,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post('/api/projects', hybridAuth, requireUser, asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
 
       if (user.tenantId === undefined || user.tenantId === null) {
         return res.status(400).json({ message: "User does not have a tenant assigned" });
@@ -91,7 +91,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.get('/api/projects', hybridAuth, requireUser, asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
 
       const activeOnly = req.query.active === 'true';
       const projects = activeOnly
@@ -112,7 +112,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.get('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const project = await projectService.getProjectWithWorkflows(projectId, user.id);
@@ -132,7 +132,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.get('/api/projects/:projectId/workflows', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const workflows = await projectService.getProjectWorkflows(projectId, user.id);
@@ -152,7 +152,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const updateData = z.object({
@@ -178,7 +178,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/projects/:projectId/archive', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const project = await projectService.archiveProject(projectId, user.id);
@@ -198,7 +198,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/projects/:projectId/unarchive', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const project = await projectService.unarchiveProject(projectId, user.id);
@@ -219,7 +219,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.delete('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       await projectService.deleteProject(projectId, user.id);
@@ -243,7 +243,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.get('/api/projects/:projectId/access', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const access = await projectService.getProjectAccess(projectId, user.id);
@@ -264,7 +264,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/projects/:projectId/access', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const schema = z.object({
@@ -308,7 +308,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.delete('/api/projects/:projectId/access', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const schema = z.object({
@@ -346,7 +346,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/projects/:projectId/owner', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const schema = z.object({
@@ -382,7 +382,7 @@ export function registerProjectRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post('/api/projects/:projectId/transfer', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
     try {
-      const user = (req as UserRequest).user as User;
+      const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
       const schema = z.object({

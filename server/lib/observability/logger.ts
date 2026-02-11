@@ -2,10 +2,12 @@ import pino from "pino";
 
 import { env } from "../../../client/src/lib/config/environment";
 
+import type { Request, Response, NextFunction } from "express";
+
 const isDev = env.NODE_ENV === "development";
 
 export const logger = pino({
-    level: env.LOG_LEVEL || "info",
+    level: env.LOG_LEVEL ?? "info",
     transport: isDev
         ? {
             target: "pino-pretty",
@@ -20,7 +22,7 @@ export const logger = pino({
     },
 });
 
-export const requestLogger = (req: any, res: any, next: any) => {
+export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
     const startTime = Date.now();
 
     // Log request

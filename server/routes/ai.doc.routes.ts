@@ -88,9 +88,10 @@ const cleanupFile = async (filePath?: string) => {
     if (filePath) {
         try {
             await fs.unlink(filePath);
-        } catch (e: any) {
+        } catch (e: unknown) {
             // Ignore if file doesn't exist (ENOENT)
-            if (e.code !== 'ENOENT') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- checking error code property
+            if ((e as any).code !== 'ENOENT') {
                 logger.warn({ error: e, filePath }, 'Failed to cleanup temp upload file');
             }
         }

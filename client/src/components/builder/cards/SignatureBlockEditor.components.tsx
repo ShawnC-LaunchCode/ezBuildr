@@ -1,8 +1,11 @@
 
 import { Plus, Trash2, FileText, AlertCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+
 import { SignatureBlockConfig } from "@shared/types/stepConfigs";
+
 import { DocumentPicker } from "./common/DocumentPicker";
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";
 

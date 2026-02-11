@@ -33,7 +33,8 @@ export class WriteRunner {
             const mappedValues = resolveColumnMappings(config.columnMappings, context.data, context.aliasMap);
             // 2. Resolve match strategy (for update and upsert modes)
             let matchColumnId: string | undefined;
-            let matchValue: any = undefined;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
+            let matchValue: any;
             if (config.mode === "update" || config.mode === "upsert") {
                 // Support new matchStrategy or legacy primaryKey fields
                 if (config.matchStrategy) {
@@ -129,7 +130,8 @@ export class WriteRunner {
      */
     private async executeCreate(
         tableId: string,
-        values: Record<string, any>, // key = columnId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
+        values: Record<string, any>,
         tenantId: string,
         userId: string | undefined,
         tx: DbTransaction
@@ -150,7 +152,9 @@ export class WriteRunner {
     private async executeUpdate(
         tableId: string,
         pkColumnId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
         pkValue: any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
         values: Record<string, any>,
         tenantId: string,
         userId: string | undefined,
@@ -175,6 +179,7 @@ export class WriteRunner {
     private async findRowIdByColumnValue(
         tableId: string,
         columnId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
         value: any,
         tenantId: string,
         tx: DbTransaction,
@@ -191,7 +196,9 @@ export class WriteRunner {
     private async executeUpsert(
         tableId: string,
         matchColumnId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
         matchValue: any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
         values: Record<string, any>,
         tenantId: string,
         userId: string | undefined,

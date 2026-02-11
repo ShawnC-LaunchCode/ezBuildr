@@ -42,6 +42,7 @@ const updateLifecycleHookSchema = z.object({
 });
 
 const testHookSchema = z.object({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic test data for hooks
   testData: z.record(z.any()),
   context: z
     .object({
@@ -50,6 +51,7 @@ const testHookSchema = z.object({
       phase: z.string().optional(),
       sectionId: z.string().uuid().optional(),
       userId: z.string().optional(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic metadata values
       metadata: z.record(z.any()).optional(),
     })
     .optional(),

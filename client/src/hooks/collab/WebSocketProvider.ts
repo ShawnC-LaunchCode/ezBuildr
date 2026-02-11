@@ -31,7 +31,8 @@ export class WebSocketProvider {
   private synced = false;
   private shouldConnect = true;
 
-  private listeners = new Map<string, Set<Function>>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic event emitter
+  private listeners = new Map<string, Set<(...args: any[]) => void>>();
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
@@ -114,11 +115,11 @@ export class WebSocketProvider {
         this.handleMessage(new Uint8Array(event.data));
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = () => {
         // Log locally if needed, but not user-facing debug
       };
 
-      this.ws.onclose = (event) => {
+      this.ws.onclose = () => {
         this.handleDisconnect();
       };
     } catch (error) {
@@ -199,7 +200,7 @@ export class WebSocketProvider {
   /**
    * Handle document update
    */
-  private handleDocUpdate = (update: Uint8Array, origin: any): void => {
+  private handleDocUpdate = (update: Uint8Array, origin: unknown): void => {
     if (origin !== this) {
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -212,10 +213,10 @@ export class WebSocketProvider {
    * Handle awareness update
    */
   private handleAwarenessUpdate = (
-    { added, updated, removed }: any,
-    origin: any
+    { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
+    _origin: unknown
   ): void => {
-    const changedClients = added.concat(updated).concat(removed);
+    const changedClients = [...added, ...updated, ...removed];
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
     encoding.writeVarUint8Array(
@@ -261,21 +262,23 @@ export class WebSocketProvider {
   /**
    * Event emitter methods
    */
-  public on(event: string, callback: Function): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic event emitter
+  public on(event: string, callback: (...args: any[]) => void): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)!.add(callback);
+    this.listeners.get(event)?.add(callback);
   }
 
-  public off(event: string, callback: Function): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic event emitter
+  public off(event: string, callback: (...args: any[]) => void): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.delete(callback);
     }
   }
 
-  private emit(event: string, args: any[]): void {
+  private emit(event: string, args: unknown[]): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.forEach((callback) => callback(...args));

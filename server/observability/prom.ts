@@ -83,21 +83,21 @@ export function initPrometheus(app: Express): void {
  */
 export interface PrometheusMetrics {
   // Counters
-  workflowRunsTotal: any; // Counter
-  workflowRunsSucceeded: any; // Counter
-  workflowRunsFailed: any; // Counter
-  httpRequestsTotal: any; // Counter
-  httpRequestDuration: any; // Histogram
+  workflowRunsTotal: unknown; // Counter
+  workflowRunsSucceeded: unknown; // Counter
+  workflowRunsFailed: unknown; // Counter
+  httpRequestsTotal: unknown; // Counter
+  httpRequestDuration: unknown; // Histogram
 
   // Gauges
-  activeWorkflowRuns: any; // Gauge
-  queueDepth: any; // Gauge
-  databaseConnections: any; // Gauge
+  activeWorkflowRuns: unknown; // Gauge
+  queueDepth: unknown; // Gauge
+  databaseConnections: unknown; // Gauge
 
   // Histograms
-  workflowRunDuration: any; // Histogram
-  transformBlockDuration: any; // Histogram
-  apiRequestDuration: any; // Histogram
+  workflowRunDuration: unknown; // Histogram
+  transformBlockDuration: unknown; // Histogram
+  apiRequestDuration: unknown; // Histogram
 }
 
 /**
@@ -111,7 +111,7 @@ export interface PrometheusMetrics {
  * }
  * ```
  */
-export function getRegistry(): any {
+export function getRegistry(): unknown {
   logger.warn('Prometheus registry not implemented');
   return null;
 }

@@ -1,20 +1,21 @@
 import { useSyncExternalStore, useCallback } from 'react';
 
-import { PreviewEnvironment } from './PreviewEnvironment';
-export function usePreviewEnvironment(env: PreviewEnvironment | null) {
-    // Use useSyncExternalStore to prevent infinite loops with getState()
-    const subscribe = useCallback(
-        (callback: () => void) => {
-            if (!env) {return () => {};}
-            return env.subscribe(callback);
-        },
-        [env]
-    );
-    const getSnapshot = useCallback(() => {
-        return env ? env.getState() : null;
+import type { PreviewEnvironment, PreviewRunState } from './PreviewEnvironment';
+
+export function usePreviewEnvironment(env: PreviewEnvironment | null): PreviewRunState | null {
+    const subscribe = useCallback((callback: () => void) => {
+        if (!env) {return () => { };}
+        return env.subscribe(callback);
     }, [env]);
-    const getServerSnapshot = useCallback(() => {
+
+    const getSnapshot = useCallback((): PreviewRunState | null => {
+        if (!env) {return null;}
+        return env.getState();
+    }, [env]);
+
+    const getServerSnapshot = useCallback((): PreviewRunState | null => {
         return null;
     }, []);
-    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+    return useSyncExternalStore<PreviewRunState | null>(subscribe, getSnapshot, getServerSnapshot);
 }

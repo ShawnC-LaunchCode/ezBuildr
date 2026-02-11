@@ -70,12 +70,12 @@ router.post("/approve", asyncHandler(async (req: Request, res: Response) => {
     const { client_id, redirect_uri, scope, state, user_id } = req.body; // user_id passed from verified session
 
     // Generate Auth Code
-    const code = `auth_code_${Math.random().toString(36).substr(2, 15)}`;
+    const code = `auth_code_${Math.random().toString(36).substring(2, 17)}`;
 
     await db.insert(oauthAuthCodes).values({
         code,
         clientId: client_id,
-        userId: user_id || "demo-user-id", // Fallback for prototype
+        userId: user_id ?? "demo-user-id", // Fallback for prototype
         redirectUri: redirect_uri,
         scope: scope ? (scope as string).split(' ') : [],
         expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 mins
@@ -124,8 +124,8 @@ router.post("/token", asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Issue Token
-    const accessToken = `access_${Math.random().toString(36).substr(2)}`;
-    const refreshToken = `refresh_${Math.random().toString(36).substr(2)}`;
+    const accessToken = `access_${Math.random().toString(36).substring(2)}`;
+    const refreshToken = `refresh_${Math.random().toString(36).substring(2)}`;
 
     await db.insert(oauthAccessTokens).values({
         accessToken,

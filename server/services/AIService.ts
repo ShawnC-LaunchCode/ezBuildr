@@ -106,8 +106,11 @@ export class AIService {
   async suggestWorkflowImprovements(
     request: AIWorkflowSuggestionRequest,
     existingWorkflow: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow structure with varying section types
       sections: any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic logic rule configuration
       logicRules?: any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic transform block configuration
       transformBlocks?: any[];
     },
   ): Promise<AIWorkflowSuggestion> {
@@ -140,7 +143,7 @@ export class AIService {
       description?: string;
     }>,
     mode: 'full' | 'partial' = 'full'
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     return this.suggestionService.suggestValues(steps, mode);
   }
   /**
@@ -255,7 +258,7 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
     const provider = process.env.AI_PROVIDER || 'openai';
     const model = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider as AIProvider);
     return { configured: true, provider, model };
-  } catch (error: any) {
-    return { configured: false, error: error.message };
+  } catch (error: unknown) {
+    return { configured: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

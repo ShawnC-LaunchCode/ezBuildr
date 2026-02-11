@@ -1,14 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import {
-    // TODO: marketplaceTemplates and marketplaceTemplateShares tables need to be added to schema
-    // marketplaceTemplates,
-    // marketplaceTemplateShares,
     workflows,
-    workflowVersions,
-    projects,
-    type Workflow,
-    type WorkflowVersion
 } from "@shared/schema";
 
 import { db } from "../../db";
@@ -58,7 +51,7 @@ export class TemplateService {
         const graphJson = workflow.currentVersion.graphJson;
         // 3. Construct manifest
         const manifest: TemplateManifest = {
-            title: workflow.title || "Untitled Workflow",
+            title: workflow.title ?? "Untitled Workflow",
             description: workflow.description ?? "",
             category: "general",
             tags: [],

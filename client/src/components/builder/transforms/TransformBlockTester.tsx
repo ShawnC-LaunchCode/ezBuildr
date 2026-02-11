@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { ApiTransformBlock } from "@/lib/vault-api";
 import { useTestTransformBlock } from "@/lib/vault-hooks";
 
-export function TransformBlockTester({ block }: { block: ApiTransformBlock }) {
+export function TransformBlockTester({ block }: { block: ApiTransformBlock }): JSX.Element {
     const testMutation = useTestTransformBlock();
     const { toast } = useToast();
     const [testData, setTestData] = useState("{}");

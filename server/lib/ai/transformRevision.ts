@@ -5,7 +5,7 @@ import { TransformBlock, TransformResult } from "shared/schema";
 interface RevisionRequest {
   currentTransforms: TransformBlock[];
   userRequest: string;
-  workflowContext: any;
+  workflowContext: unknown;
 }
 
 // Lazy initialization helper
@@ -25,7 +25,7 @@ const getModel = () => {
         generateContent: async () => ({
           response: { text: () => "{ \"transforms\": [], \"diff\": {}, \"explanation\": [] }" }
         })
-      } as any;
+      } as unknown as ReturnType<typeof genAI.getGenerativeModel>;
     }
     throw e;
   }

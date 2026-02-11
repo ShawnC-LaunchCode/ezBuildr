@@ -144,7 +144,9 @@ export function useWorkflowVisibility(
 
   // Compute hidden steps (inverse of visible)
   const hiddenSteps = useMemo(() => {
-    if (!allSteps) {return new Set<string>();}
+    if (!allSteps) {
+      return new Set<string>();
+    }
 
     const hidden = new Set<string>();
     allSteps.forEach(step => {

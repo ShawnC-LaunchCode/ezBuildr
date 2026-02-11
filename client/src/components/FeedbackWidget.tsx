@@ -32,9 +32,20 @@ export default function FeedbackWidget({ className, style }: FeedbackWidgetProps
   }
 
   // Listen for postMessage from iframe if survey sends completion event
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Create valid origins list based on the iframe src
+      const validOrigins = ["https://poll-vault-production.up.railway.app"];
+      if (!validOrigins.includes(event.origin)) {return;}
 
+      if (event.data === "survey-completed" || event.data?.type === "survey-completed") {
+        setSubmitted(true);
+      }
+    };
 
-  return (
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []); return (
     <>
       <div className={cn("fixed bottom-6 right-6 z-50", className)} style={style}>
         <Dialog>

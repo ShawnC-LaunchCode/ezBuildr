@@ -46,12 +46,15 @@ export class ActivityLogRepository {
     const database = this.getDb(tx);
 
     // Build WHERE conditions
-    const conditions: any[] = [];
-    const params: Record<string, any> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conditions: any[] = []; // Dynamic SQL conditions array for Drizzle ORM
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = {}; // Dynamic params for raw SQL queries
 
     // Free text search: search across event and actorEmail (if available)
     if (q) {
-      const searchConditions: any[] = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const searchConditions: any[] = [ // Dynamic SQL array for Drizzle ORM
         sql`${sql.raw(this.columns.event)} ILIKE ${`%${  q  }%`}`
       ];
       if (this.columns.actorEmail) {
@@ -180,13 +183,16 @@ export class ActivityLogRepository {
     const database = this.getDb(tx);
 
     const columns: string[] = [];
-    const values: any[] = [];
-    const placeholders: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const values: any[] = []; // Dynamic values for raw SQL INSERT
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const placeholders: any[] = []; // Dynamic placeholders for Drizzle SQL builder
 
     // Helper to add a column if it exists in config
-    const addColumn = (configKey: keyof typeof this.columns, value: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const addColumn = (configKey: keyof typeof this.columns, value: any) => { // Dynamic value for EAV-style data
       const columnName = this.columns[configKey];
-      if (!columnName || value === undefined) {return;}
+      if (value === undefined || !columnName) {return;}
 
       columns.push(columnName);
       values.push(value);
@@ -233,7 +239,8 @@ export class ActivityLogRepository {
     `;
 
     const result = await database.execute(query);
-    return (result.rows as any[]).map(row => row.event);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (result.rows as any[]).map(row => row.event); // Raw SQL result from Drizzle
   }
 
   /**
@@ -255,6 +262,7 @@ export class ActivityLogRepository {
     `;
 
     const result = await database.execute(query);
-    return (result.rows as any[]).map(row => row.actor);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (result.rows as any[]).map(row => row.actor); // Raw SQL result from Drizzle
   }
 }

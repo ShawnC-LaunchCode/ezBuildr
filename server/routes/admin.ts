@@ -11,6 +11,7 @@ const router = Router();
 
 // Super Admin Middleware (Simplified for now - assumes a specific user ID or role)
 // In production, check for user.isSuperAdmin boolean or specific role in DB
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- middleware signature requires any for Express compatibility
 const requireSuperAdmin = (req: any, res: any, next: any) => {
     if (req.user?.role !== 'admin') { // Using legacy 'admin' role as super admin for now
         return res.status(403).json({ error: "Require Super Admin" });
@@ -34,6 +35,7 @@ router.get("/organizations", asyncHandler(async (req, res) => {
 router.post("/organizations", asyncHandler(async (req, res) => {
     const { name, slug, domain } = req.body;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
     const { user } = req as any;
     const tenantId = user?.tenantId;
 

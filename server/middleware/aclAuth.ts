@@ -19,7 +19,7 @@ export function requireProjectRole(
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Expecting userId to be set by upstream auth middleware (e.g. hybridAuth)
-      const userId = (req as any).userId;
+      const userId = (req as { userId?: string }).userId;
 
       if (!userId) {
         logger.warn({ ip: req.ip }, 'Project access denied: Not authenticated');
@@ -79,7 +79,7 @@ export function requireWorkflowRole(
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).userId;
+      const userId = (req as { userId?: string }).userId;
 
       if (!userId) {
         logger.warn({ ip: req.ip }, 'Workflow access denied: Not authenticated');

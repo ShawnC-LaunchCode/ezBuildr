@@ -147,12 +147,13 @@ export async function analyzeTemplate(fileRef: string): Promise<TemplateAnalysis
       helpers: Array.from(helpersUsed).sort(),
       stats,
     };
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
       throw createError.notFound('Template file', templatePath);
     }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     throw createError.internal(
-      `Failed to analyze template: ${error.message || 'Unknown error'}`
+      `Failed to analyze template: ${errorMessage}`
     );
   }
 }
@@ -247,6 +248,7 @@ function calculateMaxDepth(loops: LoopInfo[]): number {
  */
 export async function validateTemplateWithData(
   fileRef: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sample data can contain any valid JSON structure for template variables
   sampleData: Record<string, any>
 ): Promise<ValidationResult> {
   // Analyze template
@@ -336,6 +338,7 @@ export async function validateTemplateWithData(
  * Get suggested sample data for a template
  * Generates placeholder values based on variable names and types
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- sample data can generate any valid JSON type based on variable analysis
 export async function generateSampleData(fileRef: string): Promise<Record<string, any>> {
   const analysis = await analyzeTemplate(fileRef);
   const sampleData: Record<string, any> = {};
@@ -362,6 +365,7 @@ export async function generateSampleData(fileRef: string): Promise<Record<string
 /**
  * Generate sample value based on variable name heuristics
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generates various JSON types based on heuristics (string, number, boolean, Date)
 function generateSampleValue(varName: string): any {
   const lower = varName.toLowerCase();
 

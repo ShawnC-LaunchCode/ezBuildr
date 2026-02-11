@@ -13,7 +13,7 @@ interface RangeControlsUIProps {
   className?: string;
 }
 
-export function RangeControlsUI({ offset, limit, onChange, className }: RangeControlsUIProps) {
+export function RangeControlsUI({ offset, limit, onChange, className }: RangeControlsUIProps): JSX.Element {
   return (
     <div className={className}>
       <div className="grid grid-cols-2 gap-3">

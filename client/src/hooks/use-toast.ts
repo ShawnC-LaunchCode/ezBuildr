@@ -159,7 +159,9 @@ function toast({ ...props }: Toast): { id: string; dismiss: () => void; update: 
       id,
       open: true,
       onOpenChange: (open: boolean): void => {
-        if (!open) { dismiss() }
+        if (!open) {
+          dismiss()
+        }
       },
     },
   })

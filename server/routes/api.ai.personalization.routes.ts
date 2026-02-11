@@ -14,6 +14,7 @@ const logger = createLogger({ module: 'ai-personalization-routes' });
 const router = Router();
 
 // Middleware to get user settings
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- middleware signature requires any for Express compatibility
 const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
     try {
         const userId = req.user.id;
@@ -25,7 +26,7 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
             .limit(1);
 
         // Get workflow-specific settings if workflowId is present
-        let workflowSettings = undefined;
+        let workflowSettings: unknown = undefined;
         if (req.body.workflowId) {
             const [ws] = await db
                 .select()
@@ -58,6 +59,7 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
     }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/block", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         const { block } = req.body;
@@ -78,6 +80,7 @@ router.post("/block", hybridAuth, getUserContext, asyncHandler(async (req: any, 
     }
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/help", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         const { text } = req.body;
@@ -98,6 +101,7 @@ router.post("/help", hybridAuth, getUserContext, asyncHandler(async (req: any, r
     }
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/clarify", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         const { question, answer } = req.body;
@@ -119,6 +123,7 @@ router.post("/clarify", hybridAuth, getUserContext, asyncHandler(async (req: any
     }
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/followup", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         const { question, answer } = req.body;
@@ -130,6 +135,7 @@ router.post("/followup", hybridAuth, getUserContext, asyncHandler(async (req: an
     }
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/translate", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         const { text, targetLanguage } = req.body;
@@ -147,6 +153,7 @@ router.post("/translate", hybridAuth, getUserContext, asyncHandler(async (req: a
 }));
 
 // Settings Management
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
 router.get("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
     try {
         const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, req.user.id)).limit(1);
@@ -157,6 +164,7 @@ router.get("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
     }
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
 router.post("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
     try {
         const settings = req.body;

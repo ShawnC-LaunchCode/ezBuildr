@@ -115,6 +115,7 @@ export function registerTenantRoutes(app: Express): void {
       const { name, billingEmail, plan } = req.body;
 
       // Validate input
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic update fields for tenant
       const updateData: any = {
         updatedAt: new Date(),
       };

@@ -10,6 +10,7 @@ export interface CreateTemplateParams {
   sourceVersionId?: string; // If not provided, uses current/pinned
   creatorId: string;
   tenantId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain arbitrary template metadata
   metadata?: Record<string, any>;
   isPublic?: boolean;
 }
@@ -89,6 +90,7 @@ class TemplateService {
     const workflowId = uuidv4();
     const versionId = uuidv4();
     const workflowName = name || `${template.name} (Copy)`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle transaction type is complex and auto-inferred
     await db.transaction(async (tx: any) => {
       // Create Workflow Entry
       await tx.insert(workflows).values({

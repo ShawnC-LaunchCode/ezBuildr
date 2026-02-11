@@ -28,6 +28,7 @@ export class PortalService {
                     }
                 }
             });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle query result with nested relations requires any
             return runs.map((run: any) => ({
                 id: run.id,
                 workflowTitle: run.workflow?.name || run.workflow?.title || "Untitled Workflow",

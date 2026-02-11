@@ -160,7 +160,9 @@ export class GoogleSheetsWriteConnector {
             const pkValue = newRowData[options.primaryKeyColumn];
             const pkColumnLetterCode = ColumnUUIDManager.getLetterCodeByUUID(columns, options.primaryKeyColumn);
 
-            if (!pkColumnLetterCode) {return null;}
+            if (!pkColumnLetterCode) {
+                return null;
+            }
 
             const pkIndex = this.letterCodeToIndex(pkColumnLetterCode);
 
@@ -174,7 +176,9 @@ export class GoogleSheetsWriteConnector {
             const matchValue = newRowData[options.matchColumn];
             const matchColumnLetterCode = ColumnUUIDManager.getLetterCodeByUUID(columns, options.matchColumn);
 
-            if (!matchColumnLetterCode) {return null;}
+            if (!matchColumnLetterCode) {
+                return null;
+            }
 
             const matchIndex = this.letterCodeToIndex(matchColumnLetterCode);
 

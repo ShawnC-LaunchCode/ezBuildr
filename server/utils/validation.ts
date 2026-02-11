@@ -63,6 +63,7 @@ export const numericParamSchema = (min?: number, max?: number) => {
  */
 export function parseQueryParams<T>(
   schema: z.ZodSchema<T>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express query params are loosely typed
   params: Record<string, any>
 ): T {
   try {

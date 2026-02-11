@@ -124,10 +124,8 @@ export class Container {
       );
     }
 
-    // Singleton: return cached instance or create new one
     if (registration.lifetime === 'singleton') {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (!registration.instance) {
+      if (registration.instance === undefined) {
         this.resolutionStack.push(token);
         try {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

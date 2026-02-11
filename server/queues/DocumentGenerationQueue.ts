@@ -132,7 +132,7 @@ export function getDocumentGenerationQueue(): Queue<DocumentGenerationJobData> {
       logger.info({ jobId: job.id, runId: job.data.runId }, 'Job started processing');
     });
 
-    queueInstance.on('completed', (job: Job, result: any) => {
+    queueInstance.on('completed', (job: Job, result: { totalGenerated?: number; failed?: unknown[]; processingTimeMs?: number }) => {
       logger.info(
         {
           jobId: job.id,

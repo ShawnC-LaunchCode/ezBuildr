@@ -44,8 +44,12 @@ export async function getDatabases(params?: {
   scopeId?: string;
 }): Promise<DatavaultDatabase[]> {
   const queryParams = new URLSearchParams();
-  if (params?.scopeType) {queryParams.set('scopeType', params.scopeType);}
-  if (params?.scopeId) {queryParams.set('scopeId', params.scopeId);}
+  if (params?.scopeType) {
+    queryParams.set('scopeType', params.scopeType);
+  }
+  if (params?.scopeId) {
+    queryParams.set('scopeId', params.scopeId);
+  }
 
   const url = buildUrl(`${API_BASE}/databases`, queryParams);
   const response = await fetch(url, {
@@ -345,8 +349,12 @@ export async function getTableRows(
   }
 ): Promise<{ rows: DatavaultRow[]; total: number; hasMore: boolean }> {
   const queryParams = new URLSearchParams();
-  if (params?.limit !== undefined && params.limit !== null) {queryParams.set('limit', params.limit.toString());}
-  if (params?.offset !== undefined && params.offset !== null) {queryParams.set('offset', params.offset.toString());}
+  if (params?.limit !== undefined && params.limit !== null) {
+    queryParams.set('limit', params.limit.toString());
+  }
+  if (params?.offset !== undefined && params.offset !== null) {
+    queryParams.set('offset', params.offset.toString());
+  }
 
   const url = buildUrl(`${API_BASE}/tables/${tableId}/rows`, queryParams);
   const response = await fetch(url, {

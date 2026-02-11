@@ -16,7 +16,9 @@ export function useCreateBlock(): UseMutationResult<ApiBlock, unknown, Omit<ApiB
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ workflowId, ...data }: Omit<ApiBlock, "id" | "createdAt" | "updatedAt"> & { workflowId: string }) => {
-            if (workflowId === "undefined") { throw new Error("Invalid workflow ID"); }
+            if (workflowId === "undefined") {
+                throw new Error("Invalid workflow ID");
+            }
             return blockAPI.create(workflowId, data);
         },
         onSuccess: async (_, variables) => {
@@ -29,7 +31,9 @@ export function useUpdateBlock(): UseMutationResult<ApiBlock, unknown, Partial<A
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, workflowId, ...data }: Partial<ApiBlock> & { id: string; workflowId: string }) => {
-            if (workflowId === "undefined") { throw new Error("Invalid workflow ID"); }
+            if (workflowId === "undefined") {
+                throw new Error("Invalid workflow ID");
+            }
             return blockAPI.update(id, data);
         },
         onSuccess: async (_, variables) => {

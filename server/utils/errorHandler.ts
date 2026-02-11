@@ -121,6 +121,7 @@ export function handleError(error: unknown): ApiError {
  * Send standardized error response
  */
 export function sendErrorResponse(res: Response, error: ApiError): Response {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic error response structure
   const response: any = {
     success: false,
     error: {
@@ -147,8 +148,10 @@ export function sendErrorResponse(res: Response, error: ApiError): Response {
  * Catches errors and sends standardized error responses
  */
 export function asyncHandler(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express request/next types vary by middleware
   fn: (req: any, res: Response, next?: any) => Promise<any>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express request/next types vary by middleware
   return (req: any, res: Response, next: any) => {
     Promise.resolve(fn(req, res, next)).catch((error) => {
       const apiError = handleError(error);

@@ -8,22 +8,11 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
     GripVertical,
-    FileText,
     ChevronDown,
     ChevronRight,
-    Trash2,
-    Type,
-    AlignLeft,
-    Circle,
-    CheckSquare,
-    ToggleLeft,
-    Calendar,
-    Upload,
-    Zap,
-    X,
     Database,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
@@ -71,6 +60,7 @@ interface StepDefaultValue {
 
 
 // eslint-disable-next-line max-lines-per-function
+// eslint-disable-next-line max-lines-per-function
 export function StepCard({
     step,
     sectionId,
@@ -79,7 +69,7 @@ export function StepCard({
     autoFocus = false,
     onToggleExpand,
     onEnterNext,
-}: StepCardProps) {
+}: StepCardProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const deleteStepMutation = useDeleteStep();
     const { toast } = useToast();

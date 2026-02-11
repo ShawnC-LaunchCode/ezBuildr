@@ -38,14 +38,17 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
     // Apply ordering
     const orderByField = options?.orderBy === 'updated_at' ? records.updatedAt : records.createdAt;
     const orderDirection = options?.order === 'asc' ? asc : desc;
-    query = query.orderBy(orderDirection(orderByField)) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query = query.orderBy(orderDirection(orderByField)) as any; // Drizzle query builder chaining
 
     // Apply pagination
-    if (options?.limit) {
-      query = query.limit(options.limit) as any;
+    if (options?.limit !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      query = query.limit(options.limit) as any; // Drizzle query builder chaining
     }
-    if (options?.offset) {
-      query = query.offset(options.offset) as any;
+    if (options?.offset !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      query = query.offset(options.offset) as any; // Drizzle query builder chaining
     }
 
     return query;
@@ -69,7 +72,8 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
    */
   async findByFilters(
     collectionId: string,
-    filters: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    filters: Record<string, any>, // EAV-style filters for JSONB data
     tx?: DbTransaction
   ): Promise<CollectionRecord[]> {
     const database = this.getDb(tx);
@@ -101,7 +105,7 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
       .from(records)
       .where(eq(records.collectionId, collectionId));
 
-    return result?.count || 0;
+    return result?.count ?? 0;
   }
 
   /**

@@ -23,7 +23,7 @@ export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBl
       <div className="relative z-10 flex flex-col gap-4 sm:gap-5 max-w-3xl">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white/10 border border-white/20">
-            <Wand2 className="h-5 w-5" />
+            <Wand2 className="h-5 w-5" aria-hidden="true" />
           </span>
           <h1 className="text-2xl sm:text-3xl font-semibold leading-tight">
             Automate your business logic — powered by AI
@@ -39,7 +39,7 @@ export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBl
           <div
             className="inline-flex items-center justify-center rounded-xl bg-white/50 text-slate-900/50 cursor-not-allowed px-4 py-2.5 font-medium shadow-sm transition-colors"
           >
-            <Wand2 className="mr-2 h-4 w-4" />
+            <Wand2 className="mr-2 h-4 w-4" aria-hidden="true" />
             Generate with AI (Coming Soon)
           </div>
 
@@ -48,7 +48,7 @@ export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBl
             onClick={onBlankClick}
             className="inline-flex items-center justify-center rounded-xl border border-white/20 text-white hover:bg-white/10 px-4 py-2.5 font-medium transition-colors"
           >
-            <PenSquare className="mr-2 h-4 w-4" />
+            <PenSquare className="mr-2 h-4 w-4" aria-hidden="true" />
             Start from Scratch
           </Link>
         </div>

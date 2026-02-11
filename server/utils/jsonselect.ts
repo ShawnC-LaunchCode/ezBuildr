@@ -23,6 +23,7 @@
  * @param selector The selector path (e.g., '$.user.name', '$.items[0].id')
  * @returns The selected value, or undefined if not found
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON path selector traverses arbitrary object structures
 export function select(obj: any, selector: string): any {
   if (!obj || typeof obj !== 'object') {
     return undefined;
@@ -130,6 +131,7 @@ function parseSelector(selector: string): string[] {
 /**
  * Traverse an object following a path
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- traverses arbitrary nested JSON structures
 function traverse(obj: any, parts: string[]): any {
   let current = obj;
 
@@ -196,9 +198,10 @@ export function validateSelector(selector: string): { valid: boolean; error?: st
  * Test a selector against a sample object
  * Useful for debugging and validation
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests arbitrary JSON structures and returns dynamic values
 export function testSelector(obj: any, selector: string): {
   success: boolean;
-  value?: any;
+  value?: unknown;
   error?: string;
 } {
   try {
@@ -218,11 +221,12 @@ export function testSelector(obj: any, selector: string): {
  * Select multiple values using multiple selectors
  * Returns an object with selector results
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- selects from arbitrary JSON structures
 export function selectMultiple(
   obj: any,
   selectors: Record<string, string>
-): Record<string, any> {
-  const results: Record<string, any> = {};
+): Record<string, unknown> {
+  const results: Record<string, unknown> = {};
 
   for (const [key, selector] of Object.entries(selectors)) {
     results[key] = select(obj, selector);

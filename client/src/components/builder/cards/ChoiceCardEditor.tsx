@@ -29,8 +29,8 @@ import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfi
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import { StepEditorCommonProps } from "../StepEditorRouter";
-import { ListToolsDialogs } from "./choices/ListToolsDialogs";
 
+import { ListToolsDialogs } from "./choices/ListToolsDialogs";
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { SectionHeader } from "./common/EditorField";

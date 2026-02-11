@@ -4,14 +4,13 @@ import { Request, Response, NextFunction } from "express";
 import { checkPermission } from "./checkPermission";
 
 export function requireWorkspace(req: Request, res: Response, next: NextFunction) {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] as string) ?? (req.query.workspaceId as string);
 
     if (!workspaceId) {
         return res.status(400).json({ error: "Context Error: Missing Workspace ID" });
     }
 
-    // Attach to request for downstream use
-    (req as any).workspaceId = workspaceId;
+    (req as Record<string, unknown>).workspaceId = workspaceId;
     next();
 }
 
@@ -21,7 +20,7 @@ export function enforce(action: string, getResourceId?: (req: Request) => string
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        const workspaceId = (req as any).workspaceId;
+        const workspaceId = (req as Record<string, unknown>).workspaceId;
         if (!workspaceId) {
             return res.status(400).json({ error: "Context Error: Missing Workspace ID" });
         }

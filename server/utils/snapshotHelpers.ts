@@ -34,6 +34,7 @@ export interface SnapshotValidation {
  * @returns Array of missing values with reasons
  */
 export function findMissingValues(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values are dynamic per step type
   snapshotValues: Record<string, any>,
   currentSteps: Step[]
 ): MissingValue[] {
@@ -59,7 +60,7 @@ export function findMissingValues(
     if (step.type === 'final_documents') {continue;}
 
     // Determine the key used in snapshot (prefer alias, fall back to ID)
-    const key = step.alias || step.id;
+    const key = step.alias ?? step.id;
 
     // Check if value exists in snapshot
     if (!(key in snapshotValues)) {
@@ -142,13 +143,15 @@ export function findFirstMissingStep(
  * @param snapshotValues - Raw snapshot values from DB
  * @returns Normalized key-value map
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizes legacy and new snapshot formats with dynamic shapes
 export function normalizeSnapshotValues(snapshotValues: any): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic step values
   const normalized: Record<string, any> = {};
 
   for (const [key, val] of Object.entries(snapshotValues)) {
     // Check if it's versioned format
     if (val && typeof val === 'object' && 'value' in val) {
-      normalized[key] = (val as any).value;
+      normalized[key] = (val as Record<string, unknown>).value;
     } else {
       // Simple format
       normalized[key] = val;
@@ -165,6 +168,7 @@ export function normalizeSnapshotValues(snapshotValues: any): Record<string, any
  * @param value - The value to validate
  * @returns true if value is complete and valid
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- validates dynamic step values of various types
 export function isValueComplete(stepType: string, value: any): boolean {
   if (value === null || value === undefined || value === '') {
     return false;

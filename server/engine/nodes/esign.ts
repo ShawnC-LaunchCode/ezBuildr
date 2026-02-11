@@ -14,14 +14,14 @@ import type { EvalContext } from '../expr';
  */
 export interface EsignNodeConfig {
   signerType: 'internal' | 'external';
-  signerEmailVar: string;              // Variable key holding signer email
-  signerNameVar?: string;              // Optional variable key holding signer name
+  signerEmailVar: string;
+  signerNameVar?: string;
   provider: 'native' | 'docusign' | 'hellosign';
-  documentOutputRef?: string;          // Which output ref to send for signing (from template node)
-  message?: string;                    // Message for signer
-  redirectUrlAfterSign?: string;       // Redirect URL after signing
-  expiryHours?: number;                // Token expiry in hours (default 72)
-  condition?: string;                  // Optional conditional execution
+  documentOutputRef?: string;
+  message?: string;
+  redirectUrlAfterSign?: string;
+  expiryHours?: number;
+  condition?: string;
 }
 
 /**
@@ -31,11 +31,11 @@ export interface EsignNodeInput {
   nodeId: string;
   config: EsignNodeConfig;
   context: EvalContext;
-  runId: string;                       // Run ID for creating signature request
-  workflowId: string;                  // Workflow ID
-  tenantId: string;                    // Tenant ID
-  projectId: string;                   // Project ID
-  outputRefs?: Record<string, any>;    // Output refs from previous nodes (for document URL)
+  runId: string;
+  workflowId: string;
+  tenantId: string;
+  projectId: string;
+  outputRefs?: Record<string, unknown>;
 }
 
 /**
@@ -43,7 +43,7 @@ export interface EsignNodeInput {
  */
 export interface EsignNodeOutput {
   status: 'executed' | 'skipped' | 'waiting';
-  signatureRequestId?: string;         // Created signature request ID
+  signatureRequestId?: string;
   skipReason?: string;
   error?: string;
 }
@@ -128,12 +128,13 @@ export async function executeEsignNode(
 
     return {
       status: 'waiting',
-      // The service layer will create the signature request and return its ID
     };
   } catch (error) {
     return {
       status: 'skipped',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : UNKNOWN_ERROR_MSG,
     };
   }
 }
+
+const UNKNOWN_ERROR_MSG = 'Unknown error';

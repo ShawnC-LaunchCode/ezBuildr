@@ -156,6 +156,7 @@ export class PdfQueueService {
           eq(runOutputs.fileType, 'pdf'),
           eq(runOutputs.status, 'pending')
         ),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle orderBy callback types not publicly exported
         orderBy: (outputs: any, { asc }: any) => [asc(outputs.createdAt)],
         limit: 10, // Process up to 10 jobs per batch
       });
@@ -178,6 +179,7 @@ export class PdfQueueService {
   /**
    * Process a single PDF conversion job
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database query returns untyped output record
   private async processJob(output: any): Promise<void> {
     const attempt = (output.error ? JSON.parse(output.error || '{}').attempt || 0 : 0) + 1;
     const jobId = output.id;

@@ -45,7 +45,7 @@ export function createPaginatedResponse<T extends { id: string; createdAt: Date 
  * Format: base64(id:timestamp)
  */
 export function encodeCursor(item: { id: string; createdAt: Date | null }): string {
-  const timestamp = item.createdAt?.getTime() || Date.now();
+  const timestamp = item.createdAt?.getTime() ?? Date.now();
   const payload = `${item.id}:${timestamp}`;
   return Buffer.from(payload).toString('base64');
 }

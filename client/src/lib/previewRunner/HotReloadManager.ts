@@ -26,17 +26,12 @@ export class HotReloadManager {
 
     detach() {
         this.env = null;
+        this.logger.info('Detached from environment');
     }
 
-    /**
-     * Handle a schema update from the Builder
-     */
-    handleUpdate(workflowId: string, sections: ApiSection[], steps: ApiStep[]) {
-        if (!this.env) {return;}
-
-        // Verify workflow match
-        if (this.env.getState().workflowId !== workflowId) {
-            this.logger.warn('Update received for different workflow. Ignoring.');
+    updateSchema(sections: ApiSection[], steps: ApiStep[]) {
+        if (!this.env) {
+            this.logger.warn('Cannot update schema: No environment attached');
             return;
         }
 

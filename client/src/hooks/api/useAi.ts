@@ -24,7 +24,9 @@ export function useReviseWorkflow(): UseMutationResult<AIWorkflowRevisionRespons
                 body: JSON.stringify(data),
             });
             const { jobId } = initRes;
-            if (!jobId) { throw new Error("Failed to start AI revision job"); }
+            if (!jobId) {
+                throw new Error("Failed to start AI revision job");
+            }
             // 2. Poll for Completion
             // Using a recursive promise or a while loop
             const poll = async (): Promise<AIWorkflowRevisionResponse> => {

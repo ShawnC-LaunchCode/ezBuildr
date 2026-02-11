@@ -104,7 +104,7 @@ function normalizeConfig(stepType: string, config: StepConfig): StepConfig {
       if (Array.isArray(choiceConfig.options)) {
         choiceConfig.options = choiceConfig.options.map((opt) => ({
           ...opt,
-          alias: opt.alias || opt.id,
+          alias: opt.alias ?? opt.id,
         })).filter(Boolean); // Ensure no nulls if filter is needed, though map preserves length
       }
       break;
@@ -437,8 +437,8 @@ function sanitizeScaleValue(value: unknown, config?: StepConfig): number | null 
 
   // Round to nearest step
   if (scaleConfig?.step) {
-    const steps = Math.round((num - (scaleConfig.min || 0)) / scaleConfig.step);
-    return (scaleConfig.min || 0) + (steps * scaleConfig.step);
+    const steps = Math.round((num - (scaleConfig.min ?? 0)) / scaleConfig.step);
+    return (scaleConfig.min ?? 0) + (steps * scaleConfig.step);
   }
 
   return num;
@@ -588,6 +588,7 @@ function validateWebsite(value: unknown, config: WebsiteConfig | WebsiteAdvanced
     if (config && 'allowedProtocols' in config && config.allowedProtocols && config.allowedProtocols.length > 0) {
       // Cast protocol to satisfy literal type if needed, or check validity first
       const cleanProtocol = url.protocol.replace(':', '');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- protocol string compared against config literal union
       if (!config.allowedProtocols.includes(cleanProtocol as any)) {
         errors.push(`Protocol not allowed: ${url.protocol}`);
       }
@@ -646,13 +647,15 @@ function validateChoice(value: unknown, config: ChoiceAdvancedConfig | LegacyMul
   if (config && 'options' in config) {
     if (Array.isArray(config.options)) {
       options = config.options;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting DynamicOptionsConfig wrapper shape
     } else if (config.options && typeof config.options === 'object' && 'type' in config.options && (config.options as any).type === 'static') {
       // Handle DynamicOptionsConfig wrapper if present in schema but acting static
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- extracting options from DynamicOptionsConfig wrapper
       options = ((config.options as any).options) as ChoiceOption[];
     }
   }
 
-  const validOptions = options.map((opt) => opt.id || opt.alias);
+  const validOptions = options.map((opt) => opt.id ?? opt.alias);
 
   for (const val of values) {
     if (typeof val === 'string' && !validOptions.includes(val)) {

@@ -112,13 +112,14 @@ export function sendErrorResponse(
   if (error.name === 'ZodError') {
     return res.status(400).json(
       errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Validation failed', {
-        validationErrors: (error as any).errors,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing Zod error's .errors property
+      validationErrors: (error as any).errors,
       })
     );
   }
 
   // Handle generic errors
-  const status = statusCode || 500;
+  const status = statusCode ?? 500;
   const code = status === 404 ? ERROR_CODES.NOT_FOUND : ERROR_CODES.INTERNAL_ERROR;
 
   return res.status(status).json(errorResponse(code, error.message));

@@ -52,13 +52,15 @@ router.post("/generate", hybridAuth, aiRateLimit, asyncHandler(async (req, res) 
         const result = await generateTransforms({
             workflowContext,
             description,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transform type is complex
             currentTransforms: currentTransforms as any[]
         });
 
         res.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error }, "AI Transform Generation Error");
-        res.status(500).json({ error: error.message || "Failed to generate transforms" });
+        const message = error instanceof Error ? error.message : "Failed to generate transforms";
+        res.status(500).json({ error: message });
     }
 }));
 
@@ -77,15 +79,17 @@ router.post("/revise", hybridAuth, aiRateLimit, asyncHandler(async (req, res) =>
         const { currentTransforms, userRequest, workflowContext } = validation.data;
 
         const result = await reviseTransforms({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- transform type is complex
             currentTransforms: currentTransforms as any[],
             userRequest,
             workflowContext
         });
 
         res.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error }, "AI Transform Revision Error");
-        res.status(500).json({ error: error.message || "Failed to revise transforms" });
+        const message = error instanceof Error ? error.message : "Failed to revise transforms";
+        res.status(500).json({ error: message });
     }
 }));
 
@@ -94,9 +98,10 @@ router.post("/debug", hybridAuth, asyncHandler(async (req, res) => {
         const { transforms } = req.body;
         const issues = TransformDebugger.debug(transforms ?? []);
         res.json({ issues });
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error }, "Transform Debug Error");
-        res.status(500).json({ error: error.message || "Failed to debug transforms" });
+        const message = error instanceof Error ? error.message : "Failed to debug transforms";
+        res.status(500).json({ error: message });
     }
 }));
 
@@ -105,9 +110,10 @@ router.post("/auto-fix", hybridAuth, asyncHandler(async (req, res) => {
         const { transforms, issues } = req.body;
         const fixes = await TransformDebugger.autoFix(transforms ?? [], issues ?? []);
         res.json({ fixes });
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error }, "Transform Auto-fix Error");
-        res.status(500).json({ error: error.message || "Failed to generate auto-fixes" });
+        const message = error instanceof Error ? error.message : "Failed to generate auto-fixes";
+        res.status(500).json({ error: message });
     }
 }));
 
@@ -120,9 +126,10 @@ router.post("/schema-align", hybridAuth, asyncHandler(async (req, res) => {
             workflowVariables: workflowVariables ?? []
         });
         res.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error }, "Schema Align Error");
-        res.status(500).json({ error: error.message || "Failed to align schema" });
+        const message = error instanceof Error ? error.message : "Failed to align schema";
+        res.status(500).json({ error: message });
     }
 }));
 

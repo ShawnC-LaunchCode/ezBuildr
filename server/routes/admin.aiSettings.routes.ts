@@ -176,7 +176,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                     period: `${days} days`,
                 },
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             logger.error({ error }, 'Failed to get admin AI feedback stats');
             res.status(500).json({
                 success: false,
@@ -231,7 +231,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                 success: true,
                 feedback: filtered,
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             logger.error({ error }, 'Failed to get recent AI feedback');
             res.status(500).json({
                 success: false,

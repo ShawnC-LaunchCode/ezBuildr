@@ -44,7 +44,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         if (existingUser) {
           // Update existing user with new data, but only update provided fields
           // This preserves fields like 'role' that aren't included in Google OAuth userData
-          const updateData: any = {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const updateData: any = { // Dynamic update object for partial user data
             updatedAt: new Date(),
           };
 
@@ -77,7 +78,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       // Handle conflict on ID in case it's provided and already exists
       const [user] = await database
         .insert(users)
-        .values(userData as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .values(userData as any) // Drizzle insert type assertion
         .onConflictDoUpdate({
           target: users.id,
           set: {
@@ -107,7 +109,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
         if (existingUser) {
           // Only update provided fields to preserve existing role
-          const updateData: any = {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const updateData: any = { // Dynamic update object for partial user data
             updatedAt: new Date(),
           };
 
@@ -185,9 +188,9 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
     return {
       total: systemStats.totalUsersCreated, // Use lifetime total
-      active: Number(stats[0]?.admins || 0) + Number(stats[0]?.creators || 0), // Optional: tracked active users
-      admins: Number(stats[0]?.admins || 0),
-      creators: Number(stats[0]?.creators || 0),
+      active: Number(stats[0]?.admins ?? 0) + Number(stats[0]?.creators ?? 0), // Optional: tracked active users
+      admins: Number(stats[0]?.admins ?? 0),
+      creators: Number(stats[0]?.creators ?? 0),
     };
   }
 
@@ -214,10 +217,15 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    */
   async updateUser(userId: string, data: Partial<User>, tx?: DbTransaction): Promise<User> {
     const database = this.getDb(tx);
-    const updateData: any = { ...data, updatedAt: new Date() };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = { ...data, updatedAt: new Date() }; // Dynamic update object for flexible user fields
 
     // Remove undefined fields
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
 
     const [updatedUser] = await database
       .update(users)

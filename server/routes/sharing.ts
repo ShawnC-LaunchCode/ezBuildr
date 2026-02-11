@@ -15,6 +15,7 @@ const router = Router();
 router.use(requireWorkspace);
 // List Workspace Members
 router.get("/members", enforce(ACTION.VIEW_ANALYTICS), asyncHandler(async (req: Request, res: Response) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workspace context from middleware
     const workspaceId = (req as any).workspaceId;
     // Join with user table to get names/emails
     const members = await db.query.workspaceMembers.findMany({
@@ -27,8 +28,10 @@ router.get("/members", enforce(ACTION.VIEW_ANALYTICS), asyncHandler(async (req: 
 }));
 // Invite Member
 router.post("/invite", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: Request, res: Response) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workspace context from middleware
     const workspaceId = (req as any).workspaceId;
     const { email, role } = req.body;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- user from auth middleware
     const inviterId = (req as any).user!.id;
     // Check if user already exists
     const existingUser = await db.query.users.findFirst({
@@ -88,9 +91,11 @@ router.post("/invite", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: 
 }));
 // Update Member Role
 router.patch("/members/:userId", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: Request, res: Response) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workspace context from middleware
     const workspaceId = (req as any).workspaceId;
     const targetUserId = req.params.userId;
     const { role } = req.body;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- user from auth middleware
     const actorId = (req as any).user!.id;
     if (targetUserId === actorId) {
         return res.status(400).json({ error: "Cannot change your own role" });

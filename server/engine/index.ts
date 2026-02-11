@@ -30,19 +30,19 @@ export interface TraceEntry {
   condition?: string;
   conditionResult?: boolean;
   status: 'executed' | 'skipped';
-  outputsDelta?: Record<string, any>;
-  sideEffects?: Record<string, any>;
+  outputsDelta?: Record<string, unknown>;
+  sideEffects?: Record<string, unknown>;
   error?: string;
   timestamp: Date;
 }
 export interface RunGraphOutput {
   status: 'success' | 'error';
-  outputRefs?: Record<string, any>;
+  outputRefs?: Record<string, unknown>;
   logs: Array<{
     level: 'info' | 'warn' | 'error';
     message: string;
     nodeId?: string;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     timestamp: Date;
   }>;
   trace?: TraceEntry[];            // Legacy simple trace
@@ -97,12 +97,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
       timestamp: new Date(),
     });
     // Initialize execution context resources
-    let ivm: typeof import("isolated-vm") | undefined;
     let isolate: import("isolated-vm").Isolate | undefined;
     try {
-      ivm = await import("isolated-vm");
+      const ivm = await import("isolated-vm");
       isolate = new ivm.Isolate({ memoryLimit: 128 });
-    } catch (e) {
+    } catch {
       // Fallback or log if isolated-vm is missing (though it shouldn't be for live execution)
     }
     const context: EvalContext = {
@@ -142,11 +141,11 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
     try {
       for (const nodeId of executionOrder) {
         // Check limits
-        if (Date.now() - startTime > (context.limits!.maxExecutionTimeMs!)) {
-          throw new Error(`Execution time exceeded limit of ${context.limits!.maxExecutionTimeMs}ms`);
+        if (Date.now() - startTime > (context.limits?.maxExecutionTimeMs ?? 30000)) {
+          throw new Error(`Execution time exceeded limit of ${context.limits?.maxExecutionTimeMs ?? 30000}ms`);
         }
-        if (executionSteps.length >= context.limits!.maxSteps!) {
-          throw new Error(`Execution step limit exceeded (${context.limits!.maxSteps})`);
+        if (executionSteps.length >= (context.limits?.maxSteps ?? 1000)) {
+          throw new Error(`Execution step limit exceeded (${context.limits?.maxSteps ?? 1000})`);
         }
         const node = graphJson.nodes.find(n => n.id === nodeId);
         if (!node) {
@@ -257,7 +256,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           }
           // NEW: Populate ExecutionStep and Lineage
           const stepIndex = executionSteps.length;
-          const outputsDelta: Record<string, any> = {};
+          const outputsDelta: Record<string, unknown> = {};
           if (nodeOutput.status === 'executed' && 'varName' in nodeOutput && nodeOutput.varName) {
             outputsDelta[nodeOutput.varName] = nodeOutput.varValue;
             // CRITICAL: Update context variables for subsequent nodes
@@ -272,12 +271,16 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           }
           // Track cost metrics
           if (node.type === 'query') {
-            context.metrics!.queryCount++;
-            // approximating DB time as total node time for now
-            context.metrics!.dbTimeMs += nodeDuration;
+            if (context.metrics) {
+              context.metrics.queryCount++;
+              // approximating DB time as total node time for now
+              context.metrics.dbTimeMs += nodeDuration;
+            }
           } else if (node.type === 'compute') {
             // approximating JS time
-            context.metrics!.jsTimeMs += nodeDuration;
+            if (context.metrics) {
+              context.metrics.jsTimeMs += nodeDuration;
+            }
           }
           const executionStep: ExecutionStep = {
             stepNumber: stepIndex,
@@ -301,9 +304,9 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           trace.push({
             nodeId,
             type: node.type,
-            status: nodeOutput.status as any,
+            status: nodeOutput.status as 'executed' | 'skipped',
             outputsDelta: outputsDelta,
-            sideEffects: 'sideEffects' in nodeOutput ? nodeOutput.sideEffects : undefined,
+            sideEffects: 'sideEffects' in nodeOutput ? nodeOutput.sideEffects as Record<string, unknown> : undefined,
             error: 'error' in nodeOutput ? nodeOutput.error : undefined,
             timestamp: new Date(),
             conditionResult: config.condition ? true : undefined
@@ -418,7 +421,7 @@ function getExecutionOrder(graphJson: GraphJson): string[] {
  * @param graphJson - Workflow graph JSON
  * @returns true if valid, throws error otherwise
  */
-export function validateGraphStructure(graphJson: Record<string, any>): boolean {
+export function validateGraphStructure(graphJson: Record<string, unknown>): boolean {
   // Use new validation
   const result = validateGraph(graphJson as unknown as GraphJson);
   if (!result.valid) {

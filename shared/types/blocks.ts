@@ -22,6 +22,7 @@ export type BlockPhase =
  */
 export type PrefillConfig = {
   mode: "static" | "query";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- static values can be any type
   staticMap?: Record<string, any>;     // For mode=static: key-value pairs to inject
   queryKeys?: string[];                // For mode=query: whitelist of allowed param keys
   overwrite?: boolean;                 // Whether to overwrite existing values (default: false)
@@ -56,6 +57,7 @@ export type AssertionOperator =
 export type WhenCondition = {
   key: string;                        // Data key to check
   op: BlockComparisonOperator;             // Comparison operator
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparison values can be any type
   value?: any;                        // Expected value (not needed for is_empty/is_not_empty)
 };
 
@@ -65,6 +67,7 @@ export type WhenCondition = {
 export type AssertExpression = {
   key: string;                        // Data key to validate
   op: AssertionOperator;              // Assertion operator
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- assertion values can be any type
   value?: any;                        // Expected value or regex pattern
 };
 
@@ -85,6 +88,7 @@ export type CompareRule = {
   type: 'compare';
   left: string;                       // Variable reference
   op: BlockComparisonOperator;             // 'equals', 'greater_than', etc.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- right value can be any type
   right: any;                         // Variable reference or constant value
   rightType: 'variable' | 'constant'; // How to interpret 'right'
   message: string;
@@ -174,6 +178,7 @@ export type UpdateRecordConfig = {
  */
 export type FindRecordConfig = {
   collectionId: string;               // Collection to query
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter values can be any type
   filters: Record<string, any>;       // Filter criteria (fieldSlug -> expected value or {op, value})
   limit?: number;                     // Max number of records to return (default: 1)
   outputKey: string;                  // Step alias to store found record(s)
@@ -255,6 +260,7 @@ export interface ExternalDestination {
   workspaceId: string;
   type: "webhook" | "google_sheets" | "airtable" | "zapier" | "make";
   name: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config values vary by destination type
   config: Record<string, any>;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -330,6 +336,7 @@ export type ReadTableOperator =
 export type ReadTableFilter = {
   columnId: string;              // Column UUID to filter on
   operator: ReadTableOperator;   // Comparison operator
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter values can be any type
   value?: any;                   // Filter value (can be static or variable reference)
 };
 
@@ -363,6 +370,7 @@ export type ReadTableConfig = {
 export interface ReadTableResult {
   success: boolean;
   tableId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values can be any type
   rows: Array<Record<string, any>>; // Array of row objects (columnId -> value)
   count: number;                    // Number of rows returned
   columns?: Array<{                 // Column metadata for reference
@@ -383,12 +391,14 @@ export interface ListVariable {
     sourceId?: string;                              // ID of source table/query/block
     tableName?: string;                             // Human-readable table name
     queryName?: string;                             // Human-readable query name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- query params can be any type
     queryParams?: Record<string, any>;              // Original query parameters
     filteredBy?: string[];                          // Column IDs used in filters
     sortedBy?: { columnId: string; direction: 'asc' | 'desc' }; // Sort configuration
   };
   rows: Array<{
     id: string;                                     // Row ID
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- column values can be any type
     [columnId: string]: any;                        // Column data (columnId -> value)
   }>;
   count: number;                                    // Number of rows in this list
@@ -407,6 +417,7 @@ export type ListToolsFilterRule = {
   fieldPath: string;                 // Dot-notation path to field (e.g., "name", "address.zip", "child.age")
   op: ReadTableOperator;             // Comparison operator
   valueSource: "const" | "var";      // Whether value is a constant or variable reference
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter values can be any type
   value?: any;                       // Filter value (constant or variable name)
 };
 
@@ -492,7 +503,9 @@ export interface BlockContext {
   runId?: string;
   sectionId?: string;
   phase: BlockPhase;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values can be any type
   data: Record<string, any>;          // Current step values (stepId -> value)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- query params can be any type
   queryParams?: Record<string, any>;  // Query parameters (for prefill blocks)
   mode?: 'preview' | 'live'; // Added execution mode
   aliasMap?: Record<string, string>; // Map of alias -> stepId
@@ -506,6 +519,7 @@ export interface BlockContext {
  */
 export interface BlockResult {
   success: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data values can be any type
   data?: Record<string, any>;         // Updated data (for prefill blocks)
   errors?: string[];                  // General validation errors
   fieldErrors?: Record<string, string[]>; // Field-specific validation errors (stepId -> errors)

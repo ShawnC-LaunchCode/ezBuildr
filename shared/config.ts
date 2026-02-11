@@ -89,6 +89,7 @@ export const SERVER_CONFIG = typeof process !== 'undefined' ? {
 
   /** Environment (development, production, test) */
   NODE_ENV: process.env.NODE_ENV ?? 'development',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fallback empty object for browser environment
 } as const : {} as any;
 
 /**
@@ -111,6 +112,7 @@ export const RATE_LIMIT_CONFIG = typeof process !== 'undefined' ? {
 
   /** Maximum batch requests per minute */
   BATCH_MAX_PER_MINUTE: 5,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fallback empty object for browser environment
 } as const : {} as any;
 
 /**

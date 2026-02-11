@@ -96,11 +96,11 @@ app.use(sanitizeInputs);
     // Wrap in try-catch so one missing folder doesn't crash the whole API
     try {
       serveStatic(app);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error({ err }, "Failed to serve static files (continuing to allow API access)");
     }
     // Start server
-    const port = parseInt(process.env.PORT || '5000', 10);
+    const port = parseInt(process.env.PORT ?? '5000', 10);
     server.listen({
       port,
       host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker

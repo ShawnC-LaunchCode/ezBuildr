@@ -13,6 +13,7 @@ import { logger } from "../logger";
  */
 export class GeminiService {
   private genAI!: GoogleGenerativeAI;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Gemini model type is not publicly exported
   private model!: any;
 
   constructor() {

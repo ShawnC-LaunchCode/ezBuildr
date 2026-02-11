@@ -36,6 +36,7 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data for prefill
    * @returns Navigation result with visible pages and next/previous
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async evaluateNavigation(
     workflowId: string,
     runId: string,
@@ -56,6 +57,7 @@ export class IntakeNavigationService {
       }
     }
     // Build evaluation context
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow variables are dynamically typed
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
@@ -143,6 +145,7 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns First page ID or null if no navigable pages
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async getFirstPage(
     workflowId: string,
     runId: string,
@@ -160,6 +163,7 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns True if page is visible and not skipped
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async isPageNavigable(
     workflowId: string,
     runId: string,
@@ -178,6 +182,7 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns Array of visible page IDs in order
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async getPageSequence(
     workflowId: string,
     runId: string,

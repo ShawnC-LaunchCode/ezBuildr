@@ -1,10 +1,10 @@
 
 export interface VaultLogicEmbedOptions {
     workflow: string; // publicSlug
-    theme?: any;
+    theme?: Record<string, unknown>;
     container?: HTMLElement | string;
-    onComplete?: (result: any) => void;
-    onError?: (error: any) => void;
+    onComplete?: (result: unknown) => void;
+    onError?: (error: unknown) => void;
 }
 
 export class VaultLogicEmbed {
@@ -39,9 +39,9 @@ export class VaultLogicEmbed {
 
     private handleMessage(event: MessageEvent) {
         // Validate origin in production
-        // if (event.origin !== this.targetOrigin) return;
+        if (event.origin !== this.targetOrigin) {return;}
 
-        const { type, payload } = event.data;
+        const { type, payload } = event.data as { type: string; payload: unknown };
 
         switch (type) {
             case 'workflow_complete':
@@ -51,8 +51,8 @@ export class VaultLogicEmbed {
                 this.options.onError?.(payload);
                 break;
             case 'resize':
-                if (this.iframe) {
-                    this.iframe.style.height = `${payload.height}px`;
+                if (this.iframe && typeof payload === 'object' && payload !== null && 'height' in payload) {
+                    this.iframe.style.height = `${(payload as { height: number }).height}px`;
                 }
                 break;
         }
@@ -65,4 +65,4 @@ export class VaultLogicEmbed {
 }
 
 // Global exposure for non-module usage
-(window as any).VaultLogic = VaultLogicEmbed;
+(window as unknown as Record<string, unknown>).VaultLogic = VaultLogicEmbed;

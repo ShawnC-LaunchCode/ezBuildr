@@ -71,4 +71,5 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vitest config type mismatch with poolOptions at top level
 } as any);

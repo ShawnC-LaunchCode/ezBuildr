@@ -121,10 +121,8 @@ export function useCollabClient(
     }
 
     // Initialize meta map
-    // Initialize meta map
     doc.getMap('yMeta');
 
-    // Initialize comments map
     // Initialize comments map
     doc.getMap('yComments');
 
@@ -141,8 +139,6 @@ export function useCollabClient(
     });
 
     // Connection event handlers
-
-    // Connection event handlers
     provider.on('status', ({ status }: { status: string }) => {
       setState((prev) => ({
         ...prev,
@@ -156,18 +152,18 @@ export function useCollabClient(
     });
 
     // Observe changes from remote
-    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<any>>;
-    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<any>>;
+    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<unknown>>;
+    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<unknown>>;
 
     const handleNodesChange = () => {
       if (isLocalUpdateRef.current) {return;}
 
       const nodes = yNodes.toArray().map((yNode) => {
-        const node: any = {};
+        const node: Record<string, unknown> = {};
         yNode.forEach((value, key) => {
           node[key] = value;
         });
-        return node;
+        return node as unknown as Node;
       });
 
       onNodesChange(nodes);
@@ -177,11 +173,11 @@ export function useCollabClient(
       if (isLocalUpdateRef.current) {return;}
 
       const edges = yEdges.toArray().map((yEdge) => {
-        const edge: any = {};
+        const edge: Record<string, unknown> = {};
         yEdge.forEach((value, key) => {
           edge[key] = value;
         });
-        return edge;
+        return edge as unknown as Edge;
       });
 
       onEdgesChange(edges);
@@ -192,17 +188,18 @@ export function useCollabClient(
 
     // Observe awareness changes (other users)
     const handleAwarenessChange = () => {
-      const states = Array.from(awarenessRef.current!.getStates().values());
-      const usersMap = new Map();
+      const awareness = awarenessRef.current;
+      if (!awareness) {return;}
+      const states = Array.from(awareness.getStates().values());
+      const usersMap = new Map<string, CollabUser>();
 
-      states.forEach((state: any) => {
-        if (state.user) {
-          // If user already exists, we could check timestamps to keep latest, 
-          // but for now simple dedupe by ID is sufficient.
-          // We overwriting ensures we have *a* version of the user.
-          usersMap.set(state.user.id || state.user.userId, state.user);
+      for (const state of states) {
+        const stateObj = state as Record<string, unknown>;
+        if (stateObj.user) {
+          const u = stateObj.user as CollabUser;
+          usersMap.set(u.userId, u);
         }
-      });
+      }
 
       const users = Array.from(usersMap.values());
       setState((prev) => ({ ...prev, users }));
@@ -227,7 +224,7 @@ export function useCollabClient(
     if (!docRef.current) {return;}
 
     const yGraph = docRef.current.getMap('yGraph');
-    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<any>>;
+    const yNodes = yGraph.get('nodes') as Y.Array<Y.Map<unknown>>;
 
     isLocalUpdateRef.current = true;
 
@@ -260,7 +257,7 @@ export function useCollabClient(
     if (!docRef.current) {return;}
 
     const yGraph = docRef.current.getMap('yGraph');
-    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<any>>;
+    const yEdges = yGraph.get('edges') as Y.Array<Y.Map<unknown>>;
 
     isLocalUpdateRef.current = true;
 

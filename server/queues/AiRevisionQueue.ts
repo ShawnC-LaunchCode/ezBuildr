@@ -28,7 +28,7 @@ export interface AiRevisionJobData extends AIWorkflowRevisionRequest {
 export interface AiRevisionJobResult {
     success: boolean;
     updatedWorkflow?: AIGeneratedWorkflow; // Strict AI response type
-    diff?: { changes: any[] };
+    diff?: { changes: unknown[] };
     error?: string;
     metadata?: {
         duration: number;
@@ -86,10 +86,10 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         const existingWorkflow = await workflowService.getWorkflowWithDetails(requestData.workflowId, userId);
 
         // Map existing IDs for updates vs creates
-        const existingSectionIds = new Set((existingWorkflow.sections ?? []).map((s: any) => s.id));
+        const existingSectionIds = new Set((existingWorkflow.sections ?? []).map((s: { id: string }) => s.id));
         const existingStepIds = new Set(
             (existingWorkflow.sections ?? [])
-                .flatMap((s: any) => (s.steps ?? []).map((step: any) => step.id))
+                .flatMap((s: { steps?: { id: string }[] }) => (s.steps ?? []).map((step) => step.id))
         );
 
         // Process Workflow Properties
@@ -185,7 +185,17 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         await db.delete(logicRules).where(eq(logicRules.workflowId, requestData.workflowId));
 
         if (aiWorkflow.logicRules && aiWorkflow.logicRules.length > 0) {
-            const rulesToInsert: any[] = [];
+            const rulesToInsert: Array<{
+                workflowId: string;
+                conditionStepId: string;
+                operator: string;
+                conditionValue: unknown;
+                targetType: string;
+                targetStepId: string | null;
+                targetSectionId: string | null;
+                action: string;
+                order: number;
+            }> = [];
 
             for (const rule of aiWorkflow.logicRules) {
                 // Resolve references
@@ -212,7 +222,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                     // For now, let's assume targetAlias might be an ID or Title if not found in map.
 
                     // Try to find section by Title match from revised sections
-                    const targetSection = (aiWorkflow.sections ?? []).find((s: any) => s.title === rule.targetAlias || s.id === rule.targetAlias);
+                    const targetSection = (aiWorkflow.sections ?? []).find((s: { title: string; id?: string }) => s.title === rule.targetAlias || s.id === rule.targetAlias);
                     // We need the ACTUAL DB ID.
                     // We need a map of Section Title/ID (AI side) -> Real DB ID.
                     // We didn't build this map.
@@ -246,7 +256,20 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         await db.delete(transformBlocks).where(eq(transformBlocks.workflowId, requestData.workflowId));
 
         if (aiWorkflow.transformBlocks && aiWorkflow.transformBlocks.length > 0) {
-            const blocksToInsert: any[] = [];
+            const blocksToInsert: Array<{
+                workflowId: string;
+                sectionId: string | null;
+                type: string;
+                name: string;
+                language: string;
+                code: string;
+                inputKeys: unknown;
+                outputKey: string;
+                phase: string;
+                order: number;
+                enabled: boolean;
+                timeoutMs: number;
+            }> = [];
 
             for (const block of aiWorkflow.transformBlocks) {
                 let blockSectionId: string | null = null;
@@ -267,7 +290,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                     phase: block.phase,
                     order: 0,
                     enabled: true,
-                    timeoutMs: block.timeoutMs || 1000
+                    timeoutMs: block.timeoutMs ?? 1000
                 });
             }
 
@@ -301,7 +324,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             }
         };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         logger.error({ error, jobId: job.id }, 'AI revision job failed');
         throw error; // Let Bull handle failure state
     }
@@ -339,11 +362,11 @@ class MemoryQueue<T> {
         return job;
     }
 
-    process(handler: (job: Job<T>) => Promise<any>) {
+    process(handler: (job: Job<T>) => Promise<unknown>) {
         this.processor = handler;
     }
 
-    on(event: string, handler: any) {
+    on(event: string, handler: unknown) {
         // Simple event stub to prevent crashes
         return this;
     }
@@ -360,11 +383,11 @@ class MemoryQueue<T> {
             const result = await this.processor(job);
             job.returnvalue = result;
             this.jobStates.set(String(job.id), 'completed');
-        } catch (error: any) {
-            job.failedReason = error.message;
+        } catch (error: unknown) {
+            job.failedReason = (error as Error).message;
             this.jobStates.set(String(job.id), 'failed');
             // Log error here since we don't have full event emitters
-            logger.error({ jobId: job.id, error: error.message }, 'In-memory job failed');
+            logger.error({ jobId: job.id, error: (error as Error).message }, 'In-memory job failed');
         }
     }
 }
@@ -379,7 +402,7 @@ export function getAiRevisionQueue(): Queue<AiRevisionJobData> {
     if (queueInstance) { return queueInstance; }
 
     const isDev = process.env.NODE_ENV === 'development';
-    const hasRedis = !!process.env.REDIS_URL || (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost');
+    const hasRedis = Boolean(process.env.REDIS_URL) || Boolean(process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost');
 
     // Use MemoryQueue in dev if no explicit remote Redis is configured
     // This allows local dev without Docker/Redis
@@ -404,7 +427,7 @@ export function getAiRevisionQueue(): Queue<AiRevisionJobData> {
         logger.error({ jobId: job.id, error: err.message }, 'AI revision job failed');
     });
 
-    return queueInstance as any; // Cast to any to satisfy return type if mocks are loose
+    return queueInstance;
 }
 
 export async function enqueueAiRevision(data: AiRevisionJobData): Promise<Job<AiRevisionJobData>> {

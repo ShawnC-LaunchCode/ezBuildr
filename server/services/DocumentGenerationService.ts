@@ -53,6 +53,7 @@ export class DocumentGenerationService {
 
       // 3. Find Final Documents sections
       const finalDocsSections = sections.filter((section) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section config is dynamically typed
         const config = section.config as any;
         // Log config for debugging
         // logger.debug({ sectionId: section.id, config }, 'Checking section config');
@@ -74,6 +75,7 @@ export class DocumentGenerationService {
       const allSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
 
       // Build data object with both stepId and alias keys
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow data values are dynamically typed
       const data: Record<string, any> = {};
       for (const stepValue of stepValues) {
         // Add by step ID
@@ -90,6 +92,7 @@ export class DocumentGenerationService {
 
       // 5. Generate documents for each Final Documents section
       for (const section of finalDocsSections) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section config is dynamically typed
         const config = section.config as any;
         const templateIds = config?.templates ?? [];
 
@@ -135,6 +138,7 @@ export class DocumentGenerationService {
   /**
    * Generate a single document from a template
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow data is dynamically typed
   private async generateDocument(
     run: WorkflowRun,
     templateId: string,
@@ -154,6 +158,7 @@ export class DocumentGenerationService {
       log.info({ templateName: template.name }, 'Rendering template');
 
       // 2. Check conditional visibility (templates.metadata.visibleIf)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template metadata is dynamically typed
       const metadata = template.metadata as any;
       if (metadata?.visibleIf) {
         try {
@@ -246,6 +251,7 @@ export class DocumentGenerationService {
         fileUrl,
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         fileSize: result.size,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow template ID may be null
         templateId: workflowTemplateId as any, // Cast to any if type mismatch, but schema allows null?
         // Schema says: templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
         // So it is nullable.

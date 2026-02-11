@@ -30,6 +30,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
         // 1. Fetch steps for the section
         const sectionSteps = await db.query.steps.findMany({
             where: eq(steps.sectionId, sectionId),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle orderBy callback types
             orderBy: (steps: any, { asc }: any) => [asc(steps.order)],
         });
 
@@ -38,10 +39,12 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
         }
 
         // 2. Build Schemas
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic validation schemas
         const schemas: Record<string, any> = {};
 
         // Server-side visibility check attempt
         // If allValues not provided, we might over-validate or skip visibility check
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step from database query
         const stepsToValidate = sectionSteps.filter((step: any) => {
             if (!step.visibleIf) { return true; }
             if (!allValues) { return true; } // Validate if we can't be sure
@@ -54,6 +57,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
             }
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step from database query
         stepsToValidate.forEach((step: any) => {
             schemas[step.id] = getValidationSchema({
                 id: step.id,

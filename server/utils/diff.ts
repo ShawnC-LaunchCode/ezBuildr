@@ -6,8 +6,8 @@
 export interface DiffChange {
   type: 'added' | 'removed' | 'changed';
   path: string;
-  oldValue?: any;
-  newValue?: any;
+  oldValue?: unknown;
+  newValue?: unknown;
 }
 
 export interface GraphDiff {
@@ -32,6 +32,7 @@ export interface VersionDiff {
 /**
  * Compare two graphs and return detailed diff
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic graph JSON structures
 function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   const diff: GraphDiff = {
     nodesAdded: [],
@@ -48,7 +49,7 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   for (const [id, newNode] of newNodes) {
     const oldNode = oldNodes.get(id);
     if (!oldNode) {
-      diff.nodesAdded.push({ id: id as string, type: (newNode as any).type || 'unknown' });
+      diff.nodesAdded.push({ id: id as string, type: (newNode as Record<string, unknown>).type ?? 'unknown' });
     } else {
       const changes = compareObjects(oldNode, newNode, `nodes.${id as string}`);
       if (changes.length > 0) {
@@ -60,7 +61,7 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   // Find removed nodes
   for (const [id, oldNode] of oldNodes) {
     if (!newNodes.has(id)) {
-      diff.nodesRemoved.push({ id: id as string, type: (oldNode as any).type || 'unknown' });
+      diff.nodesRemoved.push({ id: id as string, type: (oldNode as Record<string, unknown>).type ?? 'unknown' });
     }
   }
 
@@ -88,6 +89,7 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
 /**
  * Compare two objects and return list of changes
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing arbitrary object structures
 function compareObjects(oldObj: any, newObj: any, basePath: string = ''): DiffChange[] {
   const changes: DiffChange[] = [];
 
@@ -167,21 +169,21 @@ function generateSummary(diff: VersionDiff): string[] {
  */
 export function computeVersionDiff(
   oldVersion: {
-    graphJson: any;
-    bindings?: any;
+    graphJson: unknown;
+    bindings?: unknown;
     templateIds?: string[];
     checksum?: string | null;
   },
   newVersion: {
-    graphJson: any;
-    bindings?: any;
+    graphJson: unknown;
+    bindings?: unknown;
     templateIds?: string[];
     checksum?: string | null;
   }
 ): VersionDiff {
   const diff: VersionDiff = {
     graphDiff: compareGraphs(oldVersion.graphJson, newVersion.graphJson),
-    bindingsDiff: compareObjects(oldVersion.bindings || {}, newVersion.bindings || {}, 'bindings'),
+    bindingsDiff: compareObjects(oldVersion.bindings ?? {}, newVersion.bindings ?? {}, 'bindings'),
     templatesDiff: compareObjects(
       { templates: oldVersion.templateIds ?? [] },
       { templates: newVersion.templateIds ?? [] },

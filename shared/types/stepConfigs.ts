@@ -285,6 +285,7 @@ export type DynamicOptionsConfig =
     filters?: Array<{         // Optional filters
       columnId: string;
       operator: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter values can be any type
       value: any;
     }>;
     sort?: {                  // Optional sort
@@ -656,6 +657,7 @@ export type StepConfig =
 /**
  * Type guard for Choice config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
   return (
     config &&
@@ -669,6 +671,7 @@ export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
 /**
  * Type guard for Multi-Field config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
   return (
     config &&
@@ -682,6 +685,7 @@ export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
 /**
  * Type guard for Address config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isAddressConfig(config: any): config is AddressConfig | AddressAdvancedConfig {
   return (
     config &&
@@ -694,6 +698,7 @@ export function isAddressConfig(config: any): config is AddressConfig | AddressA
 /**
  * Type guard for Number/Currency config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isNumberConfig(config: any): config is NumberConfig | NumberAdvancedConfig {
   return (
     config &&
@@ -708,6 +713,7 @@ export function isNumberConfig(config: any): config is NumberConfig | NumberAdva
 /**
  * Type guard for DateTime config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
   return (
     config &&
@@ -722,6 +728,7 @@ export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig |
 /**
  * Type guard for Signature Block config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
 export function isSignatureBlockConfig(config: any): config is SignatureBlockConfig {
   return (
     config &&
@@ -754,6 +761,7 @@ export interface AddressValue {
  * Stored in stepValues for multi-field blocks
  */
 export interface MultiFieldValue {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field values can be various types
   [key: string]: string | number | boolean | null | string[];
 }
 

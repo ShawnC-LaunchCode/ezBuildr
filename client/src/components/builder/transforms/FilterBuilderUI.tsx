@@ -59,7 +59,7 @@ export function FilterBuilderUI({
   onChange,
   availableVariables = [],
   className
-}: FilterBuilderUIProps) {
+}: FilterBuilderUIProps): JSX.Element {
   const rules = filters?.rules ?? [];
 
   const handleAddRule = () => {
@@ -148,7 +148,7 @@ interface FilterRuleProps {
   onRemove: () => void;
 }
 
-function FilterRule({ rule, index, availableVariables, onUpdate, onRemove }: FilterRuleProps) {
+function FilterRule({ rule, index, availableVariables, onUpdate, onRemove }: FilterRuleProps): JSX.Element {
   const operator = OPERATORS.find(op => op.value === rule.op);
   const requiresValue = operator?.requiresValue ?? true;
 

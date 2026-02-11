@@ -71,7 +71,7 @@ export class AiController {
 
             res.json({
                 available: hasApiKey,
-                model: hasApiKey ? (process.env.GEMINI_MODEL || "gemini-2.0-flash") : null,
+                model: hasApiKey ? (process.env.GEMINI_MODEL ?? "gemini-2.0-flash") : null,
                 features: hasApiKey ? [
                     "workflow_generation",
                     "sentiment_analysis",
@@ -313,7 +313,7 @@ export class AiController {
 
             // Get template placeholders (from request or fetch from template)
             const placeholders = requestData.placeholders ?? [];
-            if ((placeholders.length === 0) && templateId) {
+            if (placeholders.length === 0 && templateId) {
                 // TODO: Fetch placeholders from template
                 // For now, require placeholders to be provided
                 return res.status(400).json({
@@ -342,7 +342,7 @@ export class AiController {
                 workflowId: requestData.workflowId,
                 duration,
                 suggestionsCount: bindingSuggestions.suggestions.length,
-                warningsCount: bindingSuggestions.warnings?.length || 0,
+                warningsCount: bindingSuggestions.warnings?.length ?? 0,
             }, 'AI template binding suggestion succeeded');
 
             res.status(200).json({
@@ -353,7 +353,7 @@ export class AiController {
                     suggestionsCount: bindingSuggestions.suggestions.length,
                     unmatchedPlaceholdersCount: bindingSuggestions.unmatchedPlaceholders.length,
                     unmatchedVariablesCount: bindingSuggestions.unmatchedVariables.length,
-                    warningsCount: bindingSuggestions.warnings?.length || 0,
+                    warningsCount: bindingSuggestions.warnings?.length ?? 0,
                 },
             });
         } catch (error) {
@@ -405,11 +405,10 @@ export class AiController {
         } catch (error) {
             const err = error as AIError;
             aiLogger.error({
-                error: err.message || err,
+                error: err.message ?? err,
                 stack: err.stack
             }, 'Failed to enqueue AI revision job');
 
-            // handleAiError can handle ZodError too, refer to lines below
             return AiController.handleAiError(res, error);
         }
     }

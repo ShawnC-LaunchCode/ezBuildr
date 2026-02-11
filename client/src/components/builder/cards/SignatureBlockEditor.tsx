@@ -5,6 +5,7 @@ import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { SignatureBlockConfig } from "@shared/types/stepConfigs";
+
 import { SignerSection, ProviderSection, DocumentsSection, AdvancedSection } from "./SignatureBlockEditor.components";
 
 interface SignatureBlockEditorProps {
@@ -15,7 +16,7 @@ interface SignatureBlockEditorProps {
 
 // --- Main Component ---
 
-export function SignatureBlockEditor({ stepId, sectionId, step }: SignatureBlockEditorProps) {
+export function SignatureBlockEditor({ stepId, sectionId, step }: SignatureBlockEditorProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Cast step.config to expected type or partial

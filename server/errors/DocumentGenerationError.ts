@@ -69,16 +69,16 @@ export interface DocumentGenerationErrorContext {
   originalError?: Error;
 
   /** Step values (sanitized - no sensitive data) */
-  stepValues?: Record<string, any>;
+  stepValues?: Record<string, unknown>;
 
   /** Field mapping */
-  mapping?: any;
+  mapping?: unknown;
 
   /** Normalized data */
-  normalizedData?: any;
+  normalizedData?: unknown;
 
   /** Mapped data */
-  mappedData?: any;
+  mappedData?: unknown;
 
   /** Is this error recoverable? */
   recoverable?: boolean;
@@ -122,13 +122,13 @@ export class DocumentGenerationError extends Error {
   public readonly runId?: string;
   public readonly workflowId?: string;
   public readonly originalError?: Error;
-  public readonly stepValues?: Record<string, any>;
-  public readonly mapping?: any;
-  public readonly normalizedData?: any;
-  public readonly mappedData?: any;
+  public readonly stepValues?: Record<string, unknown>;
+  public readonly mapping?: unknown;
+  public readonly normalizedData?: unknown;
+  public readonly mappedData?: unknown;
   public readonly recoverable: boolean;
   public readonly suggestion?: string;
-  public readonly metadata?: Record<string, any>;
+  public readonly metadata?: Record<string, unknown>;
   public readonly timestamp: Date;
 
   constructor(message: string, context: DocumentGenerationErrorContext) {
@@ -146,7 +146,7 @@ export class DocumentGenerationError extends Error {
     this.normalizedData = context.normalizedData;
     this.mappedData = context.mappedData;
     this.recoverable = context.recoverable ?? false;
-    this.suggestion = context.suggestion || this.getSuggestionForPhase(context.phase);
+    this.suggestion = context.suggestion ?? this.getSuggestionForPhase(context.phase);
     this.metadata = context.metadata;
     this.timestamp = new Date();
 
@@ -308,7 +308,7 @@ export function createPdfUnlockError(
 export function createNormalizationError(
   runId: string,
   originalError: Error,
-  stepValues?: Record<string, any>
+  stepValues?: Record<string, unknown>
 ): DocumentGenerationError {
   return new DocumentGenerationError('Failed to normalize workflow data', {
     phase: 'normalize',
@@ -327,7 +327,7 @@ export function createMappingError(
   templateId: string,
   runId: string,
   originalError: Error,
-  mapping?: any
+  mapping?: unknown
 ): DocumentGenerationError {
   return new DocumentGenerationError('Failed to apply field mapping', {
     phase: 'map',
@@ -347,7 +347,7 @@ export function createRenderError(
   templateId: string,
   runId: string,
   originalError: Error,
-  mappedData?: any
+  mappedData?: unknown
 ): DocumentGenerationError {
   return new DocumentGenerationError('Failed to render document', {
     phase: 'render',
@@ -399,7 +399,7 @@ export function createSaveError(
 /**
  * Check if error is a DocumentGenerationError
  */
-export function isDocumentGenerationError(error: any): error is DocumentGenerationError {
+export function isDocumentGenerationError(error: unknown): error is DocumentGenerationError {
   return error instanceof DocumentGenerationError;
 }
 
@@ -407,7 +407,7 @@ export function isDocumentGenerationError(error: any): error is DocumentGenerati
  * Wrap any error as DocumentGenerationError
  */
 export function wrapAsDocumentGenerationError(
-  error: any,
+  error: unknown,
   context: Partial<DocumentGenerationErrorContext>
 ): DocumentGenerationError {
   if (isDocumentGenerationError(error)) {
@@ -415,10 +415,10 @@ export function wrapAsDocumentGenerationError(
   }
 
   return new DocumentGenerationError(
-    error.message || 'Unknown document generation error',
+    (error instanceof Error ? error.message : undefined) ?? 'Unknown document generation error',
     {
-      phase: context.phase || 'unknown',
-      originalError: error,
+      phase: context.phase ?? 'unknown',
+      originalError: error instanceof Error ? error : undefined,
       ...context,
     }
   );

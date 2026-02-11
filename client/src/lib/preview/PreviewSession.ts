@@ -160,16 +160,6 @@ export class PreviewSession {
   }
 
   /**
-   * Get value by alias
-   */
-  getValueByAlias(alias: string): any {
-    const step = this.steps.find(s => s.alias === alias);
-    if (!step) {return undefined;}
-    return this.run.values[step.id];
-  }
-
-  /**
-   * Set value for a step
    * Triggers re-render in React components
    */
   setValue(stepId: string, value: any): void {

@@ -19,10 +19,12 @@ export function sanitizeString(input: string): string {
  * Recursively sanitizes all string values in an object
  * Handles nested objects and arrays
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursively sanitizes arbitrary nested object structures
 export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
   if (obj === null || obj === undefined) {return obj;}
   if (typeof obj !== 'object') {return obj;}
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- building sanitized copy of arbitrary structure
   const sanitized: any = Array.isArray(obj) ? [] : {};
 
   for (const [key, value] of Object.entries(obj)) {
@@ -57,6 +59,7 @@ export function sanitizeInputs(req: Request, res: Response, next: NextFunction):
   }
 
   if (req.query && typeof req.query === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express query params are string-indexed
     req.query = sanitizeObject(req.query as Record<string, any>);
   }
 

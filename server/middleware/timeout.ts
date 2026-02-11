@@ -16,7 +16,7 @@ const DEFAULT_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? '120000', 
 
 export function requestTimeout(req: Request, res: Response, next: NextFunction): void {
   // Allow endpoints to override timeout
-  let timeoutMs = res.locals.timeout || DEFAULT_TIMEOUT_MS;
+  let timeoutMs = res.locals.timeout ?? DEFAULT_TIMEOUT_MS;
 
   // AUTO-EXTEND: AI routes need more time (default to 5 minutes for large PDFs)
   // Check both path and originalUrl to be safe against mounting differences

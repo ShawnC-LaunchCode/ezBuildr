@@ -23,7 +23,7 @@ async function initializeDatabase() {
   if (dbInitialized) { return; }
 
   const databaseUrl = env.DATABASE_URL;
-  const isDatabaseConfigured = !!databaseUrl && databaseUrl !== 'undefined' && databaseUrl !== '';
+  const isDatabaseConfigured = Boolean(databaseUrl) && databaseUrl !== 'undefined' && databaseUrl !== '';
 
   if (!isDatabaseConfigured) {
     throw new Error(
@@ -48,7 +48,7 @@ async function initializeDatabase() {
     pool = new NeonPoolClass({ connectionString: databaseUrl });
 
     const { drizzle: drizzleNeon } = await import('drizzle-orm/neon-serverless');
-    _db = drizzleNeon(pool as any, { schema });
+    _db = drizzleNeon(pool, { schema });
   } else {
     // Use standard PostgreSQL driver for local databases
     logger.debug("DB: importing pg...");
@@ -57,24 +57,24 @@ async function initializeDatabase() {
     logger.debug("DB: creating pool...");
     pool = new pg.default.Pool({ connectionString: databaseUrl });
 
-    // For test schemas, set search_path on new connections via on('connect')
-    const testSchema = process.env.TEST_SCHEMA || (global as any).__TEST_SCHEMA__;
+    const testSchema = process.env.TEST_SCHEMA ?? (global as Record<string, unknown>).__TEST_SCHEMA__;
     if (testSchema && env.NODE_ENV === 'test') {
       pool.on('connect', async (client) => {
         try {
-          await client.query(`SET search_path TO "${testSchema}", public`);
-          logger.debug(`DB: Set search_path on new connection: "${testSchema}",public`);
-        } catch (err: any) {
-          logger.warn(`DB: Failed to set search_path on connection: ${err.message}`);
+          await client.query(`SET search_path TO "${String(testSchema)}", public`);
+          logger.debug(`DB: Set search_path on new connection: "${String(testSchema)}",public`);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(`DB: Failed to set search_path on connection: ${message}`);
         }
       });
 
-      logger.info(`DB: Configured on('connect') to set search_path="${testSchema}",public`);
+      logger.info(`DB: Configured on('connect') to set search_path="${String(testSchema)}",public`);
     }
 
     logger.debug("DB: importing drizzle...");
     const { drizzle: drizzlePg } = await import('drizzle-orm/node-postgres');
-    _db = drizzlePg(pool as any, { schema });
+    _db = drizzlePg(pool, { schema });
     logger.debug("DB: created.");
   }
 
@@ -86,7 +86,7 @@ async function initializeDatabase() {
 // If not configured, create a lazy promise that will reject when awaited
 // For tests, we might initialize later manually
 const initialDatabaseUrl = env.DATABASE_URL;
-const isInitialConfigured = !!initialDatabaseUrl && initialDatabaseUrl !== 'undefined' && initialDatabaseUrl !== '';
+const isInitialConfigured = Boolean(initialDatabaseUrl) && initialDatabaseUrl !== 'undefined' && initialDatabaseUrl !== '';
 const isTest = env.NODE_ENV === 'test';
 
 if (isInitialConfigured) {
@@ -135,7 +135,7 @@ const db = new Proxy({} as DrizzleDB, {
     if (!_db) {
       throw new Error("Database not initialized. Call await initializeDatabase() first.");
     }
-    (_db as any)[prop] = value;
+    (_db as Record<string, unknown>)[prop] = value;
     return true;
   }
 });

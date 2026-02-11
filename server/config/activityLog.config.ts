@@ -67,7 +67,7 @@ export const eventDisplayMap: Record<string, { label: string; tone: "info" | "su
  */
 export function getEventDisplay(eventName: string): { label: string; tone: "info" | "success" | "warn" | "error" } {
   return eventDisplayMap[eventName] ?? {
-    label: eventName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    label: eventName.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
     tone: "info"
   };
 }
