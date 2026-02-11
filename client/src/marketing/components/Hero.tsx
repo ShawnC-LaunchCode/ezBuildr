@@ -1,4 +1,3 @@
-﻿```
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "wouter";
@@ -20,8 +19,8 @@ const CONTENT = {
 
 export default function Hero() {
   return (
-    <section className={`${ brand.sectionPad } pt - 20 pb - 20 sm: pt - 24 sm: pb - 32 ${ brand.gradient } text - white overflow - hidden relative`}>
-      <div className={`${ brand.maxw } `}>
+    <section className={`${brand.sectionPad} pt-20 pb-20 sm:pt-24 sm:pb-32 ${brand.gradient} text-white overflow-hidden relative`}>
+      <div className={`${brand.maxw}`}>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -69,4 +68,3 @@ export default function Hero() {
     </section>
   );
 }
-```

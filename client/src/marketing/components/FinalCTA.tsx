@@ -1,4 +1,3 @@
-```
 import { motion } from "framer-motion";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { Link } from "wouter";
@@ -16,8 +15,8 @@ const CONTENT = {
 
 export default function FinalCTA() {
   return (
-    <section className={`${ brand.sectionPad } py - 14 sm: py - 16 ${ brand.gradient } text - white`}>
-      <div className={`${ brand.maxw } text - center`}>
+    <section className={`${brand.sectionPad} py-14 sm:py-16 ${brand.gradient} text-white`}>
+      <div className={`${brand.maxw} text-center`}>
         <motion.h2
           initial={{ opacity: 0, y: 8 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -46,4 +45,3 @@ export default function FinalCTA() {
     </section>
   );
 }
-```
