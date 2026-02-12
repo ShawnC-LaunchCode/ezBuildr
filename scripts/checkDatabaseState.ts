@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkDatabaseState() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as typeof WebSocket;
 
   console.log("🔍 CHECKING DATABASE STATE\n");
   console.log("=" .repeat(70));
@@ -124,8 +124,8 @@ async function checkDatabaseState() {
       console.log(`   ❌ Migrations table does not exist`);
     }
 
-  } catch (error) {
-    console.error("\n❌ ERROR:", error);
+  } catch (error: unknown) {
+    console.error("\n❌ ERROR:", error instanceof Error ? error.message : String(error));
   } finally {
     client.release();
   }

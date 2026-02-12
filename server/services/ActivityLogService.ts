@@ -10,7 +10,7 @@ import { ActivityLogQuery, ActivityLogInsert, ActivityLogResult } from "../types
  * - Manual log creation (optional)
  */
 export class ActivityLogService {
-  constructor(private repo = new ActivityLogRepository()) {}
+  constructor(private repo = new ActivityLogRepository()) { }
 
   /**
    * List activity logs with filtering, pagination, and sorting
@@ -29,7 +29,7 @@ export class ActivityLogService {
     // Get all matching rows (with a reasonable limit for export)
     const exportQuery = {
       ...query,
-      limit: query.limit || 5000,  // Default export limit
+      limit: query.limit ?? 5000,  // Default export limit
       offset: 0                     // Always start from beginning for export
     };
 
@@ -52,14 +52,15 @@ export class ActivityLogService {
     // Helper to escape CSV values
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CSV escaping handles various value types
     const escapeCsv = (value: any): string => {
-      if (value === null || value === undefined) {return "";}
+      if (value === null || value === undefined) { return ""; }
 
       // Convert objects/arrays to JSON strings
+      let stringValue: string;
       if (typeof value === "object") {
-        value = JSON.stringify(value);
+        stringValue = JSON.stringify(value);
+      } else {
+        stringValue = String(value);
       }
-
-      const stringValue = String(value);
 
       // Escape double quotes and wrap in quotes if contains special chars
       if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
@@ -76,7 +77,7 @@ export class ActivityLogService {
       // Data rows
       ...rows.map(row =>
         headers
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic row access for CSV export
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- dynamic row access for CSV export
           .map(header => escapeCsv((row as any)[header]))
           .join(",")
       )
@@ -124,6 +125,7 @@ export class ActivityLogService {
       status: details?.status ?? "info",
       ipAddress: details?.ipAddress ?? null,
       userAgent: details?.userAgent ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- metadata is typed as any in the parameter
       metadata: details?.metadata ?? null
     };
 

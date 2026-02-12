@@ -48,7 +48,7 @@ export async function cleanAuthTables() {
     await db.delete(refreshTokens);
     await db.delete(emailVerificationTokens);
     await db.delete(userCredentials);
-  } catch (error) {
+  } catch (error: unknown) {
     console.warn("Error cleaning auth tables:", error);
   }
 }
@@ -80,7 +80,7 @@ export async function deleteTestUser(userId: string) {
 
     // Finally delete user
     await db.delete(users).where(eq(users.id, userId));
-  } catch (error) {
+  } catch (error: unknown) {
     console.warn(`Error deleting test user ${userId}:`, error);
   }
 }
@@ -99,7 +99,7 @@ export async function cleanTestUser(email: string) {
       // Also clean login attempts by email since they are not linked by userId
       await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.warn("Error cleaning test user:", error);
   }
 }

@@ -23,4 +23,6 @@ async function main() {
     process.exit(0);
 }
 
-main().catch(console.error);
+main().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+});

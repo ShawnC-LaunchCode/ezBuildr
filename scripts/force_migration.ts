@@ -38,8 +38,8 @@ async function runRawMigration() {
         await client.query('COMMIT');
         console.log("✅ COMMIT successful.");
 
-    } catch (err) {
-        console.error("❌ Error running migration:", err);
+    } catch (err: unknown) {
+        console.error("❌ Error running migration:", err instanceof Error ? err.message : String(err));
         await client.query('ROLLBACK');
         process.exit(1);
     } finally {

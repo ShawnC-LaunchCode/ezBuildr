@@ -24,15 +24,15 @@ async function runMigrations() {
   try {
     await migrate(db, { migrationsFolder: './migrations' });
     console.log('✅ Migrations completed successfully!');
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
+  } catch (error: unknown) {
+    console.error('❌ Migration failed:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     await pool.end();
   }
 }
 
-runMigrations().catch((error) => {
-  console.error('Failed to run migrations:', error);
+runMigrations().catch((error: unknown) => {
+  console.error('Failed to run migrations:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

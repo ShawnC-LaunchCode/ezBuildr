@@ -66,8 +66,8 @@ async function moveWorkflows() {
       console.log(`  - ${wf.title}`);
     });
 
-  } catch (error) {
-    console.error('Error moving workflows:', error);
+  } catch (error: unknown) {
+    console.error('Error moving workflows:', error instanceof Error ? error.message : String(error));
   } finally {
     process.exit(0);
   }

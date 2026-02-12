@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkWorkflowData() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
 
@@ -29,7 +29,7 @@ async function checkWorkflowData() {
   // Check sections
   const sections = await client.query('SELECT id, title, "order" FROM sections WHERE workflow_id = $1 ORDER BY "order"', [workflowId]);
   console.log(`\nSections: ${sections.rows.length}`);
-  sections.rows.forEach((s: any) => {
+  sections.rows.forEach((s: Record<string, unknown>) => {
     console.log(`  - ${s.title} (order: ${s.order})`);
   });
 

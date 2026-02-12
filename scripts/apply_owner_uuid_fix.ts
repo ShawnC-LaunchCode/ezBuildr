@@ -22,8 +22,8 @@ async function applyFix() {
 
         console.log("All tables updated successfully.");
         process.exit(0);
-    } catch (error) {
-        console.error("Error applying fix:", error);
+    } catch (error: unknown) {
+        console.error("Error applying fix:", error instanceof Error ? error.message : String(error));
         process.exit(1);
     }
 }

@@ -383,8 +383,8 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
       }
       process.exit(0);
     })
-    .catch((error) => {
-      console.error('Error:', error);
+    .catch((error: unknown) => {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
       process.exit(1);
     });
 }

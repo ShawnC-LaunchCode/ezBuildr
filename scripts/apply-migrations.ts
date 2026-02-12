@@ -52,9 +52,10 @@ async function applyMigrations() {
         }
         try {
           await sql(statement);
-        } catch (stmtError: any) {
+        } catch (stmtError: unknown) {
           // If COMMENT fails because index already exists, that's okay
-          if (statement.includes('COMMENT ON INDEX') && stmtError.message.includes('does not exist')) {
+          const stmtMsg = stmtError instanceof Error ? stmtError.message : String(stmtError);
+          if (statement.includes('COMMENT ON INDEX') && stmtMsg.includes('does not exist')) {
             console.log(`   ℹ️  Skipping comment (index may already exist)`);
             continue;
           }
@@ -64,12 +65,13 @@ async function applyMigrations() {
       }
 
       console.log(`✅ ${migrationFile} applied successfully!\n`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`❌ Failed to apply ${migrationFile}:`);
-      console.error(`   Error: ${error.message}\n`);
+      console.error(`   Error: ${errMsg}\n`);
 
       // If it's a "relation already exists" error, that's okay (idempotent)
-      if (error.message.includes('already exists')) {
+      if (errMsg.includes('already exists')) {
         console.log(`   ℹ️  Index already exists - skipping\n`);
         continue;
       }

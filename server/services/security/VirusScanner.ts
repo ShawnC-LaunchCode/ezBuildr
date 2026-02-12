@@ -19,6 +19,7 @@ export interface ScanResult {
   scanDurationMs: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- I-prefix interface naming convention
 export interface IVirusScanner {
   /**
    * Scan a file buffer for malware
@@ -38,7 +39,7 @@ export interface IVirusScanner {
  * Always returns safe=true
  */
 export class NoOpVirusScanner implements IVirusScanner {
-  async scan(buffer: Buffer, filename: string): Promise<ScanResult> {
+  scan(buffer: Buffer, filename: string): Promise<ScanResult> {
     const startTime = Date.now();
 
     logger.warn(
@@ -46,17 +47,17 @@ export class NoOpVirusScanner implements IVirusScanner {
       'NoOpVirusScanner: File accepted WITHOUT virus scanning (dev mode)'
     );
 
-    return {
+    return Promise.resolve({
       safe: true,
       scannerName: 'NoOpScanner',
       scannedAt: new Date(),
       fileSize: buffer.length,
       scanDurationMs: Date.now() - startTime,
-    };
+    });
   }
 
-  async isHealthy(): Promise<boolean> {
-    return true;
+  isHealthy(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 }
 
@@ -74,11 +75,11 @@ export class ClamAVVirusScanner implements IVirusScanner {
   private port: number;
 
   constructor() {
-    this.host = process.env.CLAMAV_HOST || 'localhost';
-    this.port = parseInt(process.env.CLAMAV_PORT || '3310', 10);
+    this.host = process.env.CLAMAV_HOST ?? 'localhost';
+    this.port = parseInt(process.env.CLAMAV_PORT ?? '3310', 10);
   }
 
-  async scan(buffer: Buffer, filename: string): Promise<ScanResult> {
+  scan(buffer: Buffer, filename: string): Promise<ScanResult> {
     const startTime = Date.now();
 
     // TODO: Implement actual ClamAV integration
@@ -99,19 +100,19 @@ export class ClamAVVirusScanner implements IVirusScanner {
     );
 
     // Fail-safe: Reject files when ClamAV is configured but not implemented
-    return {
+    return Promise.resolve({
       safe: false,
       threatName: 'SCANNER_NOT_IMPLEMENTED',
       scannerName: 'ClamAV',
       scannedAt: new Date(),
       fileSize: buffer.length,
       scanDurationMs: Date.now() - startTime,
-    };
+    });
   }
 
-  async isHealthy(): Promise<boolean> {
+  isHealthy(): Promise<boolean> {
     // TODO: Implement health check via PING command to clamd
-    return false;
+    return Promise.resolve(false);
   }
 }
 
@@ -120,7 +121,7 @@ export class ClamAVVirusScanner implements IVirusScanner {
  */
 export function getVirusScanner(): IVirusScanner {
   const enabled = process.env.ENABLE_VIRUS_SCANNING === 'true';
-  const provider = process.env.VIRUS_SCANNER_PROVIDER || 'noop';
+  const provider = process.env.VIRUS_SCANNER_PROVIDER ?? 'noop';
 
   if (!enabled) {
     return new NoOpVirusScanner();

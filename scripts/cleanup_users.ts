@@ -92,7 +92,7 @@ async function main() {
     process.exit(0);
 }
 
-main().catch((err) => {
+main().catch((err: unknown) => {
     console.error("Cleanup failed:", err);
     process.exit(1);
 });

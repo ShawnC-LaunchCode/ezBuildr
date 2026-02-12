@@ -15,7 +15,7 @@ async function debugExtraction() {
     const allTemplates = await db.select().from(schema.templates);
     console.log(`Found ${allTemplates.length} templates.`);
 
-    const template = allTemplates.find(t => t.id === TEMPLATE_ID) || allTemplates.find(t => t.name.includes("4317"));
+    const template = allTemplates.find(t => t.id === TEMPLATE_ID) ?? allTemplates.find(t => t.name.includes("4317"));
 
     if (!template) {
         console.error("Template 'Form 4317' not found in dump.");
@@ -45,12 +45,12 @@ async function debugExtraction() {
     console.log("--- PAGES ---");
     pages.forEach((p, i) => {
         const ref = p.ref;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         console.log(`Page ${i}: tag=${ref.tag}, gen=${ref.gen}, objectNumber=${(ref as any).objectNumber}, generationNumber=${(ref as any).generationNumber}`);
     });
 
     console.log("--- FIELDS ---");
     const pageCounts: Record<number, number> = {};
-    const failedCounts = 0;
 
     for (const field of fields) {
         const name = field.getName();
@@ -60,9 +60,13 @@ async function debugExtraction() {
             const pRef = w.P();
 
             let pageIndex = pages.findIndex(p => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const pTag = p.ref.tag ?? (p.ref as any).objectNumber;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const wTag = pRef.tag ?? (pRef as any).objectNumber;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const pGen = p.ref.gen ?? (p.ref as any).generationNumber;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const wGen = pRef.gen ?? (pRef as any).generationNumber;
                 return pTag === wTag && pGen === wGen;
             });
@@ -73,9 +77,10 @@ async function debugExtraction() {
             }
 
             if (pageIndex === -1) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 console.log(`Field ${name} widget ${wi} FAILED to match any page. P() ref: tag=${pRef.tag}, obj=${(pRef as any).objectNumber}`);
             } else {
-                pageCounts[pageIndex] = (pageCounts[pageIndex] || 0) + 1;
+                pageCounts[pageIndex] = (pageCounts[pageIndex] ?? 0) + 1;
                 if (pageIndex === 1) { // Page 2
                     console.log(`Field on Page 2: ${name}`);
                 }
@@ -87,4 +92,6 @@ async function debugExtraction() {
     console.log("Page counts:", JSON.stringify(pageCounts, null, 2));
 }
 
-debugExtraction().catch(console.error).finally(() => process.exit());
+debugExtraction().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+}).finally(() => process.exit());

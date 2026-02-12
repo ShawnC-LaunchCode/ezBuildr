@@ -8,8 +8,8 @@ async function listWorkflows() {
   try {
     const existingWorkflows = await db.select().from(workflows).limit(1);
     console.log('Workflows:', existingWorkflows);
-  } catch (error) {
-    console.error('Error listing workflows:', error);
+  } catch (error: unknown) {
+    console.error('Error listing workflows:', error instanceof Error ? error.message : String(error));
   }
 }
 

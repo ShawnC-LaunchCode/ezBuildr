@@ -1,4 +1,4 @@
-import {  type Server } from "http";
+import { type Server } from "http";
 
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";

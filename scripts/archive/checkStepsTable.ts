@@ -24,9 +24,12 @@ async function checkStepsTable() {
 
     console.log('Steps table columns:');
     console.log('--------------------------------------');
-    columns.forEach((col: any, index) => {
-      const charCount = 8 + columns.slice(0, index + 1).map((c: any) => `"${c.column_name}"`.length + 2).reduce((a, b) => a + b, 0);
-      console.log(`${(index + 1).toString().padStart(2)}. ${col.column_name.padEnd(20)} ${col.data_type.padEnd(25)} ${col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL'.padEnd(8)} [char pos ~${charCount}]`);
+    columns.forEach((col: Record<string, unknown>, index) => {
+      const columnName = String(col.column_name ?? '');
+      const dataType = String(col.data_type ?? '');
+      const isNullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL'.padEnd(8);
+      const charCount = 8 + columns.slice(0, index + 1).map((c: Record<string, unknown>) => `"${c.column_name}"`.length + 2).reduce((a, b) => a + b, 0);
+      console.log(`${(index + 1).toString().padStart(2)}. ${columnName.padEnd(20)} ${dataType.padEnd(25)} ${isNullable} [char pos ~${charCount}]`);
     });
 
     const expectedColumns = [
@@ -34,7 +37,7 @@ async function checkStepsTable() {
       'required', 'options', 'alias', 'order', 'is_virtual', 'created_at'
     ];
 
-    const existingColumnNames = columns.map((c: any) => c.column_name);
+    const existingColumnNames = columns.map((c: Record<string, unknown>) => String(c.column_name ?? ''));
     const missingColumns = expectedColumns.filter(col => !existingColumnNames.includes(col));
 
     if (missingColumns.length > 0) {
@@ -43,10 +46,11 @@ async function checkStepsTable() {
       console.log('\n✅ All expected columns exist!');
     }
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
-    console.error('Error code:', error.code);
-    console.error('Error position:', error.position);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; code?: string; position?: string };
+    console.error('❌ Error:', pgError.message ?? String(error));
+    console.error('Error code:', pgError.code);
+    console.error('Error position:', pgError.position);
     process.exit(1);
   }
 }

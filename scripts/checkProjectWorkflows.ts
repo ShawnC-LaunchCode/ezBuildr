@@ -64,8 +64,8 @@ async function checkProjectWorkflows() {
       });
     }
 
-  } catch (error) {
-    console.error('Error checking project workflows:', error);
+  } catch (error: unknown) {
+    console.error('Error checking project workflows:', error instanceof Error ? error.message : String(error));
   } finally {
     process.exit(0);
   }

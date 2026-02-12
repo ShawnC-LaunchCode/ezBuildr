@@ -6,6 +6,7 @@ import ws from 'ws';
 
 async function debugDatabase() {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     neonConfig.webSocketConstructor = ws.default as any;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -34,18 +35,18 @@ async function debugDatabase() {
       ORDER BY table_name
     `);
     console.log(`\n📊 All tables in public schema (${allTablesResult.rows.length} total):`);
-    allTablesResult.rows.forEach((row: any) => {
+    allTablesResult.rows.forEach((row: Record<string, unknown>) => {
       console.log(`  - ${row.table_name}`);
     });
 
     // Count users
     const countResult = await client.query('SELECT COUNT(*) as count FROM users');
-    console.log(`\n👥 User count: ${countResult.rows[0]?.count || 0}`);
+    console.log(`\n👥 User count: ${countResult.rows[0]?.count ?? 0}`);
 
     // Get all users
     const usersResult = await client.query('SELECT id, email, role, tenant_id, first_name, last_name FROM users');
     console.log(`\n📝 Users (${usersResult.rows.length}):`);
-    usersResult.rows.forEach((user: any) => {
+    usersResult.rows.forEach((user: Record<string, unknown>) => {
       console.log(`  - ID: ${user.id}`);
       console.log(`    Email: ${user.email}`);
       console.log(`    Role: ${user.role}`);
@@ -56,8 +57,8 @@ async function debugDatabase() {
 
     client.release();
     process.exit(0);
-  } catch (error) {
-    console.error("❌ Error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Error:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

@@ -8,8 +8,8 @@ async function main() {
     try {
         await db.execute(sql`ALTER TABLE audit_logs ALTER COLUMN workspace_id DROP NOT NULL;`);
         console.log("Successfully altered audit_logs table.");
-    } catch (error) {
-        console.error("Failed to alter table:", error);
+    } catch (error: unknown) {
+        console.error("Failed to alter table:", error instanceof Error ? error.message : String(error));
     }
     process.exit(0);
 }

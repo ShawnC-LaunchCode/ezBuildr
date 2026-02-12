@@ -26,7 +26,7 @@ async function cleanup() {
             // Use service to ensure proper cascade deletion
             await datavaultTablesService.deleteTable(table.id, table.tenantId);
             console.log(`Successfully deleted ${table.name}`);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(`Failed to delete ${table.name}:`, error);
         }
     }

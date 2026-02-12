@@ -37,7 +37,7 @@ async function cleanTestSchemas() {
         }
 
         console.log('All test schemas dropped.');
-    } catch (err) {
+    } catch (err: unknown) {
         console.error('Error cleaning schemas:', err);
     } finally {
         await client.end();

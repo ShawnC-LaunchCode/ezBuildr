@@ -91,7 +91,7 @@ describe('List Tools Block', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.filtered_users.count).toBe(3);
-      expect(result.data?.filtered_users.rows.every((r: any) => r.city === 'NYC')).toBe(true);
+      expect(result.data?.filtered_users.rows.every((r: Record<string, unknown>) => r.city === 'NYC')).toBe(true);
     });
 
     it('should filter with greater_than operator', async () => {
@@ -124,7 +124,7 @@ describe('List Tools Block', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.senior_users.count).toBe(2);
-      expect(result.data?.senior_users.rows.every((r: any) => r.age > 30)).toBe(true);
+      expect(result.data?.senior_users.rows.every((r: Record<string, unknown>) => r.age as number > 30)).toBe(true);
     });
 
     it('should filter with AND combinator', async () => {
@@ -221,7 +221,7 @@ describe('List Tools Block', () => {
       const result = await runner.execute(config, context, block);
 
       expect(result.success).toBe(true);
-      const ages = result.data?.sorted_users.rows.map((r: any) => r.age);
+      const ages = result.data?.sorted_users.rows.map((r: Record<string, unknown>) => r.age);
       expect(ages).toEqual([25, 28, 30, 32, 35]);
     });
 
@@ -251,7 +251,7 @@ describe('List Tools Block', () => {
       const result = await runner.execute(config, context, block);
 
       expect(result.success).toBe(true);
-      const names = result.data?.sorted_users.rows.map((r: any) => r.name);
+      const names = result.data?.sorted_users.rows.map((r: Record<string, unknown>) => r.name);
       expect(names).toEqual(['Eve', 'Diana', 'Charlie', 'Bob', 'Alice']);
     });
 
@@ -444,7 +444,7 @@ describe('List Tools Block', () => {
       // NYC, LA, SF = 3 unique cities
       expect(result.data?.unique_cities.count).toBe(3);
 
-      const cities = result.data?.unique_cities.rows.map((r: any) => r.city);
+      const cities = result.data?.unique_cities.rows.map((r: Record<string, unknown>) => r.city);
       expect([...new Set(cities)].length).toBe(3);
     });
   });

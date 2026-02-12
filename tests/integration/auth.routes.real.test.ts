@@ -124,6 +124,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
         .send({ email, password, firstName: "Test" });
       expect(response.status).toBe(201);
       expect(response.headers['set-cookie']).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cookies = (response.headers as any)['set-cookie'] as string[] | undefined;
       expect(cookies).toBeDefined();
       const refreshTokenCookie = cookies!.find(c => c.startsWith('refresh_token='));
@@ -144,6 +145,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect((response.body).user).toBeDefined();
       expect((response.body).user.email).toBe(email);
       // Verify refresh token cookie is set
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cookies = (response.headers as any)['set-cookie'] as string[] | undefined;
       expect(cookies).toBeDefined();
       const refreshTokenCookie = cookies!.find(c => c.startsWith('refresh_token='));
@@ -246,6 +248,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       const loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cookies = (loginResponse.headers as any)['set-cookie'] as string[] | undefined;
       expect(cookies).toBeDefined();
       const refreshTokenCookie = cookies!.find(c => c.startsWith('refresh_token='));
@@ -257,6 +260,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Logout successful");
       // Verify cookie is cleared
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const logoutCookies = (response.headers as any)['set-cookie'] as string[];
       const clearedCookie = logoutCookies.find(c => c.startsWith('refresh_token='));
       expect(clearedCookie).toContain('Max-Age=0');
@@ -270,6 +274,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       const loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cookies = (loginResponse.headers as any)['set-cookie'] as string[] | undefined;
       expect(cookies).toBeDefined();
       const refreshTokenCookie = cookies!.find(c => c.startsWith('refresh_token='));
@@ -282,6 +287,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       expect(response.body.token).toBeDefined();
       expect(response.body.user).toBeDefined();
       // Should get new refresh token (rotation)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newCookies = (response.headers as any)['set-cookie'] as string[] | undefined;
       expect(newCookies).toBeDefined();
       const newRefreshTokenCookie = newCookies!.find(c => c.startsWith('refresh_token='));
@@ -300,6 +306,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       const loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cookies = (loginResponse.headers as any)['set-cookie'] as string[] | undefined;
       expect(cookies).toBeDefined();
       const oldCookie = cookies!.find(c => c.startsWith('refresh_token='));
@@ -308,6 +315,7 @@ describe("Auth Routes Integration Tests (REAL)", () => {
       const refreshResponse = await request(app)
         .post("/api/auth/refresh-token")
         .set('Cookie', oldCookie!);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newCookies = (refreshResponse.headers as any)['set-cookie'] as string[] | undefined;
       expect(newCookies).toBeDefined();
       const newCookie = newCookies!.find(c => c.startsWith('refresh_token='));

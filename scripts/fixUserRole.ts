@@ -20,7 +20,7 @@ async function fixUserRole() {
       process.env.DATABASE_URL?.includes('neon.tech') ||
       process.env.DATABASE_URL?.includes('neon.co');
 
-    let db: any;
+    let db;
 
     if (isNeonDatabase) {
       // Use Neon serverless driver
@@ -31,14 +31,14 @@ async function fixUserRole() {
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
       const { drizzle } = await import('drizzle-orm/neon-serverless');
-      db = drizzle(pool as any, { schema });
+      db = drizzle(pool, { schema });
     } else {
       // Use standard PostgreSQL driver
       const pg = await import('pg');
       const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
 
       const { drizzle } = await import('drizzle-orm/node-postgres');
-      db = drizzle(pool as any, { schema });
+      db = drizzle(pool, { schema });
     }
 
     // Get current user
@@ -68,8 +68,8 @@ async function fixUserRole() {
     }
 
     process.exit(0);
-  } catch (error) {
-    console.error('❌ Error:', error);
+  } catch (error: unknown) {
+    console.error('❌ Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

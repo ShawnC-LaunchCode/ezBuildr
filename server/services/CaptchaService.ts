@@ -1,8 +1,10 @@
 import crypto from "crypto";
 
-import logger from "../logger";
+import { createLogger } from "../logger";
 
-import type { CaptchaChallenge, CaptchaResponse, CaptchaType } from "../../shared/types/intake.js";
+import type { CaptchaChallenge, CaptchaResponse } from "../../shared/types/intake.js";
+
+const logger = createLogger({ module: "captcha-service" });
 
 /**
  * CAPTCHA Service for Intake Portal (Stage 12.5)
@@ -57,7 +59,7 @@ export class CaptchaService {
    */
   static async validateCaptcha(
     response: CaptchaResponse,
-    workflowId: string
+    _workflowId: string
   ): Promise<{ valid: boolean; error?: string }> {
     if (response.type === "simple") {
       return this.validateSimpleChallenge(response);
@@ -145,6 +147,7 @@ export class CaptchaService {
       const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
         headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- standard HTTP header name
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
@@ -153,7 +156,8 @@ export class CaptchaService {
         }),
       });
 
-      const data = await response.json();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/naming-convention -- Google reCAPTCHA API response field name
+      const data: { success: boolean; "error-codes"?: string[] } = await response.json();
 
       if (data.success) {
         return { valid: true };

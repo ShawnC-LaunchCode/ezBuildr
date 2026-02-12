@@ -100,7 +100,7 @@ async function migrateTransformBlocks() {
         );
 
         migratedCount++;
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         logger.error(
           { blockId: block.id, blockName: block.name, error },
@@ -130,7 +130,7 @@ async function migrateTransformBlocks() {
       skipped: skippedCount,
       errors,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error }, "Migration failed");
     throw error;
   }
@@ -157,8 +157,8 @@ if (require.main === module) {
 
       process.exit(0);
     })
-    .catch((error) => {
-      console.error("Migration failed:", error);
+    .catch((error: unknown) => {
+      console.error("Migration failed:", error instanceof Error ? error.message : String(error));
       process.exit(1);
     });
 }

@@ -45,7 +45,7 @@ async function main() {
     logger.info('SLI windows computed successfully');
 
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error }, 'Metrics rollup failed');
     process.exit(1);
   }

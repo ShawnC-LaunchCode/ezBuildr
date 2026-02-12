@@ -6,7 +6,7 @@ import ws from 'ws';
 
 async function createAdminUser() {
   try {
-    neonConfig.webSocketConstructor = ws.default as any;
+    neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const client = await pool.connect();
 
@@ -89,7 +89,7 @@ async function createAdminUser() {
 
     client.release();
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Error:", error);
     process.exit(1);
   }

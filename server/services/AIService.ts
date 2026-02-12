@@ -191,7 +191,7 @@ function getDefaultModel(provider: AIProvider): string {
     case 'gemini':
       return 'gemini-2.0-flash';
     default:
-      throw new Error(`Unknown provider: ${provider}`);
+      throw new Error(`Unknown provider: ${provider as string}`);
   }
 }
 /**
@@ -201,7 +201,7 @@ export function createAIServiceFromEnv(): AIService {
   // Check for GEMINI_API_KEY first
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
     logger.info({ provider: 'gemini', model }, 'AI Service initialized');
     const config: AIProviderConfig = {
       provider: 'gemini' as AIProvider,
@@ -213,7 +213,7 @@ export function createAIServiceFromEnv(): AIService {
     return new AIService(config);
   }
   // Fall back to AI_API_KEY
-  const provider = (process.env.AI_PROVIDER || 'openai') as AIProvider;
+  const provider = (process.env.AI_PROVIDER ?? 'openai') as AIProvider;
   const apiKey = process.env.AI_API_KEY;
   if (!apiKey) {
     const errorMsg = [
@@ -227,7 +227,7 @@ export function createAIServiceFromEnv(): AIService {
     ].join('\n');
     throw new Error(errorMsg);
   }
-  const modelWorkflow = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider);
+  const modelWorkflow = process.env.AI_MODEL_WORKFLOW ?? getDefaultModel(provider);
   logger.info({ provider, model: modelWorkflow }, 'AI Service initialized');
   const config: AIProviderConfig = {
     provider,
@@ -245,7 +245,7 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
-      const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+      const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
       return { configured: true, provider: 'gemini', model };
     }
     const apiKey = process.env.AI_API_KEY;
@@ -255,8 +255,8 @@ export function validateAIConfig(): { configured: boolean; provider?: string; mo
         error: 'No API key configured. Set GEMINI_API_KEY or AI_API_KEY environment variable.'
       };
     }
-    const provider = process.env.AI_PROVIDER || 'openai';
-    const model = process.env.AI_MODEL_WORKFLOW || getDefaultModel(provider as AIProvider);
+    const provider = process.env.AI_PROVIDER ?? 'openai';
+    const model = process.env.AI_MODEL_WORKFLOW ?? getDefaultModel(provider as AIProvider);
     return { configured: true, provider, model };
   } catch (error: unknown) {
     return { configured: false, error: error instanceof Error ? error.message : 'Unknown error' };

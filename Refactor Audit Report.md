@@ -803,6 +803,15 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | client/src/marketing/components/FeatureGrid.tsx | Refactored | Extracted constants, added aria-hidden |
 | client/src/marketing/components/FinalCTA.tsx | Refactored | Extracted constants, added aria-hidden |
 | client/src/marketing/components/Hero.tsx | Refactored | Extracted constants, added aria-hidden |
+| client/src/pages/auth/ForgotPasswordPage.tsx | Refactored | Added aria-hidden to decorative icons |
+| client/src/pages/auth/RegisterPage.tsx | Refactored | Added aria-hidden to decorative icons and divider |
+| client/src/pages/auth/ResetPasswordPage.tsx | Refactored | Removed unused var, fixed useEffect deps, added spacing, aria-hidden |
+| client/src/pages/auth/VerifyEmailPage.tsx | Refactored | Removed unused catch error, added aria-hidden to status icons |
+| client/src/pages/billing/BillingDashboard.tsx | Refactored | Spacing, `\|\|` → `??`, aria-hidden, typed JSON, removed unused error |
+| client/src/pages/billing/PricingPage.tsx | Refactored | Removed unused React import, added aria-hidden to Check icons |
+| client/src/pages/datavault/DatabaseSettingsPage.tsx | Refactored | Removed unused React import, added aria-hidden to icons |
+| client/src/pages/datavault/[databaseId].tsx | Refactored | 480→148 lines: extracted `useDatabaseDetailHandlers` hook, `DatabaseDetailHeader`, `TableContentArea`; `any`→`unknown`, `\|\|`→`??`, aria-hidden, `!!`→null checks |
+| client/src/pages/datavault/databases.tsx | Refactored | 303→196 lines: extracted `DatabasesPageHeader`, `DatabasesGrid`; `!=`→`!==`, entity escaping, `Array.from`, aria-hidden, void-wrapped promise handlers |
 | client/src/store/useDatavaultFilterStore.ts | Moved | Consolidated from client/src/stores |
 | client/src/store/personalizationStore.ts | Moved | Consolidated from client/src/lib/stores |
 | client/src/pages/datavault/[tableId].tsx | Updated | Updated import path for useDatavaultFilterStore |
@@ -1819,6 +1828,51 @@ This document tracks the file-by-file refactoring audit to fix lint errors and i
 | scripts/backfill_stats.ts | Fixed `\|\|` → `??` (2 instances) | ~30 lines |
 | scripts/check-strict-zones.ts | Fixed `catch (error: any)` → `catch (error: unknown)` with proper type narrowing | ~190 lines |
 | scripts/checkAllUsersWithEmail.ts | Added eslint-disable for WebSocket constructor type compatibility | ~30 lines |
+| scripts/addGetNextAutonumber.ts | Verified clean | ~80 lines, one-off migration script |
+| scripts/addRateLimiters.ts | Verified clean | ~76 lines, file manipulation script |
+| scripts/analyze_failures.ts | Fixed `\|\|` → `??` for failureMessages fallback | ~161 lines |
+| scripts/apply-migrations.ts | Fixed `catch (error: any)` → `catch (error: unknown)` with type narrowing (2 catch blocks) | ~91 lines |
+| scripts/apply-performance-indexes.ts | Fixed `catch (error: any)` → `catch (error: unknown)` with pg error typing | ~94 lines |
+| scripts/apply-survey-migration.ts | Fixed `catch (error: any)` → `catch (error: unknown)` | ~100 lines |
+| scripts/applyDatavaultMigrations.ts | Fixed `(row: any)` → `Record<string, unknown>` (2), `catch (error: any)` → `catch (error: unknown)` | ~118 lines |
+| scripts/applyMigration0033.ts | Fixed `catch (error: any)` → `catch (error: unknown)` with pg error typing | ~66 lines |
+| scripts/applyMigration0039-0046.ts (8 files) | Fixed `catch (error: any)` → `catch (error: unknown)` with proper type narrowing | Via agent batch |
+| scripts/apply_owner_uuid_fix.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/archive-survey-data.ts | Fixed `data: any` → `data: unknown[]`, 2 catch blocks → `catch (error: unknown)` | Via agent |
+| scripts/assignOrphanedWorkflows.ts | Fixed 2 catch blocks → `catch (error: unknown)` | Via agent |
+| scripts/checkAndFixWorkflow.ts | Fixed `.catch(console.error)` → proper typed error handler | Via agent |
+| scripts/checkDatabase.ts | Fixed `(row: any)` → `Record<string, unknown>`, `catch (error: any)` → `catch (error: unknown)` | Via agent |
+| scripts/checkDatabaseState.ts | Fixed `as any` → `as typeof WebSocket`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/checkDatavaultTables.ts | Fixed `as any` → `as Record<string, unknown>`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/checkProjectCreators.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/checkProjectWorkflows.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/checkProjectsSchema.ts | Fixed `as any` → `as typeof WebSocket`, `(r: any)` → `Record<string, unknown>` | Via agent |
+| scripts/checkTenantMismatch.ts | Fixed `.catch(console.error)` → proper typed error handler | Via agent |
+| scripts/checkTestSchemas.ts | Fixed `(row: any)` → `Record<string, unknown>`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/checkUserTenantIds.ts | Fixed `catch (error: any)`, `(row: any)`, `\|\|` → `??` | Via agent |
+| scripts/checkUserTenants.ts | Fixed `\|\|` → `??` | Via agent |
+| scripts/checkWorkflow.ts | Fixed `as any` → `as typeof WebSocket` | Via agent |
+| scripts/checkWorkflowData.ts | Fixed `as any` → `as typeof WebSocket`, `(s: any)` → `Record<string, unknown>` | Via agent |
+| scripts/check_audit_counts.ts | Fixed `as any` → `as Record<string, unknown>` | Via agent |
+| scripts/cleanTestSchemas.ts | Fixed `catch (err)` → `catch (err: unknown)` | Via agent |
+| scripts/cleanupFinalSections.ts | Fixed `catch (error)` → `catch (error: unknown)` (2 instances) | Via agent |
+| scripts/cleanup_autonumber_tables.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/cleanup_users.ts | Fixed `catch (err)` → `catch (err: unknown)` | Via agent |
+| scripts/clearUserSessions.ts | Fixed `as any` → `as typeof WebSocket`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/computeSLIs.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/create-indexes-simple.ts | Fixed `catch (error: any)` → `catch (error: unknown)` | Via agent |
+| scripts/createAdminUser.ts | Fixed `as any` → `as typeof WebSocket`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/createAdminUserProper.ts | Fixed `as any` → `as typeof WebSocket`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/createDemoViaAPI.ts | Fixed `data?: any` → `data?: unknown`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/createDemoWorkflow.ts | Fixed `as any` → `as typeof WebSocket`, `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/createFeeWaiverDemo.ts | Fixed `catch (error)` → `catch (error: unknown)` | Via agent |
+| scripts/createLoanApplicationWorkflow.ts through dropTestSchemas2.ts (~20 files) | Fixed `catch (error: any)` → `catch (error: unknown)`, `as any` types, various lint patterns | Via agent batch (partial - rate limited) |
+| scripts/archive/* (41 files) | Fixed `catch (error: any)` → `catch (error: unknown)`, `(row: any)` → typed, `as any` → typed | Via agent batch (partial - rate limited) |
+| scripts/find_position_591.ts through inspectEnum.ts (20 files) | Fixed `catch` blocks, `as any`, unused vars | Via agent batch |
+| scripts/linkLoanTemplate.ts through verify_functional_schema.ts (~41 files) | Fixed `catch` blocks, `any` types, `\|\|` → `??` | Via agent batch (partial - rate limited) |
+| tools/check_places_key.ts | Verified clean | ~22 lines |
+| tools/repro_aiservice.ts | Removed unused `logger` import and unused `service` variable | ~13 lines |
+| tests/* (23 files modified) | Fixed `catch (error: any)`, `(param: any)`, unused imports across e2e, helpers, integration, factories | Via agent batches (partial - some rate limited) |
 
 ## Component Verification Status
 **All components in `client/src/pages` have been verified and are clean.**
@@ -1967,4 +2021,49 @@ Starting systematic file-by-file audit.
 | 16 | external.routes.ts | Fixed | eslint-disable for req augmentation/drizzle types |
 | 17 | finalBlock.routes.ts | Fixed | eslint-disable for req augmentation/step values |
 | 18-36 | (18 other route files) | Clean | No lint issues found |
+
+## Batch 9: server/routes/* remaining (index→workflows.routes) — Agent
+
+| # | File | Status | Changes |
+|---|------|--------|---------|
+| 1 | index.ts | Clean | Import aggregator, no lint issues |
+| 2 | intake.routes.ts | Clean | Already has eslint-disables |
+| 3 | lifecycleHooks.routes.ts | Fixed | `import express` → `import { Router }`, 8x `userId!` → `userId ?? ""` |
+| 4 | reviewTasks.ts | Fixed | `(req.user as any).id` → typed `AuthRequest` cast, removed `createError` import, added `AuthRequest` type import, fixed import ordering |
+| 5 | marketplace.ts | Clean | No lint issues |
+| 6 | metrics.ts | Clean | No lint issues |
+| 7 | oauth.routes.ts | Clean | No lint issues |
+| 8 | organizations.routes.ts | Clean | No lint issues |
+| 9 | places.routes.ts | Clean | No lint issues |
+| 10 | portal.routes.ts | Clean | No lint issues |
+| 11 | preview.routes.ts | Clean | No lint issues |
+| 12 | projects.routes.ts | Clean | No lint issues |
+| 13 | public.routes.ts | Clean | No lint issues |
+| 14 | runOutputs.routes.ts | Clean | No lint issues |
+| 15 | runs.routes.ts | Clean | No lint issues |
+| 16 | secrets.routes.ts | Clean | No lint issues |
+| 17 | sections.routes.ts | Clean | No lint issues |
+| 18 | sharing.ts | Clean | No lint issues |
+| 19 | snapshots.routes.ts | Clean | No lint issues |
+| 20 | steps.routes.ts | Clean | No lint issues |
+| 21 | teams.routes.ts | Clean | No lint issues |
+| 22 | templateAnalysis.routes.ts | Clean | No lint issues |
+| 23 | tenant.routes.ts | Clean | No lint issues |
+| 24 | transformBlocks.routes.ts | Clean | No lint issues |
+| 25 | userPreferences.routes.ts | Clean | No lint issues |
+| 26 | validation.routes.ts | Clean | No lint issues |
+| 27 | versions.routes.ts | Clean | No lint issues |
+| 28 | webhooks.routes.ts | Clean | No lint issues |
+| 29 | workflowAnalytics.routes.ts | Clean | No lint issues |
+| 30 | workflowExports.routes.ts | Clean | No lint issues |
+| 31 | workflowTemplates.routes.ts | Clean | No lint issues |
+| 32 | workflows.routes.ts | Clean | No lint issues |
+
+## Batch 10: server/services/* additional fixes — Agent
+
+| # | File | Status | Changes |
+|---|------|--------|---------|
+| 1 | AIService.ts | Fixed | 7x `\|\|` → `??` for env fallbacks, `provider as string` for `never` type in exhaustive switch |
+| 2 | BlockRunner.ts | Fixed | 5x `\|\|` → `??`, merged collapsible if, eslint-disable for cognitive complexity (runPhase + executeBlock) |
+| 3 | CaptchaService.ts | Fixed | Removed unused `CaptchaType` import, prefixed `_workflowId`, `import logger` → `createLogger`, typed reCAPTCHA response, eslint-disable for naming-convention (Content-Type, error-codes) |
 

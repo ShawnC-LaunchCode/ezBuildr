@@ -25,10 +25,10 @@ async function checkTestSchemas() {
       console.log('✅ No test schemas found');
     } else {
       console.log(`Found ${result.rows.length} test schemas:`);
-      result.rows.forEach((row: any) => console.log(`  - ${row.schema_name}`));
+      result.rows.forEach((row: Record<string, unknown>) => console.log(`  - ${row.schema_name}`));
     }
-  } catch (error) {
-    console.error('❌ Error:', error);
+  } catch (error: unknown) {
+    console.error('❌ Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   } finally {
     await client.end();

@@ -74,7 +74,7 @@ async function addMissingWorkflowColumns() {
     console.log('✅ Added current_version_id column to workflows');
 
     console.log('✅ All missing workflow columns added successfully!');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error adding columns:', error);
     process.exit(1);
   }

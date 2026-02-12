@@ -428,6 +428,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
         .get("/api/auth/sessions")
         .set("Authorization", `Bearer ${token}`);
       const sessions = sessionsResponse.body.sessions;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sessionToRevoke = sessions.find((s: any) => !s.current);
       // Revoke first session
       const revokeResponse = await request(app)

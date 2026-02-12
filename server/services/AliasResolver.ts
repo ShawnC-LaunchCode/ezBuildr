@@ -62,7 +62,7 @@ export class AliasResolver {
   private sectionDetails: Map<string, ResolutionResult> = new Map();
   private errors: ResolutionError[] = [];
 
-  private constructor() {}
+  private constructor() { }
 
   /**
    * Create resolver from an array of steps
@@ -73,7 +73,7 @@ export class AliasResolver {
     for (const step of steps) {
       if (!step.id) {
         resolver.errors.push({
-          aliasOrId: step.alias || 'unknown',
+          aliasOrId: step.alias ?? 'unknown',
           reason: 'invalid_input',
           context: `Step missing ID: ${JSON.stringify(step)}`,
         });
@@ -108,7 +108,7 @@ export class AliasResolver {
       resolver.stepDetails.set(step.id, {
         id: step.id,
         type: 'step',
-        alias: step.alias || undefined,
+        alias: step.alias ?? undefined,
         title: step.title,
       });
     }
@@ -138,7 +138,7 @@ export class AliasResolver {
         resolver.sectionDetails.set(section.id, {
           id: section.id,
           type: 'section',
-          alias: section.alias || undefined,
+          alias: section.alias ?? undefined,
           title: section.title,
         });
       }
@@ -184,7 +184,7 @@ export class AliasResolver {
    * Returns undefined if not found
    */
   resolve(aliasOrId: string): string | undefined {
-    if (!aliasOrId) {return undefined;}
+    if (!aliasOrId) { return undefined; }
 
     // Try exact match first
     if (this.aliasToId.has(aliasOrId)) {
@@ -205,7 +205,7 @@ export class AliasResolver {
    */
   resolveWithDetails(aliasOrId: string): ResolutionResult | undefined {
     const id = this.resolve(aliasOrId);
-    if (!id) {return undefined;}
+    if (!id) { return undefined; }
 
     // Check steps first, then sections
     if (this.stepDetails.has(id)) {
@@ -323,8 +323,8 @@ export class AliasResolver {
         const normalized = aliasOrId.toLowerCase();
         const aliasLower = alias.toLowerCase();
         return aliasLower.includes(normalized) ||
-               normalized.includes(aliasLower) ||
-               this.levenshteinDistance(normalized, aliasLower) <= 3;
+          normalized.includes(aliasLower) ||
+          this.levenshteinDistance(normalized, aliasLower) <= 3;
       })
       .slice(0, 3);
 
@@ -340,8 +340,8 @@ export class AliasResolver {
    * Calculate Levenshtein distance for fuzzy matching
    */
   private levenshteinDistance(a: string, b: string): number {
-    if (a.length === 0) {return b.length;}
-    if (b.length === 0) {return a.length;}
+    if (a.length === 0) { return b.length; }
+    if (b.length === 0) { return a.length; }
 
     const matrix: number[][] = [];
 
@@ -420,7 +420,7 @@ export const AliasResolverUtils = {
       if (rule.conditionStepAlias) {
         const conditionId = resolver.resolve(rule.conditionStepAlias);
         if (conditionId) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property assignment for logic rules
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- dynamic property assignment for logic rules
           (resolvedRule as any).conditionStepId = conditionId;
         } else {
           errors.push({
@@ -435,7 +435,7 @@ export const AliasResolverUtils = {
       if (rule.targetAlias) {
         const targetId = resolver.resolve(rule.targetAlias);
         if (targetId) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property assignment for logic rules
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- dynamic property assignment for logic rules
           (resolvedRule as any).targetId = targetId;
         } else {
           errors.push({
@@ -469,11 +469,13 @@ export const AliasResolverUtils = {
 
     for (const sv of stepValues) {
       // Add by ID
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values are dynamic workflow data
       context[sv.stepId] = sv.value;
 
       // Add by alias if available
       const alias = resolver.getAlias(sv.stepId);
       if (alias) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values are dynamic workflow data
         context[alias] = sv.value;
       }
     }

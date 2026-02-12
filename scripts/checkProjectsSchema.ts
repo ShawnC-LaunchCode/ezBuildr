@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkSchema() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
 
@@ -17,7 +17,7 @@ async function checkSchema() {
   `);
 
   console.log('Projects table columns:');
-  projects.rows.forEach((r: any) => {
+  projects.rows.forEach((r: Record<string, unknown>) => {
     console.log(`  ${r.column_name} (${r.data_type}) - nullable: ${r.is_nullable}`);
   });
 
@@ -29,7 +29,7 @@ async function checkSchema() {
   `);
 
   console.log('\nWorkflows table columns:');
-  workflows.rows.forEach((r: any) => {
+  workflows.rows.forEach((r: Record<string, unknown>) => {
     console.log(`  ${r.column_name} (${r.data_type}) - nullable: ${r.is_nullable}`);
   });
 

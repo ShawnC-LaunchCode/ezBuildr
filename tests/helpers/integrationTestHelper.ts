@@ -172,7 +172,7 @@ export async function setupIntegrationTest(
           }
           await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Cleanup error:', error);
       }
 
@@ -194,7 +194,7 @@ export async function setupIntegrationTest(
       projectId,
       cleanup,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[FATAL] setupIntegrationTest failed:', error);
     throw error;
   }

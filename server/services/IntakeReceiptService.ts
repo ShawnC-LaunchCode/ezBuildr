@@ -38,9 +38,9 @@ export class IntakeReceiptService {
             const stepValues = await stepValueRepository.findByRunId(runId);
 
             // Create Map for efficient lookups
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step structure varies by type
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- step structure varies by type and is dynamically typed
             const stepMap = new Map(allSteps.map((s: any) => [s.id, s]));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step structure varies by type
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- step structure varies by type and alias is dynamically accessed
             const emailStep = allSteps.find((s: any) => s.alias === intakeConfig.receiptEmailVar);
 
             if (!emailStep) {
@@ -63,8 +63,11 @@ export class IntakeReceiptService {
             const excludeList = intakeConfig.excludeFromReceipt ?? [];
 
             for (const stepValue of stepValues) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- dynamic step data access
                 const step = stepMap.get(stepValue.stepId);
+                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access -- step alias may be undefined/falsy
                 if (step?.alias && !this.isSensitiveField(step.alias as string, excludeList)) {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- dynamic summary building
                     summary[step.alias] = stepValue.value;
                 }
             }
@@ -72,7 +75,7 @@ export class IntakeReceiptService {
             // Send receipt
             const emailResult = await sendIntakeReceipt({
                 to: email,
-                tenantId: workflow.projectId || "default",
+                tenantId: workflow.projectId ?? "default",
                 workflowId: workflow.id,
                 workflowName: workflow.title,
                 runId: runId,

@@ -16,13 +16,13 @@ async function fixAdmin() {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     const { drizzle } = await import('drizzle-orm/neon-serverless');
-    const db = drizzle(pool as any, { schema });
+    const db = drizzle(pool, { schema });
 
     // First, list all users to see what we have
     console.log("📋 Current users in database:");
     const allUsers = await db.select().from(users);
     console.log(`Found ${allUsers.length} users:`);
-    allUsers.forEach((u: any) => {
+    allUsers.forEach((u) => {
       console.log(`  - ID: ${u.id}`);
       console.log(`    Email: ${u.email}`);
       console.log(`    Role: ${u.role}`);
@@ -47,8 +47,8 @@ async function fixAdmin() {
     }
 
     process.exit(0);
-  } catch (error) {
-    console.error("❌ Error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Error:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

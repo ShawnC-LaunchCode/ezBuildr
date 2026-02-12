@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function fixAdminRole() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
 

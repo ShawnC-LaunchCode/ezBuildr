@@ -19,7 +19,7 @@ import type { Application } from "express";
 export async function createAuthenticatedAgent(
   app: Application,
   user?: User
-): Promise<any> {
+): Promise<ReturnType<typeof request.agent>> {
   // Create an agent
   const agent = request.agent(app);
 

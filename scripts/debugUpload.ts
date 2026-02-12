@@ -37,10 +37,11 @@ async function run() {
         console.log('Status:', response.status);
         console.log('Data:', JSON.stringify(response.data, null, 2));
 
-    } catch (error: any) {
-        console.error('Error:', error.message);
-        if (error.response) {
-            console.log('Response data:', error.response.data);
+    } catch (error: unknown) {
+        const axiosError = error as { message?: string; response?: { data: unknown } };
+        console.error('Error:', axiosError.message ?? String(error));
+        if (axiosError.response) {
+            console.log('Response data:', axiosError.response.data);
         }
     } finally {
         fs.unlinkSync(pdfPath);

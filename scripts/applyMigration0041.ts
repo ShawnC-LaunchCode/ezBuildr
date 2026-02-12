@@ -62,10 +62,11 @@ async function applyMigration() {
     console.log('  - DELETE /api/datavault/notes/:noteId');
 
     process.exit(0);
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string };
+    console.error('❌ Migration failed:', pgError.message ?? String(error));
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
     process.exit(1);
   } finally {

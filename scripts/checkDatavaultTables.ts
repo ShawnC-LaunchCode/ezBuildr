@@ -21,7 +21,7 @@ async function checkDatavaultTables() {
       ) as table_exists;
     `);
 
-    const tableExists = (result.rows[0] as any).table_exists;
+    const tableExists = (result.rows[0] as Record<string, unknown>).table_exists;
 
     if (tableExists) {
       console.log('✅ DataVault tables exist');
@@ -34,7 +34,7 @@ async function checkDatavaultTables() {
         ) as enum_exists;
       `);
 
-      const enumExists = (enumCheck.rows[0] as any).enum_exists;
+      const enumExists = (enumCheck.rows[0] as Record<string, unknown>).enum_exists;
       console.log(`Enum exists: ${enumExists}`);
 
       return;
@@ -51,8 +51,8 @@ async function checkDatavaultTables() {
 
     console.log('✅ Migration 0029 applied successfully');
 
-  } catch (error) {
-    console.error('❌ Error checking/applying DataVault tables:', error);
+  } catch (error: unknown) {
+    console.error('❌ Error checking/applying DataVault tables:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     process.exit(0);

@@ -18,6 +18,7 @@ import type { TokenPayload } from 'google-auth-library';
 describe('OAuth2 Google Authentication Flow', () => {
   let app: Express;
   let testTenantId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockGoogleClient: any;
   beforeAll(async () => {
     // Create test Express app

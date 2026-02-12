@@ -101,15 +101,16 @@ async function createIndexes() {
       await sql(index.sql);
       console.log(`   ✅ Created\n`);
       created++;
-    } catch (error: any) {
-      if (error.message.includes('already exists')) {
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('already exists')) {
         console.log(`   ℹ️  Already exists\n`);
         skipped++;
-      } else if (error.message.includes('does not exist') && error.message.includes('relation')) {
+      } else if (errorMsg.includes('does not exist') && errorMsg.includes('relation')) {
         console.log(`   ⚠️  Table "${index.table}" does not exist - skipping\n`);
         skipped++;
       } else {
-        console.error(`   ❌ Failed: ${error.message}\n`);
+        console.error(`   ❌ Failed: ${errorMsg}\n`);
         failed++;
       }
     }

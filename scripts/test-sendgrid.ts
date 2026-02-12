@@ -11,7 +11,7 @@ async function main() {
 
     const result = await sendEmail({
         to: 'scooter4356@gmail.com',
-        from: fromEmail || '', // Service handles undefined but typescript wants string
+        from: fromEmail ?? '', // Service handles undefined but typescript wants string
         subject: 'Final Test: ezBuildr Service Integration',
         text: 'This email confirms that the ezBuildr EmailService is correctly configured and working.',
         html: '<div style="font-family: sans-serif;"><h2>✅ Integration Successful</h2><p>This email confirms that the <strong>ezBuildr EmailService</strong> is correctly configured and working.</p></div>',

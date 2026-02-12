@@ -19,13 +19,13 @@ async function initDb() {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const { drizzle } = await import('drizzle-orm/neon-serverless');
     const schema = await import('../shared/schema');
-    return drizzle(pool as any, { schema });
+    return drizzle(pool, { schema });
   } else {
     const pg = await import('pg');
     const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
     const { drizzle } = await import('drizzle-orm/node-postgres');
     const schema = await import('../shared/schema');
-    return drizzle(pool as any, { schema });
+    return drizzle(pool, { schema });
   }
 }
 
@@ -55,6 +55,7 @@ function randomDate(start: Date, end: Date): Date {
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function generateFakeData(db: any) {
   console.log("🚀 Starting fake data generation...\n");
 
@@ -248,7 +249,7 @@ async function generateFakeData(db: any) {
 
         // Create answers for each question
         for (const config of questionConfigs) {
-          let answerValue: any;
+          let answerValue: string | boolean | string[] | number;
 
           switch (config.type) {
             case "short_text":
@@ -333,8 +334,8 @@ async function generateFakeData(db: any) {
     await generateFakeData(db);
     console.log("✨ Done!");
     process.exit(0);
-  } catch (error) {
-    console.error("❌ Error generating fake data:", error);
+  } catch (error: unknown) {
+    console.error("❌ Error generating fake data:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 })();

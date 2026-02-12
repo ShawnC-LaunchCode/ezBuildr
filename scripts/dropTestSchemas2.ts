@@ -57,14 +57,14 @@ async function dropTestSchemas() {
         } else {
           console.log(`  ❌ WARNING: ${schemaName} still exists after DROP!`);
         }
-      } catch (err) {
-        console.error(`❌ Failed to drop ${schemaName}:`, err);
+      } catch (err: unknown) {
+        console.error(`❌ Failed to drop ${schemaName}:`, err instanceof Error ? err.message : String(err));
       }
     }
 
     console.log(`\n✅ All ${result.rows.length} test schemas dropped successfully`);
-  } catch (error) {
-    console.error('❌ Error:', error);
+  } catch (error: unknown) {
+    console.error('❌ Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   } finally {
     await client.end();

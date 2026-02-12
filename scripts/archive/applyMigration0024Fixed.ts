@@ -55,10 +55,11 @@ async function applyMigration() {
         await pool.query(statement);
         executedCount++;
         console.log(`  ✓ Statement ${executedCount} executed`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const pgError = error as { message?: string };
         // Only log if it's not a "already exists" type error
-        if (!error.message.includes('already exists') && !error.message.includes('duplicate')) {
-          console.warn(`  ⚠️  Warning during statement ${executedCount + 1}:`, error.message);
+        if (!pgError.message?.includes('already exists') && !pgError.message?.includes('duplicate')) {
+          console.warn(`  ⚠️  Warning during statement ${executedCount + 1}:`, pgError.message ?? String(error));
         } else {
           executedCount++;
           console.log(`  ✓ Statement ${executedCount} executed (already exists)`);
@@ -77,10 +78,11 @@ async function applyMigration() {
     console.log('   2. Try creating a workflow again');
     console.log('');
 
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.stack) {
-      console.error('Stack:', error.stack);
+  } catch (error: unknown) {
+    const nodeError = error as { message?: string; stack?: string };
+    console.error('❌ Migration failed:', nodeError.message ?? String(error));
+    if (nodeError.stack) {
+      console.error('Stack:', nodeError.stack);
     }
     process.exit(1);
   }

@@ -21,7 +21,7 @@ export class RunMetricsService {
   constructor(
     private workflowRepo = workflowRepository,
     private projectRepo = projectRepository
-  ) {}
+  ) { }
 
   /**
    * Get tenant and project IDs for a workflow (for metrics)
@@ -72,19 +72,19 @@ export class RunMetricsService {
         projectId: context.projectId,
         workflowId,
         runId,
-        createdBy: userId || 'anon',
+        createdBy: userId ?? 'anon',
       });
 
       // Capture new analytics (Stage 15)
       await analyticsService.recordEvent({
         runId,
         workflowId,
-        versionId: versionId || 'draft',
+        versionId: versionId ?? 'draft',
         type: 'run.start',
         timestamp: new Date().toISOString(),
         isPreview: false,
         payload: {
-          accessMode: options?.accessMode || 'anonymous'
+          accessMode: options?.accessMode ?? 'anonymous'
         }
       });
     } catch (error) {
@@ -123,7 +123,7 @@ export class RunMetricsService {
       await analyticsService.recordEvent({
         runId,
         workflowId,
-        versionId: versionId || 'draft',
+        versionId: versionId ?? 'draft',
         type: 'workflow.complete',
         timestamp: new Date().toISOString(),
         isPreview: false,
@@ -134,7 +134,7 @@ export class RunMetricsService {
       });
 
       // Trigger aggregation (fire and forget)
-      aggregationService.aggregateRun(runId).catch(err => {
+      void aggregationService.aggregateRun(runId).catch((err: unknown) => {
         logger.error({ error: err, runId }, "Failed to aggregate run metrics");
       });
     } catch (error) {
@@ -145,12 +145,14 @@ export class RunMetricsService {
   /**
    * Capture run failed metrics
    */
+  // eslint-disable-next-line max-params -- lifecycle metrics require all context fields
   async captureRunFailed(
     workflowId: string,
     runId: string,
     versionId: string | undefined,
     durationMs: number,
     errorType: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any shape
     details?: any
   ): Promise<void> {
     const context = await this.getWorkflowContext(workflowId);
@@ -174,12 +176,13 @@ export class RunMetricsService {
       await analyticsService.recordEvent({
         runId,
         workflowId,
-        versionId: versionId || 'draft',
+        versionId: versionId ?? 'draft',
         type: 'validation.error',
         timestamp: new Date().toISOString(),
         isPreview: false,
         payload: {
           errorType,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- error details are dynamic
           details
         }
       });

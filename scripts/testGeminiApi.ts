@@ -32,11 +32,13 @@ async function testGeminiApi() {
     try {
       const models = await genAI.listModels();
       console.log(`✓ Found ${models.length} available models:`);
-      models.forEach((m: any) => {
-        console.log(`   - ${m.name.replace('models/', '')} (${m.displayName || 'No display name'})`);
+      models.forEach((m: Record<string, unknown>) => {
+        const name = String(m.name).replace('models/', '');
+        const displayName = m.displayName ?? 'No display name';
+        console.log(`   - ${name} (${displayName})`);
       });
       console.log();
-    } catch (listError) {
+    } catch (listError: unknown) {
       console.log("⚠ Could not list models, will try common model names");
       if (listError instanceof Error) {
         console.log(`  Error: ${listError.message}`);
@@ -66,7 +68,7 @@ async function testGeminiApi() {
         modelName = testModel;
         console.log(`✓ Model selected: ${modelName}`);
         break;
-      } catch (e) {
+      } catch (e: unknown) {
         if (e instanceof Error) {
           console.log(`  ✗ ${testModel}: Not available`);
         }
@@ -122,7 +124,7 @@ async function testGeminiApi() {
     console.log("   - Smart question suggestions based on survey topic");
     console.log("   - Automatic categorization of text responses");
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("\n❌ TEST FAILED!");
     console.error("\nError details:");
 
@@ -143,7 +145,7 @@ async function testGeminiApi() {
         console.error(`\n🔧 Full error: ${error.stack}`);
       }
     } else {
-      console.error(`  Unknown error: ${error}`);
+      console.error(`  Unknown error: ${String(error)}`);
     }
 
     process.exit(1);
@@ -156,7 +158,7 @@ testGeminiApi()
     console.log("\n✨ Test completed successfully!");
     process.exit(0);
   })
-  .catch((error) => {
-    console.error("\n💥 Unexpected error:", error);
+  .catch((error: unknown) => {
+    console.error("\n💥 Unexpected error:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   });

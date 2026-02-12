@@ -1,9 +1,10 @@
 import crypto from "crypto";
 
-import bcrypt from "bcrypt";
+import { hash as bcryptHash, compare as bcryptCompare } from "bcrypt";
 import { eq, and } from "drizzle-orm";
-import QRCode from "qrcode";
-import speakeasy from "speakeasy";
+import { toDataURL as qrToDataURL } from "qrcode";
+// eslint-disable-next-line @typescript-eslint/naming-convention -- speakeasy is a third-party module name
+import * as speakeasy from "speakeasy";
 
 import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
 
@@ -44,7 +45,7 @@ export class MfaService {
         }
 
         // Generate QR code
-        const qrCodeDataUrl = await QRCode.toDataURL(secret.otpauth_url ?? '');
+        const qrCodeDataUrl = await qrToDataURL(secret.otpauth_url ?? '');
 
         // Generate backup codes
         const backupCodes = this.generateBackupCodes();
@@ -209,7 +210,7 @@ export class MfaService {
         const hashedCodes = await Promise.all(
             codes.map(async (code) => ({
                 userId,
-                codeHash: await bcrypt.hash(code, BCRYPT_ROUNDS),
+                codeHash: await bcryptHash(code, BCRYPT_ROUNDS),
                 used: false,
                 createdAt: new Date()
             }))
@@ -239,7 +240,7 @@ export class MfaService {
 
         // Try to match the code
         for (const storedCode of codes) {
-            const isMatch = await bcrypt.compare(code, storedCode.codeHash);
+            const isMatch = await bcryptCompare(code, storedCode.codeHash);
 
             if (isMatch) {
                 // Mark code as used

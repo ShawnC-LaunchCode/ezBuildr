@@ -28,8 +28,8 @@ async function applyMigration() {
     console.log('  1. Table creators automatically have owner permission (via ownerUserId column)');
     console.log('  2. Use API endpoints to grant permissions to other users');
     console.log('  3. All DataVault endpoints now enforce RBAC');
-  } catch (error) {
-    console.error('✗ Failed to apply migration 0043:', error);
+  } catch (error: unknown) {
+    console.error('✗ Failed to apply migration 0043:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     process.exit(0);

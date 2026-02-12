@@ -11,7 +11,9 @@ import { createGraphWorkflow } from "../factories/graphFactory";
 describe("Analytics Service Integration", () => {
     let userId: string;
     let tenantId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let workflow: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let version: any;
 
     beforeAll(async () => {
@@ -28,7 +30,7 @@ describe("Analytics Service Integration", () => {
             await db.execute(sql`ALTER TABLE "workflow_run_metrics" ADD CONSTRAINT "workflow_run_metrics_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "workflow_runs"("id") ON DELETE CASCADE`);
 
             console.log("MANUAL PATCH: Applied FK fix for workflow_run_events AND workflow_run_metrics");
-        } catch (e) {
+        } catch (e: unknown) {
             console.error("MANUAL PATCH FAILED", e);
         }
 
@@ -61,12 +63,14 @@ describe("Analytics Service Integration", () => {
         // Actually RunService.createRun(workflowId, inputData, queryParams, ...)
         // Looking at RunService signature: createRun(workflowId: string, options: ...)
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
         const runId = run.id;
         const runToken = run.runToken;
         expect(runId).toBeDefined();
 
         // 2. Verify run.start event
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
             eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
@@ -85,6 +89,7 @@ describe("Analytics Service Integration", () => {
         };
 
         // We'll call completeRun directly.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await runService.completeRun(runId, { someOutput: "test" } as any);
 
         // 4. Verify Events (workflow.complete)

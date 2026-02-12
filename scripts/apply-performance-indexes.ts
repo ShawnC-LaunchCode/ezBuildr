@@ -49,13 +49,14 @@ async function applyPerformanceIndexes() {
         await pool.query(statement);
         console.log(`✅ Created index: ${indexName}`);
         successCount++;
-      } catch (error: any) {
-        if (error.code === '42P07') {
+      } catch (error: unknown) {
+        const pgError = error as { code?: string; message?: string };
+        if (pgError.code === '42P07') {
           // Index already exists
           console.log(`⏭️  Skipped (already exists): ${indexName}`);
           skipCount++;
         } else {
-          console.error(`❌ Error creating ${indexName}:`, error.message);
+          console.error(`❌ Error creating ${indexName}:`, pgError.message);
           errorCount++;
         }
       }

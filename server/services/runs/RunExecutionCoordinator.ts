@@ -82,6 +82,7 @@ export class RunExecutionCoordinator {
     async submitSection(
         context: ExecutionContext,
         sectionId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const { runId, workflowId } = context;
@@ -106,7 +107,7 @@ export class RunExecutionCoordinator {
             // Format errors for user-friendly display
             const errorMessages = validationResult.errors.map(err => {
                 const step = steps.find(s => s.id === err.fieldId);
-                const fieldName = step?.title || 'Field';
+                const fieldName = step?.title ?? 'Field';
                 // Take first error message for each field
                 return `${fieldName}: ${err.errors[0]}`;
             });
@@ -139,6 +140,7 @@ export class RunExecutionCoordinator {
     private async executeJsQuestions(
         runId: string,
         sectionId: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dataMap holds dynamic workflow step values
         dataMap: Record<string, any>,
         context: ExecutionContext,
         aliasMap?: Record<string, string>
@@ -148,7 +150,7 @@ export class RunExecutionCoordinator {
         const allSteps = await this.stepRepo.findBySectionId(sectionId);
         const jsQuestions = allSteps.filter(step => step.type === 'js_question');
         for (const step of jsQuestions) {
-            if (!step.options || !isJsQuestionConfig(step.options)) { continue; }
+            if (step.options === null || step.options === undefined || !isJsQuestionConfig(step.options)) { continue; }
             const config = step.options;
             const result = await scriptEngine.execute({
                 language: 'javascript',
@@ -161,7 +163,7 @@ export class RunExecutionCoordinator {
                     phase: 'question_execution',
                     metadata: { stepId: step.id }
                 },
-                timeoutMs: config.timeoutMs || 1000,
+                timeoutMs: config.timeoutMs ?? 1000,
                 aliasMap,
             });
             if (!result.ok) {
@@ -175,6 +177,7 @@ export class RunExecutionCoordinator {
                 result.output,
                 context.workflowId
             );
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, no-param-reassign -- updating local data map with JS question output
             dataMap[step.id] = result.output; // Update local map
         }
         return {

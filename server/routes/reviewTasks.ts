@@ -1,4 +1,4 @@
-import express from "express";
+import { Router } from "express";
 import { z } from "zod";
 
 import { logger } from "../logger";
@@ -6,9 +6,10 @@ import { hybridAuth } from "../middleware/auth";
 import { reviewTaskService } from "../services";
 import { resumeRunFromNode } from "../services/runs";
 import { asyncHandler } from "../utils/asyncHandler";
-import { createError } from "../utils/errors";
 
-const router = express.Router();
+import type { AuthRequest } from "../middleware/auth";
+
+const router = Router();
 
 /**
  * Stage 14: Review Task API Routes
@@ -28,8 +29,8 @@ const decisionSchema = z.object({
 router.get("/tasks/:id", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { id } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
-    const userId = (req.user as any).id;
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId ?? "";
 
     const task = await reviewTaskService.getReviewTask(id, userId);
 
@@ -49,8 +50,8 @@ router.get("/tasks/:id", hybridAuth, asyncHandler(async (req, res, next) => {
 router.get("/tasks/project/:projectId", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
-    const userId = (req.user as any).id;
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId ?? "";
 
     const tasks = await reviewTaskService.getPendingTasksByProject(projectId, userId);
 
@@ -66,8 +67,8 @@ router.get("/tasks/project/:projectId", hybridAuth, asyncHandler(async (req, res
  */
 router.get("/my-tasks", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
-    const userId = (req.user as any).id;
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId ?? "";
 
     const tasks = await reviewTaskService.getTasksForReviewer(userId);
 
@@ -86,13 +87,15 @@ router.get("/my-tasks", hybridAuth, asyncHandler(async (req, res, next) => {
 router.post("/tasks/:id/decision", hybridAuth, asyncHandler(async (req, res, next) => {
   try {
     const { id } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req.user from hybridAuth middleware
-    const userId = (req.user as any).id;
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId ?? "";
 
     // Validate request body
     const result = decisionSchema.safeParse(req.body);
     if (!result.success) {
-      throw createError.validation("Invalid request body", result.error.errors);
+      const validationError = new Error("Invalid request body");
+      (validationError as Record<string, unknown>).status = 400;
+      throw validationError;
     }
 
     const { decision, comment } = result.data;

@@ -100,7 +100,7 @@ async function main() {
     }
 
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error }, 'SLI computation failed');
     process.exit(1);
   }

@@ -29,8 +29,8 @@ async function checkSchema() {
         console.log(JSON.stringify(usersResult.rows, null, 2));
 
         process.exit(0);
-    } catch (error) {
-        console.error("Error checking schema:", error);
+    } catch (error: unknown) {
+        console.error("Error checking schema:", error instanceof Error ? error.message : String(error));
         process.exit(1);
     }
 }

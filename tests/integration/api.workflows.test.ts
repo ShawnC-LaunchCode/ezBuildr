@@ -11,6 +11,7 @@ vi.mock('@google/generative-ai', () => {
   return {
     GoogleGenerativeAI: class MockGoogleGenerativeAI {
       constructor(apiKey: string) { }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getGenerativeModel(params: any) {
         return {
           generateContent: vi.fn().mockResolvedValue({
@@ -115,6 +116,7 @@ describe.sequential("Workflows API Integration Tests", () => {
         .set("Authorization", `Bearer ${ctx.authToken}`)
         .expect(200);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(response.body.items.every((w: any) => w.status === "draft")).toBe(true);
     });
 

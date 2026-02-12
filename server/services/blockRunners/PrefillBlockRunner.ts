@@ -12,7 +12,9 @@ export class PrefillBlockRunner extends BaseBlockRunner {
     return "prefill";
   }
 
-  async execute(config: PrefillConfig, context: BlockContext, block: Block): Promise<BlockResult> {
+  // eslint-disable-next-line sonarjs/cognitive-complexity, @typescript-eslint/no-unused-vars -- prefill logic with static/query modes; _block required by IBlockRunner interface
+  execute(config: PrefillConfig, context: BlockContext, _block: Block): Promise<BlockResult> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- updates holds arbitrary workflow step values
     const updates: Record<string, any> = {};
     const overwrite = config.overwrite ?? false;
 
@@ -20,24 +22,24 @@ export class PrefillBlockRunner extends BaseBlockRunner {
       for (const [key, value] of Object.entries(config.staticMap)) {
         // Only set if key doesn't exist or overwrite is true
         if (overwrite || context.data[key] === undefined) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- value from staticMap has dynamic type
           updates[key] = value;
         }
       }
     } else if (config.mode === "query" && config.queryKeys && context.queryParams) {
       for (const key of config.queryKeys) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- queryParams values have dynamic types
         const value = context.queryParams[key];
-        if (value !== undefined) {
-          // Only set if key doesn't exist or overwrite is true
-          if (overwrite || context.data[key] === undefined) {
-            updates[key] = value;
-          }
+        if (value !== undefined && (overwrite || context.data[key] === undefined)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- value from queryParams has dynamic type
+          updates[key] = value;
         }
       }
     }
 
-    return {
+    return Promise.resolve({
       success: true,
       data: updates,
-    };
+    });
   }
 }

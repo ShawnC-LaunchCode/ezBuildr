@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function createAdminUserProper() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
 
@@ -118,7 +118,7 @@ async function createAdminUserProper() {
     const userCount = await client.query('SELECT COUNT(*) FROM users');
     console.log(`   Total users: ${userCount.rows[0].count}`);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("\n❌ ERROR:", error);
     throw error;
   } finally {

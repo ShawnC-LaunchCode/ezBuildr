@@ -64,7 +64,7 @@ function analyze() {
 
             for (const assertion of result.assertionResults) {
                 if (assertion.status === 'failed') {
-                    const rawMsg = assertion.failureMessages[0] || "Unknown Error";
+                    const rawMsg = assertion.failureMessages[0] ?? "Unknown Error";
                     const msg = rawMsg.split('\n')[0]; // First line usually contains the core error
 
                     let category: 'Easy' | 'Complex' | 'Hard' = 'Hard';

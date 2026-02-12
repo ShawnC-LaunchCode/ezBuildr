@@ -1,5 +1,4 @@
 import { getDb } from '../../server/db';
-import type {  } from 'drizzle-orm/pg-core';
 /**
  * Transaction-based Test Isolation
  *
@@ -40,20 +39,24 @@ import type {  } from 'drizzle-orm/pg-core';
  * });
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function beginTestTransaction(): Promise<any> {
   console.warn(
     'DEPRECATION WARNING: beginTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead. See TESTING_STRATEGY.md for migration guide.'
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getDb() as any;
   // This pattern is fundamentally flawed - uses never-resolving promise
   return new Promise((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     db.transaction(async (tx: any) => {
       resolve(tx);
       // Never resolves - keeps transaction open (anti-pattern)
       await new Promise(() => { });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }).catch((error: any) => {
-      if (error?.message?.includes('rollback') || error?.code === '25P02') {
+      if (error?.message?.includes('rollback') ?? error?.code === '25P02') {
         resolve(undefined);
       } else {
         reject(error);
@@ -67,6 +70,7 @@ export async function beginTestTransaction(): Promise<any> {
  *
  * This function will be removed in v2.0.0 (January 2026).
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function rollbackTestTransaction(tx: any): Promise<void> {
   console.warn(
     'DEPRECATION WARNING: rollbackTestTransaction() is deprecated and will be removed in v2.0.0. ' +
@@ -76,7 +80,7 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
   try {
     // Force rollback using raw SQL (fragile, PostgreSQL-specific)
     await tx.execute('ROLLBACK');
-  } catch (error) {
+  } catch (error: unknown) {
     // Rollback errors are expected
   }
 }
@@ -86,12 +90,15 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
  *
  * Note: These use raw SQL and are PostgreSQL-specific. Use with caution.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`SAVEPOINT ${name}`);
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function rollbackToSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`ROLLBACK TO SAVEPOINT ${name}`);
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function releaseSavepoint(tx: any, name: string): Promise<void> {
   await tx.execute(`RELEASE SAVEPOINT ${name}`);
 }
@@ -136,20 +143,24 @@ export async function releaseSavepoint(tx: any, name: string): Promise<void> {
  * });
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function runInTransaction<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   testFn: (tx: any) => Promise<T>
 ): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getDb() as any;
   let result: T;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.transaction(async (tx: any) => {
       result = await testFn(tx);
       // Force rollback by throwing a specific error
       throw new Error('ROLLBACK_TEST_TRANSACTION');
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If it's our rollback signal, swallow it and return the result
-    if (error?.message === 'ROLLBACK_TEST_TRANSACTION') {
+    if (error instanceof Error && error?.message === 'ROLLBACK_TEST_TRANSACTION') {
       return result!;
     }
     // Otherwise, re-throw the actual error

@@ -55,7 +55,7 @@ function splitSqlStatements(sql: string): string[] {
   return statements.filter(s => s && !s.startsWith('--'));
 }
 
-async function applyMigration(client: any, migrationName: string, migrationFile: string) {
+async function applyMigration(client: (query: string) => Promise<unknown>, migrationName: string, migrationFile: string) {
   console.log(`\n📝 Applying ${migrationName}...`);
 
   const migrationPath = join(__dirname, '..', 'migrations', migrationFile);
@@ -74,12 +74,13 @@ async function applyMigration(client: any, migrationName: string, migrationFile:
         await client(statement);
         successCount++;
         process.stdout.write('.');
-      } catch (error: any) {
-        if (error.message?.includes('already exists') ||
-            error.message?.includes('duplicate') ||
-            error.message?.includes('already') ||
-            error.code === '42710' || // duplicate object
-            error.code === '42P07'    // duplicate table
+      } catch (error: unknown) {
+        const pgError = error as { message?: string; code?: string };
+        if (pgError.message?.includes('already exists') ||
+            pgError.message?.includes('duplicate') ||
+            pgError.message?.includes('already') ||
+            pgError.code === '42710' || // duplicate object
+            pgError.code === '42P07'    // duplicate table
         ) {
           skipCount++;
           process.stdout.write('s');
@@ -92,8 +93,9 @@ async function applyMigration(client: any, migrationName: string, migrationFile:
 
     console.log('');
     console.log(`✅ ${migrationName} completed (${successCount} applied, ${skipCount} skipped)`);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    const nodeError = error as { code?: string };
+    if (nodeError.code === 'ENOENT') {
       console.log(`⚠️  ${migrationName} - file not found, skipping`);
     } else {
       throw error;
@@ -146,10 +148,11 @@ async function applyMigrations() {
     console.log('   2. All workflow features should now work correctly');
     console.log('');
 
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string };
+    console.error('❌ Migration failed:', pgError.message ?? String(error));
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
     console.error('');
     console.error('⚠️  Some migrations may have been partially applied.');

@@ -82,7 +82,7 @@ async function applyDatavaultMigrations() {
     `);
 
     console.log('📋 DataVault tables:');
-    tables.rows.forEach((row: any) => {
+    tables.rows.forEach((row: Record<string, unknown>) => {
       console.log(`   - ${row.table_name}`);
     });
 
@@ -95,15 +95,16 @@ async function applyDatavaultMigrations() {
     `);
 
     console.log('\n📋 DataVault column types:');
-    enumValues.rows.forEach((row: any) => {
+    enumValues.rows.forEach((row: Record<string, unknown>) => {
       console.log(`   - ${row.enumlabel}`);
     });
 
     console.log('\n✅ DataVault schema is ready!');
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string };
+    console.error('❌ Migration failed:', pgError.message);
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
     throw error;
   } finally {

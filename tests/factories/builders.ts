@@ -53,7 +53,7 @@ export class SectionBuilder {
   /**
    * Override section properties
    */
-  with(overrides: any): this {
+  with(overrides: Record<string, unknown>): this {
     Object.assign(this.sectionData, overrides);
     return this;
   }
@@ -62,7 +62,7 @@ export class SectionBuilder {
    * @param type Step type (e.g., 'short_text', 'email', 'phone')
    * @param overrides Additional step properties
    */
-  addStep(type: string, overrides?: any): this {
+  addStep(type: string, overrides?: Record<string, unknown>): this {
     const step = createTestStep({
       type,
       order: this.steps.length,
@@ -74,7 +74,7 @@ export class SectionBuilder {
   /**
    * Add multiple steps at once
    */
-  addSteps(steps: Array<{ type: string; overrides?: any }>): this {
+  addSteps(steps: Array<{ type: string; overrides?: Record<string, unknown> }>): this {
     for (const step of steps) {
       this.addStep(step.type, step.overrides);
     }
@@ -83,7 +83,7 @@ export class SectionBuilder {
   /**
    * Internal: Build section and steps into database
    */
-  async build(db: Database, workflowId: string): Promise<{ section: any; steps: any[] }> {
+  async build(db: Database, workflowId: string): Promise<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }> {
     // Insert section
     const [section] = await db
       .insert(schema.sections)
@@ -166,7 +166,7 @@ export class WorkflowBuilder {
   /**
    * Override any workflow properties
    */
-  with(overrides: any): this {
+  with(overrides: Record<string, unknown>): this {
     Object.assign(this.workflowData, overrides);
     return this;
   }
@@ -189,8 +189,8 @@ export class WorkflowBuilder {
    * @returns Complete workflow with sections and steps
    */
   async build(database: Database = db): Promise<{
-    workflow: any;
-    sections: Array<{ section: any; steps: any[] }>;
+    workflow: Record<string, unknown>;
+    sections: Array<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }>;
   }> {
     // Insert workflow
     const [workflow] = await database
@@ -291,7 +291,7 @@ export class RunBuilder {
   /**
    * Override any run properties
    */
-  with(overrides: any): this {
+  with(overrides: Record<string, unknown>): this {
     Object.assign(this.runData, overrides);
     return this;
   }
@@ -301,8 +301,8 @@ export class RunBuilder {
    * @returns Run with step values
    */
   async build(database: Database = db): Promise<{
-    run: any;
-    stepValues: any[];
+    run: Record<string, unknown>;
+    stepValues: Record<string, unknown>[];
   }> {
     if (!this.workflowId) {
       throw new Error('WorkflowId is required. Use forWorkflow() or pass workflowId to constructor.');
@@ -364,28 +364,28 @@ export class TestEnvironmentBuilder {
   /**
    * Configure the tenant
    */
-  withTenant(overrides: any): this {
+  withTenant(overrides: Record<string, unknown>): this {
     Object.assign(this.tenantData, overrides);
     return this;
   }
   /**
    * Configure the organization
    */
-  withOrganization(overrides: any): this {
+  withOrganization(overrides: Record<string, unknown>): this {
     Object.assign(this.orgData, overrides);
     return this;
   }
   /**
    * Configure the user
    */
-  withUser(overrides: any): this {
+  withUser(overrides: Record<string, unknown>): this {
     Object.assign(this.userData, overrides);
     return this;
   }
   /**
    * Configure the project
    */
-  withProject(overrides: any): this {
+  withProject(overrides: Record<string, unknown>): this {
     Object.assign(this.projectData, overrides);
     return this;
   }
@@ -403,11 +403,11 @@ export class TestEnvironmentBuilder {
    * @returns Complete test environment
    */
   async build(database: Database = db): Promise<{
-    tenant: any;
-    organization: any;
-    user: any;
-    project: any;
-    workflow?: { workflow: any; sections: Array<{ section: any; steps: any[] }> };
+    tenant: Record<string, unknown>;
+    organization: Record<string, unknown>;
+    user: Record<string, unknown>;
+    project: Record<string, unknown>;
+    workflow?: { workflow: Record<string, unknown>; sections: Array<{ section: Record<string, unknown>; steps: Record<string, unknown>[] }> };
   }> {
     // Insert tenant
     const [tenant] = await database

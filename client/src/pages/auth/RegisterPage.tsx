@@ -105,7 +105,7 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
                                 <span className="w-full border-t" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
@@ -187,7 +187,7 @@ export default function RegisterPage() {
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? (
                                         <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                                             Creating account...
                                         </>
                                     ) : (

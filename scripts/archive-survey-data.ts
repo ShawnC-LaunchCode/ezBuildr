@@ -40,7 +40,7 @@ async function createArchiveDirectory(timestamp: string): Promise<string> {
   return archiveDir;
 }
 
-async function writeJsonFile(dir: string, filename: string, data: any): Promise<void> {
+async function writeJsonFile(dir: string, filename: string, data: unknown[]): Promise<void> {
   const filePath = path.join(dir, filename);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
   console.log(`✅ Wrote ${filename} (${data.length || 0} records)`);
@@ -210,8 +210,8 @@ If you need to access or restore this data, contact the development team.
     console.log(`\n   Total: ${Object.values(metadata.recordCounts).reduce((a, b) => a + b, 0)} records archived`);
     console.log('\n💡 You can now run the migration to drop survey tables.');
 
-  } catch (error) {
-    console.error('\n❌ Error during archive:', error);
+  } catch (error: unknown) {
+    console.error('\n❌ Error during archive:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     await pool.end();
@@ -224,7 +224,7 @@ archiveSurveyData()
     console.log('\n✨ Archive process completed successfully\n');
     process.exit(0);
   })
-  .catch((error) => {
-    console.error('\n💥 Archive process failed:', error);
+  .catch((error: unknown) => {
+    console.error('\n💥 Archive process failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   });

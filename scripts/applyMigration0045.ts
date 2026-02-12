@@ -41,8 +41,8 @@ async function applyMigration() {
       console.log(`    ownerId: ${row.owner_id}`);
     }
 
-  } catch (error) {
-    console.error('Error applying migration:', error);
+  } catch (error: unknown) {
+    console.error('Error applying migration:', error instanceof Error ? error.message : String(error));
   } finally {
     process.exit(0);
   }

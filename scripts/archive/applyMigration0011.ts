@@ -113,14 +113,15 @@ async function applyMigration() {
         await client(statement);
         successCount++;
         process.stdout.write('.');
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const pgError = error as { message?: string };
         // Ignore errors for already-applied changes
-        if (error.message?.includes('already exists') ||
-            error.message?.includes('duplicate')) {
+        if (pgError.message?.includes('already exists') ||
+            pgError.message?.includes('duplicate')) {
           skipCount++;
           process.stdout.write('s');
         } else {
-          console.error(`\n⚠️  Statement ${i + 1} warning:`, error.message);
+          console.error(`\n⚠️  Statement ${i + 1} warning:`, pgError.message ?? String(error));
           // Continue anyway - some errors might be non-critical
           process.stdout.write('w');
         }
@@ -136,13 +137,14 @@ async function applyMigration() {
     console.log('   3. Check application logs for any remaining issues');
     console.log('');
 
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string; hint?: string };
+    console.error('❌ Migration failed:', pgError.message ?? String(error));
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
-    if (error.hint) {
-      console.error('   Hint:', error.hint);
+    if (pgError.hint) {
+      console.error('   Hint:', pgError.hint);
     }
     console.error('');
     console.error('💡 Troubleshooting:');

@@ -18,9 +18,9 @@ export class VariableService {
     sectionRepo?: typeof sectionRepository,
     workflowSvc?: typeof workflowService
   ) {
-    this.stepRepo = stepRepo || stepRepository;
-    this.sectionRepo = sectionRepo || sectionRepository;
-    this.workflowSvc = workflowSvc || workflowService;
+    this.stepRepo = stepRepo ?? stepRepository;
+    this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
   }
 
   /**
@@ -54,7 +54,7 @@ export class VariableService {
         label: step.title,
         type: step.type,
         sectionId: step.sectionId,
-        sectionTitle: section?.title || 'Unknown Section',
+        sectionTitle: section?.title ?? 'Unknown Section',
         stepId: step.id,
       };
     });

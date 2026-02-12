@@ -31,8 +31,9 @@ async function check() {
     `);
     console.log(`  question_type enum exists: ${result.length > 0 ? 'YES' : 'NO'}`);
     console.log(`  'js' value: ${result.length > 0 ? 'YES' : 'NO'}`);
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // Check if step_type enum exists instead
@@ -45,9 +46,10 @@ async function check() {
       ORDER BY e.enumlabel
     `);
     console.log(`  step_type enum exists: YES`);
-    console.log(`  Values:`, result.map((r: any) => r.enumlabel).join(', '));
-  } catch (e: any) {
-    console.log(`  step_type enum: ${e.message}`);
+    console.log(`  Values:`, result.map((r: Record<string, unknown>) => r.enumlabel).join(', '));
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  step_type enum: ${error.message ?? String(e)}`);
   }
 
   // Check 0010 - trace_id
@@ -58,16 +60,17 @@ async function check() {
     AND table_name LIKE '%run%'
     ORDER BY table_name
   `);
-  console.log('  Tables with "run":', tables.map((t: any) => t.table_name).join(', '));
+  console.log('  Tables with "run":', tables.map((t: Record<string, unknown>) => t.table_name).join(', '));
 
   try {
     const cols = await client(`
       SELECT column_name FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'workflow_runs'
     `);
-    console.log('  workflow_runs columns:', cols.map((c: any) => c.column_name).join(', '));
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+    console.log('  workflow_runs columns:', cols.map((c: Record<string, unknown>) => c.column_name).join(', '));
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // Check 0015 - review_tasks
@@ -78,8 +81,9 @@ async function check() {
       WHERE table_schema = 'public' AND table_name = 'review_tasks'
     `);
     console.log(`  review_tasks table: ${result.length > 0 ? 'YES' : 'NO'}`);
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // Check 0017 - custom_domains
@@ -90,8 +94,9 @@ async function check() {
       WHERE table_schema = 'public' AND table_name = 'custom_domains'
     `);
     console.log(`  custom_domains table: ${result.length > 0 ? 'YES' : 'NO'}`);
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // Check 0019 - collection_block_type
@@ -101,8 +106,9 @@ async function check() {
       SELECT typname FROM pg_type WHERE typname = 'collection_block_type'
     `);
     console.log(`  collection_block_type enum: ${result.length > 0 ? 'YES' : 'NO'}`);
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // Check 0023 - templates
@@ -113,8 +119,9 @@ async function check() {
       WHERE table_schema = 'public' AND table_name = 'templates'
     `);
     console.log(`  templates table: ${result.length > 0 ? 'YES' : 'NO'}`);
-  } catch (e: any) {
-    console.log(`  ERROR: ${e.message}`);
+  } catch (e: unknown) {
+    const error = e as { message?: string };
+    console.log(`  ERROR: ${error.message ?? String(e)}`);
   }
 
   // List all tables
@@ -124,7 +131,7 @@ async function check() {
     WHERE table_schema = 'public'
     ORDER BY table_name
   `);
-  for (const t of allTables) {
+  for (const t of allTables as Record<string, unknown>[]) {
     console.log(`  - ${t.table_name}`);
   }
 }

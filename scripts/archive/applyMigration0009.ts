@@ -25,7 +25,7 @@ async function applyMigration() {
   try {
     await db.execute(sql.raw(migration));
     console.log('Migration applied successfully!');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error applying migration:', error);
     process.exit(1);
   }

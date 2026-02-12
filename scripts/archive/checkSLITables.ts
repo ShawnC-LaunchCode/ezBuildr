@@ -39,7 +39,7 @@ async function checkTables() {
         ORDER BY ordinal_position;
       `;
       console.log('\nColumns:');
-      columns.forEach(col => {
+      columns.forEach((col: Record<string, unknown>) => {
         console.log(`  - ${col.column_name}: ${col.data_type}`);
       });
     } else {
@@ -56,14 +56,15 @@ async function checkTables() {
 
       if (tables.length > 0) {
         console.log('\nRelated tables found:');
-        tables.forEach(t => console.log(`  - ${t.table_name}`));
+        tables.forEach((t: Record<string, unknown>) => console.log(`  - ${t.table_name}`));
       } else {
         console.log('\nNo SLI or metrics tables found');
       }
     }
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string };
+    console.error('❌ Error:', pgError.message ?? String(error));
     process.exit(1);
   }
 }

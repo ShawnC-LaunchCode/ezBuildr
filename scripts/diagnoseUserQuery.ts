@@ -9,6 +9,7 @@ import ws from 'ws';
 import { users } from '../shared/schema';
 
 async function diagnoseUserQuery() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   neonConfig.webSocketConstructor = ws.default as any;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
@@ -35,8 +36,8 @@ async function diagnoseUserQuery() {
       console.log(`   Tenant Role: ${user.tenant_role}`);
       console.log(`   Tenant ID: ${user.tenant_id}`);
     }
-  } catch (error) {
-    console.error("❌ Raw SQL error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Raw SQL error:", error instanceof Error ? error.message : String(error));
   }
 
   // Test 2: Drizzle ORM query (direct)
@@ -58,8 +59,8 @@ async function diagnoseUserQuery() {
       console.log(`   Tenant Role: ${user.tenantRole}`);
       console.log(`   Tenant ID: ${user.tenantId}`);
     }
-  } catch (error) {
-    console.error("❌ Drizzle ORM error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Drizzle ORM error:", error instanceof Error ? error.message : String(error));
   }
 
   // Test 3: Check table structure
@@ -73,11 +74,11 @@ async function diagnoseUserQuery() {
       ORDER BY ordinal_position;
     `);
     console.log("✅ Users table columns:");
-    tableInfo.rows.forEach((col: any) => {
+    tableInfo.rows.forEach((col: Record<string, unknown>) => {
       console.log(`   - ${col.column_name}: ${col.data_type} (nullable: ${col.is_nullable})`);
     });
-  } catch (error) {
-    console.error("❌ Table structure error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Table structure error:", error instanceof Error ? error.message : String(error));
   }
 
   // Test 4: Check actual ID values in database
@@ -88,12 +89,12 @@ async function diagnoseUserQuery() {
       'SELECT id, email, LENGTH(id) as id_length FROM users LIMIT 5'
     );
     console.log(`✅ Found ${idsResult.rows.length} user(s) in database:`);
-    idsResult.rows.forEach((row: any) => {
+    idsResult.rows.forEach((row: Record<string, unknown>) => {
       console.log(`   - ${row.email}: ID="${row.id}" (length: ${row.id_length})`);
       console.log(`     Match: ${row.id === userId ? '✓' : '✗'}`);
     });
-  } catch (error) {
-    console.error("❌ ID values error:", error);
+  } catch (error: unknown) {
+    console.error("❌ ID values error:", error instanceof Error ? error.message : String(error));
   }
 
   // Test 5: Check with userRepository (the actual method being used)
@@ -111,8 +112,8 @@ async function diagnoseUserQuery() {
     } else {
       console.log("❌ UserRepository returned undefined");
     }
-  } catch (error) {
-    console.error("❌ UserRepository error:", error);
+  } catch (error: unknown) {
+    console.error("❌ UserRepository error:", error instanceof Error ? error.message : String(error));
   }
 
   console.log(`\n${  "=".repeat(60)}`);

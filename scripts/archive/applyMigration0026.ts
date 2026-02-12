@@ -24,7 +24,7 @@ async function applyMigration() {
     console.log('✅ Migration 0026 applied successfully!');
     console.log('The metrics_rollups unique index now includes tenant_id for proper multi-tenant isolation.');
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Migration failed:', error);
     process.exit(1);
   }

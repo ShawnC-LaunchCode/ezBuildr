@@ -122,4 +122,6 @@ async function main() {
     console.log(`Open in browser: http://localhost:5173/workflows/${workflowId}`);
 }
 
-main().catch(console.error);
+main().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+});

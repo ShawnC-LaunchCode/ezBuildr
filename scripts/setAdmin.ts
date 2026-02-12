@@ -19,6 +19,7 @@ async function setAdmin() {
     const isNeonDatabase = process.env.DATABASE_URL?.includes('neon.tech') ||
                            process.env.DATABASE_URL?.includes('neon.co');
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let db: any;
 
     if (isNeonDatabase) {
@@ -30,6 +31,7 @@ async function setAdmin() {
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
       const { drizzle } = await import('drizzle-orm/neon-serverless');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       db = drizzle(pool as any, { schema });
     } else {
       // Use standard PostgreSQL driver
@@ -37,6 +39,7 @@ async function setAdmin() {
       const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
 
       const { drizzle } = await import('drizzle-orm/node-postgres');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       db = drizzle(pool as any, { schema });
     }
 
@@ -55,8 +58,8 @@ async function setAdmin() {
     console.log(`   Name: ${updatedUser.firstName} ${updatedUser.lastName}`);
     console.log(`   Role: ${updatedUser.role}`);
     process.exit(0);
-  } catch (error) {
-    console.error("❌ Error setting admin:", error);
+  } catch (error: unknown) {
+    console.error("❌ Error setting admin:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

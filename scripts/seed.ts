@@ -239,7 +239,7 @@ async function seed() {
       .values({
         projectId: project.id,
         prefix: 'sk_test',
-        keyHash: `hashed_api_key_${  nanoid()}`,
+        keyHash: `hashed_api_key_${nanoid()}`,
         scopes: ['read', 'write'],
       })
       .returning();
@@ -256,15 +256,15 @@ async function seed() {
     console.log(`   Sections: 1`);
     console.log(`   Steps: 3`);
 
-  } catch (error) {
-    console.error('❌ Seeding failed:', error);
+  } catch (error: unknown) {
+    console.error('❌ Seeding failed:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     await pool.end();
   }
 }
 
-seed().catch((error) => {
-  console.error('Failed to seed database:', error);
+seed().catch((error: unknown) => {
+  console.error('Failed to seed database:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

@@ -1,5 +1,5 @@
 process.env.GEMINI_API_KEY = 'test-key';
-import {  type Server } from "http";
+import { type Server } from "http";
 
 import express, { type Express } from "express";
 import multer from "multer";
@@ -34,8 +34,11 @@ vi.mock("mammoth", () => {
     };
 });
 // Mock multer to bypass file parsing
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock("multer", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockMulter = () => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         single: () => (req: any, res: any, next: any) => {
             if (multerState.hasFile) {
                 req.file = {
@@ -47,11 +50,11 @@ vi.mock("multer", () => {
             next();
         }
     });
-    // @ts-ignore
+    // @ts-expect-error - Mock property assignment
     mockMulter.memoryStorage = () => { };
-    // @ts-ignore
+    // @ts-expect-error - Mock property assignment
     mockMulter.diskStorage = () => { };
-    // @ts-ignore
+    // @ts-expect-error - Mock property assignment
     mockMulter.memoryStorage = () => { };
     class MockMulterError extends Error {
         code: string;
@@ -60,7 +63,7 @@ vi.mock("multer", () => {
             this.code = code;
         }
     }
-    // @ts-ignore
+    // @ts-expect-error - Mock property assignment
     mockMulter.MulterError = MockMulterError;
     return {
         default: mockMulter,
@@ -68,23 +71,30 @@ vi.mock("multer", () => {
     };
 });
 // Helper to mock JSON response
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAIResponse = (data: any) => ({
     response: {
         text: () => JSON.stringify(data)
     }
 });
 // Mock Auth Middleware to bypass login
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock('../../server/middleware/auth', () => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requireAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user', email: 'test@example.com' };
         next();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     optionalAuth: (req: any, res: any, next: any) => next(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     hybridAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user', email: 'test@example.com' };
         next();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     optionalHybridAuth: (req: any, res: any, next: any) => next(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requireTenantRole: () => (req: any, res: any, next: any) => next(),
 }));
 describe("AI Document Assistant API Integration Tests", () => {
@@ -135,7 +145,7 @@ describe("AI Document Assistant API Integration Tests", () => {
                 console.error("AI Analysis Failed Text:", response.text);
                 try {
                     console.log(`FAIL_BODY: ${  JSON.stringify(response.body)}`);
-                } catch (e) {
+                } catch (e: unknown) {
                     console.error("AI Analysis Failed Body Error:", e);
                 }
             }

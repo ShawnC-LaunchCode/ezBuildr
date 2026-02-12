@@ -1081,7 +1081,7 @@ async function main() {
     console.log(`\n🔗 Workflow URL: http://localhost:5000/workflows/${demoData.workflowId}/builder`);
 
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Failed to create demo workflow', { error });
     console.error('\n❌ Error creating demo workflow:', error);
     process.exit(1);

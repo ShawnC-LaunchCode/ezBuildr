@@ -8,7 +8,7 @@
 import { createLogger } from "../logger";
 import { sectionRepository, stepRepository, stepValueRepository } from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
-import type {  } from "../../shared/schema";
+import type { } from "../../shared/schema";
 const logger = createLogger({ module: "intake-navigation" });
 export interface PageNavigationResult {
   /** List of visible page IDs in order */
@@ -36,11 +36,12 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data for prefill
    * @returns Navigation result with visible pages and next/previous
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step navigation evaluation
   async evaluateNavigation(
     workflowId: string,
     runId: string,
     currentPageId: string | null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data varies by collection
     recordData?: Record<string, any>
   ): Promise<PageNavigationResult> {
     // Load all pages (sections) for this workflow
@@ -61,7 +62,8 @@ export class IntakeNavigationService {
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
-      const key = alias || sv.stepId;
+      const key = alias ?? sv.stepId;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types
       variables[key] = sv.value;
     }
     // Include record data in variables if present
@@ -74,7 +76,7 @@ export class IntakeNavigationService {
     for (const page of sortedPages) {
       let isVisible = true;
       // Evaluate visibleIf condition
-      if (page.visibleIf) {
+      if (typeof page.visibleIf === 'string' && page.visibleIf !== '') {
         try {
           isVisible = evaluateVisibility(page.visibleIf, variables);
           if (!isVisible) {
@@ -94,7 +96,7 @@ export class IntakeNavigationService {
     // Evaluate skipIf for visible pages
     const skippedPages: string[] = [];
     const navigablePages = visiblePages.filter(page => {
-      if (page.skipIf) {
+      if (typeof page.skipIf === 'string' && page.skipIf !== '') {
         try {
           const shouldSkip = evaluateVisibility(page.skipIf, variables);
           if (shouldSkip) {
@@ -145,10 +147,10 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns First page ID or null if no navigable pages
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async getFirstPage(
     workflowId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data varies by collection
     recordData?: Record<string, any>
   ): Promise<string | null> {
     const nav = await this.evaluateNavigation(workflowId, runId, null, recordData);
@@ -163,11 +165,11 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns True if page is visible and not skipped
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async isPageNavigable(
     workflowId: string,
     runId: string,
     pageId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data varies by collection
     recordData?: Record<string, any>
   ): Promise<boolean> {
     const nav = await this.evaluateNavigation(workflowId, runId, pageId, recordData);
@@ -182,10 +184,10 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data
    * @returns Array of visible page IDs in order
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data structure varies by collection
   async getPageSequence(
     workflowId: string,
     runId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- record data varies by collection
     recordData?: Record<string, any>
   ): Promise<string[]> {
     const nav = await this.evaluateNavigation(workflowId, runId, null, recordData);
@@ -203,7 +205,7 @@ export class IntakeNavigationService {
     const pages = await sectionRepository.findByWorkflowId(workflowId);
     // Check for pages with both visibleIf and skipIf (valid but potentially confusing)
     for (const page of pages) {
-      if (page.visibleIf && page.skipIf) {
+      if ((typeof page.visibleIf === 'string' && page.visibleIf !== '') && (typeof page.skipIf === 'string' && page.skipIf !== '')) {
         errors.push(
           `Page "${page.title}" has both visibleIf and skipIf conditions. ` +
           `skipIf will only apply if the page is visible.`

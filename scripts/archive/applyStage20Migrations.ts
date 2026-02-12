@@ -57,7 +57,7 @@ function splitSqlStatements(sql: string): string[] {
   return statements.filter(s => s && !s.startsWith('--'));
 }
 
-async function applyMigration(client: any, migrationName: string, migrationFile: string) {
+async function applyMigration(client: (query: string) => Promise<unknown>, migrationName: string, migrationFile: string) {
   console.log(`\n📝 Applying ${migrationName}...`);
 
   const migrationPath = join(__dirname, '..', 'migrations', migrationFile);
@@ -78,14 +78,15 @@ async function applyMigration(client: any, migrationName: string, migrationFile:
       await client(statement);
       successCount++;
       process.stdout.write('.');
-    } catch (error: any) {
-      if (error.message?.includes('already exists') ||
-          error.message?.includes('duplicate')) {
+    } catch (error: unknown) {
+      const pgError = error as { message?: string };
+      if (pgError.message?.includes('already exists') ||
+          pgError.message?.includes('duplicate')) {
         skipCount++;
         process.stdout.write('s');
       } else {
         process.stdout.write('w');
-        console.error(`\n⚠️  Warning:`, error.message);
+        console.error(`\n⚠️  Warning:`, pgError.message ?? String(error));
       }
     }
   }
@@ -127,10 +128,11 @@ async function applyMigrations() {
     console.log('   2. Try fetching workflows - should work now');
     console.log('');
 
-  } catch (error: any) {
-    console.error('❌ Migration failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string };
+    console.error('❌ Migration failed:', pgError.message ?? String(error));
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
     process.exit(1);
   }

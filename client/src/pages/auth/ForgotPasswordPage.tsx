@@ -108,7 +108,7 @@ export default function ForgotPasswordPage() {
                                     <Button type="submit" className="w-full" disabled={isLoading}>
                                         {isLoading ? (
                                             <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                                                 Sending link...
                                             </>
                                         ) : (
@@ -120,7 +120,7 @@ export default function ForgotPasswordPage() {
                         )}
                         <div className="flex justify-center mt-4">
                             <Link href="/auth/login" className="flex items-center text-sm text-gray-600 hover:text-gray-900">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
                                 Back to Sign in
                             </Link>
                         </div>

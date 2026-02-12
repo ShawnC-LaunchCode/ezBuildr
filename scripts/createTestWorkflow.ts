@@ -132,4 +132,6 @@ async function createTestWorkflow() {
   process.exit(0);
 }
 
-createTestWorkflow().catch(console.error);
+createTestWorkflow().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+});

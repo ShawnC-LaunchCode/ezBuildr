@@ -127,15 +127,16 @@ async function fixWorkflowProjectAssociation() {
         await client(statement);
         successCount++;
         process.stdout.write('.');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Ignore errors for already-applied changes
-        if (error.message?.includes('already exists') ||
-            error.message?.includes('duplicate') ||
-            (error.message?.includes('column') && error.message?.includes('already'))) {
+        const pgError = error as { message?: string };
+        if (pgError.message?.includes('already exists') ||
+            pgError.message?.includes('duplicate') ||
+            (pgError.message?.includes('column') && pgError.message?.includes('already'))) {
           skipCount++;
           process.stdout.write('s');
         } else {
-          console.error(`\n⚠️  Statement ${i + 1} warning:`, error.message);
+          console.error(`\n⚠️  Statement ${i + 1} warning:`, pgError.message ?? String(error));
         }
       }
     }
@@ -165,14 +166,15 @@ async function fixWorkflowProjectAssociation() {
     console.log('   3. If the issue persists, check the workflow in the database');
     console.log('');
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string; hint?: string };
     console.error('');
-    console.error('❌ Script failed:', error.message);
-    if (error.detail) {
-      console.error('   Details:', error.detail);
+    console.error('❌ Script failed:', pgError.message ?? String(error));
+    if (pgError.detail) {
+      console.error('   Details:', pgError.detail);
     }
-    if (error.hint) {
-      console.error('   Hint:', error.hint);
+    if (pgError.hint) {
+      console.error('   Hint:', pgError.hint);
     }
     console.error('');
     console.error('💡 Troubleshooting:');

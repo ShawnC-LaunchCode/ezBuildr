@@ -76,6 +76,7 @@ export interface CreateEnvelopeRequest {
   signer: SignerInfo;
 
   /** Workflow variable data (for field pre-filling) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variable data is dynamically typed per workflow
   variableData: Record<string, any>;
 
   /** Custom message to signer */
@@ -108,6 +109,7 @@ export interface CreateEnvelopeResponse {
   status: 'created' | 'sent' | 'delivered' | 'signed' | 'completed' | 'declined' | 'voided';
 
   /** Provider-specific metadata */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider-specific metadata varies by implementation
   metadata?: Record<string, any>;
 }
 
@@ -131,6 +133,7 @@ export interface EnvelopeStatusResponse {
   completedAt?: Date;
 
   /** Provider-specific metadata */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider-specific metadata varies by implementation
   metadata?: Record<string, any>;
 }
 
@@ -148,6 +151,7 @@ export interface SignatureEvent {
   timestamp: Date;
 
   /** Event-specific data */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- event data varies by provider event type
   data?: Record<string, any>;
 }
 
@@ -159,6 +163,7 @@ export interface SignatureEvent {
  * Abstract E-Signature Provider
  * All providers must implement this interface
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- I-prefix is conventional for interfaces
 export interface IEsignProvider {
   /**
    * Provider name (e.g., "docusign", "hellosign", "native")
@@ -199,6 +204,7 @@ export interface IEsignProvider {
    * @param signature Signature header from provider
    * @returns True if signature is valid
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- webhook payload format varies by provider
   verifyWebhookSignature(payload: any, signature: string): Promise<boolean>;
 
   /**
@@ -206,6 +212,7 @@ export interface IEsignProvider {
    * @param payload Webhook payload from provider
    * @returns Normalized signature event
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- webhook payload format varies by provider
   parseWebhookEvent(payload: any): Promise<SignatureEvent>;
 }
 
@@ -265,6 +272,7 @@ export class EsignError extends Error {
     message: string,
     public readonly code: string,
     public readonly provider?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details vary by provider
     public readonly details?: any
   ) {
     super(message);
@@ -286,6 +294,7 @@ export class EsignConfigError extends EsignError {
  * API communication error
  */
 export class EsignApiError extends EsignError {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details vary by provider
   constructor(message: string, provider?: string, details?: any) {
     super(message, 'API_ERROR', provider, details);
     this.name = 'EsignApiError';

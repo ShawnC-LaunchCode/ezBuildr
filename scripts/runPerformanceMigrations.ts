@@ -101,14 +101,15 @@ async function runMigration(filename: string) {
       successCount++;
       console.log(`✅ Success`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const pgError = error as { message?: string; detail?: string; code?: string };
       // Check if error is "already exists" - these are OK
-      if (error.message?.includes('already exists') ||
-          error.message?.includes('duplicate key')) {
+      if (pgError.message?.includes('already exists') ||
+          pgError.message?.includes('duplicate key')) {
         console.log(`⚠️  Skipped (already exists)`);
         skipCount++;
       } else {
-        console.error(`❌ Error: ${error.message}`);
+        console.error(`❌ Error: ${pgError.message ?? String(error)}`);
         console.error(`Statement: ${statement.substring(0, 200)}...`);
         throw error;
       }
@@ -161,9 +162,13 @@ async function main() {
     console.log('\n✅ Database migrations verified!\n');
     process.exit(0);
 
-  } catch (error: any) {
-    console.error('\n❌ Migration failed:', error.message);
-    console.error(error.stack);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('\n❌ Migration failed:', errorMsg);
+    if (errorStack) {
+      console.error(errorStack);
+    }
     process.exit(1);
   }
 }

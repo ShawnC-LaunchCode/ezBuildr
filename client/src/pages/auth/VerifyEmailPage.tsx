@@ -25,7 +25,7 @@ export default function VerifyEmailPage() {
             try {
                 await authAPI.verifyEmail(token);
                 setStatus('success');
-            } catch (error) {
+            } catch {
                 setStatus('error');
                 setMessage("Invalid or expired verification token.");
             }
@@ -51,14 +51,14 @@ export default function VerifyEmailPage() {
                     <CardContent className="flex flex-col items-center justify-center p-6 space-y-4">
                         {status === 'loading' && (
                             <>
-                                <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+                                <Loader2 className="h-10 w-10 animate-spin text-indigo-600" aria-hidden="true" />
                                 <p>Verifying your email...</p>
                             </>
                         )}
 
                         {status === 'success' && (
                             <>
-                                <CheckCircle className="h-12 w-12 text-green-500" />
+                                <CheckCircle className="h-12 w-12 text-green-500" aria-hidden="true" />
                                 <p className="text-lg font-medium text-green-700">Email Verified!</p>
                                 <p className="text-center text-gray-500">Your account has been successfully verified.</p>
                                 <Button asChild className="w-full mt-4">
@@ -69,7 +69,7 @@ export default function VerifyEmailPage() {
 
                         {status === 'error' && (
                             <>
-                                <XCircle className="h-12 w-12 text-red-500" />
+                                <XCircle className="h-12 w-12 text-red-500" aria-hidden="true" />
                                 <p className="text-lg font-medium text-red-700">Verification Failed</p>
                                 <p className="text-center text-gray-500">{message}</p>
                                 <Button asChild variant="outline" className="w-full mt-4">

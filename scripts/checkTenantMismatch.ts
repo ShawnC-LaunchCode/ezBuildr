@@ -58,4 +58,8 @@ async function main() {
   }
 }
 
-main().catch(console.error).finally(() => process.exit(0));
+main()
+  .catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+  })
+  .finally(() => process.exit(0));

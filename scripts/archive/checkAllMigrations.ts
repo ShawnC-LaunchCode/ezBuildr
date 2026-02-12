@@ -115,8 +115,9 @@ async function checkMigrations() {
       } else {
         console.log(`❌ ${checkItem.name} - MISSING`);
       }
-    } catch (error: any) {
-      console.log(`⚠️  ${checkItem.name} - ERROR: ${error.message}`);
+    } catch (error: unknown) {
+      const pgError = error as { message?: string };
+      console.log(`⚠️  ${checkItem.name} - ERROR: ${pgError.message ?? String(error)}`);
     }
   }
 

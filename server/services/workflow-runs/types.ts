@@ -2,7 +2,7 @@
  * Shared types for workflow run services
  */
 
-import type { WorkflowRun, InsertWorkflowRun, InsertStepValue } from "@shared/schema";
+import type { WorkflowRun, InsertWorkflowRun } from "@shared/schema";
 
 /**
  * Execution context for run operations
@@ -42,6 +42,7 @@ export interface WorkflowContext {
  */
 export interface SnapshotValueMap {
   [key: string]: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values have dynamic types from workflow data
     value: any;
     stepId: string;
     stepUpdatedAt: string;
@@ -80,8 +81,11 @@ export interface ShareTokenResult {
  * Shared run details
  */
 export interface SharedRunDetails {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime access settings with dynamic structure
   run: WorkflowRun & { accessSettings: any };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- document objects have varying structure
   documents: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- final block config has dynamic shape
   finalBlockConfig: any;
 }
 
@@ -89,8 +93,11 @@ export interface SharedRunDetails {
  * Initial value population options
  */
 export interface PopulateValuesOptions {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow step values have dynamic types
   initialValues?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values have dynamic types
   snapshotValues?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- randomized values have dynamic types
   randomValues?: Record<string, any>;
 }
 

@@ -21,11 +21,15 @@ async function checkSchema() {
     ORDER BY ordinal_position
   `);
 
-  columns.forEach((col: any) => {
-    console.log(`${col.column_name}:`);
-    console.log(`  Type: ${col.data_type}`);
-    console.log(`  Nullable: ${col.is_nullable}`);
-    console.log(`  Default: ${col.column_default || 'none'}`);
+  columns.forEach((col: Record<string, unknown>) => {
+    const columnName = String(col.column_name ?? '');
+    const dataType = String(col.data_type ?? '');
+    const isNullable = String(col.is_nullable ?? '');
+    const columnDefault = col.column_default ? String(col.column_default) : 'none';
+    console.log(`${columnName}:`);
+    console.log(`  Type: ${dataType}`);
+    console.log(`  Nullable: ${isNullable}`);
+    console.log(`  Default: ${columnDefault}`);
     console.log('');
   });
 }

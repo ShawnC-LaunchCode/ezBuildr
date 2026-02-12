@@ -40,8 +40,11 @@ async function checkLogicRulesTable() {
 
     console.log('Columns in logic_rules table:');
     console.log('----------------------------------------');
-    columns.forEach((col: any) => {
-      console.log(`  ${col.column_name.padEnd(25)} ${col.data_type.padEnd(30)} ${col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL'}`);
+    columns.forEach((col: Record<string, unknown>) => {
+      const columnName = String(col.column_name ?? '');
+      const dataType = String(col.data_type ?? '');
+      const isNullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
+      console.log(`  ${columnName.padEnd(25)} ${dataType.padEnd(30)} ${isNullable}`);
     });
 
     // Check for expected columns
@@ -51,7 +54,7 @@ async function checkLogicRulesTable() {
       'logical_operator', 'order', 'created_at'
     ];
 
-    const existingColumnNames = columns.map((c: any) => c.column_name);
+    const existingColumnNames = columns.map((c: Record<string, unknown>) => String(c.column_name ?? ''));
     const missingColumns = expectedColumns.filter(col => !existingColumnNames.includes(col));
 
     if (missingColumns.length > 0) {
@@ -65,16 +68,18 @@ async function checkLogicRulesTable() {
     try {
       await client(`SELECT * FROM logic_rules LIMIT 1`);
       console.log('✓ SELECT * query succeeded');
-    } catch (error: any) {
-      console.log('❌ SELECT * query failed:', error.message);
-      console.log('Error code:', error.code);
-      console.log('Error position:', error.position);
+    } catch (error: unknown) {
+      const pgError = error as { message?: string; code?: string; position?: string };
+      console.log('❌ SELECT * query failed:', pgError.message ?? String(error));
+      console.log('Error code:', pgError.code);
+      console.log('Error position:', pgError.position);
     }
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
-    if (error.code) {console.error('Error code:', error.code);}
-    if (error.position) {console.error('Error position:', error.position);}
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; code?: string; position?: string };
+    console.error('❌ Error:', pgError.message ?? String(error));
+    if (pgError.code) {console.error('Error code:', pgError.code);}
+    if (pgError.position) {console.error('Error position:', pgError.position);}
     process.exit(1);
   }
 }

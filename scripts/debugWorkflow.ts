@@ -44,7 +44,7 @@ async function debugWorkflow() {
   console.log('\nSections:', sectionList.length);
 
   for (const section of sectionList) {
-    const config = section.config as any;
+    const config = section.config as Record<string, unknown>;
     const isFinalDocs = config?.finalBlock === true;
 
     console.log(`  - ${section.title} (order: ${section.order})`);
@@ -52,8 +52,8 @@ async function debugWorkflow() {
     console.log(`    Final Docs: ${isFinalDocs}`);
 
     if (isFinalDocs) {
-      console.log(`    Templates: ${JSON.stringify(config?.templates || [])}`);
-      console.log(`    Screen Title: ${config?.screenTitle || 'N/A'}`);
+      console.log(`    Templates: ${JSON.stringify(config?.templates ?? [])}`);
+      console.log(`    Screen Title: ${config?.screenTitle ?? 'N/A'}`);
     }
   }
 
@@ -72,4 +72,6 @@ async function debugWorkflow() {
   process.exit(0);
 }
 
-debugWorkflow().catch(console.error);
+debugWorkflow().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+});

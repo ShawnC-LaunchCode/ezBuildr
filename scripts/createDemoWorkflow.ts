@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 
 async function createDemoWorkflow() {
   try {
-    neonConfig.webSocketConstructor = ws.default as any;
+    neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const client = await pool.connect();
 
@@ -336,7 +336,7 @@ if (input.ticketType === 'vip' && input.workshops && input.workshops.length > 0)
 
     client.release();
     process.exit(0);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Error creating demo workflow:", error);
     process.exit(1);
   }

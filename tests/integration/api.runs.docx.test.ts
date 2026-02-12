@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import {  type Server } from 'http';
+import { type Server } from 'http';
 import path from 'path';
 
 import { eq } from 'drizzle-orm';

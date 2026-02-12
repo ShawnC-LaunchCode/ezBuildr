@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function clearUserSessions() {
-  neonConfig.webSocketConstructor = ws.default as any;
+  neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
 
@@ -67,7 +67,7 @@ async function clearUserSessions() {
     const countAfter = await client.query('SELECT COUNT(*) FROM sessions');
     console.log(`\n📊 Sessions remaining: ${countAfter.rows[0].count}`);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("\n❌ ERROR:", error);
   } finally {
     client.release();

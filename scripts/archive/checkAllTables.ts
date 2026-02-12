@@ -25,12 +25,16 @@ async function checkAllTables() {
         ORDER BY ordinal_position
       `);
 
-      columns.forEach((col: any) => {
-        console.log(`  ${col.column_name.padEnd(25)} ${col.data_type.padEnd(30)} ${col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL'}`);
+      columns.forEach((col: Record<string, unknown>) => {
+        const columnName = String(col.column_name ?? '');
+        const dataType = String(col.data_type ?? '');
+        const isNullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
+        console.log(`  ${columnName.padEnd(25)} ${dataType.padEnd(30)} ${isNullable}`);
       });
 
-    } catch (error: any) {
-      console.error(`  Error: ${error.message}`);
+    } catch (error: unknown) {
+      const pgError = error as { message?: string };
+      console.error(`  Error: ${pgError.message ?? String(error)}`);
     }
   }
 }

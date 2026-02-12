@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { authAPI } from "@/lib/vault-api";
+
 const resetPasswordSchema = z.object({
     password: z.string()
         .min(8, "Password must be at least 8 characters")
@@ -23,11 +24,13 @@ const resetPasswordSchema = z.object({
     path: ["confirmPassword"],
 });
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
 export default function ResetPasswordPage() {
-    const [location, setLocation] = useLocation();
+    const [, setLocation] = useLocation();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [token, setToken] = useState<string | null>(null);
+
     useEffect(() => {
         // Extract token from URL manually since wouter doesn't have useSearchParams
         const urlParams = new URLSearchParams(window.location.search);
@@ -41,7 +44,8 @@ export default function ResetPasswordPage() {
                 description: "Missing reset token.",
             });
         }
-    }, []);
+    }, [toast]);
+
     const form = useForm<ResetPasswordFormValues>({
         resolver: zodResolver(resetPasswordSchema),
         defaultValues: {
@@ -49,6 +53,7 @@ export default function ResetPasswordPage() {
             confirmPassword: "",
         },
     });
+
     const onSubmit = async (data: ResetPasswordFormValues) => {
         if (!token) { return; }
         setIsLoading(true);
@@ -72,6 +77,7 @@ export default function ResetPasswordPage() {
             setIsLoading(false);
         }
     };
+
     if (!token) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -81,8 +87,9 @@ export default function ResetPasswordPage() {
                     </CardContent>
                 </Card>
             </div>
-        )
+        );
     }
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
@@ -133,7 +140,7 @@ export default function ResetPasswordPage() {
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading ? (
                                         <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                                             Resetting...
                                         </>
                                     ) : (

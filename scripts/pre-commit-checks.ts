@@ -58,7 +58,7 @@ function runCommand(command: string, name: string): boolean {
     execSync(command, { stdio: 'inherit', encoding: 'utf-8' });
     results.push({ name, passed: true, duration: Date.now() - start });
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
     results.push({
       name,
       passed: false,
@@ -83,8 +83,8 @@ function getStagedFiles(): string[] {
       // Only include files that exist and are TypeScript/JavaScript
       return existsSync(file) && /\.(ts|tsx|js|jsx)$/.test(file);
     });
-  } catch (error) {
-    console.error('Error getting staged files:', error);
+  } catch (error: unknown) {
+    console.error('Error getting staged files:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }

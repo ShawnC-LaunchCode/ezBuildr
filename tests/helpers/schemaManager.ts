@@ -88,7 +88,7 @@ export class SchemaManager {
                 existed
             };
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(`[SchemaManager] Failed to create schema ${schemaName}:`, error);
             throw error;
         } finally {
@@ -114,7 +114,7 @@ export class SchemaManager {
             // Cascade is dangerous but necessary to remove tables/functions inside the schema
             await client.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(`[SchemaManager] Failed to drop schema ${schemaName}:`, error);
             // Don't throw here, just log. We don't want to fail the test run/teardown just because cleanup failed.
             // Zombie schemas can be cleaned up by a separate cron or script.

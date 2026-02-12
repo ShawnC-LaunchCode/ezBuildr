@@ -59,8 +59,8 @@ async function fixTemplate() {
                 .where(eq(schema.templates.id, template.id));
 
             console.log('Updated template metadata.');
-        } catch (err) {
-            console.error('Failed to process template:', err);
+        } catch (err: unknown) {
+            console.error('Failed to process template:', err instanceof Error ? err.message : String(err));
         }
     }
 }
@@ -68,7 +68,7 @@ async function fixTemplate() {
 fixTemplate().then(() => {
     console.log('Done.');
     process.exit(0);
-}).catch(err => {
-    console.error(err);
+}).catch((err: unknown) => {
+    console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
 });

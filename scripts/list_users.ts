@@ -1,6 +1,4 @@
 
-import { count, eq } from "drizzle-orm";
-
 import { users } from "@shared/schema";
 
 import { db, initializeDatabase } from "../server/db";
@@ -16,7 +14,7 @@ async function main() {
     process.exit(0);
 }
 
-main().catch((err) => {
-    console.error("List users failed:", err);
+main().catch((err: unknown) => {
+    console.error("List users failed:", err instanceof Error ? err.message : String(err));
     process.exit(1);
 });

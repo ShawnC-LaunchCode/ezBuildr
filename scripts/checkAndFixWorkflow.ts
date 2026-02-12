@@ -111,4 +111,6 @@ async function main() {
   console.log('\n✅ Done! You can now upload templates.');
 }
 
-main().catch(console.error);
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+});

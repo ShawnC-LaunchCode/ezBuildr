@@ -31,8 +31,8 @@ async function listModels() {
             console.log("ERROR:", JSON.stringify(data));
         }
 
-    } catch (error) {
-        console.error("Error listing models:", error);
+    } catch (error: unknown) {
+        console.error("Error listing models:", error instanceof Error ? error.message : String(error));
     }
 }
 

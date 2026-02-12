@@ -1,4 +1,4 @@
-import express from "express";
+import { Router } from "express";
 import { z } from "zod";
 
 import { hybridAuth } from "../middleware/auth";
@@ -7,7 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 
 import type { AuthRequest } from "../middleware/auth";
 
-const router = express.Router();
+const router = Router();
 
 // ===================================================================
 // VALIDATION SCHEMAS
@@ -72,7 +72,7 @@ router.get(
     const authReq = req as AuthRequest;
     try {
       const { workflowId } = req.params;
-      const userId = authReq.userId!;
+      const userId = authReq.userId ?? "";
 
       const hooks = await lifecycleHookService.listHooks(workflowId, userId);
 
@@ -97,7 +97,7 @@ router.post(
     const authReq = req as AuthRequest;
     try {
       const { workflowId } = req.params;
-      const userId = authReq.userId!;
+      const userId = authReq.userId ?? "";
 
       // Validate request body
       const validatedData = createLifecycleHookSchema.parse({
@@ -134,7 +134,7 @@ router.get("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, res)
   const authReq = req as AuthRequest;
   try {
     const { hookId: _hookId } = req.params;
-    const _userId = authReq.userId!;
+    const _userId = authReq.userId ?? "";
 
     // Note: We could add a specific get method to the service, but for now
     // we'll just list all and filter (or add getById to service later)

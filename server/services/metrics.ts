@@ -8,7 +8,10 @@ import { eq, and, gte, desc } from 'drizzle-orm';
 
 import { metricsEvents, type InsertMetricsEvent } from '../../shared/schema';
 import { db } from '../db';
-import logger from '../logger';
+import { createLogger } from '../logger';
+
+const logger = createLogger({ module: 'metrics' });
+
 export interface MetricsEventInput {
   type: 'run_started' | 'run_succeeded' | 'run_failed' | 'pdf_succeeded' | 'pdf_failed' | 'docx_succeeded' | 'docx_failed' | 'queue_enqueued' | 'queue_dequeued';
   tenantId: string;
@@ -34,7 +37,7 @@ export async function emit(event: MetricsEventInput): Promise<void> {
       projectId: event.projectId,
       workflowId: event.workflowId ?? null,
       runId: event.runId ?? null,
-      ts: event.ts || new Date(),
+      ts: event.ts ?? new Date(),
       durationMs: event.durationMs ?? null,
       payload: sanitizedPayload,
     };
@@ -286,7 +289,7 @@ export async function getRecentEvents(params: {
     .from(metricsEvents)
     .where(and(...conditions))
     .orderBy(desc(metricsEvents.ts))
-    .limit(params.limit || 100);
+    .limit(params.limit ?? 100);
 }
 /**
  * Redact sensitive fields from payload
@@ -319,8 +322,10 @@ function redactPayload(payload: Record<string, any>): Record<string, any> {
       redacted[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively redact nested objects
-      redacted[key] = redactPayload(value);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- recursive call with same Record type
+      redacted[key] = redactPayload(value as Record<string, unknown>);
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- value from Record<string, any> payload
       redacted[key] = value;
     }
   }

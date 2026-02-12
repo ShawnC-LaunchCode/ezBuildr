@@ -59,7 +59,7 @@ async function directFix() {
 
       // Get first user for ownership
       const firstUser = await client`SELECT id FROM users LIMIT 1`;
-      const userId = firstUser[0]?.id || 'system';
+      const userId = firstUser[0]?.id ?? 'system';
 
       // Get or create default tenant
       const tenant = await client`SELECT id FROM tenants LIMIT 1`;
@@ -100,7 +100,7 @@ async function directFix() {
         SET project_id = ${projectId}
         WHERE id = ${workflow.id}
       `;
-      console.log(`   ✓ Updated: ${workflow.title || workflow.name || workflow.id}`);
+      console.log(`   ✓ Updated: ${workflow.title ?? workflow.name ?? workflow.id}`);
     }
 
     console.log('');
@@ -112,13 +112,14 @@ async function directFix() {
     console.log('   3. Template upload should now work!');
     console.log('');
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string; stack?: string };
     console.error('');
-    console.error('❌ Script failed:', error.message);
-    if (error.stack) {
+    console.error('❌ Script failed:', pgError.message ?? String(error));
+    if (pgError.stack) {
       console.error('');
       console.error('Stack trace:');
-      console.error(error.stack);
+      console.error(pgError.stack);
     }
     console.error('');
     process.exit(1);

@@ -15,15 +15,15 @@ const client = new pg.Client({ connectionString });
 
 async function main() {
     await client.connect();
-    const workerId = process.env.VITEST_WORKER_ID || '0';
+    const workerId = process.env.VITEST_WORKER_ID ?? '0';
     const schemaName = `test_schema_w${workerId}`;
 
     console.log(`Dropping schema: ${schemaName}`);
     try {
         await client.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
         console.log('Schema dropped successfully.');
-    } catch (err) {
-        console.error('Error dropping schema:', err);
+    } catch (err: unknown) {
+        console.error('Error dropping schema:', err instanceof Error ? err.message : String(err));
     } finally {
         await client.end();
     }

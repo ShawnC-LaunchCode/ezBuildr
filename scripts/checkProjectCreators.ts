@@ -24,8 +24,8 @@ async function checkProjectCreators() {
       console.log('');
     }
 
-  } catch (error) {
-    console.error('Error:', error);
+  } catch (error: unknown) {
+    console.error('Error:', error instanceof Error ? error.message : String(error));
   } finally {
     process.exit(0);
   }

@@ -1,4 +1,4 @@
-import {  type Server } from "http";
+import { type Server } from "http";
 
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";
@@ -13,16 +13,20 @@ import { registerRoutes } from "../../server/routes";
 import { AuthService } from "../../server/services/AuthService";
 import { createGraphWorkflow, createGraphRun } from "../factories/graphFactory";
 // Mock auth middleware to respect session shim
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock("../../server/middleware/auth", async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const actual: any = await importOriginal();
   return {
     ...actual,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requireAuth: (req: any, res: any, next: any) => {
-      if (req.user || req.userId) {return next();}
+      if (req.user ?? req.userId) {return next();}
       return actual.requireAuth(req, res, next);
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     hybridAuth: (req: any, res: any, next: any) => {
-      if (req.user || req.userId) {return next();}
+      if (req.user ?? req.userId) {return next();}
       return actual.hybridAuth(req, res, next);
     }
   };
@@ -35,6 +39,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
   let app: Express;
   let server: Server;
   let baseURL: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let agent: any;
   let tenantId: string;
   let userId: string;
@@ -44,13 +49,16 @@ describe("Stage 8: Runs API Integration Tests", () => {
   let runId1: string;
   let runId2: string;
   // Mock setupAuth to allow backdoor login
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vi.mock("../../server/googleAuth", async (importOriginal: () => Promise<any>) => {
     const actual = await importOriginal();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessionStore: any = {}; // Global store for file
     return {
       ...actual,
       setupAuth: (app: Express) => {
         // Shim session for test backdoor with persistence
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         app.use((req: any, res: any, next: any) => {
           req.session = sessionStore;
           console.log(`[Shim] Request to ${req.path}, Session User ID: ${req.session.user?.id}`);
@@ -58,6 +66,7 @@ describe("Stage 8: Runs API Integration Tests", () => {
         });
         // app.use(actual.getSession()); // Removed: getSession is no longer exported/used
         // Debug middleware to log cookies and session AND restore req.user
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         app.use((req: any, res: any, next: any) => {
           if (req.session?.user) {
             // Restore req.user from session (mimic passport)
@@ -74,7 +83,9 @@ describe("Stage 8: Runs API Integration Tests", () => {
         app.post("/api/auth/google", (req, res) => {
           // Backdoor login: accept user object directly
           if (req.body.user) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (req as any).session.user = req.body.user;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (req as any).user = req.body.user;
             return res.json({ message: "Logged in via backdoor", user: req.body.user });
           }

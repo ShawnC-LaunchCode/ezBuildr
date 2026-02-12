@@ -27,13 +27,13 @@ const databaseId = '9159eca7-bf5f-4dae-8cba-aa3d5b3ed4dd';
 
     console.log('\nAll databases:');
     const allDbs = await pool.query('SELECT id, name, tenant_id FROM datavault_databases LIMIT 10');
-    allDbs.rows.forEach((row: any) => {
+    allDbs.rows.forEach((row: Record<string, unknown>) => {
       console.log(`  - ${row.name} (${row.id}) - tenant: ${row.tenant_id}`);
     });
 
     await pool.end();
-  } catch (error: any) {
-    console.error('Error:', error.message);
+  } catch (error: unknown) {
+    console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 })();

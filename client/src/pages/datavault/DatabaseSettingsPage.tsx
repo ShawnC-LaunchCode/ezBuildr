@@ -5,7 +5,6 @@
  */
 
 import { ArrowLeft, Loader2, Database as DatabaseIcon, Settings } from "lucide-react";
-import React from "react";
 import { useParams, useLocation } from "wouter";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
@@ -28,7 +27,7 @@ export default function DatabaseSettingsPage() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header title="Loading..." description="" />
           <main className="flex-1 overflow-y-auto flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
           </main>
         </div>
       </div>
@@ -45,7 +44,7 @@ export default function DatabaseSettingsPage() {
             <div className="container mx-auto px-4 py-8 text-center">
               <h2 className="text-2xl font-bold mb-4">Database not found</h2>
               <Button onClick={() => setLocation("/datavault/databases")}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
                 Back to Databases
               </Button>
             </div>
@@ -79,10 +78,10 @@ export default function DatabaseSettingsPage() {
               size="sm"
               onClick={() => setLocation(`/datavault/databases/${databaseId}`)}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
               Back
             </Button>
-            <DatabaseIcon className="w-6 h-6 text-muted-foreground" />
+            <DatabaseIcon className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
             <div>
               <h1 className="text-lg font-semibold">Database Settings</h1>
               <p className="text-sm text-muted-foreground">{database.name}</p>

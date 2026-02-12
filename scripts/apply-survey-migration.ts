@@ -78,8 +78,8 @@ async function applySurveyMigration() {
       client.release();
     }
 
-  } catch (error: any) {
-    console.error('❌ Failed to apply migration:', error.message);
+  } catch (error: unknown) {
+    console.error('❌ Failed to apply migration:', error instanceof Error ? error.message : error);
     throw error;
   } finally {
     await pool.end();

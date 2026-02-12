@@ -52,7 +52,7 @@ async function linkLoanTemplate() {
     .orderBy(sections.order);
 
   const finalSection = sectionList.find((s) => {
-    const config = s.config as any;
+    const config = s.config as Record<string, unknown>;
     return config?.finalBlock === true;
   });
 
@@ -64,7 +64,7 @@ async function linkLoanTemplate() {
   console.log('Found Final Documents section:', finalSection.id);
 
   // Update section config to include the template
-  const config = finalSection.config as any;
+  const config = finalSection.config as Record<string, unknown>;
   config.templates = [template[0].id];
 
   await db

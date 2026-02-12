@@ -51,13 +51,14 @@ async function debugMigrations() {
         try {
             const res = await pool.query(`SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 10`);
             console.log('Recent migrations in drizzle.__drizzle_migrations:', res.rows);
-        } catch (e) {
-            console.log('Could not query drizzle.__drizzle_migrations:', e.message);
+        } catch (e: unknown) {
+            const error = e as { message?: string };
+            console.log('Could not query drizzle.__drizzle_migrations:', error.message ?? String(e));
             try {
                 const res = await pool.query(`SELECT * FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 10`);
                 console.log('Recent migrations in public.__drizzle_migrations:', res.rows);
                 tableName = '__drizzle_migrations';
-            } catch (e2) {
+            } catch (e2: unknown) {
                 console.log('Could not query public.__drizzle_migrations either.');
             }
         }
@@ -72,10 +73,10 @@ async function debugMigrations() {
             DELETE FROM drizzle.__drizzle_migrations 
             WHERE id > 17
         `);
-        console.log(`Deleted ${deleteRes.rowCount} migration entries from drizzle.__drizzle_migrations.`);
+        console.log(`Deleted ${deleteRes.rowCount ?? 0} migration entries from drizzle.__drizzle_migrations.`);
 
-    } catch (error) {
-        console.error('❌ Error:', error);
+    } catch (error: unknown) {
+        console.error('❌ Error:', error instanceof Error ? error.message : String(error));
     } finally {
         await pool.end();
     }

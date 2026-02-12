@@ -8,7 +8,8 @@
 import { createLogger } from "../logger";
 import * as repositories from "../repositories";
 import { evaluateVisibility } from "../workflows/conditionAdapter";
-import type {  } from "../../shared/schema";
+import type { } from "../../shared/schema";
+
 const logger = createLogger({ module: "intake-question-visibility" });
 export interface QuestionVisibilityResult {
   /** All question IDs for the page (including hidden) */
@@ -30,6 +31,7 @@ export class IntakeQuestionVisibilityService {
   // PERFORMANCE OPTIMIZATION (Dec 2025): Visibility result cache to prevent N+1 queries
   // Cache key: `${runId}-${sectionId}`, expires after 30 seconds
   private visibilityCache = new Map<string, { result: QuestionVisibilityResult; timestamp: number }>();
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- UPPER_CASE constant naming convention
   private readonly CACHE_TTL = 30000; // 30 seconds
   constructor(
     private readonly stepRepo = repositories.stepRepository,
@@ -46,6 +48,7 @@ export class IntakeQuestionVisibilityService {
    * @param recordData - Optional collection record data for prefill
    * @returns Visibility result with visible/hidden question lists
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step visibility evaluation with caching, condition parsing, and variable resolution
   async evaluatePageQuestions(
     sectionId: string,
     runId: string,
@@ -70,7 +73,7 @@ export class IntakeQuestionVisibilityService {
     // Load all step values for this run to build context
     const stepValues = await this.stepValueRepo.findByRunId(runId);
     // Load all steps to map stepId -> alias (for variable resolution)
-    const workflowId = allQuestions[0]?.sectionId; // Get workflow via section
+    const _workflowId = allQuestions[0]?.sectionId; // Get workflow via section
     // TODO: Better way to get workflowId from sectionId
     const allSteps = sortedQuestions; // For now, just use page steps
     const stepIdToAlias = new Map<string, string>();
@@ -84,7 +87,8 @@ export class IntakeQuestionVisibilityService {
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
-      const key = alias || sv.stepId;
+      const key = alias ?? sv.stepId;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
       variables[key] = sv.value;
     }
     // Include record data in variables if present
@@ -99,7 +103,7 @@ export class IntakeQuestionVisibilityService {
       let isVisible = true;
       let reason = "Always visible (no condition)";
       // Evaluate visibleIf condition
-      if (question.visibleIf) {
+      if (question.visibleIf !== null && question.visibleIf !== undefined && question.visibleIf !== '') {
         try {
           isVisible = evaluateVisibility(question.visibleIf, variables);
           if (isVisible) {
@@ -166,7 +170,7 @@ export class IntakeQuestionVisibilityService {
     const skippedQuestions: string[] = [];
     for (const questionId of visibility.allQuestions) {
       const question = questionMap.get(questionId);
-      if (!question) {continue;}
+      if (!question) { continue; }
       // Hidden questions are always skipped
       if (visibility.hiddenQuestions.includes(questionId)) {
         skippedQuestions.push(questionId);
@@ -237,14 +241,14 @@ export class IntakeQuestionVisibilityService {
     const questions = await this.stepRepo.findBySectionIds([sectionId]);
     for (const question of questions) {
       // Warn if required question has visibility condition (could be confusing)
-      if (question.required && question.visibleIf) {
+      if (question.required === true && question.visibleIf !== null && question.visibleIf !== undefined && question.visibleIf !== '') {
         warnings.push(
           `Question "${question.title}" is marked as required but has a visibleIf condition. ` +
           `It will only be required when visible.`
         );
       }
       // Warn if virtual step has visibility condition (doesn't make sense)
-      if (question.isVirtual && question.visibleIf) {
+      if (question.isVirtual === true && question.visibleIf !== null && question.visibleIf !== undefined && question.visibleIf !== '') {
         warnings.push(
           `Virtual step "${question.title}" has a visibleIf condition. ` +
           `Virtual steps are always hidden, so this condition is unnecessary.`
@@ -340,7 +344,7 @@ export class IntakeQuestionVisibilityService {
     }
     return {
       size: this.visibilityCache.size,
-      oldestEntryAgeMs: oldestTimestamp ? Date.now() - oldestTimestamp : null,
+      oldestEntryAgeMs: oldestTimestamp !== null && oldestTimestamp !== undefined ? Date.now() - oldestTimestamp : null,
     };
   }
 }

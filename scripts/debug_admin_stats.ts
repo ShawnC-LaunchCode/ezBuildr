@@ -35,18 +35,18 @@ async function main() {
             adminUsers: adminCount,
             creatorUsers: allUsers.length - adminCount,
             totalWorkflows: allWorkflows.length,
-            activeWorkflows: allWorkflows.filter((w: any) => w.status === 'active').length,
-            draftWorkflows: allWorkflows.filter((w: any) => w.status === 'draft').length,
-            archivedWorkflows: allWorkflows.filter((w: any) => w.status === 'archived').length,
+            activeWorkflows: allWorkflows.filter((w: Record<string, unknown>) => w.status === 'active').length,
+            draftWorkflows: allWorkflows.filter((w: Record<string, unknown>) => w.status === 'draft').length,
+            archivedWorkflows: allWorkflows.filter((w: Record<string, unknown>) => w.status === 'archived').length,
             totalRuns: allRuns.length,
-            completedRuns: allRuns.filter((r: any) => r.completed).length,
-            inProgressRuns: allRuns.filter((r: any) => !r.completed).length,
+            completedRuns: allRuns.filter((r: Record<string, unknown>) => r.completed).length,
+            inProgressRuns: allRuns.filter((r: Record<string, unknown>) => !r.completed).length,
         };
 
         console.log("Final Stats:", JSON.stringify(stats, null, 2));
 
-    } catch (error) {
-        console.error("Script error:", error);
+    } catch (error: unknown) {
+        console.error("Script error:", error instanceof Error ? error.message : String(error));
     } finally {
         process.exit(0);
     }

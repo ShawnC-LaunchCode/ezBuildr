@@ -267,7 +267,7 @@ describe('OAuth2 Token Refresh Flow', () => {
       // Verify refresh token cookie is set
       const cookies = response.headers['set-cookie'];
       expect(cookies).toBeDefined();
-      expect((cookies as unknown as string[]).some((c: string) => c.startsWith('refresh_token='))).toBe(true);
+      expect((cookies as unknown as string[]).some((c) => c.startsWith('refresh_token='))).toBe(true);
       // Verify refresh token exists in database
       const tokenCount = await db.select().from(refreshTokens)
         .where(eq(refreshTokens.userId, testUserId));

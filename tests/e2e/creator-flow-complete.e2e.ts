@@ -268,8 +268,8 @@ test.describe("Creator Flow - Complete E2E", () => {
     expect(Array.isArray(valuesData.data.values)).toBe(true);
     // Verify the values are in the response
     const values = valuesData.data.values;
-    const nameValue = values.find((v: any) => v.stepId === step1.id);
-    const termsValue = values.find((v: any) => v.stepId === step2.id);
+    const nameValue = values.find((v: Record<string, unknown>) => v.stepId === step1.id);
+    const termsValue = values.find((v: Record<string, unknown>) => v.stepId === step2.id);
     expect(nameValue).toBeDefined();
     expect(nameValue.value).toBe("Test User E2E");
     expect(termsValue).toBeDefined();

@@ -31,10 +31,11 @@ async function addIsVirtualColumn() {
     console.log('\n✅ Successfully added is_virtual column to steps table!');
     console.log('🔄 Please restart your dev server.');
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
-    if (error.code) {console.error('Error code:', error.code);}
-    if (error.position) {console.error('Error position:', error.position);}
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; code?: string; position?: string };
+    console.error('❌ Error:', pgError.message ?? String(error));
+    if (pgError.code) {console.error('Error code:', pgError.code);}
+    if (pgError.position) {console.error('Error position:', pgError.position);}
     process.exit(1);
   }
 }

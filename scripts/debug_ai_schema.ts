@@ -18,11 +18,11 @@ try {
     console.log('Validating mock response...');
     AIWorkflowRevisionResponseSchema.parse(mockResponse);
     console.log('Validation SUCCESS!');
-} catch (error) {
+} catch (error: unknown) {
     console.error('Validation FAILED:');
     if (error instanceof z.ZodError) {
         console.error(JSON.stringify(error.issues, null, 2));
     } else {
-        console.error(error);
+        console.error(error instanceof Error ? error.message : String(error));
     }
 }

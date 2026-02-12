@@ -10,11 +10,11 @@ const USER_ID = "116568744155653496130";
 interface ApiResponse {
   ok: boolean;
   status: number;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
-async function apiCall(method: string, endpoint: string, body?: any): Promise<ApiResponse> {
+async function apiCall(method: string, endpoint: string, body?: unknown): Promise<ApiResponse> {
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method,
@@ -30,9 +30,9 @@ async function apiCall(method: string, endpoint: string, body?: any): Promise<Ap
       ok: response.ok,
       status: response.status,
       data: response.ok ? data : undefined,
-      error: response.ok ? undefined : (data.message || data.error || 'Unknown error')
+      error: response.ok ? undefined : ((data as Record<string, unknown>).message as string ?? (data as Record<string, unknown>).error as string ?? 'Unknown error')
     };
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       ok: false,
       status: 500,

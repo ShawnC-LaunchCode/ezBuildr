@@ -1,4 +1,4 @@
-import {  type Server } from "http";
+import { type Server } from "http";
 
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";
@@ -19,16 +19,21 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
     let userId: string;
     let projectId: string;
     let workflowId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let agent: any;
     // Hoisted state for auth
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { authState } = vi.hoisted(() => ({ authState: { user: null as any } }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mock("../../server/googleAuth", async (importOriginal) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const actual = await importOriginal<any>();
         return {
             ...actual,
             setupAuth: (app: Express) => {
                 // Restore user from state
                 app.use((req, res, next) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const r = req as any;
                     if (authState.user) {
                         r.user = authState.user;
@@ -50,10 +55,13 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
         };
     });
     // Mock auth middleware to respect req.user set by setupAuth
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mock("../../server/middleware/auth", async (importOriginal) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const actual = await importOriginal<any>();
         return {
             ...actual,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             hybridAuth: (req: any, res: any, next: any) => {
                 if (req.user) {
                     req.tenantId = req.user.tenantId;
@@ -64,6 +72,7 @@ describe("Stage 13: Workflow Snapshots & Versioning", () => {
                 }
                 return actual.hybridAuth(req, res, next);
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             optionalHybridAuth: (req: any, res: any, next: any) => {
                 if (req.user) {return next();}
                 return actual.optionalHybridAuth(req, res, next);

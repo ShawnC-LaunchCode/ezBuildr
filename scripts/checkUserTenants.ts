@@ -10,7 +10,7 @@ async function checkUsers() {
   const allUsers = await db.select().from(users);
   console.log('Users in database:');
   allUsers.forEach(u => {
-    console.log(`  - ${u.email}: tenantId=${u.tenantId || 'NULL'}`);
+    console.log(`  - ${u.email}: tenantId=${u.tenantId ?? 'NULL'}`);
   });
   process.exit(0);
 }

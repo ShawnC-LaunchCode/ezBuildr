@@ -42,4 +42,6 @@ async function main() {
   console.log(`Has view access: ${hasView}`);
 }
 
-main().catch(console.error).finally(() => process.exit(0));
+main().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+}).finally(() => process.exit(0));

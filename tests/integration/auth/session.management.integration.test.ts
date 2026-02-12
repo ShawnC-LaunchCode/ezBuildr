@@ -193,7 +193,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .set("Authorization", `Bearer ${session1.body.token}`)
                 .set("Cookie", session1.headers['set-cookie'])
                 .expect(200);
-            const currentSessions = sessionsRes.body.sessions.filter((s: any) => s.current);
+            const currentSessions = sessionsRes.body.sessions.filter((s: Record<string, unknown>) => s.current);
             expect(currentSessions).toHaveLength(1);
         });
         it("should not include revoked sessions", async () => {
@@ -219,7 +219,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .set("Authorization", `Bearer ${session1.body.token}`)
                 .set("Cookie", session1.headers['set-cookie'])
                 .expect(200);
-            const session2Info = allSessionsRes.body.sessions.find((s: any) => !s.current);
+            const session2Info = allSessionsRes.body.sessions.find((s: Record<string, unknown>) => !s.current);
             // Revoke session2
             await request(ctx.baseURL)
                 .delete(`/api/auth/sessions/${session2Info.id}`)
@@ -299,7 +299,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .set("Authorization", `Bearer ${session1.body.token}`)
                 .set("Cookie", session1.headers['set-cookie'])
                 .expect(200);
-            const session2Info = sessionsRes.body.sessions.find((s: any) => !s.current);
+            const session2Info = sessionsRes.body.sessions.find((s: Record<string, unknown>) => !s.current);
             // Revoke session2
             await request(ctx.baseURL)
                 .delete(`/api/auth/sessions/${session2Info.id}`)
@@ -325,7 +325,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 .set("Authorization", `Bearer ${session.body.token}`)
                 .set("Cookie", session.headers['set-cookie'])
                 .expect(200);
-            const currentSession = sessionsRes.body.sessions.find((s: any) => s.current);
+            const currentSession = sessionsRes.body.sessions.find((s: Record<string, unknown>) => s.current);
             // Try to revoke current session
             const revokeRes = await request(ctx.baseURL)
                 .delete(`/api/auth/sessions/${currentSession.id}`)

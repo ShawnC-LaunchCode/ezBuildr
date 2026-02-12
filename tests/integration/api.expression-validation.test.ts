@@ -186,6 +186,7 @@ describe("Expression Validation API Integration Tests", () => {
       expect(response.body.helpers.length).toBeGreaterThan(0);
 
       // Check for expected helpers
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const helperNames = response.body.helpers.map((h: any) => h.name);
       expect(helperNames).toContain("round");
       expect(helperNames).toContain("concat");

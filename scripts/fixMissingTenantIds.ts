@@ -109,8 +109,9 @@ async function fixMissingTenantIds() {
       console.log(`   ⚠️  Still have ${remainingUsersWithoutTenant.length} users and ${remainingProjectsWithoutTenant.length} projects without tenant_id`);
     }
 
-  } catch (error: any) {
-    console.error('❌ Failed to fix tenant IDs:', error.message);
+  } catch (error: unknown) {
+    const pgError = error as { message?: string; detail?: string };
+    console.error('❌ Failed to fix tenant IDs:', pgError.message ?? String(error));
     throw error;
   } finally {
     await pool.end();

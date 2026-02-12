@@ -126,4 +126,6 @@ async function createWorkflowForCurrentUser() {
   process.exit(0);
 }
 
-createWorkflowForCurrentUser().catch(console.error);
+createWorkflowForCurrentUser().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
+});

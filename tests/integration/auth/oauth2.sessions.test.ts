@@ -114,7 +114,7 @@ describe('OAuth2 Session Management', () => {
       expect(response.body.sessions.length).toBeGreaterThanOrEqual(2);
 
       // Verify session structure
-      response.body.sessions.forEach((session: any) => {
+      response.body.sessions.forEach((session: Record<string, unknown>) => {
         expect(session).toHaveProperty('id');
         expect(session).toHaveProperty('deviceName');
         expect(session).toHaveProperty('location');
@@ -135,7 +135,7 @@ describe('OAuth2 Session Management', () => {
 
       expect(response.status).toBe(200);
 
-      const currentSession = response.body.sessions.find((s: any) => s.current);
+      const currentSession = response.body.sessions.find((s: Record<string, unknown>) => s.current);
       expect(currentSession).toBeDefined();
     });
 
@@ -169,7 +169,7 @@ describe('OAuth2 Session Management', () => {
 
       expect(response.status).toBe(200);
       const expiredSession = response.body.sessions.find(
-        (s: any) => s.id === 'expired-session-hash'
+        (s: Record<string, unknown>) => s.id === 'expired-session-hash'
       );
       expect(expiredSession).toBeUndefined();
     });
@@ -188,7 +188,7 @@ describe('OAuth2 Session Management', () => {
 
       expect(response.status).toBe(200);
       const revokedSession = response.body.sessions.find(
-        (s: any) => s.id === token
+        (s: Record<string, unknown>) => s.id === token
       );
       expect(revokedSession).toBeUndefined();
     });
@@ -475,7 +475,7 @@ describe('OAuth2 Session Management', () => {
         expect(response.body.devices).toBeInstanceOf(Array);
         expect(response.body.devices.length).toBe(2);
 
-        response.body.devices.forEach((device: any) => {
+        response.body.devices.forEach((device: Record<string, unknown>) => {
           expect(device).toHaveProperty('id');
           expect(device).toHaveProperty('deviceName');
           expect(device).toHaveProperty('location');
@@ -501,7 +501,7 @@ describe('OAuth2 Session Management', () => {
 
         expect(response.status).toBe(200);
         const revokedDevice = response.body.devices.find(
-          (d: any) => d.deviceName === 'Revoked Device'
+          (d: Record<string, unknown>) => d.deviceName === 'Revoked Device'
         );
         expect(revokedDevice).toBeUndefined();
       });
@@ -565,7 +565,7 @@ describe('OAuth2 Session Management', () => {
         where: eq(refreshTokens.token, hashToken(token)),
       });
 
-      const metadata = session?.metadata as any;
+      const metadata = session?.metadata as Record<string, unknown> | undefined;
       expect(metadata?.userAgent).toBe(userAgent);
     });
 

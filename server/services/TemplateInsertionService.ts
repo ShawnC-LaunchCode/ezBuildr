@@ -20,10 +20,10 @@ export class TemplateInsertionService {
   /**
    * @deprecated Survey system removed - use workflow templates instead
    */
-  async insertTemplateIntoSurvey(
-    templateId: string,
-    surveyId: string,
-    creatorId: string
+  insertTemplateIntoSurvey(
+    _templateId: string,
+    _surveyId: string,
+    _creatorId: string
   ): Promise<{
     pagesAdded: number;
     questionsAdded: number;

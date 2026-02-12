@@ -13,8 +13,8 @@ async function inspectEnum() {
       WHERE t.typname = 'block_type'
     `);
         console.log('Enum values:', result.rows);
-    } catch (error) {
-        console.error('Error inspecting enum:', error);
+    } catch (error: unknown) {
+        console.error('Error inspecting enum:', error instanceof Error ? error.message : String(error));
     }
 }
 

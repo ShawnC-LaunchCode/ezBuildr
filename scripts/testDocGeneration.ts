@@ -33,7 +33,7 @@ async function testDocGeneration() {
   try {
     await documentGenerationService.generateDocumentsForRun(run.id);
     console.log('\n✅ Document generation successful!');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('\n❌ Document generation failed:');
     console.error('Error:', error);
     if (error instanceof Error) {

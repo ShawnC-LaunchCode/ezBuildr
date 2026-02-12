@@ -28,8 +28,8 @@ async function testFindById() {
     } else {
       console.log("❌ User not found!");
     }
-  } catch (error) {
-    console.error("❌ Error:", error);
+  } catch (error: unknown) {
+    console.error("❌ Error:", error instanceof Error ? error.message : String(error));
   }
 
   process.exit(0);

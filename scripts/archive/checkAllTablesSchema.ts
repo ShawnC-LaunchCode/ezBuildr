@@ -40,8 +40,9 @@ async function checkSchema() {
       } else {
         console.table(columns);
       }
-    } catch (error: any) {
-      console.log(`  ❌ Error: ${error.message}`);
+    } catch (error: unknown) {
+      const pgError = error as { message?: string };
+      console.log(`  ❌ Error: ${pgError.message ?? String(error)}`);
     }
   }
 }

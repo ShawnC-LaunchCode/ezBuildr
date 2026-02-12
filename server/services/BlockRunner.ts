@@ -11,8 +11,6 @@ import { db } from "../db";
 import { logger } from "../logger";
 
 import { analyticsService } from "./analytics/AnalyticsService";
-
-// Import specialized block runners
 import { BranchBlockRunner } from "./blockRunners/BranchBlockRunner";
 import { CollectionBlockRunner } from "./blockRunners/CollectionBlockRunner";
 import { ExternalSendBlockRunner } from "./blockRunners/ExternalSendBlockRunner";
@@ -45,8 +43,8 @@ export class BlockRunner {
     blockSvc?: typeof blockService,
     transformSvc?: typeof transformBlockService
   ) {
-    this.blockSvc = blockSvc || blockService;
-    this.transformSvc = transformSvc || transformBlockService;
+    this.blockSvc = blockSvc ?? blockService;
+    this.transformSvc = transformSvc ?? transformBlockService;
 
     // Initialize runner registry with specialized runners
     this.runnerRegistry = new Map();
@@ -111,6 +109,7 @@ export class BlockRunner {
    * @param context - Block execution context
    * @param tx - Optional database transaction (for atomic cross-block operations)
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity, max-lines-per-function, max-depth, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- Drizzle tx for future use, lifecycle+transform+block nested execution
   async runPhase(context: BlockContext, tx?: any): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
@@ -137,7 +136,7 @@ export class BlockRunner {
             phase: lifecyclePhase,
             sectionId: context.sectionId,
             data: currentData,
-            userId: context.queryParams?.userId, // Optional user ID from context
+            userId: (context.queryParams?.userId as string | undefined), // Optional user ID from context
           });
 
           // Merge lifecycle hook outputs into data
@@ -145,9 +144,9 @@ export class BlockRunner {
 
           // Collect any lifecycle hook errors (non-breaking)
           if (lifecycleResult.errors) {
-            for (const error of lifecycleResult.errors) {
-              allErrors.push(`Lifecycle hook "${error.hookName}": ${error.error}`);
-            }
+            allErrors.push(
+              ...lifecycleResult.errors.map((e) => `Lifecycle hook "${e.hookName}": ${e.error}`)
+            );
           }
 
           // Log console output from lifecycle hooks (debug)
@@ -213,10 +212,8 @@ export class BlockRunner {
         data: currentData,
       });
 
-      if (!result.success) {
-        if (result.errors) {
-          allErrors.push(...result.errors);
-        }
+      if (!result.success && result.errors) {
+        allErrors.push(...result.errors);
       }
 
       // Merge data updates from prefill blocks
@@ -243,6 +240,7 @@ export class BlockRunner {
    *
    * REFACTORED: Delegates to specialized block runners based on block type
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- analytics wrapping + error handling requires nested try/catch
   private async executeBlock(block: Block, context: BlockContext): Promise<BlockResult> {
     // Stage 15: Analytics - Block Start
     // ERROR HANDLING FIX: Wrap analytics in try/catch to prevent workflow crashes
@@ -251,7 +249,7 @@ export class BlockRunner {
         await analyticsService.recordEvent({
           runId: context.runId,
           workflowId: context.workflowId,
-          versionId: context.versionId || 'draft',
+          versionId: context.versionId ?? 'draft',
           type: 'block.start',
           blockId: block.id,
           pageId: context.sectionId,
@@ -290,7 +288,7 @@ export class BlockRunner {
           await analyticsService.recordEvent({
             runId: context.runId,
             workflowId: context.workflowId,
-            versionId: context.versionId || 'draft',
+            versionId: context.versionId ?? 'draft',
             type: 'block.error',
             blockId: block.id,
             pageId: context.sectionId,
@@ -317,7 +315,7 @@ export class BlockRunner {
         await analyticsService.recordEvent({
           runId: context.runId,
           workflowId: context.workflowId,
-          versionId: context.versionId || 'draft',
+          versionId: context.versionId ?? 'draft',
           type: eventType,
           blockId: block.id,
           pageId: context.sectionId,

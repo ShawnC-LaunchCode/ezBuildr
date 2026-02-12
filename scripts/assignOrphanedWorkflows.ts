@@ -108,7 +108,7 @@ async function main() {
 
     logger.info({ remaining: remaining.length }, 'Verification complete');
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error: error instanceof Error ? { message: error.message, stack: error.stack } : error }, 'Failed to assign orphaned workflows');
     console.error('Full error:', error);
     throw error;
@@ -120,7 +120,7 @@ main()
     logger.info('Script completed successfully');
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     logger.error({ error }, 'Script failed');
     process.exit(1);
   });

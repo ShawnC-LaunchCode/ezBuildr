@@ -63,7 +63,7 @@ async function addMissingColumns() {
     console.log('✅ Added default_mode column');
 
     console.log('✅ All missing columns added successfully!');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error adding columns:', error);
     process.exit(1);
   }

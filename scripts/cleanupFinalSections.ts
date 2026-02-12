@@ -79,7 +79,7 @@ async function cleanupFinalSections() {
       console.log(`✅ Cleanup complete! Deleted ${totalOrphanedSteps} orphaned step(s).`);
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error during cleanup:', error);
     process.exit(1);
   }
@@ -91,7 +91,7 @@ cleanupFinalSections()
     console.log('\n✨ Script completed successfully!');
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error('\n❌ Script failed:', error);
     process.exit(1);
   });

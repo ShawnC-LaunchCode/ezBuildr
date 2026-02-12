@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
-import type {  } from 'drizzle-orm';
 // Generate a unique ID suitable for the database
 // For UUID columns, use crypto.randomUUID()
 // For string IDs, use a shorter format
@@ -59,14 +58,16 @@ export interface TestRun {
   run: typeof schema.runs.$inferSelect;
 }
 export class TestFactory {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private db: any;
   /**
    * Create a new TestFactory
    * @param txOrDb - Optional transaction or database instance. If not provided, uses global db.
    *                 Pass a transaction for automatic rollback (recommended).
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(txOrDb?: any) {
-    this.db = txOrDb || getDb();
+    this.db = txOrDb ?? getDb();
   }
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)
@@ -405,7 +406,7 @@ export class TestFactory {
           .delete(schema.tenants)
           .where(inArray(schema.tenants.id, options.tenantIds));
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Log cleanup errors but don't fail the test
       console.warn('Cleanup warning:', error);
     }

@@ -27,8 +27,8 @@ async function applyMigration() {
     console.log('You can now delete sections without errors.');
 
     process.exit(0);
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
+  } catch (error: unknown) {
+    console.error('❌ Migration failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

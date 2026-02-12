@@ -12,7 +12,9 @@ const { mockUserId, mockTenantId, authConfig } = vi.hoisted(() => ({
   authConfig: { shouldFail: false }
 }));
 // Mock authentication middleware
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock('../../../server/middleware/auth', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   requireAuth: (req: any, res: any, next: any) => {
     if (authConfig.shouldFail) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -28,6 +30,7 @@ vi.mock('../../../server/middleware/auth', () => ({
     req.user = user;
     next();
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   hybridAuth: (req: any, res: any, next: any) => {
     if (authConfig.shouldFail) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -149,7 +152,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       if (projects && testProjectId) {await db.delete(projects).where(eq(projects.id, testProjectId));}
       if (users && testUserId) {await db.delete(users).where(eq(users.id, testUserId));}
       if (tenants && testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Error during test cleanup:', err);
     }
   });
@@ -179,6 +182,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(version.isDraft).toBe(true);
     expect(version.published).toBe(false);
     expect(version.migrationInfo).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata).toBeDefined();
     expect(aiMetadata.aiGenerated).toBe(true);
@@ -219,6 +223,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(versionId1).toBeDefined();
     // Mock Gemini to return no operations (no changes)
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({
@@ -261,6 +266,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   it('should reject unsafe DataVault operations', async () => {
     // Mock Gemini to return unsafe operation
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({
@@ -296,6 +302,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
   it('should handle multi-operation edits with tempId resolution', async () => {
     // Mock Gemini to return multi-op edit
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({
@@ -373,6 +380,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(createdSteps.some(s => s.alias === 'emergency_contact_name')).toBe(true);
     expect(createdSteps.some(s => s.alias === 'emergency_contact_phone')).toBe(true);
     // Verify structure of the visibility rule
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conditionGroup = createdSections[0].visibleIf as any;
     expect(conditionGroup).toBeDefined();
     // New format is a ConditionGroup
@@ -394,6 +402,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .from(workflowVersions)
       .where(eq(workflowVersions.id, versionId))
       .limit(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();
@@ -419,6 +428,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       options: {},
     });
     // Now try to create duplicate
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(GoogleGenerativeAI).mockImplementationOnce(function () {
       return {
         getGenerativeModel: vi.fn().mockReturnValue({

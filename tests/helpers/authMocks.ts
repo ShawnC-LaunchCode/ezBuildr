@@ -21,10 +21,10 @@ export interface MockSession {
     path?: string;
     sameSite?: boolean | 'lax' | 'strict' | 'none';
   };
-  save?: (callback?: (err?: any) => void) => void;
-  regenerate?: (callback: (err?: any) => void) => void;
-  destroy?: (callback: (err?: any) => void) => void;
-  reload?: (callback: (err?: any) => void) => void;
+  save?: (callback?: (err?: unknown) => void) => void;
+  regenerate?: (callback: (err?: unknown) => void) => void;
+  destroy?: (callback: (err?: unknown) => void) => void;
+  reload?: (callback: (err?: unknown) => void) => void;
   touch?: () => void;
 }
 
@@ -75,8 +75,8 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Partial<Req
   const user = createMockUser();
 
   return {
-    session: session as any,
-    user: user as any,
+    session: session as Request['session'],
+    user: user as Request['user'],
     headers: {},
     cookies: {},
     body: {},
@@ -86,11 +86,11 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Partial<Req
     url: '/',
     path: '/',
     ...overrides,
-  } as any;
+  } as Partial<Request>;
 };
 
 export const createMockResponse = (): Partial<Response> => {
-  const res: any = {
+  const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
     send: vi.fn().mockReturnThis(),
@@ -103,11 +103,11 @@ export const createMockResponse = (): Partial<Response> => {
     locals: {},
   };
 
-  return res;
+  return res as Partial<Response>;
 };
 
 export const createMockNext = (): NextFunction => {
-  return vi.fn() as any;
+  return vi.fn() as NextFunction;
 };
 
 /**
@@ -115,14 +115,14 @@ export const createMockNext = (): NextFunction => {
  */
 export const createMockAuthMiddleware = () => {
   return {
-    requireAuth: vi.fn((req: any, res: any, next: any) => {
-      req.session = req.session || createMockSession();
-      req.user = req.user || createMockUser();
+    requireAuth: vi.fn((req: Request, res: Response, next: NextFunction) => {
+      req.session = req.session ?? createMockSession() as Request['session'];
+      req.user = req.user ?? createMockUser() as Request['user'];
       next();
     }),
-    optionalAuth: vi.fn((req: any, res: any, next: any) => {
-      req.session = req.session || createMockSession();
-      req.user = req.user || createMockUser();
+    optionalAuth: vi.fn((req: Request, res: Response, next: NextFunction) => {
+      req.session = req.session ?? createMockSession() as Request['session'];
+      req.user = req.user ?? createMockUser() as Request['user'];
       next();
     }),
     getSession: vi.fn(() => createMockSession()),
@@ -133,9 +133,9 @@ export const createMockAuthMiddleware = () => {
  * Creates mock for express-session middleware
  */
 export const createMockSessionMiddleware = () => {
-  return vi.fn((req: any, res: any, next: any) => {
-    req.session = req.session || createMockSession();
-    req.sessionID = req.sessionID || 'test-session-id';
+  return vi.fn((req: Request, res: Response, next: NextFunction) => {
+    req.session = req.session ?? createMockSession() as Request['session'];
+    req.sessionID = req.sessionID ?? 'test-session-id';
     next();
   });
 };

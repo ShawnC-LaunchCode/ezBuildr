@@ -1,6 +1,6 @@
 
 import { Check } from "lucide-react";
-import React from 'react';
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -44,7 +44,7 @@ export default function PricingPage() {
                         <CardContent className="space-y-4 text-left">
                             {plan.features.map((f, i) => (
                                 <div key={i} className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-500" />
+                                    <Check className="w-4 h-4 text-green-500" aria-hidden="true" />
                                     <span>{f}</span>
                                 </div>
                             ))}
